@@ -1,7 +1,7 @@
 """
 Module to perfrom routine testing of pointlike's many features.'
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.13 2012/06/05 21:50:00 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.14 2012/06/06 16:02:34 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -67,13 +67,19 @@ class PointlikeTest(unittest.TestCase):
     @staticmethod
     def get_roi(name,center,point_sources,diffuse_sources,emin=1e2,emax=1e5,binsperdec=2):
 
-        ft1='$SIMDIR/%s_ft1.fits' % name
-        ft2='$SIMDIR/%s_ft2.fits' % name
+        simdir=os.path.expandvars('$SIMDIR/%s' % name)
+
+        if not os.path.exists(simdir):
+            os.makedirs(simdir)
+
+
+        ft1='%s/ft1.fits' % simdir
+        ft2='%s/ft2.fits' % simdir
 
         ds=DataSpecification(ft1files=ft1,
                              ft2files=ft2,
-                             ltcube='$SIMDIR/%s_ltcube.fits' % name, 
-                             binfile='$SIMDIR/%s_binfile.fits' % name
+                             ltcube='%s/ltcube.fits' % simdir, 
+                             binfile='%s/binfile.fits' % simdir
                             )
 
         sa=SpectralAnalysisMC(ds,
@@ -88,7 +94,7 @@ class PointlikeTest(unittest.TestCase):
                               quiet=not PointlikeTest.VERBOSE,
                               roi_dir=center,
                               maxROI=5, minROI=5,
-                              savedir=expandvars('$SIMDIR/gtobssim_%s' % name))
+                              savedir='%s/gtobssim' % simdir)
 
 
         roi=sa.roi(roi_dir=center,
