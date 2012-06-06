@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.66 2012/05/30 20:03:30 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.67 2012/06/05 23:02:28 lande Exp $
 
    author: Matthew Kerr
 """
@@ -106,11 +106,34 @@ class XML_to_Model(object):
             >>> model=xml2model('''
             ...     <spectrum  type="PowerLaw">
             ...         <parameter name="Prefactor" value="1.0" free="1" max="100.0" min="0.01" scale="1e-11" />
-            ...         <parameter name="Index" value="2.0" free="1" max="5" min="0" scale="-1" />
+            ...         <parameter name="Index" value="2.0" free="1" max="5" min="-5" scale="-1" />
             ...         <parameter name="Scale" value="1000.0" free="0" max="1000.0" min="1000.0" scale="1" />
             ...     </spectrum>''')
             >>> real_model=PowerLaw()
             >>> np.allclose(model.get_all_parameters(), real_model.get_all_parameters())
+            True
+
+            >>> model=xml2model('''
+            ...     <spectrum type="SmoothBrokenPowerLaw">
+            ...         <parameter error="1.874888615" free="1" max="100" min="0" name="Prefactor" scale="1e-10" value="14.56863965" />
+            ...         <parameter error="0.7738550805" free="1" max="4" min="-2" name="Index1" scale="1" value="1.504042874" />
+            ...         <parameter free="0" max="2000" min="30" name="Scale" scale="1" value="200" />
+            ...         <parameter error="0.04177558875" free="1" max="-1" min="-5" name="Index2" scale="1" value="-1.891184873" />
+            ...         <parameter error="9.888298037" free="1" max="1000" min="80" name="BreakValue" scale="1" value="204.3216401" />
+            ...         <parameter free="0" max="10" min="0.01" name="Beta" scale="1" value="0.1" />
+            ...     </spectrum>''')
+            ... model.get_all_parameters()
+            >>> np.allclose(model['norm'],14.56863965e-10)
+            True
+            >>> np.allclose(model['index_1'],-1.504042874)
+            True
+            >>> np.allclose(model['index_2'],1.891184873)
+            True
+            >>> np.allclose(model['e_break'],204.3216401)
+            True
+            >>> np.allclose(model['beta'],0.1)
+            True
+            >>> np.allclose(model['e0'],200)
             True
 
 """
@@ -162,7 +185,7 @@ class XML_to_Model(object):
                                         ['channel0','channel0'], ['channel1','channel1']],
                 )
 
-    def get_model(self,xml_dict,source_name,index_offset=0):
+    def get_model(self,xml_dict,source_name):
         """ source_name is used for better error message printing. """
 
         specname = xml_dict['type']
@@ -192,16 +215,13 @@ class XML_to_Model(object):
                 # means we need to take the negative of the value
                 if scale > 0: value = -value
                 else:         scale = -scale
-                value += index_offset
-                model.index_offset = index_offset
 	    if value==0 : value=1.e-5
-            if value*scale<=0: raise Exception('For source %s, %s parameter %s cannot be negative' % (source_name,specname,p))
             if N.isnan(value*scale): raise Exception('For source %s, %s parameter %s is NaN' % (source_name,specname,p))
             model.setp(ip, value*scale)
             model.free[ip] = (pdict['free'] == '1')
             if 'error' in pdict.keys():
                 err = float(pdict['error'])*scale
-                model.cov_matrix[ip,ip] = (err/value*JAC)**2
+                model.set_error(ip,err)
 
         for p in self.kwargdict[specname]:
             pdict = d[p[0]]
@@ -287,14 +307,18 @@ class Model_to_XML(object):
        
         Here is a simple test making a PowerLaw model:
 
-            >>> pl = PowerLaw()
+            >>> def format(model):
+            ...     m2x = Model_to_XML()
+            ...     m2x.process_model(model)
+            ...     return m2x.getXML(tablevel=0).replace('\\t',' '*4).strip()
 
-            >>> m2x = Model_to_XML()
-            >>> m2x.process_model(pl)
-            >>> print m2x.getXML(tablevel=0).replace('\\t',' '*4).strip()
+            >>> pl = PowerLaw(norm=1e-11, index=2)
+            >>> pl.set_error('norm',0.5e-11)
+            >>> pl.set_error('index',0.25)
+            >>> print format(pl)
             <spectrum  type="PowerLaw">
-                <parameter name="Prefactor" value="1.0" free="1" max="100.0" min="0.01" scale="1e-11" />
-                <parameter name="Index" value="2.0" free="1" max="5" min="0" scale="-1" />
+                <parameter name="Prefactor" value="1.0" error="0.5" free="1" max="100.0" min="0.01" scale="1e-11" />
+                <parameter name="Index" value="2.0" error="0.25" free="1" max="5" min="-5" scale="-1" />
                 <parameter name="Scale" value="1000.0" free="0" max="1000.0" min="1000.0" scale="1" />
             </spectrum>
 
@@ -302,13 +326,36 @@ class Model_to_XML(object):
             >>> temp = NamedTemporaryFile(delete=True)
             >>> pl.save_profile(temp.name, emin=1, emax=1e6)
             >>> fs = FileFunction(Normalization=1,file=temp.name)
-            >>> m2x = Model_to_XML()
-            >>> m2x.process_model(fs)
-            >>> print m2x.getXML(tablevel=0).replace('\\t',' '*4).strip().replace(temp.name, '<FILENAME>')
+            >>> print format(fs).replace(temp.name, '<FILENAME>')
             <spectrum file="<FILENAME>" type="FileFunction">
                 <parameter name="Normalization" value="1.0" free="1" max="10" min="0.1" scale="1" />
             </spectrum>
 
+            >>> pl = PowerLaw(index=-2)
+            >>> print format(pl)
+            <spectrum  type="PowerLaw">
+                <parameter name="Prefactor" value="1.0" free="1" max="100.0" min="0.01" scale="1e-11" />
+                <parameter name="Index" value="-2.0" free="1" max="5" min="-5" scale="-1" />
+                <parameter name="Scale" value="1000.0" free="0" max="1000.0" min="1000.0" scale="1" />
+            </spectrum>
+
+            >>> sbpl = SmoothBrokenPowerLaw(
+            ...     Norm=14.56863965e-10,
+            ...     Index_1=-1.504042874,
+            ...     Index_2=1.891184873,
+            ...     E_break=204.3216401,
+            ...     beta=0.1,
+            ...     e0=200)
+
+            >>> print format(sbpl)
+            <spectrum  type="SmoothBrokenPowerLaw">
+                <parameter name="Prefactor" value="1.456863965" free="1" max="100.0" min="0.01" scale="1e-09" />
+                <parameter name="Index1" value="-1.504042874" free="1" max="5" min="-5" scale="-1" />
+                <parameter name="Index2" value="1.891184873" free="1" max="5" min="-5" scale="-1" />
+                <parameter name="BreakValue" value="2.043216401" free="1" max="100.0" min="0.01" scale="100.0" />
+                <parameter name="Scale" value="200" free="0" max="200" min="200" scale="1" />
+                <parameter name="Beta" value="0.1" free="0" max="0.1" min="0.1" scale="1" />
+            </spectrum>
    """
     
     def __init__(self,debug=False, strict=False):
@@ -324,7 +371,7 @@ class Model_to_XML(object):
             self.pname  = ['Integral','Index','LowerLimit','UpperLimit']
             self.pfree  = [1,1,0,0]
             self.pscale = [1e-10,-1,1,1]
-            self.pmin   = [1e-4,0,30,30]
+            self.pmin   = [1e-4,-5,30,30]
             self.pmax   = [1e4,5,5e5,5e5]
             self.pval   = [2,1,1e3,1e5]
             self.perr   = [0,0,-1,-1]
@@ -340,7 +387,7 @@ class Model_to_XML(object):
                 self.oomp   = [0,0,0]
             else:
                 self.pscale = [1e-9,-1,1]
-                self.pmin   = [1e-6,0,30]
+                self.pmin   = [1e-6,-5,30]
                 self.pmax   = [1e4,5,5e5]
                 self.pval   = [1,2,1e3]
                 self.oomp   = [1,0,0]
@@ -349,7 +396,7 @@ class Model_to_XML(object):
             self.pname  = ['Prefactor', 'Index1', 'Index2', 'BreakValue']
             self.pfree  = [1,1,1,1]
             self.pscale = [1e-9,-1,-1,1]
-            self.pmin   = [1e-5,0,0,30]
+            self.pmin   = [1e-5,-5,-5,30]
             self.pmax   = [1e4,5,5,5e5]
             self.pval   = [1,2,2,1e3]
             self.perr   = [0,0,0,0]
@@ -359,7 +406,7 @@ class Model_to_XML(object):
             self.pname  = ['Integral','Index1','Index2','BreakValue','LowerLimit','UpperLimit']
             self.pfree  = [1,1,1,1,0,0]
             self.pscale = [1e-7,-1,-1,1,1,1]
-            self.pmin   = [1e-4,0,0,30,30,30]
+            self.pmin   = [1e-4,-5,-5,30,30,30]
             self.pmax   = [1e4,5,5,5e5,5e5,5e5]
             self.pval   = [2,1,1,1e3,1e2,1e5]
             self.perr   = [0,0,0,0,-1,-1]
@@ -369,7 +416,7 @@ class Model_to_XML(object):
             self.pname = ['Prefactor','Index1','Cutoff','Index2','Scale']
             self.pfree  = [1,1,1,0,0]
             self.pscale = [1e-9,-1,1000.,1,1]
-            self.pmin   = [1e-4,0,0.1,0,30]
+            self.pmin   = [1e-4,-5,0.1,-5,30]
             self.pmax   = [1e4,5,3e5,5,5e5]
             self.pval   = [1,2,1,1,1000]
             self.perr   = [0,0,0,0,-1]
@@ -379,7 +426,7 @@ class Model_to_XML(object):
             self.pname  = ['Prefactor', 'Index1', 'Index2', 'BreakValue', 'Scale', 'Beta']
             self.pfree  = [1,1,1,1,0,0]
             self.pscale = [1e-9,-1,-1,1,1,1]
-            self.pmin   = [1e-5,0,0,30,30,-10]
+            self.pmin   = [1e-5,-5,-5,30,30,-10]
             self.pmax   = [1e4,5,5,5e5,5e5,10]
             self.pval   = [1,2,2,1e3,1e3,0.1]
             self.perr   = [0,0,0,0,-1,-1]
@@ -420,7 +467,7 @@ class Model_to_XML(object):
             self.pfree  = [1,1,1,1]
             self.perr   = [0,0,0,0]
             self.pscale = [1e-9,1,1,1]
-            self.pmin   = [1e-6,0,0,30]
+            self.pmin   = [1e-6,-5,0,30]
             self.pmax   = [1e4,5,5,5e5]
             self.pval   = [1,2,0,1e3]
             self.oomp   = [1,0,0,1]
@@ -456,13 +503,9 @@ class Model_to_XML(object):
 
     def process_photon_index(self,model,index,val,err):
         # note this appears to be inconsistent in xml
-        self.perr[index]   = abs(self.perr[index])
-        if (not hasattr(model,'index_offset')) or (model.index_offset == 0):
-            self.pval[index] = abs(self.pval[index])
-            self.pscale[index] = -abs(self.pscale[index])
-        else:
-            self.pval[index] = val - model.index_offset
-            self.pscale[index] = -1
+        self.perr[index]   = -1*self.perr[index]
+        self.pval[index] = -1*self.pval[index]
+        self.pscale[index] = self.pscale[index]
 
     def process_scale(self,val,index):
         if not self.oomp[index]: return
@@ -705,8 +748,8 @@ def parse_point_sources(handler,roi_dir,max_roi):
 
             >>> ps=l('''<source name="PowerLaw_source" type="PointSource">  
             ...           <spectrum type="PowerLaw">
-            ...             <parameter free="1" max="1000.0" min="0.001" name="Prefactor" scale="1e-09" value="1"/>
-            ...             <parameter free="1" max="-1.0" min="-5." name="Index" scale="1.0" value="-2.1"/>
+            ...             <parameter free="1" max="1000.0" min="0.001" name="Prefactor" scale="1e-09" value="1" error="0.5" />
+            ...             <parameter free="1" max="-1.0" min="-5." name="Index" scale="1.0" value="-2.1" error="0.25" />
             ...             <parameter free="0" max="2000.0" min="30.0" name="Scale" scale="1.0" value="100.0"/>
             ...           </spectrum>      
             ...           <spatialModel type="SkyDirFunction">
@@ -722,6 +765,10 @@ def parse_point_sources(handler,roi_dir,max_roi):
             PowerLaw
             >>> print ps.model['Norm'], ps.model['Index']
             1e-09 2.1
+            >>> print ps.model.error('Norm')
+            5e-10
+            >>> print ps.model.error('Index')
+            0.25
 
     """
     point_sources = deque()
@@ -949,7 +996,7 @@ def parse_diffuse_sources(handler,diffdir=None):
             if spectral['type'] == 'ConstantValue':
                 mo = xtm.get_model(spectral,name)
             elif spectral['type'] == 'PowerLaw' or spectral['type'] == 'PowerLaw2':
-                mo = xtm.get_model(spectral,name,index_offset=1)
+                mo = xtm.get_model(spectral,name)
             else:
                 raise Exception('Non-isotropic model "%s" not implemented' % spatial['type'])
             ds.append(gds('MapCubeFunction',fname,mo,None,name,diffdir=diffdir))
