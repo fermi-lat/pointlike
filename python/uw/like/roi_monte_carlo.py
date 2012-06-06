@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.56 2012/05/30 20:03:29 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.57 2012/06/05 23:02:27 lande Exp $
 
 author: Joshua Lande
 """
@@ -453,11 +453,10 @@ class MonteCarlo(object):
             ]
             return indent+('\n'+indent).join(xml)
         else:
+            flux=model.i_flux(mc_emin,mc_emax,cgs=True)*1e4
             if isinstance(model,FileFunction):
-                flux=model.i_flux(self.energy[0],self.energy[-1],cgs=True)*1e4
                 spectral_filename=model.file
             else:
-                flux=model.i_flux(mc_emin,mc_emax,cgs=True)*1e4
 
                 spectral_filename = '%s_spectra_%s.txt' % (MonteCarlo.strip(ps.name),model.name)
                 model.save_profile(filename=spectral_filename, emin=mc_emin, emax=mc_emax)
