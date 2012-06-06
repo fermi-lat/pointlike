@@ -1,6 +1,6 @@
 """ Dark Matter spectral models
 
-    $Header:$
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spectral.py,v 1.1 2012/06/05 23:02:26 lande Exp $
 
     author: Alex Drlica-Wagner, Joshua Lande
 """
@@ -66,7 +66,7 @@ class DMFitFunction(Model):
     default_extra_params=dict(norm=1, bratio=1.0, channel0=1, channel1=1, 
                               file='$(INST_DIR)/Likelihood/src/dmfit/gammamc_dif.dat')
     param_names=['sigmav','mass']
-    mappers=[LogMapper,LogMapper]
+    default_mappers=[LogMapper,LogMapper]
 
     def full_name(self):
         return '%s, norm=%.1f, bratio=%.1f channel0=%d, channel1=%d' % (self.pretty_name,
