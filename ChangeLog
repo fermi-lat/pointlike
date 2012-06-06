@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jun  6 13:33:18 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+remove unneeded constants
+    *
+------------------------------------------------------------
 User: lande  Wed Jun  6 13:33:03 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
