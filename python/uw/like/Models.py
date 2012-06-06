@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.95 2012/06/05 23:02:27 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.96 2012/06/05 23:19:58 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -74,13 +74,13 @@ class Model(object):
         else:
             self.mappers = self.default_mappers
 
+        for k,v in self.default_extra_params.items(): 
+            setattr(self,k,v)
+
         self._p = np.empty(self.npar, dtype=float)
         if p is None:
             p = self.default_p
         self.set_all_parameters(p)
-
-        for k,v in self.default_extra_params.items(): 
-            setattr(self,k,v)
 
         # deal with other kwargs. If they are in the list of spectral
         # parameters, update the corresponding value. Tag them to 
@@ -287,7 +287,8 @@ class Model(object):
     @abstractmethod
     def gradient(self,e):
         """ Return gradient with respect to internal parameters. """
-        dextdint=self.dexternaldinternal().reshape((2,1))
+        dextdint=self.dexternaldinternal()
+        dextdint=dextdint.reshape((len(dextdint),1))
         return self.external_gradient(e)*dextdint
 
     def error(self,i):
