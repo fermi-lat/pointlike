@@ -1,12 +1,12 @@
 """
 Module to perfrom routine testing of pointlike's many features.'
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.14 2012/06/06 16:02:34 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.15 2012/06/06 16:06:38 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
 import os
-from os.path import expandvars
+from os.path import expandvars,join,abspath
 import sys
 import unittest
 
@@ -15,7 +15,7 @@ import numpy as np
 from skymaps import SkyDir
 from uw.like.pointspec import DataSpecification,SpectralAnalysis
 from uw.like.pointspec_helpers import PointSource,get_diffuse_source,get_default_diffuse
-from uw.like.Models import PowerLaw,PowerLawFlux,LogParabola,SumModel,ProductModel
+from uw.like.Models import PowerLaw,PowerLawFlux,LogParabola,SumModel,ProductModel,FileFunction
 from uw.like.SpatialModels import Disk,Gaussian,SpatialMap
 from uw.like.roi_extended import ExtendedSource
 from uw.like.roi_monte_carlo import SpectralAnalysisMC
@@ -112,7 +112,7 @@ class PointlikeTest(unittest.TestCase):
         if PointlikeTest.VERBOSE:
             PointlikeTest.p('Analyze a simulated extended source against an isotropic background (E>10GeV)')
 
-        center=SkyDir(0,0,SkyDir.GALACTIC)
+        center=SkyDir(0,0)
 
         # Sreekumar-like isotropic
         point_sources=[]
@@ -120,7 +120,7 @@ class PointlikeTest(unittest.TestCase):
             get_diffuse_source('ConstantValue',None,'PowerLaw',None,'Isotropic Diffuse')
         ]
 
-        model = PowerLaw(p=[1,2])
+        model = PowerLaw(index=2)
         model.set_flux(1e-4)
 
         if PointlikeTest.VERBOSE:
@@ -253,6 +253,49 @@ class PointlikeTest(unittest.TestCase):
 
         # I am not sure this strictly has to always be true. Maybe there is a better test - J.L.
         self.assertTrue(np.all(uflux[~significant] > true_flux[~significant]), 'All SED upper limits must be above spectra')
+
+    @unittest.skipIf("--skip-ff" in sys.argv,'skip')
+    def test_ff(self):
+        """ Simulate from a filefunction object and test that the best
+        fit flux
+            is consistent with the simulated flux. """
+        name='ff'
+
+        model = PowerLaw(index=2)
+        model.set_flux(1e-6)
+        simdir=os.path.expandvars('$SIMDIR/%s' % name)
+        if not os.path.exists(simdir):
+            os.makedirs(simdir)
+
+        filename = abspath(join(simdir,'file_function.txt'))
+        model.save_profile(filename,10,1e6)
+        ff = FileFunction(file=filename)
+
+        center=SkyDir(0,0)
+        ps = PointSource(name='source',skydir=center,model=ff)
+        point_sources=[ps]
+        diffuse_sources=None
+        roi = PointlikeTest.get_roi(name,center,point_sources,diffuse_sources, emin=1e2, emax=1e5, binsperdec=4)
+
+        if PointlikeTest.VERBOSE:
+            roi.print_summary()
+            print roi
+
+        roi.fit(use_gradient=PointlikeTest.USE_GRADIENT)
+
+        if PointlikeTest.VERBOSE:
+            roi.print_summary()
+            print roi
+
+        fit,error = ff.i_flux(1e2,1e5,error=True)
+        true= model.i_flux(1e2,1e5,error=False)
+        self.assertPull(fit,true,error,'flux')
+
+    def assertPull(self,fit,true,error,message):
+        pull = abs((fit-true)/error)
+        if PointlikeTest.VERBOSE:
+            PointlikeTest.p('%s, pull=%s' % (message,pull))
+        self.assertTrue(pull<self.MAX_ALLOWED_PULL,'pull=%.1f is bad.' % pull)
 
 
 if __name__ == '__main__':
