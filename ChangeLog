@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jun  6 09:02:34 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_testing.py 
+Log Message:
+updated file organization + default backend
+    *
+------------------------------------------------------------
 User: lande  Tue Jun  5 16:43:33 PDT 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
