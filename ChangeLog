@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jun  6 13:32:44 PDT 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Bugfix for having negative spectral parameters. Bugfix for mapping errors into and out of log space. Better doctests
+    *
+------------------------------------------------------------
 User: lande  Wed Jun  6 12:18:51 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
