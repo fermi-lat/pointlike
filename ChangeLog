@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jun  6 09:14:50 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+bugfix for gradient + set default_extra_params first, helps with subclasses
+    *
+------------------------------------------------------------
 User: lande  Wed Jun  6 09:14:26 PDT 2012
 ScienceTools-scons/pointlike/python/uw/darkmatter
 
