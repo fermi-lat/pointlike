@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jun  6 13:33:03 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+New set_error funciton
+    *
+------------------------------------------------------------
 User: lande  Wed Jun  6 13:32:44 PDT 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
