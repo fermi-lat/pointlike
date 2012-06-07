@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: mar0  Thu Jun  7 11:26:49 PDT 2012
+pointlike/python/uw/stacklike
+
+Modified Files:
+	CLHEP.py angularmodels.py binned.py fitsmooth.py limits.py 
+	stacklike.py stcaldb.py 
+Added Files:
+	dataset.py 
+Log Message:
+changed infrastructure to stacklike
+    *
+------------------------------------------------------------
 User: mar0  Thu Jun  7 11:17:07 PDT 2012
 pointlike/python/uw/stacklike/lists
 
