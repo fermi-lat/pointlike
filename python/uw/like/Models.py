@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.97 2012/06/06 16:14:50 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.98 2012/06/06 20:33:03 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -812,7 +812,7 @@ class SmoothBrokenPowerLaw(Model):
         Also note that e0 is used in the spectral function and can be set (but 
         not fit) by passing in e0 when initialized. """
 
-    default_p=[1e-11,2.0,2.0, 1e3]
+    default_p=[1e-11,2.0,2.0,1e3]
     default_extra_params=dict(beta=0.1, e0=1e3)
     param_names=['Norm','Index_1','Index_2','E_break']
     default_mappers=[LogMapper,LinearMapper,LinearMapper,LogMapper]
@@ -821,12 +821,12 @@ class SmoothBrokenPowerLaw(Model):
         n0,gamma1,gamma2,e_break=self.get_all_parameters()
 
         # switch from pointlike to gltike convention
-        gamma1 =-gamma1
+        gamma1=-gamma1
         gamma2=-gamma2
 
         # This is exactly the gtlike formula
         return n0*(e/self.e0)**gamma1*\
-               (1+(e/self.e0)**((gamma1-gamma2)/self.beta))**(-self.beta)
+               (1+(e/e_break)**((gamma1-gamma2)/self.beta))**(-self.beta)
 
     def external_gradient(self,e):
         """ lots of derivatives. You can derive them all by hitting the 
