@@ -1,9 +1,8 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/CLHEP.py,v 1.2 2010/09/01 20:59:47 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/CLHEP.py,v 1.6 2012/03/12 20:31:59 mar0 Exp $
 author: M.Roth <mar0@u.washington.edu>
 """
 
-import skymaps as s
 import numpy as np
 
 ############################################ START HEPROTATION CLASS ##########################################################
@@ -77,6 +76,9 @@ class Hep3Vector(object):
         phi,theta = sd.ra()*np.pi/180,sd.dec()*np.pi/180
         self.vec = np.matrix([[np.cos(phi)*np.cos(theta)],[np.sin(phi)*np.cos(theta)],[np.sin(theta)]])
 
+    def __str__(self):
+        return 'vec: (%1.4f, %1.4f, %1.4f)'%(self.x(),self.y(),self.z())
+
     def add(self,other):
         return Hep3Vector([self.x()+other.x(),self.y()+other.y(),self.z()+other.z()])
 
@@ -101,9 +103,6 @@ class Hep3Vector(object):
             return 0
         if y==0:
             return np.pi
-
-    def dir(self):
-        return s.SkyDir(self.ra(),self.dec())
     
     def ra(self):
         return self.phi()*180/np.pi
@@ -128,7 +127,18 @@ class Hep3Vector(object):
 
     def dot(self,other):
         return self.x()*other.x()+self.y()*other.y()+self.z()*other.z()
+ 
+    def diff(self,other):
+        return np.arccos(self.dot(other))
 
+    def norm(self):
+        x,y,z=self.x(),self.y(),self.z()
+        self.vec = np.matrix([[x],[y],[z]])/np.sqrt(x*x+y*y+z*z)
+    
+    def scale(self,scl):
+        x,y,z=self.x(),self.y(),self.z()
+        return Hep3Vector([np.matrix([[x*scl],[y*scl],[z*scl]])])
+ 
     def echo(self):
         for i in range(3):
             print self.vec[i,0]

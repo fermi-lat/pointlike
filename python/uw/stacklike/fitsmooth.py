@@ -8,7 +8,6 @@ import uw.like.pypsf as up
 from uw.like.pycaldb import CALDBManager
 from uw.like.pypsf import CALDBPsf
 import uw.stacklike.angularmodels as ua
-import uw.utilities.assigntasks as uta
 from uw.stacklike.stcaldb import scale2
 import pyfits as pf
 import pylab as py
@@ -23,6 +22,7 @@ from uw.stacklike.CLHEP import Photon
 import uw.stacklike.binned as ub
 import cPickle
 from uw.utilities.minuit import Minuit
+from IPython.parallel import Client
 
 
 rd = 180/np.pi   #DEG2RAD

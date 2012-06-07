@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/angularmodels.py,v 1.8 2010/12/01 19:40:11 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/angularmodels.py,v 1.17 2012/03/12 20:31:59 mar0 Exp $
 author: M.Roth <mar0@u.washington.edu>
 """
 
@@ -737,9 +737,11 @@ class CDisk(Model):
         if len(model_par)==3:
             pb = pypsf.PretendBand(self.model_par[1],int(self.model_par[2]),psf=self.psf,sd=s.SkyDir(0,0),radius_in_rad=self.lims[1])
             self.ac.do_convolution(pb)#,False,True)
+            print 'Using default PSF'
         else:
             pb = pypsf.PretendBand(self.model_par[1],int(self.model_par[2]),psf=self.psf,sd=s.SkyDir(0,0),radius_in_rad=self.lims[1],fit_sigma=self.model_par[3],fit_gamma=self.model_par[4])
             self.ac.do_convolution(pb)#,True,False)
+            print 'Using fit PSF'
         #delt = (lims[1]-lims[0])/100.
         #xr = np.arange(lims[0],lims[1],delt)
         #yr = np.array([self.ac(s.SkyDir((x*1.+0.5)*rd*delt,0)) for x in range(len(xr)-1)])
@@ -770,6 +772,14 @@ class CDisk(Model):
     def integral(self,delmin,delmax):
         return self.norm*self.ac.integral(delmax,delmin)
     
+    def rcontain(self,frac):
+        if frac==0:
+            return 0
+        def fraccal(x):
+            return self.integral(self.lims[0],x)/self.integral(self.lims[0],self.lims[1])
+        best = so.fmin_powell(lambda x: (fraccal(x)/frac-1.)**2 if (x>0 and x<self.lims[1]) else np.Infinity,[self.model_par[0]],disp=0)
+        return best.item()
+
     """def value(self,photon,pars):
         return self.custom.value(photon,pars)
     
@@ -847,6 +857,14 @@ class CHalo(Model):
     #  @param delmax maximum angle in radians
     def integral(self,delmin,delmax):
         return self.norm*self.ac.integral(delmax,delmin)
+
+    def rcontain(self,frac):
+        if frac==0:
+            return 0
+        def fraccal(x):
+            return self.integral(self.lims[0],x)/self.integral(self.lims[0],self.lims[1])
+        best = so.fmin_powell(lambda x: (fraccal(x)/frac-1.)**2 if (x>0 and x<self.lims[1]) else np.Infinity,[self.model_par[0]],disp=0)
+        return best.item()
 
     """def value(self,photon,pars):
         return self.custom.value(photon,pars)
