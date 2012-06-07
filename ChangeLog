@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Jun  7 16:02:33 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+bugfix for SmoothBrokenPowerLaw
+    *
+------------------------------------------------------------
 User: mar0  Thu Jun  7 11:26:49 PDT 2012
 pointlike/python/uw/stacklike/lists
 
