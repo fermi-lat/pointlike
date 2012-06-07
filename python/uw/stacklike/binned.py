@@ -7,12 +7,13 @@ from uw.stacklike.stacklike import *
 from uw.stacklike.angularmodels import *
 import uw.stacklike.stcaldb as uss
 from uw.utilities.minuit import Minuit
-import uw.utilities.assigntasks as ua
+#import uw.utilities.assigntasks as ua
 from uw.like.pycaldb import CALDBManager
 from uw.like.pypsf import CALDBPsf
 from uw.like.quadform import QuadForm,Ellipse
 from uw.stacklike.limits import BayesianLimit
-from scipy import derivative
+from scipy.misc import derivative
+from uw.like2.pipeline import cluster,engines
 import scipy.optimize as so
 import scipy.misc as sm
 import scipy.stats as sst
@@ -28,6 +29,7 @@ import sys
 import string
 import uw.pulsar.py_exposure as pe
 from uw.like.Models import PowerLaw,ExpCutoff,LogParabola
+from uw.stacklike import dataset
 
 def format_error(v,err):
     if v>0 and err>0 and not np.isinf(err):
@@ -58,24 +60,8 @@ def format_error(v,err):
 #
 
 ##############################################  Namespace Defaults #############################################
-
-PASS6 = True
-if PASS6:
-    pulsdir = '/phys/groups/tev/scratch1/users/Fermi/mar0/data/pulsar/'               #directory with pulsar ft1 data
-    agndir = '/phys/groups/tev/scratch1/users/Fermi/mar0/data/6.3/'                   #directory with agn ft1 data
-    irf = 'P6_v11_diff'
-    fileglob='*-ft1.fits'
-    fdays=730
-else:
-    pulsdir = '/phys/groups/tev/scratch1/users/Fermi/mar0/data/pulsar7/source/'               #directory with pulsar ft1 data
-    agndir = '/phys/groups/tev/scratch1/users/Fermi/mar0/data/7.3src/'                   #directory with agn ft1 data
-    irf = 'P7OURCE_V6'
-    fileglob='*pass*xx.fit*'
-    fdays=1200
-
-srcdir = '/phys/users/mar0/sourcelists/'                                          #directory with lists of source locations (name ra dec)
-cachedir = '/phys/groups/tev/scratch1/users/Fermi/mar0/cache/'
-figdir = '/phys/groups/tev/scratch1/users/Fermi/mar0/figures/'
+cachedir = dataset.basedir+'cache/'
+figdir = dataset.basedir+'figures/'
 pulsars = [('vela',0.5,[0.1,0.15,0.5,0.6],[0.7,1.0]),('gem',0.5,[0.1,0.17,0.6,0.68],[0.25,0.55])]#,('crab',0.45/0.55,[0.0,0.09,0.25,0.48,0.87,1.0],[0.09,0.25,0.48,1.0])]                                       #pulsar sourcelist name 
 agnlist = ['agn-psf-study-bright']
 
@@ -93,16 +79,10 @@ class CombinedLike(object):
 
 
     ## constructor for Combinedlikelihood class
-    #  @param pulsdir pulsar ft1 data directory
-    #  @param agndir agn ft1 data directory
-    #  @param srcdir sourcelist directory (see Stacklike documentation)
     #  @param pulsars (sourcelist,alpha) names of pulsar list and ratio of on/off pulse
     #  @param agnlist list of agn sources
     #  @param irf intial response function
     def __init__(self,**kwargs):
-        self.pulsdir = pulsdir
-        self.agndir = agndir
-        self.srcdir = srcdir
         self.pulsars = pulsars
         self.agnlist = agnlist
         self.cachedir = cachedir
@@ -171,8 +151,7 @@ class CombinedLike(object):
     #  @param tmin minimum time range (MET)
     #  @param tmax maximum time range (MET)
     #  @param ctype conversion type (0:front, 1:back, -1:all)
-    #  @param agnglob change the glob matching phrase
-    def loadphotons(self,minroi,maxroi,emin,emax,tmin,tmax,ctype,agnglob='*.fits'):
+    def loadphotons(self,minroi,maxroi,emin,emax,tmin,tmax,ctype):
         self.minroi = minroi
         self.maxroi = maxroi
         self.ctype = ctype
@@ -180,7 +159,7 @@ class CombinedLike(object):
         self.emax=emax
         self.ebar=np.sqrt(self.emin*self.emax)
 
-        tag = '%1.2f%1.2f%1.2f%1.2f%1.0f%1.0f%1.0f%1.2f%1.2f%s'%(minroi,maxroi,emin,emax,tmin,tmax,ctype,self.ctmin,self.ctmax,self.irf)
+        tag = '%1.2f%1.2f%1.2f%1.2f%1.0f%1.0f%1.0f%1.2f%1.2f%s'%(minroi,maxroi,emin,emax,tmin,tmax,ctype,self.ctmin,self.ctmax,anname)
 
         #load pulsar data
         thetabar = 0.
@@ -193,8 +172,7 @@ class CombinedLike(object):
                 hist = np.load(self.cachedir+'%son%s.npy'%(psr[0],tag))
                 self.pulse_ons.append(hist)
             else:
-                sl = StackLoader(lis=psr[0],irf=self.irf,srcdir=self.srcdir,useft2s=False,ctmin=self.ctmin,ctmax=self.ctmax,phasecut=psr[2],quiet=not self.veryverbose)
-                sl.files = [self.pulsdir + psr[0]+ '-ft1.fits']
+                sl = StackLoader(name=psr+'on',ctmin=self.ctmin,ctmax=self.ctmax,quiet=not self.veryverbose)
                 sl.loadphotons(minroi,maxroi,emin,emax,tmin,tmax,ctype)
                 sl.getds()
                 photons = photons+len(sl.photons)
@@ -210,8 +188,7 @@ class CombinedLike(object):
                 hist = np.load(self.cachedir+'%soff%s.npy'%(psr[0],tag))
                 self.pulse_offs.append(hist)
             else:
-                sl = StackLoader(lis=psr[0],irf=self.irf,srcdir=self.srcdir,useft2s=False,ctmin=self.ctmin,ctmax=self.ctmax,phasecut=psr[3],quiet=not self.veryverbose)
-                sl.files = [self.pulsdir + psr[0]+ '-ft1.fits']
+                sl = StackLoader(name=psr+'off',ctmin=self.ctmin,ctmax=self.ctmax,quiet=not self.veryverbose)
                 sl.loadphotons(minroi,maxroi,emin,emax,tmin,tmax,ctype)
                 photons = photons+len(sl.photons)
                 thetabar = thetabar+sum([p.ct for p in sl.photons])
@@ -229,7 +206,7 @@ class CombinedLike(object):
                 if self.verbose:
                     print 'Loaded %s from cache: %s%s'%(lists,lists,tag)
                 hist = np.load(self.cachedir+'%s%s.npy'%(lists,tag))
-                sl = StackLoader(lis=lists,irf=self.irf,srcdir=self.srcdir,useft2s=False,ctmin=self.ctmin,ctmax=self.ctmax,quiet=not self.veryverbose)
+                sl = StackLoader(name=lists,ctmin=self.ctmin,ctmax=self.ctmax,quiet=not self.veryverbose)
                 sl.loadds(self.cachedir+'%s%s.npy'%(lists,tag))
                 sl.ebar=self.ebar
                 sl.emin,sl.emax=self.emin,self.emax
@@ -245,8 +222,7 @@ class CombinedLike(object):
                 del sl
                 self.agns.append(hist)
             else:
-                sl = StackLoader(lis=lists,irf=self.irf,srcdir=self.srcdir,useft2s=False,ctmin=self.ctmin,ctmax=self.ctmax,quiet=not self.veryverbose)
-                sl.files = np.sort(glob.glob(self.agndir+agnglob))
+                sl = StackLoader(name=lists,ctmin=self.ctmin,ctmax=self.ctmax,quiet=not self.veryverbose)
                 sl.loadphotons(minroi,maxroi,emin,emax,tmin,tmax,ctype)
                 photons = photons+len(sl.photons)
                 thetabar = thetabar+sum([p.ct for p in sl.photons])
@@ -268,79 +244,84 @@ class CombinedLike(object):
     ######################################################################
     ## adaptively bins angular distributions in angle or sqrt
     #  @param bins number of angular bins, -1 for sqrt(N) bins
-    def bindata(self,bins=8):
+    def bindata(self,bins=8,halomod='',par=0):
         alldata = []
         chist=[]
         #adaptive binning
 
-        if bins>0:
-            
-            if sum([len(puls) for puls in self.pulse_ons])>2*len(self.pulse_ons)*bins:
-                print 'Using Pulsars for angular binning: %d photons'%(sum([len(puls) for puls in self.pulse_ons]))
+        if halomod=='':
+            if bins>0:
+                
+                if sum([len(puls) for puls in self.pulse_ons])>2*len(self.pulse_ons)*bins:
+                    print 'Using Pulsars for angular binning: %d photons'%(sum([len(puls) for puls in self.pulse_ons]))
 
-                #determine needed bins by combining all data (except background)
+                    #determine needed bins by combining all data (except background)
 
-                for puls in self.pulse_ons:
-                    for sep in puls:
+                    for puls in self.pulse_ons:
+                        for sep in puls:
+                            alldata.append(sep)
+                            chist.append(1.)
+                    for it1,puls in enumerate(self.pulse_offs):
+                        for sep in puls:
+                            alldata.append(sep)
+                            chist.append(-self.pulsars[it1][1])
+                    #for sep in self.agns[0]:
+                    #    alldata.append(sep)
+                    alldata = np.array(alldata)
+                    key = np.argsort(alldata)
+                    chist = np.array(chist)[key]
+                    alldata = alldata[key]
+                    chist = np.array([sum(chist[:x+1]) for x in range(len(chist))])
+
+                # sqrt(N) binning
+                else:
+                    print 'Using AGN for angular binning'
+                    maxph = 0
+                    bestph = 0
+                    for it,tagn in enumerate(self.agns):
+                        if len(tagn)>maxph:
+                            maxph,bestph=len(tagn),it
+                    for sep in self.agns[bestph]:
                         alldata.append(sep)
                         chist.append(1.)
-                for it1,puls in enumerate(self.pulse_offs):
-                    for sep in puls:
-                        alldata.append(sep)
-                        chist.append(-self.pulsars[it1][1])
-                #for sep in self.agns[0]:
-                #    alldata.append(sep)
-                alldata = np.array(alldata)
-                key = np.argsort(alldata)
-                chist = np.array(chist)[key]
-                alldata = alldata[key]
-                chist = np.array([sum(chist[:x+1]) for x in range(len(chist))])
+                    """if len(alldata)>20:
+                        bins = int(np.sqrt(len(alldata))/2.)
+                    else:
+                        bins = min(32,int(np.sqrt(len(self.agns[0]))/2.))
+                    xbins = (np.arange(0,bins,1)/(1.*bins))**2
+                    if len(alldata)>0:
+                        minimum = min(min(alldata),min(self.agns[0]))*rd
+                    else:
+                        minimum = min(self.agns[0])*rd
+                    xbins =  minimum + xbins*(self.maxroi-minimum)
+                    self.angbins = xbins/rd"""
 
-            # sqrt(N) binning
+                    alldata = np.array(alldata)
+                    key = np.argsort(alldata)
+                    chist = np.array(chist)[key]
+                    alldata = alldata[key]
+                    chist = np.array([sum(chist[:x+1])-self.backs[bestph]*(alldata[x]*rd/self.maxroi)**2 for x in range(len(chist))])
+                chist = chist/max(chist)
+                cumm = np.array([(1.*x+1.)/len(alldata) for x in range(len(alldata))])      #cumulative dist function
+                ct = (1.*np.arange(0,bins+1,1))/bins                                          #cumulative fractions, [0,1/bins,2/bins...(bins-1)/bins]
+                mask = np.array([max(0,len(chist[chist<x])-1) for x in ct])
+                xbins = alldata[mask]#np.array([alldata[max(0,len(chist[chist<x])-1)] for x in ct])         #bin edges corresponding to fractions
+                self.angbins = xbins
+                cbins = []
+                for it in range(len(self.angbins)):
+                    flag = True
+                    for par in cbins:
+                        if par == self.angbins[it]:
+                            flag=False
+                    if flag:
+                        cbins.append(self.angbins[it])
+                self.angbins = np.array(cbins)
             else:
-                print 'Using AGN for angular binning'
-                maxph = 0
-                bestph = 0
-                for it,tagn in enumerate(self.agns):
-                    if len(tagn)>maxph:
-                        maxph,bestph=len(tagn),it
-                for sep in self.agns[bestph]:
-                    alldata.append(sep)
-                    chist.append(1.)
-                """if len(alldata)>20:
-                    bins = int(np.sqrt(len(alldata))/2.)
-                else:
-                    bins = min(32,int(np.sqrt(len(self.agns[0]))/2.))
-                xbins = (np.arange(0,bins,1)/(1.*bins))**2
-                if len(alldata)>0:
-                    minimum = min(min(alldata),min(self.agns[0]))*rd
-                else:
-                    minimum = min(self.agns[0])*rd
-                xbins =  minimum + xbins*(self.maxroi-minimum)
-                self.angbins = xbins/rd"""
-
-                alldata = np.array(alldata)
-                key = np.argsort(alldata)
-                chist = np.array(chist)[key]
-                alldata = alldata[key]
-                chist = np.array([sum(chist[:x+1])-self.backs[bestph]*(alldata[x]*rd/self.maxroi)**2 for x in range(len(chist))])
-            chist = chist/max(chist)
-            cumm = np.array([(1.*x+1.)/len(alldata) for x in range(len(alldata))])      #cumulative dist function
-            ct = (1.*np.arange(0,bins+1,1))/bins                                          #cumulative fractions, [0,1/bins,2/bins...(bins-1)/bins]
-            mask = np.array([max(0,len(chist[chist<x])-1) for x in ct])
-            xbins = alldata[mask]#np.array([alldata[max(0,len(chist[chist<x])-1)] for x in ct])         #bin edges corresponding to fractions
-            self.angbins = xbins
-            cbins = []
-            for it in range(len(self.angbins)):
-                flag = True
-                for par in cbins:
-                    if par == self.angbins[it]:
-                        flag=False
-                if flag:
-                    cbins.append(self.angbins[it])
-            self.angbins = np.array(cbins)
+                self.angbins = np.histogram(self.agns[0],bins=np.sqrt(len(self.agns[0])))[1]
         else:
-            self.angbins = np.histogram(self.agns[0],bins=np.sqrt(len(self.agns[0])))[1]
+            halomodel = eval(halomod)
+            mod = halomodel(lims=[self.minroi/rd,self.maxroi/rd],model_par=par)
+            self.angbins = np.array([mod.rcontain(x) for x in np.linspace(1e-2/rd,1.,bins+1)])
         #did you already do it?
         if self.ponhists==[]:
             for it1,puls in enumerate(self.pulse_ons):
@@ -544,10 +525,12 @@ class CombinedLike(object):
                 if disc>0:
                     
                     #make sure we're picking the right position
-                    if (A<0 and upper) or (A>0 and not upper):
+                    if (A<=0 and upper) or (A>0 and not upper):
                         xr0 = -B/(2*A)+abs(np.sqrt(disc)/(2*A))
-                    if (A>0 and upper) or (A<0 and not upper):
+                    elif (A>=0 and upper) or (A<0 and not upper):
                         xr0 = -B/(2*A)-abs(np.sqrt(disc)/(2*A))
+                    else:
+                        return bestpar,best,True
                 else:
                     return bestpar,best,True
             except:
@@ -560,7 +543,7 @@ class CombinedLike(object):
             yvals.append(yr0)
             cdelt = yr0
             format = '%10.3f '*13
-            #print format%(xr[0],xr[1],xr[2],xr0,yr[0],yr[1],yr[2],cdelt,best,bestpar,chisq,estpar,self.params[ip])
+            print format%(xr[0],xr[1],xr[2],xr0,yr[0],yr[1],yr[2],cdelt,best,bestpar,chisq,estpar,self.params[ip])
             steps+=1
             if abs(cdelt+delt)<best:
                 best=abs(cdelt+delt)
@@ -776,7 +759,7 @@ class CombinedLike(object):
         #
         #fint = psf.integral(self.ebar,self.ctype,max(self.angbins)/rd,min(self.angbins)/rd)
         il = uss.IrfLoader(self.irf)
-        rpars = il.average_psf(self.emin,self.emax,self.ctmin,self.ctmax,self.ctype)
+        rpars = il.params(self.ebar,self.ctype)#average_psf(self.emin,self.emax,self.ctmin,self.ctmax,self.ctype)
         rpars[5] = rpars[5]*rpars[2]
         rpars[0]*=rd
         rpars[3]*=rd
@@ -831,7 +814,7 @@ class CombinedLike(object):
             self.makehalo(self.haloparams)
 
         for it,agn in enumerate(self.agnlist):
-            self.params.append(self.Nh[it] if (it+1)!=agns else ZERO)
+            self.params.append(self.Nh[it] if (it+1)==agns else ZERO)
             self.limits.append([ZERO,sum(self.agnhists[it])*10])
             self.fixed.append(not(self.halomodel!='' and it==(len(self.agnlist)-1)))
             #print len(self.params),len(self.fixed),len(self.limits)
@@ -945,7 +928,10 @@ class CombinedLike(object):
         mint = mod.integral(min(self.angbins)/rd,max(self.angbins)/rd)
         hmd = np.array([mod.integral(self.angbins[it]/rd,self.angbins[it+1]/rd)/mint for it in range(self.nbins)])
         hmd = hmd/sum(hmd)*nhalo
-        self.agnhists[-1]+=sst.poisson.rvs(hmd)
+        newdata = sst.poisson.rvs(hmd)
+        print newdata
+        self.agnhists[-1]+= newdata
+        
 
     ######################################################
     #       Generate Poisson distributed MC ang bins     #
@@ -1070,6 +1056,9 @@ class CombinedLike(object):
         acc = 0
         #set to true for slow,verbose output
         if (1-np.sum(mi))<0:
+            if self.veryverbose:
+                print 'Bad PSF: %1.3f'%(np.sum(mi))
+                print mi
             return 0
         mi = np.append(mi,[1-np.sum(mi)])
         if self.veryverbose:
@@ -1172,43 +1161,52 @@ class CombinedLike(object):
     ## finds sigma gamma and fraction
     # @param double fits a double PSF
     def fitpsf(self,double=False):
-        psf = CALDBPsf(CALDBManager(irf='P6_v11_diff'))
+        psf = uss.IrfLoader(self.irf)#CALDBPsf(CALDBManager(irf=self.irf))
         de = 0.45
-        stest = psf.inverse_integral(self.ebar,self.ctype,39.)
+        stest = psf.rcontain(psf.params(self.ebar,self.ctype)[:-1],0.39)*rd#psf.inverse_integral(self.ebar,self.ctype,39.)
         if double:
-            if psf.newstyle:
-                nc,nt,gc,gt,sc,st,w = psf.get_p(self.ebar,self.ctype)
-                pars = [sc[0],gc[0],st[0],gt[0],nc[0]]
+            if True:
+                #nc,nt,gc,gt,sc,st,w = psf.get_p(self.ebar,self.ctype)
+                sc,gc,nc,st,gt,nt,ea=psf.params(self.ebar,self.ctype)
+                pars = [sc*rd,gc,nc,st*rd,gt]
                 lims = [[0,100],[1,100],[0,100],[1,100],[0.5-de,0.5+de]]
             else:
-                gc,si,w = psf.get_p(self.ebar,self.ctype)
-                pars = [si[0],gc[0]*1.2,si[0],gc[0]*0.8,0.5]
+                #gc,si,w = psf.get_p(self.ebar,self.ctype)
+                sc,gc,nc,st,gt,nt,ea=psf.params(self.ebar,self.ctype)
+                pars = [sc*rd,gc*1.2,0.5,sc*rd,gc[0]*0.8]
                 lims = [[0,100],[1,100],[0,100],[1,100],[0.5-de,0.5+de]]
         else:
-            if psf.newstyle:
-                nc,nt,gc,gt,sc,st,w = psf.get_p(self.ebar,self.ctype)
-                pars = [stest,gc[0]]
+            if True:
+                #nc,nt,gc,gt,sc,st,w = psf.get_p(self.ebar,self.ctype)
+                sc,gc,nc,st,gt,nt,ea=psf.params(self.ebar,self.ctype)
+                pars = [stest,gc]
                 lims = [[0,10],[1,10]]
             else:
-                gc,si,w = psf.get_p(self.ebar,self.ctype)
-                pars = [stest,gc[0]]
+                #gc,si,w = psf.get_p(self.ebar,self.ctype)
+                sc,gc,nc,st,gt,nt,ea=psf.params(self.ebar,self.ctype)
+                pars = [stest,gc]
                 lims = [[0,10],[1,10]]
         print pars
         tolerance = abs(0.025/self.psflikelihood(pars))
+        print tolerance
         tmin = so.fmin_powell(lambda x: self.psflikelihood(x) if x[0]>0 else 1e40,pars,disp=0,full_output=1)
         print tmin[0]
 
         if not double:
             psf1 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=tmin[0])
             print psf1.rcl(0.68),psf1.rcl(0.95)
-            print psf.inverse_integral(self.ebar,self.ctype,68.),psf.inverse_integral(self.ebar,self.ctype,95.)
+            print psf.rcontain(psf.params(self.ebar,self.ctype)[:-1],0.68)*rd,psf.rcontain(psf.params(self.ebar,self.ctype)[:-1],0.95)*rd
         else:
+            tp68=psf.rcontain(psf.params(self.ebar,self.ctype)[:-1],0.68)*rd
+            tp95=psf.rcontain(psf.params(self.ebar,self.ctype)[:-1],0.95)*rd
             psf1 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=tmin[0][0:2])
-            psf2 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=tmin[0][2:4])
-            alph = tmin.params[4]
+            psf2 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=tmin[0][3:5])
+            alph = tmin[0][2]
+            ftot = alph*psf1.integral(0,40) + (1-alph)*psf2.integral(0,40)
             #print psf1.rcl(0.68),psf1.rcl(0.95)
-            print alph*psf1.rcl(0.68)+(1-alph)*psf2.rcl(0.68),alph*psf1.rcl(0.95)+(1-alph)*psf2.rcl(0.95)
-            print psf.inverse_integral(self.ebar,self.ctype,68.),psf.inverse_integral(self.ebar,self.ctype,95.)
+            print getfrac(0.68),getfrac(0.95)   #alph*psf1.rcl(0.68)+(1-alph)*psf2.rcl(0.68),alph*psf1.rcl(0.95)+(1-alph)*psf2.rcl(0.95)
+            print tp68,tp95
+            #print psf.inverse_integral(self.ebar,self.ctype,68.),psf.inverse_integral(self.ebar,self.ctype,95.)
         return np.insert(tmin[0],0,self.ebar)
 
     ######################################################################
@@ -1261,14 +1259,17 @@ class CombinedLike(object):
         if len(pars)==2:
             sig,gam=pars
             if sig<0 or gam<=1.:
-                return np.Infinity
+                return 0
         else:
             sig,gam,nc,sig2,gam2=pars
             if sig<0 or sig2<0 or nc<0 or nc>1 or gam<=1 or gam2<=1:
-                return np.Infinity
+                if self.verbose:
+                    print 'Bad PSF'
+                return 0
+            pars = [par for par in pars]
+            pars.append(1.-nc)
         fint = self.makepsf(pars)
-
-        for it,fin in enumerate(fint[:-1]):
+        for it,fin in enumerate(fint):
             #self.fixed[it]=True
             self.params[it]=fin
             #self.limits[it]=[fin,fin]
@@ -1278,7 +1279,9 @@ class CombinedLike(object):
             return self.likelihood(np.log10(np.hstack((self.params[:self.nbins-1],x))))
 
         fval = self.likelihood(np.log10(self.params))#minuit[1]
-
+        if self.verbose:
+            tstr = ''.join(['%1.3f\t'%(par) for par in pars])
+            print tstr,'%1.1f'%(self.lmax-fval)
         #memory issues?
         #del minuit
         del fint
@@ -1877,85 +1880,85 @@ def test(bins=12,ctype=0,emin=1000,emax=1778,days=730,irf='P6_v3_diff',maxr=-1,s
 #  @param sel string to select subset of pulsars, default is all [vela,geminga]
 #  @param agnlis list of AGN to compare, if more than one specified, the last one will be examined for halos and the others will be calibration sources
 #  @param model angular model for halo to check ['CDisk','CHalo'], see uw.stacklike.angularmodels for more information
-def halo(bins=12,ctype=0,emin=1000,emax=1778,days=730,irf='P6_v3_diff',maxr=-1,sel='[0:2]',agnlis=['agn-psf-study-bright'],model='CDisk',verbose=False,veryverbose=False,ret=False):
+def halo(bins=12,ctype=0,emin=1000,emax=1778,days=fdays,irf='P6_v3_diff',maxr=-1,sel='[0:2]',agnlis=['agn-psf-study-bright'],model='CDisk',verbose=False,veryverbose=False,ret=False,fileglob=fileglob):
     import cPickle
     #setup the binned likelihood object
     psf = CALDBPsf(CALDBManager(irf=irf))
     ebar = np.sqrt(emin*emax)
     if maxr<0:
         maxr = psf.inverse_integral(ebar,ctype,99.5)*1.5                       #use 1.5 times the 99.5% containment as the maximum distance
-    cl = CombinedLike(irf=irf,mode=-1,pulsars = eval('pulsars'+sel+''),agnlist=agnlis,verbose=verbose,veryverbose=veryverbose,qandd=True)
-    cl.loadphotons(0,maxr,emin,emax,239557417,239517417+days*86400,ctype,agnglob=fileglob)
-    cl.bindata(bins)
-    cl.fit(qandd=True)
-    npsrs = len(cl.ponhists)
-    nagns = len(cl.agnhists)
-    flag1 = agnlis[-1]=='1es0229p200' or agnlis[-1]=='1es0347-121'
-    if flag1:
-        cl.params[cl.nbins+npsrs+nagns-2]=ZERO  #allpars[it+npsrs+len(psfm)]
-        cl.fixed[cl.nbins+npsrs+nagns-2]=True
-    print cl.fixed
-    if ret:
-        return cl
-
-    #null likelihood - no halos!
-    f0 = cl.fit(custom=flag1,qandd=True)
-    print cl
-
-    #find best single king fit parameters
-    #fitpars = cl.fitpsf()
-    psrs = ''
-
-    nmu = cl.nbins-1
-
-    ip = nmu+npsrs+nagns
-
-    #find the reference number of AGN photons for no halo
-    cl.psfphotons = cl.Naj[-1]
-    psfphotons = cl.Naj[-1]
-    cl.plflux = cl.prof[ip-1][0]
-    cl.puflux = cl.prof[ip-1][1]
-
-    #find the PSF parameters 
-    #bestpsf =so.fmin_powell(lambda x: cl.profile(ip-1,x[0]),[cl.Naj[-1]],disp=0,full_output=1)
-    #print cl
-    print cl.plflux,cl.psfphotons,cl.puflux
-
-    for psr in cl.pulsars:
-        psrs = psrs + '%s_'%psr[0]
-    agns  = ''
-    for agn in cl.agnlist:
-        agns = agns + '%s_'%agn
-
-    r05 = psf.inverse_integral(ebar,ctype,5.)
-    r34 = psf.inverse_integral(ebar,ctype,34.)
-    r68 = psf.inverse_integral(ebar,ctype,68.)
-    r95 = psf.inverse_integral(ebar,ctype,95.)
-    r99 = psf.inverse_integral(ebar,ctype,99.)
-    testpsf = PSF(lims=[0,1],model_par=[0.05,2.25])
-    print r68,r95
-    testpsf.fromcontain([r68,r95],[0.68,0.95])
-    fitpars = cl.fitpsf()#[cl.ebar,testpsf.model_par[0],testpsf.model_par[1]]
-    print fitpars
-    nps = 10
-    pts = np.arange(0,nps+1,1)
-    pts = [0.1,0.5,1.0]
-    npars = len(cl.params)
-    agnback = cp.copy(cl.agnhists[-1])
-    uplims2 = []
-    uplims1 = []
-    detect = []
-
-    of = open('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/uplimemi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%s%s_%s.txt'%(emin,emax,ctype,maxr,bins,psrs,agns,model),'w')
-    print >>of,'%1.3f'%f0
-    print >>of,'%1.1f'%psfphotons
-    fracs = np.linspace(0.05,0.95,19)
-    #print >>of,string.join(['%1.2f'%(frac) for frac in fracs],'\t')
-    print >>of,'#size(rad)\tmaxL\tNha \tcl68\tcl95\tTS\tNpsf'
-
-
     #test different sizes of halos for the current likelihood
+    #pts = np.arange(0,nps+1,1)
+    pts = [0.1,0.5,1.0]
     for pt in pts:
+        cl = CombinedLike(irf=irf,mode=-1,pulsars = eval('pulsars'+sel+''),agnlist=agnlis,verbose=verbose,veryverbose=veryverbose,qandd=True)
+        cl.loadphotons(0,maxr,emin,emax,239557417,239517417+days*86400,ctype,agnglob=fileglob)
+        cl.bindata(bins)#,halomod=model,par=[pt/rd,ebar,ctype])
+        cl.fit(qandd=True)
+        npsrs = len(cl.ponhists)
+        nagns = len(cl.agnhists)
+        flag1 = agnlis[-1]=='1es0229p200' or agnlis[-1]=='1es0347-121'
+        if flag1:
+            cl.params[cl.nbins+npsrs+nagns-2]=ZERO  #allpars[it+npsrs+len(psfm)]
+            cl.fixed[cl.nbins+npsrs+nagns-2]=True
+        print cl.fixed
+        if ret:
+            return cl
+
+        #null likelihood - no halos!
+        f0 = cl.fit(custom=flag1,qandd=True)
+        print cl
+
+        #find best single king fit parameters
+        #fitpars = cl.fitpsf()
+        psrs = ''
+
+        nmu = cl.nbins-1
+
+        ip = nmu+npsrs+nagns
+
+        #find the reference number of AGN photons for no halo
+        cl.psfphotons = cl.Naj[-1]
+        psfphotons = cl.Naj[-1]
+        cl.plflux = cl.prof[ip-1][0]
+        cl.puflux = cl.prof[ip-1][1]
+
+        #find the PSF parameters 
+        #bestpsf =so.fmin_powell(lambda x: cl.profile(ip-1,x[0]),[cl.Naj[-1]],disp=0,full_output=1)
+        #print cl
+        print cl.plflux,cl.psfphotons,cl.puflux
+
+        for psr in cl.pulsars:
+            psrs = psrs + '%s_'%psr[0]
+        agns  = ''
+        for agn in cl.agnlist:
+            agns = agns + '%s_'%agn
+
+        r05 = psf.inverse_integral(ebar,ctype,5.)
+        r34 = psf.inverse_integral(ebar,ctype,34.)
+        r68 = psf.inverse_integral(ebar,ctype,68.)
+        r95 = psf.inverse_integral(ebar,ctype,95.)
+        r99 = psf.inverse_integral(ebar,ctype,99.)
+        testpsf = PSF(lims=[0,1],model_par=[0.05,2.25])
+        print r68,r95
+        testpsf.fromcontain([r68,r95],[0.68,0.95])
+        fitpars = cl.fitpsf() if ebar < 10000 else [cl.ebar,testpsf.model_par[0],testpsf.model_par[1]]
+        print fitpars
+        nps = 10
+
+        npars = len(cl.params)
+        agnback = cp.copy(cl.agnhists[-1])
+        uplims2 = []
+        uplims1 = []
+        detect = []
+
+        of = open('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/uplimemi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%s%s_%s.txt'%(emin,emax,ctype,maxr,bins,psrs,agns,model),'w')
+        print >>of,'%1.3f'%f0
+        print >>of,'%1.1f'%psfphotons
+        fracs = np.linspace(0.05,0.95,19)
+        #print >>of,string.join(['%1.2f'%(frac) for frac in fracs],'\t')
+        print >>of,'#size(rad)\tmaxL\tNha \tcl68\tcl95\tTS\tNpsf'
+
         if flag1:
             cl.setuppars(halomodel=model,haloparams=[pt/rd,ebar,ctype,fitpars[1]/rd,fitpars[2]])
             cl.params[cl.nbins+npsrs+nagns-2]=ZERO#allpars[it+npsrs+len(psfm)]
@@ -1987,16 +1990,22 @@ def halo(bins=12,ctype=0,emin=1000,emax=1778,days=730,irf='P6_v3_diff',maxr=-1,s
         TSs.append(cl.TS)
 
         #find the 5 sigma upper limit
-        bestup = cl.findlims(npars-1,12.5)#,step)#so.fmin_powell(lambda x: minup(x[0],cl,lmax,npars,cl.Nh[-1]),[cl.Nh[-1]+step],disp=0,full_output=1,maxiter=2)
+        if ebar<10000:
+            bestup = cl.findlims(npars-1,12.5)  #,step)#so.fmin_powell(lambda x: minup(x[0],cl,lmax,npars,cl.Nh[-1]),[cl.Nh[-1]+step],disp=0,full_output=1,maxiter=2)
+        else:
+            bestup = so.fmin_powell(lambda x: (cl.profile(npars-1,x,False)-cl.lmax-12.5)**2 if x>cl.Nh[-1] else -cl.lmax,(cl.Nh[-1]+cl.Naj[-1]),disp=0,ftol=0.1,full_output=1)
+            bestup = [bestup[0].item(),bestup[0].item()]
         print bestup[1]
         bestup = [bestup[1],cl.profile(npars-1,bestup[1])-cl.lmax]
 
         def printstate():
             print 'New iteration'
+        
+        assert cl.lmax!=np.Infinity
 
-        usig = so.fmin_powell(lambda x: (cl.profile(npars-1,x,True)-cl.lmax-0.5)**2 if x>cl.Nh[-1] else -cl.lmax,(cl.Nh[-1]+cl.Naj[-1]),disp=0,ftol=0.1,full_output=1)
+        usig = so.fmin_powell(lambda x: (cl.profile(npars-1,x,False)-cl.lmax-0.5)**2 if x>cl.Nh[-1] else -cl.lmax,(cl.Nh[-1]+cl.Naj[-1]),disp=0,ftol=0.1,full_output=1)
         delt = usig[0].item()-cl.Nh[-1]
-        lsig =  so.fmin_powell(lambda x: abs(cl.profile(npars-1,x,True)-cl.lmax-0.5)**2 if x<cl.Nh[-1] else -cl.lmax, max(ZERO,cl.Nh[-1]-delt),disp=0,ftol=0.1,full_output=1)
+        lsig =  so.fmin_powell(lambda x: abs(cl.profile(npars-1,x,False)-cl.lmax-0.5)**2 if x<cl.Nh[-1] else -cl.lmax, max(ZERO,cl.Nh[-1]-delt),disp=0,ftol=0.1,full_output=1)
         #profile the likelihood near the maximum between +/- 5 sigma, if Nhalo is negative, stop at 0
         xr = np.linspace(ZERO,bestup[0],20)
         #if bestup[0]<cl.prof[npars-1][1]:
@@ -2021,8 +2030,7 @@ def halo(bins=12,ctype=0,emin=1000,emax=1778,days=730,irf='P6_v3_diff',maxr=-1,s
             py.plot(xr,tpars[cl.nbins-1+it+npsrs])
         
 
-
-        py.savefig('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s_profparams.png'%(emin,emax,ctype,maxr,bins,pt,psrs,agns,model))
+        py.savefig('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s_%s_profparams.png'%(emin,emax,ctype,maxr,bins,pt,psrs,agns,model,irf))
         it=0
         fx,frac = np.array(fx),np.array(frac)
 
@@ -2057,11 +2065,12 @@ def halo(bins=12,ctype=0,emin=1000,emax=1778,days=730,irf='P6_v3_diff',maxr=-1,s
 
         #output Nhalo, and the two upper limits
         detect.append(cl.Nh[-1]/(psfphotons))
-        uplims2.append(cl2[0]/(psfphotons))
-        uplims1.append(cl1[0]/(psfphotons))
+        print cl2
+        uplims2.append(cl2/(psfphotons))
+        uplims1.append(cl1/(psfphotons))
         #print cl2[0],psfphotons,cl2[0]/(psfphotons)
-        cl.ul68 = cl1[0]
-        cl.ul95 = cl2[0]
+        cl.ul68 = cl1
+        cl.ul95 = cl2
         cl.Nhe[-1]= (bestup[0]-cl.Nh[-1])/5.
         cl.lflux = lsig[0].item()
         cl.uflux = usig[0].item()
@@ -2081,11 +2090,11 @@ def halo(bins=12,ctype=0,emin=1000,emax=1778,days=730,irf='P6_v3_diff',maxr=-1,s
         py.clf()
         py.plot(xr,fx2)
         py.plot(cl.Nh[-1],0,'rd')
-        py.savefig('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s_prof.png'%(emin,emax,ctype,maxr,bins,pt,psrs,agns,model))
+        py.savefig('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s_%s_prof.png'%(emin,emax,ctype,maxr,bins,pt,psrs,agns,model,irf))
         py.clf()
         py.plot(frac,fx,'b+')
         py.plot(max(cl.Nh[-1]/(cl.Nh[-1]+cl.Naj[-1]),0),0,'rd')
-        py.savefig('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s_proffrac.png'%(emin,emax,ctype,maxr,bins,pt,psrs,agns,model))
+        py.savefig('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s_%s_proffrac.png'%(emin,emax,ctype,maxr,bins,pt,psrs,agns,model,irf))
         print 'Lflux:',cl.lflux
         print 'Nhalo:',cl.Nh[-1]
         print 'Uflux:',cl.uflux
@@ -2095,61 +2104,68 @@ def halo(bins=12,ctype=0,emin=1000,emax=1778,days=730,irf='P6_v3_diff',maxr=-1,s
         print 'P-val halo:',cl.pval
         del cl.minuit
         cl.frac=clfrac
-        cl.makeplot('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s'%(emin,emax,ctype,maxr,bins,pt,psrs,agns,model))
-        pfile = open('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s.pickle'%(emin,emax,ctype,maxr,bins,pt,psrs,agns,model),'w')
+        cl.makeplot('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s_%s'%(emin,emax,ctype,maxr,bins,pt,psrs,agns,model,irf))
+        pfile = open('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s_%s.pickle'%(emin,emax,ctype,maxr,bins,pt,psrs,agns,model,irf),'w')
         cPickle.dump(cl,pfile)
         pfile.close()
         print >>of,'%1.5f\t%1.3f\t%1.4f\t%1.4f\t%1.4f\t%1.3f'%(pt/rd,lmax,cl.Nh[-1],cl1,cl2,cl.TS)
 
     #make some summary plots
-    py.figure(10,figsize=(8,8))
-    py.clf()
-    maxts = max(TSs)*1.1
-    maxfrac = max(uplims2)
-    p2=py.plot(pts,np.array(uplims2),'v')
-    p1=py.plot(pts,np.array(uplims1),'v')
-    p5=py.plot(pts,np.array(detect),'o')
-    #p6=py.plot(pts,TSs,'d')
-    p3=py.plot([r68,r68],[0,maxfrac],'r--')
-    p4=py.plot([r95,r95],[0,maxfrac],'r-.')
-    #p7=py.plot([0,max(pts)*1.1],[1,1],'b--')
-    #p8=py.plot([0,max(pts)*1.1],[4,4],'b-.')
-    py.grid()
-    py.xlabel('%s halo size (deg)'%model)
-    py.ylabel('%s halo fraction'%model)
-    py.ylim(0,maxfrac)
-    py.xlim(0,max(pts)*1.1)
-    prop = mpl.font_manager.FontProperties(size=9) 
-    py.legend((p5,p1,p2,p3,p4),(r'hfract',r'68% CL',r'95% CL','%s R68'%irf,'%s R95'%irf),bbox_to_anchor=(1.1, 1.0),prop=prop)
-    py.savefig('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/uplimemi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%s%s_%s.png'%(emin,emax,ctype,maxr,bins,psrs,agns,model))
+
     of.close()
 
-def gettask(agnbins=12,ctype=0,emin=1000,emax=3162,lis='agn_redshift2_lo_bzb',sel='[0:2]',mod='CHalo',days=730 if PASS6 else 1200,irf='P6_v11_diff',verbose=False,veryverbose=False,ret=False,suplist=''):
+def gettask(agnbins=12,ctype=0,emin=1000,emax=3162,lis='agn_redshift2_lo_bzb',sel='[0:2]',mod='CHalo',days=fdays,irf='P6_v11_diff',verbose=False,veryverbose=False,ret=False,suplist=''):
     agnlists = [[],[],[],['agn_redshift2_lo_bzb']]
     return 'ub.halo(bins=%d,ctype=%d,emin=%d,emax=%d,days=%d,irf=\'%s\',maxr=4,sel=\'%s\',agnlis=[%s\'%s\'],model=\'%s\',verbose=%s,veryverbose=%s,ret=%s)'%(agnbins,ctype,emin,emax,days,irf,sel,suplist,lis,mod,str(verbose),str(veryverbose),str(ret))
 
+def makealltasks():
+    model=['CDisk','CHalo']
+    emins = [1000,3162,10000,31623]#100,178,316,562,
+    emaxs = [3162,10000,31623,100000]#178,316,562,1000,
+    sel = ['[0:2]','[0:2]','[0:2]','[0:0]']
+    suplists = ['','','','\'agnlobzb\',']
+    tasks = [gettask(16,0,emins[x],emaxs[x],lis,sel=sel[x],mod=mod,irf=irf,days=fdays,suplist=suplists[x]) 
+        for x in range(len(emins)) for lis in ['agnlobzb','agnhibzb','1es0229','1es0347'] for mod in model]#,'PKS0754p100','agn_redshift2_lo','agn_redshift2_hi'
+    return tasks
+
 ## runallhalos - runs the halo analysis on multiple engines
 #  @param model array of models to test
-def runallhalos(model=['CDisk','CHalo']):
-    machines = 'tev01 tev02 tev03 tev04 tev05 tev06 tev07 tev08 tev09 tev10 tev11'.split()#
+def runallhalos():
+    #machines = 'tev01 tev02 tev03 tev04 tev05 tev06 tev07 tev08 tev09 tev10 tev11'.split()#
+    #cluster.start_master()
+    #os.system('ipcluster start&')
+    #import time as t
+    #t.sleep(60)
+    from IPython.parallel import Client
     setup_string = 'import uw.stacklike.binned as ub;reload(ub);from uw.stacklike.binned import *'
-    emins = [562,1000,3162,10000,31623]#100,178,316,562,
-    emaxs = [1000,3162,10000,31623,100000]#178,316,562,1000,
-    sel = ['[0:2]','[0:2]','[0:2]','[0:2]','[0:0]']
-    suplists = ['','','','','\'agn_redshift2_lo_bzb\',']
     clfile = open('/phys/groups/tev/scratch1/users/Fermi/mar0/allhalos.txt','w')
     clfile.close()
-    tasks = [gettask(12,0,emins[x],emaxs[x],lis,sel=sel[x],mod=mod,irf=irf,days=fdays,suplist=suplists[x]) 
-        for x in range(len(emins)) for lis in ['agn_redshift2_lo','agn_redshift2_hi','agn_redshift2_lo_bzb','agn_redshift2_hi_bzb','1es0229p200','1es0347-121','PKS0754p100'] for mod in model]#
+    
+    tasks = makealltasks()
     #'agn_redshift2_lo_bzb','agn_redshift2_lo_bzb\',\'agn_redshift2_hi_bzb','agn_redshift2_lo_bzb\',\'1es0229p200','agn_redshift2_lo_bzb\',\'1es0347-121','agn_redshift2_lo_bzb\',\'agn_redshift2_hi_bzb'
-    print tasks
-    engines = 8#len(tasks)/len(machines)
+    """engines = 8#len(tasks)/len(machines)
     ua.setup_mec(engines=engines,machines=machines,clusterfile='/phys/groups/tev/scratch1/users/Fermi/mar0/allhalos.txt',clobber=True)
     t.sleep(30)
-    logfile = open('/phys/groups/tev/scratch1/users/Fermi/mar0/python/mec.log','w')
+    
     at = ua.AssignTasks(setup_string,tasks,log=logfile,timelimit=1000000,progress_bar=True,ignore_exception=True)
     at(30)
-    ua.kill_mec()
+    ua.kill_mec()"""
+    
+    rc = Client()
+    dview = rc[:]
+
+    logfile = open('/phys/groups/tev/scratch1/users/Fermi/mar0/python/mec.log','w')
+    #engine = engines.Engines(log=logfile,quiet=False,maxerrors=len(tasks))
+    dview.execute('import uw.stacklike.binned as ub')
+    dview.execute('reload(ub)')
+    dview.execute('tasks = ub.makealltasks()')
+    dview.scatter('nums',range(len(tasks)))
+    dview.execute('x=[eval(tasks[y]) for y in nums]')
+#    engine.execute(setup_string)
+#    for task in tasks:
+#        engine.submit(task,[0])
+
+
 
 def makeallplots():
     machines = 'tev01 tev02 tev03 tev04 tev05 tev06 tev07 tev08 tev09 tev10 tev11'.split()#
@@ -2181,7 +2197,10 @@ def makeplots(iname,uexp=False,ext='',useupper=False):
     if uexp:
         s.EffectiveArea.set_CALDB(os.environ['CALDB']+'/data/glast/lat')
         ea = s.EffectiveArea('P6_v11_diff_front')
-        ltc = s.LivetimeCube('/phys/groups/tev/scratch1/users/Fermi/mar0/data/pulsar/psr-livetime.fits')
+        if anname=='PASS6':
+            ltc = s.LivetimeCube('/phys/groups/tev/scratch1/users/Fermi/mar0/data/pulsar/psr-livetime.fits')
+        else:
+            ltc = s.LivetimeCube('/phys/groups/tev/scratch1/users/Fermi/mar0/data/7.3src/all-lt.fits')
         exp = s.Exposure(ltc,ea)
         slist = file('/phys/users/mar0/sourcelists/%s.txt'%iname)
         header = slist.readline()
@@ -2210,13 +2229,13 @@ def makeplots(iname,uexp=False,ext='',useupper=False):
         yc = cl.psfphotons
         yl= cl.plflux
         yh = cl.puflux
-        yl = cl.Nhl[-1][0]/exp if useexp else lflux
-        yh = cl.Nhl[-1][1]/exp if useexp else uflux
+        yl = lflux/exp if useexp else lflux
+        yh = uflux/exp if useexp else uflux
         yc = cn/exp if useexp else cn
 
         bc = cl.ebar
 
-        if (2*yc-yh>0) and not useupper:
+        if ( cl.lflux>1.) and not useupper:
             if not useexp:
                 nmu = cl.nbins-1
                 npsrs = len(cl.ponhists)
@@ -2232,7 +2251,7 @@ def makeplots(iname,uexp=False,ext='',useupper=False):
             print yl,yc,yh,cl.psfphotons/exp,cl.plflux/exp,cl.puflux/exp,cl.lflux,cl.uflux
             return [[xl,xh], [yc, yc],[bc,bc],[yl,yh]]
         else:
-            x,y = [bc, cl.ul95/exp] if useexp else [bc,cl.frac[0]]#[bc,cl.ul95/(cl.Naj[-1]+cl.ul95)]
+            x,y = [bc, cl.ul95/exp] if useexp else [bc,cl.frac]#[bc,cl.ul95/(cl.Naj[-1]+cl.ul95)]
             arrow = [y, y*0.8, y*0.8, y*0.6, y*0.8, y*0.8] if useexp else [y, y-0.025, y-0.025, y-0.05, y-0.025, y-0.025]
             arrow2 = [x, x,     x*1.1, x,     x/1.1, x] if useexp else [x, x,     x*1.03, x,     x/1.03, x]
             print '95\% flux',y
@@ -2251,7 +2270,7 @@ def makeplots(iname,uexp=False,ext='',useupper=False):
 
             pickles=[]
             for emin,emax,pren in zip(energy2[:-1],energy2[1:],prepat):
-                template = '/phys/groups/tev/scratch1/users/Fermi/mar0/figures/emi*%d_*%d_ec%d*%1.1f*%s__C%s.pickle'%(emin,emax,ctype,wid,pren+iname,mod)
+                template = '/phys/groups/tev/scratch1/users/Fermi/mar0/figures/emi*%d_*%d_ec%d*bins16*%1.1f*%s__C%s_%s.pickle'%(emin,emax,ctype,wid,pren+iname,mod,irf)
                 #print template
                 pickle = np.sort(glob.glob(template))
                 for pick in pickle:
@@ -2260,13 +2279,15 @@ def makeplots(iname,uexp=False,ext='',useupper=False):
             mx=0
             mi=1e40
 
-            for pickle in pickles:
+            for it2,pickle in enumerate(pickles):
                 
                 if True:
                 #try:
                     print 'Reading %s'%(pickle)
                     pfile = open(pickle)
                     cl = cPickle.load(pfile)
+                    if type(cl.frac)==type([]):
+                        cl.frac=cl.frac[0]
                     print 'TS: ',cl.TS
                     print 'Pval: ',cl.pval
                     texp = sum([exp.value(sds,cl.ebar) for sds in sdlist])/(cl.ebar*ergs) if uexp else 1
@@ -2275,8 +2296,11 @@ def makeplots(iname,uexp=False,ext='',useupper=False):
                     tmi = min(lines[3])
                     mx = tmx if tmx>mx else mx
                     mi = tmi if tmi<mi and tmi>0 else mi
-                    p1 = py.plot(fact*np.array(lines[0]),lines[1],linewidth=1,color='b',ls=lss[it])
-                    py.plot(fact*np.array(lines[2]),lines[3],linewidth=1,color='b',ls=lss[it])
+                    if it2==0:
+                        p1 = py.plot(fact*np.array(lines[0]),lines[1],linewidth=1,color='k',ls=lss[it],label=r'$\rm{%s} $'%(model2[it]))
+                    else:
+                        p1 = py.plot(fact*np.array(lines[0]),lines[1],linewidth=1,color='k',ls=lss[it])
+                    py.plot(fact*np.array(lines[2]),lines[3],linewidth=1,color='k',ls=lss[it])
                     #py.plot(fact*np.array(lines[4]),lines[5],'k--',linewidth=1,)
                     #py.plot(fact*np.array(lines[6]),lines[7],'k--',linewidth=1,color='k')
                     if uexp:
@@ -2284,24 +2308,24 @@ def makeplots(iname,uexp=False,ext='',useupper=False):
                         exstr.replace('e','$x$^{')
                         print >>ofile,'$%d-%d$ & $%1.1f$ & $%s$'%(cl.emin,cl.emax,max(0,cl.TS),exstr)
                     else:
-                        print >>ofile,'$%d-%d$ & $%1.1f$ & $%1.3f$'%(cl.emin,cl.emax,max(cl.TS,0),cl.frac[0])
+                        print >>ofile,'$%d-%d$ & $%1.1f$ & $%1.3f$'%(cl.emin,cl.emax,max(cl.TS,0),cl.frac)
                 else:
                 #except:
                     print 'Plotting failed'
 
             if len(pickles)>0:
                 pts.append(p1)
-                names.append(r'$ Fermi\/\rm{%s} $'%(model2[it]))
+                names.append(r'$\rm{%s} $'%(model2[it]))
         fact = fact/1.0
         #py.grid()
         if uexp:
             py.loglog()
-            ypos = 0.2
+            ypos = 0.75
             specs,lowers,uppers = [],[],[]
             for sd in sdlist:
                 diff,ebrs,spec,lower,upper=getspec(sd)
-                for it4 in range(len(spec)):
-                    print ebrs[it4],lower[it4],spec[it4],upper[it4]
+                #for it4 in range(len(spec)):
+                #    print ebrs[it4],lower[it4],spec[it4],upper[it4]
                 if specs==[]:
                     #texp = np.array([sum([exp.value(sds,ebr) for sds in sdlist])/(ebr*ergs) for ebr in ebrs])
                     specs=spec#/texp
@@ -2332,32 +2356,94 @@ def makeplots(iname,uexp=False,ext='',useupper=False):
             data = 10**data.transpose()
             p6 = py.plot(data[0]*1000,data[1],'kd',linewidth=2,mfc='w')"""
 
+        def expcutoff(en,norm,eref,pindex,ecut,sup=1.):
+            return norm*((en/eref)**pindex)*np.exp(-(en/ecut)**sup)
+        def uncpl(en,n0,e0,g0,sn0,sg0):
+            return np.sqrt((sn0/n0)**2 + (np.log(en/e0)*sg0)**2)
         if (iname=='1es0229p200' or iname=='1es0347-121') and False:
             data = np.loadtxt('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/%s_spectrum.txt'%iname)
             data = 10**data.transpose()
-            p5 = py.plot(data[0]*1000,data[1],'k',linewidth=2)
+            p5 = py.plot(data[0]*1000,data[1],'k',linewidth=2,label='Total Model')
             names.append('Total Model')
             pts.append(p5)
         if iname=='1es0229p200':
+            #py.cla()
+            #py.loglog()
+            energies = np.logspace(2,3,60)
+            energies2 = np.logspace(3,5,60)
+            energies1 = np.logspace(2,7,60)
+            plf,plg,ple = 1.338e-13,-2.72,1e3
+            splf,splg = 1.0e-13,0.5
+            plg2 = -1.76
+            splg2 = 0.35
+            spectrum = [expcutoff(energies,plf*ergs*energies**2,ple,plg,1e14,2),expcutoff(energies2,plf*ergs*energies2**2,ple,plg2,1e14,2)]
+            specerr = [uncpl(energies,plf,ple,plg,splf,splg)*spectrum[0],uncpl(energies2,plf,ple,plg2,splf,splg2)*spectrum[1]]
+            energies = np.logspace(2,5,120)
+            # py.plot(energies,np.hstack(spectrum),'k:',label=r'$\rm{gtlike\/model}$')
+            # p11 = py.plot(energies,np.hstack(spectrum)+np.hstack(specerr),'k-',linewidth=2,label=r'$\rm{gtlike\/error}$')
+            #py.plot(energies,np.hstack(spectrum)-np.hstack(specerr),'k-',linewidth=2)
             data = np.loadtxt('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/%s_HESS.txt'%iname).transpose()
-            p6 = py.errorbar(data[0]*1000,data[3],xerr=[data[1]*1000,data[2]*1000],yerr=[data[4],data[5]],ls='None',marker='d',mfc='w',color='k')
+            p6 = py.errorbar(data[0]*1000,data[3],xerr=[data[1]*1000,data[2]*1000],yerr=[data[4],data[5]],ls='None',marker='d',mfc='w',color='k',label=r'$ \rm{H.E.S.S.} $')
             names.append('H.E.S.S.')
             pts.append(p6[0])
             data = np.loadtxt('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/%s_VERITAS.txt'%iname).transpose()
-            p7 = py.errorbar(data[0]*1000,data[5],xerr=[data[1]*1000,data[2]*1000],yerr=[data[6],data[7]],ls='None',marker='o',mfc='w',color='k')
+            p7 = py.errorbar(data[0]*1000,data[5],xerr=[data[1]*1000,data[2]*1000],yerr=[data[6],data[7]],ls='None',marker='d',mfc='k',color='k',label=r'$ \rm{VERITAS} $')
             pts.append(p7[0])
             names.append('VERITAS')
+            """data = np.loadtxt('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/1es0229p200_model.txt')
+            data = 10**data
+            data = data.transpose()
+            p8 = py.plot(data[0],data[1],'k-.')
+            energies = np.logspace(2,7,30)
+            spectrum = expcutoff(energies,10**(-11.09),1e6,0.8,1e14)
+            print expcutoff(1.e6,10**(-11.09),1.e6,0.8,1.e100)
+            py.plot(energies,spectrum,'k-.',linewidth=1,label=r'$\rm{Deabsorbed}$')"""
         if iname=='1es0347-121':
+            #py.cla()
+            #py.loglog()
             data = np.loadtxt('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/1ES0347-121_tev.txt')
             data = 10**data
             npts = len(data)/3
             pts1,upp,low=data[:npts].transpose(),data[npts:npts*2].transpose(),data[2*npts:].transpose()
             names.append('H.E.S.S.')
             fct = 10**(1./12.)
-            p7 = py.errorbar(pts1[0]/1e6,pts1[1],xerr=[(1-1/fct)*pts1[0]/1e6,(fct-1)*pts1[0]/1e6],yerr=[pts1[1]-low[1],upp[1]-pts1[1]],ls='None',marker='d',mfc='w',color='k')
+            p7 = py.errorbar(pts1[0]/1e6,pts1[1],xerr=[(1-1/fct)*pts1[0]/1e6,(fct-1)*pts1[0]/1e6],yerr=[pts1[1]-low[1],upp[1]-pts1[1]],ls='None',marker='d',mfc='w',color='k',label=r'$ \rm{H.E.S.S.}$ ')
             pts.append(p7[0])
+            """data = np.loadtxt('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/1ES0347-121_model.txt')
+            data = 10**data
+            data = data.transpose()
+            p8 = py.plot(data[0]/1.e6,data[1],'k-.')
+            data = np.loadtxt('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/1ES0347-121_model2.txt')
+            data = 10**data
+            data = data.transpose()
+            p9 = py.plot(data[0]/1.e6,data[1],'k-',linewidth=2)"""
+            """
+            data = np.loadtxt('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/1ES0347-121_model3.txt')
+            data = 10**data
+            data = data.transpose()
+            p10 = py.plot(data[0],data[1]*ergs*1000,'k-.',linewidth=2,label=r'$\rm{10^{-15}\/G}$')"""
+            energies = np.logspace(2,3,60)
+            energies2 = np.logspace(3,5,60)
+            energies1 = np.logspace(2,7,60)
+            #plf,plg,ple = 2.35e-13,-1.66784,1e3
+            #splf,splg = 9.42165e-14,0.195687
+            plf,plg,ple = 2.159e-13,-2.07,1e3
+            splf,splg = 8.8e-14,0.6
+            plg2 = -1.62
+            splg2 = 0.20
+            spectrum = expcutoff(energies1,10**(-11.0686),1e6,0.45,1e14,2)
+           # py.plot(energies1,spectrum,'k-.',linewidth=1,label=r'$\rm{Deabsorbed}$')
+            spectrum = [expcutoff(energies,plf*ergs*energies**2,ple,plg,1e14,2),expcutoff(energies2,plf*ergs*energies2**2,ple,plg2,1e14,2)]
+            specerr = [uncpl(energies,plf,ple,plg,splf,splg)*spectrum[0],uncpl(energies2,plf,ple,plg2,splf,splg2)*spectrum[1]]
+            energies = np.logspace(2,5,120)
+            #py.plot(energies,np.hstack(spectrum),'k:',label=r'$\rm{gtlike\/model}$')
+            #p11 = py.plot(energies,np.hstack(spectrum)+np.hstack(specerr),'k-',linewidth=2,label=r'$\rm{gtlike\/error}$')
+            #py.plot(energies,np.hstack(spectrum)-np.hstack(specerr),'k-',linewidth=2)
+            #pts.append(p11)
+            names.append('Finke et al. 2010')
+
         prop = mpl.font_manager.FontProperties(size=14)
-        py.legend(pts,names,prop=prop)
+        py.legend(prop=prop,numpoints=1)#pts,names,prop=prop)
         if uexp:
             py.ylabel(r'$\nu F_{\nu}\rm{\/(erg\/s^{-1}cm^{-2})}\/$')
         else:
@@ -2372,8 +2458,8 @@ def makeplots(iname,uexp=False,ext='',useupper=False):
         py.figtext(0.25,ypos,fignames[iteration])
         axes = py.gca()
         axes.set_aspect('equal')
-        py.savefig('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/%s%s_summary.eps'%(name,('%1.1f'%wid).replace('.','')))#,mod
-        py.savefig('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/%s%s_summary.png'%(name,('%1.1f'%wid).replace('.','')))#,mod
+        py.savefig('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/%s%s_%s_summary.eps'%(name,('%1.1f'%wid).replace('.',''),irf))#,mod
+        py.savefig('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/%s%s_%s_summary.png'%(name,('%1.1f'%wid).replace('.',''),irf))#,mod
         ofile.close()
     py.close(9)
 
@@ -2466,7 +2552,7 @@ def tabulatepulsars():
         cl = CombinedLike(irf=irf,mode=-1,pulsars = eval('pulsars'+sels[it]+''),agnlist=agnlists[it],qandd=True)
         print agnlists[it]
         print eval('pulsars'+sels[it]+'')
-        cl.loadphotons(0,maxr,emin,emax,239557417,239517417+days*86400,ctype,agnglob='*.fit*')
+        cl.loadphotons(0,maxr,emin,emax,239557417,239517417+days*86400,ctype)
         cl.bindata(bins)
         cl.fit(qandd=True)
         psr =  len(cl.pulsars)>0
@@ -2513,28 +2599,32 @@ def makephaseplots(bins=100):
     pbins=np.array(pbins)
     parea = np.array([pbins[it+1]-pbins[it] for it in range(len(pbins)-1)])
     phist = np.histogram(pmask,bins=pbins)
-    py.figure(figsize=(16,8))
+    py.figure(figsize=(8,4))
     widths = parea/2
     mids = np.array([(pbins[it+1]+pbins[it])*0.5 for it in range(len(pbins)-1)])
     for it,energy in enumerate([100]):#,316,1000,3162]):
         #hist = np.histogram(phases[vtb.field('ENERGY')>energy],bins=bins)
         #mid = (hist[1][:-1]+hist[1][1:])*0.5
-        xhists = np.hstack([pbins[:-1],pbins[:-1]+1,2])
-        yhists = np.hstack([phist[0]/parea,phist[0]/parea,phist[0][0]/parea[0]])/1e6
+        xhists = pbins#,pbins[:-1]+1,2])
+        yhists = np.hstack([phist[0]/parea,phist[0][0]/parea[0]])/1e6#,phist[0]/parea,phist[0][0]/parea[0]])/1e6
         print phist[0],len(phist[0])
+        onmask = ((pbins>0.1) & (pbins<0.15))# | ((pbins>0.5) & (pbins<0.6))
+        p1 = py.step(np.hstack([0.105,xhists[onmask],0.15]),np.hstack([0,yhists[onmask],0]),color='green',where='post',fillstyle='full')
+        onmask = (pbins>0.7)
+        p2 = py.step(np.hstack([0.707,xhists[onmask],1.0]),np.hstack([0,yhists[onmask],0]),color='red',where='post',fillstyle='full')
+        py.legend((r'$\rm{On\/pulse}$',r'$\rm{Off\/pulse}$'))
         py.step(xhists,yhists,where='post',color='black')
         onmask = ((pbins>0.1) & (pbins<0.15))# | ((pbins>0.5) & (pbins<0.6))
         py.step(np.hstack([0.105,xhists[onmask],0.15]),np.hstack([0,yhists[onmask],0]),color='green',where='post',fillstyle='full')
-        onmask = ((pbins>0.5) & (pbins<0.6))
-        p1 = py.step(np.hstack([0.5,xhists[onmask],0.597]),np.hstack([0,yhists[onmask],0]),color='green',where='post',fillstyle='full')
         onmask = (pbins>0.7)
-        p2 = py.step(np.hstack([0.707,xhists[onmask],1.0]),np.hstack([0,yhists[onmask],0]),color='red',where='post',fillstyle='full')
-        py.legend([p1,p2],[r'$\rm{On\/pulse}$',r'$\rm{Off\/pulse}$'])
+        py.step(np.hstack([0.707,xhists[onmask],1.0]),np.hstack([0,yhists[onmask],0]),color='red',where='post',fillstyle='full')
+        onmask = ((pbins>0.5) & (pbins<0.6))
+        py.step(np.hstack([0.5,xhists[onmask],0.597]),np.hstack([0,yhists[onmask],0]),color='green',where='post',fillstyle='full')
         #py.step(np.hstack([mid,mid+1]),np.hstack([hist[0]-min(hist[0])+1,hist[0]-min(hist[0])+1]),where='mid',color='%1.2f'%(1.-1./(it+1)))
         #py.step(,hist[0]-min(hist[0])+1,where='mid',color='%1.2f'%(1.-1./(it+1)))
     #py.semilogy()
     py.xlabel(r'$\rm{Pulsar\/Phase}$')
-    py.ylabel(r'$\rm{10^{-6}\/Events/Bin\/Width}$')
+    py.ylabel(r'$\rm{10^{6}\/Events/Bin\/Width}$')
     py.savefig(figdir+'velaphase.png')
     py.savefig(figdir+'velaphase.eps')
     py.clf()
@@ -2550,15 +2640,20 @@ def makephaseplots(bins=100):
     pbins=np.array(pbins)
     parea = np.array([pbins[it+1]-pbins[it] for it in range(len(pbins)-1)])
     phist = np.histogram(pmask,bins=pbins)
-    py.figure(figsize=(16,8))
+    #py.figure(figsize=(16,8))
     widths = parea/2
     mids = np.array([(pbins[it+1]+pbins[it])*0.5 for it in range(len(pbins)-1)])
     for it,energy in enumerate([100]):#,316,1000,3162]):
         #hist = np.histogram(phases[vtb.field('ENERGY')>energy],bins=bins)
         #mid = (hist[1][:-1]+hist[1][1:])*0.5
-        xhists = np.hstack([pbins[:-1],pbins[:-1]+1,2])
-        yhists = np.hstack([phist[0]/parea,phist[0]/parea,phist[0][0]/parea[0]])/1e6
+        xhists = pbins#,pbins[:-1]+1,2])
+        yhists = np.hstack([phist[0]/parea,phist[0][0]/parea[0]])/1e6#,phist[0]/parea,phist[0][0]/parea[0]])/1e6
         print phist[0],len(phist[0])
+        onmask = ((pbins>0.6) & (pbins<0.68))
+        py.step(np.hstack([0.6,xhists[onmask],0.68]),np.hstack([0,yhists[onmask],0]),color='green',where='post',fillstyle='full')
+        onmask = (pbins>0.25) & (pbins<0.55)
+        py.step(np.hstack([0.25,xhists[onmask],0.547]),np.hstack([0,yhists[onmask],0]),color='red',where='post',fillstyle='full')
+        py.legend((r'$\rm{On\/pulse}$',r'$\rm{Off\/pulse}$'))
         py.step(xhists,yhists,where='post',color='black')
         onmask = ((pbins>0.1) & (pbins<0.17))# | ((pbins>0.5) & (pbins<0.6))
         py.step(np.hstack([0.105,xhists[onmask],0.17]),np.hstack([0,yhists[onmask],0]),color='green',where='post',fillstyle='full')
@@ -2566,10 +2661,9 @@ def makephaseplots(bins=100):
         py.step(np.hstack([0.6,xhists[onmask],0.68]),np.hstack([0,yhists[onmask],0]),color='green',where='post',fillstyle='full')
         onmask = (pbins>0.25) & (pbins<0.55)
         py.step(np.hstack([0.25,xhists[onmask],0.547]),np.hstack([0,yhists[onmask],0]),color='red',where='post',fillstyle='full')
-        py.legend([p1,p2],[r'$\rm{On\/pulse}$',r'$\rm{Off\/pulse}$'])
         #py.step(np.hstack([mid,mid+1]),np.hstack([hist[0]-min(hist[0])+1,hist[0]-min(hist[0])+1]),where='mid',color='%1.2f'%(1.-1./(it+1)))
         #py.step(,hist[0]-min(hist[0])+1,where='mid',color='%1.2f'%(1.-1./(it+1)))
     py.xlabel(r'$\rm{Pulsar\/Phase}$')
-    py.ylabel(r'$\rm{10^{-6}\/Events/Bin\/Width}$')
+    py.ylabel(r'$\rm{10^{6}\/Events/Bin\/Width}$')
     py.savefig(figdir+'gemphase.png')
     py.savefig(figdir+'gemphase.eps')

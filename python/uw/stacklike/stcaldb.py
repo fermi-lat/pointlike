@@ -59,7 +59,7 @@ class IrfLoader(object):
         ctmadx = len(self.pars[eclass][-3][self.pars[eclass][-3]<ctmax])
         erange = np.arange(emiidx,emaidx+1,1)
         crange = np.arange(ctmidx,ctmadx+1,1)
-        effarea = np.array([self.pars[eclass][-2][self.effdims[0]*it+it2] for it in crange for it2 in erange])
+        effarea = np.array([self.pars[eclass][-2][it][it2] for it in crange for it2 in erange])
         return sum(effarea)/len(effarea)
 
     def params(self,energy,eclass,ct=-1):
@@ -72,7 +72,7 @@ class IrfLoader(object):
             eweights = np.array([self.effaverage(emi,ema,self.pars[eclass][2][it],self.pars[eclass][3][it],eclass) for it in range(self.dims[1])])
             effave = sum(eweights)/len(eweights)
             eweights/=sum(eweights)
-            rpars = [sum(eweights*np.array([self.pars[eclass][it2+4][self.dims[0]*it+eidx] for it in range(self.dims[1])])) for it2 in range(6)]
+            rpars = [sum(eweights*np.array([self.pars[eclass][it2+4][it][eidx] for it in range(self.dims[1])])) for it2 in range(6)]
             rpars.append(effave)
             scale = scale2(energy,self.pars[eclass][-1][2*eclass],self.pars[eclass][-1][2*eclass+1],self.pars[eclass][-1][4])
             rpars[0]*=scale
@@ -105,7 +105,7 @@ class IrfLoader(object):
         caidx = len(self.pars[eclass][3][self.pars[eclass][3]<ctma])
         era = np.arange(eiidx,eaidx+1,1)
         cra = np.arange(ciidx,caidx+1,1)
-        eweights = np.array([self.pars[eclass][-2][self.dims[0]*it+it2]/(self.pars[eclass][1][it2]*self.pars[eclass][0][it2]) for it in cra for it2 in era])
+        eweights = np.array([self.pars[eclass][-2][it][it2]/(self.pars[eclass][1][it2]*self.pars[eclass][0][it2]) for it in cra for it2 in era])
         if ltc is not None:
             lweights = np.array([ltc.value(sd,float(min(self.pars[eclass][3][it],1.-(1e-9)))) for it in cra for it2 in era])
             eweights*=lweights

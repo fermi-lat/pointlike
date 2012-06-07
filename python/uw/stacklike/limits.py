@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# $Header: /nfs/slac/g/glast/ground/cvs/users/mdwood/python/DMLimits.py,v 1.6 2011/03/31 17:02:25 kadrlica Exp $
 
 """
 @author Matthew Wood <mdwood@slac.stanford.edu>
@@ -319,26 +320,28 @@ class BayesianLimit(object):
         self._fn_lpdf = LnLFn(lnlx,lnly)
         self._fn_pdf = lambda t: math.exp(self._fn_lpdf(t))
 
-        dx = (lnlx[1]-lnlx[0])
-        cpdf = [0]
+        newlx = np.linspace(min(lnlx),max(lnlx),30)
+        dx = (newlx[1]-newlx[0])
+        lnlx=newlx
+        self.cpdf = [0]
 
         s = 0
-        for i, xval in enumerate(lnlx):
+        for i, xval in enumerate(newlx):
 
             if i==0: 
                 continue
 
             s += quad(self._fn_pdf,xval-dx,xval)[0]
-            cpdf.append(s)
+            self.cpdf.append(s)
 
-        cpdf = np.array(cpdf)
-        cpdf /= s
+        self.cpdf = np.array(self.cpdf)
+        self.cpdf /= s
 
         vp = np.linspace(0.0,1.0,npdf)
 
-        fn_cpdf = intp.UnivariateSpline(lnlx,cpdf,s=0)
+        self.fn_cpdf = intp.UnivariateSpline(lnlx,self.cpdf,s=0)
 
-        xvp = [0]
+        self.xvp = [0]
 
         xmin = lnlx[0]
         xmax = lnlx[1]
@@ -349,21 +352,20 @@ class BayesianLimit(object):
             if i == 0:
                 continue
             elif i+1 == len(vp):
-                xvp.append(lnlx[-1])
+                self.xvp.append(lnlx[-1])
             else:
 
-                rf = lambda x: fn_cpdf(x)-p
+                rf = lambda x: self.fn_cpdf(x)-p
 
                 while rf(xmax) < 0:
                     xmax *= 1.1
 
-                #print i, p, xmin, xmax, rf(xmin), rf(xmax), lnlx[-1]
                 xp = opt.brentq(rf,xmin,xmax)
-                    
-                xvp.append(xp)
+                #print i, p, xmin, xmax, rf(xmin), rf(xmax), lnlx[-1], xp
+                self.xvp.append(xp)
                 xmin = xp
 
-        self._icdf = intp.UnivariateSpline(vp,xvp,s=0)
+        self._icdf = intp.UnivariateSpline(vp,self.xvp,s=0)
 
     def getLimit(self,alpha=0.05):
         """Evaluate the upper limit corresponding to a C.L. of (1-alpha)%.

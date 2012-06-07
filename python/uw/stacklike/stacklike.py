@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/stacklike.py,v 1.8 2010/12/01 19:40:11 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/stacklike.py,v 1.16 2012/03/12 20:31:59 mar0 Exp $
 author: M.Roth <mar0@u.washington.edu>
 """
 
@@ -25,6 +25,7 @@ import matplotlib.font_manager
 from uw.like.pycaldb import CALDBManager
 from time import sleep
 import copy as cp
+from uw.stacklike import dataset
 
 #################################################        STACKLIKE         ####################################################
 #
@@ -70,17 +71,17 @@ monthlist = ['aug2008','sep2008','oct2008','nov2008','dec2008','jan2009','feb200
 
 environ = 'TEV'
 
-if environ=='FERMITS'
-    basedir = r'd:\common\mar0\stacklike\'
+if environ=='FERMITS':
+    basedir = r'd:\common\mar0\stacklike/'
     CALDBdir = r'd:\fermi/CALDB/v1r1/CALDB/data/glast/lat'
     datadir = r'd:\fermi\data\flight/'                             #directory for FT1 files
     ft2dir = r'd:\fermi\data\flight/'                              #directory for FT2 files
     srcdir = r'd:\common\mar0\sourcelists/'                        #directory for source lists
-if environ=='TEV'
+if environ=='TEV':
     basedir = r'/phys/groups/tev/scratch1/users/Fermi/'
     CALDBdir = basedir+'packages/ScienceTools-09-20-00/irfs/caldb/CALDB/data/glast/lat'
     datadir = basedir+'mar0/data/7.3src/'                             #directory for FT1 files
-    ft2dir = basedir+r'mar0/data/6.3/'                              #directory for FT2 files
+    ft2dir = basedir+r'mar0/data/'                              #directory for FT2 files
     srcdir = r'/phys/users/mar0/sourcelists/'                        #directory for source lists
 files = []                                                     #default list of FT1 file names (minus '-ft1.fits')
 ft2s = []                                                      #default list of FT2 file names (minus '-ft2.fits')
@@ -124,25 +125,20 @@ class StackLoader(object):
     #   @param srcdr source list directory (ascii file with 'name    ra     dec', first line is skipped)
     #   @param irf response function of the form 'P?_v?'
     def __init__(self,**kwargs):
-        self.lis='strong'
+        self.name=''
         self.rot=[0,0,0]
-        self.files=[]
-        self.CALDBdir=CALDBdir
-        self.datadir=datadir
-        self.srcdir=srcdir
-        self.ft2dir=ft2dir
         self.binfile=''
         self.irf = 'P6_v3_diff'
         self.ctmin=0.4
         self.ctmax=1.0
         self.quiet=True
-        self.firstlight = False
-        self.tev = False
-        self.bin=False
-        self.useft2s=True
-        self.phasecut=[]
 
         self.__dict__.update(kwargs)
+        
+        self.dsel = eval('dataset.%s'%(self.name))
+        
+        self.irf = self.dsel.irf
+        self.rot = self.dsel.rot
 
         if not self.quiet:
             print ''
@@ -152,40 +148,12 @@ class StackLoader(object):
             print '*                                                        *'
             print '**********************************************************'
             print 'Using irf: %s'%self.irf
-            print 'Using list: %s.txt'%self.lis
+            print 'Using list: %s.txt'%self.name
             print 'Using boresight alignment (in arcsec): Rx=%1.0f Ry=%1.0f Rz=%1.0f'%(self.rot[0]*rd*3600,self.rot[1]*rd*3600,self.rot[2]*rd*3600)
 
         self.rotang = self.rot
         self.rot = HepRotation(self.rot,False)
-
-        if self.tev:
-            self.CALDBdir = os.environ['CALDB']#r'/phys/groups/tev/scratch1/users/Fermi/CALDB/v1r1/CALDB/data/glast/lat/'
-            self.datadir = r'/phys/groups/tev/scratch1/users/Fermi/mar0/data/'
-            self.ft2dir = self.datadir
-            self.srcdir = r'/phys/users/mar0/sourcelists/'
-            self.logfile = open(r'/phys/users/mar0/python/alignment_log.txt','w')
-
-        if not self.firstlight:
-            if self.files!=[]:
-                ftemp = [self.datadir + fil+'-ft1.fits' for fil in self.files]
-                if self.useft2s:
-                    self.ft2s = [self.ft2dir + fil+'-ft2.fits' for fil in self.files]
-                else:
-                    self.ft2s = []
-                self.files=ftemp
-        else:
-            self.ft2dir = r'd:\common\mar0\data\firstlight/'
-            self.files = [self.ft2dir+'jul2008-ft1.fits']
-            self.ft2s = [self.ft2dir+'jul2008-ft2.fits']
-
-        if self.binfile != '':
-            self.bin = True
-
-        #s.IParams.set_CALDB(self.CALDBdir)
-        #s.IParams.init(self.irf)
         self.atb = []
-
-        self.psf = pypsf.CALDBPsf(CALDBManager(irf=self.irf))
         self.ds = []
         self.excess = []
         self.diffs =[]
@@ -197,18 +165,11 @@ class StackLoader(object):
         self.Nback =0
         self.ebar=0
         self.cls=0
-        self.loadsrclist(self.lis)
-
-    def loadsrclist(self,fname):
-        self.srcs = []
-        sf = file(self.srcdir+fname+'.txt')
-        header = sf.readline()
-        for lines in sf:
-            line = lines.split()
-            ra = float(line[1])
-            dec = float(line[2])
-            sd = s.SkyDir(ra,dec)
-            self.srcs.append(sd)
+        self.srcs = self.dsel.srcs
+        self.files = self.dsel.ft1s
+        self.ft2s = self.dsel.ft2s
+        self.useft2s = self.dsel.useft2s
+        self.phasecut = self.dsel.phase
 
     ##  loads photons from FT1 file near sources  
     #   @param minroi min ROI in degrees
@@ -229,7 +190,7 @@ class StackLoader(object):
         self.maxroi = maxroi
         self.cls = cls
         self.eave = np.sqrt(self.emin*self.emax)
-        if self.bin:
+        if self.dsel.binfile is not None:
             print 'Applying masks to data'
             print '**********************************************************'
             print '%1.0f < Energy < %1.0f'%(self.emin,self.emax)
@@ -341,7 +302,8 @@ class StackLoader(object):
                 if gti is not None and ((phist is not None and self.useft2s) or not self.useft2s):
                     for k in range(len(tb)):
                         event = tb[k]
-                        sd = s.SkyDir(float(event.field('RA')),float(event.field('DEC')))
+                        s_ra,s_dec=float(event.field('RA')),float(event.field('DEC'))
+                        sd = Hep3Vector([s_ra/rd,s_dec/rd])
                         rsrc = self.srcs[0]
                         diff = 1e40
                         if pass7:
@@ -349,7 +311,7 @@ class StackLoader(object):
                                 continue
                         #associate with a particular source
                         for src in self.srcs:
-                            diff = sd.difference(src)*rd
+                            diff = sd.diff(src)*rd
                         
                             #if photons is not too far away from any source
                             #add it to the list
@@ -369,7 +331,7 @@ class StackLoader(object):
 
                                 accept = gti.accept(time)
                                 if accept:
-                                    photon = Photon(sd.ra(),sd.dec(),event.field('ENERGY'),time,event.field('CONVERSION_TYPE'),xv,zv,src,ct=np.cos(event.field('THETA')/rd))
+                                    photon = Photon(s_ra,s_dec,event.field('ENERGY'),time,event.field('CONVERSION_TYPE'),xv,zv,src,ct=np.cos(event.field('THETA')/rd))
                                     #print '%1.2e'%(np.cos(zv.dir().difference(sd))-photon.ct)
                                     #t.sleep(0.1)
                                     self.ebar = self.ebar+event.field('ENERGY')
@@ -1497,7 +1459,7 @@ class StackLoader(object):
                 tc = len(table)
                 if len(table)>0:
                     #make zenith angle cuts to remove limb photons
-                    msk = table.field('ZENITH_ANGLE')<105
+                    msk = table.field('ZENITH_ANGLE')<90.
                     table = table[msk]
                     tc = tc - len(table)
                     cuts[3] = tc
@@ -1590,7 +1552,7 @@ class StackLoader(object):
     def getds(self):
         if self.ds==[]:
             for photon in self.photons:
-                if self.bin:
+                if self.dsel.binfile is not None:
                     u = photon.srcdiff()
                     for k in range(int(photon.weight)):
                         self.ds.append(u)
@@ -1624,25 +1586,16 @@ class StackLoader(object):
         dmask = [True,True,False,False,False]
         self.psf = pypsf.CALDBPsf(CALDBManager(irf=self.irf))
         self.irfloader = IrfLoader(self.irf)
-        if self.cls==-1:
-            r68f=self.psf.inverse_integral(self.ebar,0,68.)/rd
-            r95f=self.psf.inverse_integral(self.ebar,0,95.)/rd
-            r68b=self.psf.inverse_integral(self.ebar,1,68.)/rd
-            r95b=self.psf.inverse_integral(self.ebar,1,95.)/rd
-            r68=np.sqrt(r68f*r68b)
-            r95=np.sqrt(r95f*r95b)
-        else:
-            r68=self.psf.inverse_integral(self.ebar,int(self.photons[0].event_class),68.)/rd
-            r95=self.psf.inverse_integral(self.ebar,int(self.photons[0].event_class),95.)/rd
         psf = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=[0.001,2.25],free=[opt,opt])
-        factor = 2.
-        psf.fromcontain([1./factor,r95/r68/factor],[0.68,0.95])
-        psf.model_par[0]=psf.model_par[0]*r68*factor
+        pars = self.irfloader.params(self.ebar,self.cls)[:-1]
+        R68 = self.irfloader.rcontain(pars,0.68)
+        R95 = self.irfloader.rcontain(pars,0.95)
+        psf.fromcontain([R68,R95],[0.68,0.95])
+        return psf
         pars = self.irfloader.params(self.ebar,self.cls)
         pars = [pars[0],pars[1],pars[3],pars[4],pars[2] if double else 1.0]
         if double:
             psf = PSFDouble(lims=[self.minroi/rd,self.maxroi/rd],model_par=pars,free=[(opt and dmask[x]) or double for x in range(len(pars))])
-
         if theta:
             psf = PSFTheta(lims=psf.lims,model_par=[psf.model_par[0],psf.model_par[1],0.,0.],free=[opt,opt,True,True])
         return psf
