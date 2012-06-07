@@ -1,5 +1,16 @@
 ------------------------------------------------------------
 User: mar0  Thu Jun  7 11:26:49 PDT 2012
+pointlike/python/uw/stacklike/lists
+
+Added Files:
+	1es0229p200.txt 1es0347-121.txt agn-psf-study-bright.txt 
+	agn_redshift2_hi_bzb.txt agn_redshift2_lo_bzb.txt gem.txt 
+	vela.txt 
+Log Message:
+changed infrastructure to stacklike
+    *
+------------------------------------------------------------
+User: mar0  Thu Jun  7 11:26:49 PDT 2012
 pointlike/python/uw/stacklike
 
 Modified Files:
