@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Jun 11 18:03:04 PDT 2012
+ScienceTools-scons/pointlike/python/uw/darkmatter
+
+Modified Files:
+	spectral.py 
+Log Message:
+implement ComprehensiveModel
+    *
+------------------------------------------------------------
 User: lande  Mon Jun 11 17:53:50 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
