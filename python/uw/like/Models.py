@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.99 2012/06/07 23:02:33 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.100 2012/06/12 00:02:21 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -1168,11 +1168,16 @@ class CompositeModel(Model):
             >>> np.all(sum_model.free==np.append(m1.free,m2.free))
             True
 
-        
+        Previously there was a bug with having 3 spatial parameters: 
+            >>> c = SumModel(PowerLaw(),PowerLaw(),PowerLaw())
+            >>> print c._p
+            [-11.   2. -11.   2. -11.   2.]
+            >>> print c.free
+            [ True  True  True  True  True  True]
     """
     default_extra_params=dict() # Don't allow any of these
 
-    def __init__(self,*models, **kwargs):
+    def __init__(self,*models):
         if len(models) < 1:
             raise Exception("CompositeModel must be created with more than one spectral model")
         for m in models:
@@ -1219,7 +1224,7 @@ class CompositeModel(Model):
 
     @property
     def _p(self): 
-        return np.append(*[i._p for i in self.models])
+        return np.concatenate([i._p for i in self.models])
 
     @_p.setter
     def _p(self, value):
@@ -1231,7 +1236,7 @@ class CompositeModel(Model):
 
     @property
     def free(self): 
-        return np.append(*[i.free for i in self.models])
+        return np.concatenate([i.free for i in self.models])
 
     @free.setter
     def free(self, value):
