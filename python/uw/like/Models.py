@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.100 2012/06/12 00:02:21 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.101 2012/06/12 00:53:50 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -284,7 +284,6 @@ class Model(object):
         """ Return gradient with respect to external parameters. """
         pass
 
-    @abstractmethod
     def gradient(self,e):
         """ Return gradient with respect to internal parameters. """
         dextdint=self.dexternaldinternal()
@@ -1292,7 +1291,7 @@ class FrontBackConstant(CompositeModel):
         return self.models[self.ct](e)
         
     def external_gradient(self, e):
-        return nexternal_p.hstack([(1-self.ct)*self.models[0].external_gradient(e).T, 
+        return np.hstack([(1-self.ct)*self.models[0].external_gradient(e).T, 
                           self.ct*self.models[1].external_gradient(e).T])
 
 class SumModel(CompositeModel):

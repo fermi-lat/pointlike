@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.58 2012/06/06 19:18:51 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.59 2012/06/06 22:49:56 lande Exp $
 
 author: Joshua Lande
 """
@@ -732,6 +732,8 @@ class MonteCarlo(object):
         return 0
 
     def _make_isotropic_diffuse(self,ds,*args, **kwargs):
+        dm=ds.dmodel[0]
+        sm=ds.smodel
 
         if not MonteCarlo.isone(sm):
             raise Exception("Can only run gtobssim with IsotropicSpectrum diffuse models if model predicts 1.")
