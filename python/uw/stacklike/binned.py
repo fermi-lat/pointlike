@@ -62,12 +62,12 @@ def format_error(v,err):
 ##############################################  Namespace Defaults #############################################
 cachedir = dataset.basedir+'cache/'
 figdir = dataset.basedir+'figures/'
-pulsars = [('vela',0.5,[0.1,0.15,0.5,0.6],[0.7,1.0]),('gem',0.5,[0.1,0.17,0.6,0.68],[0.25,0.55])]#,('crab',0.45/0.55,[0.0,0.09,0.25,0.48,0.87,1.0],[0.09,0.25,0.48,1.0])]                                       #pulsar sourcelist name 
-agnlist = ['agn-psf-study-bright']
-
+pulsars = [('vela',0.17/0.37,[0.0,0.11,0.63,0.69],[0.19,0.56]),('gem',0.2/0.3,[0.08,0.18,0.6,0.70],[0.25,0.55])]#,('crab',0.45/0.55,[0.0,0.09,0.25,0.48,0.87,1.0],[0.09,0.25,0.48,1.0])]                                       #pulsar sourcelist name 
+agnlist = ['psfstudy']
+fdays=10*365
 rd = 180./np.pi
 INFINITY = np.Infinity#1e80#
-ZERO = 1e-40
+ZERO = 1e-40 
 ergs = 1.602e-6
 np.seterr(all='ignore')
 
@@ -86,7 +86,7 @@ class CombinedLike(object):
         self.pulsars = pulsars
         self.agnlist = agnlist
         self.cachedir = cachedir
-        self.irf = irf
+        self.irf = 'P7SOURCE_V6'
         self.cache = True
         self.verbose = False
         self.veryverbose = False
@@ -159,7 +159,7 @@ class CombinedLike(object):
         self.emax=emax
         self.ebar=np.sqrt(self.emin*self.emax)
 
-        tag = '%1.2f%1.2f%1.2f%1.2f%1.0f%1.0f%1.0f%1.2f%1.2f%s'%(minroi,maxroi,emin,emax,tmin,tmax,ctype,self.ctmin,self.ctmax,anname)
+        tag = '%1.2f%1.2f%1.2f%1.2f%1.0f%1.0f%1.0f%1.2f%1.2f%s'%(minroi,maxroi,emin,emax,tmin,tmax,ctype,self.ctmin,self.ctmax,self.irf)
 
         #load pulsar data
         thetabar = 0.
@@ -172,7 +172,7 @@ class CombinedLike(object):
                 hist = np.load(self.cachedir+'%son%s.npy'%(psr[0],tag))
                 self.pulse_ons.append(hist)
             else:
-                sl = StackLoader(name=psr+'on',ctmin=self.ctmin,ctmax=self.ctmax,quiet=not self.veryverbose)
+                sl = StackLoader(name=psr[0]+'on',ctmin=self.ctmin,ctmax=self.ctmax,quiet=not self.veryverbose)
                 sl.loadphotons(minroi,maxroi,emin,emax,tmin,tmax,ctype)
                 sl.getds()
                 photons = photons+len(sl.photons)
@@ -188,7 +188,7 @@ class CombinedLike(object):
                 hist = np.load(self.cachedir+'%soff%s.npy'%(psr[0],tag))
                 self.pulse_offs.append(hist)
             else:
-                sl = StackLoader(name=psr+'off',ctmin=self.ctmin,ctmax=self.ctmax,quiet=not self.veryverbose)
+                sl = StackLoader(name=psr[0]+'off',ctmin=self.ctmin,ctmax=self.ctmax,quiet=not self.veryverbose)
                 sl.loadphotons(minroi,maxroi,emin,emax,tmin,tmax,ctype)
                 photons = photons+len(sl.photons)
                 thetabar = thetabar+sum([p.ct for p in sl.photons])
@@ -1269,21 +1269,31 @@ class CombinedLike(object):
             pars = [par for par in pars]
             pars.append(1.-nc)
         fint = self.makepsf(pars)
+
+        params = cp.copy(self.params)
+        fixed = cp.copy(self.fixed)
+        free = cp.copy(self.free)
         for it,fin in enumerate(fint):
-            #self.fixed[it]=True
+            self.fixed[it]=True
             self.params[it]=fin
+            self.free[it]=False
             #self.limits[it]=[fin,fin]
 
-        def helper(x):
-            print x
-            return self.likelihood(np.log10(np.hstack((self.params[:self.nbins-1],x))))
-
-        fval = self.likelihood(np.log10(self.params))#minuit[1]
+        ival = self.likelihood(np.log10(self.params))
+        tol = abs(0.0001/ival)
+        fval = so.fmin_powell(lambda z: self.likelihood(self.setargs(z)),np.log10(self.params[self.free]),ftol=tol,disp=0,full_output=1)[1]
         if self.verbose:
             tstr = ''.join(['%1.3f\t'%(par) for par in pars])
             print tstr,'%1.1f'%(self.lmax-fval)
+        
+        self.params = cp.copy(params)
+        self.fixed = cp.copy(fixed)
+        self.free = cp.copy(free)
+        del params
+        del fixed
+        del free
         #memory issues?
-        #del minuit
+        #del self.minuit
         del fint
         #del psf1
         #if len(pars)!=2:
@@ -1880,7 +1890,7 @@ def test(bins=12,ctype=0,emin=1000,emax=1778,days=730,irf='P6_v3_diff',maxr=-1,s
 #  @param sel string to select subset of pulsars, default is all [vela,geminga]
 #  @param agnlis list of AGN to compare, if more than one specified, the last one will be examined for halos and the others will be calibration sources
 #  @param model angular model for halo to check ['CDisk','CHalo'], see uw.stacklike.angularmodels for more information
-def halo(bins=12,ctype=0,emin=1000,emax=1778,days=fdays,irf='P6_v3_diff',maxr=-1,sel='[0:2]',agnlis=['agn-psf-study-bright'],model='CDisk',verbose=False,veryverbose=False,ret=False,fileglob=fileglob):
+def halo(bins=12,ctype=0,emin=1000,emax=1778,days=fdays,irf='P6_v3_diff',maxr=-1,sel='[0:2]',agnlis=['agn-psf-study-bright'],model='CDisk',verbose=False,veryverbose=False,ret=False):
     import cPickle
     #setup the binned likelihood object
     psf = CALDBPsf(CALDBManager(irf=irf))
@@ -1892,7 +1902,7 @@ def halo(bins=12,ctype=0,emin=1000,emax=1778,days=fdays,irf='P6_v3_diff',maxr=-1
     pts = [0.1,0.5,1.0]
     for pt in pts:
         cl = CombinedLike(irf=irf,mode=-1,pulsars = eval('pulsars'+sel+''),agnlist=agnlis,verbose=verbose,veryverbose=veryverbose,qandd=True)
-        cl.loadphotons(0,maxr,emin,emax,239557417,239517417+days*86400,ctype,agnglob=fileglob)
+        cl.loadphotons(0,maxr,emin,emax,239557417,239517417+days*86400,ctype)
         cl.bindata(bins)#,halomod=model,par=[pt/rd,ebar,ctype])
         cl.fit(qandd=True)
         npsrs = len(cl.ponhists)
