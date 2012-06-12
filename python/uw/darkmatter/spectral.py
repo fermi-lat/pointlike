@@ -1,6 +1,6 @@
 """ Dark Matter spectral models
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spectral.py,v 1.1 2012/06/05 23:02:26 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spectral.py,v 1.2 2012/06/06 16:14:26 lande Exp $
 
     author: Alex Drlica-Wagner, Joshua Lande
 """
@@ -8,10 +8,10 @@ import collections
 
 import numpy as np
 
-from uw.like.Models import Model
+from uw.like.Models import Model,CompositeModel,Constant
 from uw.like.SpatialModels import SpatialMap
 
-from uw.utilities.parmap import LogMapper
+from uw.utilities.parmap import LogMapper,LimitMapper
 
 class DMFitFunction(Model):
     """ Wrap gtlike's DMFitFunction interface. 
@@ -140,7 +140,73 @@ class DMFitFunction(Model):
     def __call__(self,e):
         """ Return energy in MeV. This could be vectorized. """
         return DMFitFunction.call_pylike_spectrum(self.dmf, e)
+
+
+class ComprehensiveModel(CompositeModel):
+    """ Implements a "Comprehensive Model" needed for comparing non-nested
+        models using a fequentist test with a well defiend null hypthesis.
+
+        A good reference for the test is Cox 1961, 1962:
+
+        And a modern description is in a recent talk by Jan Conrad:
+            http://www-conf.slac.stanford.edu/statisticalissues2012/talks/SLAC_Statistics_2012_Conrad.pdf
+
+
+        This feature is somewhat implemented in gtlike, but compbingin the
+        two models in a different way
+            https://confluence.slac.stanford.edu/display/SCIGRPS/Model+Selection+Using+Likelihood+Ratios
+
+        Using this object is easy:
+
+            >>> from uw.like.Models import PowerLaw
+            >>> dm=DMFitFunction()
+            >>> pl=PowerLaw()
+            >>> cm=ComprehensiveModel(dm,pl)
+
+        This model has a "Scale" (the theta parameter), and the parameters
+        for the dark matter & powerlaw object:
+
+            >>> print cm.param_names
+            ['Scale', 'sigmav', 'mass', 'Norm', 'Index']
+            >>> print cm
+            Scale     : 0.5 
+            sigmav    : 1 
+            mass      : 100 
+            Norm      : 1e-11 
+            Index     : 2 
+            Ph. Flux  : 4.19e-07 (DERIVED)
+            En. Flux  : 1.84e-09 (DERIVED)
+
+        The default 'theta' parameter is 0.5
+            >>> print cm.param_names[0]
+            Scale
+            >>> print cm[0]
+            0.5
+
+        And the value is defined with the strange formula:
+
+            >>> energies=np.logspace(1,7,8)
+            >>> for theta in [0, 0.25, 0.5, 0.75, 1]:
+            ...    cm['Scale'] = theta
+            ...    np.all(cm(energies)==dm(energies)**theta*pl(energies)**(1-theta))
+            True
+            True
+            True
+            True
+            True
+    """
+    def __init__(self,model1,model2):
+        theta=Constant(Scale=0.5,mappers=[LimitMapper(0,1)])
+        super(ComprehensiveModel,self).__init__(theta,model1,model2)
+
+    def __call__(self,e):
+        theta,g,f=self.models
+        return g(e)**theta(e)*f(e)**(1-theta(e))
+
+    def external_gradient(self,e):
+        pass
         
 if __name__ == "__main__":
     import doctest
     doctest.testmod()
+        
