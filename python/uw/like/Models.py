@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.98 2012/06/06 20:33:03 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.99 2012/06/07 23:02:33 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -1094,20 +1094,93 @@ class PLSuperExpCutoff(Model):
 class CompositeModel(Model):
     """ A model which joins other models. Subclasses must
         implement the __call__(e) function which says
-        how to join the models. """
+        how to join the models. 
+        
+        CompositeModels should act just like regular models, implementing all
+        of the parameters you expect for Models. 
+        
+        Here, we show how it works for a SumModel, the simplest CompositeModel.
+        
+        First, we create a SumModel
+
+            >>> m1=PowerLaw(index=2);m1.set_flux(1)
+            >>> m2=LogParabola(beta=2); m1.set_flux(1)
+            >>> sum_model=SumModel(m1,m2)
+
+        The sum_model has a param_names, mappers
+
+            >>> sum_model.param_names == m1.param_names + m2.param_names
+            True
+            >>> sum_model.mappers == m1.mappers + m2.mappers
+            True
+
+        The CompositeModel.npar is the sum of parameters
+            >>> sum_model.npar == m1.npar + m2.npar
+            True
+
+        And CompositeModel.npars is an array of the length of each parameter
+            >>> np.all(sum_model.npars == [m1.npar,m2.npar])
+            True
+
+        And the parameters for the model is just the sum of the parameters for each model individually
+
+            >>> np.all(sum_model.get_all_parameters() == np.append(m1.get_all_parameters(),m2.get_all_parameters()))
+            True
+            >>> np.all(sum_model._p == np.append(m1._p,m2._p))
+            True
+
+            >>> np.all(sum_model.free==np.append(m1.free,m2.free))
+            True
+
+        Also, getting and setting parameters individually acts just as one would expect
+
+            >>> sum_model.mappers[1]
+            <class 'uw.utilities.parmap.LinearMapper'>
+            >>> sum_model[1] 
+            2.0
+            >>> sum_model.getp(1)
+            2.0
+            >>> print sum_model._p[1]
+            2.0
+            >>> sum_model[1] = -1
+            >>> sum_model[1] 
+            -1.0
+            >>> sum_model.getp(1)
+            -1.0
+            >>> print sum_model._p[1]
+            -1.0
+
+        Also, the free parameters should be totally transparent:
+
+            >>> sum_model.free[1]
+            True
+            >>> sum_model.freeze(1)
+            >>> sum_model.free[1]
+            False
+
+        And after the individual parameter modifications, the CompositeModel._p
+        and CompositeModel.free arrays are updated consistently in the individual
+        Model objects and in the Composite object:
+
+            >>> np.all(sum_model._p == np.append(m1._p,m2._p))
+            True
+
+            >>> np.all(sum_model.free==np.append(m1.free,m2.free))
+            True
+
+        
+    """
+    default_extra_params=dict() # Don't allow any of these
 
     def __init__(self,*models, **kwargs):
-        iscopy = kwargs.pop('iscopy', False)
         if len(models) < 1:
             raise Exception("CompositeModel must be created with more than one spectral model")
         for m in models:
             if not isinstance(m,Model):
                 raise Exception("CompositeModel must be created with a list of models.")
 
-        self.flux_scale = 1.
         self.models = models
         self.internal_cov_matrix = np.zeros([self.npar,self.npar]) #default covariance matrix
-        self.e0 = 1000. # not sure why, but sed_plotter needs this
 
     @abstractmethod
     def __call__(self,e): 
@@ -1117,6 +1190,11 @@ class CompositeModel(Model):
     @property
     def param_names(self):
         return reduce(operator.add,[i.param_names for i in self.models])
+
+    @property
+    def mappers(self):
+        return reduce(operator.add,[i.mappers for i in self.models])
+
 
     @property
     def pretty_name(self):
@@ -1132,12 +1210,12 @@ class CompositeModel(Model):
         for m in self.models: m.background = b
 
     @property
-    def n(self): 
-        return np.asarray([len(i._p) for i in self.models])
+    def npars(self): 
+        return np.asarray([i.npar for i in self.models])
 
     @property
     def npar(self): 
-        return sum([len(i._p) for i in self.models])
+        return sum([i.npar for i in self.models])
 
     @property
     def _p(self): 
@@ -1147,9 +1225,9 @@ class CompositeModel(Model):
     def _p(self, value):
         assert(len(self._p) == len(value))
         counter=0
-        for i in xrange(len(self.n)):
-            self.models[i]._p = value[counter:counter+self.n[i]]
-            counter += self.n[i]
+        for i,n in enumerate(len(self.npars)):
+            self.models[i]._p = value[counter:counter+n]
+            counter += n
 
     @property
     def free(self): 
@@ -1159,38 +1237,37 @@ class CompositeModel(Model):
     def free(self, value):
         assert(len(self.free) == len(value))
         counter=0
-        for i in xrange(len(self.n)):
-            self.models[i].free = value[counter:counter+self.n[i]]
-            counter += self.n[i]
-      
-    def setp(self, i, par, internal=False):
-        """ set internal value, convert unless internal
-        """
-        i=self.name_mapper(i) #?
-        if not internal: 
-            assert par>0, 'Model external parameter cannont be negative'
+        for i,n in enumerate(len(self.npars)):
+            self.models[i].free = value[counter:counter+n]
+            counter += n
+
+    def get_model_and_parameter_index(self,i):
+        """ For a given parameter 'i', get the 
+            model index (in the list of models)
+            and parameter index (in the list of
+            parameters for the selected model. """
+        i=self.name_mapper(i)
         counter=0
-        for k in xrange(len(self.n)):
-            if counter<i:
-                counter += self.n[k]
-                continue
-            self.models[k]._p[i-counter] = par if internal else  np.log10(par)
-            return       
+        for k,n in enumerate(self.npars):
+            if i < counter+n:
+                break
+            counter+=n
+        model_index=k
+        parameter_index=i-counter
+        return model_index,parameter_index
+      
+    def setp(self, i, *args, **kwargs):
+        """ set internal value, convert unless internal
 
-    def set_parameters(self,new_vals):
-        """Set FREE internal parameters; new_vals should have length equal to number of free parameters."""
-        assert len(new_vals)==(self.free).sum(), 'attempt to set wrong number of free parameters, model %s' %self
-        pars = self._p
-        pars[self.free] = new_vals.astype('f')
-        self._p = pars
+                >>> raise Exception("This function does not work yet.")
+        """
+        model_index,parameter_index=self.get_model_and_parameter_index(i)
+        self.models[model_index].setp(parameter_index,*args, **kwargs)
 
-    def freeze(self,i,freeze=True):
-        free = self.free
-        j=0
-        while i>=len(self.models[j]._p):
-            i-=len(self.models[j]._p)
-            j+=1
-        self.models[j].free[i] = not freeze
+    def freeze(self,i,*args,**kwargs):
+        model_index,parameter_index=self.get_model_and_parameter_index(i)
+        self.models[model_index].freeze(parameter_index,*args, **kwargs)
+
 
 class FrontBackConstant(CompositeModel):
     """ Composite model that is either/or, for front or back
