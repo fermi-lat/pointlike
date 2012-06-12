@@ -8,6 +8,7 @@ import uw.like.pypsf as up
 from uw.like.pycaldb import CALDBManager
 from uw.like.pypsf import CALDBPsf
 import uw.stacklike.angularmodels as ua
+#import uw.utilities.assigntasks as uta
 from uw.stacklike.stcaldb import scale2
 import pyfits as pf
 import pylab as py
@@ -684,11 +685,11 @@ def makeplots(irfs=['P6_v11_diff'],fact=1.,num=32.,cts=[34,68,95]):
 
 def likelihoodtable(enr1,ctr1,ctype,weight=0.5,irf ='P7SOURCE_V6',mcirf='P7SOURCE_V4MC',out='P7SOURCE_V11',jg=False):
     import cPickle
-    days =1187      #number of days of data to use
-    bins = 12      #number of angular bins
+    days =4*365      #number of days of data to use
+    bins = 16      #number of angular bins
     pname = os.environ['CALDB']+r'/data/glast/lat/bcf/psf/psf_%s_'%irf
-    pulsdir = r'/phys/groups/tev/scratch1/users/Fermi/mar0/data/pulsar7/source/'
-    agndir = r'/phys/groups/tev/scratch1/users/Fermi/mar0/data/7.3src/'
+    pulsdir = r'/phys/groups/tev/scratch1/users/Fermi/mar0/data/7.3srcrp/pulsar/'
+    agndir = r'/phys/groups/tev/scratch1/users/Fermi/mar0/data/7.3srcrp/'
     print pname
 
     ######  get reference CALDB details  ###########
@@ -721,7 +722,7 @@ def likelihoodtable(enr1,ctr1,ctype,weight=0.5,irf ='P7SOURCE_V6',mcirf='P7SOURC
         for ctmin,ctmax in zip(a_ctbins[:-1],a_ctbins[1:]):
             ebar = np.sqrt(emin*emax)
             maxr = psf.inverse_integral(ebar,ctype,99.5)*1.5                    #Go out to tails of angular distribution for the ROI cut
-            agnlis = ['agn-psf-study-bright'] if ebar>1778 else []              #Use AGN information above 1.7 GeV
+            agnlis = ['psfstudy'] if ebar>1778 else []              #Use AGN information above 1.7 GeV
             psrs = ub.pulsars if ebar<10000 else []             #Use Pulsar information below 10 GeV
 
             def formatint(pint,num):
@@ -737,8 +738,9 @@ def likelihoodtable(enr1,ctr1,ctype,weight=0.5,irf ='P7SOURCE_V6',mcirf='P7SOURC
 
             #make a new one
             else:
+                bins = 16 if emin<5623 else 12
                 cl = ub.CombinedLike(irf=irf,mode=-1,pulsars=psrs[0:2],agnlist=agnlis,verbose=False,ctmin=ctmin,ctmax=ctmax,agndir=agndir,pulsdir=pulsdir)
-                cl.loadphotons(0,maxr,emin,emax,239557417,239517417+days*86400,ctype,'p*.fits')
+                cl.loadphotons(0,maxr,emin,emax,239557417,239517417+days*86400,ctype)
                 cl.bindata(bins)
                 cl.fit(qandd=True)
 
@@ -774,23 +776,24 @@ def likelihoodtable(enr1,ctr1,ctype,weight=0.5,irf ='P7SOURCE_V6',mcirf='P7SOURC
             for j in range(len(likel[0])):
                 scb = scale2(a_ebars[i],spars[ct*2],spars[ct*2+1],spars[4])*rd  #calulate scale width at the mean bin energy in degrees
                 dist = (((ti-a_eidx[i])*scl)**2+((tj-a_cidx[j])*scl)**2)        #distance between current table position and reference table position
-                fact = np.exp(-dist/2.)/np.sqrt(2*np.pi)/scl                                         #weighting factor for likelihood is just the gaussian
-                tss=lin(pars[0:3],a_eidx[i],a_cidx[j])                          #SCORE linear approx
-                tsg=lin(pars[3:6],a_eidx[i],a_cidx[j])                          #GCORE linear approx
-                tss2 = lin(pars[6:9],a_eidx[i],a_cidx[j])#tss                                                      #set STAIL = SCORE for the time
-                tsg2 = lin(pars[9:12],a_eidx[i],a_cidx[j])                       #GTAIL linear approx
-                tsf = lin(pars[12:15],a_eidx[i],a_cidx[j])                       #NCORE/NTAIL linear approx, will be determined by min(GCORE,GTAIL)
+                if dist<25:
+                    fact = np.exp(-dist/2.)/np.sqrt(2*np.pi)/scl                                         #weighting factor for likelihood is just the gaussian
+                    tss=lin(pars[0:3],a_eidx[i],a_cidx[j])                          #SCORE linear approx
+                    tsg=lin(pars[3:6],a_eidx[i],a_cidx[j])                          #GCORE linear approx
+                    tss2 = lin(pars[6:9],a_eidx[i],a_cidx[j])#tss                                                      #set STAIL = SCORE for the time
+                    tsg2 = lin(pars[9:12],a_eidx[i],a_cidx[j])                       #GTAIL linear approx
+                    tsf = lin(pars[12:15],a_eidx[i],a_cidx[j])                       #NCORE/NTAIL linear approx, will be determined by min(GCORE,GTAIL)
 
-                #make sure parameters are bounded, otherwise they don't contribute to the likelihood
-                if tss<0 or tsg<1 or tsg2<1 or tss2<0 or tsf>1 or tsf<0 or tsg>5. or tsg2>5.:
-                    continue
-                
-                #evaluate the likelihood of the parameterization in this bin, weight it, and sum
-                tlike = likel[i][j].psflikelihood([scb*tss,tsg,tsf,scb*tss2,tsg2,(1.-tsf)])#[scb*tss,tsg])
-                acc += tlike*fact
-                #print '%d %d %1.0f %1.1f %1.3f %1.3f %1.1f %1.2f %1.1f %1.1f'%(a_eidx[i],a_cidx[j],a_ebars[i],dist,tss,tsg,fact,tlike,tlike*fact,acc)
-                #t.sleep(0.1)
-        print string.join(['%1.4f'%(prs) for prs in pars],' ') + ' %1.1f'%acc
+                    #make sure parameters are bounded, otherwise they don't contribute to the likelihood
+                    if tss<0 or tsg<1 or tsg2<1 or tss2<0 or tsf>1 or tsf<0 or tsg>5. or tsg2>5.:
+                        continue
+                    
+                    #evaluate the likelihood of the parameterization in this bin, weight it, and sum
+                    tlike = likel[i][j].psflikelihood([scb*tss,tsg,tsf,scb*tss2,tsg2])#[scb*tss,tsg])
+                    acc += tlike*fact
+                    #print '%d %d %1.0f %1.1f %1.3f %1.3f %1.1f %1.2f %1.1f %1.1f'%(a_eidx[i],a_cidx[j],a_ebars[i],dist,tss,tsg,fact,tlike,tlike*fact,acc)
+                    #t.sleep(0.1)
+        print string.join(['%1.4f'%(prs) for prs in pars],' ') + ' %1.3f'%acc
         #print '#################################################'
         return acc
 
@@ -798,9 +801,18 @@ def likelihoodtable(enr1,ctr1,ctype,weight=0.5,irf ='P7SOURCE_V6',mcirf='P7SOURC
     if not jg:
         idx = ebins*ctr1+enr1             #determine unique index for entry in table
 
+        initial = [1.0,0,0,2.,0,0,1.0,0,0,2.,0,0,0.5,0,0]
+        l0 = weightedlike(likelihoods,enr1,ctr1,initial,weight,psfsc,ctype)
+        ftol = abs(0.05/l0)
         #calcuate best parameters
-        minuit = so.fmin_powell(lambda x: weightedlike(likelihoods,enr1,ctr1,x,weight,psfsc,ctype),[1.0,0,0,2.,0,0,1.0,0,0,2.,0,0,0.5,0,0],full_output=1,disp=1) 
-        prs = minuit[0]                   
+        print ftol
+        if True:
+            minuit = so.fmin_powell(lambda x: weightedlike(likelihoods,enr1,ctr1,x,weight,psfsc,ctype),initial,full_output=1,disp=1,ftol=ftol)
+            prs = minuit[0]                   
+        else:
+            minuit = Minuit(lambda x: weightedlike(likelihoods,enr1,ctr1,x,weight,psfsc,ctype),initial,mode=2)
+            minuit.minimize()
+            prs = minuit.params
         bests = lin(prs[0:3],enr1,ctr1)
         bestg = lin(prs[3:6],enr1,ctr1)
         bests2 = lin(prs[6:9],enr1,ctr1)
@@ -810,6 +822,7 @@ def likelihoodtable(enr1,ctr1,ctype,weight=0.5,irf ='P7SOURCE_V6',mcirf='P7SOURC
 
         #output the best fit parameters for this table entry
         print >>outfile,bests,bestg,bests2,bestg2,bestf
+        print bests,bestg,bests2,bestg2,bestf
         return idx,bests,bestg,bests2,bestg2,bestf
 
 ## makelikeirfs - read in best parameters and create the corresponding CALDB files
@@ -819,8 +832,8 @@ def makelikeirfs(irf='P7SOURCE_V6',out='P7SOURCE_V11'):
     
     #get the parameter files
     os.chdir('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/psftable/')
-    frontfiles = np.sort(glob.glob('*_0.txt'))
-    backfiles = np.sort(glob.glob('*_1.txt'))
+    frontfiles = ['%d_0.txt'%x for x in range(144)]
+    backfiles = ['%d_1.txt'%x for x in range(144)]
     pname = os.environ['CALDB']+r'/data/glast/lat/bcf/psf/psf_%s_'%irf
     cwd = os.getcwd()
 
@@ -833,11 +846,16 @@ def makelikeirfs(irf='P7SOURCE_V6',out='P7SOURCE_V11'):
     bf = pf.open('psf_%s_back.fits'%out,mode='update')
     ftb=ff[1].data
     btb=bf[1].data
+    dim1 = len(ftb.field('SCORE')[0][0])
+    dim2 = len(ftb.field('SCORE')[0])
 
     #update the front CALDB file entries
     for ffil in frontfiles:
         tf = open(ffil)
         idx = int(ffil.split('_')[0])
+
+        enidx=idx%dim1
+        ctidx=idx/dim1
         line = tf.readline()
         """sigma,gamma=line.split(' ')
         sigma,gamma=float(sigma),float(gamma)
@@ -851,6 +869,7 @@ def makelikeirfs(irf='P7SOURCE_V6',out='P7SOURCE_V11'):
         lines = [float(line) for line in lines]
         #print idx,sigma,gamma
 
+
         #figure out if we're looking at core or tail
         if lines[1]>lines[3]:
             score,gcore,stail,gtail,ncore=lines
@@ -860,17 +879,20 @@ def makelikeirfs(irf='P7SOURCE_V6',out='P7SOURCE_V11'):
             ncore= 1-ntail
         ncore = max(min(1,ncore),1e-4)
         ntail = max((1-ncore)/ncore*(score/stail)**2,0)
-        ftb.field('SCORE')[0][idx]=score
-        ftb.field('STAIL')[0][idx]=stail
-        ftb.field('GCORE')[0][idx]=gcore
-        ftb.field('GTAIL')[0][idx]=gtail
-        ftb.field('NCORE')[0][idx]=ncore
-        ftb.field('NTAIL')[0][idx]=ntail
+        print enidx,ctidx,score,gcore,stail,gtail,ncore
+        ftb.field('SCORE')[0][ctidx][enidx]=score
+        ftb.field('STAIL')[0][ctidx][enidx]=stail
+        ftb.field('GCORE')[0][ctidx][enidx]=gcore
+        ftb.field('GTAIL')[0][ctidx][enidx]=gtail
+        ftb.field('NCORE')[0][ctidx][enidx]=ncore
+        ftb.field('NTAIL')[0][ctidx][enidx]=ntail
 
     #update the back CALDB file entries
     for ffil in backfiles:
         tf = open(ffil)
         idx = int(ffil.split('_')[0])
+        enidx=idx%dim1
+        ctidx=idx/dim1
         line = tf.readline()
         """sigma,gamma=line.split(' ')
         sigma,gamma=float(sigma),float(gamma)
@@ -891,12 +913,13 @@ def makelikeirfs(irf='P7SOURCE_V6',out='P7SOURCE_V11'):
             ncore= 1-ntail
         ncore = max(min(1,ncore),1e-4)
         ntail = max((1-ncore)/ncore*(score/stail)**2,0)
-        btb.field('SCORE')[0][idx]=score
-        btb.field('STAIL')[0][idx]=stail
-        btb.field('GCORE')[0][idx]=gcore
-        btb.field('GTAIL')[0][idx]=gtail
-        btb.field('NCORE')[0][idx]=ncore
-        btb.field('NTAIL')[0][idx]=ntail
+        print enidx,ctidx,score,gcore,stail,gtail,ncore
+        btb.field('SCORE')[0][ctidx][enidx]=score
+        btb.field('STAIL')[0][ctidx][enidx]=stail
+        btb.field('GCORE')[0][ctidx][enidx]=gcore
+        btb.field('GTAIL')[0][ctidx][enidx]=gtail
+        btb.field('NCORE')[0][ctidx][enidx]=ncore
+        btb.field('NTAIL')[0][ctidx][enidx]=ntail
 
     #output the tables and copy into irfs
     ff[1].data=ftb
@@ -909,13 +932,20 @@ def makelikeirfs(irf='P7SOURCE_V6',out='P7SOURCE_V11'):
     os.system(cmd1)
     os.system(cmd2)
     #plot the new PSF
-    makeplots(['P7SOURCE_V4MC',irf,out],1.1,4,cts=[68.,95.])
+    #makeplots(['P7SOURCE_V4MC',irf,out],1.1,4,cts=[68.,95.])
+
+def makeallpsftasks():
+    mcff = pf.open(os.environ['CALDB']+r'/data/glast/lat/bcf/psf/psf_P7SOURCE_V4MC_front.fits')
+    ctbins = len(mcff[1].data.field('CTHETA_LO')[0])
+    ebins = len(mcff[1].data.field('ENERG_LO')[0])
+    tasks = ['uf.likelihoodtable(%d,%d,%d,0.15)'%(enr,ctr,y) for enr in range(ebins) for ctr in range(ctbins) for y in range(2)]
+    return tasks
 
 ## run the full likelihood analysis on different cores and output results
 def psftable():
 
     #names of machines to run ipengines on
-    machines = 'tev01 tev02 tev03 tev04 tev05 tev06 tev07 tev08 tev09 tev10 tev11'.split()
+    #machines = 'tev01 tev02 tev03 tev04 tev05 tev06 tev07 tev08 tev09 tev10 tev11'.split()
 
     #make sure the pickle objects are made
     likelihoodtable(0,0,0,jg=True)
@@ -924,19 +954,30 @@ def psftable():
     #setup the engines to run a table entry on each
     setup_string = 'import uw.stacklike.fitsmooth as uf;reload(uf);from uw.stacklike.fitsmooth import *'
     mcff = pf.open(os.environ['CALDB']+r'/data/glast/lat/bcf/psf/psf_P7SOURCE_V4MC_front.fits')
-    ctbins = len(mcff[1].data.field('CTHETA_LO')[0])
-    ebins = len(mcff[1].data.field('ENERG_LO')[0])
-    tasks = ['uf.likelihoodtable(%d,%d,%d,0.15)'%(enr,ctr,y) for enr in range(ebins) for ctr in range(ctbins) for y in range(2)]
-    clfile = open('/phys/groups/tev/scratch1/users/Fermi/mar0/_ipython/calcpsf.txt','w')
-    clfile.close()
-    uta.setup_mec(engines=len(tasks)/len(machines)/2,machines=machines,clobber=True,clusterfile='/phys/groups/tev/scratch1/users/Fermi/mar0/_ipython/calcpsf.txt')
-    t.sleep(60)
-    logfile = open('/phys/groups/tev/scratch1/users/Fermi/mar0/python/mec.log','w')
-    at = uta.AssignTasks(setup_string,tasks,log=logfile,timelimit=86400,progress_bar=False,ignore_exception=True)
-    at(30)
 
-    #shut down engines and make new PSF
-    uta.kill_mec()
+    from IPython.parallel import Client
+    clfile = open('/phys/groups/tev/scratch1/users/Fermi/mar0/allhalos.txt','w')
+    clfile.close()
+    
+    tasks = makeallpsftasks()
+    
+    tpr = len(tasks)
+    rc = Client()
+    dview = rc[:]
+
+    dview.execute(setup_string)
+    t.sleep(20)
+    dview.execute('tasks = uf.makeallpsftasks()')
+    t.sleep(20)
+    dview.scatter('nums',range(len(tasks)))
+    t.sleep(20)
+    cmd = 'x=[eval(tasks[y]) for y in nums]'
+    print cmd
+    result = dview.execute(cmd)
+    for engine in result.metadata:
+        print engine.status
+    logfile = open('/phys/groups/tev/scratch1/users/Fermi/mar0/python/mec.log','w')
+
     #makelikeirfs(irf='P6_v7_diff',out='P6_v12_diff')
 
 def plot_params():
@@ -1001,3 +1042,34 @@ def fcontain(frac,s1,g1,s2,g2,n1):
     #    print 0.5*(yr[it]+yr[it+1]),0.5*(xr[it]+xr[it+1]),np.exp(fnc(np.log(0.5*(yr[it]+yr[it+1]))))[0]
     #print fnc1
     return np.exp(ret)
+
+def setup_engines():
+    import subprocess
+    machines=['tev01','tev02','tev04','tev05','tev06','tev08','tev09','tev10','tev11']#'tev03','tev07',
+    uses = []
+
+    for it,machine in enumerate(machines):
+        if os.system('ping %s -c 2 -i 0.5'%machine)==0:
+            uses.append(it)
+    subp = []
+    #cmd = 'ipcontroller --ip=\'*\''
+    #subp.append(subprocess.Popen(cmd , shell=True, stdout=subprocess.PIPE).communicate())
+    for it in uses:
+        for engines in range(16):
+            cmd = 'ssh -n -f %s "sh -c \\" nohup ipengine > /dev/null 2>&1 &\\""'%machines[it]
+            subp.append(subprocess.Popen(cmd , shell=True, stdout=subprocess.PIPE).communicate())
+            t.sleep(0.5)
+
+def kill_engines():
+    machines=['tev01','tev02','tev04','tev05','tev06','tev08','tev09','tev10','tev11']#'tev03','tev07',
+    uses = []
+    for it,machine in enumerate(machines):
+        if os.system('ping %s -c 2 -i 0.5'%machine)==0:
+            uses.append(it)
+    for it in uses:
+        os.system('ssh -n -f %s "sh -c \\" nohup killall ipengine -9 > /dev/null 2>&1 &\\""'%machine)
+        os.system('ssh -n -f %s "sh -c \\" nohup killall ipcontroller -9 > /dev/null 2>&1 &\\""'%machine)
+
+
+if __name__=='__main__':
+    psftable(sys.argv[0])
