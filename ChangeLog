@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Jun 11 17:02:21 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Major bugfixes+better doctest for CompositeModel
+    *
+------------------------------------------------------------
 User: mar0  Thu Jun  7 17:01:41 PDT 2012
 pointlike/python/uw/stacklike/boresighttest
 
