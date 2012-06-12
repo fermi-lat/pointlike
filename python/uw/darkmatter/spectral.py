@@ -1,12 +1,13 @@
 """ Dark Matter spectral models
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spectral.py,v 1.2 2012/06/06 16:14:26 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spectral.py,v 1.3 2012/06/12 01:03:04 lande Exp $
 
     author: Alex Drlica-Wagner, Joshua Lande
 """
 import collections
 
 import numpy as np
+from scipy.optimize.minpack import check_gradient
 
 from uw.like.Models import Model,CompositeModel,Constant
 from uw.like.SpatialModels import SpatialMap
@@ -159,8 +160,8 @@ class ComprehensiveModel(CompositeModel):
         Using this object is easy:
 
             >>> from uw.like.Models import PowerLaw
-            >>> dm=DMFitFunction()
-            >>> pl=PowerLaw()
+            >>> dm=DMFitFunction(); dm.set_flux(1)
+            >>> pl=PowerLaw(); pl.set_flux(1)
             >>> cm=ComprehensiveModel(dm,pl)
 
         This model has a "Scale" (the theta parameter), and the parameters
@@ -168,14 +169,6 @@ class ComprehensiveModel(CompositeModel):
 
             >>> print cm.param_names
             ['Scale', 'sigmav', 'mass', 'Norm', 'Index']
-            >>> print cm
-            Scale     : 0.5 
-            sigmav    : 1 
-            mass      : 100 
-            Norm      : 1e-11 
-            Index     : 2 
-            Ph. Flux  : 4.19e-07 (DERIVED)
-            En. Flux  : 1.84e-09 (DERIVED)
 
         The default 'theta' parameter is 0.5
             >>> print cm.param_names[0]
@@ -185,7 +178,7 @@ class ComprehensiveModel(CompositeModel):
 
         And the value is defined with the strange formula:
 
-            >>> energies=np.logspace(1,7,8)
+            >>> energies=np.logspace(1,7,7)
             >>> for theta in [0, 0.25, 0.5, 0.75, 1]:
             ...    cm['Scale'] = theta
             ...    np.all(cm(energies)==dm(energies)**theta*pl(energies)**(1-theta))
@@ -202,9 +195,6 @@ class ComprehensiveModel(CompositeModel):
     def __call__(self,e):
         theta,g,f=self.models
         return g(e)**theta(e)*f(e)**(1-theta(e))
-
-    def external_gradient(self,e):
-        pass
         
 if __name__ == "__main__":
     import doctest
