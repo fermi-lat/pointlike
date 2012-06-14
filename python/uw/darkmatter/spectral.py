@@ -1,9 +1,10 @@
 """ Dark Matter spectral models
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spectral.py,v 1.3 2012/06/12 01:03:04 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spectral.py,v 1.4 2012/06/12 02:02:08 lande Exp $
 
     author: Alex Drlica-Wagner, Joshua Lande
 """
+import copy
 import collections
 
 import numpy as np
