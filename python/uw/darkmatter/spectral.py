@@ -1,6 +1,6 @@
 """ Dark Matter spectral models
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spectral.py,v 1.4 2012/06/12 02:02:08 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spectral.py,v 1.5 2012/06/14 22:47:46 lande Exp $
 
     author: Alex Drlica-Wagner, Joshua Lande
 """
@@ -169,12 +169,13 @@ class ComprehensiveModel(CompositeModel):
         for the dark matter & powerlaw object:
 
             >>> print cm.param_names
-            ['Scale', 'sigmav', 'mass', 'Norm', 'Index']
+            ['sigmav', 'mass', 'Norm', 'Index', 'Scale']
+
 
         The default 'theta' parameter is 0.5
-            >>> print cm.param_names[0]
+            >>> print cm.param_names[-1]
             Scale
-            >>> print cm[0]
+            >>> print cm[-1]
             0.5
 
         And the value is defined with the strange formula:
@@ -188,13 +189,16 @@ class ComprehensiveModel(CompositeModel):
             True
             True
             True
+
+        Note, make theta the last parameter because many function in pointlike (like set_flux)
+        assume that the first model is the normalization.
     """
     def __init__(self,model1,model2):
         theta=Constant(Scale=0.5,mappers=[LimitMapper(0,1)])
-        super(ComprehensiveModel,self).__init__(theta,model1,model2)
+        super(ComprehensiveModel,self).__init__(model1,model2,theta)
 
     def __call__(self,e):
-        theta,g,f=self.models
+        g,f,theta=self.models
         return g(e)**theta(e)*f(e)**(1-theta(e))
         
 if __name__ == "__main__":
