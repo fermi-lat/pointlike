@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Jun 14 15:47:46 PDT 2012
+ScienceTools-scons/pointlike/python/uw/darkmatter
+
+Modified Files:
+	spectral.py 
+Log Message:
+import copy
+    *
+------------------------------------------------------------
 User: mar0  Tue Jun 12 14:46:45 PDT 2012
 pointlike/python/uw/stacklike/lists
 
