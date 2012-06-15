@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Jun 15 16:40:45 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+bugfix for _check_gradient
+    *
+------------------------------------------------------------
 User: lande  Thu Jun 14 19:10:22 PDT 2012
 ScienceTools-scons/pointlike/python/uw/darkmatter
 
