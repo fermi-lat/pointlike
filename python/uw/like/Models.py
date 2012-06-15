@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.101 2012/06/12 00:53:50 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.102 2012/06/12 02:02:31 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -1176,13 +1176,14 @@ class CompositeModel(Model):
     """
     default_extra_params=dict() # Don't allow any of these
 
-    def __init__(self,*models):
+    def __init__(self, *models):
         if len(models) < 1:
             raise Exception("CompositeModel must be created with more than one spectral model")
         for m in models:
             if not isinstance(m,Model):
                 raise Exception("CompositeModel must be created with a list of models.")
 
+        self.name = self.__class__.__name__
         self.models = models
         self.internal_cov_matrix = np.zeros([self.npar,self.npar]) #default covariance matrix
 
@@ -1259,12 +1260,27 @@ class CompositeModel(Model):
         model_index=k
         parameter_index=i-counter
         return model_index,parameter_index
-      
-    def setp(self, i, *args, **kwargs):
-        """ set internal value, convert unless internal
 
-                >>> raise Exception("This function does not work yet.")
+    def set_parameters(self,new_vals):
+        """ 
+            >>> m1=PowerLaw()
+            >>> m2=LogParabola()
+            >>> sum_model=SumModel(m1,m2)
+            >>> sum_model.set_parameters(np.asarray([1,2,3,4,5,6]))
+            >>> print sum_model.get_parameters()
+            [ 1.  2.  3.  4.  5.  6.]
+            >>> m1.get_parameters()
+            array([ 1.,  2.])
+            >>> m2.get_parameters()
+            array([ 3.,  4.,  5.,  6.])
+
         """
+        counter=0
+        for n,model in zip(self.npars,self.models):
+            model.set_parameters(new_vals[counter:counter+n])
+            counter+=n
+
+    def setp(self, i, *args, **kwargs):
         model_index,parameter_index=self.get_model_and_parameter_index(i)
         self.models[model_index].setp(parameter_index,*args, **kwargs)
 
