@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
 on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.119 2012/06/05 23:02:27 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.120 2012/06/06 20:33:17 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -372,7 +372,7 @@ class ROIAnalysis(object):
     def _check_gradient(self):
         """ Determine if it's OK to use the gradient fitter."""
         for model in N.append(self.psm.models,self.dsm.models):
-            if np.any(model.free) and (not hasattr(model,'gradient')):
+            if np.any(model.free) and (not hasattr(model,'external_gradient')):
                 return False
         return True
 
