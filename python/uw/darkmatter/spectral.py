@@ -1,6 +1,6 @@
 """ Dark Matter spectral models
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spectral.py,v 1.5 2012/06/14 22:47:46 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spectral.py,v 1.6 2012/06/14 23:40:12 lande Exp $
 
     author: Alex Drlica-Wagner, Joshua Lande
 """
@@ -177,12 +177,14 @@ class ComprehensiveModel(CompositeModel):
             Scale
             >>> print cm[-1]
             0.5
+            >>> print cm.theta
+            0.5
 
         And the value is defined with the strange formula:
 
             >>> energies=np.logspace(1,7,7)
             >>> for theta in [0, 0.25, 0.5, 0.75, 1]:
-            ...    cm['Scale'] = theta
+            ...    cm.theta = theta
             ...    np.all(cm(energies)==dm(energies)**theta*pl(energies)**(1-theta))
             True
             True
@@ -197,9 +199,55 @@ class ComprehensiveModel(CompositeModel):
         theta=Constant(Scale=0.5,mappers=[LimitMapper(0,1)])
         super(ComprehensiveModel,self).__init__(model1,model2,theta)
 
-    def __call__(self,e):
+    @property
+    def pretty_name(self):
         g,f,theta=self.models
-        return g(e)**theta(e)*f(e)**(1-theta(e))
+        return '%s^theta*%s^(1-theta)' % (g.pretty_name,f.pretty_name)
+
+    @property
+    def theta(self):
+        return self.models[2]['Scale']
+
+    @theta.setter
+    def theta(self,new_theta):
+        self.models[2]['Scale']=new_theta
+
+    def __call__(self,e):
+        g,f=self.models[0:2]
+        return g(e)**self.theta*f(e)**(1-self.theta)
+
+    def set_prefactor(self, prefactor, energy):
+        """ set_prefactor must work around non-linearities in function
+
+                >>> from uw.like.Models import PowerLaw,ExpCutoff
+                >>> model=ComprehensiveModel(PowerLaw(),ExpCutoff())
+                >>> model.set_prefactor(1e-10, 100)
+                >>> print model(100)
+                1e-10
+        """
+        g,f=self.models[0:2]
+        g.setp(0, 1) 
+        f.setp(0, 1) 
+        new_prefactor=prefactor/self(energy)
+        g.setp(0, new_prefactor)
+        f.setp(0, new_prefactor)
+
+    def set_flux(self,flux,*args,**kwargs):
+        """ set_flux must work around non-linearities in function
+
+                >>> from uw.like.Models import PowerLaw,ExpCutoff
+                >>> model=ComprehensiveModel(PowerLaw(),ExpCutoff())
+                >>> model.set_flux(1)
+                >>> print model.i_flux()
+                1.0
+        """
+        g,f=self.models[0:2]
+        g.setp(0, 1) 
+        f.setp(0, 1) 
+        new_prefactor = flux/self.i_flux(*args,**kwargs)
+        g.setp(0,new_prefactor)
+        f.setp(0,new_prefactor)
+
         
 if __name__ == "__main__":
     import doctest
