@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Jun 14 18:29:38 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+fix set_parameters for composite model
+    *
+------------------------------------------------------------
 User: lande  Thu Jun 14 16:40:12 PDT 2012
 ScienceTools-scons/pointlike/python/uw/darkmatter
 
