@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.68 2012/06/06 20:32:44 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.69 2012/06/20 01:22:23 kadrlica Exp $
 
    author: Matthew Kerr
 """
@@ -136,6 +136,19 @@ class XML_to_Model(object):
             >>> np.allclose(model['e0'],200)
             True
 
+        Model from http://fermi.gsfc.nasa.gov/ssc/data/analysis/scitools/xml_model_defs.html#gaussian
+            >>> model=xml2model('''
+            ... <spectrum type="Gaussian">
+            ...     <parameter free="1" max="1000.0" min="0.001" name="Prefactor" scale="1e-09" value="1"/>
+            ...     <parameter free="1" max="1e5" min="1e3" name="Mean" scale="1.0" value="7e4"/>
+            ...     <parameter free="1" max="30" min="1e4" name="Sigma" scale="1.0" value="1e3"/>
+            ... </spectrum>''')
+            >>> print model['prefactor']
+            1e-09
+            >>> print model['mean']
+            70000.0
+            >>> print model['sigma']
+            1000.0
 """
 
     def __init__(self):
@@ -151,7 +164,8 @@ class XML_to_Model(object):
                 FrontBackConstant    = FrontBackConstant,
                 LogParabola          = LogParabola,
                 DMFitFunction        = DMFitFunction,
-                FileFunction         = FileFunction
+                FileFunction         = FileFunction,
+                Gaussian             = GaussianSpectrum
                 )
         
         self.inverse_modict = {v.__name__:k for k,v in self.modict.items()}
@@ -168,6 +182,7 @@ class XML_to_Model(object):
                 FileFunction         = ['Normalization'],
                 LogParabola          = ['norm', 'alpha', 'beta', 'Eb'],
                 DMFitFunction        = ['sigmav','mass'],
+                Gaussian             = [ 'Prefactor', 'Mean', 'Sigma'],
                 )
 
         self.kwargdict = dict(
@@ -183,6 +198,7 @@ class XML_to_Model(object):
                 LogParabola          = [],
                 DMFitFunction        = [['norm','norm'], ['bratio','bratio'],
                                         ['channel0','channel0'], ['channel1','channel1']],
+                Gaussian             = [],
                 )
 
     def get_model(self,xml_dict,source_name):
@@ -356,6 +372,17 @@ class Model_to_XML(object):
                 <parameter name="Scale" value="200" free="0" max="200" min="200" scale="1" />
                 <parameter name="Beta" value="0.1" free="0" max="0.1" min="0.1" scale="1" />
             </spectrum>
+
+        Model from http://fermi.gsfc.nasa.gov/ssc/data/analysis/scitools/xml_model_defs.html#gaussian
+            >>> g = GaussianSpectrum(prefactor=1e-9, mean=7e4, sigma=1e3)
+            >>> print format(g)
+            <spectrum  type="Gaussian">
+                <parameter name="Prefactor" value="1.0" free="1" max="100.0" min="0.01" scale="1e-09" />
+                <parameter name="Mean" value="0.7" free="1" max="100.0" min="0.01" scale="100000.0" />
+                <parameter name="Sigma" value="1.0" free="1" max="100.0" min="0.01" scale="1000.0" />
+            </spectrum>
+
+
    """
     
     def __init__(self,debug=False, strict=False):
@@ -481,6 +508,16 @@ class Model_to_XML(object):
             self.pmax   = [     1e6,   1e4,    1e5,        1,         10,         10]
             self.pval   = [       1,   100,      1,        1,          1,          1]
             self.oomp   = [       1,     0,      1,        0,          0,          0]
+
+        elif name == 'Gaussian':
+            self.pname  = ['Prefactor','Mean','Sigma']
+            self.pfree  = [1,1,1]
+            self.pscale = [1,1,1]
+            self.pmin   = [1e-4,1,1]
+            self.pmax   = [1e4,1e6,1e6]
+            self.pval   = [1,1,1]
+            self.perr   = [0,0,0]
+            self.oomp   = [1,1,1]
 
         else:
             raise Exception('Unrecognized model %s'%(name))
