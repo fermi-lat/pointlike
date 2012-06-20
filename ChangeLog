@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jun 20 16:21:48 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+new set_limits & get_limits helper functions
+    *
+------------------------------------------------------------
 User: lande  Wed Jun 20 15:38:46 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
