@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jun 20 16:30:29 PDT 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	parmap.py 
+Log Message:
+__repr__ for LimitMapper
+    *
+------------------------------------------------------------
 User: lande  Wed Jun 20 16:21:48 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
