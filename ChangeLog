@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jun 20 09:23:35 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+fix typo in doctest for GaussianSpectrum
+    *
+------------------------------------------------------------
 User: lande  Wed Jun 20 09:20:49 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
