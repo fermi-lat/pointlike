@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.105 2012/06/20 16:23:35 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.106 2012/06/20 22:38:46 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -15,7 +15,7 @@ from scipy.integrate import quad
 from scipy.interpolate import interp1d
 from scipy import roots, optimize
 
-from uw.utilities.parmap import LinearMapper, LogMapper
+from uw.utilities.parmap import LinearMapper, LogMapper, LimitMapper
 
 
 class Model(object):
@@ -72,7 +72,7 @@ class Model(object):
         if kwargs.has_key('mappers'):
             self.mappers = kwargs.pop('mappers')
         else:
-            self.mappers = self.default_mappers
+            self.mappers = copy.deepcopy(self.default_mappers)
 
         for k,v in self.default_extra_params.items(): 
             setattr(self,k,v)
@@ -225,6 +225,24 @@ class Model(object):
 
         self.setp(i, p)
         self.set_error(i, perr)
+
+    def set_limits(self, i, lower, upper):
+        """ Convenience function for setting limits
+
+                >>> model = PowerLaw(index=1)
+                >>> model.set_limits('index',-2,2)
+                >>> print model.get_mapper('index')
+                LimitMapper(-2,2)
+                >>> print model.get_limits('index')
+                (-2, 2)
+        """
+        self.set_mapper(i,LimitMapper(lower,upper))
+
+    def get_limits(self, i):
+        mapper = self.get_mapper(i)
+        assert type(mapper) == LimitMapper
+        return mapper.lower, mapper.upper
+
         
     def get_parameters(self):
         """ Return FREE internal parameters ; used for spectral fitting."""
