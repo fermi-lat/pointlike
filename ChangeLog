@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jun 20 15:38:46 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+New get_mapper/set_mapper functions
+    *
+------------------------------------------------------------
 User: lande  Wed Jun 20 09:23:35 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
