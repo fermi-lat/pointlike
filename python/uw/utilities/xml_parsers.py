@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.67 2012/06/05 23:02:28 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.68 2012/06/06 20:32:44 lande Exp $
 
    author: Matthew Kerr
 """
@@ -476,7 +476,7 @@ class Model_to_XML(object):
             self.pname  = ['sigmav','mass', 'norm', 'bratio', 'channel0', 'channel1']
             self.pfree  = [       1,     1,      0,        0,          0,          0]
             self.perr   = [       0,     0,     -1,       -1,         -1,         -1]
-            self.pscale = [   1e-25,     1,      1,     1e17,          1,          1]
+            self.pscale = [   1e-25,     1,   1e17,        1,          1,          1]
             self.pmin   = [       0,     1,   1e-5,        0,          0,          0]
             self.pmax   = [     1e6,   1e4,    1e5,        1,         10,         10]
             self.pval   = [       1,   100,      1,        1,          1,          1]
@@ -1219,9 +1219,9 @@ def writeROI(roi,*args, **kwargs):
         the xml file. This is useful for saving errors on the fit
         spatial parameters as well as for easibly being read back into
         pointlike. OTOH, it is sometimes desirable for extended source
-        output to be stirctly compatable with gtlike. This can be done
+        output to be strictly compatable with gtlike. This can be done
         with the convert_extended flag, which converts all extended
-        sources cto SpatialMap objects before the xml is created. 
+        sources to SpatialMap objects before the xml is created. 
         
         Currently, expand_env_vars only applies for extended
         sources. There really isn't a good way in pointlike to have
