@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.102 2012/06/12 02:02:31 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.103 2012/06/15 01:29:38 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -1520,6 +1520,25 @@ class SmoothDoubleBrokenPowerLaw(Model):
 
     def full_name(self):
         return '%s, scale=%.0f, beta12=%.3g, beta23=%.3g'% (self.pretty_name,self.Scale,self.Beta12,self.Beta23)
+
+
+class GaussianSpectrum(Model):
+    """ Following the defintion in:
+            http://fermi.gsfc.nasa.gov/ssc/data/analysis/scitools/source_models.html#Gaussian
+
+
+        >>> g = Gaussian(prefactor=1, mean=0, sigma=1)
+        >>> e = np.logspace(1,10,11)
+        >>> np.allclose(g(e),norm.pdf(e))
+    """
+    default_p = [1e-9, 7e4, 1e3]
+    default_extra_params = dict()
+    param_names = [ "Prefactor", "Mean", "Sigma"]
+    default_mappers = [LogMapper, LogMapper, LogMapper]
+
+    def __call__(self,e):
+        prefactor, mean, sigma = self.get_all_parameters()
+        return prefactor/(sigma*2.0*np.pi)*np.exp(-(e-mean)**2/(2.0*sigma**2))
 
 def convert_exp_cutoff(model):
     """ this function is need for XML parsing. """
