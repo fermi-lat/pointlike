@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.104 2012/06/20 16:20:48 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.105 2012/06/20 16:23:35 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -180,6 +180,51 @@ class Model(object):
             return setattr(self,i,par)
         i=self.name_mapper(i)
         self._p[i] = par if internal else self.mappers[i].tointernal(par)
+
+    def get_mapper(self,i):
+        """ Get the mapper for a particular parameter. """
+        i=self.name_mapper(i)
+        return self.mappers[i]
+
+    def set_mapper(self,i,mapper):
+        """ Allow changing the mapper for a given model parameter. 
+
+            The default mapper is Linear for index of PowerLaw
+
+                >>> model = PowerLaw(index=1)
+                >>> model.set_error('index',0.5)
+                >>> print model.getp('index')
+                1.0
+                >>> print model.getp('index',internal=True)
+                1.0
+                >>> print model.error('index')
+                0.5
+                >>> print model.get_mapper('index')
+                <class 'uw.utilities.parmap.LinearMapper'>
+
+            We can switch to a log mapper. The external
+            values are all the same, but the internal
+            representation changes.
+
+                >>> model.set_mapper('index', LogMapper)
+                >>> print model.getp('index')
+                1.0
+                >>> print model.getp('index',internal=True)
+                0.0
+                >>> print model.error('index')
+                0.5
+                >>> print model.get_mapper('index')
+                <class 'uw.utilities.parmap.LogMapper'>
+        """
+        i=self.name_mapper(i)
+
+        p=self.getp(i)
+        perr=self.error(i)
+
+        self.mappers[i] = mapper
+
+        self.setp(i, p)
+        self.set_error(i, perr)
         
     def get_parameters(self):
         """ Return FREE internal parameters ; used for spectral fitting."""
