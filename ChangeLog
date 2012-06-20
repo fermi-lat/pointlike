@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jun 20 09:20:48 PDT 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Implementing GaussianSpectrum
+    *
+------------------------------------------------------------
 User: kadrlica  Tue Jun 19 18:22:24 PDT 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
