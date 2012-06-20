@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.103 2012/06/15 01:29:38 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.104 2012/06/20 16:20:48 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -1527,9 +1527,11 @@ class GaussianSpectrum(Model):
             http://fermi.gsfc.nasa.gov/ssc/data/analysis/scitools/source_models.html#Gaussian
 
 
-        >>> g = Gaussian(prefactor=1, mean=0, sigma=1)
+        >>> from scipy.stats import norm
+        >>> g = GaussianSpectrum(prefactor=1, mean=0, sigma=1)
         >>> e = np.logspace(1,10,11)
         >>> np.allclose(g(e),norm.pdf(e))
+        True
     """
     default_p = [1e-9, 7e4, 1e3]
     default_extra_params = dict()
