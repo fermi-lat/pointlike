@@ -1,7 +1,7 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.20 2012/02/26 23:40:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.21 2012/06/05 16:57:53 lande Exp $
 
 author: Joshua Lande
 """
@@ -17,9 +17,11 @@ import pyfits
 from skymaps import SkyDir
 
 from . SpatialModels import Disk,EllipticalDisk,Gaussian,EllipticalGaussian,SpatialMap
-from uw.utilities import keyword_options
 from . Models import PowerLaw,PowerLawFlux,LogParabola,ExpCutoff
 from . roi_extended import ExtendedSource
+from uw.utilities import keyword_options
+from uw.utilities.parmap import LogMapper,LimitMapper
+
 
 
 class SourceCatalog(object):
@@ -173,10 +175,11 @@ class Catalog2FGL(SourceCatalog):
     """
 
     defaults = (
-        ("latextdir",    None, "Directory containing the spatial model templates."),
-        ("prune_radius", 0.10, "[deg] consider sources closer than this duplicates"),
-        ("free_radius",     2, "[deg] sources within this distance have free spectral parameters"),
-        ("max_free",     None, "Maximum number of sources to free (if there are more than that many sources within free_radius)."),
+        ("latextdir",            None, "Directory containing the spatial model templates."),
+        ("prune_radius",         0.10, "[deg] consider sources closer than this duplicates"),
+        ("free_radius",             2, "[deg] sources within this distance have free spectral parameters"),
+        ("max_free",             None, "Maximum number of sources to free (if there are more than that many sources within free_radius)."),
+        ("limit_parameters",    False, "Maximum number of sources to free (if there are more than that many sources within free_radius)."),
     )
 
     @keyword_options.decorate(defaults)
@@ -245,19 +248,24 @@ class Catalog2FGL(SourceCatalog):
                 # http://projects.scipy.org/numpy/ticket/1500
                 # This is a workaround.
                 if n0 not in [-np.inf, np.inf]:
-                    model=PowerLaw(p=[n0,ind],e0=pen)
+                    model=PowerLaw(norm=n0, index=ind, e0=pen)
                 else:
                     # For some reason, the fixed extended sources don't have n0 set.
-                    # So create the source from is f1000 value.
-                    model=PowerLawFlux(p=[f1000,ind],emin=1e3,emax=1e5)
+                    # So create the source from the f1000 value.
+                    model=PowerLawFlux(int_flux=f1000, index=ind, emin=1e3, emax=1e5)
             elif stype == 'LogParabola':
-                model=LogParabola(p=[n0,ind,beta,pen],free=[True,True,True,False])
+                model=LogParabola(norm=n0, index=ind, beta=beta, e_break=pen)
+                model.freeze('e_break')
             elif stype == 'PLExpCutoff':
-                # Following M. Kerr's suggestion, clip the index of pulsars which are too close to 0.
-                if ind >= 0 and ind < 1e-10: ind=1e-10
-                model=ExpCutoff(p=[n0,ind,cutoff],e0=pen)
+                model=ExpCutoff(norm=n0, index=ind, cutoff=cutoff, e0=pen)
             else:
                 raise Exception("Unkown spectral model %s for source %s" % (stype,name))
+
+            if self.limit_parameters:
+                if isinstance(model,(PowerLaw,PowerLawFlux,LogParabola,ExpCutoff)):
+                    model.set_limits('index',0,5)
+                if isinstance(model,LogParabola):
+                    model.set_limits('beta',-1,1)
 
             if extended_source_name:
                 spatial_model=self.__get_spatial_model__(extended_source_name)
