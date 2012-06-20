@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Tue Jun 19 18:22:24 PDT 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Fixed norm scale in DMFitFunction model
+    *
+------------------------------------------------------------
 User: lande  Fri Jun 15 16:40:45 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
