@@ -65,8 +65,9 @@ class LimitMapper(ParameterMapper):
         return np.arcsin(2.0*(external-self.lower)/(self.upper-self.lower)-1.0)
         
     def dexternaldinternal(self,external):
-        return ((self.upper-self.lower)/2)*np.cos(self.tointernal(external))
+        return ((self.upper-self.lower)/2.0)*np.cos(self.tointernal(external))
 
-    
+    def __repr__(self):
+        return 'LimitMapper(%s,%s)' % (self.lower,self.upper)
 
 
