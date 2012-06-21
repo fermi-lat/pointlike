@@ -8,6 +8,10 @@
 # Then, fits TOAs and outputs them in tempo2 format.
 from __future__ import division
 from optparse import OptionParser
+import numpy as np
+
+import os
+from os.path import exists
 
 from uw.pulsar.phasedata import PhaseData
 from uw.pulsar.toabinner import TOABinner,UniformLogBinner
@@ -46,6 +50,17 @@ if len(args) != 2:
 
 ft1name    = args[0]
 polyconame = args[1]
+
+# To be safe, if the par file is newer than polyco_new.dat, force remake the polycos, even if
+# the user forgot to specify -r
+if polyconame.endswith(".par"):
+    if not exists("polyco_new.dat"):
+        print "WARNING: No polyco_new.dat!  Regenerating...."
+        options.recalc_polycos = True
+    else:
+        if os.stat(polyconame).st_mtime > os.stat("polyco_new.dat").st_mtime:
+            print "WARNING: par file provided is newer than polyco_new.dat! Regenerating polyco_new.dat!"
+            options.recalc_polycos = True
 
 poly = Polyco(polyconame,recalc_polycos=options.recalc_polycos)
 data = PhaseData(ft1name,poly,use_weights=(options.weights is not None),we_col_name=options.weights,wmin=options.wmin,emin=options.emin,emax=options.emax)
