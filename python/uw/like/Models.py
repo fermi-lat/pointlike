@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.107 2012/06/20 23:21:48 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.108 2012/06/24 14:28:01 burnett Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -1035,31 +1035,29 @@ class LogParabola(Model):
             so that the differential flux remains the same. Beta remains unchanged in this
             transformation.
 
-                >>> raise ModelException("...")
-
+            >>> m = LogParabola(p=[1e-11, 2.0, 0.5, 2000])
+            >>> m2 = m.copy()
+            >>> m2.set_e0(1000)
+            >>> abs(m.i_flux()-m2.i_flux())<1e-20
+            True
         """
-        ebreak = 10** self._p[3]
-        gamma = 10** self._p[1]
-        beta = 10** self._p[2] 
-        # there is a non-negative condition here to check on Index
-        if e0p<ebreak*10**(-gamma/2./beta):
-            e0p=ebreak*10**(-gamma/2./beta)
-            print "Index>0 is not preserved by the transformation with input e0. Setting e0 to %g"%e0p
-        x=np.log10(ebreak/e0p)
-        self._p[0] += gamma * x + beta*x*x
-        gamma -= 2*beta*x
-        self._p[1] = np.log10(gamma)
-        # beta is unchanged in this e0p->ebreak transformation
-        self._p[3] = np.log10(e0p)
+        n0, alpha, beta, ebreak = self.get_all_parameters()
+        x = np.log(ebreak/e0p)
+        self.setp(0, n0 * np.exp(alpha*x-beta*x*x))
+        self.setp(1, alpha-2*beta*x)
+        self.setp(3, e0p)
  
-    def create_powerlaw(self, beta_max=3e-2):
+    def create_powerlaw(self, beta_max=3e-3):
         """ if beta is small and fixed, return an equivalent PowerLaw, otherwise just return self 
 
-                >>> raise ModelException("...")
-        
+            >>> m = LogParabola(p=[1e-11, 2.5, 1e-3, 2000])
+            >>> m.free[2]=False
+            >>> m2 = m.create_powerlaw()
+            >>> abs(m.i_flux()/m2.i_flux()-1)<1e-2
+            True
         """
         if self[2]>beta_max or self.free[2]: return self
-        nm = PowerLaw(p=self[0:2], e0=self[3], mappers=self.mappers[:-2])
+        nm = PowerLaw(p=[self[0], self[1]], e0=self[3], mappers=self.mappers[:-2])
         nm.internal_cov_matrix=self.internal_cov_matrix[:-2,:-2]
         return nm
     
