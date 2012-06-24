@@ -11,7 +11,7 @@ classes:
 functions:
     factory -- create a list of BandLike objects from bands and sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.14 2012/01/24 14:41:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.15 2012/01/29 02:01:53 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -19,25 +19,29 @@ import sys
 import numpy as np
 
 class BandSource(object):
-    """ superclass for point or diffuse band models, used to implement printout
+    """ baseclass for point or diffuse band models, used to implement printout
     subclasses implement code to compute prediction of the source model for the pixels in the band
     """
-    def __init__(self, band, source ): 
+    def __init__(self, band, source  ): 
         """
             band : a like.roi_bands.ROIBand object reference
                 depends on: emin,emax,e,radius_in_rad,wsdl,
                     solid_angle,pixelArea(), pixels_from_psf()
             source : generalized Source 
+            exposure:  ExposureManager object, access to exposure correction function
+                  which may include a phase factor component. A source would not generaly care
+                  here for potential use by the diffuse, which was generated without this factor
         """
         self.source= source
         self.band = band
+        self.source_id = id(source)
         self.initialize()
         self.update()
 
     def __str__(self):
         return '%s for source %s (%s), band (%.0f-%.0f, %s)' \
             % (self.__class__.__name__, self.source.name, self.spectral_model.name, self.band.emin, self.band.emax, 
-                ('front back'.split()[self.band.b.event_class()]),)
+                ('front back'.split()[self.band.ct]),)
 
     def dump(self, out=None):
         """ useful summary dump """
@@ -71,6 +75,21 @@ class BandSource(object):
         pixterm = (weights*self.pixel_values).sum() if b.has_pixels else 0
         return g * (apterm - pixterm)
 
+class BandPoint(BandSource):
+    """ Compute the expected distribution of pixel counts from a point source in a ROIBand
+    """
+       
+    def initialize(self):
+        """ setup values that depend on source position:
+            exposure_ratio, overlap, pixel values
+        """
+        band = self.band
+        self.exposure_ratio = band.exposure(self.source.skydir)/band.exposure(self.band.sd)
+        self.overlap = band.psf_overlap(self.source.skydir)  
+        
+        #unnormalized PSF evaluated at each pixel
+        self.pixel_values = band.pixels_from_psf(self.source.skydir)
+
 
 class BandDiffuse(BandSource):
     """  Apply diffuse model to an ROIband
@@ -96,7 +115,11 @@ class BandDiffuse(BandSource):
         self.update()
         
     @property 
-    def spectral_model(self):  return self.source.diffuse_source.smodel
+    def spectral_model(self):  
+        """ access to the spectral model 
+            ***note that this applies the same esposure factor as for the data***
+        """
+        return self.source.diffuse_source.smodel 
 
     def initialize(self):
         """ establish a state from
@@ -110,6 +133,7 @@ class BandDiffuse(BandSource):
         self.setup=True
         band = self.band
         delta_e = band.emax - band.emin
+        #print 'making a grid: energy=%s' % band.e
         self.grid = self.source.make_grid(band.e, band.ct)
         self.ap_evals = self.grid.ap_average(band.radius_in_rad) * band.solid_angle * delta_e
 
@@ -120,7 +144,8 @@ class BandDiffuse(BandSource):
     def update(self, fixed=False):
         """ Update self.counts and self.pix_counts by multiplying by the value of the scaling spectral model
         """
-        scale = self.spectral_model(self.energy)
+        ### Note making exposure correction to model ###
+        scale = self.spectral_model(self.energy) #/ self.band.diffuse_correction
         self.counts = self.ap_evals * scale
         if self.band.has_pixels:
             self.pix_counts = self.pixel_values * scale
@@ -132,7 +157,62 @@ class BandDiffuse(BandSource):
         if np.sum(model.free)==0: return []
         apterm  = exposure_factor * self.ap_evals 
         pixterm = ( self.pixel_values * weights ).sum() if self.band.has_pixels else 0
-        return (apterm - pixterm) * model.gradient(self.energy)[model.free] 
+        ### Note making exposure correction to model ###
+        return (apterm - pixterm) * model.gradient(self.energy)[model.free] #/ self.band.diffuse_correction
+ 
+class BandExtended(BandPoint):
+    """  Apply extended model to an ROIband
+    
+        Use a ROIExtendedModel to compute the expected distribution of 
+        pixel counts 
+        Convolving is done with like.roi_extended.ExtendedSource 
+    """
+    def __init__(self, band, source):
+        # klugy way to create new source object for each band
+        self.source= source.__class__(source.sa, source.diffuse_source, source.roi_dir, source.name)
+        self.band = band
+        self.initialize()
+        self.update()
+
+    
+    def initialize(self):
+        self.source.quiet = True # turn off convolving messages
+        #if hasattr(self.source, 'bands'):
+        #    print 'warning: second initialization:  object id=%d, overlap=%f' % (id(self.source), self.source.bands[0].er)
+        self.source.initialize_counts([self.band])
+        #print ' overlap=%f' % self.source.bands[0].er
+        
+        self.myband = myband =self.source.bands[0]
+        self.exposure_ratio, self.overlap = myband.er, myband.overlaps 
+        self.pixel_values = myband.es_pix_counts
+        
+    def update(self, fixed=False):
+        """ sets the following attributes:
+            counts -- the total counts expected for the model in the aperture
+            pix_counts-- if the band has pixels, an npixel vector with the 
+                        expected counts from the model for each data pixel
+            actually use the ROIDiffuseModel object to modify the band, then we 
+            copy them here. 
+        """
+
+### code from roi_extended.ROIExtendedModel
+#        sm = self.extended_source.model
+#        mi = model_index
+#
+#        for myband,band in zip(self.bands,bands):
+#            myband.es_counts = band.expected(sm)*myband.er
+#
+#            band.bg_counts[mi] = myband.overlaps*myband.es_counts
+#            if band.has_pixels:
+#                band.bg_pix_counts[:,mi] = myband.es_pix_counts * myband.es_counts
+#
+        sm = self.spectral_model
+        es_counts =  self.band.expected(sm) * self.exposure_ratio
+        bg_counts = self.overlap * es_counts
+        bg_pix_counts = self.pixel_values * es_counts
+        
+        self.pix_counts = bg_pix_counts
+        self.counts = bg_counts
  
  
 class BandDiffuseFB(BandDiffuse):
@@ -147,35 +227,7 @@ class BandDiffuseFB(BandDiffuse):
         return t
 
  
-class BandPoint(BandSource):
-    """ Compute the expected distribution of pixel counts from a point source in a ROIBand
-    """
-       
-    def initialize(self):
-        """ setup values that depend on source position:
-            exposure_ratio, overlap, pixel values
-        """
-        band = self.band
-        self.exposure_ratio = band.exposure(self.source.skydir)/band.exposure(self.band.sd)
-        self.overlap = band.psf_overlap(self.source.skydir)  
-        
-        #unnormalized PSF evaluated at each pixel
-        self.pixel_values = band.pixels_from_psf(self.source.skydir)
 
-class BandExtended(BandPoint):
-    """  Apply extended model to an ROIband
-    
-        Use a ROIExtendedModel to compute the expected distribution of 
-        pixel counts 
-        Convolving is done with like.roi_extended.ExtendedSource 
-    """
-    def initialize(self):
-        self.source.quiet = True # turn off convolvling messages
-        self.source.initialize_counts([self.band])
-        myband = self.source.bands[0]
-        self.exposure_ratio, self.overlap = myband.er, myband.overlaps 
-        self.pixel_values = myband.es_pix_counts
- 
     
 class BandLike(object):
     """ manage the likelihood calculation for a band 
@@ -291,6 +343,8 @@ def factory(bands, sources, exposure, quiet=False):
         bands : list of ROIBand objects
         sources : sourcelist.SourceList object
             a list of Source objects, which must contain a factory attribute 
+        exposure : ExposureManager object, access to exposure correction function
+                  which may include a phase factor component
     """
     def bandsource_factory(band, source):
         """helper factory that returns a BandModel object appropriate for the source"""
@@ -305,6 +359,9 @@ def factory(bands, sources, exposure, quiet=False):
         return B(band, source)
     bandlist = []
     for i,band in enumerate(bands):
+        ## note: adding attribute to each band for access by BandLike object if needed
+        band.exposure_correction = exposure.correction[band.ct](band.e)
+        #band.diffuse_correction = exposure.correction[band.ct+2](band.e)
         bandlist.append(BandLike(band, 
                     np.array( [bandsource_factory(band, source) for source in sources]),
                     sources.free, exposure)

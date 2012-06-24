@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.12 2012/01/29 02:01:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.13 2012/02/07 21:01:41 wallacee Exp $
 
 author: Matthew Kerr, Toby Burnett
 """
@@ -49,7 +49,7 @@ class DiffuseModel(object):
 
     defaults = (
         ('quiet',   False,     'Set True to quiet'),
-        ('efactor', 10**0.125, 'Energy factor for bin center'),
+        ('binsperdec',    4,           'bins per decade'),
     )
 
     @keyword_options.decorate(defaults)
@@ -115,13 +115,14 @@ class DiffuseModelFromCache(DiffuseModel):
     def __init__(self, *args, **kwargs):
         super(DiffuseModelFromCache, self).__init__(*args, **kwargs)
         keyword_options.process(self, kwargs)
+        self.efactor = 10**(0.5/self.binsperdec)
     
     def setup(self):
         try:
             filename = self.diffuse_source.dmodel[0].filename
         except AttributeError:
             filename = self.diffuse_source.dmodel[0].name()
-        cache_path = os.path.splitext(filename)[0]
+        cache_path = os.path.splitext(filename)[0]+'_%dbpd'%self.binsperdec
         assert os.path.exists(filename), 'oops, %s not found' %filename
         if not os.path.exists(cache_path):
             raise DiffuseException('cache folder %s not found' %cache_path)
@@ -354,9 +355,8 @@ class CacheDiffuseModel(CacheDiffuseConvolution):
     defaults =CacheDiffuseConvolution.defaults+ (
         ('npix',      None, ""),
         ('emin',   100., 'minimum enery'),
-        ('bpd',      4,  'bands per decade'),
-        ('nbands',  14, 'number of bands'),
-        ('efactor', 10**(0.125), 'energy factor for evaluation'),
+        ('binsperdec',      4,  'bands per decade'),
+        ('decades',     3.5, 'number of decades'),
         ('npix_list',    (161,  141,  103,   81,   67,   61,), 'number of pixels: array for bands'),
         )
 
@@ -369,9 +369,16 @@ class CacheDiffuseModel(CacheDiffuseConvolution):
             presumably a 
         """
         keyword_options.process(self, kwargs)
+        if self.binsperdec==8:
+            self.npix_list = (161,161,141,141,103,103,81,81,67,67, 61,61)
+            self.nbands=28
+        elif self.binsperdec!=4:
+            raise DiffuseException('binsperdec parameter=%d: must be either 4 or 8'%self.binsperdec)
+        self.efactor = 10**(0.5/self.binsperdec)
+        self.nbands = int(self.binsperdec*self.decades)
         self.df = diffuse_function
         logemin = np.log10(self.emin)
-        self.energies = np.logspace(logemin, logemin+float(self.nbands)/self.bpd, 
+        self.energies = np.logspace(logemin, logemin+float(self.nbands)/self.binsperdec, 
             self.nbands+1)  
         
     def fill(self, sdir, energy,  npix):
@@ -401,10 +408,10 @@ class CacheDiffuseModel(CacheDiffuseConvolution):
             d.update( self.fill(center, energy, npix).make_dict())
             dicts.append(d)
         pickle.dump(dicts, open(dumpto, 'w'))
-        print 'wrote pickle file %s' %dumpto
+        print 'wrote pickle file %s with %d bands' % (dumpto, self.nbands)
 
 
-def create_diffuse_cache(diffuse, outdir, name='ring', **kwargs):
+def create_diffuse_cache(diffuse, outdir, name='ring', idlist=xrange(1728), **kwargs):
     """
     Create a file for each healpixel containing grids for each energy
     
@@ -414,15 +421,16 @@ def create_diffuse_cache(diffuse, outdir, name='ring', **kwargs):
         DiffuseException('Diffuse file %s nof found'%diffuse_file)
     if not os.path.exists(outdir):
         os.mkdir(outdir)
+    binsperdec = kwargs.pop('binsperdec',4)
     diffusemodel = skymaps.DiffuseFunction(diffuse_file, **kwargs)
-    cdm = CacheDiffuseModel(diffusemodel)
+    cdm = CacheDiffuseModel(diffusemodel, binsperdec=binsperdec)
     
     def makeone(hp12):
         skydir = skymaps.Band(12).dir(hp12)
         filename = 'HP12_%04d_%s.pickle'%(hp12,name)
         cdm. process_bands(skydir, os.path.join(outdir,filename))
         
-    map(makeone, range(1728))
+    map(makeone, idlist)
   
 
 def mapper(roi_factory, roiname, skydir, source, **kwargs): 

@@ -4,7 +4,7 @@ Manage likelihood calculations for an ROI
 mostly class ROIstat, which computes the likelihood and its derivative from the lists of
 sources (see .sourcelist) and bands (see .bandlike)
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.19 2011/12/06 22:14:08 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.20 2012/01/11 14:08:11 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import sys
@@ -45,11 +45,11 @@ class ROIstat(object):
         self.name = roi.name
         self.roi_dir = roi.roi_dir
         self.exposure = roi.exposure
-        try:
-            self.sources = sourcelist.SourceList(roi) 
-        except Exception,msg:
-            t = 'Failed to create ROI %s: %s' % (self.name, msg)
-            raise Exception(t) 
+        #try:
+        self.sources = sourcelist.SourceList(roi) 
+        #except Exception,msg:
+        #    t = 'Failed to create ROI %s: %s' % (self.name, msg)
+        #    raise Exception(t) 
             
         quiet = kwargs.pop('quiet', False)
         self.all_bands = bandlike.factory(filter(bandsel, roi.bands), self.sources , roi.exposure, quiet=quiet)
@@ -71,15 +71,17 @@ class ROIstat(object):
     def get_parameters(self):
         return self.sources.get_parameters()
     def set_parameters(self,parameters):
-        # todo: return if no change
-        if not np.allclose(parameters,self.get_parameters(),rtol=0,atol=1e-6):
-            self.sources.set_parameters(parameters)
-            self.update()
+        self.sources.set_parameters(parameters)
+        self.update()
     def get_external(self):
-        return 10**self.sources.get_parameters()
+        return self.sources.get_parameters()
     def set_external(self, par):
+        assert False, 'do I use this?'
         self.sources.set_parameters(np.log10(par))
     parameters = property(get_external, set_external, doc='array of free parameters')
+    @property
+    def model_parameters(self):
+        return self.sources.model_parameters
     @property
     def uncertainties(self): return self.sources.uncertainties
     @property
@@ -171,13 +173,8 @@ class ROIstat(object):
         if parameters is not None: 
             self.set_parameters(parameters)
         self.update()
-        t = np.array([blike.gradient() for blike in self.selected_bands]).sum(axis=0)
-        #if self.prior.enabled:  t+= self.prior.gradient()
-        par = self.get_parameters()
-        assert len(t)==len(par), 'inconsistent number of free parameters'
-        # this is required by the convention in all of the Models classes to use log10 for external
-        jacobian= 10**par/np.log10(np.e)
-        return t*jacobian
+        return np.array([blike.gradient() for blike in self.selected_bands]).sum(axis=0)
+        
         
     def chisq(self):
         return sum([blike.chisq() for blike in self.selected_bands])

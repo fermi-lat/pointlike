@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.12 2012/02/12 20:13:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.13 2012/02/26 23:51:37 burnett Exp $
 
 """
 import os, pickle, glob, types, collections
@@ -131,7 +131,9 @@ class SkyModel(object):
     def _setup_extended(self):
         """ a little confusion: 'None' means that, but None means use the config file"""
         if self.extended_catalog_name is None:
-            self.extended_catalog_name=self.config.get('extended')
+            t=self.config.get('extended')
+            if t[0]=='"' or t[0]=="'": t = eval(t)
+            self.extended_catalog_name=t
         if not self.extended_catalog_name or self.extended_catalog_name=='None' or self.extended_catalog_name=='ignore':
             self.extended_catalog = None
             return
@@ -187,7 +189,7 @@ class SkyModel(object):
                             self.tagged.add(i)
                 
                 ps = sources.PointSource(name=key, #name=self.rename_source(key), 
-                    skydir=skydir, model= item['model'],
+                    skydir=skydir, model= sources.convert_model(item['model']),
                     ts=item['ts'],band_ts=item['band_ts'], index=index)
                 #if self.free_index is not None and not ps.free[1] and ps.ts>self.free_index:
                 #    ps.free[1]=True
@@ -200,7 +202,8 @@ class SkyModel(object):
             # make a list of extended sources used in the model   
             t = []
             names = p.get('diffuse_names', self.diffuse )
-            for name, model in zip(names, p['diffuse']):
+            for name, oldmodel in zip(names, p['diffuse']):
+                model = sources.convert_model(oldmodel) # convert from old Model version if necessary 
                 key = name.split('_')[0]
                 if key in self.diffuse_dict:
                     gs = sources.GlobalSource(name=name, model=model, skydir=None, index=index)
@@ -334,6 +337,7 @@ class SkyModel(object):
 
     def _global_sources_to_xml(self,filename):
         stacks = []
+        bad =0
         for i in xrange(1728):
             stack = xml_parsers.Stack()
             s1 = '<roi index="{0}">'.format(i)
@@ -343,12 +347,18 @@ class SkyModel(object):
                 prefix = s.name.split('_')[0]
                 s.name, s.dmodel = prefix, self.diffuse_dict[prefix]
                 s.smodel = s.model
-            diffuse_xml = xml_parsers.unparse_diffuse_sources(globals,filename=filename)
+            try:
+                diffuse_xml = xml_parsers.unparse_diffuse_sources(globals,filename=filename)
+            except:
+                bad +=1
+                continue
             for x in diffuse_xml:
                 x = '\t'+x
             diffuse_xml.appendleft(s1)
             diffuse_xml.append(s2)
             stacks+=['\n'.join(diffuse_xml)]
+        if bad>0:
+            print 'Failed to convert %d ROIs' % bad
         return '\n'.join(stacks)
 
     def write_reg_file(self, filename, ts_min=None, color='green'):
@@ -618,7 +628,7 @@ class RemoveByName(object):
     
 class UpdatePulsarModel(object):
     """ special filter to replace models if necessary"""
-    def __init__(self,  tol=0.25, ts_min=10, version=690, rename=True):
+    def __init__(self,  tol=0.25, ts_min=10, version=705, rename=True):
         import pyfits
         self.tol=tol
         self.ts_min=ts_min
