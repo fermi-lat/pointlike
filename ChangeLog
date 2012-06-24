@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sat Jun 23 20:56:07 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcnorm.py 
+Log Message:
+Add code to allow a small machine epsilon error in norms validation.
+
+    *
+------------------------------------------------------------
 User: lande  Thu Jun 21 08:49:25 PDT 2012
 pointlike/cmt
 
