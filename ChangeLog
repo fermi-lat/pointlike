@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Jun 24 08:48:46 PDT 2012
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+fix set_e0 and create_powerlaw for LogParabola
+    *
+------------------------------------------------------------
 User: burnett  Sun Jun 24 07:28:01 PDT 2012
 pointlike/python/uw/like
 
