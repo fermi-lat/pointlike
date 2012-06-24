@@ -1,11 +1,12 @@
 """
 Manage sources for likelihood: single class SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.18 2012/01/29 02:01:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.19 2012/02/12 20:14:41 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import types
 import numpy as np
+from uw.like import SpatialModels # for setting all spatial models to use template
 
 def set_extended_property(esource):
     """ kluge until proper design for sources
@@ -49,39 +50,18 @@ class SourceList(list):
                 b.__dict__[key]=a.__dict__[key]
                 #print key,a.__dict__[key]
                 
-        class DiffuseSourceFactory(object):
-            """ k create new object from diffuse source
-            """
-            def __init__(self, roi):   self.roi = roi
-            def __call__(self, **kwargs):
-                cm = self.roi.global_sources[source_index]
-                kwargs.update(name=self.roi.name)
-                src = cm()
-                src.skydir = None
-                return src
-        class ExtendedSourceFactory(object):
-            def __init__(self, roi):   self.roi = roi
-            def __call__(self, source_index, **kwargs):
-                cm = self.roi.extended_sources[source_index]
-                src = cm.__class__(cm.sa, cm.extended_source, self.roi.roi_dir, **kwargs)
-                copy_defaults(cm, src)
-                src.skydir = cm.extended_source.skydir
-                return src
-        class PointSourceFactory(object):
-            def __init__(self, roi):    self.roi =roi
-            def __call__(self, source_index):
-                return roi.point_sources[source_index], self.roi.roi_dir
                 
         # note that sources are added in the order diffuse, point to agree with ROIAnalysis
         # also, add two attributes to each source object and define 'spectral_model'
         def append(source):
             assert source.name not in self.source_names, 'attempt to add name %s twice' % source.name
+            assert hasattr(source, 'spectral_model'), 'bug'
+            self.set_default_bounds(source)
             self.append(source)
         for source in roi.global_sources:
             append(source)
         for i, source in enumerate(roi.extended_sources):
             source.manager_index = i
-            source.factory = ExtendedSourceFactory(roi)
             set_extended_property(source)
             source.skydir = source.extended_source.skydir
             source.spatial_model = source.extended_source.spatial_model
@@ -110,12 +90,17 @@ class SourceList(list):
     def free(self): 
         """ actually all global and local sources """
         return np.array([np.any(s.spectral_model.free) or s.skydir is None for s in self])
-    
+    @property 
+    def bounds(self):
+        """ fitter representation of applied bounds """
+        return np.concatenate([m.bounds[m.free] for m in self.models])
+
     def __str__(self):
         return 'Sourcelist, with %d sources, %d free parameters' %(len(self), sum(self.free))
         
     def find_source(self, source_name):
         """ Search for the source with the given name
+        
         source_name : string or None
             if the first or last character is '*', perform a wild card search, return first match
             if None, and a source has been selected, return it
@@ -127,20 +112,24 @@ class SourceList(list):
         names = [s.name for s in self]
         def not_found():
             raise SourceListException('source %s not found' %source_name)
+        def found(s):
+            self.selected_source=s
+            return s
         if source_name[-1]=='*':
             for name in names:
-                if name.startswith(source_name[:-1]): return self[names.index(name)]
+                if name.startswith(source_name[:-1]): 
+                    return found(self[names.index(name)])
             not_found()
         if source_name[0]=='*':
             for name in names:
-                if name.endswith(source_name[1:]): return self[names.index(name)]
+                if name.endswith(source_name[1:]): 
+                    return found(self[names.index(name)])
             not_found()
         try:
             selected_source = self[names.index(source_name)]
             #if self.selected_source is None or self.selected_source != selected_source:
             #    print 'selected source %s for analysis' % selected_source.name
-            self.selected_source = selected_source
-            return self.selected_source
+            return found(selected_source)
         except:
             self.selected_source = None
             not_found()
@@ -167,7 +156,7 @@ class SourceList(list):
             m.set_parameters(parameters[cp:nn])
             current_position += nn-cp
 
-    def set_covariance_matrix(self,cov_matrix, select=None):
+    def set_covariance_matrix(self, cov_matrix, select=None):
         """ take over-all covariance matrix from a fit, give block-diagonal pieces to model objects
         if select is a list of variable indices, set diagonal elements only
         
@@ -180,7 +169,7 @@ class SourceList(list):
             s = [ (i,j) for i,mf in t for j in mf]
             for n,k in enumerate(select):
                 i,j = s[k]
-                models[i].cov_matrix[j,j] = cov_matrix[n,n]
+                models[i].internal_cov_matrix[j,j] = cov_matrix[n,n]
             return
         current_position=0
         for m in self.models:
@@ -189,44 +178,48 @@ class SourceList(list):
             current_position += nn-cp
 
     def get_model_parameters(self):
-        return 10**self.get_parameters()
+        if len(self.models)==0: return []
+        return np.concatenate([m.free_parameters for m in self.models])
+        #return 10**self.get_parameters()
     
     def set_model_parameters(self, par):
+        assert False, 'is this used?'
         self.set_parameters(np.log10(par))
-    parameters = property(get_model_parameters, set_model_parameters,
+    model_parameters = property(get_model_parameters, set_model_parameters,
                 doc='array of free model parameters')
 
     @property
     def uncertainties(self):
         """ return relative uncertainties 
-            just scale the log10 uncertaintes
         """
-        variances = np.concatenate([m.cov_matrix.diagonal()[m.free] for m in self.models])
-        variances[variances<0] = 0
-        return np.sqrt(variances) /np.log10(np.e)
+        variances = np.concatenate([m.get_cov_matrix().diagonal()[m.free] for m in self.models])
+        variances[variances<0]=0
+        return np.sqrt(variances) / np.abs(self.model_parameters)
 
-    @property
-    def bounds(self):
-        ret = []
-        for source_name, model in zip(self.source_names, self.models):
-            for pname in np.array(model.param_names)[model.free]:
-                pname = pname.split('_')[0]
-                plim = (None,None)
-                try:
-                    plim = dict(
-                        Index=(-3, 0.6),
-                        Norm=(-15, -7),
-                        Scale=np.log10(np.array([0.001, 4.0])),
-                        beta=(-3, np.log10(5.)),
-                        Cutoff=(2,6),
-                        )[pname.split('_')[0]]
-                except: pass
-                # override for diffuse
-                if source_name.startswith('ring') and pname=='Norm': 
-                    plim = np.log10(np.array([0.5, 1.5]))
-                ret.append(plim)
-                
-        return ret
+    def set_default_bounds(self, source, force=False):
+        model = source.spectral_model
+        if not force and hasattr(model, 'bounds'): return
+        bounds=[]
+        def to_internal(fun, values):
+            return [fun(value) if value is not None else None for value in values]
+        for pname, mp in zip(model.param_names, model.mappers):
+            plim = (None,None)
+            try:
+                plim = dict(
+                    Index=(-0.5, 5), 
+                    Norm=(10**-15, 10**-7),
+                    Scale=(0.001, 4.0),
+                    beta=(0, 5.), 
+                    Cutoff=(100., 1e5),
+                    )[pname]
+            except: pass
+            # override for diffuse
+            if source.name.startswith('ring') and pname=='Norm': 
+                plim = (0.5, 1.5)
+            # finally, save internal reps
+            bounds.append( to_internal(mp.tointernal, plim) )
+        model.bounds = np.array(bounds) # convert to array so can mask with free
+    
         
     def add_source(self, source):
         if source.name in self.source_names:

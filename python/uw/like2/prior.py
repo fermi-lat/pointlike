@@ -2,7 +2,7 @@
 Manage prior likelihood calculations 
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/prior.py,v 1.1 2011/10/04 02:48:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/prior.py,v 1.2 2011/10/20 21:41:28 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import numpy as np

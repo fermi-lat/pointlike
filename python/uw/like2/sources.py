@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.4 2011/12/29 19:19:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.5 2012/01/31 21:44:07 wallacee Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -9,12 +9,39 @@ from skymaps import SkyDir, Band, IsotropicSpectrum
 import skymaps 
 from uw.like import  Models
 from uw.like import pointspec_helpers
+from uw.utilities import parmap 
 
 # convenience adapters 
 def LogParabola(*pars):return Models.LogParabola(p=pars)
 def PowerLaw(*pars):   return Models.PowerLaw(p=pars)
 def ExpCutoff(*pars):  return Models.ExpCutoff(p=pars)
     
+def convert_model(oldmodel):
+    """ convert the original version to the new one with parameter mappers
+    """
+    if hasattr(oldmodel, 'mappers'): return oldmodel #new, or already converted
+    pars = 10**oldmodel._p
+    # absorb index_offset into index (but avoid exactly zero for now)
+    if oldmodel.name=='PowerLaw':
+        pars[1] -= oldmodel.index_offset
+        if pars[1]==0: pars[1]=1e-3
+    elif oldmodel.name=='FrontBackConstant':
+        # different constructor for this guy
+        # assume still use log
+        return Models.FrontBackConstant(pars[0],pars[1])
+    model = eval('Models.%s()' % oldmodel.name)
+    model.set_all_parameters(pars)
+    model.free = oldmodel.free
+    # try to set complete state: e0 tricky
+    if hasattr(oldmodel, 'e0') and 'e0' in model.default_extra_params : 
+        model['e0'] = oldmodel.e0 
+    # jacobian for conversion from all log10 to default
+    j =  (np.log(10)*pars) / model.dexternaldinternal()
+    model.internal_cov_matrix = j * oldmodel.cov_matrix * j.T
+    #model.internal_cov_matrix = oldmodel.cov_matrix
+    return model
+    
+
 class Source(object):
     """ base class for various sources
     """
@@ -28,8 +55,6 @@ class Source(object):
         if 'model' not in kwargs or self.model is None:
             self.model=LogParabola(1e-14, 2.2, 1e-3, 1e3)
             self.model.free[2:]=False
-        if type(self.model)==types.StringType:
-            self.model = eval(self.model)
         if self.model.name=='PowerLaw':
             par,sig = self.model.statistical()
             self.model = LogParabola(*(list(par)+[1e-3, self.model.e0]))
@@ -37,13 +62,6 @@ class Source(object):
         elif self.model.name=='PLSuperExpCutoff':
             par,sig=self.model.statistical()
             self.model = ExpCutoff(*par[:-1])
-        elif self.model.name=='LogParabola':
-            if 'index_offset' not in self.model.__dict__:
-                self.model.index_offset = 0
-            self.model.free[-1]=False
-            if self.model.cov_matrix[3,3]<0:  
-                self.model.cov_matrix[3,3]= 100.
-                print 'fix covariance matrix for source %s' % self.name
         elif self.model.name=='PowerLawFlux':
             f, gamma = self.model.get_all_parameters() #10**self.model.p
             emin = self.model.emin
@@ -51,6 +69,9 @@ class Source(object):
             self.model.free[2:]=False
         if self.model.name not in ['LogParabola','ExpCutoff','Constant']:
             raise Exception('model %s not supported' % self.model.name)
+        if not hasattr(self.model, 'npar'):
+            raise Exception('model %s for source %s was not converted to new format'\
+                    % (self.model.name, self.name))
             
         self.free = self.model.free.copy()  # save copy of initial free array to restore
     def freeze(self, freeze):
@@ -179,6 +200,7 @@ def validate( ps, nside, filter):
             print 'SkyModel: removed source %s' % ps.name
             return ret
     model = ps.model
+    assert hasattr(model, 'npar'), 'no npar: %s ' % model.__dict__
     if '_p' not in model.__dict__:
         model.__dict__['_p'] = model.__dict__.pop('p')  # if loaded from old representation
     hpindex = lambda x: Band(nside).index(x)
@@ -195,7 +217,7 @@ def validate( ps, nside, filter):
         else: #log parabola
             check =  alpha>1e-4 and alpha<100 and beta<100
             if check: return True
-            print 'SkyModel warning for %-20s(%d): out of range, norm,alpha=%.2e %.2f %.2f'\
+            assert False, 'SkyModel warning for %-20s(%d): out of range, norm,alpha,beta=%.2e %.2f %.2f'\
                     %(ps.name, hpindex(ps.skydir),norm,alpha,beta)
             model[:]= [1e-15, 5.0, 10.0, 10000]
             ps.free[2:] = False
@@ -203,7 +225,7 @@ def validate( ps, nside, filter):
         
     elif model.name=='ExpCutoff':
         norm, gamma, ec = model.get_all_parameters() #10**model.p
-        if np.any(np.diag(model.cov_matrix)<0): model.cov_matrix[:]=0 
+        #if np.any(np.diag(model.cov_matrix)<0): model.cov_matrix[:]=0 
         if norm<1e-18: model[0]=1e-18 #quietly prevent too small
         check =  gamma>1e-10 and gamma<5 and ec>100
         if check: return True

@@ -1,7 +1,7 @@
 """
 Set up an ROI factory object
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.11 2012/02/26 23:50:48 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.12 2012/03/27 20:24:31 wallacee Exp $
 
 """
 import os, sys, types
@@ -16,6 +16,7 @@ from .. data import dataman
 class ExposureManager(object):
     """A small class to handle the trivial combination of effective area and livetime.
     
+    Also handles an ad-hoc exposure correction
     """
 
     def __init__(self, dataset, **datadict): 
@@ -39,7 +40,7 @@ class ExposureManager(object):
         self.ea  = [skymaps.EffectiveArea('', file) for file in aeff_files]
         if dataset.verbose: print ' -->effective areas at 1 GeV: ', \
                 ['%s: %6.1f'% (inst[i],self.ea[i](1000)) for i in range(len(inst))]
-        if dataset.use_weighted_livetime:
+        if dataset.use_weighted_livetime and hasattr(dataset, 'weighted_lt'):
             self.exposure = [skymaps.Exposure(dataset.lt,dataset.weighted_lt,ea) for ea in self.ea]
         else:
             self.exposure = [skymaps.Exposure(dataset.lt,ea) for ea in self.ea]
@@ -120,22 +121,36 @@ class ROIfactory(object):
             self.data_manager = self.dataset(self.data_interval) #need to save a reference to avoid a segfault
             self.exposure = pointspec2.ExposureManager(self.data_manager,self.dataset.CALDBManager)
 
-            self.exposure.correction = [ExposureCorrection(0.97, 1.02), lambda e: 0.98] #TODO
-        else:
+            self.exposure.correction = [lambda e: 1,lambda e : 1] #TODO
+        else: # not a DataSet
             if dataspec is None:
-                print 'dataspec is None: loading datadict from skymodel'; sys.stdout.flush()
+                print 'dataspec is None: loading datadict from skymodel.config'; sys.stdout.flush()
                 datadict = self.skymodel.config['datadict']
-                assert datadict is not None, 'Bad skymodel.config'
+                if type(datadict)==types.StringType: datadict=eval(datadict)
+                if isinstance(datadict, dataman.DataSet): 
+                    interval = self.skymodel.config.get('interval', None)
+                    if interval is None: interval = self.skymodel.config.get('data_interval', None)
+                    assert interval is not None, 'did not fine interval or data_interval in skymodel.conifg'
+                    dset = datadict[interval]
+                    assert hasattr(dset, 'binfile'), 'Not a DataSet? %s' % dataset
+                    datadict = dict(dataname=dset)
+                else:
+                    assert type(datadict)==types.DictType, 'expected a dict'
             else:
-                datadict = dict(dataname=dataspec) if type(dataspec)!=types.DictType else dataspec
+                datadict = dict(dataname=dataspec)\
+                        if type(dataspec)!=types.DictType else dataspec
             print '\tdatadict: ', datadict
             if self.analysis_kw.get('irf',None) is None:
-                self.analysis_kw['irf'] = self.skymodel.config['irf']
-            print '\tirf:\t%s' % self.analysis_kw['irf'] 
-            datadict = dict(dataname=dataspec) if type(dataspec)!=types.DictType else dataspec
+                t = self.skymodel.config['irf']
+                if t[0] in ('"',"'"): t = eval(t)
+                self.analysis_kw['irf'] = t
+            print '\tirf:\t%s' % self.analysis_kw['irf'] ; sys.stdout.flush()
+            #datadict = dict(dataname=dataspec, ) \
+            #        if type(dataspec)!=types.DictType else dataspec
+            exposure_correction=self.analysis_kw.pop('exposure_correction', None)        
             self.dataset = dataset.DataSet(datadict['dataname'], **self.analysis_kw)
-            print self.dataset
-            self.exposure  = ExposureManager(self.dataset, **datadict)
+            self.exposure = ExposureManager(self.dataset, exposure_correction=exposure_correction)
+        
         self.psf = pypsf.CALDBPsf(self.dataset.CALDBManager)
  
         convolution.AnalyticConvolution.set_points(self.convolve_kw['num_points'])
@@ -235,6 +250,10 @@ class ROIfactory(object):
     def __call__(self, *pars, **kwargs):
         """ alias for roi() """
         return self.roi(*pars, **kwargs)
+        
+    def reload_model(self):
+        """ Reload the sources in the model """
+        self.skymodel._load_sources()
 
 class BandSelector(object):
     """Class to handle selection of bands with new data management code.

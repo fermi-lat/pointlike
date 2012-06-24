@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.17 2012/01/29 02:01:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.18 2012/02/12 20:09:29 burnett Exp $
 
 """
 import types
@@ -30,6 +30,24 @@ def decorate_with(other_func, append=False, append_init=False):
 
 class ROI_user(roistat.ROIstat, fitter.Fitted):
     """ subclass of ROIstat that adds user-interface tools: fitting, localization, plotting sources, counts
+    methods
+    =======
+    fit
+    localize
+    get_source
+    get_model
+    summary
+    TS, band_ts
+    get_sed
+    plot_tsmap
+    plot_sed
+    plot_counts
+    print_summary
+    find_associations
+    add_source
+    del_source
+    zero_source
+    unzero_source
     """
     def __init__(self, *pars, **kwargs):
         source_name= kwargs.pop('source_name', None)
@@ -132,7 +150,7 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
     def cov_matrix(self, par=None):
         return fitter.Minimizer.mycov(self, self.get_parameters() if par is None else par)
         
-    def localize(self, source_name, **kwargs):
+    def localize(self, source_name=None, **kwargs):
         """ localize the source, return elliptical parameters 
         """
         source = self.sources.find_source(source_name)
@@ -177,7 +195,7 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
             src = self.get_source(select)
             select = [i for i in range(len(saved_pars)) if self.parameter_names[i].startswith(src.name)]
 
-        for index, (name, value, rsig) in enumerate(zip(self.parameter_names, self.parameters, self.sources.uncertainties)):
+        for index, (name, value, rsig) in enumerate(zip(self.parameter_names, self.model_parameters, self.sources.uncertainties)):
             if select is not None and index not in select: continue
             t = name.split('_')
             pname = t[-1]
@@ -289,9 +307,12 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
         
     @property
     def correlations(self):
-        """Return the linear correlation coefficients for the estimated covariance matrix."""
+        """Return the linear correlation coefficients for the estimated covariance matrix.
+        """
         cm = self.cov_matrix
-        s = np.sqrt(cm.diagonal())
+        diag = cm.diagonal()
+        diag[diag<=0]=np.nan # protect against zero or negative
+        s = np.sqrt(diag)
         return cm / np.outer(s,s)
         
     def add_source(self, **kwargs):
@@ -322,7 +343,7 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
         
         
 class Factory(roisetup.ROIfactory):
-    """ superclass of ROIfactory that sets up a ROI_user analysis object"""
+    """ subclass of ROIfactory that sets up a ROI_user analysis object"""
     def __call__(self, sel):
         ### assume that this is a HEALPix selection
         source_name=None

@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.11 2011/12/06 22:18:51 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.12 2011/12/10 14:11:41 burnett Exp $
 
 """
 import os

@@ -1,6 +1,6 @@
 """
 Support for generating output files
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/catrec.py,v 1.3 2011/12/16 13:43:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/catrec.py,v 1.4 2011/12/29 19:19:13 burnett Exp $
 """
 import os, glob, types
 import cPickle as pickle
@@ -79,6 +79,7 @@ def create_catalog(outdir, **kwargs):
                 flux flux_unc
                 eflux eflux_unc
                 beta beta_unc
+                index2 index2_unc
                 modelname 
                 fit_ra fit_dec a b ang qual delta_ts
                 """.split() 
@@ -116,7 +117,7 @@ def create_catalog(outdir, **kwargs):
                     self.rejected.append(name)
                     continue
                 p_unc = p*p_relunc
-                psr_fit =  model.name=='ExpCutoff'
+                psr_fit =  model.name.endswith('Cutoff')
                 data += [p[0],     p[1],     p[2] if psr_fit else cnan, ]
                 data += [p_unc[0], p_unc[1] ,p_unc[2] if psr_fit else cnan,]
                 pivot_energy = entry.get('pivot_energy',model.e0)
@@ -129,10 +130,16 @@ def create_catalog(outdir, **kwargs):
                 
                 # energy flux from model e < 1e5, 1e-6 MeV units
                 data += eflux
-                if psr_fit:
-                    data += [cnan,cnan, 'ExpCutoff']
+                if model.name=='ExpCutoff':
+                    data += [cnan,cnan, 1.0, cnan, 'ExpCutoff']
+                elif model.name=='PLSuperExpCutoff':
+                    data += [cnan,cnan, p[3], p_unc[3], model.name]
+                elif p[2]<0.01:
+                    data += [0.0, cnan,    cnan, cnan, 'PowerLaw'] 
                 else:
-                    data += [cnan,cnan, 'PowerLaw'] if p[2]<=0.01 else [p[2], p_unc[2], 'LogParabola']
+                    data += [p[2], p_unc[2], cnan, cnan, 'LogParabola']
+                    
+                
                 #data += [sum(bts[4:]), sum(bts[8:])] ### note assumptions that 1, 10 GeV start at 4,8
                 ellipse = entry.get('ellipse', None)
                 if ellipse is None:
