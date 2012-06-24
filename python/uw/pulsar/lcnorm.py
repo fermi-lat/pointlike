@@ -6,7 +6,7 @@ This is done by treating each primitives' normalization parameter as
 the square of a cartesian variable lying within or on an
 n-dimensional ball of unit radius.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcnorm.py,v 1.1 2012/03/11 22:20:21 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcnorm.py,v 1.2 2012/03/14 01:18:58 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 """
@@ -28,11 +28,13 @@ class NormAngles(object):
         self.p = self._get_angles(norms)
         self.free = np.asarray([True] * len(norms))
 
-    def _check_norms(self,norms):
+    def _check_norms(self,norms,eps=1e-15):
         ok = True
         for n in norms:
-            ok = ok and ((n > 0) and (n <= 1))
-        return ok and (sum(norms)<=1)
+            print n
+            #ok = ok and ((n > eps) and (n <= (1+eps)))
+            ok = ok and (n <= (1+eps))
+        return ok and (sum(norms)<=(1+eps))
 
     def _get_angles(self,norms):
         """ Determine the n-sphere angles from a set of normalizations."""
