@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Jun 24 07:28:01 PDT 2012
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+implement pivot energy; cache external values for x3 speedup of evaluation
+    *
+------------------------------------------------------------
 User: burnett  Sun Jun 24 07:15:59 PDT 2012
 pointlike/python/uw
 
