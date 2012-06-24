@@ -5,7 +5,7 @@ Manage a SED plot
             sf an SourceFlux object, 
         Plot(sf)()
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.5 2012/01/27 15:07:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.6 2012/01/29 02:01:53 burnett Exp $
 """
 import os, types
 import numpy as np
@@ -55,39 +55,55 @@ class Plot(object):
             butterfly: bool, 
             kwargs: pass to the line to plot
         """
-        stat = m.statistical()
-        err = stat[0]*stat[1]
         energy_flux_factor = self.scale_factor*1e6 # from MeV to eV
         
-        # show position of e0, possibly the pivot energy
-        e0 = m.e0 if m.name!='LogParabola' else m[-1]
-        flux = m(e0); flux_unc = flux*stat[1][0]
-        axes.errorbar([e0], 
-                [energy_flux_factor*flux * e0**2], fmt='or', 
-            yerr=energy_flux_factor*flux_unc * e0**2, elinewidth=2, markersize=8)
-
-        #if m.name=='PowerLaw':
-        #    axes.errorbar([m.e0], [energy_flux_factor*stat[0][0]*m.e0**2], fmt='or', 
-        #        yerr=energy_flux_factor*err[0]*m.e0**2, elinewidth=2, markersize=8)
         ## plot the curve
         axes.plot( dom, energy_flux_factor*m(dom)*dom**2, **kwargs)
-        #butterfly if powerlaw
-        if butterfly and m.name=='PowerLaw' or m.name=='LogParabola':
-            # 'butterfly' region
-            dom_r = np.array([dom[-i-1] for i in range(len(dom))]) #crude reversal.
-            a,gamma = stat[0][:2]
-            var = err**2
-            # r is e/e0
-            bfun = lambda r: r**-gamma * np.sqrt(var[0] + (a*np.log(r))**2 * var[1])
-            upper = energy_flux_factor*(m(dom)  + bfun(dom/m.e0)  )*dom**2
-            lower = energy_flux_factor*(m(dom_r)/(1 +bfun(dom_r/m.e0)/m(dom_r)))*dom_r**2
-            ymin, ymax = axes.get_ylim()
-            lower[lower<ymin] = ymin
-            upper[upper>ymax] = ymax
-            t =axes.fill(np.hstack( [dom,   dom_r] ), 
-                        np.hstack( [upper, lower] ), 'r')
-            t[0].set_alpha(0.4)
-               
+ 
+        # show position of e0, possibly the pivot energy
+        if butterfly:
+            try:
+                self.plot_butterfly(axes, m, dom)
+            except:
+                print 'fail to plot butterfly for {}'.format(self.name)
+
+    def plot_butterfly(self, axes, m, dom):
+        energy_flux_factor = self.scale_factor*1e6 # from MeV to eV
+
+        try:
+            e0 = m.pivot_energy()
+        except:
+            print 'no butterfly plot for {}'.format(self.name)
+            return
+        flux = m(e0); 
+        eflux = lambda e: energy_flux_factor * m(e) * e**2
+        bfun  = lambda e: m.flux_relunc(e)
+
+        axes.errorbar([e0], [eflux(e0)], yerr=[eflux(e0)*bfun(e0)], 
+                    fmt='or', elinewidth=2, markersize=8)
+                
+        dom_r = np.array([dom[-i-1] for i in range(len(dom))]) #crude reversal.
+        upper = eflux(dom)  * (1 + bfun(dom)  ) 
+        lower = eflux(dom_r) /(1 + bfun(dom_r) )
+        ymin, ymax = axes.get_ylim()
+        lower[lower<ymin] = ymin
+        upper[upper>ymax] = ymax
+        t =axes.fill(np.hstack( [dom,   dom_r] ), 
+                    np.hstack( [upper, lower] ), 'r')
+        t[0].set_alpha(0.4)
+        
+    def plot_residual(self, axes, model, dom, **kwargs):
+        energy_flux_factor = self.scale_factor*1e6 # from MeV to eV
+        energy = sqrt(self.rec.elow*self.rec.ehigh)
+        mflux = model(energy)*energy**2*energy_flux_factor
+        y = self.rec.flux/mflux
+        yerr = self.rec.uflux/mflux-y, y-self.rec.lflux/mflux
+        axes.errorbar(energy, y, yerr=yerr, fmt='o', label='UW data')
+        setp(axes, xscale='log', xlim=(100, 10e3), ylim =(0.85, 1.15), 
+                xlabel='Energy (Mev)')
+        axes.grid()
+        axes.axhline(1.0, color='k', lw=2)
+
     def __call__(self, model=None, name=None,
                 fignum=5, axes=None,
                 axis=None, #(1e2,1e6,1e-7,1e-2),
@@ -110,7 +126,7 @@ class Plot(object):
         data_kwargs  a dict to pass to the data part of the display
         fit_kwargs   a dict to pass to the fit part of the display
         butterfly    [True] plot model with a butterfly outline
-        outdir       [None] if set, save sed into <outdir>/<source_name>_sed.png if outdir is a directory, save into filename=<outdir> if not.
+        outdir       [None] if set, save sed into <outdir>/<source_name>_sed.png if outdir is a directory, save into filename=<outdir> if noself.
         galmap       [None] if set to a SkyDir, create a little galactic map showing this position
         annotate     [None] if set, a tuple of (x, y, text), in axes coords
         ========     ===================================================
@@ -136,7 +152,7 @@ class Plot(object):
        
         self.plot_data(axes, **data_kwargs)
         # and the model, perhaps with a butterfly
-        dom = np.logspace(np.log10(self.rec.elow[0]), np.log10(self.rec.ehigh[-1]), 101)
+        dom = np.logspace(np.log10(self.rec.elow[0]), np.log10(self.rec.ehigh[-1]), 26)
         self.plot_model(axes, model, dom, butterfly, **fit_kwargs)
         plt.rcParams['axes.linewidth'] = oldlw
 
