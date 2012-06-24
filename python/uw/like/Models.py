@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.108 2012/06/24 14:28:01 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.109 2012/06/24 15:48:46 burnett Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -319,7 +319,14 @@ class Model(object):
     def thaw(self,i): self.freeze(i,freeze=False)
 
     def set_cov_matrix(self,new_cov_matrix):
-        self.internal_cov_matrix[np.outer(self.free,self.free)] = np.ravel(new_cov_matrix)
+        """
+        set the free submatrix of the internal format covariance matrix
+        
+        """
+        t = np.ravel(new_cov_matrix)
+        assert len(t)==self.free.sum()**2, \
+            'wrong size for new cov matrix: found %d, expected %d' % (len(t), self.free.sum()**2)
+        self.internal_cov_matrix[np.outer(self.free,self.free)] = t
 
     def dexternaldinternal(self):
         """ Return the derivatives of the external parameters with respect to the internal parameters. 
@@ -648,20 +655,33 @@ class Model(object):
             return np.sqrt(t)/self(energy) if t>0 else t
         return np.array(map(unc,energy)) if hasattr(energy, '__iter__') else unc(energy)
 
-    def pivot_energy(self, emax=1e5, exception=True):
+    def pivot_energy(self, emax=1e5, exception=True, **kwargs):
         """ find the pivot energy by minimizing the flux uncertainty (knot of the bow tie)
             
             exception: bool
                 if False, pass nan as output if invalid
+                
+            kwargs : optional parameters for fmin
+            
+            >>> m = LogParabola(p=[1e-11, 2.3, 1e-3, 1000.])
+            >>> m.free[3]=False
+            >>> c=0.1;ncm = np.array([[1, c, 0],[c, 0.5, 0], [0,0,0]])
+            >>> m.set_cov_matrix(ncm)
+            >>> round(m.pivot_energy(),1)
+            1584.9
         """
-        f = lambda e : self.flux_relunc(e)
+        def f(e):
+            return self.flux_relunc(e)
         if np.isnan(f(500)):
             if exception:
-                raise Exception('Spectral fit with at least two free parameters required before calculating pivot energy')
+                raise ModelException('Spectral fit with at least two free parameters required before calculating pivot energy')
             else: return np.nan
         try:
-            return min(optimize.fmin(f, [500], disp=0, ftol=0.01, xtol=0.05, maxiter=10)[0], emax)
-        except FloatingPointError:
+            fmin_default=dict(disp=0, ftol=0.01, xtol=0.05, maxiter=50)
+            fmin_default.update(**kwargs)
+            return min(optimize.fmin(f, [self.e0], **fmin_default )[0], emax)
+        except FloatingPointError, msg:
+            #raise ModelException('pivot_energy failed: %s' % msg)
             return 200. #default: problems with very soft, this is reasonable
 
     def zero(self):
@@ -1041,8 +1061,8 @@ class LogParabola(Model):
             >>> abs(m.i_flux()-m2.i_flux())<1e-20
             True
         """
-        n0, alpha, beta, ebreak = self.get_all_parameters()
-        x = np.log(ebreak/e0p)
+        n0, alpha, beta, e_break = self.get_all_parameters()
+        x = np.log(e_break/e0p)
         self.setp(0, n0 * np.exp(alpha*x-beta*x*x))
         self.setp(1, alpha-2*beta*x)
         self.setp(3, e0p)
