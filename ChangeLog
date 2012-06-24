@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Jun 24 06:50:00 PDT 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	cluster.py engines.py maps.py pipe.py processor.py 
+Log Message:
+updates following conversion to new Models
+    *
+------------------------------------------------------------
 User: burnett  Sat Jun 23 21:59:43 PDT 2012
 pointlike/python/uw/like2/plotting
 
