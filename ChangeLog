@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Sat Jun 23 21:52:29 PDT 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	bandlike.py catrec.py diffuse.py main.py prior.py roisetup.py 
+	roistat.py skymodel.py sourcelist.py sources.py tools.py 
+Log Message:
+updates for consistency with new like.Models
+    *
+------------------------------------------------------------
 User: kerrm  Sat Jun 23 20:56:07 PDT 2012
 pointlike/python/uw/pulsar
 
