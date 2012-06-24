@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Sun Jun 24 07:12:11 PDT 2012
+pointlike/python/uw/utilities
+
+Modified Files:
+	fitter.py image.py 
+Added Files:
+	doc_inherit.py 
+Log Message:
+updates following change to Models
+    *
+------------------------------------------------------------
 User: burnett  Sun Jun 24 06:50:00 PDT 2012
 pointlike/python/uw/like2/pipeline
 
