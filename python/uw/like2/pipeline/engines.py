@@ -1,7 +1,7 @@
 """
 Support for running multiple IPEngines on a cluster or machines
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/engines.py,v 1.1 2012/01/02 19:17:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/engines.py,v 1.2 2012/01/11 13:49:30 burnett Exp $
 """
 
 import time, os, sys, types, subprocess
@@ -10,7 +10,7 @@ import numpy as np
 from IPython import parallel
 from IPython.parallel.util import interactive # decorator for function to run in an engine
 
-version = '$Revision: 1.1 $'.split()[1]
+version = '$Revision: 1.2 $'.split()[1]
 
 class Engines(object):
     """ manage a set of IPEngines to simplify parallel processing
@@ -21,7 +21,7 @@ class Engines(object):
     mec.execute('f=lambda x: x')
     n=1000
     mec.submit('f', range(n) )
-    asset sum(mec.results.values()) ==n*(n-1)/2, 'failed test'
+    assert sum(mec.results.values()) ==n*(n-1)/2, 'failed test'
     """
 
     def __init__(self, profile='default', **kwargs):
@@ -95,7 +95,7 @@ class Engines(object):
         return ncomp, nqueue, ntasks
  
     def _wait_to_finish(self, amr):
-        """ monitor progress for a set of taskss """
+        """ monitor progress for a set of tasks """
         rc = self.rc
         self.elapsed=dict()
         self.results=dict()
@@ -115,10 +115,10 @@ class Engines(object):
                 if loops*self.sleep_interval >timeout:
                     raise parallel.TimeoutError
             except Exception, e:
-                log('Exception %s'%e)
+                self.log('Exception other than Timeout: %s'%e)
                 errorcount +=1; 
                 if errorcount > self.maxerrors:
-                    log('Maximum error count: will leave the loop')
+                    self.log('Maximum error count: will leave the loop')
                     return
             # finished is the set of msg_ids that are complete
             finished = pending.difference(rc.outstanding)
@@ -127,7 +127,15 @@ class Engines(object):
             for msg_id in finished:
                 # we know these are done, so don't worry about blocking
                 ar = rc.get_result(msg_id)
-                self.results[msg_id] = ar.result[0] if ar.result is not None else None
+                try:
+                    self.results[msg_id] = ar.result[0] if ar.result is not None else None
+                except Exception,errmsg:
+                    self.log('Exception %s for id %s' % (errmsg, msg_id))
+                    errorcount +=1; 
+                    if errorcount > self.maxerrors:
+                        self.log('Maximum error count: will leave the loop')
+                        return
+                    continue
                 self.elapsed[msg_id] = (ar.completed-ar.started).total_seconds()
                 if self.usercallback is not None:
                     # this needs some way to associate msg_id with the input parameters.

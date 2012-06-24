@@ -34,7 +34,6 @@ class Pipe(roisetup.ROIfactory):
         self.skymodel_kw= kwargs.pop('skymodel_kw', dict())
         self.analysis_kw =kwargs.pop('analysis_kw', dict())
         self.roi_kw      =kwargs.pop('roi_kw', dict())
-        self.data_interval    =kwargs.pop('data_interval',0)
  
         self.selector = skymodel.HEALPixSourceSelector
         self.selector.nside = self.nside
@@ -44,7 +43,7 @@ class Pipe(roisetup.ROIfactory):
         if type(self.processor)==types.StringType:
             self.processor = eval(self.processor)
 
-        super(Pipe, self).__init__(indir, dataset,data_interval = self.data_interval, 
+        super(Pipe, self).__init__(indir, dataset, 
             analysis_kw=self.analysis_kw, skymodel_kw=self.skymodel_kw)
        
     def __str__(self):
@@ -94,12 +93,11 @@ class Setup(dict):
         if not os.path.exists(outdir): os.mkdir(outdir)
         if os.name=='nt':
             os.system('title %s %s'% (os.getcwd(), indir))
-        self.update(dict( cwd='$HOME/analysis/'+os.path.split(os.getcwd())[-1], 
+        self.update(dict( cwd=os.getcwd(), #'$HOME/analysis/'+os.path.split(os.getcwd())[-1], 
                 indir = indir,
                 auxcat='',
                 outdir=outdir,
                 datadict = None,
-                data_interval = 0,
                 diffuse = None,
                 emin=100, emax=316227, minROI=5, maxROI=5,
                 extended= None, #flag to get from model
@@ -143,8 +141,7 @@ class Setup(dict):
         self.setup_string= """\
 import os, pickle; os.chdir(os.path.expandvars(r"%(cwd)s"));%(setup_cmds)s
 from uw.like2.pipeline import pipe,associate; from uw.like2 import skymodel;
-g=pipe.Pipe("%(indir)s", %(datadict)s,
-        data_interval = %(data_interval)i, 
+g=pipe.Pipe("%(indir)s", %(datadict)s, 
         skymodel_kw=dict(auxcat="%(auxcat)s",diffuse=%(diffuse)s,
             extended_catalog_name=%(extended)s, update_positions=%(update_positions)s,
              %(skymodel_extra)s), 
@@ -211,7 +208,6 @@ n,chisq = len(g.names()), -1
         profile = kwargs.pop('profile','default')
         sleep_interval = kwargs.pop('sleep_interval', 60)
 
-        
         if not self.mecsetup:
             self.setup_mec(profile=profile, sleep_interval=sleep_interval)
         outdir = self.outdir
@@ -329,37 +325,6 @@ def check_converge(month, tol=10, add_neighbors=True, log=None):
     return q
     
        
-#def pmain( setup, fn, taskids=None, local=False,
-#        ignore_exception=False, 
-#        logpath='log',
-#        sleep_interval=60,
-#        ):
-#        
-#    """
-#    Parameters
-#        setup : Setup object, implements
-#            setup_string = setup()
-#                Python code, must define an object "g". It must implement:
-#                a function g(n), n an integer
-#                g.names() must return a list of task names
-#            outdir =setup.outidr : directory to save files
-#        taskids : None or a list of integers
-#            the integers should be in range(0,len(g.names())
-#    """
-#    setup_string = setup()
-#    outdir = setup.outdir
-#    if outdir is not None:
-#        if not os.path.exists(outdir): 
-#            os.mkdir(outdir)
-#        print 'writing results to %s' %outdir
-#            
-#    lc= AssignTasks(fn, taskids, 
-#        timelimit=5000, local=local, ignore_exception=ignore_exception,
-#         )
-#    if sleep_interval>0:
-#        lc(sleep_interval)
-#       
-#    return lc
 
 class NotebookPipe(object):
 
@@ -419,7 +384,7 @@ class Update(NotebookPipe):
         return rc
     def iterate(self, full=False):
         self.setup.mecsetup=False
-        rc=elf.setup.run(tasklist=self.t if not full else None)
+        rc=self.setup.run(tasklist=self.t if not full else None)
         self.check()
         return rc
 
@@ -432,7 +397,7 @@ class Finish(Update):
     def defaults(self):
         return dict(dampen=0,
             localize=True, tsmap_dir='"tsmap"',  
+            sedfig_dir = '"sedfig"',
             setup_cmds = 'from uw.like2.pipeline import associate ',
             associator="associate.SrcId('$FERMI/catalog','all_but_gammas')",quiet=True)
             
-        
