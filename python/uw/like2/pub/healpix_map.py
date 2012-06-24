@@ -1,6 +1,6 @@
 """
 Utilities for managing Healpix arrays
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.2 2012/01/11 14:04:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.3 2012/02/12 20:06:59 burnett Exp $
 """
 import os,glob,pickle, types, copy
 import pylab as plt
@@ -45,6 +45,7 @@ class HParray(object):
         if axes is None:
             plt.close(fignum)
             fig = plt.figure(fignum, figsize=(12,6))
+            axes = plt.gca()
         ait=image.AIT(PySkyFunction(skyplotfun) ,axes=axes, **ait_kw)
         ait.imshow(title=title, **kwargs)
         return ait

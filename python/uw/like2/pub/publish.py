@@ -1,6 +1,6 @@
 """
 manage publishing 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/publish.py,v 1.2 2012/01/24 14:45:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/publish.py,v 1.3 2012/02/12 20:06:59 burnett Exp $
 """
 import sys, os, pickle, glob, types, time
 import Image
@@ -86,7 +86,8 @@ class Publish(object):
         self.mec=mec
         self.get_config()
         self.skymodel = skymodel.SkyModel(outdir)#, extended_catalog_name=self.config['extended'])
-        self.rois = self.skymodel.roi_rec()
+        # get the records, perhaps regenerating
+        self.rois = self.skymodel.roi_rec(overwrite)
         self.sources = self.skymodel.source_rec()
         if ts_min is not None:
             s = self.sources
