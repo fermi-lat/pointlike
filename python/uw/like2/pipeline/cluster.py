@@ -1,28 +1,28 @@
 """
 Support for managing a cluster
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/engines.py,v 1.2 2012/01/11 13:49:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/cluster.py,v 1.1 2012/02/26 23:43:49 burnett Exp $
 """
 
 import time, os, sys, types, subprocess
 import numpy as np
 
 from IPython import parallel
-version = '$Revision: 1.2 $'.split()[1]
+version = '$Revision: 1.1 $'.split()[1]
 
 # setup
 master='tev10'
-slaves=['tev09','tev07', 'tev08', ]
+slaves=['tev09', 'tev08']
 profile='default'
 npe=24 # number per engine to start
-
+print 'master: %s, slaves: %s' % (master, slaves)
 def clear():
     # clear 
     cmd = 'ssh %s ipcluster stop'%master
     print cmd, ':', os.system(cmd)
-    for machine in [master]+slaves: 
-        cmd='ssh %s killall python' % machine
-        print cmd, ':', os.system(cmd)
+    #for machine in [master]+slaves: 
+    #    cmd='ssh %s killall --user $USER python' % machine
+    #    print cmd, ':', os.system(cmd)
         
 def start_master(ipcmd='start', n=npe):
     # start
@@ -62,14 +62,14 @@ def free():
         for line in system(machine, 'free')[0].split('\n'): 
             print '\t%s' % line
             
-def startup(n=None, interval=5):
-    clear()
+def startup(n=None, interval=5, retry=5):
+    #clear()
     if n is None:
         n = npe*(len(slaves)+1)
     start_master(n=min(n,npe))
     start_engines(n-npe)
     last=-1
-    for i in range(10):
+    for i in range(retry):
         time.sleep( interval if i>0 else 10)
         try: 
             rc = parallel.Client(profile=profile)
@@ -80,5 +80,7 @@ def startup(n=None, interval=5):
         print  m,
         if m==n: 
             print 'done' 
-            return
+            return n
         last=m
+    print 'timed out, missing %d engine(s)'%(n-m)
+    return m

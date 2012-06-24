@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.15 2012/02/12 20:08:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.16 2012/02/26 23:43:49 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -255,7 +255,9 @@ def process(roi, **kwargs):
         print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (roi.name,))
     else: outtee=None
 
-    if not os.path.exists(counts_dir):os.makedirs(counts_dir)
+    if not os.path.exists(counts_dir):
+        try: os.makedirs(counts_dir) # in case some other process makes it
+        except: pass
     init_log_like = roi.log_like()
     roi.print_summary(title='before fit, logL=%0.f'% init_log_like)
     fit_sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
@@ -581,8 +583,8 @@ def gtlike_compare(roi, **kwargs):
         outfile = os.path.join(sed_dir, '%s_sed.png' % (source.name.replace(' ','_').replace('+','p')))
         plt.savefig(outfile)
         print 'wrote file %s' % outfile
-        catmodels.append(dict(name=source.name, m_gt=catmodel, m_pt=t, info=np.array(catsource), ts_pt=ptts, ts_gt=gtts))
+        catmodels.append(dict(name=source.name, m_gt=catmodel, m_pt=t, info=np.array(catsource), 
+            catinfo=catsource, ts_pt=ptts, ts_gt=gtts))
     outfile = os.path.join(model_dir, '%s.pickle'%roi.name)
     pickle.dump(catmodels,open(outfile, 'w'))
     print 'wrote file %s' %outfile
-                
