@@ -2,7 +2,7 @@
 Basic fitter utilities
 
 Authors: Matthew Kerr, Toby Burnett
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitter.py,v 1.5 2012/03/12 17:12:55 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitter.py,v 1.6 2012/03/12 17:40:58 wallacee Exp $
 
 """
 
@@ -427,12 +427,15 @@ class Projector(Fitted):
         """ len of x must be number of selected parameters"""
         self.fpar[self.mask]=x
         ret= self.fn(self.fpar)
+        #print 'value(%.2f)=%.2f' % (x,ret)
         return ret
     def gradient(self, x):
         """ the function object may not support this
         """
         self.fpar[self.mask]=x
-        return self.fn.gradient(self.fpar)[self.mask]
+        t = self.fn.gradient(self.fpar)[self.mask]
+        #print 'gradient(%.2f)=%.2f' % (x, t)
+        return t
     
     @property
     def bounds(self):
