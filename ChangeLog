@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Jun 25 13:39:14 PDT 2012
+ScienceTools-scons/pointlike/python/uw/darkmatter
+
+Modified Files:
+	spatial.py spectral.py 
+Log Message:
+Consistent handeling of, loading in from XML, and writing out to XML environment variables.
+    *
+------------------------------------------------------------
 User: lande  Mon Jun 25 12:01:17 PDT 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
