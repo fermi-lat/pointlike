@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: lande  Mon Jun 25 14:59:08 PDT 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	results_writer.py 
+Log Message:
+Bugfix for results_writer
+    *
+------------------------------------------------------------
+User: lande  Mon Jun 25 14:59:08 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
 Modified Files:
