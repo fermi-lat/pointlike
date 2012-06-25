@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.53 2012/05/30 20:03:29 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.54 2012/06/05 23:02:27 lande Exp $
 
     author: Matthew Kerr
     """
@@ -145,16 +145,16 @@ def get_diffuse_source(spatialModel='ConstantValue',
     # check input sanity
     if not isinstance(spectralModel,Model):
         if (spectralModelFile is not None):
-            if not os.path.exists(spectralModelFile):
-                raise Exception,'Could not find the ASCII file specified for FileFunction'
+            if not os.path.exists(FileFunction.expand(spectralModelFile)):
+                raise Exception('Could not find the ASCII file specified for FileFunction')
         elif spectralModel != 'PowerLaw':
             raise NotImplementedError,'Must provide one of the understood spectral models.'
         else:
             pass
 
     if spatialModel=='MapCubeFunction':
-        if (spatialModelFile is None) or (not os.path.exists(spatialModelFile)):
-            raise Exception,'Could not find the FITS file specified for MapCubeFunction (file = %s).' % spatialModelFile
+        if (spatialModelFile is None) or (not os.path.exists(FileFunction.expand(spatialModelFile))):
+            raise Exception('Could not find the FITS file specified for MapCubeFunction (file = %s).' % spatialModelFile)
     elif spatialModel != 'ConstantValue':
         raise NotImplementedError,'Must provide one of the understood spatial models.'
     else:
@@ -188,7 +188,8 @@ def get_diffuse_source(spatialModel='ConstantValue',
             dmodel.saveme1 = dmodel1; dmodel.saveme2 = dmodel2
             smodel  = Constant()
         else:
-            dmodel = ston.add(DiffuseFunction,spatialModelFile,spatialModelFile)
+            dmodel = ston.add(DiffuseFunction,FileFunction.expand(spatialModelFile),FileFunction.expand(spatialModelFile))
+            dmodel.filename=spatialModelFile
             if spectralModel == 'PowerLaw':
                 smodel = PowerLaw(norm=1, index=0)
             elif spectralModel == 'Constant':
@@ -218,18 +219,17 @@ def get_default_diffuse(diffdir=None,gfile='gll_iem_v02.fit',ifile='isotropic_ie
          Setting gfile or ifile to None ignores that entry."""
     if diffdir is None:
         diffdir = join(os.environ['EXTFILESSYS'],'galdiffuse')
-    diffdir = expandvars(diffdir)
     dsources = []
     if gfile is not None:
         gfilex = join(diffdir,gfile)
-        if not os.path.exists(gfilex):
-            raise Exception,' Galactic diffuse file "%s" not found.' %gfilex
+        if not os.path.exists(FileFunction.expand(gfilex)):
+            raise Exception(' Galactic diffuse file "%s" not found.' %gfilex)
         else:
             dsources += [get_diffuse_source('MapCubeFunction',gfilex,'PowerLaw',None,'Galactic Diffuse (%s)'%gfile)]
     if ifile is not None:
         ifilex = join(diffdir,ifile)
-        if not os.path.exists(ifilex):
-            raise Exception,'isotropic diffuse file "%s" not found.'%ifilex
+        if not os.path.exists(FileFunction.expand(ifilex)):
+            raise Exception('isotropic diffuse file "%s" not found.'%ifilex)
         else:
             dsources += [get_diffuse_source('ConstantValue',None,'FileFunction',ifilex,'Isotropic Diffuse (%s)'%ifile)]
 
