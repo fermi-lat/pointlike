@@ -1,6 +1,6 @@
 """ Class to write out gtlike-style results files. 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/results_writer.py,v 1.5 2011/01/31 01:17:35 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/results_writer.py,v 1.6 2011/09/16 22:01:31 lande Exp $
 
 author: Joshua Lande
 """
@@ -33,7 +33,7 @@ def unparse_point_sources(roi,point_sources,emin,emax,**kwargs):
         name = str(ps.name)
         point_dict[name]={'TS value':'%g' % roi.TS(which=ps,**kwargs)}
         point_dict[name].update(unparse_spectral(ps.model,scaling=False))
-        if not N.all(ps.model.cov_matrix==0):
+        if ps.model.has_errors():
             point_dict[name]['Flux']='%g +/- %g' % ps.model.i_flux(emin,emax,cgs=True,two_sided=False,error=True)
         else:
             point_dict[name]['Flux']='%g' % ps.model.i_flux(emin,emax,cgs=True,two_sided=False,error=False)
