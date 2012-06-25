@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: lande  Mon Jun 25 12:01:17 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Added Files:
+	scalemodels.py 
+Log Message:
+Major restructuring of uw.like.Models and uw.utilities.xml_parsers. This allows for a much cleaner XML parsing of spectral models by allowing the uw.like.Models.Model objects to know more about how they differ from the gtlike implementation. In addition, uw.like.Models object are now able to apply default limits. Finally, there are new ScaleFactor::XXX object for most of the spectral models. This allows a tighter integration between pointlike and gtlike.
+    *
+------------------------------------------------------------
 User: lande  Mon Jun 25 12:01:16 PDT 2012
 ScienceTools-scons/pointlike/python/uw/darkmatter
 
