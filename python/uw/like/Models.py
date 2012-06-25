@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.111 2012/06/25 19:01:17 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.112 2012/06/25 20:39:15 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -462,6 +462,10 @@ class Model(object):
         S = np.diag()**0.5[F]
         return M[F].T[F] / np.outer(S,S)
 
+    def has_errors(self):
+        """ Return true if model has errors. """
+        return not np.all(self.internal_cov_matrix==0)
+
     def statistical(self,absolute=False,two_sided=False):
         """ Return the parameter values and fractional statistical errors.
             If no error estimates are present, return 0 for the fractional error.
@@ -470,7 +474,7 @@ class Model(object):
                 if set, return 3 tuples: values, +errors, -errors    
         """
         p = self.get_all_parameters()
-        if np.all(self.internal_cov_matrix==0) :
+        if not self.has_errors():
             # covariance matrix is invalid
             z = np.zeros_like(p)
             return (p,z,z) if two_sided else (p,z) 
