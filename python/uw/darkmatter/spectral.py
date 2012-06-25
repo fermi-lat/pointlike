@@ -1,11 +1,13 @@
 """ Dark Matter spectral models
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spectral.py,v 1.6 2012/06/14 23:40:12 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spectral.py,v 1.7 2012/06/15 02:10:22 lande Exp $
 
     author: Alex Drlica-Wagner, Joshua Lande
 """
+import operator
 import copy
 import collections
+from collections import OrderedDict
 
 import numpy as np
 from scipy.optimize.minpack import check_gradient
@@ -65,10 +67,22 @@ class DMFitFunction(Model):
             True
     """
     default_p=[1.0, 100.]
-    default_extra_params=dict(norm=1, bratio=1.0, channel0=1, channel1=1, 
-                              file='$(INST_DIR)/Likelihood/src/dmfit/gammamc_dif.dat')
+    default_extra_params=dict(norm=1, bratio=1.0, channel0=1, channel1=1)
     param_names=['sigmav','mass']
     default_mappers=[LogMapper,LogMapper]
+    default_extra_attrs=OrderedDict((('file','$(INST_DIR)/Likelihood/src/dmfit/gammamc_dif.dat'),))
+
+    gtlike = dict(
+        name='DMFitFunction',
+        param_names=['sigmav','mass'],
+        extra_param_names=dict(norm='norm', bratio='bratio', channel0='channel0', channel1='channel1'),
+        topointlike=[operator.pos,operator.neg],
+        togtlike=[operator.pos,operator.neg])
+
+    default_limits = dict(
+        sigmav=LimitMapper(0,1e-19,1e-25),
+        mass=LimitMapper(1,1e4,1))
+    default_oomp_limits=['sigmav']
 
     def full_name(self):
         return '%s, norm=%.1f, bratio=%.1f channel0=%d, channel1=%d' % (self.pretty_name,
