@@ -1,4 +1,5 @@
 from abc import abstractmethod
+import copy
 
 
 import numpy as np
@@ -17,6 +18,8 @@ class ParameterMapper(object):
             with respect to the internal parameters
         """
         pass
+
+    def copy(self): return copy.deepcopy(self)
 
 class LinearMapper(ParameterMapper):
     @staticmethod
@@ -51,10 +54,14 @@ class LimitMapper(ParameterMapper):
         See section 1.3.1 of "MINUIT User's Guide":
 
             http://seal.web.cern.ch/seal/documents/minuit/mnusersguide.pdf
+
+        Note, scale doesn't acutally do anything, but is included for
+        compatability with gtlike.
     """
-    def __init__(self, lower, upper):
+    def __init__(self, lower, upper, scale=1):
         self.lower = lower
         self.upper = upper
+        self.scale = scale
 
     def toexternal(self,internal):
         """ Equation 1.2 of "MINUIT User's Guide" """
@@ -68,6 +75,18 @@ class LimitMapper(ParameterMapper):
         return ((self.upper-self.lower)/2.0)*np.cos(self.tointernal(external))
 
     def __repr__(self):
-        return 'LimitMapper(%s,%s)' % (self.lower,self.upper)
+        return 'LimitMapper(%s,%s,%s)' % (self.lower,self.upper,self.scale)
 
+    def __eq__(self, other):
+        """ Previously, equality testing was broken:
 
+                >>> LimitMapper(1,5) == LimitMapper(1,5)
+                True
+                >>> LimitMapper(1,5) == LimitMapper(1,6)
+                False
+        """
+        return self.lower == other.lower and self.upper == other.upper and self.scale == other.scale
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
