@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.101 2012/04/30 20:32:32 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.102 2012/05/09 23:17:57 kadrlica Exp $
 
    author: Joshua Lande
 
@@ -23,6 +23,7 @@ from skymaps import PySkySpectrum,PySkyFunction,SkyDir,Hep3Vector,\
 from uw.utilities.quantile import Quantile
 from uw.utilities.rotations import anti_rotate_equator
 
+from uw.like.Models import FileFunction
 
 SMALL_ANALYTIC_EXTENSION=1e-10
 SMALL_NUMERIC_EXTENSION=1e-3
@@ -1700,12 +1701,6 @@ class SpatialMap(SpatialModel):
 
     default_p, param_names, default_limits, log, steps = [], [], [], [], []
 
-    @staticmethod
-    def expand(file):
-        """ dunno why, but the gltike convention is $(VAR) instead of ${VAR} """
-        file = file.replace('(','{').replace(')','}')
-        return os.path.expandvars(file)
-
     def __init__(self, file, **kwargs):
 
         self.file = file
@@ -1718,7 +1713,7 @@ class SpatialMap(SpatialModel):
         # The skyfun is not normalized. The normaliztaion happens later, after
         # the convolution step.
 
-        self.skyfun=SkyImage(SpatialMap.expand(self.file),self.extension,self.interpolate)
+        self.skyfun=SkyImage(FileFunction.expand(self.file),self.extension,self.interpolate)
 
         projection = p = self.skyfun.projector()
         naxis1=self.skyfun.naxis1()
@@ -1775,7 +1770,7 @@ class SpatialMap(SpatialModel):
         """ When unpickling the object, afterwords recreate the skymaps.SkyImage object. """
         self.__dict__ = state
         try:
-            self.skyfun=SkyImage(SpatialMap.expand(self.file),self.extension,self.interpolate)
+            self.skyfun=SkyImage(FileFunction.expand(self.file),self.extension,self.interpolate)
         except:
             self.skyfun=None
 

@@ -1,13 +1,14 @@
 """A set dark matter spatial models for pointlike analyses
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/darkmatter/spatial.py,v 1.4 2012/05/02 01:47:56 kadrlica Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spatial.py,v 1.5 2012/05/09 23:17:19 kadrlica Exp $
 
     author: Joshua Lande, Alex Drlica-Wagner
 """
 import numpy as np
 import pickle
+from uw.like.Models import FileFunction
 from uw.like.SpatialModels import RadiallySymmetricModel, SMALL_ANALYTIC_EXTENSION, PseudoSpatialModel
-from uw.like.SpatialModels import InterpProfile2D, SpatialMap, smart_log
+from uw.like.SpatialModels import InterpProfile2D, smart_log
 
 # Degrees, should come from the file...
 
@@ -30,7 +31,7 @@ class NFW(InterpProfile2D):
            [  3.46679557e+01   2.73145672e+00   1.51607416e-01   6.68125546e-03]
         """
 
-        infile = SpatialMap.expand(file)
+        infile = FileFunction.expand(file)
         data = pickle.load(open(infile,'r'))
         r_in_degrees = data['psi']
         sigmas = data['sigma']
@@ -70,7 +71,7 @@ class Einasto(InterpProfile2D):
         
         """
 
-        infile = SpatialMap.expand(file)
+        infile = FileFunction.expand(file)
         data = pickle.load(open(infile,'r'))
         r_in_degrees = data['psi']
         sigmas = data['sigma']
@@ -110,7 +111,7 @@ class Burkert(InterpProfile2D):
             
         """
 
-        infile = SpatialMap.expand(file)
+        infile = FileFunction.expand(file)
         data = pickle.load(open(infile,'r'))
         r_in_degrees = data['psi']
         sigmas = data['sigma']
