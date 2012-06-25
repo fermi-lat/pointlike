@@ -1,26 +1,36 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.69 2012/06/20 01:22:23 kadrlica Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.70 2012/06/20 16:20:48 lande Exp $
 
    author: Matthew Kerr
 """
 
-import numpy as N
 import xml.sax as x
+from os.path import join
+import os
 from collections import deque
+
+import numpy as np
+
+from skymaps import SkyDir,DiffuseFunction,IsotropicSpectrum,IsotropicPowerLaw,IsotropicConstant
+
 from uw.like.pointspec_helpers import PointSource,get_diffuse_source
 from uw.like.roi_diffuse import DiffuseSource
 from uw.like.roi_extended import ExtendedSource
-from uw.like.Models import *
-from uw.like.SpatialModels import *
-from uw.darkmatter.spatial import *
-from uw.darkmatter.spectral import *
-from skymaps import SkyDir,DiffuseFunction,IsotropicSpectrum,IsotropicPowerLaw,IsotropicConstant
-from os.path import join
-import os
+from . parmap import LimitMapper
 
-JAC = N.log10(N.exp(1))
+# spectral models
+from uw.like import Models
+import uw.darkmatter.spectral
+from uw.like import scalemodels
+
+# spatial models
+import uw.darkmatter.spatial
+from uw.like import SpatialModels
+
+
+class XMLException(Exception): pass
 
 def decorate(instring,tablevel=1):
 	return ''.join(['\t'*tablevel,instring,'\n'])
@@ -109,8 +119,10 @@ class XML_to_Model(object):
             ...         <parameter name="Index" value="2.0" free="1" max="5" min="-5" scale="-1" />
             ...         <parameter name="Scale" value="1000.0" free="0" max="1000.0" min="1000.0" scale="1" />
             ...     </spectrum>''')
-            >>> real_model=PowerLaw()
+            >>> real_model=Models.PowerLaw()
             >>> np.allclose(model.get_all_parameters(), real_model.get_all_parameters())
+            True
+            >>> np.allclose(model['index'],2)
             True
 
             >>> model=xml2model('''
@@ -122,10 +134,13 @@ class XML_to_Model(object):
             ...         <parameter error="9.888298037" free="1" max="1000" min="80" name="BreakValue" scale="1" value="204.3216401" />
             ...         <parameter free="0" max="10" min="0.01" name="Beta" scale="1" value="0.1" />
             ...     </spectrum>''')
-            ... model.get_all_parameters()
             >>> np.allclose(model['norm'],14.56863965e-10)
             True
+            >>> np.allclose(model.get_limits('norm'),[0.0, 1e-08])
+            True
             >>> np.allclose(model['index_1'],-1.504042874)
+            True
+            >>> np.allclose(model.get_limits('index_1'),[2,-4])
             True
             >>> np.allclose(model['index_2'],1.891184873)
             True
@@ -149,57 +164,71 @@ class XML_to_Model(object):
             70000.0
             >>> print model['sigma']
             1000.0
-"""
+
+        Test the ScaleFactor models. XML Model taken from
+            https://confluence.slac.stanford.edu/display/ST/Science+Tools+Development+Notes?focusedCommentId=103582318#comment-103582318
+        but with the ScaleFactor parameter set to 10.0 to be more interesting:
+
+            >>> model=xml2model('''
+            ... <spectrum type="ScaleFactor::PowerLaw2">
+            ...   <parameter free="1" max="1000.0" min="1e-05" name="Integral" scale="1e-06" value="1.0"/>
+            ...   <parameter free="1" max="-1.0" min="-5.0" name="Index" scale="1.0" value="-2.0"/>
+            ...   <parameter free="0" max="200000.0" min="20.0" name="LowerLimit" scale="1.0" value="20.0"/>
+            ...   <parameter free="0" max="1000000.0" min="20.0" name="UpperLimit" scale="1.0" value="1e6"/>
+            ...   <parameter free="1" max="10" min="0." name="ScaleFactor" scale="10." value="1"/>
+            ... </spectrum>''')
+            >>> type(model) == scalemodels.ScaleFactorPowerLawFlux
+            True
+            >>> print model['ScaleFactor']
+            10.0
+            >>> print model['Int_Flux']
+            1e-06
+            >>> np.allclose(model.get_limits('Int_Flux'),[1e-11,1e-3])
+            True
+            >>> np.all(model.free == [True]*3)
+            True
+
+        ScaleFactor::FileFunction objects are a little bit tricker:
+            >>> model=xml2model('''
+            ... <spectrum type="ScaleFactor::FileFunction" file="$GLAST_EXT/diffuseModels/v2r0p1/isotrop_2year_P76_source_v1.txt" >
+            ...   <parameter free="1" max="100" min="1." name="ScaleFactor" scale="1." value="11"/>
+            ...   <parameter name="Normalization" value="5.0" free="1" max="10" min="0.1" scale="1" />
+            ... </spectrum>''')
+            >>> isinstance(model,scalemodels.ScaleFactorFileFunction)
+            True
+            >>> print model['ScaleFactor']
+            11.0
+            >>> print model['Normalization']
+            5.0
+            >>> np.all(model.free==[True,True])
+            True
+            >>> print model.mappers
+            [LimitMapper(1.0,100.0,1.0), LimitMapper(0.1,10.0,1.0)]
+
+    """
+
+    # List of pointlike models which can be used in gtlike
+    savable_models = (
+        Models.PowerLaw, Models.PowerLawFlux,
+        Models.BrokenPowerLaw, Models.BrokenPowerLawFlux, Models.SmoothBrokenPowerLaw,
+        Models.PLSuperExpCutoff,
+        Models.Constant, Models.FrontBackConstant,
+        Models.LogParabola,
+        uw.darkmatter.spectral.DMFitFunction,
+        Models.FileFunction,
+        Models.Gaussian,
+        scalemodels.ScaleFactorPowerLaw,
+        scalemodels.ScaleFactorPowerLawFlux,
+        scalemodels.ScaleFactorFileFunction,
+        scalemodels.ScaleFactorDMFitFunction,
+        scalemodels.ScaleFactorPLSuperExpCutoff,
+        scalemodels.ScaleFactorGaussian,
+    )
+
+    modict = {model.gtlike['name']:model for model in savable_models}
 
     def __init__(self):
-
-        self.modict = dict(
-                PowerLaw             = PowerLaw,
-                PowerLaw2            = PowerLawFlux,
-                BrokenPowerLaw       = BrokenPowerLaw,
-                BrokenPowerLaw2      = BrokenPowerLawFlux,
-                SmoothBrokenPowerLaw = SmoothBrokenPowerLaw,
-                PLSuperExpCutoff     = PLSuperExpCutoff,
-                ConstantValue        = Constant,
-                FrontBackConstant    = FrontBackConstant,
-                LogParabola          = LogParabola,
-                DMFitFunction        = DMFitFunction,
-                FileFunction         = FileFunction,
-                Gaussian             = GaussianSpectrum
-                )
-        
-        self.inverse_modict = {v.__name__:k for k,v in self.modict.items()}
-
-        self.specdict = dict(
-                PowerLaw             = ['Prefactor','Index'],
-                PowerLaw2            = ['Integral','Index'],
-                BrokenPowerLaw       = ['Prefactor', 'Index1', 'Index2', 'BreakValue'],
-                BrokenPowerLaw2      = ['Integral', 'Index1', 'Index2', 'BreakValue'],
-                SmoothBrokenPowerLaw = ['Prefactor', 'Index1', 'Index2', 'BreakValue'],
-                PLSuperExpCutoff     = ['Prefactor','Index1','Cutoff','Index2'],
-                ConstantValue        = ['Value'],
-                FrontBackConstant    = ['Scale_front','Scale_back'],
-                FileFunction         = ['Normalization'],
-                LogParabola          = ['norm', 'alpha', 'beta', 'Eb'],
-                DMFitFunction        = ['sigmav','mass'],
-                Gaussian             = [ 'Prefactor', 'Mean', 'Sigma'],
-                )
-
-        self.kwargdict = dict(
-                PowerLaw             = [ ['Scale','e0' ] ],
-                PowerLaw2            = [ ['LowerLimit','emin'], ['UpperLimit','emax'] ],
-                BrokenPowerLaw       = [],
-                BrokenPowerLaw2      = [ ['LowerLimit','emin'], ['UpperLimit','emax'] ],
-                SmoothBrokenPowerLaw = [ ['Scale','e0' ], ['Beta','beta'] ],
-                PLSuperExpCutoff     = [ ['Scale','e0' ] ],
-                ConstantValue        = [],
-                FrontBackConstant    = [],
-                FileFunction         = [],
-                LogParabola          = [],
-                DMFitFunction        = [['norm','norm'], ['bratio','bratio'],
-                                        ['channel0','channel0'], ['channel1','channel1']],
-                Gaussian             = [],
-                )
+        pass
 
     def get_model(self,xml_dict,source_name):
         """ source_name is used for better error message printing. """
@@ -213,51 +242,68 @@ class XML_to_Model(object):
 
         # certain spectral models require the file to be set
         kwargs = {}
-        if specname in [ 'DMFitFunction', 'FileFunction' ] and xml_dict.has_key('file'):
-            kwargs['file']=str(xml_dict['file'])
+        for key in self.modict[specname].default_extra_attrs:
+            kwargs[key] = str(xml_dict[key])
 
         model = self.modict[specname](**kwargs)
 
-        for ip,p in enumerate(self.specdict[specname]):
+        for pointlike_name,gtlike_name in zip(model.param_names, model.gtlike['param_names']):
             try:
-                pdict = d[p]
+                pdict = d[gtlike_name]
             except:
-                raise Exception("For source %s, %s parameter %s not found in xml file." % (source_name,specname,p))
+                raise Exception("For source %s, %s parameter %s not found in xml file." % (source_name,specname,gtlike_name))
+
+            for p in ['scale', 'value', 'min', 'max']:
+                if not pdict.has_key(p):
+                    raise Exception("For source %s, %s parameter %s must have a %s." % (source_name,specname,gtlike_name,p))
 
             scale = float(pdict['scale'])
-            value = float(pdict['value'])
-            if (p == 'Index') or (p == 'Index1') or (p == 'Index2' and self.modict[specname]!=PLSuperExpCutoff):
-                # gtlike uses a neg. index internally so scale > 0
-                # means we need to take the negative of the value
-                if scale > 0: value = -value
-                else:         scale = -scale
-	    if value==0 : value=1.e-5
-            if N.isnan(value*scale): raise Exception('For source %s, %s parameter %s is NaN' % (source_name,specname,p))
-            model.setp(ip, value*scale)
-            model.free[ip] = (pdict['free'] == '1')
-            if 'error' in pdict.keys():
-                err = float(pdict['error'])*scale
-                model.set_error(ip,err)
 
-        for p in self.kwargdict[specname]:
-            pdict = d[p[0]]
+            value = float(pdict['value'])*scale
+            min = float(pdict['min'])*scale
+            max = float(pdict['max'])*scale
+
+            if np.isnan(value): raise Exception('For source %s, %s parameter %s is NaN' % (source_name,specname,gtlike_name))
+
+            model.set_limits_gtlike(pointlike_name,min,max,scale)
+            model.setp_gtlike(pointlike_name,value)
+
+            if 'error' in pdict.keys():
+                err = np.abs(float(pdict['error'])*scale)
+                model.set_error(pointlike_name,err)
+
+            if pdict['free'] not in ['0','1']:
+                raise Exception('For source %s, %s parameter %s must have free="0" or free="1' % (source_name,specname,gtlike_name))
+            free = pdict['free'] == '1'
+            model.set_free(pointlike_name,free)
+
+        for pointlike_name,gtlike_name in model.gtlike['extra_param_names'].items():
+            try:
+                pdict = d[gtlike_name]
+            except:
+                raise Exception("For source %s, %s parameter %s not found in xml file." % (source_name,specname,gtlike_name))
 
             if pdict['free'] != '0':
                 # Sanity check on validity of xml 
-                raise Exception('For source %s, %s parameter %s cannot be fit (must be free="0")' % (source_name,specname,p[0]))
+                raise Exception('For source %s, %s parameter %s cannot be fit (must be free="0")' % (source_name,specname,gtlike_name))
 
-            setattr(model,p[1],float(pdict['value'])*float(pdict['scale'])),
+            value=float(pdict['value'])*float(pdict['scale'])
+            model.setp(pointlike_name, value)
 
         return model
 
 class XML_to_SpatialModel(object):
 
-    extended_sources = [Gaussian, PseudoGaussian, Disk,
-                             PseudoDisk, Ring, NFW, PingNFW,
-                             PseudoPingNFW,
-                             EllipticalGaussian, EllipticalDisk, 
-                             EllipticalRing, SpatialMap,
-                             RadialProfile]
+    extended_sources = [SpatialModels.Gaussian, 
+                        SpatialModels.PseudoGaussian, 
+                        SpatialModels.Disk,
+                        SpatialModels.PseudoDisk, 
+                        SpatialModels.Ring,
+                        uw.darkmatter.spatial.NFW, uw.darkmatter.spatial.PingNFW, uw.darkmatter.spatial.PseudoPingNFW,
+                        SpatialModels.EllipticalGaussian, 
+                        SpatialModels.EllipticalDisk, 
+                        SpatialModels.EllipticalRing, SpatialModels.SpatialMap,
+                        SpatialModels.RadialProfile]
 
     spatialdict = {i.__name__:i for i in extended_sources}
 
@@ -323,39 +369,56 @@ class Model_to_XML(object):
        
         Here is a simple test making a PowerLaw model:
 
-            >>> def format(model):
+            >>> def model2xml(model):
             ...     m2x = Model_to_XML()
             ...     m2x.process_model(model)
             ...     return m2x.getXML(tablevel=0).replace('\\t',' '*4).strip()
 
-            >>> pl = PowerLaw(norm=1e-11, index=2)
+        First, create a powerlaw with limits set:
+
+            >>> pl = Models.PowerLaw(norm=1e-11, index=2)
+            >>> pl.set_limits('norm', 1e-12, 1e-10, scale=1e-11)
+            >>> pl.set_limits('index', -5, 5, scale=1)
+
+            >>> print model2xml(pl)
+            <spectrum  type="PowerLaw">
+                <parameter name="Prefactor" value="1.0" free="1" max="10.0" min="0.1" scale="1e-11" />
+                <parameter name="Index" value="2.0" free="1" max="5" min="-5" scale="-1" />
+                <parameter name="Scale" value="1000.0" free="0" max="1000.0" min="1000.0" scale="1" />
+            </spectrum>
+
+        Now, create a powerlaw with no limits. Note that it will save out errros correctly:
+
+            >>> pl = Models.PowerLaw(norm=1e-11, index=2)
             >>> pl.set_error('norm',0.5e-11)
             >>> pl.set_error('index',0.25)
-            >>> print format(pl)
+            >>> print model2xml(pl)
             <spectrum  type="PowerLaw">
                 <parameter name="Prefactor" value="1.0" error="0.5" free="1" max="100.0" min="0.01" scale="1e-11" />
                 <parameter name="Index" value="2.0" error="0.25" free="1" max="5" min="-5" scale="-1" />
                 <parameter name="Scale" value="1000.0" free="0" max="1000.0" min="1000.0" scale="1" />
             </spectrum>
 
+        We can also save out FileFunction objects:
+
             >>> from tempfile import NamedTemporaryFile
             >>> temp = NamedTemporaryFile(delete=True)
             >>> pl.save_profile(temp.name, emin=1, emax=1e6)
-            >>> fs = FileFunction(Normalization=1,file=temp.name)
-            >>> print format(fs).replace(temp.name, '<FILENAME>')
+            >>> fs = Models.FileFunction(Normalization=1,file=temp.name)
+            >>> print model2xml(fs).replace(temp.name, '<FILENAME>')
             <spectrum file="<FILENAME>" type="FileFunction">
                 <parameter name="Normalization" value="1.0" free="1" max="10" min="0.1" scale="1" />
             </spectrum>
 
-            >>> pl = PowerLaw(index=-2)
-            >>> print format(pl)
+            >>> pl = Models.PowerLaw(index=-2)
+            >>> print model2xml(pl)
             <spectrum  type="PowerLaw">
                 <parameter name="Prefactor" value="1.0" free="1" max="100.0" min="0.01" scale="1e-11" />
                 <parameter name="Index" value="-2.0" free="1" max="5" min="-5" scale="-1" />
                 <parameter name="Scale" value="1000.0" free="0" max="1000.0" min="1000.0" scale="1" />
             </spectrum>
 
-            >>> sbpl = SmoothBrokenPowerLaw(
+            >>> sbpl = Models.SmoothBrokenPowerLaw(
             ...     Norm=14.56863965e-10,
             ...     Index_1=-1.504042874,
             ...     Index_2=1.891184873,
@@ -363,7 +426,7 @@ class Model_to_XML(object):
             ...     beta=0.1,
             ...     e0=200)
 
-            >>> print format(sbpl)
+            >>> print model2xml(sbpl)
             <spectrum  type="SmoothBrokenPowerLaw">
                 <parameter name="Prefactor" value="1.456863965" free="1" max="100.0" min="0.01" scale="1e-09" />
                 <parameter name="Index1" value="-1.504042874" free="1" max="5" min="-5" scale="-1" />
@@ -374,14 +437,32 @@ class Model_to_XML(object):
             </spectrum>
 
         Model from http://fermi.gsfc.nasa.gov/ssc/data/analysis/scitools/xml_model_defs.html#gaussian
-            >>> g = GaussianSpectrum(prefactor=1e-9, mean=7e4, sigma=1e3)
-            >>> print format(g)
+            >>> g = Models.Gaussian(prefactor=1e-9, mean=7e4, sigma=1e3)
+            >>> print model2xml(g)
             <spectrum  type="Gaussian">
                 <parameter name="Prefactor" value="1.0" free="1" max="100.0" min="0.01" scale="1e-09" />
                 <parameter name="Mean" value="0.7" free="1" max="100.0" min="0.01" scale="100000.0" />
                 <parameter name="Sigma" value="1.0" free="1" max="100.0" min="0.01" scale="1000.0" />
             </spectrum>
 
+            >>> s = scalemodels.ScaleFactorPowerLaw(ScaleFactor=5)
+            >>> print model2xml(s)
+            <spectrum  type="ScaleFactor::PowerLaw">
+                <parameter name="ScaleFactor" value="0.5" free="1" max="100.0" min="0.01" scale="10.0" />
+                <parameter name="Prefactor" value="1.0" free="1" max="100.0" min="0.01" scale="1e-11" />
+                <parameter name="Index" value="2.0" free="1" max="5" min="-5" scale="-1" />
+                <parameter name="Scale" value="1000.0" free="0" max="1000.0" min="1000.0" scale="1" />
+            </spectrum>
+
+        The ScaleFactorFileFunction is a bit tricker:
+
+            >>> s = scalemodels.ScaleFactorFileFunction(ScaleFactor=10, Normalization=5,
+            ...     file="$GLAST_EXT/diffuseModels/v2r0p1/isotrop_2year_P76_source_v1.txt")
+            >>> print model2xml(s)
+            <spectrum file="$GLAST_EXT/diffuseModels/v2r0p1/isotrop_2year_P76_source_v1.txt" type="ScaleFactor::FileFunction">
+                <parameter name="ScaleFactor" value="1.0" free="1" max="100.0" min="0.01" scale="10.0" />
+                <parameter name="Normalization" value="5.0" free="1" max="10" min="0.1" scale="1" />
+            </spectrum>
 
    """
     
@@ -391,141 +472,28 @@ class Model_to_XML(object):
         self.strict = strict
         self.extra_attrs=' '
 
-    def update(self,name,scaling=False):
-        self.name = name
+    @staticmethod
+    def prepare_model_for_xml(model, scaling, strict):
+        """ Make a spectral model suitable for xml parsing.
+            * Convert the ExpCutoff model to a PLSuperExpCutoff model.
+            * apply default limits to any unbound paramters. """
+        name = model.name
 
-        if name == 'PowerLaw2':
-            self.pname  = ['Integral','Index','LowerLimit','UpperLimit']
-            self.pfree  = [1,1,0,0]
-            self.pscale = [1e-10,-1,1,1]
-            self.pmin   = [1e-4,-5,30,30]
-            self.pmax   = [1e4,5,5e5,5e5]
-            self.pval   = [2,1,1e3,1e5]
-            self.perr   = [0,0,-1,-1]
-            self.oomp   = [1,0,0,0]
+        model = model.copy()
 
-        elif name == 'PowerLaw':
-            self.pname  = ['Prefactor','Index','Scale']
-            self.pfree  = [1,1,0]
-            self.perr   = [0,0,-1]
-            if scaling:
-                self.pscale = [1,-1,1] ; self.pmin  = [0.1,-1,30]
-                self.pmax  = [10,1,5e5]; self.pval = [1,0,1e3]
-                self.oomp   = [0,0,0]
-            else:
-                self.pscale = [1e-9,-1,1]
-                self.pmin   = [1e-6,-5,30]
-                self.pmax   = [1e4,5,5e5]
-                self.pval   = [1,2,1e3]
-                self.oomp   = [1,0,0]
+        if name == 'ExpCutoff':
+            model = model.create_super_cutoff()
 
-        elif name == 'BrokenPowerLaw':
-            self.pname  = ['Prefactor', 'Index1', 'Index2', 'BreakValue']
-            self.pfree  = [1,1,1,1]
-            self.pscale = [1e-9,-1,-1,1]
-            self.pmin   = [1e-5,-5,-5,30]
-            self.pmax   = [1e4,5,5,5e5]
-            self.pval   = [1,2,2,1e3]
-            self.perr   = [0,0,0,0]
-            self.oomp   = [1,0,0,1]
+        if scaling and name == 'PowerLaw':
+            if not isinstance(model.get_mapper('Norm'),LimitMapper):
+                model.set_limits('Norm',.1,10)
+            if not isinstance(model.get_mapper('Index'),LimitMapper):
+                model.set_limits('Index',-1,1)
 
-        elif name == 'BrokenPowerLaw2':
-            self.pname  = ['Integral','Index1','Index2','BreakValue','LowerLimit','UpperLimit']
-            self.pfree  = [1,1,1,1,0,0]
-            self.pscale = [1e-7,-1,-1,1,1,1]
-            self.pmin   = [1e-4,-5,-5,30,30,30]
-            self.pmax   = [1e4,5,5,5e5,5e5,5e5]
-            self.pval   = [2,1,1,1e3,1e2,1e5]
-            self.perr   = [0,0,0,0,-1,-1]
-            self.oomp   = [1,0,0,1,0,0]
+        model.set_default_limits(strict, oomp_limits=True, only_unbound_parameters=True)
 
-        elif name == 'PLSuperExpCutoff':
-            self.pname = ['Prefactor','Index1','Cutoff','Index2','Scale']
-            self.pfree  = [1,1,1,0,0]
-            self.pscale = [1e-9,-1,1000.,1,1]
-            self.pmin   = [1e-4,-5,0.1,-5,30]
-            self.pmax   = [1e4,5,3e5,5,5e5]
-            self.pval   = [1,2,1,1,1000]
-            self.perr   = [0,0,0,0,-1]
-            self.oomp   = [1,0,1,0,0]
+        return model
 
-        elif name == 'SmoothBrokenPowerLaw':
-            self.pname  = ['Prefactor', 'Index1', 'Index2', 'BreakValue', 'Scale', 'Beta']
-            self.pfree  = [1,1,1,1,0,0]
-            self.pscale = [1e-9,-1,-1,1,1,1]
-            self.pmin   = [1e-5,-5,-5,30,30,-10]
-            self.pmax   = [1e4,5,5,5e5,5e5,10]
-            self.pval   = [1,2,2,1e3,1e3,0.1]
-            self.perr   = [0,0,0,0,-1,-1]
-            self.oomp   = [1,0,0,1,0,0]
-
-        elif name == 'FileFunction':
-            self.pname = ['Normalization']
-            self.pfree = [1]
-            self.pscale = [1]
-            self.pmin = [0.1]
-            self.pmax = [10]
-            self.pval = [1]
-            self.perr = [0]
-            self.oomp = [0]
-
-        elif name == 'ConstantValue':
-            self.pname  = ['Value']
-            self.pfree  = [1]
-            self.pscale = [1]
-            self.pmin   = [0.001]
-            self.pmax   = [10]
-            self.pval   = [1]
-            self.perr   = [0]
-            self.oomp   = [0]
-
-        elif name == 'FrontBackConstant':
-            self.pname  = ['Scale_front','Scale_back']
-            self.pfree  = [1,1]
-            self.pscale = [1,1]
-            self.pmin   = [0,0]
-            self.pmax   = [10,10]
-            self.pval   = [1,1]
-            self.perr   = [0,0]
-            self.oomp   = [0,0]
-
-        elif name == 'LogParabola':
-            self.pname  = ['norm', 'alpha', 'beta', 'Eb' ]
-            self.pfree  = [1,1,1,1]
-            self.perr   = [0,0,0,0]
-            self.pscale = [1e-9,1,1,1]
-            self.pmin   = [1e-6,-5,0,30]
-            self.pmax   = [1e4,5,5,5e5]
-            self.pval   = [1,2,0,1e3]
-            self.oomp   = [1,0,0,1]
-
-        elif name == 'DMFitFunction':
-            self.pname  = ['sigmav','mass', 'norm', 'bratio', 'channel0', 'channel1']
-            self.pfree  = [       1,     1,      0,        0,          0,          0]
-            self.perr   = [       0,     0,     -1,       -1,         -1,         -1]
-            self.pscale = [   1e-25,     1,   1e17,        1,          1,          1]
-            self.pmin   = [       0,     1,   1e-5,        0,          0,          0]
-            self.pmax   = [     1e6,   1e4,    1e5,        1,         10,         10]
-            self.pval   = [       1,   100,      1,        1,          1,          1]
-            self.oomp   = [       1,     0,      1,        0,          0,          0]
-
-        elif name == 'Gaussian':
-            self.pname  = ['Prefactor','Mean','Sigma']
-            self.pfree  = [1,1,1]
-            self.pscale = [1,1,1]
-            self.pmin   = [1e-4,1,1]
-            self.pmax   = [1e4,1e6,1e6]
-            self.pval   = [1,1,1]
-            self.perr   = [0,0,0]
-            self.oomp   = [1,1,1]
-
-        else:
-            raise Exception('Unrecognized model %s'%(name))
-
-    def find_param(self,pname):
-        for iparam,param in enumerate(self.pname):
-            if param == pname: return iparam
-        return None
 
     def param_strings(self):
         err_strings = ['error="%s" '%(e) if (e>0) else '' for e in self.perr]
@@ -534,85 +502,63 @@ class Model_to_XML(object):
 
     def getXML(self,tablevel=1,comment_string=None):
         cstring = [] if comment_string is None else [comment_string]
-        strings = ['<spectrum%s type="%s">'%(self.extra_attrs,self.name)] + \
+        strings = ['<spectrum%s type="%s">'%(self.extra_attrs,self.gtlike_name)] + \
                    cstring + self.param_strings() + ['</spectrum>']
         return ''.join([decorate(s,tablevel=tablevel) for s in strings])
-
-    def process_photon_index(self,model,index,val,err):
-        # note this appears to be inconsistent in xml
-        self.perr[index]   = -1*self.perr[index]
-        self.pval[index] = -1*self.pval[index]
-        self.pscale[index] = self.pscale[index]
-
-    def process_scale(self,val,index):
-        if not self.oomp[index]: return
-        # else adjust scale to nearest order of magnitude
-        scale = round(N.log10(val))
-
-        if scale == float('-inf'): return # happens if a parameter is too close to 0.
-
-        self.pscale[index] = 10**scale
-        self.pmin[index] = 1e-2
-        self.pmax[index] = 1e2
 
     def process_model(self,model,scaling=False):
         """ Model an instance of Model """
 
-        if model.name == 'ExpCutoff':
-            model = convert_exp_cutoff(model)
-        elif model.name == 'LogParabola' and model[2]<= 2e-3 and not model.free[2]:
-            # convert to equivalent powerlaw
-            model = model.create_powerlaw()
-        elif isinstance(model,DMFitFunction) or isinstance(model,FileFunction):
-            self.extra_attrs+='file="%s"' % model.file
+        if not isinstance(model,XML_to_Model.savable_models):
+            raise XMLException("Unable to save model %s to XML file" % name)
 
-        n = model.__class__.__name__
-        if not n in self.x2m.inverse_modict:
-            raise Exception('Unable to find an XML model for %s'%n)
+        model = Model_to_XML.prepare_model_for_xml(model, scaling, self.strict)
 
-        xml_name = self.x2m.inverse_modict[n]
+        self.gtlike_name = model.gtlike['name']
 
-        self.update(xml_name,scaling=scaling)
+        npar = len(model.param_names + model.default_extra_params.keys())
 
-        # replace spectral parameters
-        specparams = self.x2m.specdict[xml_name]
-        vals,errs  = model.statistical(absolute=True)
-        for iparam,param in enumerate(specparams):
+        self.pname = []
+        self.pval = []
+        self.pmin, self.pmax = [],[]
+        self.pscale = []
+        self.perr = []
+        self.pfree = []
+
+        for pointlike_name,gtlike_name in zip(model.param_names, model.gtlike['param_names']):
+
             if self.debug: print 'Processing %s'%(param)
-            index = self.find_param(param)
-            if index is None:
-                raise Exception('Unrecognized parameter %s'%(param))
-            self.process_scale(vals[iparam],index)
-            self.pfree[index] = model.free[iparam]
-            self.pval[index] = vals[iparam] / self.pscale[index]
-            self.perr[index] = errs[iparam] / self.pscale[index]
-            # Note that logParabola is already consistent with gtlike
-            if (param == 'Index') or (param == 'Index1') or (param == 'Index2' and model.name!='PLSuperExpCutoff'):
-                self.process_photon_index(model,index,vals[iparam],errs[iparam])
-            if self.pval[index] < self.pmin[index]:
-                msg = 'Found %s=%s < %s, minimum allowed value'%(param, str(self.pval[index]),str(self.pmin[index]))
-                if self.strict: raise Exception(msg)
-                print 'WARNING: %s, \n\tSetting parameter value to minimum.' %msg
-                self.pval[index] = self.pmin[index]
-            if self.pval[index] > self.pmax[index]:
-                msg = 'Found %s=%s > %s, maximum allowed value'%(param, str(self.pval[index]),str(self.pmax[index]))
-                if self.strict: raise Exception(msg)
-                print 'Warning %s, \n\tSetting parameter value to maximum.'%msg
-                self.pval[index] = self.pmax[index]
 
-        # replace non-variable parameters
-        kwargparams = self.x2m.kwargdict[xml_name]
-        for xml_key,mod_key in kwargparams:
+            free = model.get_free(pointlike_name)
+            val = model.getp_gtlike(pointlike_name)
+            err = model.error(pointlike_name)
+            min, max = model.get_limits_gtlike(pointlike_name)
+            scale = model.get_scale_gtlike(pointlike_name)
+
+            self.pname.append(gtlike_name)
+            self.pval.append(val/scale)
+            self.perr.append(np.abs(err/scale)) # remember, error is always positive
+            self.pmin.append(min/scale)
+            self.pmax.append(max/scale)
+            self.pscale.append(scale)
+            self.pfree.append(free)
+
+        for pointlike_name in model.default_extra_params:
+            gtlike_name=model.gtlike['extra_param_names'][pointlike_name]
             if self.debug: print 'Processing %s'%(xml_key)
-            index = self.find_param(xml_key)
-            if index is None:
-                raise Exception('Unrecognized parameter %s'%(param))
-            self.pfree[index] = False
-            self.pval[index]  = getattr(model,mod_key)
-            self.pscale[index] = 1
-            self.pmin[index] = self.pval[index]
-            self.pmax[index] = self.pval[index]
-            self.perr[index] = -1
+
+            val = model[pointlike_name]
+
+            self.pname.append(gtlike_name)
+            self.pfree.append(False)
+            self.pval.append(val)
+            self.pscale.append(1)
+            self.pmin.append(val)
+            self.pmax.append(val)
+            self.perr.append(0)
+
+        for key in model.default_extra_attrs:
+            self.extra_attrs+='%s="%s"' % (key,getattr(model,key))
 
 
 def get_skydir(elem):
@@ -669,7 +615,7 @@ def makeExtendedSourceSpatialModel(es,expand_env_vars,tablevel=1):
 
         Save Disk source:
     
-            >>> disk = Disk(sigma=1, ra=244, dec=57)
+            >>> disk = SpatialModels.Disk(sigma=1, ra=244, dec=57)
                     
             >>> print make(disk)
             <spatialModel type="Disk">
@@ -690,7 +636,7 @@ def makeExtendedSourceSpatialModel(es,expand_env_vars,tablevel=1):
 
         When the coordsystem is GALACTIC, the output will be in L & B:
 
-            >>> disk = Disk(sigma=1, l=244, b=57)
+            >>> disk = SpatialModels.Disk(sigma=1, l=244, b=57)
             >>> print make(disk)
             <spatialModel type="Disk">
                 <parameter name="L" value="244" free="1" max="360" min="-360" scale="1.0" />
@@ -704,7 +650,7 @@ def makeExtendedSourceSpatialModel(es,expand_env_vars,tablevel=1):
             >>> from tempfile import NamedTemporaryFile
             >>> temp = NamedTemporaryFile(delete=True)
             >>> disk.save_template(temp.name)
-            >>> map=SpatialMap(file=temp.name)
+            >>> map=SpatialModels.SpatialMap(file=temp.name)
             >>> print make(map).replace(temp.name, '<FILENAME>')
             <spatialModel type="SpatialMap" file="<FILENAME>" >
                 <parameter name="Prefactor" value="1.0" free="0" max="1e3" min="1e-3" scale="1.0" />
@@ -714,7 +660,7 @@ def makeExtendedSourceSpatialModel(es,expand_env_vars,tablevel=1):
 
             >>> temp = NamedTemporaryFile(delete=True)
             >>> disk.save_profile(temp.name)
-            >>> profile=RadialProfile(file=temp.name)
+            >>> profile=SpatialModels.RadialProfile(file=temp.name)
             >>> print make(profile).replace(temp.name, '<FILENAME>')
             <spatialModel type="RadialProfile" file="<FILENAME>" >
                 <parameter name="Normalization" value="1.0" free="0" max="1e3" min="1e-3" scale="1.0" />
@@ -800,8 +746,10 @@ def parse_point_sources(handler,roi_dir,max_roi):
             83.45 21.72
             >>> print ps.model.name
             PowerLaw
-            >>> print ps.model['Norm'], ps.model['Index']
-            1e-09 2.1
+            >>> print ps.model['Norm']
+            1e-09
+            >>> print ps.model['Index']
+            2.1
             >>> print ps.model.error('Norm')
             5e-10
             >>> print ps.model.error('Index')
@@ -815,7 +763,7 @@ def parse_point_sources(handler,roi_dir,max_roi):
         name = str(src['name'])
         sd = get_skydir(src.getChild('spatialModel'))
         mo = xtm.get_model(src.getChild('spectrum'),name)
-        if None in [roi_dir,max_roi] or N.degrees(sd.difference(roi_dir))<max_roi:
+        if None in [roi_dir,max_roi] or np.degrees(sd.difference(roi_dir))<max_roi:
             point_sources.append(PointSource(sd,name,mo,leave_parameters=True))
     return list(point_sources)
 
@@ -919,7 +867,7 @@ def parse_diffuse_sources(handler,diffdir=None):
         First, create the profile from a simple Gaussian
 
             >>> from tempfile import NamedTemporaryFile
-            >>> gaussian = Gaussian(center=SkyDir(82.73, 13.38))
+            >>> gaussian = SpatialModels.Gaussian(center=SkyDir(82.73, 13.38))
 
         First, create & load a new Disk extended soure
 
@@ -948,7 +896,7 @@ def parse_diffuse_sources(handler,diffdir=None):
             >>> ds=l('''
             ...   <source name="test_map" type="DiffuseSource">
             ...      <spectrum type="ConstantValue">
-            ...        <parameter free="1" name="Value" scale="1" value="1.0"/>
+            ...        <parameter free="1" name="Value" scale="1" min="0.1" max="10.0" value="1.0"/>
             ...      </spectrum>
             ...      <spatialModel type="SpatialMap" file="%s">
             ...        <parameter free="0" name="Prefactor" scale="1.0" value="1"/>
@@ -972,7 +920,7 @@ def parse_diffuse_sources(handler,diffdir=None):
             >>> ds=l('''
             ...   <source name="test_profile" type="DiffuseSource">
             ...      <spectrum type="ConstantValue">
-            ...        <parameter free="1" name="Value" scale="1" value="1.0"/>
+            ...        <parameter free="1" name="Value" scale="1" min="0.1" max="10.0" value="1.0"/>
             ...      </spectrum>
             ...      <spatialModel type="RadialProfile" file="%s">
             ...        <parameter free="0" name="Normalization" scale="1.0" value="1"/>
@@ -1066,7 +1014,7 @@ def unparse_point_sources(point_sources, strict=False, properties=lambda x:''):
         properties : a function
             the function, if specified, returns a string for the source element with properties, like TS
 
-            >>> ps = PointSource(name='test', model=Constant(), skydir=SkyDir(-30,30))
+            >>> ps = PointSource(name='test', model=Models.Constant(), skydir=SkyDir(-30,30))
             >>> ret=unparse_point_sources([ps])
             >>> print len(ret)
             1
@@ -1139,7 +1087,7 @@ def process_diffuse_source(ds,convert_extended=False,expand_env_vars=True,filena
         spatial  = ds.spatial_model
         spectral = ds.smodel
         if convert_extended and not isinstance(spatial,SpatialMap): 
-            if hasattr(spatial,'original_template') and N.all(spatial.original_parameters == spatial.p):
+            if hasattr(spatial,'original_template') and np.all(spatial.original_parameters == spatial.p):
                 # Kludge! this is incase the xml was read in from the 
                 # pointspec_helpers.ExtendedSourceArchive and should be saved 
                 # out with the original template.
@@ -1153,7 +1101,7 @@ def process_diffuse_source(ds,convert_extended=False,expand_env_vars=True,filena
                 spatial = convert_spatial_map(spatial,template_name)
                 spatial.file = template_name
         skyxml = makeExtendedSourceSpatialModel(spatial,expand_env_vars)
-        if isinstance(spatial,SpatialMap) and not N.all(spatial.p==spatial.init_p):
+        if isinstance(spatial,SpatialMap) and not np.all(spatial.p==spatial.init_p):
             print 'Warning: When saving out SpatialMap object which has been localized, the original unmoved template is saved in the xml model.'
 
     elif isinstance(dm,DiffuseFunction):

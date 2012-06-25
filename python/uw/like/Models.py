@@ -1,11 +1,12 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.109 2012/06/24 15:48:46 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.110 2012/06/24 19:50:47 burnett Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
 import os
 import copy
+from collections import OrderedDict
 import operator
 import numpy as np
 from abc import abstractmethod
@@ -61,6 +62,10 @@ class Model(object):
              1.0
 
 	"""        
+        if hasattr(self,'default_oomp_limits'):
+            assert set(self.default_oomp_limits).issubset(set(self.param_names))
+        if hasattr(self,'gtlike'):
+            assert set(self.gtlike['extra_param_names'].keys()).issubset(set(self.default_extra_params))
 
         self.background = False
         self.name = self.pretty_name = self.__class__.__name__
@@ -82,6 +87,9 @@ class Model(object):
                 setattr(self,k,v)
         except: pass
 
+        for k,v in self.default_extra_attrs.items():
+            setattr(self,k,v)
+
         self._p = np.empty(self.npar, dtype=float)
         self._external = self._p.copy()
         if p is None:
@@ -95,6 +103,8 @@ class Model(object):
             if k in self:
                 # if k is a param name
                 self[k]=v
+            elif k in self.default_extra_attrs:
+                setattr(self,k,v)
             else:
                 raise ModelException("Unable to set parameter unknown parameter %s"  % k)
     
@@ -189,7 +199,7 @@ class Model(object):
                 100
         
         """
-        if i in self.default_extra_params.keys():
+        if i in self.default_extra_params:
             return setattr(self,i,par)
         i=self.name_mapper(i)
         self._p[i] = par if internal else self.mappers[i].tointernal(par)
@@ -199,6 +209,43 @@ class Model(object):
     def free_parameters(self):
         """ free parameters (external rep)"""
         return self._external[self.free]
+
+    def setp_gtlike(self, i, par):
+        """ Just like setp, but return the paramter
+            with the gtlike convention. 
+
+                >>> model=PowerLaw()
+                >>> model.setp_gtlike('index',-2)
+                >>> print model.getp_gtlike('index')
+                -2.0
+                >>> print model.getp('index')
+                2.0
+            """
+        if i in self.default_extra_params:
+            return self.setp(i,par)
+
+        i=self.name_mapper(i)
+        m = self.gtlike['topointlike'][i]
+        return self.setp(i,m(par))
+
+    def getp_gtlike(self, i):
+        """ Just like getp, but return the paramter
+            with the gtlike convention. 
+            
+                >>> model=PowerLaw()
+                >>> model.setp_gtlike('index',-2.0)
+                >>> print model.getp_gtlike('index')
+                -2.0
+                >>> print model.getp('index')
+                2.0
+            
+        """
+        if i in self.default_extra_params:
+            return self.getp(i)
+
+        i=self.name_mapper(i)
+        m = self.gtlike['togtlike'][i]
+        return m(self.getp(i))
 
     def get_mapper(self,i):
         """ Get the mapper for a particular parameter. """
@@ -245,23 +292,65 @@ class Model(object):
         self.setp(i, p)
         self.set_error(i, perr)
 
-    def set_limits(self, i, lower, upper):
+    def set_limits(self, i, lower, upper, scale=1):
         """ Convenience function for setting limits
 
                 >>> model = PowerLaw(index=1)
                 >>> model.set_limits('index',-2,2)
                 >>> print model.get_mapper('index')
-                LimitMapper(-2,2)
+                LimitMapper(-2,2,1)
                 >>> print model.get_limits('index')
-                (-2, 2)
+                [-2, 2]
         """
-        self.set_mapper(i,LimitMapper(lower,upper))
+        self.set_mapper(i,LimitMapper(lower,upper,scale))
+
+    def set_limits_gtlike(self, i, *args):
+        """ like set_limits, but uses the gtlike convention.
+
+                >>> model = PowerLaw(index=1)
+                >>> model.set_limits_gtlike('index',2,-2)
+                >>> print model.get_limits('index')
+                [-2, 2]
+                >>> print model.get_limits_gtlike('index')
+                [2, -2]
+        """
+        i=self.name_mapper(i)
+        m = self.gtlike['topointlike'][i]
+        args = map(m, args)
+        self.set_limits(i, *args)
+
+    def get_limits_gtlike(self, i):
+        i=self.name_mapper(i)
+        m = self.gtlike['togtlike'][i]
+        limits=self.get_limits(i)
+        return map(m,limits)
+
 
     def get_limits(self, i):
         mapper = self.get_mapper(i)
         assert type(mapper) == LimitMapper
-        return mapper.lower, mapper.upper
+        return [mapper.lower, mapper.upper]
 
+    def get_scale(self, i):
+        """ 
+            >>> model = PowerLaw(index=-1)
+            >>> model.set_limits('index', -1, 1, scale=-1)
+            >>> model.get_scale('index')
+            -1
+            >>> model.get_scale_gtlike('index')
+            1
+        """
+        mapper = self.get_mapper(i)
+        assert type(mapper) == LimitMapper
+        return mapper.scale
+
+    def get_scale_gtlike(self, i):
+        """ Same as get_scale, but with gtlike convention. 
+        """
+        i=self.name_mapper(i)
+        m = self.gtlike['togtlike'][i]
+        return m(self.get_scale(i))
+        
     def get_parameters(self):
         """ Return FREE internal parameters ; used for spectral fitting."""
         return self._p[self.free]
@@ -317,6 +406,29 @@ class Model(object):
         self.free[i] = not freeze
 
     def thaw(self,i): self.freeze(i,freeze=False)
+
+    def set_free(self,i,free):
+        """
+                >>> model = PowerLaw()
+                >>> print model.free
+                [ True  True]
+                >>> model.set_free('index',False)
+                >>> print model.free
+                [ True False]
+                >>> print model.get_free('index')
+                False
+                >>> model.set_free('index',True)
+                >>> print model.free
+                [ True  True]
+                >>> print model.get_free('index')
+                True
+        """
+        i=self.name_mapper(i)
+        self.free[i] = free
+
+    def get_free(self,i):
+        i=self.name_mapper(i)
+        return self.free[i]
 
     def set_cov_matrix(self,new_cov_matrix):
         """
@@ -719,6 +831,102 @@ class Model(object):
 
 
 
+    def set_default_limits(self, strict=False, oomp_limits=False, only_unbound_parameters=False):
+        """ Apply default limits to parameters
+            of spectral model. Only apply 
+            limits to parametesr
+            to all parameters.
+
+            For example, by default a PowerLaw has no limits
+
+                >>> model=PowerLaw()
+                >>> print model.get_mapper('norm')
+                <class 'uw.utilities.parmap.LogMapper'>
+                >>> print model.get_mapper('index')
+                <class 'uw.utilities.parmap.LinearMapper'>
+
+            But we can easily impose default limits:
+
+                >>> model.set_default_limits()
+                >>> np.allclose(model.get_limits('norm'),[1e-15,1e-5])
+                True
+                >>> print model.get_scale('norm')
+                1e-09
+                >>> print model.get_limits('index')
+                [-5, 5]
+                >>> print model.get_scale('index')
+                1
+
+            Note, the OOMP limits work a little differently:
+
+                >>> model.set_default_limits(oomp_limits=True)
+                >>> np.allclose(model.get_limits('norm'),[model['norm']/100,model['norm']*100])
+                True
+
+            Finally, we note the only_unbound_parameters, which will not change
+            alredy existing limits:
+            
+                >>> model.set_limits('index',-10,10)
+                >>> print model.get_limits('index')
+                [-10, 10]
+                >>> model.set_default_limits(only_unbound_parameters=True)
+                >>> print model.get_limits('index')
+                [-10, 10]
+        """
+
+        for name in self.param_names:
+
+            current_mapper = self.get_mapper(name)
+            if only_unbound_parameters and isinstance(current_mapper,LimitMapper):
+                continue
+
+            def set():
+                param = self[name]
+                default_mapper = self.default_limits[name].copy()
+                lower = default_mapper.lower 
+                upper = default_mapper.upper
+                if lower > param:
+                    msg = 'Found %s=%s < %s, minimum allowed value' % (param, param, lower)
+                    if strict: raise ModelException(msg)
+                    print 'WARNING: %s, \n\tSetting parameter value to minimum.' % msg
+                    self[name] = lower
+                if  param > upper:
+                    msg = 'Found %s=%s > %s, maximum allowed value' % (param, param, upper)
+                    if strict: raise ModelException(msg)
+                    print 'Warning %s, \n\tSetting parameter value to maximum.'% msg
+                    self[name] = upper
+                self.set_mapper(name,default_mapper)
+
+            if name in self.default_oomp_limits and oomp_limits:
+                try:
+                    self.set_oomp_limit(name)
+                except ModelException, ex:
+                    # This is kind of an edge case, but oomp limits can fail.
+                    set()
+            else:
+                set()
+
+    def set_oomp_limit(self, i):
+        """ Set the scale for the parameter i to nicely (in log space) be allow
+            roughly 2 orders of magnitiude on either side with a scale that
+            is a power of 10:
+                
+                >>> model=PowerLaw(norm=1.5e-10)
+                >>> print model.get_mapper('norm')
+                <class 'uw.utilities.parmap.LogMapper'>
+                >>> model.set_oomp_limit('norm')
+                >>> print model.get_mapper('norm')
+                LimitMapper(1e-12,1e-08,1e-10)
+        """
+        i=self.name_mapper(i)
+        val = self[i]
+
+        if val <= 0: 
+            raise ModelException("Unable to set OOMP limits for parameters less than or equal to 0")
+
+        scale = 10**round(np.log10(val))
+        self.set_limits(i, 1e-2*scale, 1e2*scale,scale)
+
 class PowerLaw(Model):
     """ Implement a power law.  See constructor docstring for further keyword arguments.
 
@@ -758,9 +966,22 @@ class PowerLaw(Model):
 
     """
     default_p=[1e-11, 2.0]
-    default_extra_params=dict(e0=1e3)
+    default_extra_params=OrderedDict((('e0',1e3),))
     param_names=['Norm','Index']
     default_mappers=[LogMapper,LinearMapper]
+    default_extra_attrs=dict()
+
+    gtlike = dict(
+        name='PowerLaw',
+        param_names=['Prefactor','Index'],
+        extra_param_names=dict(e0='Scale'),
+        topointlike=[operator.pos,operator.neg],
+        togtlike=[operator.pos,operator.neg])
+
+    default_limits = dict(
+        Norm=LimitMapper(1e-15,1e-5,1e-9),
+        Index=LimitMapper(-5,5,1))
+    default_oomp_limits=['Norm']
 
     def __call__(self,e):
         #n0,gamma=self['Norm'],self['Index']
@@ -825,9 +1046,22 @@ class PowerLawFlux(Model):
 
     """
     default_p=[1e-7 , 2.0]
-    default_extra_params=dict(emin=100, emax=1e6)
+    default_extra_params=OrderedDict((('emin',1e2),('emax',1e6)))
     param_names=['Int_Flux','Index']
     default_mappers=[LogMapper,LinearMapper]
+    default_extra_attrs=dict()
+
+    gtlike = dict(
+        name='PowerLaw2',
+        param_names=['Integral','Index'],
+        extra_param_names=dict(emin='LowerLimit', emax='UpperLimit'),
+        topointlike=[operator.pos,operator.neg],
+        togtlike=[operator.pos,operator.neg])
+
+    default_limits = dict(
+        Norm=LimitMapper(1e-14,1e-6,1e-10),
+        Index=LimitMapper(-5,5,1))
+    default_oomp_limits=['Int_Flux']
 
     def __call__(self,e):
         flux,gamma=self.get_all_parameters()
@@ -861,9 +1095,25 @@ class BrokenPowerLaw(Model):
 
     """
     default_p=[1e-11, 2.0, 2.0 ,1e3]
-    default_extra_params=dict()
+    default_extra_params=OrderedDict()
     param_names=['Norm','Index_1','Index_2', 'E_break']
     default_mappers=[LogMapper,LinearMapper,LinearMapper,LogMapper]
+    default_extra_attrs=dict()
+
+    gtlike = dict(
+        name='BrokenPowerLaw',
+        param_names=['Prefactor','Index1','Index2','BreakValue'],
+        extra_param_names=dict(),
+        topointlike=[operator.pos,operator.neg,operator.neg,operator.pos],
+        togtlike=[operator.pos,operator.neg,operator.neg,operator.pos])
+
+    default_limits = dict(
+        Norm=LimitMapper(1e-14,1e-5,1e-9),
+        Index_1=LimitMapper(5,5,1),
+        Index_2=LimitMapper(-5,5,1),
+        BreakValue=LimitMapper(30,5e5,1))
+    default_oomp_limits=['Norm','E_break']
+
 
     def __call__(self,e):
         n0,gamma1,gamma2,e_break=self.get_all_parameters()
@@ -890,9 +1140,24 @@ class BrokenPowerLawFlux(Model):
            e_break break energy
     """
     default_p=[1e-7, 2.0, 2.0 , 1e3]
-    default_extra_params=dict(emin=100, emax=1e6)
+    default_extra_params=OrderedDict((('emin',1e2),('emax',1e6)))
     param_names=['Int_Flux','Index_1','Index_2', 'E_break']
     default_mappers=[LogMapper,LinearMapper,LinearMapper,LogMapper]
+    default_extra_attrs=dict()
+
+    gtlike = dict(
+        name='BrokenPowerLaw2',
+        param_names=['Integral','Index1','Index2','BreakValue'],
+        extra_param_names=dict(emin='LowerLimit', emax='UpperLimit'),
+        topointlike=[operator.pos,operator.neg,operator.neg,operator.pos],
+        togtlike=[operator.pos,operator.neg,operator.neg,operator.pos])
+
+    default_limits = dict(
+        Int_Flux=LimitMapper(1e-11,1e-3,1e-7),
+        Index_1=LimitMapper(-5,5,-1),
+        Index_2=LimitMapper(-5,5,-1),
+        E_break=LimitMapper(30,5e5,1))
+    default_oomp_limits=['Int_Flux','E_break']
 
     def __call__(self,e):
         flux,gamma1,gamma2,e_break=self.get_all_parameters()
@@ -920,9 +1185,10 @@ class BrokenPowerLawCutoff(Model):
             e_break     break energy
     """
     default_p=[1e-11,2,2,1e3,3e3]
-    default_extra_params=dict()
+    default_extra_params=OrderedDict()
     param_names=['Norm','Index_1','Index_2','E_break','Cutoff']
     default_mappers=[LogMapper,LinearMapper,LinearMapper,LogMapper]
+    default_extra_attrs=dict()
 
     def __call__(self,e):
         n0,gamma1,gamma2,e_break,cutoff=self.get_all_parameters()
@@ -955,14 +1221,29 @@ class SmoothBrokenPowerLaw(Model):
         not fit) by passing in e0 when initialized. """
 
     default_p=[1e-11,2.0,2.0,1e3]
-    default_extra_params=dict(beta=0.1, e0=1e3)
+    default_extra_params=OrderedDict((('e0',1e3),('beta',0.1),))
     param_names=['Norm','Index_1','Index_2','E_break']
     default_mappers=[LogMapper,LinearMapper,LinearMapper,LogMapper]
+    default_extra_attrs=dict()
+
+    gtlike = dict(
+        name='SmoothBrokenPowerLaw',
+        param_names=['Prefactor','Index1','Index2','BreakValue'],
+        extra_param_names=dict(e0='Scale', beta='Beta'),
+        topointlike=[operator.pos,operator.neg,operator.neg,operator.pos],
+        togtlike=[operator.pos,operator.neg,operator.neg,operator.pos])
+
+    default_limits = dict(
+        Norm=LimitMapper(1e-14,1e-5,1e-9),
+        Index_1=LimitMapper(-5,5,1),
+        Index_2=LimitMapper(-5,5,1),
+        E_break=LimitMapper(30,5e5,1))
+    default_oomp_limits=['Norm','E_break']
 
     def __call__(self,e):
         n0,gamma1,gamma2,e_break=self.get_all_parameters()
 
-        # switch from pointlike to gltike convention
+        # switch from pointlike to gtlike convention
         gamma1=-gamma1
         gamma2=-gamma2
 
@@ -1006,9 +1287,24 @@ class LogParabola(Model):
             e_break     break energy
     """
     default_p=[1e-11, 2.0, 1e-5,2e3]
-    default_extra_params=dict()
+    default_extra_params=OrderedDict()
     param_names=['Norm','Index','beta','E_break']
     default_mappers=[LogMapper,LinearMapper,LinearMapper,LogMapper]
+    default_extra_attrs=dict()
+
+    gtlike = dict(
+        name='LogParabola',
+        param_names=['norm','alpha','beta','Eb'],
+        extra_param_names=dict(),
+        topointlike=[operator.pos,operator.pos,operator.pos,operator.pos],
+        togtlike=[operator.pos,operator.pos,operator.pos,operator.pos])
+
+    default_limits = dict(
+        Norm=LimitMapper(1e-15,1e-5,1e-9),
+        Index=LimitMapper(-5,5,1),
+        beta=LimitMapper(0,5,1),
+        E_break=LimitMapper(30,5e5,1))
+    default_oomp_limits=['Norm','E_break']
 
     def __call__(self,e):
         n0,alpha,beta,e_break=self.get_all_parameters()
@@ -1099,9 +1395,10 @@ class ExpCutoff(Model):
             Cutoff      e-folding cutoff energy (MeV)
     """
     default_p=[1e-11, 2.0, 2e3]
-    default_extra_params=dict(e0=1e3)
+    default_extra_params=OrderedDict((('e0',1e3),))
     param_names=['Norm','Index','Cutoff']
     default_mappers=[LogMapper,LinearMapper,LogMapper]
+    default_extra_attrs=dict()
 
     def __call__(self,e):
         n0,gamma,cutoff=self.get_all_parameters()
@@ -1147,17 +1444,22 @@ class ExpCutoff(Model):
     def eflux(self):
         n0 = self['n0']
         return n0 * self.e0**2
-        
+
     def create_super_cutoff(self, free_b=False):
         """ return an equivalent PLSuperExpCutoff model
         free_b : bool
             if True, unfreeze b
         """
         sup = convert_exp_cutoff(self)
-        if free_b: sup.free[-1]=True
+
+        sup = PLSuperExpCutoff()
+        sup._p    = np.append(self._p,0)
+        sup.free = np.append(self.free,free_b)
+        sup.internal_cov_matrix[:,:] = 0
+        sup.internal_cov_matrix[:-1,:-1] = self.internal_cov_matrix[:,:]
+        sup.e0 = self.e0
+
         return sup
-        
-    
 
 class AllCutoff(Model):
     """ Implement an exponential cutoff.  This for the case when cutoff too low to constrain index.
@@ -1170,9 +1472,10 @@ class AllCutoff(Model):
 
     """
     default_p=[1e-11, 1e3]
-    default_extra_params=dict()
+    default_extra_params=OrderedDict()
     param_names=['Norm','Cutoff']
     default_mappers=[LogMapper,LogMapper]
+    default_extra_attrs=dict()
 
     def __call__(self,e):
         n0,cutoff=self.get_all_parameters()
@@ -1190,9 +1493,25 @@ class PLSuperExpCutoff(Model):
             b             additional power in the exponent
         """
     default_p=[1e-11, 2.0, 2e3 ,1.]
-    default_extra_params=dict(e0=1e3)
+    default_extra_params=OrderedDict((('e0',1e3),))
     param_names=['Norm','Index','Cutoff', 'b']
     default_mappers=[LogMapper,LinearMapper,LogMapper,LinearMapper]
+    default_extra_attrs=dict()
+
+    gtlike = dict(
+        name='PLSuperExpCutoff',
+        param_names=['Prefactor','Index1','Cutoff','Index2'],
+        extra_param_names=dict(e0='Scale'),
+        topointlike=[operator.pos,operator.neg,operator.pos,operator.pos],
+        togtlike=[operator.pos,operator.neg,operator.pos,operator.pos])
+
+    default_limits = dict(
+        Norm=LimitMapper(1e-13,1e-5,1e-9),
+        Index=LimitMapper(-5,5,1),
+        Cutoff=LimitMapper(100,3e8,1000),
+        b=LimitMapper(-5,5,1)
+        )
+    default_oomp_limits=['Norm','Cutoff']
 
     def __call__(self,e):
         n0,gamma,cutoff,b=self.get_all_parameters()
@@ -1306,6 +1625,10 @@ class CompositeModel(Model):
             >>> print sum_model._p[1]
             -1.0
 
+            >>> sum_model.setp(1,1.5)
+            >>> sum_model.getp(1)
+            1.5
+
         Also, the free parameters should be totally transparent:
 
             >>> sum_model.free[1]
@@ -1313,6 +1636,17 @@ class CompositeModel(Model):
             >>> sum_model.freeze(1)
             >>> sum_model.free[1]
             False
+
+        So does getting and setting mappers:
+            >>> m=sum_model.get_mapper(1)
+            >>> print m
+            <class 'uw.utilities.parmap.LinearMapper'>
+            >>> sum_model.set_mapper(1,LogMapper)
+            >>> print sum_model.get_mapper(1)
+            <class 'uw.utilities.parmap.LogMapper'>
+            >>> sum_model.set_mapper(1,m)
+            >>> print sum_model.get_mapper(1)
+            <class 'uw.utilities.parmap.LinearMapper'>
 
         And after the individual parameter modifications, the CompositeModel._p
         and CompositeModel.free arrays are updated consistently in the individual
@@ -1324,14 +1658,52 @@ class CompositeModel(Model):
             >>> np.all(sum_model.free==np.append(m1.free,m2.free))
             True
 
+        Note, there are duplicate names in this model:
+            
+            >>> print sum_model.duplicate_names()
+            True
+            >>> sum_model.default_limits
+            Traceback (most recent call last):
+                ...
+            ModelException: default_limits not defined since there are duplicate parameter names in models.
+
+            >>> sum_model.default_oomp_limits
+            Traceback (most recent call last):
+                ...
+            ModelException: default_oomp_limits not defined since there are duplicate parameter names in models.
+
+        default_p should be defined for CompositeModels:
+
+            >>> np.all(sum_model.default_p == m1.default_p + m2.default_p)
+            True
+
+        And so should sfpl.default_mappers:
+            >>> np.all(sum_model.default_mappers == m1.default_mappers + m2.default_mappers)
+            True
+
         Previously there was a bug with having 3 spatial parameters: 
             >>> c = SumModel(PowerLaw(),PowerLaw(),PowerLaw())
             >>> print c._p
             [-11.   2. -11.   2. -11.   2.]
             >>> print c.free
             [ True  True  True  True  True  True]
+
+        Note, previously this was buggy:
+
+            >>> print c._p
+            [-11.   2. -11.   2. -11.   2.]
+            >>> c._p = [1]*6
+            >>> np.all(c._p == [1]*6)
+            True
+
+            >>> c.mappers == [LogMapper, LinearMapper]*3
+            True
+            >>> c.mappers = [LogMapper]*6
+            >>> c.mappers == [LogMapper]*6
+            True
     """
-    default_extra_params=dict() # Don't allow any of these
+    default_extra_params=OrderedDict() # Don't allow any of these
+    default_extra_attrs=dict()
 
     def __init__(self, *models):
         if len(models) < 1:
@@ -1353,14 +1725,20 @@ class CompositeModel(Model):
     def param_names(self):
         return reduce(operator.add,[i.param_names for i in self.models])
 
-    @property
-    def mappers(self):
+    def _get_all_mappers(self):
         return reduce(operator.add,[i.mappers for i in self.models])
 
+    def _set_all_mappers(self, value):
+        assert(len(self.mappers) == len(value))
+        counter=0
+        for i,n in enumerate(self.npars):
+            self.models[i].mappers = value[counter:counter+n]
+            counter += n
+    mappers = property(_get_all_mappers, _set_all_mappers, doc='array of mappers')
 
     @property
     def pretty_name(self):
-        return self.operator.join([i.pretty_name for i in self.models])
+        return self.operator_str.join([i.pretty_name for i in self.models])
 
     @property
     def background(self):
@@ -1387,7 +1765,7 @@ class CompositeModel(Model):
     def _p(self, value):
         assert(len(self._p) == len(value))
         counter=0
-        for i,n in enumerate(len(self.npars)):
+        for i,n in enumerate(self.npars):
             self.models[i]._p = value[counter:counter+n]
             counter += n
 
@@ -1399,9 +1777,34 @@ class CompositeModel(Model):
     def free(self, value):
         assert(len(self.free) == len(value))
         counter=0
-        for i,n in enumerate(len(self.npars)):
+        for i,n in enumerate(self.npars):
             self.models[i].free = value[counter:counter+n]
             counter += n
+
+    def duplicate_names(self):
+        return len(set(self.param_names)) != self.npar
+
+    @property
+    def default_p(self):
+        return np.concatenate([i.default_p for i in self.models])
+
+    @property
+    def default_mappers(self):
+        return np.concatenate([i.default_mappers for i in self.models])
+
+
+    @property
+    def default_limits(self):
+        if self.duplicate_names(): 
+            raise ModelException("default_limits not defined since there are duplicate parameter names in models.")
+
+        return dict(reduce(operator.add,[i.default_limits.items() for i in self.models]))
+    
+    @property
+    def default_oomp_limits(self):
+        if self.duplicate_names(): 
+            raise ModelException("default_oomp_limits not defined since there are duplicate parameter names in models.")
+        return reduce(operator.add,[i.default_oomp_limits for i in self.models])
 
     @property
     def _external(self):
@@ -1442,8 +1845,15 @@ class CompositeModel(Model):
             counter+=n
 
     def setp(self, i, *args, **kwargs):
+        if i in self.default_extra_params.keys() + self.default_extra_attrs.keys():
+            setattr(self, i, *args, **kwargs)
+        else:
+            model_index,parameter_index=self.get_model_and_parameter_index(i)
+            self.models[model_index].setp(parameter_index,*args, **kwargs)
+
+    def set_mapper(self,i,*args, **kwargs):
         model_index,parameter_index=self.get_model_and_parameter_index(i)
-        self.models[model_index].setp(parameter_index,*args, **kwargs)
+        self.models[model_index].set_mapper(parameter_index,*args, **kwargs)
 
     def freeze(self,i,*args,**kwargs):
         model_index,parameter_index=self.get_model_and_parameter_index(i)
@@ -1455,11 +1865,29 @@ class FrontBackConstant(CompositeModel):
         select which constant based on value (0 or 1) of ct
     """
     name = 'FrontBackConstant'
-    operator='+'
+    operator_str='+'
+
+    gtlike = dict(
+        # This is a bit ugly because there is no Gtlike
+        # implementation for this spectral model. Here,
+        # we just output with the pointlike naming
+        name='FrontBackConstant',
+        param_names=['Scale_front','Scale_back'],
+        extra_param_names=dict(),
+        topointlike=[operator.pos,operator.pos],
+        togtlike=[operator.pos,operator.pos])
+
+    default_limits = dict(
+        Scale_front=LimitMapper(0,10,1),
+        Scale_back=LimitMapper(0,10,1),
+        )
+    default_oomp_limits=[]
+
     def __init__(self, f=1, b=1, **kwargs):
-        super(FrontBackConstant, self).__init__(Constant(),Constant(), **kwargs)
-        self.models[0].param_names=['Scale_front']
-        self.models[1].param_names=['Scale_back']
+        super(FrontBackConstant, self).__init__(
+            Constant(name='Scale_front'),
+            Constant(name='Scale_back'), 
+            **kwargs)
         self.models[0][0]=f
         self.models[1][0]=b
         self.ct = 0
@@ -1485,7 +1913,7 @@ class SumModel(CompositeModel):
             True
 
     """
-    operator = '+'
+    operator_str = '+'
     name = 'SumModel'
 
     def __call__(self,e):
@@ -1531,7 +1959,7 @@ class ProductModel(CompositeModel):
             True
 
     """
-    operator = '*'
+    operator_str = '*'
     name = 'ProductModel'
 
     def __call__(self,e):
@@ -1543,9 +1971,55 @@ class ProductModel(CompositeModel):
 
 class Constant(Model):
     default_p=[1.]
-    default_extra_params=dict()
+    default_extra_params=OrderedDict()
     param_names=['Scale']  # note: this name can be overriden for combined 
     default_mappers=[LogMapper]
+    default_extra_attrs=dict()
+
+    gtlike = dict(
+        name='ConstantValue',
+        param_names=['Value'],
+        extra_param_names=dict(),
+        topointlike=[operator.pos],
+        togtlike=[operator.pos])
+
+    default_limits = dict(
+        Scale=LimitMapper(1e-3,10,1))
+    default_oomp_limits=[]
+
+    def __init__(self, *args, **kwargs):
+        """ When you create Constant objects, you can give
+            the parameter a different name. This makes
+            them adaptable to different contexts (i.e. 
+            FrontBackConstant):
+            
+            First, create a default constant
+
+                >>> model = Constant(Scale=3.0)
+                >>> print model.param_names
+                ['Scale']
+                >>> print model['Scale']
+                3.0
+                >>> print model.default_limits.keys()
+                ['Scale']
+
+            Now, create a constant with the gtlike naming convention:
+
+                >>> model = Constant(name='Value', Value=2.0)
+                >>> print model.param_names
+                ['Value']
+                >>> print model['Value']
+                2.0
+                >>> print model.default_limits.keys()
+                ['Value']
+
+        """
+        if 'name' in kwargs:
+            name=kwargs.pop('name')
+            self.param_names=[name]
+            self.default_limits={name:self.default_limits['Scale']}
+        super(Constant,self).__init__(*args, **kwargs)
+
     def __call__(self,e):
         return np.ones_like(e)*self[0]
     
@@ -1557,9 +2031,10 @@ class Constant(Model):
 
 class InterpConstants(Model):
     default_p=[1.]*5
-    default_extra_params=dict(e_breaks=np.log10([100,300,1000,3000,3e5]))
+    default_extra_params=OrderedDict((('e_breaks',np.log10([100,300,1000,3000,3e5])),))
     param_names=['Scale_Vector']
     default_mappers=[LogMapper,LogMapper,LogMapper,LogMapper,LogMapper]
+    default_extra_attrs=dict()
 
     def __call__(self,e):
         interp = interp1d(self.e_breaks,self.get_all_parameters())
@@ -1610,9 +2085,22 @@ class FileFunction(Model):
 
     """
     default_p=[1]
-    default_extra_params=dict(file=None)
+    default_extra_params=OrderedDict()
     param_names=['Normalization']
     default_mappers=[LogMapper]
+    default_extra_attrs=dict()
+    default_extra_attrs=OrderedDict((('file',None),))
+
+    gtlike = dict(
+        name='FileFunction',
+        param_names=['Normalization','Normalization'],
+        extra_param_names=dict(),
+        topointlike=[operator.pos],
+        togtlike=[operator.pos])
+
+    default_limits = dict(
+        Normalization=LimitMapper(0.1,10,1))
+    default_oomp_limits=[]
 
     def __init__(self,**kwargs):
 
@@ -1669,9 +2157,10 @@ class SmoothDoubleBrokenPowerLaw(Model):
 
     """
     default_p=[ 1e-11, 1.0, 1e3, 2.0, 1e4, 3.0, ]
-    default_extra_params=dict(Beta12=0.05, Beta23=0.05, Scale=1e3)
+    default_extra_params=OrderedDict((('Beta12',0.05),('Beta23',0.05),('Scale',1e3),))
     param_names=[ 'Prefactor', 'Index1', 'BreakValue12', 'Index2', 'BreakValue23', 'Index3' ]
     default_mappers=[LogMapper,LinearMapper,LogMapper,LinearMapper,LogMapper,LinearMapper]
+    default_extra_attrs=dict()
 
     def __call__(self,e):
         prefactor, index1, breakvalue12, index2, breakvalue23, index3 = self.get_all_parameters()
@@ -1688,38 +2177,40 @@ class SmoothDoubleBrokenPowerLaw(Model):
         return '%s, scale=%.0f, beta12=%.3g, beta23=%.3g'% (self.pretty_name,self.Scale,self.Beta12,self.Beta23)
 
 
-class GaussianSpectrum(Model):
+class Gaussian(Model):
     """ Following the defintion in:
             http://fermi.gsfc.nasa.gov/ssc/data/analysis/scitools/source_models.html#Gaussian
 
 
         >>> from scipy.stats import norm
-        >>> g = GaussianSpectrum(prefactor=1, mean=0, sigma=1)
+        >>> g = Gaussian(prefactor=1, mean=0, sigma=1)
         >>> e = np.logspace(1,10,11)
         >>> np.allclose(g(e),norm.pdf(e))
         True
     """
     default_p = [1e-9, 7e4, 1e3]
-    default_extra_params = dict()
+    default_extra_params = OrderedDict()
     param_names = [ "Prefactor", "Mean", "Sigma"]
     default_mappers = [LogMapper, LogMapper, LogMapper]
+    default_extra_attrs=dict()
+
+    gtlike = dict(
+        name='Gaussian',
+        param_names=param_names,
+        extra_param_names=dict(),
+        topointlike=[operator.pos]*3,
+        togtlike=[operator.pos]*3)
+
+    default_limits = dict(
+        Prefactor=LimitMapper(1e-15,1e-5,1e-9),
+        Mean=LimitMapper(1,1e6,1),
+        Sigma=LimitMapper(1,1e6,1))
+    default_oomp_limits=['Prefactor','Mean','Sigma']
 
     def __call__(self,e):
         prefactor, mean, sigma = self.get_all_parameters()
         return prefactor/(sigma*2.0*np.pi)*np.exp(-(e-mean)**2/(2.0*sigma**2))
 
-def convert_exp_cutoff(model):
-    """ this function is need for XML parsing. """
-    if model.name != 'ExpCutoff':
-        raise ModelException,'Cannot process %s into PLSuperExpCutoff'%(model.name)
-    nm = PLSuperExpCutoff()
-    nm._p    = np.append(model._p,0)
-    nm.free = np.append(model.free,False)
-    nm.internal_cov_matrix[:,:] = 0
-    nm.internal_cov_matrix[:-1,:-1] = model.internal_cov_matrix[:,:]
-    nm.e0 = model.e0
-    return nm
-    
 if __name__ == "__main__":
     print __doc__
     import doctest
