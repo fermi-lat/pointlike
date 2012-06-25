@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Jun 25 13:39:16 PDT 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Consistent handeling of, loading in from XML, and writing out to XML environment variables.
+    *
+------------------------------------------------------------
 User: lande  Mon Jun 25 13:39:15 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
