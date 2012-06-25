@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Jun 25 11:57:28 PDT 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	parmap.py 
+Log Message:
+new copy and equality code
+    *
+------------------------------------------------------------
 User: burnett  Sun Jun 24 12:50:47 PDT 2012
 pointlike/python/uw/like
 
