@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.72 2012/06/25 20:39:16 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.73 2012/06/26 04:01:30 lande Exp $
 
    author: Matthew Kerr
 """
@@ -1042,27 +1042,48 @@ def unparse_point_sources(point_sources, strict=False, expand_env_vars=False, pr
         properties : a function
             the function, if specified, returns a string for the source element with properties, like TS
 
-            >>> ps = PointSource(name='test', model=Models.Constant(), skydir=SkyDir(-30,30))
-            >>> ret=unparse_point_sources([ps])
-            >>> print len(ret)
-            1
-            >>> print ret[0].strip().replace('\\t', ' '*4)
-            <source name="test" type="PointSource"  >
-                <spectrum  type="ConstantValue">
-                    <parameter name="Value" value="1.0" free="1" max="10" min="0.001" scale="1" />
-                </spectrum>
-                <spatialModel type="SkyDirFunction">
-                    <parameter name="RA"  value="330.0" free="0" max="360.0" min="-360.0" scale="1.0" />
-                    <parameter name="DEC" value="30.0" free="0" max="90" min="-90" scale="1.0" />
-                </spatialModel>
-            </source>
+            Example:
+
+                >>> def ps2xml(ps, expand_env_vars=False):
+                ...     ret=unparse_point_sources([ps], expand_env_vars=expand_env_vars)
+                ...     return ret[0].strip().replace('\\t', ' '*4)
+
+                >>> ps = PointSource(name='test', model=Models.Constant(), skydir=SkyDir(-30,30))
+                >>> print ps2xml(ps)
+                <source name="test" type="PointSource"  >
+                    <spectrum  type="ConstantValue">
+                        <parameter name="Value" value="1.0" free="1" max="10" min="0.001" scale="1" />
+                    </spectrum>
+                    <spatialModel type="SkyDirFunction">
+                        <parameter name="RA"  value="330.0" free="0" max="360.0" min="-360.0" scale="1.0" />
+                        <parameter name="DEC" value="30.0" free="0" max="90" min="-90" scale="1.0" />
+                    </spatialModel>
+                </source>
+
+            Previously, this was buggy. The expand_env_vars flag would case the Prefactor to be nan.
+            This doctest protects against that edge case.
+
+                >>> ps = PointSource(name='test', model=Models.PowerLaw(), skydir=SkyDir(20,-88))
+                >>> print ps2xml(ps, expand_env_vars=True)
+                <source name="test" type="PointSource"  >
+                    <spectrum  type="PowerLaw">
+                        <parameter name="Prefactor" value="1.0" free="1" max="100.0" min="0.01" scale="1e-11" />
+                        <parameter name="Index" value="2.0" free="1" max="5" min="-5" scale="-1" />
+                        <parameter name="Scale" value="1000.0" free="0" max="1000.0" min="1000.0" scale="1" />
+                    </spectrum>
+                    <spatialModel type="SkyDirFunction">
+                        <parameter name="RA"  value="20.0" free="0" max="360.0" min="-360.0" scale="1.0" />
+                        <parameter name="DEC" value="-88.0" free="0" max="90" min="-90" scale="1.0" />
+                    </spatialModel>
+                </source>
+
     """
     xml_blurbs = Stack()
     m2x = Model_to_XML(strict=strict)
     for ps in point_sources:
         skyxml = makePSSpatialModel(ps.skydir)
         try:
-            m2x.process_model(ps.model, expand_env_vars)
+            m2x.process_model(ps.model, expand_env_vars=expand_env_vars)
         except Exception, emsg:
             print 'Failed to process source %s: %s' %(ps.name, emsg)
         specxml = m2x.getXML()
