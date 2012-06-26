@@ -1,23 +1,19 @@
 """ Class to write out gtlike-style results files. 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/results_writer.py,v 1.6 2011/09/16 22:01:31 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/results_writer.py,v 1.7 2012/06/25 21:59:08 lande Exp $
 
 author: Joshua Lande
 """
 from pprint import pformat
 import numpy as N
-from uw.utilities.xml_parsers import Model_to_XML
 from uw.like.roi_extended import ExtendedSource
 from skymaps import IsotropicSpectrum
 
 def unparse_spectral(model,**kwargs):
     """ Convert a Model object to a gtlike style dictionary. """
-    m2x=Model_to_XML()
-    m2x.process_model(model,**kwargs)
-    names,vals,errs=m2x.pname,m2x.pval,m2x.perr
-
-    return dict(('%s' % name,'%g +/- %g' % (p,perr) if perr>0 else '%g' % p)
-                for name,p,perr in zip(names,vals,errs))
+    return {n:'%g +/- %g' % (model[n],model.error(n)) \
+            if model.has_errors() else '%g' % model[n] 
+            for n in model.param_names}
 
 def unparse_spatial(model):
     """ Convert a SpatialModel object to a gtlike-inspired dictionary. """
@@ -49,10 +45,7 @@ def unparse_diffuse_sources(roi,diffuse_sources,emin,emax,**kwargs):
 
         diffuse_dict[name]={}
 
-        diffuse_dict[name].update(
-            unparse_spectral(ds.smodel,scaling=False if isinstance(ds,ExtendedSource) else True,
-                             xml_name = 'FileFunction'\
-                             if isinstance(dm,IsotropicSpectrum) else None))
+        diffuse_dict[name].update(unparse_spectral(ds.smodel))
 
         if isinstance(ds,ExtendedSource):
             diffuse_dict[name].update(unparse_spatial(ds.spatial_model))
