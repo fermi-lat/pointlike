@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.73 2012/06/26 04:01:30 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.74 2012/06/26 17:39:11 lande Exp $
 
    author: Matthew Kerr
 """
@@ -1175,7 +1175,7 @@ def process_diffuse_source(ds,convert_extended=False,expand_env_vars=False,filen
                 template_name+='template_%s_%s_%s.fits' % (ds.name.replace(' ','_'),
                                                            spatial.pretty_name, 
                                                            spectral.pretty_name)
-                spatial = convert_spatial_map(spatial,template_name)
+                spatial = SpatialModels.convert_spatial_map(spatial,template_name)
                 spatial.file = template_name
         skyxml = makeExtendedSourceSpatialModel(spatial,expand_env_vars=expand_env_vars)
         if isinstance(spatial,SpatialModels.SpatialMap) and not np.all(spatial.p==spatial.init_p):
