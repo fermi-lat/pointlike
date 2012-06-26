@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Tue Jun 26 14:06:10 PDT 2012
+pointlike/python/uw/like2
+
+Added Files:
+	loglikelihood.py 
+Log Message:
+Added loglikelihood.py, a module for parametrizing log likelihood curves with
+a Poisson-like function.
+
+    *
+------------------------------------------------------------
 User: lande  Tue Jun 26 11:07:54 PDT 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
