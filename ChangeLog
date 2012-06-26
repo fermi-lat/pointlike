@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jun 26 10:39:11 PDT 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+bugfix in saving out point sources
+    *
+------------------------------------------------------------
 User: lande  Tue Jun 26 07:24:32 PDT 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
