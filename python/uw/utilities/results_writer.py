@@ -1,6 +1,6 @@
 """ Class to write out gtlike-style results files. 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/results_writer.py,v 1.7 2012/06/25 21:59:08 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/results_writer.py,v 1.8 2012/06/26 14:12:54 lande Exp $
 
 author: Joshua Lande
 """
@@ -50,7 +50,7 @@ def unparse_diffuse_sources(roi,diffuse_sources,emin,emax,**kwargs):
         if isinstance(ds,ExtendedSource):
             diffuse_dict[name].update(unparse_spatial(ds.spatial_model))
 
-            if not N.all(ds.smodel.cov_matrix==0):
+            if not ds.smodel.has_errors():
                 diffuse_dict[name]['Flux']='%g +/- %g' % ds.smodel.i_flux(emin,emax,cgs=True,two_sided=False,error=True)
             else:
                 diffuse_dict[name]['Flux']='%g' % ds.smodel.i_flux(emin,emax,cgs=True,two_sided=False,error=False)
