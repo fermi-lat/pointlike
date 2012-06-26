@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.71 2012/06/25 19:01:17 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.72 2012/06/25 20:39:16 lande Exp $
 
    author: Matthew Kerr
 """
@@ -507,6 +507,9 @@ class Model_to_XML(object):
         if name == 'ExpCutoff':
             model = model.create_super_cutoff()
 
+        if not isinstance(model,XML_to_Model.savable_models):
+            raise XMLException("Unable to save model %s to XML file. Not a savable model" % model.name)
+
         if scaling and name == 'PowerLaw':
             if not isinstance(model.get_mapper('Norm'),LimitMapper):
                 model.set_limits('Norm',.1,10)
@@ -531,9 +534,6 @@ class Model_to_XML(object):
 
     def process_model(self,model,scaling=False, expand_env_vars=False):
         """ Model an instance of Model """
-
-        if not isinstance(model,XML_to_Model.savable_models):
-            raise XMLException("Unable to save model %s to XML file" % name)
 
         model = Model_to_XML.prepare_model_for_xml(model, scaling, self.strict)
 
