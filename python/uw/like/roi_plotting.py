@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.90 2012/06/05 23:02:27 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.91 2012/06/06 16:15:00 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -49,6 +49,15 @@ from matplotlib.patches import FancyArrow,Circle,Ellipse
 from matplotlib import mpl
 from matplotlib.axes import Axes
 
+
+def tight_layout(fig):
+    import traceback
+    import sys
+    try:
+        fig.tight_layout()
+    except:
+        print 'To make pretty figures, you need a newer version of matplotlib which has tight_layout!'
+        traceback.print_exc(file=sys.stdout)
 
 def format_degrees(x,*args):
     r='%g' % x
@@ -883,7 +892,7 @@ class ROISlice(object):
             self.title += ' for %s' % self.source.name
 
         fig.suptitle(self.title)
-        fig.tight_layout()
+        tight_layout(fig)
 
         if datafile is not None: self.save_data(datafile)
 
@@ -1065,7 +1074,7 @@ class ROIRadialIntegral(object):
             if self.source is not None: self.title += ' for %s' % self.source.name
 
         ax.set_title(self.title)
-        fig.tight_layout()
+        tight_layout(fig)
 
         if datafile is not None: self.save_data(datafile)
 
@@ -1297,7 +1306,7 @@ class ROISmoothedSources(object):
         ROISmoothedSources.overlay_region(self.roi,ax,self.header, **self.overlay_kwargs)
         if self.extra_overlay is not None: self.extra_overlay(ax)
 
-        self.fig.tight_layout()
+        tight_layout(self.fig)
 
         if filename is not None: P.savefig(filename)
 
@@ -1496,7 +1505,7 @@ class ROIPlotter(object):
         ROISmoothedSources.overlay_region(self.roi,ax,self.header, **self.overlay_kwargs)
         if self.extra_overlay is not None: self.extra_overlay(ax)
 
-        fig.tight_layout()
+        tight_layout(fig)
 
         if filename is not None: P.savefig(filename)
 
@@ -1678,7 +1687,7 @@ class ROISmoothedModel(object):
         self.plot_counts()
         self.plot_model()
 
-        self.fig.tight_layout()
+        tight_layout(self.fig)
 
         if filename is not None: P.savefig(filename)
 
@@ -1732,6 +1741,6 @@ class ROISmoothedBeforeAfter(object):
         self.smoothed_sources.show(axes=self.grid[0])
         self.smoothed_source.show(axes=self.grid[1],cax=grid.cbar_axes[0])
 
-        self.fig.tight_layout()
+        tight_layout(self.fig)
 
         self.header = self.h = [self.smoothed_sources.header,self.smoothed_source.header]
