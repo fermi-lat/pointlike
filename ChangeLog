@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Jun 25 21:39:02 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+bugfix for create_super_cutoff & zero/unzero
+    *
+------------------------------------------------------------
 User: lande  Mon Jun 25 21:26:05 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
