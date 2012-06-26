@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.114 2012/06/26 04:01:17 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.115 2012/06/26 04:26:05 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -836,9 +836,29 @@ class Model(object):
                 >>> print model.iszero()
                 False
 
+            Previously, zeroing a source was kind of buggy if the 
+            source parameter had a limit:
+
+                >>> model = PowerLaw(norm=5, e0=100)
+                >>> print model(100)
+                5.0
+                >>> model.set_limits('norm',1,10)
+                >>> model.zero()
+                >>> model.get_mapper('norm')
+                <class 'uw.utilities.parmap.LinearMapper'>
+                >>> print model(100)
+                0.0
+                >>> model.unzero()
+                >>> print model(100)
+                5.0
+                >>> model.get_limits('norm')
+                [1, 10]
+
         """
         if self.iszero(): return #already zeroed
         self.old_flux = self.getp(0) # get the internal value
+        self.old_mapper = self.get_mapper(0)
+        self.set_mapper(0, LinearMapper)
         self.setp(0, 0)
         self.old_free = self.free.copy()
         self.free[:] = False
@@ -848,6 +868,7 @@ class Model(object):
 
     def unzero(self):
         self.setp(0, self.old_flux)
+        self.set_mapper(0, self.old_mapper)
         self.free = self.old_free.copy()
 
 
@@ -1485,17 +1506,26 @@ class ExpCutoff(Model):
         """ return an equivalent PLSuperExpCutoff model
         free_b : bool
             if True, unfreeze b
-        """
-        sup = convert_exp_cutoff(self)
 
+                >>> ec=ExpCutoff()
+                >>> sec=ec.create_super_cutoff()
+                >>> np.all(ec.get_all_parameters() == sec.get_all_parameters()[:-1])
+                True
+                >>> ec.mappers == sec.mappers[:-1]
+                True
+                >>> ec.e0 == sec.e0
+                True
+        """
         sup = PLSuperExpCutoff()
         sup._p    = np.append(self._p,0)
         sup.free = np.append(self.free,free_b)
         sup.internal_cov_matrix[:,:] = 0
         sup.internal_cov_matrix[:-1,:-1] = self.internal_cov_matrix[:,:]
         sup.e0 = self.e0
+        sup.mappers[:-1] = self.mappers
 
-        return sup
+        # Make a deep copy of everything to be safe
+        return sup.copy()
 
 class AllCutoff(Model):
     """ Implement an exponential cutoff.  This for the case when cutoff too low to constrain index.
