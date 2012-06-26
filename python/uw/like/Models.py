@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.113 2012/06/25 21:59:08 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.114 2012/06/26 04:01:17 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -702,10 +702,24 @@ class Model(object):
                 >>> np.allclose(model(energies), energies**-2)
                 True
 
+            Previously, this flux computing formula was buggy 
+            when the first parameter had limits, since
+            setting the value to 1 would screw up the mapping.
+            This is fixed in the new code.
+
+                >>> model = PowerLaw(set_default_limits=True)
+                >>> model.set_flux(1e-7)
+                >>> np.allclose(model.i_flux(),1e-07)
+                True
         """
+        mapper = self.get_mapper(0)
+        self.set_mapper(0,LinearMapper)
+
         self.setp(0, 1) # First, set prefactor to 1
         new_prefactor = flux/self.i_flux(*args,**kwargs)
         self.setp(0,new_prefactor)
+
+        self.set_mapper(0, mapper)
 
     def copy(self): return copy.deepcopy(self)
 
@@ -838,7 +852,7 @@ class Model(object):
 
 
 
-    def set_default_limits(self, strict=False, oomp_limits=True, only_unbound_parameters=False):
+    def set_default_limits(self, strict=False, oomp_limits=False, only_unbound_parameters=False):
         """ Apply default limits to parameters
             of spectral model. Only apply 
             limits to parametesr
@@ -854,9 +868,11 @@ class Model(object):
 
             But we can easily impose default limits:
 
-                >>> model.set_default_limits()
+                >>> model.set_default_limits(oomp_limits=False)
                 >>> np.allclose(model.get_limits('norm'),[1e-15,1e-5])
                 True
+                >>> print model.get_mapper('norm')
+                LimitMapper(1e-15,1e-05,1e-09)
                 >>> print model.get_scale('norm')
                 1e-09
                 >>> print model.get_limits('index')
@@ -869,6 +885,12 @@ class Model(object):
                 >>> model.set_default_limits(oomp_limits=True)
                 >>> np.allclose(model.get_limits('norm'),[model['norm']/100,model['norm']*100])
                 True
+
+            We can make a model with limits easily:
+
+                >>> model = PowerLaw(set_default_limits=True)
+                >>> print model.get_mapper('norm')
+                LimitMapper(1e-15,1e-05,1e-09)
 
             Finally, we note the only_unbound_parameters, which will not change
             alredy existing limits:
