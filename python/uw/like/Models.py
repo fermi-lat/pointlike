@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.112 2012/06/25 20:39:15 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.113 2012/06/25 21:59:08 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -25,7 +25,7 @@ class Model(object):
         Default units are ph/cm^2/s/MeV.
     """
     
-    def __init__(self, p=None, free=None, **kwargs):
+    def __init__(self, p=None, free=None, set_default_limits=False, **kwargs):
         """ 
 
          Optional keyword arguments:
@@ -107,6 +107,9 @@ class Model(object):
                 setattr(self,k,v)
             else:
                 raise ModelException("Unable to set parameter unknown parameter %s"  % k)
+
+        if set_default_limits:
+            self.set_default_limits()
     
     def len(self): 
         """ Exmaple:
@@ -835,7 +838,7 @@ class Model(object):
 
 
 
-    def set_default_limits(self, strict=False, oomp_limits=False, only_unbound_parameters=False):
+    def set_default_limits(self, strict=False, oomp_limits=True, only_unbound_parameters=False):
         """ Apply default limits to parameters
             of spectral model. Only apply 
             limits to parametesr
@@ -1403,6 +1406,13 @@ class ExpCutoff(Model):
     param_names=['Norm','Index','Cutoff']
     default_mappers=[LogMapper,LinearMapper,LogMapper]
     default_extra_attrs=dict()
+
+    default_limits = dict(
+        Norm=LimitMapper(1e-13,1e-5,1e-9),
+        Index=LimitMapper(-5,5,1),
+        Cutoff=LimitMapper(100,3e8,1000),
+        )
+    default_oomp_limits=['Norm','Cutoff']
 
     def __call__(self,e):
         n0,gamma,cutoff=self.get_all_parameters()
