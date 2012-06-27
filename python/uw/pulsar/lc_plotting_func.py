@@ -363,9 +363,13 @@ class PulsarLightCurve:
             evtlist = evtlist[evtlist["ANGSEP"]<get_theta(self.__psf_selection, evtlist["ENERGY"])]
 
         if phase_shift != 0:
-            evtlist[self.phase_colname] += phase_shift
-            evtlist[self.phase_colname][evtlist[self.phase_colname]>1] -= 1
-            evtlist[self.phase_colname][evtlist[self.phase_colname]<0] += 1
+            # kluge to restrict phase to "principal values"
+            if phase_shift <= -1: phase_shift += 1
+            if phase_shift >=  1: phase_shift -= 1
+            ph = evtlist[self.phase_colname]
+            ph += phase_shift
+            ph[ph>1] -= 1
+            ph[ph<0] += 1
             self.phase_shift = 0
 
         # collection of pulse phase, etc.
@@ -652,7 +656,8 @@ class PulsarLightCurve:
                          outfile=None, xtitle='Pulse Phase', ytitle='Counts/bin', 
                          substitute=True,template=None,template_color='black',
                          period=None,font=133,outascii=None,line_width=1,
-                         suppress_template_axis=False,htest=None):
+                         suppress_template_axis=False,htest=None,delta=None,
+                         pulsar_class=-1):
         
         '''ROOT function to plot gamma-ray phaseograms + (radio,x-ray)
         ===========   ======================================================
@@ -674,6 +679,8 @@ class PulsarLightCurve:
         font          specify a plot font (default Times)        [133]
         outascii      write out the 0th phaseogram to ascii      [None]
         htest         write an htest in the legend               [None]
+        delta         write delta/Delta in legend                [None]
+        pulsar_class  classification of pulsar (RL, RQ, etc.)    [-1]
         ===========   ====================================================== '''
         profile = self.profile
         phaseogram = self.phaseogram
@@ -739,7 +746,11 @@ class PulsarLightCurve:
             root.SetHistoAxis(phaseogram[which],x1,x2,x3,x4,ytitle,TextSize,OffsetY,LabelSize,color=color,font=font,line_width=line_width)
 
             # zero suppress
-            if zero_sup: root.zero_suppress(phaseogram[which],background=background[which])
+            if zero_sup:
+                if background is None:
+                    root.zero_suppress(phaseogram[which])
+                else:
+                    root.zero_suppress(phaseogram[which],background=background[which])
 
             # draw histogram
             phaseogram[which].Draw("HIST E")
@@ -775,12 +786,29 @@ class PulsarLightCurve:
             if which==0:
                 name_comment = self.psrname if period is None else \
                                '%s, P=%.4fs'%(self.psrname,period)
+                if pulsar_class == 0:
+                    # RL, young == green
+                    text.SetTextColor(kGreen)
+                elif pulsar_class == 1:
+                    # RQ, young == blue
+                    text.SetTextColor(kBlue)
+                elif pulsar_class == 2:
+                    # RL, MSP == red
+                    text.SetTextColor(kRed)
                 text.DrawText(self.binmax-0.8,ylevel,name_comment)
+                text.SetTextColor(1) # reset color
                 if htest is not None:
                     text.DrawText(self.binmax-1.2,ylevel,'H=%d'%(round(htest)))
                 if self.renormalize:
                     text.SetTextColor(2)
                     text.DrawText(self.binmax-1.5,ylevel,'RENORMALIZED')
+                    text.SetTextColor(1)
+                if delta is not None:
+                    # format is tuple (delta, delta_err, Delta, Delta_err)
+                    dylevel = root.get_txtlevel(phaseogram[which],0.86)
+                    s = 'd = %.2f \pm %.2f,  D = %.2f \pm %.2f'%delta
+                    text.SetTextColor(2)
+                    text.DrawText(0.1,dylevel,s)
                     text.SetTextColor(1)
             
             if inset == which:   
