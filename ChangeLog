@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Jun 27 14:18:44 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lc_plotting_func.py 
+Log Message:
+Added color code, fixed bug with zero suppression.
+
+    *
+------------------------------------------------------------
 User: wallacee  Tue Jun 26 14:06:10 PDT 2012
 pointlike/python/uw/like2
 
