@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Thu Jun 28 15:14:52 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py 
+Log Message:
+Add phase shift capability to weighted light curves.
+
+    *
+------------------------------------------------------------
 User: kerrm  Thu Jun 28 15:13:03 PDT 2012
 pointlike/python/uw/pulsar
 
