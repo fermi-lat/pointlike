@@ -3,7 +3,7 @@ components of a pulsar light curve.  Includes primitives (Gaussian,
 Lorentzian), etc.  as well as more sophisticated holistic templates that
 provide single-parameter (location) representations of the light curve.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcprimitives.py,v 1.22 2012/03/14 00:45:52 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcprimitives.py,v 1.23 2012/03/29 22:20:23 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -121,9 +121,9 @@ class LCPrimitive(object):
             right   [False] if True, return "right" component, else "left".
                             There is no distinction for symmetric dists.
         """
-        scale = self.hwhm()/self.p[right] if hwhm else 1
+        scale = self.hwhm(right=right)/self.p[right] if hwhm else 1
         if error: return np.asarray([self.p[right],self.errors[right]])*scale
-        return self.p[1+right]*scale
+        return self.p[right]*scale
     
     def get_gradient(self,phases):
         g = self.gradient(phases)
@@ -416,7 +416,12 @@ class LCLorentzian(LCPrimitive):
     def __call__(self,phases):
         gamma,loc = self.p
         z = TWOPI*(phases-loc)
-        return sinh(gamma)/(cosh(gamma)-np.cos(z))
+        try:
+            return sinh(gamma)/(cosh(gamma)-np.cos(z))
+        except:
+            print gamma
+            print np.min(np.abs(cosh(gamma)-np.cos(z)))
+            raise ValueError    
 
     def gradient(self,phases):
         gamma,loc = self.p
