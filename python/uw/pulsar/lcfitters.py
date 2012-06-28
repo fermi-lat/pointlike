@@ -9,7 +9,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.33 2012/06/05 00:58:47 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.34 2012/06/05 01:20:48 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -48,10 +48,10 @@ def prim_io(template):
     elif 'fourier' in toks[0]: return [LCEmpiricalFourier(input_file=toks[1:])]
     raise ValueError,'Template format not recognized!'
 
-def weighted_light_curve(nbins,phases,weights,normed=False):
+def weighted_light_curve(nbins,phases,weights,normed=False,phase_shift=0):
     """ Return a set of bins, values, and errors to represent a
         weighted light curve."""
-    bins = np.linspace(0,1,nbins+1)
+    bins = np.linspace(0+phase_shift,1+phase_shift,nbins+1)
     counts = np.histogram(phases,bins=bins,normed=False)[0]
     w1 = (np.histogram(phases,bins=bins,weights=weights,normed=False)[0]).astype(float)
     w2 = (np.histogram(phases,bins=bins,weights=weights**2,normed=False)[0]).astype(float)
@@ -60,7 +60,7 @@ def weighted_light_curve(nbins,phases,weights,normed=False):
     return bins,w1/norm,errors/norm
 
 
-def LCFitter(template,phases,weights=None,times=1,binned_bins=100):
+def LCFitter(template,phases,weights=None,times=1,binned_bins=100,phase_shift=0):
     """ Factory class for light curve fitters.
         Arguments:
         template -- an instance of LCTemplate
@@ -70,8 +70,10 @@ def LCFitter(template,phases,weights=None,times=1,binned_bins=100):
         weights     [None] optional photon weights
         times       [None] optional photon arrival times
         binned_bins [100]  # of bins to use in binned likelihood
+        phase_shift [0] set this if a phase shift has been applied
     """
-    kwargs = dict(times=np.asarray(times),binned_bins=binned_bins)
+    kwargs = dict(times=np.asarray(times),binned_bins=binned_bins,
+                  phase_shift=phase_shift)
     if weights is None:
         kwargs['weights'] = None
         return UnweightedLCFitter(template,phases,**kwargs)
@@ -95,7 +97,8 @@ class UnweightedLCFitter(object):
         nbins = 25
         if h > 100: nbins = 50
         if h > 1000: nbins = 100
-        hist = np.histogram(self.phases,bins=np.linspace(0,1,nbins))
+        ph0,ph1 = 0+self.phase_shift,1+self.phase_shift
+        hist = np.histogram(self.phases,bins=np.linspace(ph0,ph1,nbins))
         if len(hist[0])==nbins: raise ValueError,'Histogram too old!'
         x = ((hist[1][1:] + hist[1][:-1])/2.)[hist[0]>0]
         counts = (hist[0][hist[0]>0]).astype(float)
@@ -104,7 +107,7 @@ class UnweightedLCFitter(object):
         self.chistuff = x,y,yerr
         # now set up binning for binned likelihood
         nbins = self.binned_bins+1
-        hist = np.histogram(self.phases,bins=np.linspace(0,1,nbins))
+        hist = np.histogram(self.phases,bins=np.linspace(ph0,ph1,nbins))
         self.counts_centers = ((hist[1][1:] + hist[1][:-1])/2.)[hist[0]>0]
         self.counts = hist[0][hist[0]>0]
 
@@ -361,7 +364,8 @@ class WeightedLCFitter(UnweightedLCFitter):
         nbins = 25
         if h > 100: nbins = 50
         if h > 1000: nbins = 100
-        bins,counts,errors = weighted_light_curve(nbins,self.phases,self.weights)
+        bins,counts,errors = weighted_light_curve(nbins,
+            self.phases,self.weights,phase_shift=self.phase_shift)
         mask = counts > 0
         N = counts.sum()
         self.bg_level = 1-(self.weights**2).sum()/N
@@ -371,7 +375,7 @@ class WeightedLCFitter(UnweightedLCFitter):
         self.chistuff = x[mask],y[mask],yerr[mask]
         # now set up binning for binned likelihood
         nbins = self.binned_bins
-        bins = np.linspace(0,1,nbins+1)
+        bins = np.linspace(0+self.phase_shift,1+self.phase_shift,nbins+1)
         a = np.argsort(self.phases)
         self.phases = self.phases[a]
         self.weights = self.weights[a]
