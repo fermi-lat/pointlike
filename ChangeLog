@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Jun 29 12:15:22 PDT 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+better error handeling + error message + bugfix for reading sources outside default limits
+    *
+------------------------------------------------------------
 User: lande  Thu Jun 28 19:10:11 PDT 2012
 ScienceTools-scons/pointlike/python/uw/pulsar
 
