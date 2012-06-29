@@ -4,6 +4,8 @@ import copy
 
 import numpy as np
 
+class MapperException(Exception): pass
+
 class ParameterMapper(object):
 
     @abstractmethod
@@ -48,10 +50,10 @@ class LogMapper(ParameterMapper):
                 >>> LogMapper.tointernal(-1)
                 Traceback (most recent call last):
                     ...
-                Exception: Parameter value=-1 must be greater than 0
+                MapperException: Parameter value=-1 must be greater than 0
         """
         if external<0: 
-            raise Exception("Parameter value=%s must be greater than 0" % external)
+            raise MapperException("Parameter value=%s must be greater than 0" % external)
         return np.log10(external)
 
     @staticmethod
@@ -69,6 +71,9 @@ class LimitMapper(ParameterMapper):
         compatability with gtlike.
     """
     def __init__(self, lower, upper, scale=1):
+        if upper < lower:
+            lower, upper = upper, lower
+
         self.lower = lower
         self.upper = upper
         self.scale = scale
@@ -86,16 +91,16 @@ class LimitMapper(ParameterMapper):
                 >>> mapper.tointernal(-1)
                 Traceback (most recent call last):
                     ...
-                Exception: Parameter value=-1 is smaller than lower limit=0
+                MapperException: Parameter value=-1 is smaller than lower limit=0
                 >>> mapper.tointernal(11)
                 Traceback (most recent call last):
                     ...
-                Exception: Parameter value=11 is larger than upper limit=10
+                MapperException: Parameter value=11 is larger than upper limit=10
         """
         if external < self.lower:
-            raise Exception("Parameter value=%s is smaller than lower limit=%s" % (external,self.lower))
+            raise MapperException("Parameter value=%s is smaller than lower limit=%s" % (external,self.lower))
         if external > self.upper:
-            raise Exception("Parameter value=%s is larger than upper limit=%s" % (external,self.upper))
+            raise MapperException("Parameter value=%s is larger than upper limit=%s" % (external,self.upper))
 
         return np.arcsin(2.0*(external-self.lower)/(self.upper-self.lower)-1.0)
         
