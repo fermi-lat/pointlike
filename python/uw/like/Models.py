@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.115 2012/06/26 04:26:05 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.116 2012/06/26 04:39:02 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -2235,18 +2235,18 @@ class SmoothDoubleBrokenPowerLaw(Model):
             http://glast.stanford.edu/cgi-bin/viewcvs/Likelihood/src/SmoothDoubleBrokenPowerLaw.cxx
 
         but with the indices the negative of the gtlike indices for internal consistency.
-            >> pointlike_model = SmoothDoubleBrokenPowerLaw(Beta12=0.5, Beta23=0.25)
-            >> import pyLikelihood
-            >> _funcFactory = pyLikelihood.SourceFactory_funcFactory()
-            >> gtlike_model = _funcFactory.create('SmoothDoubleBrokenPowerLaw')
-            >> for n in pointlike_model.param_names:
-            ..     gtlike_model.setParam(n,(-1 if 'index' in n.lower() else 1)*pointlike_model[n])
-            >> for n in ['Beta23', 'Beta12', 'Scale']:
-            ..     gtlike_model.setParam(n,getattr(pointlike_model,n))
-            >> energies = np.logspace(1, 6, 10000)
-            >> from uw.darkmatter.spectral import DMFitFunction 
-            >> np.allclose(DMFitFunction.call_pylike_spectrum(gtlike_model, energies),
-            ..     pointlike_model(energies), rtol=1e-20, atol=1e-20) 
+            >>> pointlike_model = SmoothDoubleBrokenPowerLaw(Beta12=0.5, Beta23=0.25)
+            >>> import pyLikelihood
+            >>> _funcFactory = pyLikelihood.SourceFactory_funcFactory()
+            >>> gtlike_model = _funcFactory.create('SmoothDoubleBrokenPowerLaw')
+            >>> for n in pointlike_model.param_names:
+            ...     gtlike_model.setParam(n,(-1 if 'index' in n.lower() else 1)*pointlike_model[n])
+            >>> for n in ['Beta23', 'Beta12', 'Scale']:
+            ...     gtlike_model.setParam(n,getattr(pointlike_model,n))
+            >>> energies = np.logspace(1, 6, 10000)
+            >>> from uw.darkmatter.spectral import DMFitFunction 
+            >>> np.allclose(DMFitFunction.call_pylike_spectrum(gtlike_model, energies),
+            ...     pointlike_model(energies), rtol=1e-20, atol=1e-20) 
             True
 
     """
