@@ -42,7 +42,17 @@ class LogMapper(ParameterMapper):
     def toexternal(internal): return 10**internal
 
     @staticmethod
-    def tointernal(external): return np.log10(external)
+    def tointernal(external): 
+        """ Protect against bad input:
+
+                >>> LogMapper.tointernal(-1)
+                Traceback (most recent call last):
+                    ...
+                Exception: Parameter value=-1 must be greater than 0
+        """
+        if external<0: 
+            raise Exception("Parameter value=%s must be greater than 0" % external)
+        return np.log10(external)
 
     @staticmethod
     def dexternaldinternal(external):
@@ -68,7 +78,25 @@ class LimitMapper(ParameterMapper):
         return self.lower + ((self.upper-self.lower)/2.0)*(np.sin(internal)+1.0)
 
     def tointernal(self,external):
-        """ Equation 1.1 of "MINUIT User's Guide" """
+        """ Equation 1.1 of "MINUIT User's Guide" 
+        
+            Make sure mapper protects against bad input:
+
+                >>> mapper = LimitMapper(0, 10)
+                >>> mapper.tointernal(-1)
+                Traceback (most recent call last):
+                    ...
+                Exception: Parameter value=-1 is smaller than lower limit=0
+                >>> mapper.tointernal(11)
+                Traceback (most recent call last):
+                    ...
+                Exception: Parameter value=11 is larger than upper limit=10
+        """
+        if external < self.lower:
+            raise Exception("Parameter value=%s is smaller than lower limit=%s" % (external,self.lower))
+        if external > self.upper:
+            raise Exception("Parameter value=%s is larger than upper limit=%s" % (external,self.upper))
+
         return np.arcsin(2.0*(external-self.lower)/(self.upper-self.lower)-1.0)
         
     def dexternaldinternal(self,external):
