@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.74 2012/06/26 17:39:11 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.75 2012/06/26 18:07:54 lande Exp $
 
    author: Matthew Kerr
 """
@@ -18,7 +18,7 @@ from skymaps import SkyDir,DiffuseFunction,IsotropicSpectrum,IsotropicPowerLaw,I
 from uw.like.pointspec_helpers import PointSource,get_diffuse_source
 from uw.like.roi_diffuse import DiffuseSource
 from uw.like.roi_extended import ExtendedSource
-from . parmap import LimitMapper
+from . parmap import LimitMapper, MapperException, LinearMapper
 
 # spectral models
 from uw.like import Models
@@ -253,11 +253,11 @@ class XML_to_Model(object):
             try:
                 pdict = d[gtlike_name]
             except:
-                raise Exception("For source %s, %s parameter %s not found in xml file." % (source_name,specname,gtlike_name))
+                raise XMLException("For source %s, %s parameter %s not found in xml file." % (source_name,specname,gtlike_name))
 
             for p in ['scale', 'value', 'min', 'max']:
                 if not pdict.has_key(p):
-                    raise Exception("For source %s, %s parameter %s must have a %s." % (source_name,specname,gtlike_name,p))
+                    raise XMLException("For source %s, %s parameter %s must have a %s." % (source_name,specname,gtlike_name,p))
 
             scale = float(pdict['scale'])
 
@@ -265,17 +265,23 @@ class XML_to_Model(object):
             min = float(pdict['min'])*scale
             max = float(pdict['max'])*scale
 
-            if np.isnan(value): raise Exception('For source %s, %s parameter %s is NaN' % (source_name,specname,gtlike_name))
+            if np.isnan(value): raise XMLException('For source %s, %s parameter %s is NaN' % (source_name,specname,gtlike_name))
 
-            model.set_limits_gtlike(pointlike_name,min,max,scale)
-            model.setp_gtlike(pointlike_name,value)
+            try:
+                model.set_mapper(pointlike_name,LinearMapper)
+                model.setp_gtlike(pointlike_name,value)
+                model.set_limits_gtlike(pointlike_name,min,max,scale)
+            except MapperException:
+                import traceback,sys; traceback.print_exc(sys.stdout)
+                print 'scale=',scale
+                raise XMLException("Error setting parameter %s for source %s. Value is %s and limits are %s to %s" % (gtlike_name,source_name,value,min,max))
 
             if 'error' in pdict.keys():
                 err = np.abs(float(pdict['error'])*scale)
                 model.set_error(pointlike_name,err)
 
             if pdict['free'] not in ['0','1']:
-                raise Exception('For source %s, %s parameter %s must have free="0" or free="1' % (source_name,specname,gtlike_name))
+                raise XMLException('For source %s, %s parameter %s must have free="0" or free="1' % (source_name,specname,gtlike_name))
             free = pdict['free'] == '1'
             model.set_free(pointlike_name,free)
 
@@ -283,11 +289,11 @@ class XML_to_Model(object):
             try:
                 pdict = d[gtlike_name]
             except:
-                raise Exception("For source %s, %s parameter %s not found in xml file." % (source_name,specname,gtlike_name))
+                raise XMLException("For source %s, %s parameter %s not found in xml file." % (source_name,specname,gtlike_name))
 
             if pdict['free'] != '0':
                 # Sanity check on validity of xml 
-                raise Exception('For source %s, %s parameter %s cannot be fit (must be free="0")' % (source_name,specname,gtlike_name))
+                raise XMLException('For source %s, %s parameter %s cannot be fit (must be free="0")' % (source_name,specname,gtlike_name))
 
             value=float(pdict['value'])*float(pdict['scale'])
             model.setp(pointlike_name, value)
@@ -342,7 +348,7 @@ class XML_to_SpatialModel(object):
             input_kwargs['coordsystem']=SkyDir.GALACTIC
     
         if not spatialname in XML_to_SpatialModel.spatialdict:                                
-            raise Excception("Unrecognized spatial model %s" % spatialname)
+            raise XMLExcception("Unrecognized spatial model %s" % spatialname)
 
         spatial_model = XML_to_SpatialModel.spatialdict[spatialname](**input_kwargs)
 
@@ -591,7 +597,7 @@ def get_skydir(elem):
     """convert a parsed SpatialModel into a SkyDir."""
     d = dict()
     if elem['type'] != 'SkyDirFunction':
-        raise Exception("""The PointSource's SpatialModel must have type="PointSource".""")
+        raise XMLException("""The PointSource's SpatialModel must have type="PointSource".""")
     for p in elem.children:
         d[p['name']] = float(p['value'])
     return SkyDir(d['RA'],d['DEC'])
@@ -1002,7 +1008,7 @@ def parse_diffuse_sources(handler,diffdir=None):
                 mo = xtm.get_model(spectral,name)
                 ds.append(gds('ConstantValue',None,mo,None,name))
             else:
-                raise Exception,'Isotropic model not implemented'
+                raise XMLException,'Isotropic model not implemented'
     
         elif spatial['type'] == 'MapCubeFunction':
             fname = str(os.path.expandvars(spatial['file']))
@@ -1011,7 +1017,7 @@ def parse_diffuse_sources(handler,diffdir=None):
             elif spectral['type'] == 'PowerLaw' or spectral['type'] == 'PowerLaw2':
                 mo = xtm.get_model(spectral,name)
             else:
-                raise Exception('Non-isotropic model "%s" not implemented' % spatial['type'])
+                raise XMLException('Non-isotropic model "%s" not implemented' % spatial['type'])
             ds.append(gds('MapCubeFunction',fname,mo,None,name,diffdir=diffdir))
             
         else:
@@ -1024,7 +1030,7 @@ def parse_diffuse_sources(handler,diffdir=None):
                                          model=spectral_model,
                                          spatial_model=spatial_model))
             else:
-                raise Exception('Diffuse spatial model "%s" not recognized' % spatial['type'])
+                raise XMLException('Diffuse spatial model "%s" not recognized' % spatial['type'])
     return list(ds)
 
 def parse_sources(xmlfile,diffdir=None,roi_dir=None,max_roi=None):
@@ -1205,14 +1211,14 @@ def process_diffuse_source(ds,convert_extended=False,expand_env_vars=False,filen
             ctypes = [0,1]
             specxml='\t<spectrum type="CompositeSpectrum">\n'
         else:
-            raise Exception("Don't know how to handle isotropic model with >2 components")
+            raise XMLException("Don't know how to handle isotropic model with >2 components")
         for m,ct in zip(dm,ctypes):
             if isinstance(m,IsotropicSpectrum) or isinstance(m,IsotropicConstant):
 
                 if isinstance(m,IsotropicSpectrum):
 
                     if not isinstance(ds.smodel,Constant):
-                        raise Exception("Can only save out ConstantValue with FileFunction if it is modulated by a constant value.")
+                        raise XMLException("Can only save out ConstantValue with FileFunction if it is modulated by a constant value.")
 
                     filename = os.path.abspath(m.name())
                     model = FileFunction(
@@ -1234,12 +1240,12 @@ def process_diffuse_source(ds,convert_extended=False,expand_env_vars=False,filen
                 if isinstance(ds.smodel,Constant):
                     pl['Int_Flux'] *= ds.smodel['Scale']
                 else:
-                    raise Exception("...")
+                    raise XMLException("...")
                 pl.cov_matrix = ds.smodel.cov_matrix.copy() #correct?
                 m2x.process_model(pl,scaling=False, expand_env_vars=expand_env_vars)
                 specxml += m2x.getXML(tablevel=len(dm))
             else:
-                raise Exception('Did not recognize %s'%(ds.name))
+                raise XMLException('Did not recognize %s'%(ds.name))
         if len(dm)==2:
             specxml+='\t</spectrum>\n'
     s1 = '\n<source name="%s" type="DiffuseSource">\n'%(ds.name)
