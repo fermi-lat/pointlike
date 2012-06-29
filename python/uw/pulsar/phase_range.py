@@ -6,7 +6,7 @@ See the docstring for usage information.
 
 This object has SymPy as a dependency.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.12 2012/05/09 19:13:01 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.13 2012/05/10 15:48:23 lande Exp $
 
 author: J. Lande <joshualande@gmail.com>
 
@@ -445,7 +445,9 @@ class PhaseRange(object):
             a,b=map(formatter,[a,b])
             return a+range_symbol+b
         
-        return separator.join([a.pretty_format() for a in self.split_ranges()])
+        return separator.join([a.pretty_format(formatter=formatter, 
+                                               range_symbol=range_symbol,
+                                               separator=separator) for a in self.split_ranges()])
 
 
 if __name__ == "__main__":
