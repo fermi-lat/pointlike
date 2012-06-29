@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Jun 28 19:09:16 PDT 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	parmap.py 
+Log Message:
+make sure lower limit < upper limit + better exceptions
+    *
+------------------------------------------------------------
 User: lande  Thu Jun 28 19:02:50 PDT 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
