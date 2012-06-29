@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Jun 28 19:02:50 PDT 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	parmap.py 
+Log Message:
+beter error messages on bad input
+    *
+------------------------------------------------------------
 User: kerrm  Thu Jun 28 15:14:52 PDT 2012
 pointlike/python/uw/pulsar
 
