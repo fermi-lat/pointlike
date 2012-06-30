@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Jun 29 17:09:15 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+re-add set_prefactor that was accidently removed
+    *
+------------------------------------------------------------
 User: lande  Fri Jun 29 12:15:22 PDT 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
