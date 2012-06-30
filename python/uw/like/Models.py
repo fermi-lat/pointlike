@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.116 2012/06/26 04:39:02 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.117 2012/06/29 02:09:37 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -871,6 +871,24 @@ class Model(object):
         self.set_mapper(0, self.old_mapper)
         self.free = self.old_free.copy()
 
+    def set_prefactor(self,  prefactor, energy):
+        """ Set the prefactor of the source (at a given energy).
+            Useful if you want to specify dN/dE for a source at a 
+            particular energy. 
+
+                >>> model = PowerLaw(e0=1000)
+                >>> model.set_prefactor(1e-10, 100)
+                >>> print model(100)
+                1e-10
+        """
+
+        mapper = self.get_mapper(0)
+        self.set_mapper(0,LinearMapper)
+
+        self.setp(0,1) #set prefactor to 1
+        self.setp(0, prefactor/self(energy))
+
+        self.set_mapper(0, mapper)
 
 
     def set_default_limits(self, strict=False, oomp_limits=False, only_unbound_parameters=False):
