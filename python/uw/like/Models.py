@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.117 2012/06/29 02:09:37 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.118 2012/06/30 00:09:15 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -15,7 +15,7 @@ from scipy.integrate import quad
 from scipy.interpolate import interp1d
 from scipy import roots, optimize
 
-from uw.utilities.parmap import LinearMapper, LogMapper, LimitMapper
+from uw.utilities.parmap import LinearMapper, LogMapper, LimitMapper, ParameterMapper
 
 class ModelException(Exception): pass
 
@@ -284,8 +284,18 @@ class Model(object):
                 0.5
                 >>> print model.get_mapper('index')
                 <class 'uw.utilities.parmap.LogMapper'>
+
+            Better typchecking:
+                >>> model.set_mapper('index','bad_input')
+                Traceback (most recent call last):
+                    ...
+                ModelException: mapper bad_input must be a subclass of uw.utilities.parmap.ParameterMapper
         """
         i=self.name_mapper(i)
+
+        if not (isinstance(mapper, type) and issubclass(mapper, ParameterMapper)) and \
+            not isinstance(mapper, ParameterMapper):
+            raise ModelException("mapper %s must be a subclass of uw.utilities.parmap.ParameterMapper" % str(mapper))
 
         p=self.getp(i)
         perr=self.error(i)
@@ -295,7 +305,7 @@ class Model(object):
         self.setp(i, p)
         self.set_error(i, perr)
 
-    def set_limits(self, i, lower, upper, scale=1):
+    def set_limits(self, i, lower, upper, scale=1, strict=False):
         """ Convenience function for setting limits
 
                 >>> model = PowerLaw(index=1)
@@ -304,7 +314,55 @@ class Model(object):
                 LimitMapper(-2,2,1)
                 >>> print model.get_limits('index')
                 [-2, 2]
+
+            Note, just to be tolerant to gtlike limits where
+            the paramete ris the negative of the pointlike limit,
+            set_limits will automatically flip reversed limits:
+            
+                >>> model.set_limits('index',2,-2)
+                >>> print model.get_limits('index')
+                [-2, 2]
+
+            Note, by default, setting a limit outside existing bound will just
+            move the parameter inside the bound:
+                >>> model.set_limits('index',2,4)
+                WARNING: Found Index=1.0 < 2, minimum allowed value, 
+                    Setting parameter value to minimum.
+                >>> model['index']
+                2.0
+
+            We can override this behavior with strict=True
+                >>> print model.get_limits('index')
+                [2, 4]
+                >>> model.set_limits('index',-10, -8, strict=True)
+                Traceback (most recent call last):
+                    ...
+                ModelException: Found Index=2.0 > -8, maximum allowed value
+                >>> print model.get_limits('index')
+                [2, 4]
         """
+        i=self.name_mapper(i)
+        name=self.param_names[i]
+        param = self[i]
+
+        if upper < lower:
+            lower,upper = upper, lower
+
+        if strict==False:
+            self.set_mapper(i, LinearMapper)
+
+        if param < lower:
+            msg = 'Found %s=%s < %s, minimum allowed value' % (name, param, lower)
+            if strict: raise ModelException(msg)
+            print 'WARNING: %s, \n    Setting parameter value to minimum.' % msg
+            self[i]=lower
+
+        if self[i] > upper:
+            msg = 'Found %s=%s > %s, maximum allowed value' % (name, param, upper)
+            if strict: raise ModelException(msg)
+            print 'Warning %s, \n    Setting parameter value to maximum.'% msg
+            self[i] = upper
+
         self.set_mapper(i,LimitMapper(lower,upper,scale))
 
     def set_limits_gtlike(self, i, *args):
@@ -925,6 +983,20 @@ class Model(object):
                 >>> np.allclose(model.get_limits('norm'),[model['norm']/100,model['norm']*100])
                 True
 
+            Sometimes OOMP limits will fail and be replaced by normal default limits,
+
+                >>> model.set_mapper('norm',LinearMapper)
+                >>> model['norm']=0
+                >>> model.set_default_limits(oomp_limits=True)
+                WARNING: OOMP limit failed for parameter Norm, 
+                    Using default limits.
+                WARNING: Found Norm=0.0 < 1e-15, minimum allowed value, 
+                    Setting parameter value to minimum.
+                >>> print model.get_limits('norm')
+                [1e-15, 1e-05]
+
+
+
             We can make a model with limits easily:
 
                 >>> model = PowerLaw(set_default_limits=True)
@@ -948,31 +1020,23 @@ class Model(object):
             if only_unbound_parameters and isinstance(current_mapper,LimitMapper):
                 continue
 
-            def set():
-                param = self[name]
-                default_mapper = self.default_limits[name].copy()
-                lower = default_mapper.lower 
-                upper = default_mapper.upper
-                if lower > param:
-                    msg = 'Found %s=%s < %s, minimum allowed value' % (param, param, lower)
-                    if strict: raise ModelException(msg)
-                    print 'WARNING: %s, \n\tSetting parameter value to minimum.' % msg
-                    self[name] = lower
-                if  param > upper:
-                    msg = 'Found %s=%s > %s, maximum allowed value' % (param, param, upper)
-                    if strict: raise ModelException(msg)
-                    print 'Warning %s, \n\tSetting parameter value to maximum.'% msg
-                    self[name] = upper
-                self.set_mapper(name,default_mapper)
+            param = self[name]
+            default_mapper = self.default_limits[name]
+            lower = default_mapper.lower 
+            upper = default_mapper.upper
+            scale = default_mapper.scale
 
             if name in self.default_oomp_limits and oomp_limits:
                 try:
                     self.set_oomp_limit(name)
                 except ModelException, ex:
                     # This is kind of an edge case, but oomp limits can fail.
-                    set()
+                    msg = 'OOMP limit failed for parameter %s' % name
+                    if strict: raise ModelException(es)
+                    print 'WARNING: %s, \n    Using default limits.' % msg
+                    self.set_limits(name,lower,upper,scale=scale,strict=strict)
             else:
-                set()
+                self.set_limits(name,lower,upper,scale=scale,strict=strict)
 
     def set_oomp_limit(self, i):
         """ Set the scale for the parameter i to nicely (in log space) be allow
@@ -1097,6 +1161,42 @@ class PowerLaw(Model):
     @property
     def eflux(self):
         return self.e0**2*self['Norm']
+
+class ScalingPowerLaw(PowerLaw):
+    """ ScalingPowerLaw is just like a PowerLaw, but
+        is suitable for scaling the Galactic diffuse. 
+
+        The only differences are default parameters, limits, and oomp limits.
+
+            >>> pl = PowerLaw(norm=1.12,index=-0.12)
+            >>> spl = ScalingPowerLaw.from_powerlaw(pl)
+            >>> print spl['norm']
+            1.12
+            >>> print spl['index']
+            -0.12
+            >>> spl.get_mapper('norm')
+            <class 'uw.utilities.parmap.LogMapper'>
+            >>> spl.get_mapper('index')
+            <class 'uw.utilities.parmap.LinearMapper'>
+            >>> spl.set_default_limits()
+            >>> spl.get_limits('norm')
+            [0.1, 10]
+            >>> spl.get_limits('index')
+            [-1, 1]
+    """
+    default_p=[1, 0]
+
+    default_limits = dict(
+        Norm=LimitMapper(.1,10),
+        Index=LimitMapper(-1,1))
+    default_oomp_limits=[]
+
+    @staticmethod
+    def from_powerlaw(model):
+        spl=ScalingPowerLaw(norm=model['norm'], index=model['index'])
+        spl.set_mapper('norm',model.get_mapper('norm'))
+        spl.set_mapper('index',model.get_mapper('index'))
+        return spl
 
 class PowerLawFlux(Model):
     """ Implement a power law.  See constructor docstring for further keyword arguments.
