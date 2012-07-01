@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.75 2012/06/26 18:07:54 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.76 2012/06/29 19:15:22 lande Exp $
 
    author: Matthew Kerr
 """
@@ -140,7 +140,7 @@ class XML_to_Model(object):
             True
             >>> np.allclose(model['index_1'],-1.504042874)
             True
-            >>> np.allclose(model.get_limits('index_1'),[2,-4])
+            >>> np.allclose(model.get_limits('index_1'),[-4,2])
             True
             >>> np.allclose(model['index_2'],1.891184873)
             True
@@ -211,7 +211,7 @@ class XML_to_Model(object):
 
     # List of pointlike models which can be used in gtlike
     savable_models = (
-        Models.PowerLaw, Models.PowerLawFlux,
+        Models.PowerLaw, 
         Models.BrokenPowerLaw, Models.BrokenPowerLawFlux, Models.SmoothBrokenPowerLaw,
         Models.PLSuperExpCutoff,
         Models.Constant, Models.FrontBackConstant,
@@ -232,7 +232,7 @@ class XML_to_Model(object):
     def __init__(self):
         pass
 
-    def get_model(self,xml_dict,source_name):
+    def get_model(self,xml_dict,source_name, scaling=False):
         """ source_name is used for better error message printing. """
 
         specname = xml_dict['type']
@@ -242,12 +242,19 @@ class XML_to_Model(object):
         for p in params:
             d[p['name']] = p
 
+        if scaling and specname == 'PowerLaw':
+            model_class = Models.ScalingPowerLaw
+        else:
+            if specname not in self.modict:
+                raise XMLException('For source %s, spectral model "%s" not implemented' % (source_name,specname))
+            model_class = self.modict[specname]
+
         # certain spectral models require the file to be set
         kwargs = {}
-        for key in self.modict[specname].default_extra_attrs:
+        for key in model_class.default_extra_attrs:
             kwargs[key] = str(xml_dict[key])
 
-        model = self.modict[specname](**kwargs)
+        model = model_class(**kwargs)
 
         for pointlike_name,gtlike_name in zip(model.param_names, model.gtlike['param_names']):
             try:
@@ -377,8 +384,8 @@ class Model_to_XML(object):
        
         Here is a simple test making a PowerLaw model:
 
-            >>> def model2xml(model, expand_env_vars=False):
-            ...     m2x = Model_to_XML()
+            >>> def model2xml(model, strict=False, expand_env_vars=False):
+            ...     m2x = Model_to_XML(strict=strict)
             ...     m2x.process_model(model, expand_env_vars=expand_env_vars)
             ...     return m2x.getXML(tablevel=0).replace('\\t',' '*4).strip()
 
@@ -392,6 +399,26 @@ class Model_to_XML(object):
             <spectrum  type="PowerLaw">
                 <parameter name="Prefactor" value="1.0" free="1" max="10.0" min="0.1" scale="1e-11" />
                 <parameter name="Index" value="2.0" free="1" max="5" min="-5" scale="-1" />
+                <parameter name="Scale" value="1000.0" free="0" max="1000.0" min="1000.0" scale="1" />
+            </spectrum>
+
+        Testing edge case of parameters outside limits. The expected behavoir is
+        (a) with strict=False, to set the parameter to the edge of the default limitand
+        (b) withs trict=True to raise an exception. Note that this will only matter for index
+        and not norm since norm is an oomp limit so is always set to the real value:
+
+            >>> pl = Models.PowerLaw(norm=1e-20, index=200)
+            >>> print model2xml(pl,strict=True)
+            Traceback (most recent call last):
+                ...
+            ModelException: Found Index=200.0 > 5, maximum allowed value
+            >>> xml=model2xml(pl,strict=False)
+            Warning Found Index=200.0 > 5, maximum allowed value,
+                Setting parameter value to maximum.
+            >>> print xml
+            <spectrum  type="PowerLaw">
+                <parameter name="Prefactor" value="1.0" free="1" max="100.0" min="0.01" scale="1e-20" />
+                <parameter name="Index" value="5.0" free="1" max="5" min="-5" scale="-1" />
                 <parameter name="Scale" value="1000.0" free="0" max="1000.0" min="1000.0" scale="1" />
             </spectrum>
 
@@ -517,10 +544,7 @@ class Model_to_XML(object):
             raise XMLException("Unable to save model %s to XML file. Not a savable model" % model.name)
 
         if scaling and name == 'PowerLaw':
-            if not isinstance(model.get_mapper('Norm'),LimitMapper):
-                model.set_limits('Norm',.1,10)
-            if not isinstance(model.get_mapper('Index'),LimitMapper):
-                model.set_limits('Index',-1,1)
+            model = ScalingPowerLaw.from_powerlaw(model)
 
         model.set_default_limits(strict, oomp_limits=True, only_unbound_parameters=True)
 
@@ -831,11 +855,37 @@ def parse_diffuse_sources(handler,diffdir=None):
             Constant
             >>> print ds.smodel['scale']
             1.0
+            >>> print ds.smodel.get_limits('scale')
+            [0.0, 10.0]
             >>> type(ds.dmodel) == list and len(ds.dmodel) == 1
             True
             >>> dm=ds.dmodel[0]
             >>> print type(dm)
             <class 'skymaps.DiffuseFunction'>
+
+        Try loading in Galactic Diffuse scaled by a powerlaw:
+
+            >>> ds=l('''<source name="Galactic Diffuse (ring_2year_P76_v0.fits)" type="DiffuseSource">
+            ...    <spectrum  type="PowerLaw">
+            ...        <parameter name="Prefactor" value="1.0" free="1" max="10" min="0.1" scale="1" />
+            ...        <parameter name="Index" value="0.0" free="1" max="1" min="-1" scale="-1" />
+            ...        <parameter name="Scale" value="1000.0" free="0" max="1000.0" min="1000.0" scale="1" />
+            ...    </spectrum>
+            ...    <spatialModel file="$(GLAST_EXT)/diffuseModels/v2r0p1/ring_2year_P76_v0.fits" type="MapCubeFunction">
+            ...        <parameter name="Normalization" value="1.0" free="0" max="1e3" min="1e-3" scale="1.0" />
+            ...    </spatialModel>
+            ... </source>''')
+            >>> model=ds.smodel
+            >>> print model.name
+            ScalingPowerLaw
+            >>> print model['norm']
+            1.0
+            >>> print model['index']
+            0.0
+            >>> print model.get_limits('norm')
+            [0.1, 10.0]
+            >>> print model.get_limits('index')
+            [-1.0, 1.0]
 
         Example loading an isotropic powerLaw source. This code is a klugey, and could be improved
 
@@ -994,43 +1044,28 @@ def parse_diffuse_sources(handler,diffdir=None):
     ds = deque()
     xtm = XML_to_Model()
     for src in handler.sources:
-        #if src['type'] == 'CompositeDiffuseSource':
-        #    handler = SourceHandler()
-        if src['type'] != 'DiffuseSource': continue
+        if src['type'] != 'DiffuseSource': 
+            continue
         spatial  = src.getChild('spatialModel')
         spectral = src.getChild('spectrum')
         name = str(src['name'])
         if spatial['type'] == 'ConstantValue':
-            if spectral['type'] == 'FileFunction':
-                mo = xtm.get_model(spectral,name)
-                ds.append(gds('ConstantValue',None,mo,None,name,diffdir=diffdir))
-            elif (spectral['type'] == 'PowerLaw' ) or (spectral['type'] == 'PowerLaw2'):
-                mo = xtm.get_model(spectral,name)
-                ds.append(gds('ConstantValue',None,mo,None,name))
-            else:
-                raise XMLException,'Isotropic model not implemented'
+            mo = xtm.get_model(spectral,name, scaling=False)
+            ds.append(gds('ConstantValue',None,mo,None,name,diffdir=diffdir))
     
         elif spatial['type'] == 'MapCubeFunction':
             fname = str(os.path.expandvars(spatial['file']))
-            if spectral['type'] == 'ConstantValue':
-                mo = xtm.get_model(spectral,name)
-            elif spectral['type'] == 'PowerLaw' or spectral['type'] == 'PowerLaw2':
-                mo = xtm.get_model(spectral,name)
-            else:
-                raise XMLException('Non-isotropic model "%s" not implemented' % spatial['type'])
+            mo = xtm.get_model(spectral,name, scaling=True)
             ds.append(gds('MapCubeFunction',fname,mo,None,name,diffdir=diffdir))
-            
-        else:
-
-            if spatial['type'] in XML_to_SpatialModel.spatialdict.keys():
+        elif spatial['type'] in XML_to_SpatialModel.spatialdict:
 
                 spatial_model=XML_to_SpatialModel.get_spatial_model(spatial,diffdir=diffdir)
                 spectral_model=xtm.get_model(spectral,name)
                 ds.append(ExtendedSource(name=name,
                                          model=spectral_model,
                                          spatial_model=spatial_model))
-            else:
-                raise XMLException('Diffuse spatial model "%s" not recognized' % spatial['type'])
+        else:
+            raise XMLException('Diffuse spatial model "%s" not recognized' % spatial['type'])
     return list(ds)
 
 def parse_sources(xmlfile,diffdir=None,roi_dir=None,max_roi=None):
@@ -1099,23 +1134,23 @@ def unparse_point_sources(point_sources, strict=False, expand_env_vars=False, pr
     return xml_blurbs
 
 
-def process_diffuse_source(ds,convert_extended=False,expand_env_vars=False,filename=None,ctype=None):
+def process_diffuse_source(ds,strict=False,convert_extended=False,expand_env_vars=False,filename=None,ctype=None):
     """ Convert an instance of DiffuseSource into an XML blurb.
         
         Some simple testing of saving out diffuse sources:
 
             >>> from uw.like.pointspec_helpers import get_default_diffuse
             >>> from os.path import expandvars
-            >>> diffdir=expandvars('$(GLAST_EXT)/diffuseModels/v2r0p1/')
+            >>> diffdir='$(GLAST_EXT)/diffuseModels/v2r0p1/'
             >>> gfile="ring_2year_P76_v0.fits"
             >>> ifile="isotrop_2year_P76_source_v1.txt"
             >>> gal, iso = get_default_diffuse(diffdir=diffdir,
             ...     gfile=gfile,
             ...     ifile=ifile)
-            >>> def p(d, expand_env_vars):
-            ...     return process_diffuse_source(d, expand_env_vars=expand_env_vars).replace('\\t',' '*4).strip()
+            >>> def model2xml(d, expand_env_vars, strict=False):
+            ...     return process_diffuse_source(d, expand_env_vars=expand_env_vars, strict=strict).replace('\\t',' '*4).strip()
 
-            >>> print p(gal, expand_env_vars=False)
+            >>> print model2xml(gal, expand_env_vars=False)
             <source name="Galactic Diffuse (ring_2year_P76_v0.fits)" type="DiffuseSource">
                 <spectrum  type="PowerLaw">
                     <parameter name="Prefactor" value="1.0" free="1" max="10" min="0.1" scale="1" />
@@ -1127,7 +1162,9 @@ def process_diffuse_source(ds,convert_extended=False,expand_env_vars=False,filen
                 </spatialModel>
             </source>
 
-            >>> print p(gal, expand_env_vars=True).replace(Models.FileFunction.expand(join(diffdir,gfile)),'[FILENAME]')
+        Test out the expand_env_vars flag:
+
+            >>> print model2xml(gal, expand_env_vars=True).replace(Models.FileFunction.expand(join(diffdir,gfile)),'[FILENAME]')
             <source name="Galactic Diffuse (ring_2year_P76_v0.fits)" type="DiffuseSource">
                 <spectrum  type="PowerLaw">
                     <parameter name="Prefactor" value="1.0" free="1" max="10" min="0.1" scale="1" />
@@ -1139,7 +1176,34 @@ def process_diffuse_source(ds,convert_extended=False,expand_env_vars=False,filen
                 </spatialModel>
             </source>
 
-            >>> print p(iso, expand_env_vars=False)
+        Previously, this was buggy (having the norm for the ScalingPowerLaw outside the default limit
+        for a ScalingPowerLaw. Now, the code issues a warning and sets parameter to lower limit.
+
+            >>> gal.smodel['norm']=1e-2
+            >>> xml=model2xml(gal, expand_env_vars=False, strict=True)
+            Traceback (most recent call last):
+                ...
+            ModelException: Found Norm=0.01 < 0.1, minimum allowed value
+
+
+            >>> xml=model2xml(gal, expand_env_vars=False)
+            WARNING: Found Norm=0.01 < 0.1, minimum allowed value,
+                Setting parameter value to minimum.
+            >>> print xml
+            <source name="Galactic Diffuse (ring_2year_P76_v0.fits)" type="DiffuseSource">
+                <spectrum  type="PowerLaw">
+                    <parameter name="Prefactor" value="0.1" free="1" max="10" min="0.1" scale="1" />
+                    <parameter name="Index" value="0.0" free="1" max="1" min="-1" scale="-1" />
+                    <parameter name="Scale" value="1000.0" free="0" max="1000.0" min="1000.0" scale="1" />
+                </spectrum>
+                <spatialModel file="$(GLAST_EXT)/diffuseModels/v2r0p1/ring_2year_P76_v0.fits" type="MapCubeFunction">
+                    <parameter name="Normalization" value="1.0" free="0" max="1e3" min="1e-3" scale="1.0" />
+                </spatialModel>
+            </source>
+
+        Save out the isotropic diffuse:
+
+            >>> print model2xml(iso, expand_env_vars=False)
             <source name="Isotropic Diffuse (isotrop_2year_P76_source_v1.txt)" type="DiffuseSource">
                 <spectrum file="$(GLAST_EXT)/diffuseModels/v2r0p1/isotrop_2year_P76_source_v1.txt" ctype="-1" type="FileFunction">
                     <parameter name="Normalization" value="1.0" free="1" max="10" min="0.1" scale="1" />
@@ -1149,7 +1213,9 @@ def process_diffuse_source(ds,convert_extended=False,expand_env_vars=False,filen
                 </spatialModel>
             </source>
 
-            >>> print p(iso, expand_env_vars=True).replace(Models.FileFunction.expand(join(diffdir,ifile)),'[FILENAME]')
+        Test expand_env_vars:
+
+            >>> print model2xml(iso, expand_env_vars=True).replace(Models.FileFunction.expand(join(diffdir,ifile)),'[FILENAME]')
             <source name="Isotropic Diffuse (isotrop_2year_P76_source_v1.txt)" type="DiffuseSource">
                 <spectrum file="[FILENAME]" ctype="-1" type="FileFunction">
                     <parameter name="Normalization" value="1.0" free="1" max="10" min="0.1" scale="1" />
@@ -1160,7 +1226,7 @@ def process_diffuse_source(ds,convert_extended=False,expand_env_vars=False,filen
             </source>
 
     """
-    m2x = Model_to_XML()
+    m2x = Model_to_XML(strict=strict)
     dm = ds.dmodel
     if hasattr(dm,'__len__') and len(dm)==1: dm = dm[0]
 
@@ -1252,11 +1318,12 @@ def process_diffuse_source(ds,convert_extended=False,expand_env_vars=False,filen
     s2 = '</source>'
     return ''.join([s1,specxml,skyxml,s2])
     
-def unparse_diffuse_sources(diffuse_sources,convert_extended=False,expand_env_vars=False,filename=None):
+def unparse_diffuse_sources(diffuse_sources,strict=False,convert_extended=False,expand_env_vars=False,filename=None):
     """Convert a list of DiffuseSources into XML blurbs."""
     xml_blurbs = Stack()
     for ds in diffuse_sources:
         xml_blurbs.push(process_diffuse_source(ds,
+                                               strict=strict,
                                                convert_extended=convert_extended,
                                                expand_env_vars=expand_env_vars,
                                                filename=filename))
@@ -1276,6 +1343,7 @@ def write_sources(point_sources, diffuse_sources, filename, strict=False,convert
     source_xml = [unparse_point_sources(point_sources, strict=strict, expand_env_vars=expand_env_vars)]
     if len(diffuse_sources)>0:
         source_xml.append(unparse_diffuse_sources(diffuse_sources,
+                                                  strict=strict,
                                                   convert_extended=convert_extended,
                                                   expand_env_vars=expand_env_vars,
                                                   filename=filename))
