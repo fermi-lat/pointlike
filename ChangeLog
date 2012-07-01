@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Jul  1 11:58:06 PDT 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Better scaling support for diffuse sources. Support for new ScalingPowerLaw source + correct 'strict' implementation for ScalingPowerLaw. New doctests to test these edge cases
+    *
+------------------------------------------------------------
 User: lande  Sun Jul  1 11:56:37 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
