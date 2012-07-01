@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Jul  1 11:56:37 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pointspec_helpers.py 
+Log Message:
+New limit_parameters flag to get_default_diffuse. Incorporate new ScalingPowerLaw object. Better doctests
+    *
+------------------------------------------------------------
 User: lande  Sun Jul  1 11:55:36 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
