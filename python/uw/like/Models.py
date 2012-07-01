@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.118 2012/06/30 00:09:15 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.119 2012/07/01 18:28:48 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -326,7 +326,7 @@ class Model(object):
             Note, by default, setting a limit outside existing bound will just
             move the parameter inside the bound:
                 >>> model.set_limits('index',2,4)
-                WARNING: Found Index=1.0 < 2, minimum allowed value, 
+                WARNING: Found Index=1.0 < 2, minimum allowed value,
                     Setting parameter value to minimum.
                 >>> model['index']
                 2.0
@@ -354,13 +354,13 @@ class Model(object):
         if param < lower:
             msg = 'Found %s=%s < %s, minimum allowed value' % (name, param, lower)
             if strict: raise ModelException(msg)
-            print 'WARNING: %s, \n    Setting parameter value to minimum.' % msg
+            print 'WARNING: %s,\n    Setting parameter value to minimum.' % msg
             self[i]=lower
 
         if self[i] > upper:
             msg = 'Found %s=%s > %s, maximum allowed value' % (name, param, upper)
             if strict: raise ModelException(msg)
-            print 'Warning %s, \n    Setting parameter value to maximum.'% msg
+            print 'Warning %s,\n    Setting parameter value to maximum.'% msg
             self[i] = upper
 
         self.set_mapper(i,LimitMapper(lower,upper,scale))
@@ -988,9 +988,9 @@ class Model(object):
                 >>> model.set_mapper('norm',LinearMapper)
                 >>> model['norm']=0
                 >>> model.set_default_limits(oomp_limits=True)
-                WARNING: OOMP limit failed for parameter Norm, 
+                WARNING: OOMP limit failed for parameter Norm,
                     Using default limits.
-                WARNING: Found Norm=0.0 < 1e-15, minimum allowed value, 
+                WARNING: Found Norm=0.0 < 1e-15, minimum allowed value,
                     Setting parameter value to minimum.
                 >>> print model.get_limits('norm')
                 [1e-15, 1e-05]
@@ -1033,7 +1033,7 @@ class Model(object):
                     # This is kind of an edge case, but oomp limits can fail.
                     msg = 'OOMP limit failed for parameter %s' % name
                     if strict: raise ModelException(es)
-                    print 'WARNING: %s, \n    Using default limits.' % msg
+                    print 'WARNING: %s,\n    Using default limits.' % msg
                     self.set_limits(name,lower,upper,scale=scale,strict=strict)
             else:
                 self.set_limits(name,lower,upper,scale=scale,strict=strict)
