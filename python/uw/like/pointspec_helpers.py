@@ -1,12 +1,12 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.54 2012/06/05 23:02:27 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.55 2012/06/25 20:39:15 lande Exp $
 
     author: Matthew Kerr
     """
 
 import numpy as N
 from skymaps import SkyDir,CompositeSkySpectrum,DiffuseFunction,EffectiveArea,Exposure,IsotropicSpectrum,IsotropicConstant
-from uw.like.Models import Model,Constant,PowerLaw,ExpCutoff,LogParabola,FileFunction
+from uw.like.Models import Model,Constant,PowerLaw,ScalingPowerLaw,ExpCutoff,LogParabola,FileFunction
 from roi_diffuse import DiffuseSource,ROIDiffuseModel_OTF
 from roi_extended import ExtendedSource,ROIExtendedModel
 from os.path import join, expandvars
@@ -191,7 +191,7 @@ def get_diffuse_source(spatialModel='ConstantValue',
             dmodel = ston.add(DiffuseFunction,FileFunction.expand(spatialModelFile),FileFunction.expand(spatialModelFile))
             dmodel.filename=spatialModelFile
             if spectralModel == 'PowerLaw':
-                smodel = PowerLaw(norm=1, index=0)
+                smodel = ScalingPowerLaw()
             elif spectralModel == 'Constant':
                 smodel = Constant()
             else:
@@ -213,26 +213,69 @@ def get_default_diffuse_mapper(sa,roi_dir,quiet):
                      if isinstance(x,ExtendedSource) \
                      else ROIDiffuseModel_OTF(sa,x,roi_dir,quiet=quiet)
 
-def get_default_diffuse(diffdir=None,gfile='gll_iem_v02.fit',ifile='isotropic_iem_v02.txt'):
+def get_default_diffuse(diffdir=None,gfile='gll_iem_v02.fit',ifile='isotropic_iem_v02.txt', limit_parameters=False):
     """ Try to get defaults for the diffuse background sources, assumed to be 
-         a MapCubeFunction/Powerlaw and ConstantValue/FileFunction
-         Setting gfile or ifile to None ignores that entry."""
+        a MapCubeFunction/Powerlaw and ConstantValue/FileFunction
+        Setting gfile or ifile to None ignores that entry.
+            
+            >>> gal, iso = get_default_diffuse(diffdir='$(GLAST_EXT)/diffuseModels/v2r0p1/',
+            ...     gfile="ring_2year_P76_v0.fits",
+            ...     ifile="isotrop_2year_P76_source_v1.txt")
+            >>> print gal.smodel.name
+            ScalingPowerLaw
+            >>> print gal.smodel['norm']
+            1.0
+            >>> print gal.smodel['index']
+            0.0
+            >>> print gal.smodel.get_mapper('norm')
+            <class 'uw.utilities.parmap.LogMapper'>
+            >>> print gal.smodel.get_mapper('index')
+            <class 'uw.utilities.parmap.LinearMapper'>
+
+            >>> print iso.smodel.name
+            FileFunction
+            >>> print iso.smodel['Normalization']
+            1.0
+            >>> print iso.smodel.get_mapper('Normalization')
+            <class 'uw.utilities.parmap.LogMapper'>
+
+            >>> gal, iso = get_default_diffuse(diffdir='$(GLAST_EXT)/diffuseModels/v2r0p1/',
+            ...     gfile="ring_2year_P76_v0.fits",
+            ...     ifile="isotrop_2year_P76_source_v1.txt",
+            ...     limit_parameters=True)
+            >>> print gal.smodel.get_mapper('norm')
+            LimitMapper(0.1,10,1)
+            >>> print gal.smodel.get_mapper('index')
+            LimitMapper(-1,1,1)
+            >>> print iso.smodel.get_mapper('Normalization')
+            LimitMapper(0.1,10,1)
+
+
+
+     """
     if diffdir is None:
         diffdir = join(os.environ['EXTFILESSYS'],'galdiffuse')
-    dsources = []
+
+    if gfile is None and ifile is None:
+        raise Exception('Unable to find any diffuse sources.')
+
     if gfile is not None:
         gfilex = join(diffdir,gfile)
         if not os.path.exists(FileFunction.expand(gfilex)):
             raise Exception(' Galactic diffuse file "%s" not found.' %gfilex)
         else:
-            dsources += [get_diffuse_source('MapCubeFunction',gfilex,'PowerLaw',None,'Galactic Diffuse (%s)'%gfile)]
+            gfile = get_diffuse_source('MapCubeFunction',gfilex,'PowerLaw',None,'Galactic Diffuse (%s)'%gfile)
+            if limit_parameters: gfile.smodel.set_default_limits()
     if ifile is not None:
         ifilex = join(diffdir,ifile)
         if not os.path.exists(FileFunction.expand(ifilex)):
             raise Exception('isotropic diffuse file "%s" not found.'%ifilex)
         else:
-            dsources += [get_diffuse_source('ConstantValue',None,'FileFunction',ifilex,'Isotropic Diffuse (%s)'%ifile)]
+            ifile = get_diffuse_source('ConstantValue',None,'FileFunction',ifilex,'Isotropic Diffuse (%s)'%ifile)
+            if limit_parameters: ifile.smodel.set_default_limits()
 
-    if len(dsources) == 0:
-        raise Exception,'Unable to find any diffuse sources.'
-    return dsources
+    return [gfile, ifile]
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
