@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Jul  1 11:28:48 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+new flag strict into set_limits. Refactor set_default_limits. New ScalingPowerLaw + doctests. Better error for set_mapper.
+    *
+------------------------------------------------------------
 User: lande  Fri Jun 29 17:09:15 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
