@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.119 2012/07/01 18:28:48 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.120 2012/07/01 18:55:36 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -369,11 +369,11 @@ class Model(object):
         """ like set_limits, but uses the gtlike convention.
 
                 >>> model = PowerLaw(index=1)
-                >>> model.set_limits_gtlike('index',2,-2)
+                >>> model.set_limits_gtlike('index',-2,3)
                 >>> print model.get_limits('index')
-                [-2, 2]
+                [-3, 2]
                 >>> print model.get_limits_gtlike('index')
-                [2, -2]
+                [3, -2]
         """
         i=self.name_mapper(i)
         m = self.gtlike['topointlike'][i]
@@ -483,13 +483,17 @@ class Model(object):
                 [ True  True]
                 >>> print model.get_free('index')
                 True
+
+            Previously, get_free would return a numpy object:
+                >>> type(model.get_free('index')) == bool
+                True
         """
         i=self.name_mapper(i)
         self.free[i] = free
 
     def get_free(self,i):
         i=self.name_mapper(i)
-        return self.free[i]
+        return bool(self.free[i])
 
     def set_cov_matrix(self,new_cov_matrix):
         """
@@ -1058,6 +1062,80 @@ class Model(object):
 
         scale = 10**round(np.log10(val))
         self.set_limits(i, 1e-2*scale, 1e2*scale,scale)
+
+    @classmethod
+    def get_pointlike_name(cls, name):
+        """ Convert a gtlike name to a pointlike name. 
+
+                >>> print PowerLaw.get_pointlike_name('Prefactor')
+                Norm
+                >>> print PowerLaw.get_pointlike_name('Scale')
+                e0
+                >>> print PowerLaw.get_pointlike_name('asdfadsf')
+                Traceback (most recent call last):
+                    ...
+                ModelException: Name asdfadsf is not a gtlike parameter.
+        """
+        if name not in cls.gtlike_param_names():
+            raise ModelException("Name %s is not a gtlike parameter." % name)
+
+        pointlike_pn, gtlike_pn = cls.param_names, cls.gtlike['param_names']
+        if name in gtlike_pn:
+            return pointlike_pn[gtlike_pn.index(name)]
+
+        epn=cls.gtlike['extra_param_names']
+        if name in epn.values():
+            return epn.keys()[epn.values().index(name)]
+
+    @classmethod
+    def gtlike_param_names(cls):
+        """ Get all gtlike parameters:
+
+                >>> print PowerLaw.gtlike_param_names()
+                ['Prefactor', 'Index', 'Scale']
+        """
+        return cls.gtlike['param_names'] + cls.gtlike['extra_param_names'].values()
+
+    @classmethod
+    def from_gtlike(cls, **kwargs):
+        """ This simple helper function creates a model object
+            using parameters and variables with the gtlike
+            convention. For example:
+
+                >>> model = PowerLaw.from_gtlike(
+                ... Index=-2.2556178468512353, 
+                ... Prefactor=3.792956459007707e-13, 
+                ... Scale=3162.2776601683795)
+                >>> np.allclose(model['Norm'],3.792956459007707e-13)
+                True
+                >>> np.allclose(model['Index'],2.2556178468512353)
+                True
+                >>> np.allclose(model['e0'],3162.2776601683795)
+                True
+
+                >>> model.get_mapper('Norm')
+                <class 'uw.utilities.parmap.LogMapper'>
+
+            Youc an also pass in other Model parameters into this function:
+
+                >>> model = PowerLaw.from_gtlike(Prefactor=1e-10, set_default_limits=True)
+                >>> np.allclose(model['Norm'],1e-10)
+                True
+                >>> model.get_mapper('Norm')
+                LimitMapper(1e-15,1e-05,1e-09)
+
+        """
+        gtlike_params=dict()
+        for k in kwargs.keys():
+            if k in cls.gtlike_param_names():
+                gtlike_params[k] = kwargs.pop(k)
+
+        model=cls(**kwargs)
+        for gn,v in gtlike_params.items():
+            pn=cls.get_pointlike_name(gn)
+            model.setp_gtlike(pn,v)
+        return model
+
 
 class PowerLaw(Model):
     """ Implement a power law.  See constructor docstring for further keyword arguments.
