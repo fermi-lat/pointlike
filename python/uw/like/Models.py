@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.120 2012/07/01 18:55:36 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.121 2012/07/02 16:08:22 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -1124,6 +1124,12 @@ class Model(object):
                 >>> model.get_mapper('Norm')
                 LimitMapper(1e-15,1e-05,1e-09)
 
+            Nicely, this code crashes on bad input:
+
+                >>> model = PowerLaw.from_gtlike(bad_input=True)
+                Traceback (most recent call last):
+                    ...
+                ModelException: Unable to set parameter unknown parameter bad_input
         """
         gtlike_params=dict()
         for k in kwargs.keys():
