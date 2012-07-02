@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.121 2012/07/02 16:08:22 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.122 2012/07/02 16:11:57 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -1311,7 +1311,7 @@ class PowerLawFlux(Model):
         togtlike=[operator.pos,operator.neg])
 
     default_limits = dict(
-        Norm=LimitMapper(1e-14,1e-6,1e-10),
+        Int_Flux=LimitMapper(1e-14,1e-6,1e-10),
         Index=LimitMapper(-5,5,1))
     default_oomp_limits=['Int_Flux']
 
@@ -1363,7 +1363,7 @@ class BrokenPowerLaw(Model):
         Norm=LimitMapper(1e-14,1e-5,1e-9),
         Index_1=LimitMapper(5,5,1),
         Index_2=LimitMapper(-5,5,1),
-        BreakValue=LimitMapper(30,5e5,1))
+        E_break=LimitMapper(30,5e5,1))
     default_oomp_limits=['Norm','E_break']
 
 
