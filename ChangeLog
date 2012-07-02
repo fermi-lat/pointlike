@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Jul  2 09:08:22 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+New get_pointlike_name, gtlike_param_names, from_gtlike functions
+    *
+------------------------------------------------------------
 User: lande  Sun Jul  1 11:58:06 PDT 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
