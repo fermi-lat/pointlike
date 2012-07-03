@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.76 2012/06/29 19:15:22 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.77 2012/07/01 18:58:06 lande Exp $
 
    author: Matthew Kerr
 """
@@ -211,7 +211,7 @@ class XML_to_Model(object):
 
     # List of pointlike models which can be used in gtlike
     savable_models = (
-        Models.PowerLaw, 
+        Models.PowerLaw, Models.PowerLawFlux,
         Models.BrokenPowerLaw, Models.BrokenPowerLawFlux, Models.SmoothBrokenPowerLaw,
         Models.PLSuperExpCutoff,
         Models.Constant, Models.FrontBackConstant,
@@ -544,7 +544,7 @@ class Model_to_XML(object):
             raise XMLException("Unable to save model %s to XML file. Not a savable model" % model.name)
 
         if scaling and name == 'PowerLaw':
-            model = ScalingPowerLaw.from_powerlaw(model)
+            model = Models.ScalingPowerLaw.from_powerlaw(model)
 
         model.set_default_limits(strict, oomp_limits=True, only_unbound_parameters=True)
 
