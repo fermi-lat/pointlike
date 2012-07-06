@@ -1,7 +1,7 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.22 2012/06/20 23:30:48 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.23 2012/06/25 22:02:46 lande Exp $
 
 author: Joshua Lande
 """
@@ -179,7 +179,7 @@ class Catalog2FGL(SourceCatalog):
         ("prune_radius",         0.10, "[deg] consider sources closer than this duplicates"),
         ("free_radius",             2, "[deg] sources within this distance have free spectral parameters"),
         ("max_free",             None, "Maximum number of sources to free (if there are more than that many sources within free_radius)."),
-        ("limit_parameters",    False, "Maximum number of sources to free (if there are more than that many sources within free_radius)."),
+        ("limit_parameters",    False, "Limit fit parameters with default values"),
     )
 
     @keyword_options.decorate(defaults)
