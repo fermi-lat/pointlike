@@ -105,6 +105,9 @@ def modify_model(roi,which,model,free=None,keep_old_flux=True):
 
         manager.models[index]=model
 
+        if hasattr(manager,'bgmodels') and hasattr(manager.bgmodels[index],'smodel'):
+            manager.bgmodels[index].smodel=model
+
         if hasattr(source,'model'): source.model=model
         if hasattr(source,'smodel'): source.smodel=model
 
