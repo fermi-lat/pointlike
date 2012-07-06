@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Jul  5 17:43:58 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+set background=True for ScalingPowerLaw
+    *
+------------------------------------------------------------
 User: lande  Thu Jul  5 17:43:37 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
