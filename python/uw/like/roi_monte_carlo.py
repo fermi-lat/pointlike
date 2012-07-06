@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.59 2012/06/06 22:49:56 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.60 2012/06/12 02:02:43 lande Exp $
 
 author: Joshua Lande
 """
@@ -421,7 +421,7 @@ class MonteCarlo(object):
         # Note, get the start & stop times from the actual
         # data instead of the fits header
         # See https://jira.slac.stanford.edu/browse/OBS-18
-        ft2 = pyfits.open(ft2)
+        ft2 = pyfits.open(FileFunction.expand(ft2))
         tstart = ft2['SC_DATA'].data.field('START')[0]
         tstop = ft2['SC_DATA'].data.field('STOP')[-1]
         ft2.close()
@@ -455,7 +455,7 @@ class MonteCarlo(object):
         else:
             if isinstance(model,FileFunction):
                 spectral_filename=model.file
-                energies,spectra=np.genfromtxt(spectral_filename,unpack=True)[0:2]
+                energies,spectra=np.genfromtxt(FileFunction.expand(spectral_filename),unpack=True)[0:2]
                 flux=model.i_flux(energies[0],energies[-1],cgs=True)*1e4
             else:
                 flux=model.i_flux(mc_emin,mc_emax,cgs=True)*1e4
@@ -656,7 +656,7 @@ class MonteCarlo(object):
             
             N.B. multiply by 10^4 to convert from ph/cm^2/sr to ph/m^2/sr
             """
-        file=np.genfromtxt(filename,unpack=True)
+        file=np.genfromtxt(FileFunction.expand(filename),unpack=True)
         energy,flux=file[0],file[1]
         emin,emax = energy[0], energy[-1]
 
@@ -709,7 +709,7 @@ class MonteCarlo(object):
                 >>> np.allclose(map_area([10,30,50]), true_area([10,30,50]), atol=1e-3, rtol=1e-3)
                 True
         """
-        fits=pyfits.open(filename)
+        fits=pyfits.open(FileFunction.expand(filename))
         data=fits[0].data
         assert len(data.shape) == 2 or data.shape[0] == 1
         if data.shape == 3: data = data[1]
@@ -815,7 +815,7 @@ class MonteCarlo(object):
 
         """
 
-        fits=pyfits.open(filename)
+        fits=pyfits.open(FileFunction.expand(filename))
         energies=fits[1].data.field('Energy')
         data=fits[0].data
 
@@ -893,7 +893,7 @@ class MonteCarlo(object):
                 raise Exception("When simulationg IsotropicConstant source with FileFunction spectrum, the constant must be 1")
 
             spectral_file=sm.file
-            energies,spectra=np.genfromtxt(spectral_file,unpack=True)[0:2]
+            energies,spectra=np.genfromtxt(FileFunction.expand(spectral_file),unpack=True)[0:2]
 
             smaller_range = FitsShrinker.smaller_range(energies, mc_emin, mc_emax)
             if np.any(smaller_range == False):
@@ -959,7 +959,7 @@ class MonteCarlo(object):
             print '.. Shrinking diffuse model %s' % ds.name
             radius=self.maxROI + self.diffuse_pad
 
-            allsky = pyfits.open(allsky_filename)
+            allsky = pyfits.open(FileFunction.expand(allsky_filename))
             shrinker = DiffuseShrinker(allsky, skydir=self.roi_dir, radius=radius, emin=mc_emin, emax=mc_emax)
             shrinker.shrink()
             filename = os.path.basename(allsky_filename).replace('.fits','_cut.fits')
@@ -1061,13 +1061,13 @@ class MonteCarlo(object):
 
         # Note, add on gtis to 'evfile'. This is a big distructive,
         # but should cause no real harm.
-        e = pyfits.open(evfile, mode='update')
+        e = pyfits.open(FileFunction.expand(evfile), mode='update')
 
         # Temporarily address issue https://jira.slac.stanford.edu/browse/OBS-20
         if len(e) == 4 and e[2].name == 'GTI' and e[3].name == 'GTI' and e[3].data == None:
             del(e[3])
         
-        g = pyfits.open(gtifile)
+        g = pyfits.open(FileFunction.expand(gtifile))
         e['GTI'] = g['GTI']
         e.flush()
 
