@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Jul  5 17:45:01 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_diffuse.py 
+Log Message:
+bugfix for updating diffuse sources with (a) non log scaling of normalization and (b) all other spectral parameters frozen
+    *
+------------------------------------------------------------
 User: lande  Thu Jul  5 17:44:18 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
