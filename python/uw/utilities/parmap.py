@@ -71,11 +71,7 @@ class LimitMapper(ParameterMapper):
         compatability with gtlike.
     """
     def __init__(self, lower, upper, scale=1):
-        if upper < lower:
-            lower, upper = upper, lower
-
-        self.lower = lower
-        self.upper = upper
+        self.lower, self.upper = sorted([lower,upper])
         self.scale = scale
 
     def toexternal(self,internal):

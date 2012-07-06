@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.123 2012/07/02 16:52:05 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.124 2012/07/06 00:43:58 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -373,7 +373,7 @@ class Model(object):
                 >>> print model.get_limits('index')
                 [-3, 2]
                 >>> print model.get_limits_gtlike('index')
-                [3, -2]
+                [-2, 3]
         """
         i=self.name_mapper(i)
         m = self.gtlike['topointlike'][i]
@@ -381,10 +381,22 @@ class Model(object):
         self.set_limits(i, *args)
 
     def get_limits_gtlike(self, i):
+        """ Get limits using a gtlike convention.
+        
+            Note, limits should always be [small, bigger].
+            Test an edge case causing a bug for Francesco Giordano:
+
+                >>> model = PowerLaw(index=2)
+                >>> model.set_mapper('index',LimitMapper(-0.75,2.25,-1.0))
+                >>> print model.get_limits('index')
+                [-0.75, 2.25]
+                >>> print model.get_limits_gtlike('index')
+                [-2.25, 0.75]
+        """
         i=self.name_mapper(i)
         m = self.gtlike['togtlike'][i]
         limits=self.get_limits(i)
-        return map(m,limits)
+        return sorted(map(m,limits))
 
 
     def get_limits(self, i):
