@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: lande  Fri Jul  6 08:36:22 PDT 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	parmap.py xml_parsers.py 
+Log Message:
+better tests to ensure parameter min < max.
+    *
+------------------------------------------------------------
+User: lande  Fri Jul  6 08:36:22 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
 Modified Files:
