@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.78 2012/07/03 19:09:26 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.79 2012/07/06 00:45:34 lande Exp $
 
    author: Matthew Kerr
 """
@@ -591,8 +591,11 @@ class Model_to_XML(object):
             self.pname.append(gtlike_name)
             self.pval.append(val/scale)
             self.perr.append(np.abs(err/scale)) # remember, error is always positive
-            self.pmin.append(min/scale)
-            self.pmax.append(max/scale)
+
+            scale_min, scale_max = sorted([min/scale, max/scale])
+            self.pmin.append(scale_min)
+            self.pmax.append(scale_max)
+
             self.pscale.append(scale)
             self.pfree.append(free)
 
@@ -875,6 +878,8 @@ def parse_diffuse_sources(handler,diffdir=None):
             ...        <parameter name="Normalization" value="1.0" free="0" max="1e3" min="1e-3" scale="1.0" />
             ...    </spatialModel>
             ... </source>''')
+            >>> print ds.name
+            Galactic Diffuse (ring_2year_P76_v0.fits)
             >>> model=ds.smodel
             >>> print model.name
             ScalingPowerLaw
@@ -1227,6 +1232,24 @@ def process_diffuse_source(ds,strict=False,convert_extended=False,expand_env_var
                 </spatialModel>
             </source>
 
+
+        This was previously a bug found by Francesco Giordano:
+
+            >>> gal, iso = get_default_diffuse(diffdir=diffdir,
+            ...     gfile=gfile,
+            ...     ifile=ifile)
+            >>> gal.smodel.set_mapper('index',LimitMapper(-1,1,-1))
+            >>> print model2xml(gal, expand_env_vars=False)
+            <source name="Galactic Diffuse (ring_2year_P76_v0.fits)" type="DiffuseSource">
+                <spectrum  type="PowerLaw">
+                    <parameter name="Prefactor" value="1.0" free="1" max="10" min="0.1" scale="1" />
+                    <parameter name="Index" value="-0" free="1" max="1" min="-1" scale="1" />
+                    <parameter name="Scale" value="1000.0" free="0" max="1000.0" min="1000.0" scale="1" />
+                </spectrum>
+                <spatialModel file="$(GLAST_EXT)/diffuseModels/v2r0p1/ring_2year_P76_v0.fits" type="MapCubeFunction">
+                    <parameter name="Normalization" value="1.0" free="0" max="1e3" min="1e-3" scale="1.0" />
+                </spatialModel>
+            </source>
     """
     m2x = Model_to_XML(strict=strict)
     dm = ds.dmodel
