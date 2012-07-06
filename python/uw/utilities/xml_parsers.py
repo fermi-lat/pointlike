@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.77 2012/07/01 18:58:06 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.78 2012/07/03 19:09:26 lande Exp $
 
    author: Matthew Kerr
 """
@@ -882,6 +882,8 @@ def parse_diffuse_sources(handler,diffdir=None):
             1.0
             >>> print model['index']
             0.0
+            >>> print model.background
+            True
             >>> print model.get_limits('norm')
             [0.1, 10.0]
             >>> print model.get_limits('index')
