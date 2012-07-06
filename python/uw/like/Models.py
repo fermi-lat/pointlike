@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.122 2012/07/02 16:11:57 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.123 2012/07/02 16:52:05 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -1267,6 +1267,8 @@ class ScalingPowerLaw(PowerLaw):
             [0.1, 10]
             >>> spl.get_limits('index')
             [-1, 1]
+            >>> spl.background
+            True
     """
     default_p=[1, 0]
 
@@ -1274,6 +1276,11 @@ class ScalingPowerLaw(PowerLaw):
         Norm=LimitMapper(.1,10),
         Index=LimitMapper(-1,1))
     default_oomp_limits=[]
+
+    def __init__(self,*args,**kwargs):
+        super(ScalingPowerLaw, self).__init__(*args, **kwargs)
+        self.background = True
+
 
     @staticmethod
     def from_powerlaw(model):
