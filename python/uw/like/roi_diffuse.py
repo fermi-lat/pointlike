@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_diffuse.py,v 1.27 2011/07/11 21:16:05 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_diffuse.py,v 1.28 2012/05/30 20:03:29 lande Exp $
 
 author: Matthew Kerr
 """
@@ -287,6 +287,7 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
                 print '\b'*(2+len(status_string)),;sys.stdout.flush()
 
         self.init_p = self.smodel.get_all_parameters(internal=True)
+        self.init_norm = self.smodel[0]
         self.prev_p = self.smodel.get_all_parameters(internal=True) +1e-5 # kluge
         if not self.quiet: print
         
@@ -304,7 +305,7 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
         # counts can just be scaled from initial integral
         smp = sm.get_all_parameters(internal=True)
         if N.all(smp[1:] == self.init_p[1:]):
-            ratio = 10**(smp[0]-self.init_p[0])
+            ratio = sm[0]/self.init_norm
             for myband,band in zip(self.bands,bands): 
                band.bg_counts[mi] = ratio * myband.ap_counts
                if band.has_pixels:
