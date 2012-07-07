@@ -1,9 +1,9 @@
 """Tools for parametrizing log likelihood curves.
 
 Author(s): Eric Wallace, Matthew Kerr
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.2 2012/07/07 14:41:35 burnett Exp $
 """
-__version__ = "$Revision: 1.1 $"
+__version__ = "$Revision: 1.2 $"
 
 import numpy as np
 from scipy import optimize, special
@@ -190,6 +190,25 @@ class Poisson(object):
     
     where the peak is at x=mu, if mu>beta, else at x=0
     
+    >>> w = Poisson([10.0, 1.0, 5.0])
+    >>> map(w, np.linspace(0,20,5))
+    [-6.4791843300216456, -1.0819766216224593, 0.0, -0.68476891322328726, -2.3376156435101407]
+    >>> w.find_delta()
+    (6.452927189667698, 14.213246175302684)
+    >>> map(w.cdf, np.linspace(0,20,5))
+    [0.0, 0.048674754021320932, 0.43187121882311852, 0.84347606391862051, 0.97770544018425898]
+    >>> w.percentile()
+    18.097300356339645
+     
+    >>> w = Poisson([-5, 1.0, 10.0]) 
+    >>> map(w, np.linspace(0, 10, 5))
+    [0.0, -1.3842822434289523, -2.9726744594591796, -4.7019210603228885, -6.5342640972002766]
+    >>> map(w.cdf, np.linspace(0, 10, 5))
+    [0.0, 0.77904655517623111, 0.95837535584402034, 0.9930192704933527, 0.99892810898968387]
+    >>> w.percentile()
+    4.734595152471901
+
+    
     """
     def __init__(self,p):
         self.p = p
@@ -255,3 +274,8 @@ class Poisson(object):
         assert abs(f(ret))<1e-2, 'percentile failed fit: %.1f %.1f %.1e' % (ret, f(ret), xmax)
         return ret/e
         
+    
+if __name__ == "__main__":
+    print __doc__
+    import doctest
+    doctest.testmod()
