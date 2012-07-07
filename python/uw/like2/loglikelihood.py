@@ -1,14 +1,12 @@
 """Tools for parametrizing log likelihood curves.
 
 Author(s): Eric Wallace, Matthew Kerr
+$Header$
 """
-__version__ = "$Revision: $"
-
-import collections
+__version__ = "$Revision: 1.1 $"
 
 import numpy as np
-from scipy import optimize
-
+from scipy import optimize, special
 from uw.utilities import decorators
 
 class PoissonLogLikelihood(object):
@@ -173,7 +171,26 @@ class PoissonLogLikelihood(object):
         return max_diff<self.atol
 
 class Poisson(object):
-    """Representation of a three-parameter Poisson-like function"""
+    """log of the three-parameter Poisson-like function use to represent the flux likelihood
+    parameters are, in order:
+        sp : flux at peak, if positive; if negative, there is only a limit
+        e  : normalization factor to convert flux to equivalent counts. must be >0
+        b  : background flux: must be >=0
+        
+    log likelihood expression is for flux s>=0
+       w(s; sp,e,b) = e*(sp+b) * log( e*(s+b) ) - e*s + const
+    the const is such that w=0 at the peak.
+    
+    A slightly more elegant expression, used in the cdf function, is to define
+       beta = e*b
+       mu = e*sp + beta
+       x = e*s
+    Then the log likelihood is
+       w(x) = mu * log( x + beta) - x + const
+    
+    where the peak is at x=mu, if mu>beta, else at x=0
+    
+    """
     def __init__(self,p):
         self.p = p
     
@@ -217,3 +234,24 @@ class Poisson(object):
             print('Could not find two roots!')
             return None
         return (s_low,s_high)
+
+    def cdf(self, flux ):
+        """ cumulative pdf, from flux=0, according to Bayes
+        uses incomplete gamma function for integrals
+        """
+        e = abs(self.p[1])
+        beta = e * abs(self.p[2])
+        mu =   e * self.p[0] + beta
+        norm = 1-special.gammainc(mu+1, beta)
+        q = special.gammainc(mu+1, beta + e*flux )
+        return (q-1)/norm  +1.
+
+    def percentile(self, limit=0.95):
+        """return percentile for given limit, default 95%"""
+        e = abs(self.p[1]) 
+        f = lambda x : self.cdf(x/e)-limit
+        xmax = self.find_delta(10)[1]*e
+        ret = optimize.brentq(f, 0, xmax) 
+        assert abs(f(ret))<1e-2, 'percentile failed fit: %.1f %.1f %.1e' % (ret, f(ret), xmax)
+        return ret/e
+        
