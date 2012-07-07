@@ -1,13 +1,13 @@
 """Tools for parametrizing log likelihood curves.
 
 Author(s): Eric Wallace, Matthew Kerr
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.2 2012/07/07 14:41:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.3 2012/07/07 16:01:36 burnett Exp $
 """
-__version__ = "$Revision: 1.2 $"
+__version__ = "$Revision: 1.3 $"
 
 import numpy as np
 from scipy import optimize, special
-from uw.utilities import decorators
+#from uw.utilities import decorators
 
 class PoissonLogLikelihood(object):
     """A class representing a parametrized log likelihood curve.
