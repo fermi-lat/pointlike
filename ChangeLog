@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Jul  7 07:41:35 PDT 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	loglikelihood.py 
+Log Message:
+add code to determine cdf, and percentile
+    *
+------------------------------------------------------------
 User: lande  Fri Jul  6 15:23:18 PDT 2012
 pointlike/cmt
 
