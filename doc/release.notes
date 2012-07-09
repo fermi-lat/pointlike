@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.202 2012/06/21 15:49:24 lande Exp $
+$Id: release.notes,v 1.203 2012/07/06 22:23:18 lande Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-07-09-03 09-Jul-2012  lande new code
  pointlike-07-09-02 06-Jul-2012  lande update pointlike
  pointlike-07-09-01 21-Jun-2012  lande Adding GaussianSpectrum
  pointlike-07-09-00 04-May-2012  lande another tag of pointlike
