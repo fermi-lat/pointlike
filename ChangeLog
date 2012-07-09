@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Jul  9 16:01:03 PDT 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+implement roi_dir and max_roi parametesr for extended source loading
+    *
+------------------------------------------------------------
 User: lande  Mon Jul  9 12:17:28 PDT 2012
 pointlike/cmt
 
