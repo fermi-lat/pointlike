@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Jul  9 12:17:11 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+new numeric_quantile function
+    *
+------------------------------------------------------------
 User: lande  Mon Jul  9 12:16:53 PDT 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
