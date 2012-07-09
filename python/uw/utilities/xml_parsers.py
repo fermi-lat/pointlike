@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.79 2012/07/06 00:45:34 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.80 2012/07/06 15:36:22 lande Exp $
 
    author: Matthew Kerr
 """
@@ -828,7 +828,7 @@ def parse_point_sources(handler,roi_dir,max_roi):
             point_sources.append(PointSource(sd,name,mo,leave_parameters=True))
     return list(point_sources)
 
-def parse_diffuse_sources(handler,diffdir=None):
+def parse_diffuse_sources(handler, roi_dir, max_roi, diffdir=None):
     """ 
         Some simple testing:
 
@@ -836,7 +836,7 @@ def parse_diffuse_sources(handler,diffdir=None):
 
             >>> from StringIO import StringIO
             >>> def l(xml): 
-            ...     ds = parse_diffuse_sources(parse_sourcelib(StringIO(xml)))
+            ...     ds = parse_diffuse_sources(parse_sourcelib(StringIO(xml)), roi_dir=None, max_roi=None)
             ...     assert len(ds) == 1
             ...     return ds[0]
 
@@ -1068,19 +1068,44 @@ def parse_diffuse_sources(handler,diffdir=None):
 
                 spatial_model=XML_to_SpatialModel.get_spatial_model(spatial,diffdir=diffdir)
                 spectral_model=xtm.get_model(spectral,name)
-                ds.append(ExtendedSource(name=name,
-                                         model=spectral_model,
-                                         spatial_model=spatial_model))
+
+                sd=spatial_model.center
+                if None in [roi_dir,max_roi] or np.degrees(sd.difference(roi_dir))<max_roi:
+                    ds.append(ExtendedSource(name=name,
+                                             model=spectral_model,
+                                             spatial_model=spatial_model))
         else:
             raise XMLException('Diffuse spatial model "%s" not recognized' % spatial['type'])
     return list(ds)
 
 def parse_sources(xmlfile,diffdir=None,roi_dir=None,max_roi=None):
     """ Convenience function to parse an entire file into
-        point sources and diffuse sources. """
-    handler = parse_sourcelib(xmlfile)
+        point sources and diffuse sources. 
+        
+
+            >>> ps,ds=parse_sources(xmlfile='$GLAST_EXT/catalogProducts/v1r2/2FGL/gll_psc_v07.xml',
+            ...                     diffdir='/afs/slac/g/glast/groups/catalog/2FGL/gll_psc_v05_templates/')
+
+        The 12 extended 2FGL sources are from Table 2 of 2FGL (http://arxiv.org/pdf/1108.1435v2.pdf)
+            >>> set(i.name for i in ds) == set([ '2FGL J0059.0-7242e', '2FGL J0526.6-6825e', '2FGL J0617.2+2234e',
+            ...                                  '2FGL J0833.1-4511e', '2FGL J1324.0-4330e', '2FGL J1514.0-5915e',
+            ...                                  '2FGL J1801.3-2326e', '2FGL J1805.6-2136e', '2FGL J1824.5-1351e',
+            ...                                  '2FGL J1855.9+0121e', '2FGL J1923.2+1408e', '2FGL J2051.0+3040e'])
+            True
+        
+        Prove the roi_dir/max_roi flag work. Get only 2FGL sources within 5 degrees of IC443:
+
+            >>> ps,ds=parse_sources(xmlfile='$GLAST_EXT/catalogProducts/v1r2/2FGL/gll_psc_v07.xml',
+            ...                     diffdir='/afs/slac/g/glast/groups/catalog/2FGL/gll_psc_v05_templates/',
+            ...                     roi_dir=SkyDir(94.332,22.570), max_roi=5)
+            >>> [i.name for i in ps]
+            ['2FGL J0608.3+2037', '2FGL J0616.6+2425', '2FGL J0621.2+2508']
+            >>> [i.name for i in ds]
+            ['2FGL J0617.2+2234e']
+    """
+    handler = parse_sourcelib(Models.FileFunction.expand(xmlfile))
     ps = parse_point_sources(handler,roi_dir,max_roi)
-    ds = parse_diffuse_sources(handler,diffdir=diffdir)
+    ds = parse_diffuse_sources(handler,roi_dir,max_roi,diffdir=diffdir)
     return ps,ds
 
 def unparse_point_sources(point_sources, strict=False, expand_env_vars=False, properties=lambda x:''):
