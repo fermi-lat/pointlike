@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jul 11 08:02:16 PDT 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+allow lists of xml files
+    *
+------------------------------------------------------------
 User: lande  Tue Jul 10 18:02:22 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
