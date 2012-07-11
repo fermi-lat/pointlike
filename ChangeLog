@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jul 10 18:02:22 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+better erorr when outdir passed into plot_sed
+    *
+------------------------------------------------------------
 User: lande  Tue Jul 10 18:02:02 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
