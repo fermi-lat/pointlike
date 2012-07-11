@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jul 10 18:02:02 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+bugfix for gradient of cutoff spectra
+    *
+------------------------------------------------------------
 User: lande  Mon Jul  9 16:01:03 PDT 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
