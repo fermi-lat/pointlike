@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jul 11 10:45:59 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_upper_limits.py 
+Log Message:
+better unit return
+    *
+------------------------------------------------------------
 User: lande  Wed Jul 11 08:02:16 PDT 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
