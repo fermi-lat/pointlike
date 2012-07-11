@@ -1,7 +1,7 @@
 """
 Module to calculate flux and extension upper limits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.20 2012/05/02 16:15:48 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.21 2012/06/05 23:02:27 lande Exp $
 
 author:  Eric Wallace <ewallace@uw.edu>, Joshua Lande <joshualande@gmail.com>
 """
@@ -302,4 +302,4 @@ class ExtensionUpperLimit(object):
                     emin=self.roi.bin_edges[0],
                     emax=self.roi.bin_edges[-1],
                     delta_log_like_limits=self.delta_log_like_limits,
-                    extension_units = 'degree')
+                    extension_units = 'degrees')
