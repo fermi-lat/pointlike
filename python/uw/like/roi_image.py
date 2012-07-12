@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.39 2012/03/12 19:28:01 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.40 2012/03/15 16:56:14 lande Exp $
 
 author: Joshua Lande
 """
@@ -815,7 +815,7 @@ class SmoothedImage(ROIImage):
 
         SmoothedCounts -> CountsImage
         SmoothedModel -> ModelImage
-        SmoothedResdiual -> ResidualImage
+        SmoothedResidual -> ResidualImage
 
         Note, after smoothing, the image is normalized to represent
         
