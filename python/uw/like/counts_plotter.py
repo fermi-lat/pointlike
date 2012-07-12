@@ -1,22 +1,50 @@
 """
 Code to generate an ROI counts plot 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/counts_plotter.py,v 1.4 2011/06/12 00:52:11 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/counts_plotter.py,v 1.5 2012/05/23 21:01:32 lande Exp $
 
 Author M. Kerr, T. Burnett
 
 """
 import os
+from collections import deque
 import numpy as np
 import pylab as plt
 from matplotlib import font_manager
-from uw.like import roi_plotting
+
+
+def counts(r,integral=False):
+
+    groupings = [deque() for x in xrange(len(r.bin_centers))]
+
+    #group slw by energy
+    for i,ei in enumerate(r.bin_centers):
+        for band in r.bands:
+            if band.e == ei:
+                groupings[i].append(band)
+        groupings[i] = list(groupings[i])
+
+    #iso = np.asarray([ sum((band.bg_counts[1] for band in g)) for g in groupings]) * p
+    #gal = np.asarray([ sum((band.bg_counts[0] for band in g)) for g in groupings]) * p
+    dif = np.asarray([ np.asarray([band.phase_factor*band.bg_counts for band in g]).sum(axis=0) for g in groupings])
+    obs = np.asarray([ sum((band.photons for band in g)) for g in groupings])
+    src = np.asarray([ np.asarray([band.phase_factor*band.ps_counts*band.overlaps for band in g]).sum(axis=0) for g in groupings])
+    
+    if integral:
+        for i in xrange(len(iso)):
+            #iso[i] = iso[i:].sum()
+            #gal[i] = gal[i:].sum()
+            dif[i] = dif[i:].sum(axis=0)
+            obs[i] = obs[i:].sum()
+            src[i] = src[i:].sum(axis=0)
+
+    return r.bin_edges,dif,src,obs,[b.name for b in r.bgm.bgmodels],[p.name for p in r.psm.point_sources]
 
 
 def get_counts(roi, merge_non_free=True, merge_all=False, integral=False):
     """ reformat output from roi_plotting.counts as a dictionary
     
     """
-    en,dif,src,obs,bg_names,ps_names = roi_plotting.counts(roi,integral)
+    en,dif,src,obs,bg_names,ps_names = counts(roi,integral)
     en = (en[1:]*en[:-1])**0.5
     tot = src.sum(axis=1) + dif.sum(axis=1)
 
