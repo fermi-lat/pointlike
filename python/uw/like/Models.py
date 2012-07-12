@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.125 2012/07/06 15:36:22 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.126 2012/07/11 01:02:02 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -1673,7 +1673,7 @@ class ExpCutoff(Model):
 
     default_limits = dict(
         Norm=LimitMapper(1e-13,1e-5,1e-9),
-        Index=LimitMapper(-5,5,1),
+        Index=LimitMapper(0,5,1),
         Cutoff=LimitMapper(100,3e8,1000),
         )
     default_oomp_limits=['Norm','Cutoff']
@@ -1794,7 +1794,7 @@ class PLSuperExpCutoff(Model):
 
     default_limits = dict(
         Norm=LimitMapper(1e-13,1e-5,1e-9),
-        Index=LimitMapper(-5,5,1),
+        Index=LimitMapper(0,5,1),
         Cutoff=LimitMapper(100,3e8,1000),
         b=LimitMapper(-5,5,1)
         )
