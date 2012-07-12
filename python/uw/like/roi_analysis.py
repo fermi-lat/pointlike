@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
 on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.121 2012/06/15 23:40:45 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.122 2012/07/11 01:02:21 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -23,6 +23,7 @@ from . import roi_save
 from . import roi_image
 from . import sed_plotter
 from . import roi_upper_limits
+from . import mapplots
 from uw.utilities import keyword_options
 from uw.utilities import xml_parsers
 from uw.utilities import region_writer
@@ -726,9 +727,9 @@ class ROIAnalysis(object):
             raise Exception('Use filename, not outdir')
         return sed_plotter.plot_sed(self,which=which,outdir=filename,**kwargs)
 
-    @decorate_with(roi_plotting.ROIDisplay,append_init=True)
+    @decorate_with(mapplots.ROIDisplay,append_init=True)
     def plot_counts_map(self,filename,**kwargs):
-        i=roi_plotting.ROIDisplay(self,**kwargs)
+        i=mapplots.ROIDisplay(self,**kwargs)
         i.show(filename=filename)
         return i
 
@@ -748,27 +749,45 @@ class ROIAnalysis(object):
         i.show(filename=filename,datafile=datafile)
         return i
 
-    @decorate_with(roi_plotting.ROISmoothedSource,append_init=True)
+    @decorate_with(mapplots.ROISmoothedSource,append_init=True)
     def plot_source(self,which=None,filename=None,**kwargs):
-        i=roi_plotting.ROISmoothedSource(self,which=which,**kwargs)
+        i=mapplots.ROISmoothedSource(self,which=which,**kwargs)
         i.show(filename=filename)
         return i
 
-    @decorate_with(roi_plotting.ROISmoothedSources,append_init=True)
+    @decorate_with(mapplots.ROISmoothedSources,append_init=True)
     def plot_sources(self,which=None,filename=None,**kwargs):
-        i=roi_plotting.ROISmoothedSources(self,which=which,**kwargs)
+        i=mapplots.ROISmoothedSources(self,which=which,**kwargs)
         i.show(filename=filename)
         return i
 
-    @decorate_with(roi_plotting.ROITSMapPlotter,append_init=True)
+    @decorate_with(mapplots.ROISmoothedResidual,append_init=True)
+    def plot_residual(self,filename=None,**kwargs):
+        i=mapplots.ROISmoothedResidual(self,**kwargs)
+        i.show(filename=filename)
+        return i
+
+    @decorate_with(mapplots.ROISignificance,append_init=True)
+    def plot_significance(self,filename=None,**kwargs):
+        i=mapplots.ROISignificance(self,**kwargs)
+        i.show(filename=filename)
+        return i
+
+    @decorate_with(mapplots.ROISmoothedBeforeAfter,append_init=True)
+    def plot_before_after(self,filename=None,**kwargs):
+        i=mapplots.ROISmoothedBeforeAfter(self,**kwargs)
+        i.show(filename=filename)
+        return i
+
+    @decorate_with(mapplots.ROITSMapPlotter,append_init=True)
     def plot_tsmap(self,filename=None,**kwargs):
-        i=roi_plotting.ROITSMapPlotter(self,**kwargs)
+        i=mapplots.ROITSMapPlotter(self,**kwargs)
         i.show(filename=filename)
         return i
 
-    @decorate_with(roi_plotting.ROISmoothedModel,append_init=True)
+    @decorate_with(mapplots.ROISmoothedDataModel,append_init=True)
     def plot_model(self,filename="model_counts.png",**kwargs):
-        i=roi_plotting.ROISmoothedModel(self,**kwargs)
+        i=mapplots.ROISmoothedDataModel(self,**kwargs)
         i.show(filename=filename)
         return i
 
