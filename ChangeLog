@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Jul 12 12:28:30 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+better limits for expcutoff model index
+    *
+------------------------------------------------------------
 User: lande  Wed Jul 11 10:45:59 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
