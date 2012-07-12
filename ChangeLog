@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Jul 12 13:03:04 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	counts_plotter.py roi_analysis.py roi_plotting.py 
+Log Message:
+refactor plotting code
+    *
+------------------------------------------------------------
 User: lande  Thu Jul 12 13:02:51 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
