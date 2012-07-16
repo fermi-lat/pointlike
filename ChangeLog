@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: lande  Mon Jul 16 09:44:19 PDT 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Added Files:
+	path.py 
+Log Message:
+refactor env variable expanding to be more robust
+    *
+------------------------------------------------------------
 User: lande  Mon Jul 16 09:44:09 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
