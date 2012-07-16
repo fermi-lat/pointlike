@@ -3,8 +3,8 @@ Python support for source association, equivalent to the Fermi Science Tool gtsr
 author:  Eric Wallace <wallacee@uw.edu>
 """
 
-__version__ = "$Revision: 1.31 $"
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.31 2011/12/08 00:11:52 wallacee Exp $
+__version__ = "$Revision: 1.32 $"
+#$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/srcid.py,v 1.32 2012/02/12 20:22:45 burnett Exp $
 
 import os
 import sys
@@ -16,7 +16,7 @@ import numpy as np
 import pyfits as pf
 
 import skymaps
-from uw.utilities import fitstools,keyword_options
+from uw.utilities import fitstools,keyword_options,path
 
 
 class SrcidError(Exception): pass
@@ -50,13 +50,13 @@ class SourceAssociation(object):
            quiet: bool, deprecated, set verbosity = 0
         """
         keyword_options.process(self,kwargs)
-        self.srcid_dir = os.path.expandvars(srcid_dir)
+        self.srcid_dir = path.expand(srcid_dir)
         if self.catalog_dir is not None:
-            self.catalog_dir = os.path.expandvars(self.catalog_dir)
+            self.catalog_dir = path.expand(self.catalog_dir)
         else:
             self.catalog_dir = os.path.join(self.srcid_dir,'cat')
         if self.class_dir is not None:
-            self.class_dir = os.path.expandvars(self.class_dir)
+            self.class_dir = path.expand(self.class_dir)
         else:
             self.class_dir = os.path.join(self.srcid_dir,'cat')
         if self.quiet: self.verbosity=0

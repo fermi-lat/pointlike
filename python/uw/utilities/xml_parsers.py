@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.81 2012/07/09 23:01:03 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.82 2012/07/11 15:02:16 lande Exp $
 
    author: Matthew Kerr
 """
@@ -19,6 +19,7 @@ from uw.like.pointspec_helpers import PointSource,get_diffuse_source
 from uw.like.roi_diffuse import DiffuseSource
 from uw.like.roi_extended import ExtendedSource
 from . parmap import LimitMapper, MapperException, LinearMapper
+from . import path
 
 # spectral models
 from uw.like import Models
@@ -459,7 +460,7 @@ class Model_to_XML(object):
 
         Next, save it with the env var expanded:
 
-            >>> print model2xml(fs,expand_env_vars=True).replace(Models.FileFunction.expand(filename),'[FILENAME]')
+            >>> print model2xml(fs,expand_env_vars=True).replace(path.expand(filename),'[FILENAME]')
             <spectrum file="[FILENAME]" type="FileFunction">
                 <parameter name="Normalization" value="1.0" free="1" max="10" min="0.1" scale="1" />
             </spectrum>
@@ -616,7 +617,7 @@ class Model_to_XML(object):
         for key in model.default_extra_attrs:
             attr=getattr(model,key)
             if expand_env_vars: 
-                attr=Models.FileFunction.expand(attr)
+                attr=path.expand(attr)
             self.extra_attrs+='%s="%s"' % (key,attr)
 
 
@@ -655,7 +656,7 @@ def makeDSConstantSpatialModel(value=1.0, tablevel=1):
 
 def makeDSMapcubeSpatialModel(filename='ERROR',tablevel=1, expand_env_vars=False):
     if expand_env_vars:
-        filename=Models.FileFunction.expand(filename)
+        filename=path.expand(filename)
     """Encode a mapcube model."""
     strings = [
         '<spatialModel file="%s" type="MapCubeFunction">'%(filename.replace('\\','/')),
@@ -731,7 +732,7 @@ def makeExtendedSourceSpatialModel(es,expand_env_vars,tablevel=1):
 
     """
     if es.name == 'SpatialMap' or es.name == 'RadialProfile':
-        file=os.path.expandvars(es.file) if expand_env_vars else es.file
+        file=path.expand(es.file) if expand_env_vars else es.file
         strings = [
             '<spatialModel type="%s" file="%s" >' % (es.pretty_name,file),
         ]
@@ -1061,7 +1062,7 @@ def parse_diffuse_sources(handler, roi_dir, max_roi, diffdir=None):
             ds.append(gds('ConstantValue',None,mo,None,name,diffdir=diffdir))
     
         elif spatial['type'] == 'MapCubeFunction':
-            fname = str(os.path.expandvars(spatial['file']))
+            fname = str(path.expand(spatial['file']))
             mo = xtm.get_model(spectral,name, scaling=True)
             ds.append(gds('MapCubeFunction',fname,mo,None,name,diffdir=diffdir))
         elif spatial['type'] in XML_to_SpatialModel.spatialdict:
@@ -1104,9 +1105,9 @@ def parse_sources(xmlfile,diffdir=None,roi_dir=None,max_roi=None):
             ['2FGL J0617.2+2234e']
     """
     if isinstance(xmlfile, basestring):
-        xmlfile=Models.FileFunction.expand(xmlfile)
+        xmlfile=path.expand(xmlfile)
     else:
-        xmlfile=map(Models.FileFunction.expand,xmlfile)
+        xmlfile=map(path.expand,xmlfile)
 
     handler = parse_sourcelib(xmlfile)
     ps = parse_point_sources(handler,roi_dir,max_roi)
@@ -1177,7 +1178,6 @@ def process_diffuse_source(ds,strict=False,convert_extended=False,expand_env_var
         Some simple testing of saving out diffuse sources:
 
             >>> from uw.like.pointspec_helpers import get_default_diffuse
-            >>> from os.path import expandvars
             >>> diffdir='$(GLAST_EXT)/diffuseModels/v2r0p1/'
             >>> gfile="ring_2year_P76_v0.fits"
             >>> ifile="isotrop_2year_P76_source_v1.txt"
@@ -1201,7 +1201,7 @@ def process_diffuse_source(ds,strict=False,convert_extended=False,expand_env_var
 
         Test out the expand_env_vars flag:
 
-            >>> print model2xml(gal, expand_env_vars=True).replace(Models.FileFunction.expand(join(diffdir,gfile)),'[FILENAME]')
+            >>> print model2xml(gal, expand_env_vars=True).replace(path.expand(join(diffdir,gfile)),'[FILENAME]')
             <source name="Galactic Diffuse (ring_2year_P76_v0.fits)" type="DiffuseSource">
                 <spectrum  type="PowerLaw">
                     <parameter name="Prefactor" value="1.0" free="1" max="10" min="0.1" scale="1" />
@@ -1252,7 +1252,7 @@ def process_diffuse_source(ds,strict=False,convert_extended=False,expand_env_var
 
         Test expand_env_vars:
 
-            >>> print model2xml(iso, expand_env_vars=True).replace(Models.FileFunction.expand(join(diffdir,ifile)),'[FILENAME]')
+            >>> print model2xml(iso, expand_env_vars=True).replace(path.expand(join(diffdir,ifile)),'[FILENAME]')
             <source name="Isotropic Diffuse (isotrop_2year_P76_source_v1.txt)" type="DiffuseSource">
                 <spectrum file="[FILENAME]" ctype="-1" type="FileFunction">
                     <parameter name="Normalization" value="1.0" free="1" max="10" min="0.1" scale="1" />

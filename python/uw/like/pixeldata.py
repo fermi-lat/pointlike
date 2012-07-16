@@ -2,13 +2,15 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.23 2011/11/28 22:27:40 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pixeldata.py,v 1.24 2012/02/12 20:19:04 burnett Exp $
 
 """
-version='$Revision: 1.23 $'.split()[1]
+version='$Revision: 1.24 $'.split()[1]
 import os, math, pyfits, types, glob
 import numpy as N; np = N
 import pointlike, skymaps
+
+from uw.utilities import path
 
 class NsideMapper(object):
     """
@@ -133,13 +135,13 @@ Create a new PixelData instance, managing data and livetime.
 
     def _setup_files(self):
         """
-        use glob and expandvars to expand wildcards and convert to absolute paths (in backward-compatible manner)
+        use glob and expand to expand wildcards and convert to absolute paths (in backward-compatible manner)
         """
         if type(self.ft1files)==types.StringType:
-            self.ft1files = glob.glob(os.path.expandvars(self.ft1files))
+            self.ft1files = glob.glob(path.expand(self.ft1files))
             self.ft1files.sort()
         if type(self.ft2files)== types.StringType:
-            self.ft2files = glob.glob(os.path.expandvars(self.ft2files))
+            self.ft2files = glob.glob(path.expand(self.ft2files))
             self.ft2files.sort()
             
         # check explicit files
@@ -147,9 +149,9 @@ Create a new PixelData instance, managing data and livetime.
             if filelist is not None and len(filelist)>0 and not os.path.exists(filelist[0]):
                 raise PixelDataException('PixelData setup: file name or path "%s" not found'%filelist[0])
         if type(self.binfile)==types.StringType:
-            self.binfile = os.path.expandvars(self.binfile)
+            self.binfile = path.expand(self.binfile)
         if type(self.ltcube)==types.StringType:
-            self.ltcube=os.path.expandvars(self.ltcube)
+            self.ltcube=path.expand(self.ltcube)
 
 
     def __str__(self):
