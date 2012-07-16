@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: lande  Mon Jul 16 09:44:09 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py SpatialModels.py pixeldata.py pointspec.py 
+	pointspec_helpers.py roi_catalogs.py roi_diffuse.py 
+	roi_monte_carlo.py roi_save.py roi_testing.py srcid.py 
+Log Message:
+refactor env variable expanding to be more robust
+    *
+------------------------------------------------------------
 User: lande  Fri Jul 13 10:47:08 PDT 2012
 pointlike/cmt
 
