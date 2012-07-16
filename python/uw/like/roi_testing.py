@@ -1,12 +1,12 @@
 """
 Module to perfrom routine testing of pointlike's many features.'
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.15 2012/06/06 16:06:38 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.16 2012/06/06 23:10:19 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
 import os
-from os.path import expandvars,join,abspath
+from os.path import join,abspath
 import sys
 import unittest
 
@@ -20,6 +20,7 @@ from uw.like.SpatialModels import Disk,Gaussian,SpatialMap
 from uw.like.roi_extended import ExtendedSource
 from uw.like.roi_monte_carlo import SpectralAnalysisMC
 
+from uw.utilities import path
 
 
 class PointlikeTest(unittest.TestCase):
@@ -67,7 +68,7 @@ class PointlikeTest(unittest.TestCase):
     @staticmethod
     def get_roi(name,center,point_sources,diffuse_sources,emin=1e2,emax=1e5,binsperdec=2):
 
-        simdir=os.path.expandvars('$SIMDIR/%s' % name)
+        simdir=path.expand('$SIMDIR/%s' % name)
 
         if not os.path.exists(simdir):
             os.makedirs(simdir)
@@ -263,7 +264,7 @@ class PointlikeTest(unittest.TestCase):
 
         model = PowerLaw(index=2)
         model.set_flux(1e-6)
-        simdir=os.path.expandvars('$SIMDIR/%s' % name)
+        simdir=path.expand('$SIMDIR/%s' % name)
         if not os.path.exists(simdir):
             os.makedirs(simdir)
 

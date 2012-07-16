@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.103 2012/06/25 20:39:15 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.104 2012/07/09 19:17:11 lande Exp $
 
    author: Joshua Lande
 
@@ -22,8 +22,8 @@ from skymaps import PySkySpectrum,PySkyFunction,SkyDir,Hep3Vector,\
 
 from uw.utilities.quantile import Quantile
 from uw.utilities.rotations import anti_rotate_equator
+from uw.utilities import path
 
-from uw.like.Models import FileFunction
 
 SMALL_ANALYTIC_EXTENSION=1e-10
 SMALL_NUMERIC_EXTENSION=1e-3
@@ -603,7 +603,7 @@ class SpatialModel(object):
 
         diameter=self.template_diameter()
         pixelsize=diameter/npix
-        image=SkyImage(center,os.path.expandvars(filename),pixelsize,diameter,1,proj,
+        image=SkyImage(center,path.expand(filename),pixelsize,diameter,1,proj,
                        True if self.coordsystem == SkyDir.GALACTIC else False,False)
         skyfunction=self.get_PySkyFunction()
         image.fill(skyfunction)
@@ -1715,7 +1715,7 @@ class SpatialMap(SpatialModel):
         # The skyfun is not normalized. The normaliztaion happens later, after
         # the convolution step.
 
-        self.skyfun=SkyImage(FileFunction.expand(self.file),self.extension,self.interpolate)
+        self.skyfun=SkyImage(path.expand(self.file),self.extension,self.interpolate)
 
         projection = p = self.skyfun.projector()
         naxis1=self.skyfun.naxis1()
@@ -1772,7 +1772,7 @@ class SpatialMap(SpatialModel):
         """ When unpickling the object, afterwords recreate the skymaps.SkyImage object. """
         self.__dict__ = state
         try:
-            self.skyfun=SkyImage(FileFunction.expand(self.file),self.extension,self.interpolate)
+            self.skyfun=SkyImage(path.expand(self.file),self.extension,self.interpolate)
         except:
             self.skyfun=None
 

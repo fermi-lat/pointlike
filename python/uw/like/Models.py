@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.126 2012/07/11 01:02:02 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.127 2012/07/12 19:28:30 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -16,6 +16,7 @@ from scipy.interpolate import interp1d
 from scipy import roots, optimize
 
 from uw.utilities.parmap import LinearMapper, LogMapper, LimitMapper, ParameterMapper
+from uw.utilities import path
 
 class ModelException(Exception): pass
 
@@ -2371,6 +2372,29 @@ class FileFunction(Model):
             >>> import os
             >>> pickle.dump(file_function, open(os.devnull,'w'))
 
+
+        FileFunctions should be specifiable with the funny gtlike convention:
+
+            >>> from uw.like.Models import FileFunction
+            >>> f = "$(GLAST_EXT)/diffuseModels/v2r0p1/isotrop_2year_P76_source_v1.txt"
+            >>> ff1=FileFunction(file=f)
+
+        FileFunction.file should preserve the environment variable:
+
+            >>> ff1.file == f
+            True
+
+        Similarly, you can read in files with any of the conventions:
+
+            >>> ff2=FileFunction(file="${GLAST_EXT}/diffuseModels/v2r0p1/isotrop_2year_P76_source_v1.txt")
+            >>> ff3=FileFunction(file="$GLAST_EXT/diffuseModels/v2r0p1/isotrop_2year_P76_source_v1.txt")
+            >>>
+            >>> np.all(ff1.flux == ff2.flux) and np.all(ff1.flux == ff3.flux)
+            True
+            >>> np.all(ff1.energy == ff2.energy) and np.all(ff1.energy == ff3.energy)
+            True
+    
+
     """
     default_p=[1]
     default_extra_params=OrderedDict()
@@ -2397,38 +2421,10 @@ class FileFunction(Model):
         if self.file is None:
             raise ModelException("FileFunction must be created with a file.")
 
-        file=np.genfromtxt(FileFunction.expand(self.file),unpack=True)
+        file=np.genfromtxt(path.expand(self.file),unpack=True)
         self.energy,self.flux=file[0],file[1]
 
         self.__make_interp__()
-
-    @staticmethod
-    def expand(file):
-        """ dunno why, but the gtlike convention is $(VAR) instead of ${VAR} 
-
-            So allow specifying files with this funny gtlike notation:
-
-                >>> f = "$(GLAST_EXT)/diffuseModels/v2r0p1/isotrop_2year_P76_source_v1.txt"
-                >>> ff1=FileFunction(file=f)
-
-            FileFunction.file should preserve the environment variable:
-
-                >>> ff1.file == f
-                True
-
-            Similarly, you can read in files with any of the conventions:
-
-                >>> ff2=FileFunction(file="${GLAST_EXT}/diffuseModels/v2r0p1/isotrop_2year_P76_source_v1.txt")
-                >>> ff3=FileFunction(file="$GLAST_EXT/diffuseModels/v2r0p1/isotrop_2year_P76_source_v1.txt")
-                >>>
-                >>> np.all(ff1.flux == ff2.flux) and np.all(ff1.flux == ff3.flux)
-                True
-                >>> np.all(ff1.energy == ff2.energy) and np.all(ff1.energy == ff3.energy)
-                True
-        
-        """
-        file = file.replace('(','{').replace(')','}')
-        return os.path.expandvars(file)
 
     def __make_interp__(self):
         self.interp = interp1d(np.log10(self.energy),np.log10(self.flux),

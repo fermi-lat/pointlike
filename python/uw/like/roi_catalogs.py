@@ -1,7 +1,7 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.23 2012/06/25 22:02:46 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.24 2012/07/06 00:43:37 lande Exp $
 
 author: Joshua Lande
 """
@@ -9,7 +9,7 @@ import os
 from copy import copy
 import glob
 import numpy as np
-from os.path import expandvars, exists, join
+from os.path import exists, join
 from textwrap import dedent
 from abc import abstractmethod
 
@@ -21,6 +21,7 @@ from . Models import PowerLaw,PowerLawFlux,LogParabola,ExpCutoff
 from . roi_extended import ExtendedSource
 from uw.utilities import keyword_options
 from uw.utilities.parmap import LogMapper,LimitMapper
+from uw.utilities import path
 
 
 
@@ -188,7 +189,7 @@ class Catalog2FGL(SourceCatalog):
 
         if self.latextdir is None:
             if (not os.environ.has_key('LATEXTDIR') or
-                    not exists(expandvars(os.environ['LATEXTDIR']))):
+                    not exists(path.expand(os.environ['LATEXTDIR']))):
                     raise Exception(dedent("""
                             Since environment variable $LATEXTDIR does 
                             not exist, the paramter latextdir must
@@ -197,7 +198,7 @@ class Catalog2FGL(SourceCatalog):
             else:
                 self.latextdir=os.environ['LATEXTDIR']
         else:
-            os.environ['LATEXTDIR']=expandvars(self.latextdir)
+            os.environ['LATEXTDIR']=path.expand(self.latextdir)
 
         self.catalog=catalog
 
@@ -211,7 +212,7 @@ class Catalog2FGL(SourceCatalog):
 
         self.__extended_models__()
 
-        f = pyfits.open(expandvars(self.catalog))
+        f = pyfits.open(path.expand(self.catalog))
         colnames = [x.name for x in f[1].get_coldefs()]
         point = f['LAT_POINT_SOURCE_CATALOG'].data
         ras       = point.field('RAJ2000')
@@ -279,7 +280,7 @@ class Catalog2FGL(SourceCatalog):
         """ Read in the extended source spatial models
             from the catalog. """
 
-        f = pyfits.open(expandvars(self.catalog))
+        f = pyfits.open(path.expand(self.catalog))
         extended = f['EXTENDEDSOURCES'].data
         #self.extended_names = np.char.strip(extended.field('Source_Name'))
         #self.extended_nicknames = np.char.replace(self.extended_names,' ','')

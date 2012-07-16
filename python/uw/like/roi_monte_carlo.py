@@ -2,12 +2,12 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.60 2012/06/12 02:02:43 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.61 2012/07/06 00:45:18 lande Exp $
 
 author: Joshua Lande
 """
 import os
-from os.path import join, expandvars
+from os.path import join
 import re
 import types
 from textwrap import dedent
@@ -31,6 +31,7 @@ from . roi_extended import ExtendedSource
 from . SpatialModels import Gaussian,EllipticalGaussian,SpatialModel,RadiallySymmetricModel,SpatialMap
 
 from uw.utilities import keyword_options
+from uw.utilities import path
 from uw.utilities.keyword_options import decorate, process, change_defaults, get_default, get_row
 from uw.utilities.fitstools import rad_mask
 
@@ -225,7 +226,7 @@ class DiffuseShrinker(FitsShrinker):
             A simple test that creates a shrunk file and shows that the pixes are 0 far away
             from the center
             
-                >>> galname=expandvars('$GLAST_EXT/diffuseModels/v0r0/gll_iem_v02.fit')
+                >>> galname=path.expand('$GLAST_EXT/diffuseModels/v0r0/gll_iem_v02.fit')
                 >>> diff=pyfits.open(galname)
                 >>> shrinker = DiffuseShrinker(diff, skydir=SkyDir(55,60, SkyDir.GALACTIC), radius=10, emin=1e3, emax=1e5)
                 >>> shrinker.shrink()
@@ -380,8 +381,8 @@ class MonteCarlo(object):
                                                    (%s were acutally specified)""" % len(self.ft2)))
             self.ft2=self.ft2[0]
 
-        self.ft1 = expandvars(self.ft1)
-        self.ft2 = expandvars(self.ft2)
+        self.ft1 = path.expand(self.ft1)
+        self.ft2 = path.expand(self.ft2)
 
         if os.path.exists(self.ft1):
             raise Exception("Unable to run MC simulation because file %s already exists." % self.ft1)
@@ -405,7 +406,7 @@ class MonteCarlo(object):
 
         if self.use_existing_ft2:
             if self.gtifile: 
-                self.gtifile = expandvars(self.gtifile)
+                self.gtifile = path.expand(self.gtifile)
             else:
                 print "Since an already existing ft2 file is set, it is strongly recommended that you specify a file with the desired GTIs (typically the ft1 or ltcube file."
         else:
@@ -421,7 +422,7 @@ class MonteCarlo(object):
         # Note, get the start & stop times from the actual
         # data instead of the fits header
         # See https://jira.slac.stanford.edu/browse/OBS-18
-        ft2 = pyfits.open(FileFunction.expand(ft2))
+        ft2 = pyfits.open(path.expand(ft2))
         tstart = ft2['SC_DATA'].data.field('START')[0]
         tstop = ft2['SC_DATA'].data.field('STOP')[-1]
         ft2.close()
@@ -455,7 +456,7 @@ class MonteCarlo(object):
         else:
             if isinstance(model,FileFunction):
                 spectral_filename=model.file
-                energies,spectra=np.genfromtxt(FileFunction.expand(spectral_filename),unpack=True)[0:2]
+                energies,spectra=np.genfromtxt(path.expand(spectral_filename),unpack=True)[0:2]
                 flux=model.i_flux(energies[0],energies[-1],cgs=True)*1e4
             else:
                 flux=model.i_flux(mc_emin,mc_emax,cgs=True)*1e4
@@ -525,7 +526,7 @@ class MonteCarlo(object):
 
         if isinstance(sm,SpatialMap):
             print 'WARNING: gtobssim can only use plate-carree projection fits files!'
-            spatial_filename=expandvars(sm.file)
+            spatial_filename=path.expand(sm.file)
         else:
             spatial_filename='%s_spatial_template_%s.fits' % (MonteCarlo.strip(es.name),sm.name)
             # Allegedly simulated templates must only be in the plate-carree projection
@@ -656,7 +657,7 @@ class MonteCarlo(object):
             
             N.B. multiply by 10^4 to convert from ph/cm^2/sr to ph/m^2/sr
             """
-        file=np.genfromtxt(FileFunction.expand(filename),unpack=True)
+        file=np.genfromtxt(path.expand(filename),unpack=True)
         energy,flux=file[0],file[1]
         emin,emax = energy[0], energy[-1]
 
@@ -709,7 +710,7 @@ class MonteCarlo(object):
                 >>> np.allclose(map_area([10,30,50]), true_area([10,30,50]), atol=1e-3, rtol=1e-3)
                 True
         """
-        fits=pyfits.open(FileFunction.expand(filename))
+        fits=pyfits.open(path.expand(filename))
         data=fits[0].data
         assert len(data.shape) == 2 or data.shape[0] == 1
         if data.shape == 3: data = data[1]
@@ -792,7 +793,7 @@ class MonteCarlo(object):
             should be 8.423. The value we find is a little bit different, but
             not by very much (8.409):
 
-                >>> filename = expandvars('$GLAST_EXT/diffuseModels/v1r0/gll_iem_v02_P6_V11_DIFFUSE.fit')
+                >>> filename = path.expand('$GLAST_EXT/diffuseModels/v1r0/gll_iem_v02_P6_V11_DIFFUSE.fit')
                 >>> np.allclose(MonteCarlo.diffuse_integrator(filename), 8.423, rtol=1e-2)
                 True
         """
@@ -815,7 +816,7 @@ class MonteCarlo(object):
 
         """
 
-        fits=pyfits.open(FileFunction.expand(filename))
+        fits=pyfits.open(path.expand(filename))
         energies=fits[1].data.field('Energy')
         data=fits[0].data
 
@@ -893,7 +894,7 @@ class MonteCarlo(object):
                 raise Exception("When simulationg IsotropicConstant source with FileFunction spectrum, the constant must be 1")
 
             spectral_file=sm.file
-            energies,spectra=np.genfromtxt(FileFunction.expand(spectral_file),unpack=True)[0:2]
+            energies,spectra=np.genfromtxt(path.expand(spectral_file),unpack=True)[0:2]
 
             smaller_range = FitsShrinker.smaller_range(energies, mc_emin, mc_emax)
             if np.any(smaller_range == False):
@@ -959,7 +960,7 @@ class MonteCarlo(object):
             print '.. Shrinking diffuse model %s' % ds.name
             radius=self.maxROI + self.diffuse_pad
 
-            allsky = pyfits.open(FileFunction.expand(allsky_filename))
+            allsky = pyfits.open(path.expand(allsky_filename))
             shrinker = DiffuseShrinker(allsky, skydir=self.roi_dir, radius=radius, emin=mc_emin, emax=mc_emax)
             shrinker.shrink()
             filename = os.path.basename(allsky_filename).replace('.fits','_cut.fits')
@@ -1061,13 +1062,13 @@ class MonteCarlo(object):
 
         # Note, add on gtis to 'evfile'. This is a big distructive,
         # but should cause no real harm.
-        e = pyfits.open(FileFunction.expand(evfile), mode='update')
+        e = pyfits.open(path.expand(evfile), mode='update')
 
         # Temporarily address issue https://jira.slac.stanford.edu/browse/OBS-20
         if len(e) == 4 and e[2].name == 'GTI' and e[3].name == 'GTI' and e[3].data == None:
             del(e[3])
         
-        g = pyfits.open(FileFunction.expand(gtifile))
+        g = pyfits.open(path.expand(gtifile))
         e['GTI'] = g['GTI']
         e.flush()
 
