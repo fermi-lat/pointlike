@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.63 2012/07/17 22:26:58 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.64 2012/07/17 22:36:54 lande Exp $
 
 author: Joshua Lande
 """
@@ -50,7 +50,6 @@ class FitsShrinker(object):
         self.radius = radius
 
         self.test_good_file()
-
 
     def test_good_file(self):
 
@@ -336,6 +335,20 @@ class MCModelBuilder(object):
         self.sources = sources
         keyword_options.process(self, kwargs)
 
+
+    @staticmethod
+    def strip(name):
+        """ Create source names that can be used in files and gtobssim's xml.
+            strip out periods and parenthesis.
+            Replace sapces with underbars, pluses and minumes with p & m,
+            and put an underbar in the front of the name if it begins
+            with a digit. """
+        name = name.replace(' ', '_').replace('+','p').replace('-','m')
+        name = re.sub('[\.()]','',name)
+        if name[0].isdigit(): name = '_' + name
+        return name
+
+
     def larger_energy_range(self):
         """ Get an energy range larger then the desired simulated points
             (to correct for energy dispersion). """
@@ -352,7 +365,7 @@ class MCModelBuilder(object):
 
         if isinstance(model,PowerLaw) or isinstance(model,PowerLawFlux):
             xml=[
-                '<source name="%s" flux="%s">' % (MonteCarlo.strip(ps.name),model.i_flux(mc_emin,mc_emax,cgs=True)*1e4),
+                '<source name="%s" flux="%s">' % (MCModelBuilder.strip(ps.name),model.i_flux(mc_emin,mc_emax,cgs=True)*1e4),
                 '  <spectrum escale="MeV">',
                 '  <particle name="gamma">',
                 '    <power_law emin="%s" emax="%s" gamma="%s"/>' % (mc_emin,mc_emax,model.getp(1)),
@@ -370,11 +383,11 @@ class MCModelBuilder(object):
             else:
                 flux=model.i_flux(mc_emin,mc_emax,cgs=True)*1e4
 
-                spectral_filename = '%s_spectra_%s.txt' % (MonteCarlo.strip(ps.name),model.name)
+                spectral_filename = '%s_spectra_%s.txt' % (MCModelBuilder.strip(ps.name),model.name)
                 model.save_profile(filename=spectral_filename, emin=mc_emin, emax=mc_emax)
 
             xml=[
-                '<source name="%s">' % MonteCarlo.strip(ps.name),
+                '<source name="%s">' % MCModelBuilder.strip(ps.name),
                 '  <spectrum escale="MeV">',
                 '    <SpectrumClass name="FileSpectrum"',
                 '      params="flux=%g,specFile=%s"/>' % (flux,spectral_filename),
@@ -387,7 +400,7 @@ class MCModelBuilder(object):
 
     @staticmethod
     def _make_profile(name,spatial_model,numpoints=200):
-        temp='%s_extension_profile_%s.txt' % (MonteCarlo.strip(name),spatial_model.name)
+        temp='%s_extension_profile_%s.txt' % (MCModelBuilder.strip(name),spatial_model.name)
         radius,pdf = spatial_model.approximate_profile()
         open(temp,'w').write('\n'.join(['%g\t%g' % (i,j) for i,j in zip(radius,pdf)]))
         return temp
@@ -404,14 +417,14 @@ class MCModelBuilder(object):
 
         ra,dec=sm.center.ra(),sm.center.dec()
 
-        spatial_filename='%s_extension_profile_%s.txt' % (MonteCarlo.strip(name),sm.name)
+        spatial_filename='%s_extension_profile_%s.txt' % (MCModelBuilder.strip(name),sm.name)
         sm.save_profile(spatial_filename)
 
-        spectral_filename = '%s_spectra_%s.txt' % (MonteCarlo.strip(es.name),model.name)
+        spectral_filename = '%s_spectra_%s.txt' % (MCModelBuilder.strip(es.name),model.name)
         model.save_profile(filename=spectral_filename, emin=mc_emin, emax=mc_emax)
 
         xml=[
-            '<source name="%s">' % MonteCarlo.strip(es.name),
+            '<source name="%s">' % MCModelBuilder.strip(es.name),
             '  <spectrum escale="MeV">',
             '    <SpectrumClass name="RadialSource"',
             '      params="flux=%s, profileFile=%s, specFile=%s, ra=%s, dec=%s"/>' % \
@@ -437,7 +450,7 @@ class MCModelBuilder(object):
             print 'WARNING: gtobssim can only use plate-carree projection fits files!'
             spatial_filename=path.expand(sm.file)
         else:
-            spatial_filename='%s_spatial_template_%s.fits' % (MonteCarlo.strip(es.name),sm.name)
+            spatial_filename='%s_spatial_template_%s.fits' % (MCModelBuilder.strip(es.name),sm.name)
             # Allegedly simulated templates must only be in the plate-carree projection
             # http://www.slac.stanford.edu/exp/glast/wb/prod/pages/sciTools_observationSimTutorial/obsSimTutorial.htm
             sm.save_template(spatial_filename, proj='CAR')
@@ -447,7 +460,7 @@ class MCModelBuilder(object):
             index = model['index']
 
             xml=[
-                '<source name="%s">' % MonteCarlo.strip(es.name),
+                '<source name="%s">' % MCModelBuilder.strip(es.name),
                 '  <spectrum escale="MeV">',
                 '    <SpectrumClass name="MapSource"',
                 '      params="%s,%s,%s,%s,%s"/>' % \
@@ -459,11 +472,11 @@ class MCModelBuilder(object):
 
         else:
 
-            spectral_filename='%s_spectra_%s.txt' % (MonteCarlo.strip(es.name),model.name)
+            spectral_filename='%s_spectra_%s.txt' % (MCModelBuilder.strip(es.name),model.name)
             model.save_profile(filename=spectral_filename, emin=mc_emin, emax=mc_emax)
 
             xml=[
-                '<source name="%s">' % MonteCarlo.strip(es.name),
+                '<source name="%s">' % MCModelBuilder.strip(es.name),
                 '  <spectrum escale="MeV">',
                 '    <SpectrumClass name="FileSpectrumMap"',
                 '      params="flux=%s, fitsFile=%s, specFile=%s, emin=%s, emax=%s"/>' % \
@@ -498,7 +511,7 @@ class MCModelBuilder(object):
                 angle *= -1 # For some reason, gtobssim measures the angle anti-east of north...
 
             xml=[
-                '<source name="%s">' % MonteCarlo.strip(es.name),
+                '<source name="%s">' % MCModelBuilder.strip(es.name),
                 '   <spectrum escale="MeV">',
                 '      <SpectrumClass name="GaussianSource"',
                 '          params="%s, %s, %s, %s, %s, %s, %s, %s, %s"/>' % \
@@ -517,7 +530,7 @@ class MCModelBuilder(object):
         """ Note, if there is an ROI cut, we can make this
             isotropic file not allsky. """
 
-        allsky = MonteCarlo.make_allsky_isotropic_pyfits(**kwargs)
+        allsky = MCModelBuilder.make_allsky_isotropic_pyfits(**kwargs)
         if radius < 180:
             shrinker = MapShrinker(allsky, skydir, radius)
             shrinker.shrink()
@@ -597,10 +610,10 @@ class MCModelBuilder(object):
             If the file is allsky and has inside of it the value '1', then the integral should return
             the total solid angle of a sphere (4*pi).
 
-                >>> allsky=MonteCarlo.make_isotropic_fits(radius=180, pixelsize=1)
+                >>> allsky=MCModelBuilder.make_isotropic_fits(radius=180, pixelsize=1)
                 >>> tempfile = NamedTemporaryFile()
                 >>> allsky.writeto(tempfile.name, clobber=True)
-                >>> map_area = MonteCarlo.spatial_integrator_2d(tempfile.name)
+                >>> map_area = MCModelBuilder.spatial_integrator_2d(tempfile.name)
                 >>> np.allclose(map_area, 4*np.pi)
                 True
 
@@ -610,9 +623,9 @@ class MCModelBuilder(object):
 
                 >>> def map_area(radius):
                 ...     tempfile = NamedTemporaryFile()
-                ...     allsky=MonteCarlo.make_isotropic_fits(skydir=SkyDir(134,83,SkyDir.GALACTIC), radius=radius, pixelsize=0.25)
+                ...     allsky=MCModelBuilder.make_isotropic_fits(skydir=SkyDir(134,83,SkyDir.GALACTIC), radius=radius, pixelsize=0.25)
                 ...     allsky.writeto(tempfile.name, clobber=True)
-                ...     map_area = MonteCarlo.spatial_integrator_2d(tempfile.name)
+                ...     map_area = MCModelBuilder.spatial_integrator_2d(tempfile.name)
                 ...     return map_area
                 >>> map_area = np.vectorize(map_area)
                 >>> true_area = lambda radius: 2*np.pi*(1-np.cos(np.radians(radius)))
@@ -684,7 +697,7 @@ class MCModelBuilder(object):
 
 
         ds = [
-            '<source name="%s">' % MonteCarlo.strip(ds.name),
+            '<source name="%s">' % MCModelBuilder.strip(ds.name),
             '   <spectrum escale="MeV">',
             '      <SpectrumClass name="Isotropic"',
             '                     params="flux=%g,gamma=%g,emin=%g,emax=%g,ra=%g,dec=%g,radius=%g"/>' % (flux,index,mc_emin,mc_emax,ra,dec,radius),
@@ -703,10 +716,10 @@ class MCModelBuilder(object):
             not by very much (8.409):
 
                 >>> filename = path.expand('$GLAST_EXT/diffuseModels/v1r0/gll_iem_v02_P6_V11_DIFFUSE.fit')
-                >>> np.allclose(MonteCarlo.diffuse_integrator(filename), 8.423, rtol=1e-2)
+                >>> np.allclose(MCModelBuilder.diffuse_integrator(filename), 8.423, rtol=1e-2)
                 True
         """
-        flux = MonteCarlo.mapIntegral(filename)*10**4
+        flux = MCModelBuilder.mapIntegral(filename)*10**4
         return flux
 
     @staticmethod
@@ -745,7 +758,7 @@ class MCModelBuilder(object):
 
         # Then integrate the spectral part connecting each point
         # with a powerlaw
-        p = MonteCarlo.powerLawIntegral
+        p = MCModelBuilder.powerLawIntegral
         map_integral = np.sum(p(energies[0:-1],energies[1:],
                                 d[0:-1],d[1:]).sum(axis=0))
 
@@ -789,7 +802,7 @@ class MCModelBuilder(object):
                 flux=sm.i_flux(mc_emin,mc_emax)*4*np.pi*10**4
 
             ds = [
-                '<source name="%s">' % MonteCarlo.strip(ds.name),
+                '<source name="%s">' % MCModelBuilder.strip(ds.name),
                 '   <spectrum escale="MeV">',
                 '      <SpectrumClass name="Isotropic"',
                 '                     params="flux=%g,gamma=%g,emin=%g,emax=%g,ra=%g,dec=%g,radius=%g"/>' % (flux,index,mc_emin,mc_emax,ra,dec,radius),
@@ -820,20 +833,20 @@ class MCModelBuilder(object):
                 radius=180
 
             if not self.quiet: print '.. Making isotropic model for %s' % ds.name
-            allsky=MonteCarlo.make_isotropic_fits(skydir=self.roi_dir, radius=radius)
+            allsky=MCModelBuilder.make_isotropic_fits(skydir=self.roi_dir, radius=radius)
             allsky.writeto(spatial_file, clobber=True)
 
 
             # flux is ph/cm^2/sr to ph/m^2
-            flux, emin, emax = MonteCarlo.isotropic_spectral_integrator(cut_spectral_file)
+            flux, emin, emax = MCModelBuilder.isotropic_spectral_integrator(cut_spectral_file)
 
             if not self.quiet: print '.. Integrating isotropic model for %s' % ds.name
 
             # multiply by solid angle to convert to ph/m^2
-            flux*=MonteCarlo.spatial_integrator_2d(spatial_file)
+            flux*=MCModelBuilder.spatial_integrator_2d(spatial_file)
 
             ds = [ 
-                '<source name="%s">' % MonteCarlo.strip(ds.name),
+                '<source name="%s">' % MCModelBuilder.strip(ds.name),
                 '  <spectrum escale="MeV">',
                 '    <SpectrumClass name="FileSpectrumMap"',
                 '       params="flux=%s,fitsFile=%s,' % (flux,spatial_file),
@@ -876,11 +889,11 @@ class MCModelBuilder(object):
 
 
         print '.. Integrating diffuse model %s' % ds.name
-        flux = MonteCarlo.diffuse_integrator(filename)
+        flux = MCModelBuilder.diffuse_integrator(filename)
 
 
         ds = [
-            '<source name="%s">' % MonteCarlo.strip(ds.name),
+            '<source name="%s">' % MCModelBuilder.strip(ds.name),
             '   <spectrum escale="MeV">',
             '      <SpectrumClass name="MapCube" params="%s,%s"/>' % (flux,filename),
             '      <use_spectrum frame="galaxy"/>',
@@ -941,11 +954,11 @@ class MCModelBuilder(object):
 
         for ps in self.point_sources:
             xml.append(self._make_ps(ps,mc_emin, mc_emax,indent))
-            src.append(MonteCarlo.strip(ps.name))
+            src.append(MCModelBuilder.strip(ps.name))
 
         for ds in self.diffuse_sources:
             xml.append(self._make_ds(ds,mc_emin,mc_emax,indent))
-            src.append(MonteCarlo.strip(ds.name))
+            src.append(MCModelBuilder.strip(ds.name))
 
         xml.append('</source_library>')
     
@@ -992,18 +1005,6 @@ class MonteCarlo(object):
                                           naturally accounted for in the monte carlos simulation. """),
             ('zmax',            None, "Apply a gtselect zenith angle cut with gtselect to the simulated ft1 files."),
     )
-
-    @staticmethod
-    def strip(name):
-        """ Create source names that can be used in files and gtobssim's xml.
-            strip out periods and parenthesis.
-            Replace sapces with underbars, pluses and minumes with p & m,
-            and put an underbar in the front of the name if it begins
-            with a digit. """
-        name = name.replace(' ', '_').replace('+','p').replace('-','m')
-        name = re.sub('[\.()]','',name)
-        if name[0].isdigit(): name = '_' + name
-        return name
 
     @keyword_options.decorate(defaults)
     def __init__(self,ft1,irf, sources, seed, **kwargs):
@@ -1060,7 +1061,7 @@ class MonteCarlo(object):
             if self.tstop - self.tstart < 1: raise Exception("tstart and tstop must describe a real range.")
 
         if self.use_existing_ft2: 
-            self.tstart, self.tstop = self.get_time_from_ft2(self.ft2)
+            self.tstart, self.tstop = MonteCarlo.get_time_from_ft2(self.ft2)
 
         if self.use_existing_ft2:
             if self.gtifile: 
