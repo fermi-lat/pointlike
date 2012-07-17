@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/angularmodels.py,v 1.17 2012/03/12 20:31:59 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/angularmodels.py,v 1.8 2010/12/01 19:40:11 mar0 Exp $
 author: M.Roth <mar0@u.washington.edu>
 """
 

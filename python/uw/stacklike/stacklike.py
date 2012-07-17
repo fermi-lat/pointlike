@@ -89,6 +89,8 @@ for month in monthlist:
     files.append('%s'%month)
     ft2s.append('%s'%month)
 pulsar=True
+
+
 ###################################################  START STACKLOADER CLASS ##################################################
 
 ##  StackLoader class
@@ -132,9 +134,9 @@ class StackLoader(object):
         self.ctmin=0.4
         self.ctmax=1.0
         self.quiet=True
-
-        self.__dict__.update(kwargs)
         
+        self.__dict__.update(kwargs)
+
         self.dsel = eval('dataset.%s'%(self.name))
         
         self.irf = self.dsel.irf
@@ -267,6 +269,11 @@ class StackLoader(object):
             for j,ff in enumerate(self.files):
                 tff = pf.open(ff)
                 tb = tff[1].data
+                hdr = tff[1].header
+                if float(hdr['TSTART'])>stop or float(hdr['TSTOP'])<start:
+                    if not self.quiet:
+                        print 'Skipped %s [%d,%d], [%d,%d]: Out of time range'%(ff,hdr['TSTART'],hdr['TSTOP'],start,stop)
+                    continue
                 try:
                     tb.field('THETA');tb.field('RA');tb.field('TIME');
                 except:
@@ -300,18 +307,20 @@ class StackLoader(object):
                 #iterate over events for photons
 
                 if gti is not None and ((phist is not None and self.useft2s) or not self.useft2s):
+                    pcut = 0
                     for k in range(len(tb)):
                         event = tb[k]
                         s_ra,s_dec=float(event.field('RA')),float(event.field('DEC'))
-                        sd = Hep3Vector([s_ra/rd,s_dec/rd])
+                        sd = s.SkyDir(s_ra,s_dec)#Hep3Vector([s_ra/rd,s_dec/rd])
                         rsrc = self.srcs[0]
                         diff = 1e40
                         if pass7:
-                            if event.field('EVENT_CLASS')%16 < 4:
+                            if (event.field('EVENT_CLASS') & self.dsel.eventclass) == 0:
+                                pcut+=1
                                 continue
                         #associate with a particular source
                         for src in self.srcs:
-                            diff = sd.diff(src)*rd
+                            diff = sd.difference(src)*rd
                         
                             #if photons is not too far away from any source
                             #add it to the list
@@ -337,6 +346,7 @@ class StackLoader(object):
                                     self.ebar = self.ebar+event.field('ENERGY')
                                     self.photons.append(photon)
                                     self.photoncount = self.photoncount + 1
+                print pcut
                 if self.useft2s:
                     del phist #free up memory from pointing history object
                 tff.close()
@@ -348,6 +358,7 @@ class StackLoader(object):
                 self.ebar = self.ebar/len(self.photons)  #calculate mean energy of photons
             else:
                 print 'No Photons!'
+
                 #raise 'No Photons!'
 
     ## Bins all of the angular separations together in separation
@@ -359,9 +370,18 @@ class StackLoader(object):
         diffs = np.sqrt((10**(2*hist[1][1:])+10**(2*hist[1][:len(hist[1])-1]))/2.)*rd   #average separation of each bin is determined by area
         
         #free up memory
-        del self.photons
-        del self.ds
-        del self.atb
+        try:
+            del self.photons
+        except:
+            pass
+        try:
+            del self.ds
+        except:
+            pass
+        try:
+            del self.atb
+        except:
+            pass
         self.photons=[]
         self.ds=[]
 
@@ -1317,7 +1337,7 @@ class StackLoader(object):
         setoff = True
         #plot all models
         for model in range(len(self.cm.models)):
-            p1 = py.plot(be4,fits[model],self.cm.models[model].mark)
+            p1 = py.plot(be4,fits[model],self.cm.models[model].mark,label=self.cm.models[model].name)
             if self.cm.models[model].name=='offpsf':
                 if setoff:
                     pts.append(p1)
@@ -1325,12 +1345,12 @@ class StackLoader(object):
             else:
                 pts.append(p1)
             if self.cm.models[model].name=='psf' or self.cm.models[model].name=='psf2':
-                p1 = py.plot([ctn[2*pcts],ctn[2*pcts]],[pmin,pmax],'-.')
+                p1 = py.plot([ctn[2*pcts],ctn[2*pcts]],[pmin,pmax],'-.',label=self.cm.models[model].name+'68')
                 pts.append(p1)
-                p1 = py.plot([ctn[2*pcts+1],ctn[2*pcts+1]],[pmin,pmax],'-.')
+                p1 = py.plot([ctn[2*pcts+1],ctn[2*pcts+1]],[pmin,pmax],'-.',label=self.cm.models[model].name+'95')
                 pts.append(p1)
                 pcts=pcts+1
-        p1 = py.plot(be4,fits[len(fits)-1],self.cm.mark)
+        p1 = py.plot(be4,fits[len(fits)-1],self.cm.mark,label='total')
         pts.append(p1)
 
         #calculate chisq
@@ -1342,7 +1362,7 @@ class StackLoader(object):
 
         prop = matplotlib.font_manager.FontProperties(size=9) 
         #finish up plotting
-        py.legend(pts,names,bbox_to_anchor=(1.1, 1.0),prop=prop)
+        py.legend(bbox_to_anchor=(1.1, 1.0),prop=prop)
         if scale=='log':
             py.loglog()
         else:
@@ -1578,7 +1598,30 @@ class StackLoader(object):
             self.photoncount = self.photoncount+1
         self.maxroi = max(self.ds)*rd
         self.minroi = min(self.ds)*rd
-        self.bin=True
+        self.bin=False
+
+    def spickle(self,fname):
+        import cPickle
+        self.getds()
+        try:
+            del self.photons
+        except:
+            pass
+        try:
+            del self.cm
+        except:
+            pass
+        try:
+            del self.psf
+        except:
+            pass
+        try:
+            del self.irfloader
+        except:
+            pass
+        cfile = open(fname,'w')
+        cPickle.dump(self,cfile)
+        cfile.close()
 
     ## returns a PSF object based on containment specified by self.irf
     #  @param opt frees or fixes PSF parameters

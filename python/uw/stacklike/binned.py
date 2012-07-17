@@ -30,6 +30,7 @@ import string
 import uw.pulsar.py_exposure as pe
 from uw.like.Models import PowerLaw,ExpCutoff,LogParabola
 from uw.stacklike import dataset
+import cPickle
 
 def format_error(v,err):
     if v>0 and err>0 and not np.isinf(err):
@@ -62,7 +63,8 @@ def format_error(v,err):
 ##############################################  Namespace Defaults #############################################
 cachedir = dataset.basedir+'cache/'
 figdir = dataset.basedir+'figures/'
-pulsars = [('vela',0.17/0.37,[0.0,0.11,0.63,0.69],[0.19,0.56]),('gem',0.2/0.3,[0.08,0.18,0.6,0.70],[0.25,0.55])]#,('crab',0.45/0.55,[0.0,0.09,0.25,0.48,0.87,1.0],[0.09,0.25,0.48,1.0])]                                       #pulsar sourcelist name 
+pulsdir = dataset.basedir+'data/pulsar/'
+pulsars = [['velaclean',0.17/0.37,[0.0,0.11,0.63,0.69],[0.19,0.56]],['gemclean',0.2/0.3,[0.08,0.18,0.6,0.70],[0.25,0.55]]]#,('crab',0.45/0.55,[0.0,0.09,0.25,0.48,0.87,1.0],[0.09,0.25,0.48,1.0])]                                       #pulsar sourcelist name 
 agnlist = ['psfstudy']
 fdays=10*365
 rd = 180./np.pi
@@ -179,6 +181,7 @@ class CombinedLike(object):
                 thetabar = thetabar+sum([p.ct for p in sl.photons])
                 self.pulse_ons.append(np.array(cp.copy(sl.ds)))
                 if self.cache:
+                    sl.spickle(self.cachedir+'%son%s.pickle'%(psr[0],tag))
                     np.save(self.cachedir+'%son%s.npy'%(psr[0],tag),np.array(cp.copy(sl.ds)))
                 del sl
 
@@ -195,6 +198,7 @@ class CombinedLike(object):
                 sl.getds()
                 self.pulse_offs.append(np.array(cp.copy(sl.ds)))
                 if self.cache:
+                    sl.spickle(self.cachedir+'%son%s.pickle'%(psr[0],tag))
                     np.save(self.cachedir+'%soff%s.npy'%(psr[0],tag),np.array(cp.copy(sl.ds)))
                 del sl
 
@@ -206,14 +210,8 @@ class CombinedLike(object):
                 if self.verbose:
                     print 'Loaded %s from cache: %s%s'%(lists,lists,tag)
                 hist = np.load(self.cachedir+'%s%s.npy'%(lists,tag))
-                sl = StackLoader(name=lists,ctmin=self.ctmin,ctmax=self.ctmax,quiet=not self.veryverbose)
-                sl.loadds(self.cachedir+'%s%s.npy'%(lists,tag))
-                sl.ebar=self.ebar
-                sl.emin,sl.emax=self.emin,self.emax
-                sl.minroi,sl.maxroi=self.minroi,self.maxroi
-                sl.cls=ctype
-                sl.atb=[]
-                sl.bindata()
+                sl = cPickle.load(open(self.cachedir+'%s%s.pickle'%(lists,tag)))#StackLoader(name=lists,ctmin=self.ctmin,ctmax=self.ctmax,quiet=not self.veryverbose)
+                #sl.bindata()
                 sl.solveback()
                 self.sagns.append(sl.Npsf)
                 self.backs.append(sl.Nback)
@@ -228,11 +226,12 @@ class CombinedLike(object):
                 thetabar = thetabar+sum([p.ct for p in sl.photons])
                 sl.getds()
                 self.agns.append(np.array(cp.copy(sl.ds)))
-                sl.bindata()
+                #sl.bindata()
                 sl.solveback()
                 self.sagns.append(sl.Npsf)
                 self.backs.append(sl.Nback)
                 if self.cache:
+                    sl.spickle(self.cachedir+'%s%s.pickle'%(lists,tag))
                     np.save(self.cachedir+'%s%s.npy'%(lists,tag),np.array(cp.copy(sl.ds)))
                 del sl
         self.thetabar = 0.5*(self.ctmin+self.ctmax) if photons==0 else thetabar/photons
@@ -1160,7 +1159,7 @@ class CombinedLike(object):
     ######################################################################
     ## finds sigma gamma and fraction
     # @param double fits a double PSF
-    def fitpsf(self,double=False):
+    def fitpsf(self,double=False,pverbose=False):
         psf = uss.IrfLoader(self.irf)#CALDBPsf(CALDBManager(irf=self.irf))
         de = 0.45
         stest = psf.rcontain(psf.params(self.ebar,self.ctype)[:-1],0.39)*rd#psf.inverse_integral(self.ebar,self.ctype,39.)
@@ -1168,7 +1167,7 @@ class CombinedLike(object):
             if True:
                 #nc,nt,gc,gt,sc,st,w = psf.get_p(self.ebar,self.ctype)
                 sc,gc,nc,st,gt,nt,ea=psf.params(self.ebar,self.ctype)
-                pars = [sc*rd,gc,nc,st*rd,gt]
+                pars = [sc*rd,gc,0.5,st*rd,gt]
                 lims = [[0,100],[1,100],[0,100],[1,100],[0.5-de,0.5+de]]
             else:
                 #gc,si,w = psf.get_p(self.ebar,self.ctype)
@@ -1187,9 +1186,10 @@ class CombinedLike(object):
                 pars = [stest,gc]
                 lims = [[0,10],[1,10]]
         print pars
-        tolerance = abs(0.025/self.psflikelihood(pars))
+        tolerance = abs(0.0025/self.psflikelihood(pars))
         print tolerance
-        tmin = so.fmin_powell(lambda x: self.psflikelihood(x) if x[0]>0 else 1e40,pars,disp=0,full_output=1)
+        tmin = so.fmin_powell(lambda x: self.psflikelihood(x,pverbose) if x[0]>0 else 1e40,pars,ftol=tolerance,disp=0,full_output=1)
+        #tmin = so.fmin_powell(lambda x: self.psfchisq(x) if x[0]>0 else 1e40,pars,disp=0,full_output=1)
         print tmin[0]
 
         if not double:
@@ -1202,9 +1202,14 @@ class CombinedLike(object):
             psf1 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=tmin[0][0:2])
             psf2 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=tmin[0][3:5])
             alph = tmin[0][2]
+            tpars = [par for par in tmin[0]]
+            tpars.append(1.-tpars[2])
             ftot = alph*psf1.integral(0,40) + (1-alph)*psf2.integral(0,40)
             #print psf1.rcl(0.68),psf1.rcl(0.95)
-            print getfrac(0.68),getfrac(0.95)   #alph*psf1.rcl(0.68)+(1-alph)*psf2.rcl(0.68),alph*psf1.rcl(0.95)+(1-alph)*psf2.rcl(0.95)
+            #print getfrac(0.68),getfrac(0.95)   #alph*psf1.rcl(0.68)+(1-alph)*psf2.rcl(0.68),alph*psf1.rcl(0.95)+(1-alph)*psf2.rcl(0.95)
+            print tp68,tp95
+            tp68=psf.rcontain(tpars,0.68)
+            tp95=psf.rcontain(tpars,0.95)
             print tp68,tp95
             #print psf.inverse_integral(self.ebar,self.ctype,68.),psf.inverse_integral(self.ebar,self.ctype,95.)
         return np.insert(tmin[0],0,self.ebar)
@@ -1215,24 +1220,12 @@ class CombinedLike(object):
     ## finds sigma gamma and fraction
     # @param double fits a double PSF
     def psfchisq(self,pars):
-        psfs = []
-        fints = []
-        psf1 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=[pars[0],pars[1]])
-        fint1 = psf1.integral(psf1.lims[0],psf1.lims[1])
-        psfs.append(psf1)
-        fints.append(fint1)
-        alphas = [1.,0]
         if len(pars)>2:
-            alphas = [pars[4],1-pars[4]]
-            psf2 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=[pars[2],pars[3]])
-            fint2 = psf1.integral(psf2.lims[0],psf2.lims[1])
-            psfs.append(psf2)
-            fints.append(fint2)
-        tints = np.zeros(self.nbins)
-        for it,psf in enumerate(psfs):
-            cint = alphas[it]*np.array([psf.integral(self.angbins[it2],self.angbins[it2+1])/fints[it] for it2 in range(self.nbins)])
-            tints = tints + cint
-        chisqa = [((tints[it]-self.psf[it])/self.psfe[it])**2 if self.psfe[it]>0 else 0 for it in range(len(tints))]
+            pars2 = [par for par in pars]
+            pars2.append(1-pars[2])
+        tints = self.makepsf(pars2)
+        #print tints-self.psf[:-1]
+        chisqa = [((tints[it]-self.psf[it])/tints[it])**2 if self.psf[it]>0 else np.Infinity for it in range(len(tints))]
         chisq = sum(chisqa)
         #print string.join(['%1.6f '%par for par in pars]),chisq
         #t.sleep(0.25)
@@ -1254,7 +1247,7 @@ class CombinedLike(object):
     ######################################################################
     ## 
     # @param pars either 2 params [sigma,gamma] for single king, or 6 for double [score,gcore,ncore,stail,gtail,ntail]
-    def psflikelihood(self,pars):
+    def psflikelihood(self,pars,pverbose=False):
 
         if len(pars)==2:
             sig,gam=pars
@@ -1262,7 +1255,7 @@ class CombinedLike(object):
                 return 0
         else:
             sig,gam,nc,sig2,gam2=pars
-            if sig<0 or sig2<0 or nc<0 or nc>1 or gam<=1 or gam2<=1:
+            if sig<0 or sig2<0 or nc<0 or nc>1 or gam<=1 or gam2<=1 or gam>5 or gam2>5:
                 if self.verbose:
                     print 'Bad PSF'
                 return 0
@@ -1280,10 +1273,11 @@ class CombinedLike(object):
             #self.limits[it]=[fin,fin]
 
         ival = self.likelihood(np.log10(self.params))
-        tol = abs(0.0001/ival)
-        fval = so.fmin_powell(lambda z: self.likelihood(self.setargs(z)),np.log10(self.params[self.free]),ftol=tol,disp=0,full_output=1)[1]
-        if self.verbose:
+        tol = abs(0.01/ival)
+        tpars,fval = so.fmin_powell(lambda z: self.likelihood(self.setargs(z)),np.log10(self.params[self.free]),ftol=tol,disp=0,full_output=1)[0:2]
+        if pverbose:
             tstr = ''.join(['%1.3f\t'%(par) for par in pars])
+            tstr += ''.join(['%1.1f\t'%(10**par) for par in tpars])
             print tstr,'%1.1f'%(self.lmax-fval)
         
         self.params = cp.copy(params)
@@ -1292,6 +1286,7 @@ class CombinedLike(object):
         del params
         del fixed
         del free
+        del tpars
         #memory issues?
         #del self.minuit
         del fint
@@ -1397,8 +1392,8 @@ class CombinedLike(object):
         ax.set_xscale("log", nonposx='clip')
         err = np.ones(self.nbins)
         p1 = py.errorbar(self.midpts,(self.psf-self.psfm)/self.psfm,xerr=self.widths,yerr=self.psfe/self.psfm,ls='None',marker='o')[0]
-        cmask = self.psfe>0
-        chisq = sum(((self.psf[cmask]-self.psfm[cmask])**2/self.psfm[cmask]))
+        cmask = self.psfm>0
+        chisq = sum(((self.psf[cmask]-self.psfm[cmask])**2/(self.psfe[cmask])**2))
         
         py.grid()
         ma = max(abs((self.psf-self.psfm+self.psfe)/self.psfm))
@@ -2597,6 +2592,7 @@ def tabulatepulsars():
 ############### light curves for pulsars  ##################
 def makephaseplots(bins=100):
     import uw.utilities.fitstools as uuf
+
     vtb = pf.open(pulsdir+'vela-ft1.fits')[1].data
     vtb = vtb[vtb.field('THETA')<66.4]
     ras,decs,phases = vtb.field('RA'),vtb.field('DEC'),vtb.field('PULSE_PHASE')
@@ -2619,22 +2615,23 @@ def makephaseplots(bins=100):
         yhists = np.hstack([phist[0]/parea,phist[0][0]/parea[0]])/1e6#,phist[0]/parea,phist[0][0]/parea[0]])/1e6
         print phist[0],len(phist[0])
         onmask = ((pbins>0.1) & (pbins<0.15))# | ((pbins>0.5) & (pbins<0.6))
-        p1 = py.step(np.hstack([0.105,xhists[onmask],0.15]),np.hstack([0,yhists[onmask],0]),color='green',where='post',fillstyle='full')
+        p1 = py.step(np.hstack([0.105,xhists[onmask],0.15]),np.hstack([0,yhists[onmask],0]),color='grey',where='post',fillstyle='full',linewidth=2)
         onmask = (pbins>0.7)
-        p2 = py.step(np.hstack([0.707,xhists[onmask],1.0]),np.hstack([0,yhists[onmask],0]),color='red',where='post',fillstyle='full')
+        p2 = py.step(np.hstack([0.707,xhists[onmask],1.0]),np.hstack([0,yhists[onmask],0]),color='black',where='post',fillstyle='full',linewidth=2)
         py.legend((r'$\rm{On\/pulse}$',r'$\rm{Off\/pulse}$'))
         py.step(xhists,yhists,where='post',color='black')
         onmask = ((pbins>0.1) & (pbins<0.15))# | ((pbins>0.5) & (pbins<0.6))
-        py.step(np.hstack([0.105,xhists[onmask],0.15]),np.hstack([0,yhists[onmask],0]),color='green',where='post',fillstyle='full')
+        py.step(np.hstack([0.105,xhists[onmask],0.15]),np.hstack([0,yhists[onmask],0]),color='grey',where='post',fillstyle='full',linewidth=2)
         onmask = (pbins>0.7)
-        py.step(np.hstack([0.707,xhists[onmask],1.0]),np.hstack([0,yhists[onmask],0]),color='red',where='post',fillstyle='full')
+        py.step(np.hstack([0.707,xhists[onmask],1.0]),np.hstack([0,yhists[onmask],0]),color='black',where='post',fillstyle='full',linewidth=2)
         onmask = ((pbins>0.5) & (pbins<0.6))
-        py.step(np.hstack([0.5,xhists[onmask],0.597]),np.hstack([0,yhists[onmask],0]),color='green',where='post',fillstyle='full')
+        py.step(np.hstack([0.5,xhists[onmask],0.597]),np.hstack([0,yhists[onmask],0]),color='grey',where='post',fillstyle='full',linewidth=2)
         #py.step(np.hstack([mid,mid+1]),np.hstack([hist[0]-min(hist[0])+1,hist[0]-min(hist[0])+1]),where='mid',color='%1.2f'%(1.-1./(it+1)))
         #py.step(,hist[0]-min(hist[0])+1,where='mid',color='%1.2f'%(1.-1./(it+1)))
     #py.semilogy()
     py.xlabel(r'$\rm{Pulsar\/Phase}$')
     py.ylabel(r'$\rm{10^{6}\/Events/Bin\/Width}$')
+    py.ylim(0.01*max(yhists),1.2*max(yhists))
     py.savefig(figdir+'velaphase.png')
     py.savefig(figdir+'velaphase.eps')
     py.clf()
@@ -2660,20 +2657,21 @@ def makephaseplots(bins=100):
         yhists = np.hstack([phist[0]/parea,phist[0][0]/parea[0]])/1e6#,phist[0]/parea,phist[0][0]/parea[0]])/1e6
         print phist[0],len(phist[0])
         onmask = ((pbins>0.6) & (pbins<0.68))
-        py.step(np.hstack([0.6,xhists[onmask],0.68]),np.hstack([0,yhists[onmask],0]),color='green',where='post',fillstyle='full')
+        py.step(np.hstack([0.6,xhists[onmask],0.68]),np.hstack([0,yhists[onmask],0]),color='grey',where='post',fillstyle='full',linewidth=2)
         onmask = (pbins>0.25) & (pbins<0.55)
-        py.step(np.hstack([0.25,xhists[onmask],0.547]),np.hstack([0,yhists[onmask],0]),color='red',where='post',fillstyle='full')
+        py.step(np.hstack([0.25,xhists[onmask],0.547]),np.hstack([0,yhists[onmask],0]),color='black',where='post',fillstyle='full',linewidth=2)
         py.legend((r'$\rm{On\/pulse}$',r'$\rm{Off\/pulse}$'))
         py.step(xhists,yhists,where='post',color='black')
         onmask = ((pbins>0.1) & (pbins<0.17))# | ((pbins>0.5) & (pbins<0.6))
-        py.step(np.hstack([0.105,xhists[onmask],0.17]),np.hstack([0,yhists[onmask],0]),color='green',where='post',fillstyle='full')
+        py.step(np.hstack([0.105,xhists[onmask],0.17]),np.hstack([0,yhists[onmask],0]),color='grey',where='post',fillstyle='full',linewidth=2)
         onmask = ((pbins>0.6) & (pbins<0.68))
-        py.step(np.hstack([0.6,xhists[onmask],0.68]),np.hstack([0,yhists[onmask],0]),color='green',where='post',fillstyle='full')
+        py.step(np.hstack([0.6,xhists[onmask],0.68]),np.hstack([0,yhists[onmask],0]),color='grey',where='post',fillstyle='full',linewidth=2)
         onmask = (pbins>0.25) & (pbins<0.55)
-        py.step(np.hstack([0.25,xhists[onmask],0.547]),np.hstack([0,yhists[onmask],0]),color='red',where='post',fillstyle='full')
+        py.step(np.hstack([0.25,xhists[onmask],0.547]),np.hstack([0,yhists[onmask],0]),color='black',where='post',fillstyle='full',linewidth=2)
         #py.step(np.hstack([mid,mid+1]),np.hstack([hist[0]-min(hist[0])+1,hist[0]-min(hist[0])+1]),where='mid',color='%1.2f'%(1.-1./(it+1)))
         #py.step(,hist[0]-min(hist[0])+1,where='mid',color='%1.2f'%(1.-1./(it+1)))
     py.xlabel(r'$\rm{Pulsar\/Phase}$')
     py.ylabel(r'$\rm{10^{6}\/Events/Bin\/Width}$')
+    py.ylim(0.01*max(yhists),1.2*max(yhists))
     py.savefig(figdir+'gemphase.png')
     py.savefig(figdir+'gemphase.eps')
