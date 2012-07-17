@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: mar0  Tue Jul 17 12:14:24 PDT 2012
+pointlike/python/uw/stacklike
+
+Modified Files:
+	angularmodels.py binned.py dataset.py fitsmooth.py 
+	stacklike.py 
+Log Message:
+fixed some broken features in PSF fitter
+    *
+------------------------------------------------------------
 User: lande  Mon Jul 16 14:33:13 PDT 2012
 pointlike/cmt
 
