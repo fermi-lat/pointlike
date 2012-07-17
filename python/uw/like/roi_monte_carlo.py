@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.62 2012/07/16 16:44:09 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.63 2012/07/17 22:26:58 lande Exp $
 
 author: Joshua Lande
 """
@@ -645,7 +645,7 @@ class MCModelBuilder(object):
         dm=ds.dmodel[0]
         sm=ds.smodel
 
-        if not MonteCarlo.isone(sm):
+        if not MCModelBuilder.isone(sm):
             raise Exception("Can only run gtobssim with IsotropicSpectrum diffuse models if model predicts 1.")
 
         spectral_file=dm.name()
@@ -660,7 +660,7 @@ class MCModelBuilder(object):
         dm=ds.dmodel[0]
         sm=ds.smodel
 
-        if not MonteCarlo.isone(sm):
+        if not MCModelBuilder.isone(sm):
             raise Exception("Can only run gtobssim with DiffuseFunction diffuse models if model predicts 1.")
 
         # flux in ph/cm^2/s/sr b/n 100MeV & infinity
@@ -855,7 +855,7 @@ class MCModelBuilder(object):
         sm=ds.smodel
 
         # galactic diffuse
-        if not MonteCarlo.isone(sm):
+        if not MCModelBuilder.isone(sm):
             raise Exception("Can only run gtobssim with DiffuseFunction diffuse models where the spectral model is a PowerLaw with norm and index 1.")
 
         allsky_filename=dm.name()
