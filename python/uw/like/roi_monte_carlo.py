@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.61 2012/07/06 00:45:18 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.62 2012/07/16 16:44:09 lande Exp $
 
 author: Joshua Lande
 """
@@ -302,136 +302,45 @@ class DiffuseShrinker(FitsShrinker):
 class NoSimulatedPhotons(Exception):
     pass
 
-class MonteCarlo(object):
-    """ This object allowes for the simulation of data. Simply pass in
-        a list of point sources and a list of diffuse sources and the
-        object will simulate the region.
 
-        The simulated data will get stored in the file 'ft1'. If you pass
-        in a valid ft2 file, the data will be simulted using that pointing
-        history. Otherwise, a default rocking profile will be used.  """
+class MCModelBuilder(object):
+    """ Object builds a gtobssim-style sml file. 
+    
+        Usage:
 
+            b=MCModelBuilder(sources,
+                savedir='output_folder',
+                emin=emin,
+                emax=emax)
+            b.build(xmlname='source_library.xml',
+                    srclistname='source_list.txt')
+
+    """
     defaults = (
             ('savedir',         None, " If specified, save temporary files to this directory."),
-            ('tempbase', '/scratch/', " Directory to put temporary files in. Can be cleaned up with the cleanup function."),
-            ('tstart',          None, " Required if ft2 does not point to a real file."),
-            ('tstop',           None, " Required if ft2 does not point to a real file."),
-            ('ft2',             None, " If exists, simulate with this ft2 file. If not, create."),
-            ('ltfrac',          None, " If set, pass value into gtobssim."),
             ('emin',             100, " Minimum energy"),
             ('emax',          100000, " Maximum energy"),
-            ('conv_type',         -1, " Conversion Type"),
             ('roi_dir',         None, " Center of ROI. Gtobssim will use the use_ac flag if this is specified."),
             ('maxROI',          None, " Maximum ROI Size. Gtobssim will use the use_ac flag if this is specified."),
             ('quiet',          False, " Surpress output."),
-            ('mc_energy',      False, " Use MC Energy"),
-            ('gtifile',         None, " Make the simulated data have only the same GTIs as the GTIs in this file (typically an ft1 file or ltcube)."),
             ('diffuse_pad',     10.0, " How many area outside ROI should the diffuse emission be simulated to account for energy dispersion."),
-            ('roi_pad',          5.0, " Include counts from this far ouside maxROI in the ft1 file to account for ragged edge effect in pointlike."),
             ('energy_pad',       2.0, """ Lower energy of simluated photons is emin/energy_bad and 
                                           upper energy of simulated photos is energy_pad*emax.
                                           This allows for energy dispersion effects to be 
                                           naturally accounted for in the monte carlos simulation. """),
-            ('zmax',            None, "Apply a gtselect zenith angle cut with gtselect to the simulated ft1 files."),
     )
 
-    @staticmethod
-    def strip(name):
-        """ Create source names that can be used in files and gtobssim's xml.
-            strip out periods and parenthesis.
-            Replace sapces with underbars, pluses and minumes with p & m,
-            and put an underbar in the front of the name if it begins
-            with a digit. """
-        name = name.replace(' ', '_').replace('+','p').replace('-','m')
-        name = re.sub('[\.()]','',name)
-        if name[0].isdigit(): name = '_' + name
-        return name
-
-    @decorate(defaults)
-    def __init__(self,ft1,irf, sources, seed, **kwargs):
+    @keyword_options.decorate(defaults)
+    def __init__(self, sources, **kwargs):
         """ Constructor does not require a data_specification. """
-        process(self, kwargs)
-
-        self.ft1=ft1
-        self.irf=irf
-        self.sources=sources
-        self.seed=seed
-
-        if self.savedir is not None:
-            self.savedir=os.path.abspath(self.savedir)
-            if not os.path.exists(self.savedir):
-                os.makedirs(self.savedir)
-            self.save_output=True
-        else:
-            if not os.path.isdir(self.tempbase):
-                raise Exception("Argument tempbase must point to a directory where temporary files can be placed.")
-            self.savedir=mkdtemp(prefix=self.tempbase)
-            self.save_output=False
-
-
-        if not isinstance(self.ft1,types.StringType):
-            if len(self.ft1) != 1: raise Exception(dedent("""\
-                                                          Exactly one ft1 file may be specified by roi_monte_carlo script
-                                                          (%s were acutally specified)""" % len(self.ft1)))
-            self.ft1=self.ft1[0]
-
-        if not isinstance(self.ft2,types.StringType):
-            if len(self.ft2) != 1: raise Exception(dedent("""\
-                                                   Exactly one ft2 file may be specified by roi_monte_carlo script
-                                                   (%s were acutally specified)""" % len(self.ft2)))
-            self.ft2=self.ft2[0]
-
-        self.ft1 = path.expand(self.ft1)
-        self.ft2 = path.expand(self.ft2)
-
-        if os.path.exists(self.ft1):
-            raise Exception("Unable to run MC simulation because file %s already exists." % self.ft1)
-
-        if self.ft2 is not None and os.path.exists(self.ft2):
-            self.use_existing_ft2 = True
-        else:
-            self.use_existing_ft2 = False
-
-        if self.use_existing_ft2:
-            if self.tstart is not None or self.tstop is not None:
-                raise Exception("Since simulating from exisitng ft2 file, tstart and tstop can not be set.")
-        else:
-            if self.tstart is None or self.tstop is None:
-                raise Exception("tstart and tstop must be specified since ft2 does not exist.")
-
-            if self.tstop - self.tstart < 1: raise Exception("tstart and tstop must describe a real range.")
-
-        if self.use_existing_ft2: 
-            self.tstart, self.tstop = self.get_time_from_ft2(self.ft2)
-
-        if self.use_existing_ft2:
-            if self.gtifile: 
-                self.gtifile = path.expand(self.gtifile)
-            else:
-                print "Since an already existing ft2 file is set, it is strongly recommended that you specify a file with the desired GTIs (typically the ft1 or ltcube file."
-        else:
-            if self.gtifile:
-                raise Exception("gtifile can only be set for existing ft2 files.")
-
-        if self.maxROI is not None and self.roi_dir is None or \
-           self.maxROI is None and self.roi_dir is not None:
-            raise Exception("maxROI and roi_dir must both be set.")
-
-    @staticmethod
-    def get_time_from_ft2(ft2):
-        # Note, get the start & stop times from the actual
-        # data instead of the fits header
-        # See https://jira.slac.stanford.edu/browse/OBS-18
-        ft2 = pyfits.open(path.expand(ft2))
-        tstart = ft2['SC_DATA'].data.field('START')[0]
-        tstop = ft2['SC_DATA'].data.field('STOP')[-1]
-        ft2.close()
-        return tstart, tstop
+        self.sources = sources
+        keyword_options.process(self, kwargs)
 
     def larger_energy_range(self):
         """ Get an energy range larger then the desired simulated points
             (to correct for energy dispersion). """
         return self.emin/self.energy_pad,self.energy_pad*self.emax
+
 
     def _make_ps(self,ps,mc_emin,mc_emax,indent):
 
@@ -923,7 +832,6 @@ class MonteCarlo(object):
             # multiply by solid angle to convert to ph/m^2
             flux*=MonteCarlo.spatial_integrator_2d(spatial_file)
 
-
             ds = [ 
                 '<source name="%s">' % MonteCarlo.strip(ds.name),
                 '  <spectrum escale="MeV">',
@@ -940,10 +848,6 @@ class MonteCarlo(object):
             raise Exception("Unable to create XML for source %s" % ds.name)
 
         return indent+('\n'+indent).join(ds)
-
-
-
-
 
     def _make_diffuse(self,ds,mc_emin,mc_emax,indent):
 
@@ -1015,7 +919,7 @@ class MonteCarlo(object):
         else:
             raise Exception("Can not simulate diffuse source %s. Unknown diffuse source type %s." % (ds.name,type(ds.dmodel[0])))
             
-    def _make_model(self,indent='  '):
+    def build(self, xmlname='source_library.xml',srclistname='source_list.txt', indent='  '):
 
         xml = ['<source_library title="Library">']
         src = []
@@ -1045,15 +949,142 @@ class MonteCarlo(object):
 
         xml.append('</source_library>')
     
-        self.xmlfile=os.path.join(self.savedir,'source_library.xml')
+        self.xmlfile=os.path.join(self.savedir,xmlname)
         temp=open(self.xmlfile,'w')
         temp.write('\n'.join(xml))
         temp.close()
 
-        self.srclist=os.path.join(self.savedir,'source_list.txt')
+        self.srclist=os.path.join(self.savedir,srclistname)
         temp=open(self.srclist,'w')
         temp.write('\n'.join(src))
         temp.close()
+
+
+class MonteCarlo(object):
+    """ This object allowes for the simulation of data. Simply pass in
+        a list of point sources and a list of diffuse sources and the
+        object will simulate the region.
+
+        The simulated data will get stored in the file 'ft1'. If you pass
+        in a valid ft2 file, the data will be simulted using that pointing
+        history. Otherwise, a default rocking profile will be used.  """
+
+    defaults = (
+            ('savedir',         None, " If specified, save temporary files to this directory."),
+            ('tempbase', '/scratch/', " Directory to put temporary files in. Can be cleaned up with the cleanup function."),
+            ('tstart',          None, " Required if ft2 does not point to a real file."),
+            ('tstop',           None, " Required if ft2 does not point to a real file."),
+            ('ft2',             None, " If exists, simulate with this ft2 file. If not, create."),
+            ('ltfrac',          None, " If set, pass value into gtobssim."),
+            ('emin',             100, " Minimum energy"),
+            ('emax',          100000, " Maximum energy"),
+            ('conv_type',         -1, " Conversion Type"),
+            ('roi_dir',         None, " Center of ROI. Gtobssim will use the use_ac flag if this is specified."),
+            ('maxROI',          None, " Maximum ROI Size. Gtobssim will use the use_ac flag if this is specified."),
+            ('quiet',          False, " Surpress output."),
+            ('mc_energy',      False, " Use MC Energy"),
+            ('gtifile',         None, " Make the simulated data have only the same GTIs as the GTIs in this file (typically an ft1 file or ltcube)."),
+            ('diffuse_pad',     10.0, " How many area outside ROI should the diffuse emission be simulated to account for energy dispersion."),
+            ('roi_pad',          5.0, " Include counts from this far ouside maxROI in the ft1 file to account for ragged edge effect in pointlike."),
+            ('energy_pad',       2.0, """ Lower energy of simluated photons is emin/energy_bad and 
+                                          upper energy of simulated photos is energy_pad*emax.
+                                          This allows for energy dispersion effects to be 
+                                          naturally accounted for in the monte carlos simulation. """),
+            ('zmax',            None, "Apply a gtselect zenith angle cut with gtselect to the simulated ft1 files."),
+    )
+
+    @staticmethod
+    def strip(name):
+        """ Create source names that can be used in files and gtobssim's xml.
+            strip out periods and parenthesis.
+            Replace sapces with underbars, pluses and minumes with p & m,
+            and put an underbar in the front of the name if it begins
+            with a digit. """
+        name = name.replace(' ', '_').replace('+','p').replace('-','m')
+        name = re.sub('[\.()]','',name)
+        if name[0].isdigit(): name = '_' + name
+        return name
+
+    @keyword_options.decorate(defaults)
+    def __init__(self,ft1,irf, sources, seed, **kwargs):
+        """ Constructor does not require a data_specification. """
+        keyword_options.process(self, kwargs)
+
+        self.ft1=ft1
+        self.irf=irf
+        self.sources=sources
+        self.seed=seed
+
+        if self.savedir is not None:
+            self.savedir=os.path.abspath(self.savedir)
+            if not os.path.exists(self.savedir):
+                os.makedirs(self.savedir)
+            self.save_output=True
+        else:
+            if not os.path.isdir(self.tempbase):
+                raise Exception("Argument tempbase must point to a directory where temporary files can be placed.")
+            self.savedir=mkdtemp(prefix=self.tempbase)
+            self.save_output=False
+
+
+        if not isinstance(self.ft1,types.StringType):
+            if len(self.ft1) != 1: raise Exception(dedent("""\
+                                                          Exactly one ft1 file may be specified by roi_monte_carlo script
+                                                          (%s were acutally specified)""" % len(self.ft1)))
+            self.ft1=self.ft1[0]
+
+        if not isinstance(self.ft2,types.StringType):
+            if len(self.ft2) != 1: raise Exception(dedent("""\
+                                                   Exactly one ft2 file may be specified by roi_monte_carlo script
+                                                   (%s were acutally specified)""" % len(self.ft2)))
+            self.ft2=self.ft2[0]
+
+        self.ft1 = path.expand(self.ft1)
+        self.ft2 = path.expand(self.ft2)
+
+        if os.path.exists(self.ft1):
+            raise Exception("Unable to run MC simulation because file %s already exists." % self.ft1)
+
+        if self.ft2 is not None and os.path.exists(self.ft2):
+            self.use_existing_ft2 = True
+        else:
+            self.use_existing_ft2 = False
+
+        if self.use_existing_ft2:
+            if self.tstart is not None or self.tstop is not None:
+                raise Exception("Since simulating from exisitng ft2 file, tstart and tstop can not be set.")
+        else:
+            if self.tstart is None or self.tstop is None:
+                raise Exception("tstart and tstop must be specified since ft2 does not exist.")
+
+            if self.tstop - self.tstart < 1: raise Exception("tstart and tstop must describe a real range.")
+
+        if self.use_existing_ft2: 
+            self.tstart, self.tstop = self.get_time_from_ft2(self.ft2)
+
+        if self.use_existing_ft2:
+            if self.gtifile: 
+                self.gtifile = path.expand(self.gtifile)
+            else:
+                print "Since an already existing ft2 file is set, it is strongly recommended that you specify a file with the desired GTIs (typically the ft1 or ltcube file."
+        else:
+            if self.gtifile:
+                raise Exception("gtifile can only be set for existing ft2 files.")
+
+        if self.maxROI is not None and self.roi_dir is None or \
+           self.maxROI is None and self.roi_dir is not None:
+            raise Exception("maxROI and roi_dir must both be set.")
+
+    @staticmethod
+    def get_time_from_ft2(ft2):
+        # Note, get the start & stop times from the actual
+        # data instead of the fits header
+        # See https://jira.slac.stanford.edu/browse/OBS-18
+        ft2 = pyfits.open(path.expand(ft2))
+        tstart = ft2['SC_DATA'].data.field('START')[0]
+        tstop = ft2['SC_DATA'].data.field('STOP')[-1]
+        ft2.close()
+        return tstart, tstop
 
     @staticmethod
     def gtmktime_from_file(evfile, scfile, outfile, gtifile):
@@ -1094,7 +1125,11 @@ class MonteCarlo(object):
 
         if not self.quiet: print 'working in directory',self.savedir
         os.chdir(self.savedir)
-        self._make_model()
+
+        xml_builder = MCModelBuilder(sources=self.sources, **keyword_options.defaults_to_kwargs(self,MCModelBuilder))
+        xml_builder.build()
+        self.xmlfile=xml_builder.xmlfile
+        self.srclist=xml_builder.srclist
 
         irfs=self.irf
 
