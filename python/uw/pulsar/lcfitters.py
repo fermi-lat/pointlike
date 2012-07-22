@@ -9,13 +9,14 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.34 2012/06/05 01:20:48 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.35 2012/06/28 22:14:51 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
 """
 
 import numpy as np
+from copy import deepcopy
 from scipy.optimize import fmin,fmin_tnc,leastsq
 from uw.pulsar.stats import z2mw,hm,hmw
 
@@ -92,7 +93,7 @@ class UnweightedLCFitter(object):
         self.gradient = self.unbinned_gradient
 
     def _hist_setup(self):
-        """ Setup binning for a quick chi-squared fit."""
+        """ Setup data for chi-squared and binned likelihood."""
         h = hm(self.phases)
         nbins = 25
         if h > 100: nbins = 50
@@ -112,34 +113,43 @@ class UnweightedLCFitter(object):
         self.counts = hist[0][hist[0]>0]
 
     def unbinned_loglikelihood(self,p,*args):
-        args[0].set_parameters(p); t = self.template
+        t = self.template
+        t.set_parameters(p);
         if (not t.shift_mode) and np.any(p<0):
             return 2e20
-        args[0].set_parameters(p)
+        t.set_parameters(p)
         rvals = -np.log(t(self.phases)).sum()
         if np.isnan(rvals): return 2e20 # NB need to do better accounting of norm
         return rvals
 
     def binned_loglikelihood(self,p,*args):
-        args[0].set_parameters(p); t = self.template
+        t = self.template
+        t.set_parameters(p);
         if (not t.shift_mode) and np.any(p<0):
             return 2e20
         return -(self.counts*np.log(t(self.counts_centers))).sum()
+
+    def __call__(self):
+        """ Shortcut for log likelihood at current param values."""
+        return self.loglikelihood(self.template.get_parameters())
       
     def unbinned_gradient(self,p,*args):
-        args[0].set_parameters(p); t = self.template
+        t = self.template
+        t.set_parameters(p);
         return -(t.gradient(self.phases)/t(self.phases)).sum(axis=1)
 
     def binned_gradient(self,p,*args):
-        args[0].set_parameters(p); t = self.template
+        t = self.template
+        t.set_parameters(p);
         return -(self.counts*t.gradient(self.counts_centers)/t(self.counts_centers)).sum(axis=1)
 
     def chi(self,p,*args):
         x,y,yerr = self.chistuff
+        t = self.template
         if not self.template.shift_mode and np.any(p < 0):
             return 2e100*np.ones_like(x)/len(x)
-        args[0].set_parameters(p)
-        chi = (self.template(x) - y)/yerr
+        t.set_parameters(p)
+        chi = (t(x) - y)/yerr
         return chi
 
     def quick_fit(self):
@@ -175,11 +185,16 @@ class UnweightedLCFitter(object):
         else:
             self.loglikelihood = self.binned_loglikelihood
             self.gradient = self.binned_gradient
-
          
-    def fit(self,quick_fit_first=False, unbinned=True, use_gradient=True, positions_first=False, estimate_errors=False):
-
+    def fit(self,quick_fit_first=False, unbinned=True, use_gradient=True, positions_first=False, estimate_errors=False,prior=None, unbinned_refit=True):
+        # NB use of priors currently not supported by quick_fit, positions first, etc.
         self._set_unbinned(unbinned)
+        if (prior is not None) and (len(prior) > 0):
+            fit_func = lambda x: self.loglikelihood(x)+prior(x)
+            grad_func = lambda x: self.gradient(x) + prior.gradient(x)
+        else:
+            fit_func = self.loglikelihood
+            grad_func = self.gradient
 
         if positions_first:
             print 'Running positions first'
@@ -190,13 +205,21 @@ class UnweightedLCFitter(object):
         # an initial chi squared fit to find better seed values
         if quick_fit_first: self.quick_fit()
 
-        ll0 = -self.loglikelihood(self.template.get_parameters(),self.template)
+        ll0 = -fit_func(self.template.get_parameters())
         p0 = self.template.get_parameters().copy()
         if use_gradient:
-            f = self.fit_tnc()
+            f = self.fit_tnc(fit_func,grad_func)
         else:
-            f = self.fit_fmin()
+            f = self.fit_fmin(fit_func)
         if (ll0 > self.ll) or (self.ll==-2e20) or (np.isnan(self.ll)):
+            if unbinned_refit and np.isnan(self.ll) and (not unbinned):
+                if (self.binned_bins*2) < 400:
+                    print 'Did not converge using %d bins... retrying with %d bins...'%(self.binned_bins,self.binned_bins*2)
+                    self.template.set_parameters(p0)
+                    self.ll = ll0; self.fitvals = p0
+                    self.binned_bins *= 2
+                    self._hist_setup()
+                    return self.fit(quick_fit_first=quick_fit_first, unbinned=unbinned, use_gradient=use_gradient, positions_first=positions_first, estimate_errors=estimate_errors,prior=prior)
             self.bad_p = self.template.get_parameters().copy()
             print 'Failed likelihood fit -- resetting parameters.'
             self.template.set_parameters(p0)
@@ -207,8 +230,9 @@ class UnweightedLCFitter(object):
                 self.bootstrap_errors(set_errors=True)
         return True
 
-    def fit_fmin(self,ftol=1e-5):
-        fit = fmin(self.loglikelihood,self.template.get_parameters(),args=(self.template,),disp=0,ftol=ftol,full_output=True)
+    def fit_fmin(self,fit_func,ftol=1e-5):
+        x0 = self.template.get_parameters()
+        fit = fmin(fit_func,x0,disp=0,ftol=ftol,full_output=True)
         self.fitval = fit[0]
         self.ll  = -fit[1]
         return fit
@@ -228,16 +252,21 @@ class UnweightedLCFitter(object):
         self.cov_matrix = fit[3]
         return fit
 
-    def fit_tnc(self,ftol=1e-5):
+    def fit_tnc(self,fit_func,grad_func,ftol=1e-5):
+        x0 = self.template.get_parameters()
         bounds = self.template.get_bounds()
-        fit = fmin_tnc(self.loglikelihood,self.template.get_parameters(),fprime=self.gradient,args=(self.template,),ftol=ftol,pgtol=1e-5,bounds=bounds,maxfun=2000,messages=8)
+        fit = fmin_tnc(fit_func,x0,fprime=grad_func,ftol=ftol,pgtol=1e-5,
+                       bounds=bounds,maxfun=2000,messages=8)
         self.fitval = fit[0]
-        self.ll = -self.loglikelihood(self.template.get_parameters(),self.template)
+        self.ll = -fit_func(self.template.get_parameters())
         return fit
 
     def fit_l_bfgs_b(self):
         from scipy.optimize import fmin_l_bfgs_b
-        fit = fmin_l_bfgs_b(self.loglikelihood,self.template.get_parameters(),fprime=self.gradient,args=(self.template,),bounds=self.template.get_bounds(),factr=1e-5)
+        x0 = self.template.get_parameters()
+        bounds = self.template.get_bounds()
+        fit = fmin_l_bfgs_b(self.loglikelihood,x0,fprime=self.gradient,
+                            bounds=bounds,factr=1e-5)
         return fit
 
     def hess_errors(self):
@@ -299,10 +328,32 @@ class UnweightedLCFitter(object):
     def write_template(self,outputfile='template.gauss'):
         s = self.template.prof_string(outputfile=outputfile)
 
-    def plot(self,nbins=50,fignum=2, axes=None):
+    def remove_component(self,index,steps=5,fit_kwargs={}):
+        """ Gradually remove a component from a model by refitting and
+            return new LCTemplate object."""
+        if len(self.template)==1:
+            raise ValueError('Template only has one component -- removing it would be madness!')
+        old_p = self.template.get_parameters()
+        old_f = self.template.norms.free.copy()
+        vals = np.arange(steps).astype(float)/np.arange(1,steps+1)
+        vals = vals[::-1]*self.template.norms()[index]
+        self.template.norms.free[index] = False
+        #self.template.primitives[index].free[:] = False
+        for v in vals:
+            self.template.norms.set_single_norm(index,v)
+            if 'unbinned' not in fit_kwargs:
+                fit_kwargs['unbinned'] = False
+            self.fit(**fit_kwargs)
+        t = self.template.delete_primitive(index)
+        self.template.norms.free[:] = old_f
+        self.template.set_parameters(old_p)
+        return t
+
+    def plot(self,nbins=50,fignum=2, axes=None, plot_components=False, template=None):
         import pylab as pl
         weights = self.weights
         dom = np.linspace(0,1,200)
+        if template is None: template = self.template
 
         if axes is None:
             fig = pl.figure(fignum)
@@ -312,18 +363,24 @@ class UnweightedLCFitter(object):
         if weights is not None:
             bg_level = 1-(weights**2).sum()/weights.sum()
             axes.axhline(bg_level,color='blue')
-            cod = self.template(dom)*(1-bg_level)+bg_level
-            axes.plot(dom,cod,color='blue')
+            #cod = template(dom)*(1-bg_level)+bg_level
+            #axes.plot(dom,cod,color='blue')
             x,w1,errors = weighted_light_curve(nbins,self.phases,weights,normed=True)
             x = (x[:-1]+x[1:])/2
             axes.errorbar(x,w1,yerr=errors,capsize=0,marker='',ls=' ',color='red')
         else:
-            cod = self.template(dom)
-            axes.plot(dom,cod,color='blue',lw=1)
+            bg_level = 1
+            #axes.plot(dom,cod,color='blue',lw=1)
             h = np.histogram(self.phases,bins=np.linspace(0,1,nbins+1))
             x = (h[1][:-1]+h[1][1:])/2
             n = float(h[0].sum())/nbins
             axes.errorbar(x,h[0]/n,yerr=h[0]**0.5/n,capsize=0,marker='',ls=' ',color='red')
+        cod = template(dom)*(1-bg_level)+bg_level
+        axes.plot(dom,cod,color='blue',lw=1)
+        if plot_components:
+            for i in xrange(len(template.primitives)):
+                cod = template.single_component(dom,i)*(1-bg_level)+bg_level
+                axes.plot(dom,cod,color='blue',lw=1,ls='--')
         pl.axis([0,1,pl.axis()[2],max(pl.axis()[3],cod.max()*1.05)])
         axes.set_ylabel('Normalized Profile')
         axes.set_xlabel('Phase')
@@ -355,6 +412,29 @@ class UnweightedLCFitter(object):
         self.__dict__ = state
         self.loglikelihood = self.unbinned_loglikelihood
         self.gradient = self.unbinned_gradient
+
+    def aic(self,template=None):
+        """ Return the Akaike information criterion for the current state."""
+        if template is not None:
+            template,self.template = self.template,template
+        else:
+            template = self.template
+        nump = len(template.get_parameters())
+        ts = 2*(nump+self())
+        self.template = template
+        return ts
+
+    def bic(self,template=None):
+        """ Return the Bayesian information criterion for the current state."""
+        if template is not None:
+            template,self.template = self.template,template
+        else:
+            template = self.template
+        nump = len(self.template.get_parameters())
+        n = len(self.phases()) if (self.weights is None) else self.weights.sum()
+        ts = nump*np.log(n)+2*self()
+        self.template = template
+        return ts
 
 class WeightedLCFitter(UnweightedLCFitter):
 
@@ -402,14 +482,16 @@ class WeightedLCFitter(UnweightedLCFitter):
         return chi
 
     def unbinned_loglikelihood(self,p,*args):
-        args[0].set_parameters(p); t = self.template
+        t = self.template
+        t.set_parameters(p);
         if (t.norm()>1) or (not t.shift_mode and np.any(p<0)):
             return 2e20
         return -np.log(1+self.weights*(t(self.phases)-1)).sum()
         #return -np.log(1+self.weights*(self.template(self.phases,suppress_bg=True)-1)).sum()
 
     def binned_loglikelihood(self,p,*args):
-        args[0].set_parameters(p); t = self.template
+        t = self.template
+        t.set_parameters(p)
         if (t.norm()>1) or (not t.shift_mode and np.any(p<0)):
             return 2e20
         template_terms = t(self.counts_centers)-1
@@ -419,14 +501,16 @@ class WeightedLCFitter(UnweightedLCFitter):
         return -np.log(1+self.weights*phase_template_terms).sum()
 
     def unbinned_gradient(self,p,*args):
-        args[0].set_parameters(p); t = self.template
+        t = self.template
+        t.set_parameters(p)
         if t.norm()>1: return np.ones_like(p)*2e20
         numer = self.weights*t.gradient(self.phases)
         denom = 1+self.weights*(t(self.phases)-1)
         return -(numer/denom).sum(axis=1)
 
     def binned_gradient(self,p,*args):
-        args[0].set_parameters(p); t = self.template
+        t = self.template
+        t.set_parameters(p)
         if t.norm()>1: return np.ones_like(p)*2e20
         nump = len(p)
         template_terms = t(self.counts_centers)-1
