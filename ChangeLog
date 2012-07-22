@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sun Jul 22 11:32:29 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lctemplate.py 
+Log Message:
+Added gaussian priors and other code to support LC classification.
+
+    *
+------------------------------------------------------------
 User: kerrm  Sun Jul 22 11:31:41 PDT 2012
 pointlike/python/uw/pulsar
 
