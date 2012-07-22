@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/itemplate.py,v 1.3 2011/07/21 20:13:00 paulr Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/itemplate.py,v 1.4 2012/01/27 19:10:05 kerrm Exp $
 
 Provide a method for interactively fitting a multi-gaussian template to data.
 
@@ -9,9 +9,11 @@ Authors: Paul S. Ray <paul.ray@nrl.navy.mil>
 """
 import numpy as np
 import pylab as pl
+import os
 import pyfits
 from lcprimitives import LCGaussian,LCKernelDensity,LCEmpiricalFourier
-from lcfitters import LCTemplate,LCFitter
+from lcfitters import LCFitter
+from lctemplate import LCTemplate
 from lcspeclike import light_curve
 from optparse import OptionParser
 
@@ -130,7 +132,11 @@ if __name__ == '__main__':
         intf = InteractiveFitter(phases,nbins=options.nbins,weights=weights)
         intf.do_fit()
 
-        if options.prof is not None: out = options.prof
+        if options.prof is not None:
+            # check that specified directory exists
+            out = options.prof
+            if not os.path.exists(os.path.dirname(out)):
+                raise IOError('Specified directory %s does not exist!'%(os.path.dirname(out)))
         else:
             out = ''
             out = raw_input('Enter filename for gaussian profile output file, or just hit ENTER to exit...:  ')
