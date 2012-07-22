@@ -130,7 +130,7 @@ class Profile(object):
         a2 = (np.cos(ph)*vals).sum()
         self.fidpt = np.arctan2(a1,a2)/TWOPI
 
-    def get_amplitudes(self,align_to_peak=True,bin_goal=None,phase_shift=0):
+    def get_amplitudes(self,align_to_peak=True,bin_goal=None,phase_shift=0,phases=None):
         """ Produce an ordered list of amplitudes as a function of phase,
             rotated such that the fiducial point is at 0.  The profile 
             is re-binned with linear interpolation.
@@ -140,12 +140,13 @@ class Profile(object):
             
             bin_goal [None] -- will attempt to average the light curve to
                 between between bin_goal and 2xbin_goal bins"""
-        try:
-            phases = np.loadtxt(self.pfile,comments='#')[:,self.ncol-1]
-        except IndexError:
-            phases = np.loadtxt(self.pfile,comments='#')
-        if len(phases.shape) > 1:
-            raise ValueError('Could not read profile values.')
+        if phases is None:
+            try:
+                phases = np.loadtxt(self.pfile,comments='#')[:,self.ncol-1]
+            except IndexError:
+                phases = np.loadtxt(self.pfile,comments='#')
+            if len(phases.shape) > 1:
+                raise ValueError('Could not read profile values.')
 
         if align_to_peak:
             a = np.argmax(phases)
@@ -169,3 +170,57 @@ class Profile(object):
                 rvals = (rvals[:-1:2]+rvals[1::2])/2
         #return rvals,self.fidpt+align_shift,self.fidpt-align_shift
         return rvals,self.fidpt-align_shift
+
+class FullStokesProfile(Profile):
+    """ Handle a pulsar profile with all Stokes parameters."""
+
+    def init(self):
+        # the columns in the text file for I, Q, U, V
+        self.fscol = [4,5,6,7,8,9]
+
+    def __init__(self,profile,jname=None,**kwargs):
+        """ profile -- the (ASCII) radio profile file """
+        # TO DO -- switch this so that it calls pdv
+        #keyword_options.process(self,kwargs)
+        self.init()
+        self.__dict__.update(kwargs)
+        self.pfile = profile
+        self.jname = jname
+        self.obs = None
+
+        ### default values -- will be updated automatically for profile type
+        self.ncol = 2 # the ascii column with the Stokes I parameter (from 1)
+        self.freq = 1.4 # observing freq in GHz
+        self.fidpt = 0 # fiducial point of TOAs relative to profile
+        ###
+
+    def _get_rms(self):
+        # way fragile
+        return float(file('/tmp/tmp').readlines()[0].split('RMS: ')[-1])
+    
+    def _get_data(self):
+        #try:
+        data = np.loadtxt(self.pfile,comments='#')
+        return np.asarray([data[:,col-1] for col in self.fscol])
+        #except:
+        #    print 'Could not read data!'
+        #    raise ValueError
+
+    def get_intensity(self,**kwargs):
+        i,q,u,v,pa,pae = self._get_data()
+        return self.get_amplitudes(phases=i,**kwargs)
+        
+    def get_position_angles(self,**kwargs):
+        i,q,u,v,pa,pae = self._get_data()
+        #return self.get_amplitudes(phases=0.5*np.degrees(np.arctan2(u,q)),**kwargs)
+        return pa,pae
+
+    def get_linear_intensity(self,**kwargs):
+        i,q,u,v,pa,pae = self._get_data()
+        return self.get_amplitudes(phases=(q**2+u**2)**0.5,**kwargs)
+
+    def get_circular_intensity(self,**kwargs):
+        i,q,u,v,pa,pae = self._get_data()
+        return self.get_amplitudes(phases=v,**kwargs)
+        
+        
