@@ -1,13 +1,14 @@
 """
 A module implementing a mixture model of LCPrimitives to form a
 normalized template representing directional data.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.3 2012/03/12 19:59:41 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.4 2012/03/14 00:17:50 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
 """
 
 import numpy as np
+from copy import deepcopy
 from lcnorm import NormAngles
 from lcprimitives import *
 
@@ -36,6 +37,7 @@ class LCTemplate(object):
 
     def __getitem__(self,index): return self.primitives[index]
     def __setitem__(self,index,value): self.primitives[index]=value
+    def __len__(self): return len(self.primitives)
 
     def set_parameters(self,p):
         start = 0
@@ -56,6 +58,25 @@ class LCTemplate(object):
     def get_parameters(self):
         return np.append(np.concatenate( [prim.get_parameters() for prim in self.primitives]) , self.norms.get_parameters())
 
+    def get_gaussian_prior(self):
+        locs,widths,mods,enables = [],[],[],[]
+        for prim in self.primitives:
+            l,w,m,e = prim.get_gauss_prior_parameters()
+            #locs.append(l[prim.free])
+            #widths.append(w[prim.free])
+            #mods.append(m[prim.free])
+            #enables.append(e[prim.free])
+            locs.append(l)
+            widths.append(w)
+            mods.append(m)
+            enables.append(e)
+        t = np.zeros_like(self.norms.get_parameters())
+        locs = np.append(np.concatenate(locs),t)
+        widths = np.append(np.concatenate(widths),t)
+        mods = np.append(np.concatenate(mods),t.astype(bool))
+        enables = np.append(np.concatenate(enables),t.astype(bool))
+        return GaussianPrior(locs,widths,mods,mask=enables)
+
     def get_bounds(self):
         b1 = np.concatenate([prim.get_bounds() for prim in self.primitives])
         b2 = self.norms.get_bounds()
@@ -74,14 +95,19 @@ class LCTemplate(object):
     def get_location(self):
         return self.primitives[0].get_location()
 
+    def get_amplitudes(self):
+        """ Return maximum amplitude of a component."""
+        ampls = [p(p.get_location()) for p in self.primitives]
+        return self.norms()*np.asarray(ampls)
+
+    def get_code(self):
+        """ Return a short string encoding the components in the template."""
+        return '/'.join((p.shortname for p in self.primitives))
+
     def norm(self):
-        #self.last_norm = sum( (prim.integrate() for prim in self.primitives) )
-        #return self.last_norm
         return self.norms.get_total()
-        
 
     def integrate(self,phi1,phi2, suppress_bg=False):
-        #norm = self.norm()
         norms = self.norms()
         t = norms.sum()
         dphi = (phi2-phi1)
@@ -93,13 +119,18 @@ class LCTemplate(object):
         return self(np.arange(0,1,resolution)).max()
 
     def __call__(self,phases,suppress_bg=False):
-        #n = self.norm()
         norms = self.norms()
         rval = np.zeros_like(phases)
         for n,prim in zip(norms,self.primitives):
             rval += n*prim(phases)
         if suppress_bg: return rval/norms.sum()
         return (1-norms.sum()) + rval
+
+    def single_component(self,phases,index):
+        """ Evaluate a single component of template."""
+        n = self.norms()[index]
+        p = self.primitives[index]
+        return p(phases)*n
 
     def gradient(self,phases):
         r = np.empty([len(self.get_parameters()),len(phases)])
@@ -218,7 +249,7 @@ class LCTemplate(object):
             for s in rstring: f.write(s+'\n')
         return '\n'.join(rstring)
        
-    def random(self,n,weights=None):
+    def random(self,n,weights=None,return_partition=False):
         """ Return n pseudo-random variables drawn from the distribution 
             given by this light curve template.
 
@@ -232,7 +263,17 @@ class LCTemplate(object):
             determine whether to draw the photon from the template or from
             a uniform distribution.
         """
+
+        # edge case of uniform template
+        if len(self.primitives)==0:
+            if return_partition: return np.random.rand(n),[n]
+            return np.random.rand(n)
+
+        n = int(round(n))
+        norms = self.norms()
+        norms = np.append(norms,[1-sum(norms)])
         rvals = np.empty(n)
+        partition = np.empty(n)
         if weights is not None:
             if len(weights) != n:
                 raise Exception('Provided weight vector does not provide a weight for each photon.')
@@ -241,14 +282,11 @@ class LCTemplate(object):
             t_indices = np.arange(n)[m]
             n = m.sum()
             rvals[~m] = np.random.rand(len(m)-n)
+            partition[~m] = len(norms)-1
         else:
             t_indices = np.arange(n)
 
         # multinomial implementation -- draw from the template components
-        if len(self.primitives)==0: return np.random.rand(n)
-        #norms = [prim.get_norm() for prim in self.primitives]
-        norms = self.norms()
-        norms = np.append(norms,[1-sum(norms)])
         a = np.argsort(norms)[::-1]
         boundaries = np.cumsum(norms[a])
         components = np.searchsorted(boundaries,np.random.rand(n))
@@ -259,13 +297,68 @@ class LCTemplate(object):
                 rvals[t_indices[counter:counter+n]] = np.random.rand(n) 
             else:
                 rvals[t_indices[counter:counter+n]] = self.primitives[mapped_comp].random(n)
+            partition[t_indices[counter:counter+n]] = mapped_comp
             counter += n
+        if return_partition:
+            return rvals,partition
         return rvals
 
     def swap_primitive(self,index,ptype=LCLorentzian):
        """ Swap the specified primitive for a new one with the parameters
            that match the old one as closely as possible."""
        self.primitives[index] = convert_primitive(self.primitives[index],ptype)
+
+    def delete_primitive(self,index):
+        """ [Convenience] -- return a new LCTemplate with the specified
+            LCPrimitive removed and renormalized."""
+        norms,prims = self.norms,self.primitives
+        if len(prims)==1:
+            raise ValueError('Template only has a single primitive.')
+        if index < 0: index += len(prims)
+        nprims = [deepcopy(prims[i]) for i in xrange(len(prims)) if i!=index]
+        nnorms = np.asarray([norms()[i] for i in xrange(len(prims)) if i!= index])
+        norms_free = [norms.free[i] for i in xrange(len(prims)) if i!=index]
+        lct = LCTemplate(nprims,nnorms*norms().sum()/nnorms.sum())
+        lct.norms.free[:] = norms_free
+        return lct
+
+    def order_primitives(self,indices,zeropt=0,order_by_amplitude=False):
+        """ Order the primitives specified by the indices by position.
+            x0 specifies an alternative zeropt.
+            
+            If specified, the peaks will instead be ordered by descending 
+            maximum amplitude."""
+        def dist(index):
+            p = self.primitives[index]
+            if order_by_amplitude:
+                a = self.get_amplitudes()
+                return a.max()-a[index]
+            d = p.get_location()-zeropt
+            return d if (d > 0) else d+1
+        if not hasattr(indices,'__len__'):
+            raise TypeError('indices must specify a list or array of indices')
+        if len(indices)<2:
+            print 'Found fewer than 2 indices, returning.'
+            return
+        norms,prims = self.norms(),self.primitives
+        norms_free = self.norms.free.copy()
+        for i in indices:
+            x0 = dist(i)
+            x1 = x0
+            swapj = i
+            for j in indices[i+1:]:
+                dj = dist(j)
+                if dj<x1:
+                    x1 = dj
+                    swapj = j
+            if x1 < x0:
+                j = swapj
+                prims[i],prims[j] = prims[j],prims[i]
+                norms[i],norms[j] = norms[j],norms[i]
+                norms_free[i],norms_free[j] = norms_free[j],norms_free[i]
+        self.norms = NormAngles(norms) # this may be fragile
+        self.norms.free[:] = norms_free
+
 
 def get_gauss2(pulse_frac=1,x1=0.1,x2=0.55,ratio=1.5,width1=0.01,width2=0.02,lorentzian=False,bridge_frac=0,skew=False):
     """Return a two-gaussian template.  Convenience function."""
@@ -287,22 +380,56 @@ def get_gauss2(pulse_frac=1,x1=0.1,x2=0.55,ratio=1.5,width1=0.01,width2=0.02,lor
 
 def get_gauss1(pulse_frac=1,x1=0.5,width1=0.01):
     """Return a one-gaussian template.  Convenience function."""
-    return LCTemplate(primitives=[LCGaussian(p=[pulse_frac,width1,x1])])
+    return LCTemplate([LCGaussian(p=[width1,x1])],[pulse_frac])
 
-def get_2pb(pulse_frac=0.5,lorentzian=False):
+def get_2pb(pulse_frac=0.9,lorentzian=False):
     """ Convenience function to get a 2 Lorentzian + Gaussian bridge template."""
     prim = LCLorentzian if lorentzian else LCGaussian
-    p1 = prim(p=[0.3*pulse_frac,0.03,0.1])
-    b = LCGaussian(p=[0.4*pulse_frac,0.15,0.3])
-    p2 = prim(p=[0.3*pulse_frac,0.03,0.55])
-    return LCTemplate(primitives=[p1,b,p2])
+    p1 = prim(p=[0.03,0.1])
+    b = LCGaussian(p=[0.15,0.3])
+    p2 = prim(p=[0.03,0.55])
+    return LCTemplate(primitives=[p1,b,p2],norms=[0.3*pulse_frac,0.4*pulse_frac,0.3*pulse_frac])
 
 def make_twoside_gaussian(one_side_gaussian):
     """ Make a two-sided gaussian with the same initial shape as the
         input one-sided gaussian."""
     g2 = LCGaussian2() 
     g1 = one_side_gaussian
-    g2.p[0] = g1.p[0]
+    g2.p[0] = g2.p[1]= g1.p[0]
     g2.p[-1] = g1.p[-1]
-    g2.p[1:3] = g1.p[1]
     return g2
+
+class GaussianPrior(object):
+
+    def __init__(self,locations,widths,mod,mask=None):
+        self.x0 = np.where(mod,np.mod(locations,1),locations)
+        self.s0 = np.asarray(widths)*2**0.5
+        self.mod = np.asarray(mod)
+        if mask is None:
+            self.mask = np.asarray([True]*len(locations))
+        else: 
+            self.mask = np.asarray(mask)
+            self.x0 = self.x0[self.mask]
+            self.s0 = self.s0[self.mask]
+            self.mod = self.mod[self.mask]
+
+    def __len__(self):
+        """ Return number of parameters with a prior."""
+        return self.mask.sum()
+
+    def __call__(self,parameters):
+        if not np.any(self.mask): return 0
+        parameters = parameters[self.mask]
+        parameters = np.where(self.mod,np.mod(parameters,1),parameters) 
+        return np.sum(((parameters-self.x0)/self.s0)**2)
+
+    def gradient(self,parameters):
+        if not np.any(self.mask):
+            return np.zeros_like(parameters)
+        parameters = parameters[self.mask]
+        parameters = np.where(self.mod,np.mod(parameters,1),parameters)
+        rvals = np.zeros(len(self.mask))
+        rvals[self.mask] = 2*(parameters-self.x0)/self.s0**2
+        return rvals
+
+        
