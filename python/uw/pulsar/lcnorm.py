@@ -6,7 +6,7 @@ This is done by treating each primitives' normalization parameter as
 the square of a cartesian variable lying within or on an
 n-dimensional ball of unit radius.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcnorm.py,v 1.2 2012/03/14 01:18:58 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcnorm.py,v 1.3 2012/06/24 03:56:07 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 """
@@ -24,25 +24,34 @@ class NormAngles(object):
     def __init__(self,norms):
         self.dim = len(norms)
         if not self._check_norms(norms):
-            raise ValueError('Provided norms do not satisfy constraints.')
+            raise ValueError('Provided norms ... \n%s\n ... do not satisfy constraints.'%(str(norms)))
         self.p = self._get_angles(norms)
         self.free = np.asarray([True] * len(norms))
 
     def _check_norms(self,norms,eps=1e-15):
         ok = True
         for n in norms:
-            print n
-            #ok = ok and ((n > eps) and (n <= (1+eps)))
             ok = ok and (n <= (1+eps))
         return ok and (sum(norms)<=(1+eps))
 
     def _get_angles(self,norms):
         """ Determine the n-sphere angles from a set of normalizations."""
         sines = sum(norms)**0.5
+        if (sines > 1):
+            if (abs(sines-1)<1e-12):
+                sines = 1
+            else:
+                raise ValueError('Invalid norm specification')
         angles = [asin(sines)]
         norms = np.asarray(norms)**0.5
         for i in xrange(self.dim-1):
-            phi = acos(norms[i]/sines)
+            t = norms[i]/sines
+            if (t > 1):
+                if (abs(t-1)<1e-12):
+                    t = 1
+                else:
+                    raise ValueError('Invalid norm specification')
+            phi = acos(t)
             sines *= sin(phi)            
             angles.append(phi)
         return np.asarray(angles)
@@ -110,6 +119,12 @@ class NormAngles(object):
         norms = self()
         self.p = self._get_angles(norms*(val/norms.sum()))
 
-            
+    def set_single_norm(self,index,val):
+        norms = self()
+        norms[index] = val
+        if not self._check_norms(norms):
+            raise ValueError('Provided norms ... \n%s\n ... do not satisfy constraints.'%(str(norms)))
+        self.p = self._get_angles(norms)
+
 
 
