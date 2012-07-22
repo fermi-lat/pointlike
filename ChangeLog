@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sun Jul 22 11:32:53 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcprimitives.py 
+Log Message:
+Added gaussian priors, "short names".
+
+    *
+------------------------------------------------------------
 User: kerrm  Sun Jul 22 11:32:29 PDT 2012
 pointlike/python/uw/pulsar
 
