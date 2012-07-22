@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sun Jul 22 11:33:18 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcnorm.py 
+Log Message:
+Made more tolerant of numerical slop in checking constraints.
+
+    *
+------------------------------------------------------------
 User: kerrm  Sun Jul 22 11:32:53 PDT 2012
 pointlike/python/uw/pulsar
 
