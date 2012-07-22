@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sun Jul 22 11:31:41 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	radio_profile.py 
+Log Message:
+Added some code to deal with polarimetry.
+
+    *
+------------------------------------------------------------
 User: lande  Tue Jul 17 15:45:01 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
