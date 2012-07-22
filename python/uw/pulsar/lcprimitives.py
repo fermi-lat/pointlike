@@ -3,7 +3,7 @@ components of a pulsar light curve.  Includes primitives (Gaussian,
 Lorentzian), etc.  as well as more sophisticated holistic templates that
 provide single-parameter (location) representations of the light curve.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcprimitives.py,v 1.23 2012/03/29 22:20:23 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcprimitives.py,v 1.24 2012/06/28 22:13:03 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -69,6 +69,7 @@ class LCPrimitive(object):
         self.free = np.asarray([True])
         self.pnames = []
         self.name = 'Default'
+        self.shortname = 'None'
 
     def _default_bounds(self):
         bounds = [[]] *len(self.p) 
@@ -80,12 +81,18 @@ class LCPrimitive(object):
         return bounds
          
     def __init__(self,**kwargs):
+        """ Generally, class-specific setup work is performed in init.
+            Here, init is called and certain guaranteed default members
+            are established."""
         self.init()
         if not hasattr(self,'bounds'):
             self.bounds = self._default_bounds() # default
         self.free = np.asarray([True]*len(self.p))
         self.__dict__.update(kwargs)
         self.p = np.asarray(self.p)
+        self.gauss_prior_loc = self.p.copy()
+        self.gauss_prior_width = np.asarray([0.1]*len(self.p))
+        self.gauss_prior_enable = np.asarray([False]*len(self.p))
         self.free = np.asarray(self.free)
         self.bounds = np.asarray(self.bounds)
         self.errors = np.zeros_like(self.p)
@@ -99,6 +106,24 @@ class LCPrimitive(object):
     def get_parameters(self): return self.p[self.free]
 
     def get_bounds(self): return self.bounds[self.free]
+
+    def get_gauss_prior_parameters(self):
+        mod_array = [False]*(len(self.p)-1)+[True]
+        return (
+            self.gauss_prior_loc[self.free],
+            self.gauss_prior_width[self.free],
+            np.asarray(mod_array)[self.free],
+            self.gauss_prior_enable[self.free],
+        )
+
+    def enable_gauss_prior(self,enable=True):
+        """ [Convenience] Turn on gaussian prior."""
+        self.gauss_prior_enable[:] = enable    
+
+    def center_gauss_prior(self,enable=False):
+        """ [Convenience] Set gauss mode to current params."""
+        self.gauss_prior_loc[:] = self.p[:]
+        if enable: self.enable_gauss_prior()
 
     def get_location(self,error=False):
         if error: return np.asarray([self.p[-1],self.errors[-1]])
@@ -315,6 +340,7 @@ class LCGaussian(LCWrappedFunction):
         self.p    = np.asarray([0.03,0.5])
         self.pnames = ['Width','Location']
         self.name = 'Gaussian'
+        self.shortname = 'G'
 
     def hwhm(self,right=False):
         return self.p[0]*(2 * np.log(2))**0.5
@@ -352,6 +378,7 @@ class LCGaussian2(LCWrappedFunction):
         self.p    = np.asarray([0.03,0.03,0.5])
         self.pnames = ['Width1','Width2','Location']
         self.name = 'Gaussian2'
+        self.shortname = 'G2'
 
     def hwhm(self,right=False):
         return (self.p[right])*(2 * np.log(2))**0.5
@@ -408,6 +435,7 @@ class LCLorentzian(LCPrimitive):
         self.p = np.asarray([0.1,0.5])
         self.pnames = ['Width','Location']
         self.name = 'Lorentzian'
+        self.shortname = 'L'
 
     def hwhm(self,right=False):
         # NB -- bounds on p[1] set such that this is well-defined
@@ -457,6 +485,7 @@ class LCLorentzian2(LCWrappedFunction):
         self.p    = np.asarray([0.03,0.03,0.5])
         self.pnames = ['Width1','Width2','Location']
         self.name = 'Lorentzian2'
+        self.shortname = 'L2'
 
     def hwhm(self,right=False):
         return self.p[right]
@@ -525,6 +554,7 @@ class LCVonMises(LCPrimitive):
         self.p    = np.asarray([0.05,0.5])
         self.pnames = ['Width','Location']
         self.name = 'VonMises'
+        self.shortname = 'VM'
 
     def hwhm(self,right=False):
         return 0.5*np.arccos(self.p[0]*np.log(0.5)+1)/TWOPI
@@ -547,6 +577,7 @@ class LCTopHat(LCPrimitive):
         self.p    = np.asarray([0.03,0.5])
         self.pnames = ['Width','Location']
         self.name = 'TopHat'
+        self.shortname = 'TH'
         self.fwhm_scale = 1
 
     def hwhm(self,right=False):
@@ -555,7 +586,6 @@ class LCTopHat(LCPrimitive):
     def __call__(self,phases,wrap=True):
         width,x0 = self.p
         return np.where(np.mod(phases - x0 + width/2,1) < width,1./width,0)
-
 
 class LCHarmonic(LCPrimitive):
     """Represent a sinusoidal shape corresponding to a harmonic in a Fourier expansion.
@@ -571,6 +601,7 @@ class LCHarmonic(LCPrimitive):
         self.order = 1
         self.pnames = ['Location']
         self.name = 'Harmonic'
+        self.shortname = 'H'
 
     def __call__(self,phases):
         x0 = self.p
@@ -596,6 +627,7 @@ class LCEmpiricalFourier(LCPrimitive):
         self.free  = np.asarray([True])
         self.pnames= ['Shift']
         self.name  = 'Empirical Fourier Profile'
+        self.shortname = 'EF'
         self.shift_mode = True
 
     def __init__(self,phases=None,input_file=None,**kwargs):
@@ -679,6 +711,7 @@ class LCKernelDensity(LCPrimitive):
         self.free  = np.asarray([True])
         self.pnames= ['Shift']
         self.name  = 'Gaussian Kernel Density Estimate'
+        self.shortname = 'KD'
         self.shift_mode = True
 
     def __init__(self,phases=None,input_file=None,**kwargs):
@@ -809,5 +842,12 @@ def convert_primitive(p1,ptype=LCLorentzian):
     # if we are going from 1->2, duplicate
     elif (len(p2.p)==3) and (len(p1.p)==2):
         p2.p[1] = p2.p[0]
+    # special case of going from gauss to Lorentzian
+    # this makes peaks closer in nature than going by equiv HWHM
+    if 'Gaussian' in str(type(p1)) and 'Lorentzian' in str(type(p2)):
+        scale = p2(p1.p[-1])/p1(p1.p[-1])
+        p2.p[0] *= scale
+        if len(p2.p)==3:
+            p2.p[1] *= scale
     return p2
 
