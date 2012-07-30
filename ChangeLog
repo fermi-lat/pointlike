@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Jul 30 13:54:09 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+larger default parameter limits for flux parameters + bugfix for create_super_cutoff
+    *
+------------------------------------------------------------
 User: kerrm  Sun Jul 22 17:16:15 PDT 2012
 pointlike/python/uw/pulsar
 
