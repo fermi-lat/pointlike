@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.127 2012/07/12 19:28:30 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.128 2012/07/16 16:44:08 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -983,10 +983,10 @@ class Model(object):
             But we can easily impose default limits:
 
                 >>> model.set_default_limits(oomp_limits=False)
-                >>> np.allclose(model.get_limits('norm'),[1e-15,1e-5])
+                >>> np.allclose(model.get_limits('norm'),[1e-17,1e-3])
                 True
                 >>> print model.get_mapper('norm')
-                LimitMapper(1e-15,1e-05,1e-09)
+                LimitMapper(1e-17,0.001,1e-09)
                 >>> print model.get_scale('norm')
                 1e-09
                 >>> print model.get_limits('index')
@@ -1007,10 +1007,10 @@ class Model(object):
                 >>> model.set_default_limits(oomp_limits=True)
                 WARNING: OOMP limit failed for parameter Norm,
                     Using default limits.
-                WARNING: Found Norm=0.0 < 1e-15, minimum allowed value,
+                WARNING: Found Norm=0.0 < 1e-17, minimum allowed value,
                     Setting parameter value to minimum.
                 >>> print model.get_limits('norm')
-                [1e-15, 1e-05]
+                [1e-17, 0.001]
 
 
 
@@ -1018,7 +1018,7 @@ class Model(object):
 
                 >>> model = PowerLaw(set_default_limits=True)
                 >>> print model.get_mapper('norm')
-                LimitMapper(1e-15,1e-05,1e-09)
+                LimitMapper(1e-17,0.001,1e-09)
 
             Finally, we note the only_unbound_parameters, which will not change
             alredy existing limits:
@@ -1135,7 +1135,7 @@ class Model(object):
                 >>> np.allclose(model['Norm'],1e-10)
                 True
                 >>> model.get_mapper('Norm')
-                LimitMapper(1e-15,1e-05,1e-09)
+                LimitMapper(1e-17,0.001,1e-09)
 
             Nicely, this code crashes on bad input:
 
@@ -1208,7 +1208,7 @@ class PowerLaw(Model):
         togtlike=[operator.pos,operator.neg])
 
     default_limits = dict(
-        Norm=LimitMapper(1e-15,1e-5,1e-9),
+        Norm=LimitMapper(1e-17,1e-3,1e-9),
         Index=LimitMapper(-5,5,1))
     default_oomp_limits=['Norm']
 
@@ -1331,7 +1331,7 @@ class PowerLawFlux(Model):
         togtlike=[operator.pos,operator.neg])
 
     default_limits = dict(
-        Int_Flux=LimitMapper(1e-14,1e-6,1e-10),
+        Int_Flux=LimitMapper(1e-16,1e-4,1e-10),
         Index=LimitMapper(-5,5,1))
     default_oomp_limits=['Int_Flux']
 
@@ -1380,7 +1380,7 @@ class BrokenPowerLaw(Model):
         togtlike=[operator.pos,operator.neg,operator.neg,operator.pos])
 
     default_limits = dict(
-        Norm=LimitMapper(1e-14,1e-5,1e-9),
+        Norm=LimitMapper(1e-16,1e-3,1e-9),
         Index_1=LimitMapper(5,5,1),
         Index_2=LimitMapper(-5,5,1),
         E_break=LimitMapper(30,5e5,1))
@@ -1425,7 +1425,7 @@ class BrokenPowerLawFlux(Model):
         togtlike=[operator.pos,operator.neg,operator.neg,operator.pos])
 
     default_limits = dict(
-        Int_Flux=LimitMapper(1e-11,1e-3,1e-7),
+        Int_Flux=LimitMapper(1e-13,1e-1,1e-7),
         Index_1=LimitMapper(-5,5,-1),
         Index_2=LimitMapper(-5,5,-1),
         E_break=LimitMapper(30,5e5,1))
@@ -1506,7 +1506,7 @@ class SmoothBrokenPowerLaw(Model):
         togtlike=[operator.pos,operator.neg,operator.neg,operator.pos])
 
     default_limits = dict(
-        Norm=LimitMapper(1e-14,1e-5,1e-9),
+        Norm=LimitMapper(1e-16,1e-3,1e-9),
         Index_1=LimitMapper(-5,5,1),
         Index_2=LimitMapper(-5,5,1),
         E_break=LimitMapper(30,5e5,1))
@@ -1572,7 +1572,7 @@ class LogParabola(Model):
         togtlike=[operator.pos,operator.pos,operator.pos,operator.pos])
 
     default_limits = dict(
-        Norm=LimitMapper(1e-15,1e-5,1e-9),
+        Norm=LimitMapper(1e-17,1e-3,1e-9),
         Index=LimitMapper(-5,5,1),
         beta=LimitMapper(0,5,1),
         E_break=LimitMapper(30,5e5,1))
@@ -1673,7 +1673,7 @@ class ExpCutoff(Model):
     default_extra_attrs=dict()
 
     default_limits = dict(
-        Norm=LimitMapper(1e-13,1e-5,1e-9),
+        Norm=LimitMapper(1e-15,1e-3,1e-9),
         Index=LimitMapper(0,5,1),
         Cutoff=LimitMapper(100,3e8,1000),
         )
@@ -1735,16 +1735,21 @@ class ExpCutoff(Model):
                 True
                 >>> ec.mappers == sec.mappers[:-1]
                 True
+                >>> sec['b'] == 1.0
+                True
                 >>> ec.e0 == sec.e0
                 True
         """
-        sup = PLSuperExpCutoff()
-        sup._p    = np.append(self._p,0)
-        sup.free = np.append(self.free,free_b)
-        sup.internal_cov_matrix[:,:] = 0
-        sup.internal_cov_matrix[:-1,:-1] = self.internal_cov_matrix[:,:]
-        sup.e0 = self.e0
-        sup.mappers[:-1] = self.mappers
+        sup = PLSuperExpCutoff(e0=self.e0)
+
+        for p in ['Norm', 'Index', 'Cutoff']:
+            sup[p] = self[p]
+            sup.set_free(p,self.get_free(p))
+            sup.set_mapper(p,self.get_mapper(p))
+            sup.set_error(p,self.error(p))
+
+        sup['b'] = 1
+        sup.set_free('b', False)
 
         # Make a deep copy of everything to be safe
         return sup.copy()
@@ -1794,9 +1799,9 @@ class PLSuperExpCutoff(Model):
         togtlike=[operator.pos,operator.neg,operator.pos,operator.pos])
 
     default_limits = dict(
-        Norm=LimitMapper(1e-13,1e-5,1e-9),
+        Norm=LimitMapper(1e-15,1e-3,1e-9),
         Index=LimitMapper(0,5,1),
-        Cutoff=LimitMapper(100,3e8,1000),
+        Cutoff=LimitMapper(10,3e8,1000),
         b=LimitMapper(-5,5,1)
         )
     default_oomp_limits=['Norm','Cutoff']
@@ -2514,7 +2519,7 @@ class Gaussian(Model):
         togtlike=[operator.pos]*3)
 
     default_limits = dict(
-        Prefactor=LimitMapper(1e-15,1e-5,1e-9),
+        Prefactor=LimitMapper(1e-17,1e-3,1e-9),
         Mean=LimitMapper(1,1e6,1),
         Sigma=LimitMapper(1,1e6,1))
     default_oomp_limits=['Prefactor','Mean','Sigma']
