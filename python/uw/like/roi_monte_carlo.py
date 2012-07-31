@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.64 2012/07/17 22:36:54 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_monte_carlo.py,v 1.65 2012/07/17 22:45:01 lande Exp $
 
 author: Joshua Lande
 """
@@ -383,9 +383,9 @@ class MCModelBuilder(object):
             else:
                 flux=model.i_flux(mc_emin,mc_emax,cgs=True)*1e4
 
-                spectral_filename = '%s_spectra_%s.txt' % (MCModelBuilder.strip(ps.name),model.name)
+                spectral_filename = '$(SKYMODEL_DIR)/%s_spectra_%s.txt' % (MCModelBuilder.strip(ps.name),model.name)
                 model.save_profile(filename=spectral_filename, emin=mc_emin, emax=mc_emax)
-
+            
             xml=[
                 '<source name="%s">' % MCModelBuilder.strip(ps.name),
                 '  <spectrum escale="MeV">',
@@ -395,6 +395,7 @@ class MCModelBuilder(object):
                 '  </spectrum>',
                 '</source>'
             ]
+
             return indent+('\n'+indent).join(xml)
 
 
@@ -417,10 +418,10 @@ class MCModelBuilder(object):
 
         ra,dec=sm.center.ra(),sm.center.dec()
 
-        spatial_filename='%s_extension_profile_%s.txt' % (MCModelBuilder.strip(name),sm.name)
+        spatial_filename='$(SKYMODEL_DIR)/%s_extension_profile_%s.txt' % (MCModelBuilder.strip(name),sm.name)
         sm.save_profile(spatial_filename)
 
-        spectral_filename = '%s_spectra_%s.txt' % (MCModelBuilder.strip(es.name),model.name)
+        spectral_filename = '$(SKYMODEL_DIR)/%s_spectra_%s.txt' % (MCModelBuilder.strip(es.name),model.name)
         model.save_profile(filename=spectral_filename, emin=mc_emin, emax=mc_emax)
 
         xml=[
@@ -472,7 +473,8 @@ class MCModelBuilder(object):
 
         else:
 
-            spectral_filename='%s_spectra_%s.txt' % (MCModelBuilder.strip(es.name),model.name)
+            spectral_filename = '$(SKYMODEL_DIR)/%s_spectra_%s.txt' % (MCModelBuilder.strip(ps.name),model.name)
+
             model.save_profile(filename=spectral_filename, emin=mc_emin, emax=mc_emax)
 
             xml=[
@@ -844,6 +846,7 @@ class MCModelBuilder(object):
 
             # multiply by solid angle to convert to ph/m^2
             flux*=MCModelBuilder.spatial_integrator_2d(spatial_file)
+
 
             ds = [ 
                 '<source name="%s">' % MCModelBuilder.strip(ds.name),
