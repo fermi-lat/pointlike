@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
 on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.123 2012/07/12 20:03:04 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.124 2012/07/31 15:42:49 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -304,12 +304,12 @@ class ROIAnalysis(object):
 
             for ind,model in zip(indices,models[indices]):
                 grad    = b.gradient(model)[model.free]*b.er[ind] # correct for exposure
-                np      = nparams[ind]
+                npar   = nparams[ind]
                 apterm = b.phase_factor*b.overlaps[ind]
                 if b.has_pixels:
                     pixterm = (pix_weights*b.ps_pix_counts[:,ind]).sum()
-                gradient[cp:cp+np] += grad * (apterm - pixterm)
-                cp += np
+                gradient[cp:cp+npar] += grad * (apterm - pixterm)
+                cp += npar
 
         # add in diffuse components
         gradient  = np.append(self.bgm.gradient(bands),gradient)
