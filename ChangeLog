@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jul 31 08:42:49 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+fix numpy import
+    *
+------------------------------------------------------------
 User: lande  Mon Jul 30 13:54:58 PDT 2012
 pointlike/cmt
 
