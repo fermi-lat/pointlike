@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_monte_carlo.py,v 1.65 2012/07/17 22:45:01 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.66 2012/07/31 17:57:33 razzano Exp $
 
 author: Joshua Lande
 """
@@ -327,6 +327,7 @@ class MCModelBuilder(object):
                                           upper energy of simulated photos is energy_pad*emax.
                                           This allows for energy dispersion effects to be 
                                           naturally accounted for in the monte carlos simulation. """),
+            ('env_var_name','$SKYMODEL_DIR',"Environment variable for simulation directory")
     )
 
     @keyword_options.decorate(defaults)
@@ -383,7 +384,7 @@ class MCModelBuilder(object):
             else:
                 flux=model.i_flux(mc_emin,mc_emax,cgs=True)*1e4
 
-                spectral_filename = '$(SKYMODEL_DIR)/%s_spectra_%s.txt' % (MCModelBuilder.strip(ps.name),model.name)
+                spectral_filename = '%s/%s_spectra_%s.txt' % (self.env_var_name,MCModelBuilder.strip(ps.name),model.name)
                 model.save_profile(filename=spectral_filename, emin=mc_emin, emax=mc_emax)
             
             xml=[
@@ -418,7 +419,7 @@ class MCModelBuilder(object):
 
         ra,dec=sm.center.ra(),sm.center.dec()
 
-        spatial_filename='$(SKYMODEL_DIR)/%s_extension_profile_%s.txt' % (MCModelBuilder.strip(name),sm.name)
+        spatial_filename='%s/%s_extension_profile_%s.txt' % (self.env_var_name,MCModelBuilder.strip(name),sm.name)
         sm.save_profile(spatial_filename)
 
         spectral_filename = '$(SKYMODEL_DIR)/%s_spectra_%s.txt' % (MCModelBuilder.strip(es.name),model.name)
@@ -473,7 +474,7 @@ class MCModelBuilder(object):
 
         else:
 
-            spectral_filename = '$(SKYMODEL_DIR)/%s_spectra_%s.txt' % (MCModelBuilder.strip(ps.name),model.name)
+            spectral_filename = '%s/%s_spectra_%s.txt' % (self.env_var_name,MCModelBuilder.strip(ps.name),model.name)
 
             model.save_profile(filename=spectral_filename, emin=mc_emin, emax=mc_emax)
 
@@ -1007,6 +1008,7 @@ class MonteCarlo(object):
                                           This allows for energy dispersion effects to be 
                                           naturally accounted for in the monte carlos simulation. """),
             ('zmax',            None, "Apply a gtselect zenith angle cut with gtselect to the simulated ft1 files."),
+            ('env_var_name','$SKYMODEL_DIR',"Environment variable for simulation directory")
     )
 
     @keyword_options.decorate(defaults)
