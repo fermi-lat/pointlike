@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: razzano  Tue Jul 31 10:57:33 PDT 2012
+pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+added SKYMODEL_DIR
+    *
+------------------------------------------------------------
 User: lande  Tue Jul 31 10:44:17 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
