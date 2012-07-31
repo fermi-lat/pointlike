@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.66 2012/07/31 17:57:33 razzano Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.67 2012/07/31 18:11:58 lande Exp $
 
 author: Joshua Lande
 """
@@ -316,18 +316,18 @@ class MCModelBuilder(object):
 
     """
     defaults = (
-            ('savedir',         None, " If specified, save temporary files to this directory."),
-            ('emin',             100, " Minimum energy"),
-            ('emax',          100000, " Maximum energy"),
-            ('roi_dir',         None, " Center of ROI. Gtobssim will use the use_ac flag if this is specified."),
-            ('maxROI',          None, " Maximum ROI Size. Gtobssim will use the use_ac flag if this is specified."),
-            ('quiet',          False, " Surpress output."),
-            ('diffuse_pad',     10.0, " How many area outside ROI should the diffuse emission be simulated to account for energy dispersion."),
-            ('energy_pad',       2.0, """ Lower energy of simluated photons is emin/energy_bad and 
-                                          upper energy of simulated photos is energy_pad*emax.
-                                          This allows for energy dispersion effects to be 
-                                          naturally accounted for in the monte carlos simulation. """),
-            ('env_var_name','$SKYMODEL_DIR',"Environment variable for simulation directory")
+            ('savedir',          None, " If specified, save temporary files to this directory."),
+            ('emin',              100, " Minimum energy"),
+            ('emax',           100000, " Maximum energy"),
+            ('roi_dir',          None, " Center of ROI. Gtobssim will use the use_ac flag if this is specified."),
+            ('maxROI',           None, " Maximum ROI Size. Gtobssim will use the use_ac flag if this is specified."),
+            ('quiet',           False, " Surpress output."),
+            ('diffuse_pad',      10.0, " How many area outside ROI should the diffuse emission be simulated to account for energy dispersion."),
+            ('energy_pad',        2.0, """ Lower energy of simluated photons is emin/energy_bad and 
+                                           upper energy of simulated photos is energy_pad*emax.
+                                           This allows for energy dispersion effects to be 
+                                           naturally accounted for in the monte carlos simulation. """),
+            ('env_var_name','$SIMDIR', "Environment variable for simulation directory")
     )
 
     @keyword_options.decorate(defaults)
@@ -336,6 +336,8 @@ class MCModelBuilder(object):
         self.sources = sources
         keyword_options.process(self, kwargs)
 
+        os.environ[self.env_var_name] = self.savedir
+        self.env_var = '$(%s)' % self.env_var_name
 
     @staticmethod
     def strip(name):
@@ -384,7 +386,7 @@ class MCModelBuilder(object):
             else:
                 flux=model.i_flux(mc_emin,mc_emax,cgs=True)*1e4
 
-                spectral_filename = '%s/%s_spectra_%s.txt' % (self.env_var_name,MCModelBuilder.strip(ps.name),model.name)
+                spectral_filename = '%s/%s_spectra_%s.txt' % (self.env_var,MCModelBuilder.strip(ps.name),model.name)
                 model.save_profile(filename=spectral_filename, emin=mc_emin, emax=mc_emax)
             
             xml=[
@@ -419,10 +421,10 @@ class MCModelBuilder(object):
 
         ra,dec=sm.center.ra(),sm.center.dec()
 
-        spatial_filename='%s/%s_extension_profile_%s.txt' % (self.env_var_name,MCModelBuilder.strip(name),sm.name)
+        spatial_filename='%s/%s_extension_profile_%s.txt' % (self.env_var,MCModelBuilder.strip(name),sm.name)
         sm.save_profile(spatial_filename)
 
-        spectral_filename = '$(SKYMODEL_DIR)/%s_spectra_%s.txt' % (MCModelBuilder.strip(es.name),model.name)
+        spectral_filename = '%s/%s_spectra_%s.txt' % (self.env_var,MCModelBuilder.strip(es.name),model.name)
         model.save_profile(filename=spectral_filename, emin=mc_emin, emax=mc_emax)
 
         xml=[
@@ -452,7 +454,7 @@ class MCModelBuilder(object):
             print 'WARNING: gtobssim can only use plate-carree projection fits files!'
             spatial_filename=path.expand(sm.file)
         else:
-            spatial_filename='%s_spatial_template_%s.fits' % (MCModelBuilder.strip(es.name),sm.name)
+            spatial_filename='%s/%s_spatial_template_%s.fits' % (self.env_var,MCModelBuilder.strip(es.name),sm.name)
             # Allegedly simulated templates must only be in the plate-carree projection
             # http://www.slac.stanford.edu/exp/glast/wb/prod/pages/sciTools_observationSimTutorial/obsSimTutorial.htm
             sm.save_template(spatial_filename, proj='CAR')
@@ -474,7 +476,7 @@ class MCModelBuilder(object):
 
         else:
 
-            spectral_filename = '%s/%s_spectra_%s.txt' % (self.env_var_name,MCModelBuilder.strip(ps.name),model.name)
+            spectral_filename = '%s/%s_spectra_%s.txt' % (self.env_var,MCModelBuilder.strip(ps.name),model.name)
 
             model.save_profile(filename=spectral_filename, emin=mc_emin, emax=mc_emax)
 
@@ -642,7 +644,7 @@ class MCModelBuilder(object):
 
         # get the solid angles from gtlike. Probably
         # could be rewritten in pointlike, but not necessary
-        mapcube=pyLikelihood.MapCubeFunction2(filename)
+        mapcube=pyLikelihood.MapCubeFunction2(path.expand(filename))
         sa=np.asarray(mapcube.wcsmap().solidAngles()).transpose()
         map_integral = np.sum(sa*data)
         fits.close()
@@ -722,7 +724,7 @@ class MCModelBuilder(object):
                 >>> np.allclose(MCModelBuilder.diffuse_integrator(filename), 8.423, rtol=1e-2)
                 True
         """
-        flux = MCModelBuilder.mapIntegral(filename)*10**4
+        flux = MCModelBuilder.mapIntegral(path.expand(filename))*10**4
         return flux
 
     @staticmethod
@@ -747,7 +749,7 @@ class MCModelBuilder(object):
 
         nxpix,nypix=data.shape[1],data.shape[2]
 
-        mapcube=pyLikelihood.MapCubeFunction2(filename)
+        mapcube=pyLikelihood.MapCubeFunction2(path.expand(filename))
         sa=np.asarray(mapcube.wcsmap().solidAngles()).transpose()
 
         # First, integrate the spatial part
@@ -829,7 +831,7 @@ class MCModelBuilder(object):
             else:
                 cut_spectral_file = spectral_file
 
-            spatial_file=os.path.basename(spectral_file).replace('.txt','_spatial.fits')
+            spatial_file=join(self.env_var,os.path.basename(spectral_file).replace('.txt','_spatial.fits'))
             if self.roi_dir is not None and self.maxROI is not None:
                 radius=self.maxROI + self.diffuse_pad
             else:
@@ -837,7 +839,7 @@ class MCModelBuilder(object):
 
             if not self.quiet: print '.. Making isotropic model for %s' % ds.name
             allsky=MCModelBuilder.make_isotropic_fits(skydir=self.roi_dir, radius=radius)
-            allsky.writeto(spatial_file, clobber=True)
+            allsky.writeto(path.expand(spatial_file), clobber=True)
 
 
             # flux is ph/cm^2/sr to ph/m^2
@@ -884,10 +886,10 @@ class MCModelBuilder(object):
             allsky = pyfits.open(path.expand(allsky_filename))
             shrinker = DiffuseShrinker(allsky, skydir=self.roi_dir, radius=radius, emin=mc_emin, emax=mc_emax)
             shrinker.shrink()
-            filename = os.path.basename(allsky_filename).replace('.fits','_cut.fits')
-            allsky.writeto(filename, clobber=True)
 
+            filename = join(self.env_var,os.path.basename(allsky_filename).replace('.fits','_cut.fits'))
 
+            allsky.writeto(path.expand(filename), clobber=True)
         else:
             filename = allsky_filename
 
@@ -1008,7 +1010,7 @@ class MonteCarlo(object):
                                           This allows for energy dispersion effects to be 
                                           naturally accounted for in the monte carlos simulation. """),
             ('zmax',            None, "Apply a gtselect zenith angle cut with gtselect to the simulated ft1 files."),
-            ('env_var_name','$SKYMODEL_DIR',"Environment variable for simulation directory")
+            ('env_var_name','SIMDIR',"Environment variable for simulation directory")
     )
 
     @keyword_options.decorate(defaults)
@@ -1031,7 +1033,6 @@ class MonteCarlo(object):
                 raise Exception("Argument tempbase must point to a directory where temporary files can be placed.")
             self.savedir=mkdtemp(prefix=self.tempbase)
             self.save_output=False
-
 
         if not isinstance(self.ft1,types.StringType):
             if len(self.ft1) != 1: raise Exception(dedent("""\
@@ -1134,6 +1135,7 @@ class MonteCarlo(object):
 
         xml_builder = MCModelBuilder(sources=self.sources, **keyword_options.defaults_to_kwargs(self,MCModelBuilder))
         xml_builder.build()
+
         self.xmlfile=xml_builder.xmlfile
         self.srclist=xml_builder.srclist
 
