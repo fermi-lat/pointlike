@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jul 31 15:52:18 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+clean up comment
+    *
+------------------------------------------------------------
 User: razzano  Tue Jul 31 13:29:56 PDT 2012
 pointlike/python/uw/like
 
