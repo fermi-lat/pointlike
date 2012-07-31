@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.67 2012/07/31 18:11:58 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_monte_carlo.py,v 1.68 2012/07/31 19:13:14 lande Exp $
 
 author: Joshua Lande
 """
@@ -475,8 +475,8 @@ class MCModelBuilder(object):
             ]
 
         else:
-
-            spectral_filename = '%s/%s_spectra_%s.txt' % (self.env_var,MCModelBuilder.strip(ps.name),model.name)
+            #it was ps
+            spectral_filename = '%s/%s_spectra_%s.txt' % (self.env_var,MCModelBuilder.strip(es.name),model.name)
 
             model.save_profile(filename=spectral_filename, emin=mc_emin, emax=mc_emax)
 
