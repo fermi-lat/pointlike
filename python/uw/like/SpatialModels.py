@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.104 2012/07/09 19:17:11 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.105 2012/07/16 16:44:08 lande Exp $
 
    author: Joshua Lande
 
@@ -794,7 +794,7 @@ class RadiallySymmetricModel(SpatialModel):
 
             """
         radius,pdf = self.approximate_profile(*args, **kwarsg)
-        open(filename,'w').write('\n'.join(['%g\t%g' % (i,j) for i,j in zip(radius,pdf)]))
+        open(path.expand(filename),'w').write('\n'.join(['%g\t%g' % (i,j) for i,j in zip(radius,pdf)]))
 
 class PseudoSpatialModel(SpatialModel):
     """ PseudoSpatialModel are point-like SpatialModels.
