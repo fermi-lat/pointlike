@@ -2,13 +2,12 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
 on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.122 2012/07/11 01:02:21 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.123 2012/07/12 20:03:04 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
 
-import numpy as N
-np = N #standard numpy
+import numpy as np
 import math, pickle, collections
 import numbers
 
@@ -84,8 +83,8 @@ class ROIAnalysis(object):
         self.prev_logl = None
         self.__setup_bands__()
         self.__warn_about_binning__()
-        self.bin_centers = N.sort(list(set([b.e for b in self.bands])))
-        self.bin_edges    = N.sort(list(set([b.emin for b in self.bands] + [b.emax for b in self.bands])))
+        self.bin_centers = np.sort(list(set([b.e for b in self.bands])))
+        self.bin_edges    = np.sort(list(set([b.emin for b in self.bands] + [b.emax for b in self.bands])))
 
         self.param_state, self.param_vals  = None,None
         if self.skip_setup: 
@@ -146,9 +145,9 @@ class ROIAnalysis(object):
             actual_emin=min(b.emin for b in self.bands if b.ct==ct)
             actual_emax=max(b.emax for b in self.bands if b.ct==ct)
             requested_emin,requested_emax=self.fit_emin[ct],self.fit_emax[ct]
-            if N.abs(actual_emin-requested_emin)>1:
+            if np.abs(actual_emin-requested_emin)>1:
                 print 'Warning: For ct=%d, requested emin is %d, actual emin is %d' % (ct,requested_emin,actual_emin)
-            if N.abs(actual_emax-requested_emax)>1:
+            if np.abs(actual_emax-requested_emax)>1:
                 print 'Warning: For ct=%d, requested emax is %d, actual emax is %d' % (ct,requested_emax,actual_emax)
 
     def setup_energy_bands(self,emin=[0,0]):
@@ -201,25 +200,25 @@ class ROIAnalysis(object):
             # Get closest to ROI center.
             source=self.get_sources()[0]
             if isinstance(source,PointSource):
-                return self.psm,N.where(self.psm.point_sources==source)[0][0]
+                return self.psm,np.where(self.psm.point_sources==source)[0][0]
             else:
-                return self.dsm,N.where(self.dsm.diffuse_sources==source)[0][0]
+                return self.dsm,np.where(self.dsm.diffuse_sources==source)[0][0]
         elif isinstance(which,PointSource):
-            return self.psm,int(N.where(self.psm.point_sources==which)[0])
+            return self.psm,int(np.where(self.psm.point_sources==which)[0])
         elif isinstance(which,DiffuseSource):
-            return self.dsm,int(N.where(self.dsm.diffuse_sources==which)[0])
-        elif N.any(str(which)==self.psm.names):
-            return self.psm,int(N.where(str(which)==self.psm.names)[0])
-        elif N.any(str(which)==self.dsm.names):
-            return self.dsm,int(N.where(str(which)==self.dsm.names)[0])
+            return self.dsm,int(np.where(self.dsm.diffuse_sources==which)[0])
+        elif np.any(str(which)==self.psm.names):
+            return self.psm,int(np.where(str(which)==self.psm.names)[0])
+        elif np.any(str(which)==self.dsm.names):
+            return self.dsm,int(np.where(str(which)==self.dsm.names)[0])
         elif isinstance(which,ROIDiffuseModel):
-            return self.dsm,int(N.where(self.dsm.bgmodels==which)[0])
+            return self.dsm,int(np.where(self.dsm.bgmodels==which)[0])
         elif type(which) == list:
             if len(which)<1: raise Exception("Cannot pass empty list as argument for which")
             managers,indices=zip(*[list(self.mapper(_)) for _ in which])
-            if N.unique(managers).shape[0]!=1:
+            if np.unique(managers).shape[0]!=1:
                 raise Exception("List passed as which argument must be all point or diffuse sources.")
-            return managers[0],N.asarray(indices)
+            return managers[0],np.asarray(indices)
         else:
             raise Exception("Unknown which argument = %s" % str(which))
 
@@ -236,7 +235,7 @@ class ROIAnalysis(object):
         """ the total likelihood, according to model
             parameters parameters to pass to model
         """
-        if N.any(N.isnan(parameters)):
+        if np.any(np.isnan(parameters)):
             # pretty ridiculous that this check must be made, but fitter passes NaNs...
             return 1e6
             # not sure if should "set parameters" in this case
@@ -244,7 +243,7 @@ class ROIAnalysis(object):
         self.update_counts(parameters)
 
         ll = sum(band.logLikelihood() for band in self.bands)
-        return 1e6 if N.isnan(ll) else ll
+        return 1e6 if np.isnan(ll) else ll
 
     def bandFit(self,which):
         """ Perform a spectral independendent fit of the source
@@ -288,13 +287,13 @@ class ROIAnalysis(object):
         models    = self.psm.models
 
         # sanity check -- for efficiency, the gradient should be called with the same params as the log likelihood
-        if not N.allclose(parameters,self.parameters(),rtol=0,atol=1e-6):
+        if not np.allclose(parameters,self.parameters(),rtol=0,atol=1e-6):
             self.update_counts(parameters)
 
         # do the point sources
-        indices  = N.arange(len(models))[N.asarray([N.any(m.free) for m in models])] if len(models)>0 else []
-        nparams  = N.asarray([model.free.sum() for model in models])
-        gradient = N.zeros(nparams.sum())
+        indices  = np.arange(len(models))[np.asarray([np.any(m.free) for m in models])] if len(models)>0 else []
+        nparams  = np.asarray([model.free.sum() for model in models])
+        gradient = np.zeros(nparams.sum())
 
         for b in bands:
             cp = 0
@@ -313,7 +312,7 @@ class ROIAnalysis(object):
                 cp += np
 
         # add in diffuse components
-        gradient  = N.append(self.bgm.gradient(bands),gradient)
+        gradient  = np.append(self.bgm.gradient(bands),gradient)
         
         # Note, no need to transform gradient into log space because
         # gradient now returns the gradient with respect to internal parameters.
@@ -322,7 +321,7 @@ class ROIAnalysis(object):
 
     def parameters(self):
         """Merge parameters from background and point sources."""
-        return N.asarray(self.bgm.parameters()+self.psm.parameters())
+        return np.asarray(self.bgm.parameters()+self.psm.parameters())
 
     def get_parameters(self):
         """Support for hessian calculation in specfitter module."""
@@ -330,7 +329,7 @@ class ROIAnalysis(object):
 
     def get_free_errors(self):
         """Return the diagonal elements of the covariance matrix -- useful for step sizes in minimization, if known."""
-        return N.asarray(self.bgm.get_free_errors() + self.psm.get_free_errors())
+        return np.asarray(self.bgm.get_free_errors() + self.psm.get_free_errors())
 
     def set_parameters(self,parameters):
         """Support for hessian calculation in specfitter module."""
@@ -343,7 +342,7 @@ class ROIAnalysis(object):
         old_psm_frees = []
         for m in self.psm.models:
             old_psm_frees.append(m.free.copy())
-            #m.free = N.asarray([False]*len(m.free))
+            #m.free = np.asarray([False]*len(m.free))
             m.free[:] = False
         self.fit(fit_bg_first = False,estimate_errors=False)
         for n,nm in enumerate(self.psm.models):
@@ -352,14 +351,14 @@ class ROIAnalysis(object):
     def __pre_fit__(self):
 
         #cache frozen values
-        param_state = N.concatenate([m.free for m in self.psm.models] + [m.free for m in self.bgm.models])
-        param_vals  = N.concatenate([m.get_all_parameters(internal=True)  for m in self.psm.models] \
+        param_state = np.concatenate([m.free for m in self.psm.models] + [m.free for m in self.bgm.models])
+        param_vals  = np.concatenate([m.get_all_parameters(internal=True)  for m in self.psm.models] \
                                 + [m.get_all_parameters(internal=True)  for m in self.bgm.models])
 
         if self.param_state is None or self.param_vals is None or \
             len(param_state)  != len(self.param_state) or \
-            N.any(param_state != self.param_state) or \
-            N.any(param_vals  != self.param_vals):
+            np.any(param_state != self.param_state) or \
+            np.any(param_vals  != self.param_vals):
 
             self.psm.cache(self.bands)
 
@@ -372,7 +371,7 @@ class ROIAnalysis(object):
 
     def _check_gradient(self):
         """ Determine if it's OK to use the gradient fitter."""
-        for model in N.append(self.psm.models,self.dsm.models):
+        for model in np.append(self.psm.models,self.dsm.models):
             if np.any(model.free) and (not hasattr(model,'external_gradient')):
                 return False
         return True
@@ -522,7 +521,7 @@ class ROIAnalysis(object):
             ll_string  = ''
         return '\n\n'.join([ps_header,self.psm.__str__(),bg_header,self.bgm.__str__(),ll_string])
 
-    def TS(self,which=0,quick=True,method='simplex', bandfits=False):
+    def TS(self,which=0,quick=True,bandfits=False, fit_kwargs=dict(method='simplex')):
         """Calculate the significance of the central point source.
 
             quick -- if set True, just calculate likelihood with source flux set to 0
@@ -548,7 +547,7 @@ class ROIAnalysis(object):
 
         save_params = self.parameters().copy() # save free parameters
         self.zero_ps(which)
-        self.fit(save_values = False,method=method)
+        self.fit(save_values=False, **fit_kwargs)
         ll_0 = -self.logLikelihood(self.parameters())
 
         if not self.quiet: print self
