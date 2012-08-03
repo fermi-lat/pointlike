@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Aug  3 10:30:51 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_catalogs.py 
+Log Message:
+cleanup internals for Catalog2FGL's extended sources + get_names funciton
+    *
+------------------------------------------------------------
 User: lande  Fri Aug  3 08:08:18 PDT 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
