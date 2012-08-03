@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Aug  3 08:08:18 PDT 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+kwargs into set_flux
+    *
+------------------------------------------------------------
 User: lande  Fri Aug  3 08:07:52 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
