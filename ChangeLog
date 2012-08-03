@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Aug  3 08:07:36 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+update set_flux when conflicting with parameter limits
+    *
+------------------------------------------------------------
 User: lande  Fri Aug  3 08:06:57 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
