@@ -1,7 +1,7 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.24 2012/07/06 00:43:37 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.25 2012/07/16 16:44:09 lande Exp $
 
 author: Joshua Lande
 """
@@ -232,17 +232,20 @@ class Catalog2FGL(SourceCatalog):
         self.names = names = np.asarray([x.strip() for x in names])
 
         # not sure why there is the naming inconsistency
-        #extended_source_names = np.char.replace(extended_source_names,' ','')
-        extended_source_names = np.asarray([x.replace(' ','') for x in extended_source_names])
+        self.extended_source_names = extended_source_names = np.asarray([x.strip().replace(' ','') for x in extended_source_names])
 
-        dirs   = map(SkyDir,np.asarray(ras).astype(float),np.asarray(decs).astype(float))
+        self.extendeds = extendeds = (self.extended_source_names != '')
+        self.names[self.extendeds] = self.extended_source_names[self.extendeds]
+
+
+        dirs = map(SkyDir,np.asarray(ras).astype(float),np.asarray(decs).astype(float))
 
         # Store both point and extended sources.
         self.sources = []
 
         # This is for the new 2FGL style catalogs
-        for name,extended_source_name,stype,n0,ind,pen,cutoff,beta,f1000,dir in \
-                zip(names,extended_source_names,stypes,n0s,inds,pens,cutoffs,betas,f1000s,dirs):
+        for name,extended,stype,n0,ind,pen,cutoff,beta,f1000,dir in \
+                zip(names,extendeds,stypes,n0s,inds,pens,cutoffs,betas,f1000s,dirs):
 
             if stype == 'PowerLaw':
                 # note, np.isinf incorrectly raises annoying warning
@@ -265,10 +268,10 @@ class Catalog2FGL(SourceCatalog):
             if self.limit_parameters:
                 model.set_default_limits(oomp_limits=True)
 
-            if extended_source_name:
-                spatial_model=self.__get_spatial_model__(extended_source_name)
+            if extended:
+                spatial_model=self.__get_spatial_model__(name)
                 self.sources.append(
-                        ExtendedSource(name=extended_source_name,
+                        ExtendedSource(name=name,
                             model=model,
                             spatial_model=spatial_model
                         )
@@ -340,6 +343,9 @@ class Catalog2FGL(SourceCatalog):
     def get_source(self,name):
         return next(source for source in self.sources if source.name == name)
 
+    def get_names(self):
+        return self.names.tolist()
+
     def get_sources(self,skydir,radius=15):
         """ Returns all catalog sources (point + diffuse combined) within radius.
             Sources only allowed to vary (their spectral paramters)
@@ -363,8 +369,8 @@ class Catalog2FGL(SourceCatalog):
             if sum(np.any(source.model.free==True) for source in return_sources) > self.max_free:
                 i=0
                 for source in return_sources:
-                    i+=1
                     if np.any(source.model.free==True):
+                        i+=1
                         if i > self.max_free:
                             source.model.free[:] = False
 
