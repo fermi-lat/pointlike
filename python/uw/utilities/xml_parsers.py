@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.82 2012/07/11 15:02:16 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.83 2012/07/16 16:44:18 lande Exp $
 
    author: Matthew Kerr
 """
@@ -1356,7 +1356,7 @@ def process_diffuse_source(ds,strict=False,convert_extended=False,expand_env_var
             elif isinstance(m,IsotropicPowerLaw):
                 flux,index=m.flux(),m.index()
                 pl=PowerLawFlux(index=index)
-                pl.set_flux(flux,100,np.inf)
+                pl.set_flux(flux,emin=100,emax=np.inf)
 
                 if isinstance(ds.smodel,Constant):
                     pl['Int_Flux'] *= ds.smodel['Scale']
