@@ -1,7 +1,7 @@
 """
 Module to calculate flux and extension upper limits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.21 2012/06/05 23:02:27 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.22 2012/07/11 17:45:59 lande Exp $
 
 author:  Eric Wallace <ewallace@uw.edu>, Joshua Lande <joshualande@gmail.com>
 """
@@ -55,18 +55,22 @@ def upper_limit(roi, which=0,
     All other arguments are passed into the uw.like.Models.i_flux function,
     including e_weight, cgs, emin, and emax.
     """
-    self=roi
-    params = self.parameters().copy()
-    ll_0 = self.logLikelihood(self.parameters())
+    params = roi.parameters().copy()
+    ll_0 = roi.logLikelihood(roi.parameters())
 
-    source = self.get_source(which)
+    source = roi.get_source(which)
+
     if not source.__dict__.has_key('model'):
         raise Exception("upper_limit can only calculate upper limits of point and extended sources.")
     model=source.model
 
+    # Unbound flux temporarily to avoid parameter limits
+    mapper = model.get_mapper(0)
+    model.set_mapper(0,LinearMapper)
+
     def like(norm):
         model.setp(0,norm)
-        return np.exp(ll_0-self.logLikelihood(self.parameters()))
+        return np.exp(ll_0-roi.logLikelihood(roi.parameters()))
     npoints = simps_points * (integral_max - integral_min)
     points = np.logspace(integral_min, integral_max,npoints*2+1)
     y = np.array([like(x)*10**x for x in points])
@@ -82,7 +86,11 @@ def upper_limit(roi, which=0,
     limit = x1 + ((x2-x1)/(y2-y1))*(confidence-y1)
     model.setp(0,limit)
     uflux = model.i_flux(**kwargs)
-    self.logLikelihood(params)
+    roi.logLikelihood(params)
+
+    # rebound parameters
+    model.set_mapper(0, mapper)
+
     return uflux
 
 def upper_limit_quick(roi,which = 0,confidence = .95,e_weight = 0,cgs = False):
