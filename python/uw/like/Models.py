@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.129 2012/07/30 20:54:09 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.130 2012/07/31 17:44:17 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -748,7 +748,7 @@ class Model(object):
 
         open(path.expand(filename),'w').write('\n'.join(['%g\t%g' % (i,j) for i,j in zip(energies,fluxes)]))
 
-    def set_flux(self,flux,*args,**kwargs):
+    def set_flux(self,flux,strict=False,**kwargs):
         """ Set the flux of the source. 
                 
             This function ensures that after the function call,
@@ -786,14 +786,60 @@ class Model(object):
                 >>> model.set_flux(1e-7)
                 >>> np.allclose(model.i_flux(),1e-07)
                 True
+        
+            Good error checking when set_flux goes outside bounds:
+
+                >>> model.set_flux(1e-15)
+                WARNING: Setting flux=1e-15 sets the prefactor=1.001001001e-19 which is below minimum bound 1e-17. Setting prefactor to limit.
+                >>> print model['norm']
+                1e-17
+                >>> model.set_flux(1e-15, strict=True)
+                Traceback (most recent call last):
+                    ...
+                ModelException: Setting flux=1e-15 sets the prefactor=1.001001001e-19 which is below minimum bound 1e-17
+
+                >>> model.set_flux(1e10)
+                WARNING: Setting flux=10000000000.0 sets the prefactor=1001001.001 which is above maximum bound 0.001. Setting prefactor to limit.
+                >>> print model['norm']
+                0.001
+
+                >>> model.set_flux(1e10, strict=True)
+                Traceback (most recent call last):
+                    ...
+                ModelException: Setting flux=10000000000.0 sets the prefactor=1001001.001 which is above maximum bound 0.001
         """
         mapper = self.get_mapper(0)
+        init_p = self.getp(0)
         self.set_mapper(0,LinearMapper)
 
         self.setp(0, 1) # First, set prefactor to 1
-        new_prefactor = flux/self.i_flux(*args,**kwargs)
-        self.setp(0,new_prefactor)
+        new_prefactor = flux/self.i_flux(**kwargs)
 
+        if isinstance(mapper,LimitMapper):
+            # deal with pesky case of flux setting prefactor outside limits.
+            max_limit=mapper.upper
+            if new_prefactor > max_limit:
+                msg='Setting flux=%s sets the prefactor=%s which is above maximum bound %s' % (flux,new_prefactor,max_limit)
+                if strict:
+                    self.setp(0, init_p)
+                    self.set_mapper(0, mapper)
+                    raise ModelException(msg)
+                else:
+                    print 'WARNING: %s. Setting prefactor to limit.' % msg
+                    new_prefactor=max_limit
+
+            min_limit=mapper.lower
+            if new_prefactor < min_limit:
+                msg='Setting flux=%s sets the prefactor=%s which is below minimum bound %s' % (flux,new_prefactor,min_limit)
+                if strict:
+                    self.setp(0, init_p)
+                    self.set_mapper(0, mapper)
+                    raise ModelException(msg)
+                else:
+                    print 'WARNING: %s. Setting prefactor to limit.' % msg
+                    new_prefactor=min_limit
+
+        self.setp(0,new_prefactor)
         self.set_mapper(0, mapper)
 
     def copy(self): return copy.deepcopy(self)
