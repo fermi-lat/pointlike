@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Aug  3 08:07:52 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+remove unnecessary fit_extension_fast
+    *
+------------------------------------------------------------
 User: lande  Fri Aug  3 08:07:36 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
