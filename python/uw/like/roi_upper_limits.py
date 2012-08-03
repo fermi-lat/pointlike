@@ -1,7 +1,7 @@
 """
 Module to calculate flux and extension upper limits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.22 2012/07/11 17:45:59 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.23 2012/08/03 15:01:44 lande Exp $
 
 author:  Eric Wallace <ewallace@uw.edu>, Joshua Lande <joshualande@gmail.com>
 """
@@ -12,6 +12,7 @@ from scipy.optimize import fmin, fminbound, brentq
 
 from uw.utilities import keyword_options
 from uw.utilities.quantile import Quantile
+from uw.utilities.parmap import LinearMapper
 
 from uw.like.roi_state import PointlikeState
 from uw.like.roi_extended import ExtendedSource
