@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.69 2012/07/31 20:29:56 razzano Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.70 2012/07/31 22:52:17 lande Exp $
 
 author: Joshua Lande
 """
@@ -992,7 +992,6 @@ class MonteCarlo(object):
             ('tempbase', '/scratch/', " Directory to put temporary files in. Can be cleaned up with the cleanup function."),
             ('tstart',          None, " Required if ft2 does not point to a real file."),
             ('tstop',           None, " Required if ft2 does not point to a real file."),
-            ('ft2',             None, " If exists, simulate with this ft2 file. If not, create."),
             ('ltfrac',          None, " If set, pass value into gtobssim."),
             ('emin',             100, " Minimum energy"),
             ('emax',          100000, " Maximum energy"),
@@ -1013,11 +1012,12 @@ class MonteCarlo(object):
     )
 
     @keyword_options.decorate(defaults)
-    def __init__(self,ft1,irf, sources, seed, **kwargs):
+    def __init__(self,ft1,ft2,irf, sources, seed, **kwargs):
         """ Constructor does not require a data_specification. """
         keyword_options.process(self, kwargs)
 
         self.ft1=ft1
+        self.ft2=ft2
         self.irf=irf
         self.sources=sources
         self.seed=seed
