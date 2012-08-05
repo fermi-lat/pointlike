@@ -1,7 +1,7 @@
 """
 Module to calculate flux and extension upper limits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.23 2012/08/03 15:01:44 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.24 2012/08/03 17:31:07 lande Exp $
 
 author:  Eric Wallace <ewallace@uw.edu>, Joshua Lande <joshualande@gmail.com>
 """
@@ -17,6 +17,7 @@ from uw.utilities.parmap import LinearMapper
 from uw.like.roi_state import PointlikeState
 from uw.like.roi_extended import ExtendedSource
 from uw.like.SpatialModels import Disk
+from uw.like.roi_state import PointlikeState
 
 def upper_limit(roi, which=0,
               confidence=0.95,
@@ -56,7 +57,7 @@ def upper_limit(roi, which=0,
     All other arguments are passed into the uw.like.Models.i_flux function,
     including e_weight, cgs, emin, and emax.
     """
-    params = roi.parameters().copy()
+    state = PointlikeState(roi)
     ll_0 = roi.logLikelihood(roi.parameters())
 
     source = roi.get_source(which)
@@ -66,7 +67,6 @@ def upper_limit(roi, which=0,
     model=source.model
 
     # Unbound flux temporarily to avoid parameter limits
-    mapper = model.get_mapper(0)
     model.set_mapper(0,LinearMapper)
 
     def like(norm):
@@ -87,10 +87,8 @@ def upper_limit(roi, which=0,
     limit = x1 + ((x2-x1)/(y2-y1))*(confidence-y1)
     model.setp(0,limit)
     uflux = model.i_flux(**kwargs)
-    roi.logLikelihood(params)
 
-    # rebound parameters
-    model.set_mapper(0, mapper)
+    state.restore(just_spectra=True)
 
     return uflux
 
