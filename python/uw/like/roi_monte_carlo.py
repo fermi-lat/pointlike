@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.70 2012/07/31 22:52:17 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.71 2012/08/05 02:27:39 lande Exp $
 
 author: Joshua Lande
 """
@@ -652,9 +652,11 @@ class MCModelBuilder(object):
     @staticmethod
     def isone(model):
         """ Return 1 if model predicts 1 everywhere. """
-        if isinstance(model,Constant) and model['scale'] == 1:
+        if isinstance(model,Constant) and np.allclose(model['scale'],1):
             return 1
-        if isinstance(model,PowerLaw) and model['norm'] == 1 and model['index'] == 0:
+        if isinstance(model,PowerLaw) and np.allclose(model['norm'],1) and np.allclose(model['index'],0):
+            return 1
+        if isinstance(model,FileFunction) and np.allclose(model['Normalization'],1):
             return 1
         return 0
 
@@ -816,7 +818,7 @@ class MCModelBuilder(object):
             ]
         elif isinstance(sm,FileFunction):
 
-            if sm['Normalization'] != 1:
+            if not MCModelBuilder.isone(sm):
                 raise Exception("When simulationg IsotropicConstant source with FileFunction spectrum, the constant must be 1")
 
             spectral_file=sm.file
