@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.13 2012/02/26 23:51:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.14 2012/06/24 04:52:29 burnett Exp $
 
 """
 import os, pickle, glob, types, collections
@@ -196,7 +196,7 @@ class SkyModel(object):
                 #    nfreed +=1
                 #    if nfreed<10: print 'Freed photon index for source %s'%ps.name
                 #    elif nfreed==10: print ' [...]'
-                if sources.validate(ps,self.nside, self.filter):
+                if True: # do not need? sources.validate(ps,self.nside, self.filter):
                     self._check_position(ps) # check that it is not coincident with previous source(warning for now?)
                     self.point_sources.append( ps)
             # make a list of extended sources used in the model   
@@ -279,7 +279,7 @@ class SkyModel(object):
         return a list of PointSource objects appropriate for the ROI
         """
         return self._select_and_freeze(self.point_sources, src_sel)
-        
+
     def get_diffuse_sources(self, src_sel):
         """return diffuse, global and extended sources defined by src_sel
             always the global diffuse, and perhaps local extended sources.
