@@ -1,6 +1,6 @@
 """ Dark Matter spectral models
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spectral.py,v 1.8 2012/06/25 19:01:16 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spectral.py,v 1.9 2012/06/25 20:39:14 lande Exp $
 
     author: Alex Drlica-Wagner, Joshua Lande
 """
@@ -12,7 +12,8 @@ from collections import OrderedDict
 import numpy as np
 from scipy.optimize.minpack import check_gradient
 
-from uw.like.Models import Model,CompositeModel,Constant,FileFunction
+from uw.like.Models import Model,CompositeModel,Constant
+from uw.utilities import path
 
 from uw.utilities.parmap import LogMapper,LimitMapper
 
@@ -127,7 +128,7 @@ class DMFitFunction(Model):
         for n in np.append(self.param_names,['norm','bratio','channel0','channel1']):
             self.dmf.getParam(n).setBounds(-float('inf'),float('inf'))
 
-        self.dmf.readFunction(FileFunction.expand(self.file))
+        self.dmf.readFunction(path.expand(self.file))
         self._update() # update all parameters in DMFitFunction
 
     def setp(self, *args, **kwargs):
