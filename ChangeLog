@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Aug 10 12:29:25 PDT 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	skymodel.py 
+Log Message:
+disable source parameter check: limits make obsolete
+    *
+------------------------------------------------------------
 User: lande  Thu Aug  9 17:14:06 PDT 2012
 ScienceTools-scons/pointlike/python/uw/darkmatter
 
