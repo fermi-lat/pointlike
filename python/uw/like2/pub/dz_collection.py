@@ -2,13 +2,13 @@
 Manage creation of DeepZoom images
 
 Wraps the basic functionality from the (modified) deepzoom package 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/dz_collection.py,v 1.1 2011/01/24 22:03:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/dz_collection.py,v 1.1 2011/12/29 19:17:51 burnett Exp $
 
 Author: T.Burnett <tburnett@uw.edu>
 """
 import os, sys, glob, exceptions, types
 import optparse
-from . import deepzoom 
+from uw.like2.pub import deepzoom 
 from IPython.parallel.util import interactive # for evaluating functions remotely
 
 class InvalidParameter(exceptions.Exception):
@@ -23,7 +23,7 @@ class MakeCollection(object):
         mc.collect()
         
     Note that the convert step time is order(number of images) and can be parallized by passing an
-        optional IPython.kernel.MultiEngineClient object
+        optional IPython.parallel.Client object
     """
     def __init__(self, infolder, outfolder,
             imagetype = 'jpg', 
@@ -82,7 +82,7 @@ class MakeCollection(object):
                     %(self.infolder, self.outfolder), block=True)
         @interactive
         def emc(x): return mc(x)
-        print 'start converting %d files' % len(self.files)
+        print 'start converting %d files' % len(self.files); sys.stdout.flush()
         dview.map_sync( emc, range(len(self.files)) )
         dview.clear()
         
@@ -112,7 +112,7 @@ def main():
 
     # implementing this means dependence on IPython
     parser.add_option("-m", "--mec", dest="mec", default=False,
-                  help="Use IPython MultiEngineClient")
+                  help="Use IPython parallel, say 'default'")
     
     parser.add_option("-n", "--name", dest="name", default='dzc', 
                   help="collection name, default 'dzc'")
@@ -131,8 +131,9 @@ def main():
             sys.exit(1)
     mec = None 
     if options.mec:
-        from IPython.kernel.client import MultiEngineClient
-        mec = MultiEngineClient()
+        from IPython.parallel import Client 
+        mec = Client(profile=mec)
+        assert len(mec)>0, 'No engines found'
         
     print infolder, '-->', outfolder
     mc = MakeCollection(infolder, outfolder, collection_name=options.name)

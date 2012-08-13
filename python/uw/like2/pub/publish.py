@@ -1,6 +1,6 @@
 """
 manage publishing 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/publish.py,v 1.3 2012/02/12 20:06:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/publish.py,v 1.4 2012/06/24 04:54:18 burnett Exp $
 """
 import sys, os, pickle, glob, types, time
 import Image
@@ -9,7 +9,7 @@ import numpy as np
 import pylab as plt
 from uw.utilities import makefig, makerec, colormaps
 from . import healpix_map, dz_collection 
-from . import source_pivot, roi_pivot, makecat, display_map, healpix_map
+from . import source_pivot, roi_pivot, makecat, display_map, healpix_map, combine_figures
 #from ..analysis import residuals
 from .. import skymodel
 
@@ -53,7 +53,8 @@ class Publish(object):
     """ manage generating all the products from a build
     """
     def __init__(self, outdir=None, 
-            pivot_root = r'D:\common\pivot' if os.name=='nt' else '/phys/users/tburnett/pivot',
+            pivot_root = r'D:\common\pivot' if os.name=='nt' else '/phys/groups/tev/scratch1/users/tburnett/pivot',
+                                                                    #/phys/users/tburnett/pivot',
             ts_min = 10,
             catalog_name = None,
             dzc = 'dzc.xml',
@@ -114,8 +115,8 @@ class Publish(object):
         files = glob.glob(os.path.join(self.pivot_dir, '*'))
         print 'existing files:\n\t%s' % '\n\t'.join(files)
         self.overwrite=overwrite
-        self.zips =     ( 'sedfig',      'tsmap',        'ts_maps',      'kde_maps')
-        self.zipnames = ( 'source seds', 'source tsmaps','roi residual ts','roi kdemaps')
+        self.zips =     ( 'sedfig',      'tsmap',        'ts_maps',        'kde_maps',   'light_curves')
+        self.zipnames = ( 'source seds', 'source tsmaps','roi residual ts','roi kdemaps','light curves')
         for z in self.zips:
             if not os.path.exists(os.path.join(self.outdir,self.ref(z))):
                 print 'WARNING: missing folder in outdir: %s --did you run healpix_map.main?' % z
@@ -137,7 +138,8 @@ class Publish(object):
         if 'extended' not in self.config: self.config['extended']=None
         
     def ref(self,x):
-        if self.refdir =='': return x
+        if self.refdir =='': 
+            return x
         return '../%s/%s' %( self.refdir,x)
     
     def roi_plots(self):
@@ -210,33 +212,10 @@ class Publish(object):
         make_thumbnail(outfile)
     
         
-    def combine_plots(self, sources=True, rois=True, dzc=True):
-        if   len(glob.glob(os.path.join(self.outdir,'pnglog', '*.png'))) \
-            <len(glob.glob(os.path.join(self.outdir,'log', '*.txt'))):
-            print 'converting log files...'
-            makefig.convert_log_to_png(self.outdir)
-        if rois:
-            combine_images(self.rois.name, outdir=self.outdir, 
-                #subdirs=('countsmap','residual_ts', 'counts_dir', 'log'), #gtsmap_dir='gtsmap', 
-                subdirs=(self.ref('kde_maps'),'ts_maps', 'counts_dir', 'pnglog'), #gtsmap_dir='gtsmap', 
-                layout_kw=dict(
-                    hsize=(1800,1100), 
-                    sizes=     [(600,600), None, None, None], 
-                    positions= [(0,0),(0,500), (600, 50), (1250,0)],
-                    crop=None, #(0,32, 1568, 1470), 
-                    #title = (make_title, (800,0)), # pass function to make title, position
-                ) ,
-                outfolder='combined', overwrite = self.overwrite, )
-        if sources:        
-            combine_images(self.sources.name, outdir=self.outdir, 
-                subdirs=('tsmap', 'sedfig', ),
-                layout_kw=dict(
-                    hsize=(1100,600), 
-                    sizes=     [(600,600) , (500,500) , ], 
-                    positions= [(0,0), (600, 0)],
-                    crop= None,#(0,32, 1000, 1470), 
-                ) ,
-                outfolder='combined', overwrite=self.overwrite)
+    def combine_plots(self, sources=True, rois=True, logs=True, dzc=True):
+        cf = combine_figures.CombineFigues(skymodel_dir=self.outdir, overwrite=self.overwrite)
+        cf( self.sources.name, self.rois.name , log=logs)
+        
         if dzc: 
             self.make_dzc()
 
@@ -246,22 +225,30 @@ class Publish(object):
             mc.convert(self.mec) # use the MEC if provided!
             mc.collect()
         
-    def make_pivot(self):
+    def make_pivot(self, roi_kw={}, source_kw={}):
+        self.write_roi_pivot( **roi_kw)
+        self.write_source_pivot(**source_kw)
+    
+    def write_roi_pivot(self, **kwargs):
         roi_pivot.make_pivot(self.rois, outdir=self.outdir,
             pivot_dir=self.pivot_dir,  
             pivot_name='%s - rois'%self.outdir , 
             pivot_file='rois.cxml',
             dzc = self.dzc,
+            **kwargs
             )
-        self.write_source_pivot()
-        
-    def write_source_pivot(self):
+
+    
+    def write_source_pivot(self, **kwargs):
+        """ invoked by make_pivot: here to override """
+        kw = self.source_pivot_kw.copy()
+        kw.update(**kwargs)
         source_pivot.make_pivot(self.sources, outdir=self.outdir,
             pivot_dir=self.pivot_dir, 
             pivot_name='%s - sources'%self.outdir,
             pivot_file='sources.cxml',  
             dzc = self.dzc,
-            ** self.source_pivot_kw
+            ** kw
             )
             
     def write_xml(self, catname=None):
@@ -541,7 +528,10 @@ class Publish(object):
         self.ait_plots()
         #self.write_residualmaps()
         self.write_zips()
-        self.write_xml()
+        try:
+            self.write_xml()
+        except:
+            print 'failed to write xml: fix later'
         self.write_reg()
         self.write_html()
     def tables(self):

@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.18 2012/02/12 20:09:29 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.19 2012/06/24 04:52:29 burnett Exp $
 
 """
 import types
@@ -54,48 +54,11 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
         super(ROI_user, self).__init__(*pars, **kwargs)
         self.selected_source = self.sources.find_source(source_name) if source_name is not None else None
 
-    def fit(self, select=None, exclude=None,  summarize=True, quiet=True, **kwargs):
-        """ Perform fit, return fitter object to examine errors, or refit
+    def _selector(self, select=None, exclude=None):
+        # select a list of parameter numbers, or None for all free parameters
+        selected= set()
+        npars = len(self.get_parameters())
         
-        Parameters
-        ----------
-        select : None, item or list of items, where item is an int or a string
-            if not None, it defines a subset of the parameter numbers to select
-                to define a projected function to fit
-            int:  select the corresponding parameter number
-            string: select parameters according to maching rules
-                The name of a source (with possible wild cards) to select for fitting
-                If initial character is '_', match the rest with parameter names
-                if initial character is '_' and last character is '*', treat as wild card
-        
-        exclude : None, int, or list of int 
-            if specified, will remove parameter numbers from selection
-
-        summarize : bool
-            if True (default) call summary after succesful fit
-
-        kwargs 
-        ------
-            ignore_exceptions : bool
-                if set, run the fit in a try block and return None
-            call_limit : int
-                if set, modify default limit on number of calls
-            others passed to the fitter minimizer command. defaults are
-                estimate_errors = True
-                use_gradient = True
-        
-        """
-        ignore_exception = kwargs.pop('ignore_exception', False)
-        self.call_limit = kwargs.pop('call_limit', self.call_limit)
-        fit_kw = dict(use_gradient=True, estimate_errors=True)
-        fit_kw.update(kwargs)
-        self.update()
-        initial_value, self.calls = self.log_like(), 0
-        saved_pars = self.get_parameters()
-        npars = len(saved_pars)
-        
-        # process select
-        selected= set() 
         if select is not None:
             selectpar = select
             if not hasattr(select, '__iter__'): select = [select]
@@ -128,15 +91,58 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
             all = set(range(npars)) if select is None else set(select)
             select = list( all.difference(exclude))
                 
-        fn = self if select is None  else fitter.Projector(self, select=select)
+        return select
+       
+    def fit(self, select=None, exclude=None,  summarize=True, quiet=True, **kwargs):
+        """ Perform fit, return fitter object to examine errors, or refit
+        
+        Parameters
+        ----------
+        select : None, item or list of items, where item is an int or a string
+            if not None, it defines a subset of the parameter numbers to select
+                to define a projected function to fit
+            int:  select the corresponding parameter number
+            string: select parameters according to maching rules
+                The name of a source (with possible wild cards) to select for fitting
+                If initial character is '_', match the rest with parameter names
+                if initial character is '_' and last character is '*', treat as wild card
+        
+        exclude : None, int, or list of int 
+            if specified, will remove parameter numbers from selection
+
+        summarize : bool
+            if True (default) call summary after succesful fit
+
+        kwargs 
+        ------
+            ignore_exceptions : bool
+                if set, run the fit in a try block and return None
+            call_limit : int
+                if set, modify default limit on number of calls
+            others passed to the fitter minimizer command. defaults are
+                estimate_errors = True
+                use_gradient = True
+        """
+        ignore_exception = kwargs.pop('ignore_exception', False)
+        self.call_limit = kwargs.pop('call_limit', self.call_limit)
+        fit_kw = dict(use_gradient=True, estimate_errors=True)
+        fit_kw.update(kwargs)
+        self.update()
+        initial_value, self.calls = self.log_like(), 0
+        saved_pars = self.get_parameters()
+        
+        ## process select: return None or a list of parameter numbers, create the function to fit
+        selected = self._selector(select, exclude)
+        fn = self if selected is None  else fitter.Projector(self, select=selected)
         try:
             mm = fitter.Minimizer(fn, quiet=quiet)
             mm(**fit_kw)
-            print '%d calls, likelihood improvement: %.1f'\
-                % (self.calls, self.log_like() - initial_value)
+            w = self.log_like()
+            print '%d calls, function value, improvement: %.1g, %.1f'\
+                % (self.calls, w, w - initial_value)
             if fit_kw['estimate_errors'] :
                 self.sources.set_covariance_matrix(mm.cov_matrix, select)
-            if summarize: self.summary(select)
+            if summarize: self.summary(selected)
             return mm
         except FloatingPointError, e:
             print 'Fit error: restoring parameters since  "%s"' %e 
@@ -181,6 +187,9 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
             integers are indices of parameters
             string is the wildcarded name of a source
         out : open file or None
+        title: None or string
+        gradient: bool
+            set False to not print gradient
             
         """
         if title is not None:
@@ -284,6 +293,7 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
 
     def find_associations(self, source_name=None, classes='all'):
         """ find associations, using srcid object.
+        Expect to find files at $FERMI/catalog.
         """
         try:
             if not hasattr(self,'srcid'):
@@ -302,7 +312,9 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
         return self.sources.bounds
     @property
     def cov_matrix(self):
-        """ the current covariance matrix, determined from the gradient """
+        """ the current covariance matrix, determined from the gradient 
+            assumes that there is a consistent fit for for the full set of parameters
+        """
         return fitter.Minimizer.mycov(self.gradient, self.get_parameters())
         
     @property
@@ -352,7 +364,10 @@ class Factory(roisetup.ROIfactory):
         elif type(sel)==skymaps.SkyDir:
             index = self.skymodel.hpindex(sel)
         elif type(sel)==types.StringType:
-            index = self.skymodel.hpindex(self.skymodel.find_source(sel).skydir)
+            try:
+                index = self.skymodel.hpindex(self.skymodel.find_source(sel).skydir)
+            except Exception, msg:
+                raise Exception(msg)
             source_name=sel
         else:
             raise Exception( 'factory argument "%s" not recognized.' %sel)
