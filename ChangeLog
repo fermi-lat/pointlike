@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Aug 13 16:17:28 PDT 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	main.py roisetup.py 
+Log Message:
+improve user interface, esp. to allow setting irf
+    *
+------------------------------------------------------------
 User: burnett  Mon Aug 13 12:52:23 PDT 2012
 pointlike/python/uw/like2/pub
 
