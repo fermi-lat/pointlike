@@ -1,7 +1,7 @@
 """
 Set up an ROI factory object
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.12 2012/03/27 20:24:31 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.13 2012/06/24 04:52:29 burnett Exp $
 
 """
 import os, sys, types
@@ -85,12 +85,15 @@ class ROIfactory(object):
     
     """
     defaults =(
-        ('analysis_kw', dict(irf='P7SOURCE_V6',minROI=7,maxROI=7, emin=100, emax=316277, quiet=False),'roi analysis keywords'),
+        ('analysis_kw', dict(irf=None,minROI=5,maxROI=5, emin=100, emax=316277, quiet=False),'roi analysis keywords'),
         ('skymodel_kw', {}, 'skymodel keywords'),
         ('convolve_kw', dict( resolution=0.125, # applied to OTF convolution: if zero, skip convolution
                             pixelsize=0.05, # ExtendedSourceConvolution
                             num_points=25), # AnalyticConvolution
                                     'convolution parameters'),
+        ('irf', None,  'Set to override saved value with the skymodel'),
+        ('diffuse', None, 'Set to override saved value with skymodel'),
+        ('extended', None, 'Set to override saved value with skymodel'),
         ('selector', skymodel.HEALPixSourceSelector,' factory of SourceSelector objects'),
         ('data_interval', 0, 'Data interval (e.g., month) to use'),
         ('quiet', False, 'set to suppress most output'),
@@ -110,7 +113,14 @@ class ROIfactory(object):
         """
         keyword_options.process(self, kwargs)
         print 'ROIfactory setup: \n\tskymodel: ', modeldir
-        self.skymodel = skymodel.SkyModel(modeldir,  **self.skymodel_kw)
+        # extract parameters used by skymodel for defaults
+        input_config = eval(open(os.path.expandvars(modeldir+'/config.txt')).read())
+        for key in 'extended diffuse irf'.split():
+            if self.__dict__[key] is None: 
+                self.__dict__[key]=input_config[key]
+                print 'Using "%s" from skymodel: "%s"' %(key, self.__dict__[key])
+
+        self.skymodel = skymodel.SkyModel(modeldir, diffuse=self.diffuse,  **self.skymodel_kw)
 
         if isinstance(dataspec,dataman.DataSet):
             self.dataset = dataspec
@@ -141,7 +151,7 @@ class ROIfactory(object):
                         if type(dataspec)!=types.DictType else dataspec
             print '\tdatadict: ', datadict
             if self.analysis_kw.get('irf',None) is None:
-                t = self.skymodel.config['irf']
+                t = self.irf
                 if t[0] in ('"',"'"): t = eval(t)
                 self.analysis_kw['irf'] = t
             print '\tirf:\t%s' % self.analysis_kw['irf'] ; sys.stdout.flush()
@@ -282,6 +292,6 @@ class BandSelector(object):
 
         
 
-def main(indir='uw27', dataname='P7_V4_SOURCE_4bpd',irf='P7SOURCE_V6' ,skymodel_kw={}):
-    rf = ROIfactory(indir, dataname, **skymodel_kw)
+def main(modeldir='3years/uw10', skymodel_kw={}):
+    rf = ROIfactory(modeldir, **skymodel_kw)
     return rf

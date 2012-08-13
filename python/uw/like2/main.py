@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.19 2012/06/24 04:52:29 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.20 2012/08/13 19:52:20 burnett Exp $
 
 """
 import types
@@ -364,10 +364,13 @@ class Factory(roisetup.ROIfactory):
         elif type(sel)==skymaps.SkyDir:
             index = self.skymodel.hpindex(sel)
         elif type(sel)==types.StringType:
-            try:
-                index = self.skymodel.hpindex(self.skymodel.find_source(sel).skydir)
-            except Exception, msg:
-                raise Exception(msg)
+            source = self.skymodel.find_source(sel)
+            if source is not None:
+                skydir = source.skydir
+            elif sel[0]=='J':
+                pass
+                # starts with 'J': try coordinate like J123.6-60.1
+            index = self.skymodel.hpindex(skydir)
             source_name=sel
         else:
             raise Exception( 'factory argument "%s" not recognized.' %sel)
