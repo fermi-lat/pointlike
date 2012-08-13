@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.11 2012/02/26 23:43:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.13 2012/06/24 13:50:00 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
@@ -134,7 +134,9 @@ class Setup(dict):
         if os.path.exists(indir+'/config.txt'):
             input_config = eval(open(indir+'/config.txt').read())
             for key in 'extended diffuse irf'.split():
-                if self[key] is None: self[key]=input_config[key]
+                if self[key] is None: 
+                    self[key]=input_config[key]
+                    print 'updating %s from skymodel' %key
 
         
     def create_string(self):
@@ -145,7 +147,8 @@ g=pipe.Pipe("%(indir)s", %(datadict)s,
         skymodel_kw=dict(auxcat="%(auxcat)s",diffuse=%(diffuse)s,
             extended_catalog_name=%(extended)s, update_positions=%(update_positions)s,
              %(skymodel_extra)s), 
-        analysis_kw=dict(irf=%(irf)s, minROI=%(minROI)s, maxROI=%(maxROI)s, emin=%(emin)s,emax=%(emax)s),
+        analysis_kw=dict(irf="%(irf)s", minROI=%(minROI)s, maxROI=%(maxROI)s, emin=%(emin)s,emax=%(emax)s),
+        irf="%(irf)s",
         processor="%(processor)s",
         process_kw=dict(outdir="%(outdir)s", dampen=%(dampen)s,
             fit_kw = %(fit_kw)s,
@@ -181,10 +184,10 @@ n,chisq = len(g.names()), -1
         roi =  self.mypipe.roi(hp12)
         processor.process(roi, **self.mypipe.process_kw)
 
-    def setup_mec(self, profile=None, sleep_interval=60):
+    def setup_mec(self, profile=None, sleep_interval=60, **kwargs):
         """ send our setup string to the engines associated with profile
         """
-        self.mec = engines.Engines(profile=profile, sleep_interval=sleep_interval)
+        self.mec = engines.Engines(profile=profile, sleep_interval=sleep_interval, **kwargs)
         self.mec.clear()
         self.mec.execute('import gc; gc.collect();'+self())
         self.mecsetup=True

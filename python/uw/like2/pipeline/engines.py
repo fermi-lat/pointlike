@@ -1,7 +1,7 @@
 """
 Support for running multiple IPEngines on a cluster or machines
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/engines.py,v 1.2 2012/01/11 13:49:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/engines.py,v 1.3 2012/06/24 13:50:00 burnett Exp $
 """
 
 import time, os, sys, types, subprocess
@@ -10,7 +10,7 @@ import numpy as np
 from IPython import parallel
 from IPython.parallel.util import interactive # decorator for function to run in an engine
 
-version = '$Revision: 1.2 $'.split()[1]
+version = '$Revision: 1.3 $'.split()[1]
 
 class Engines(object):
     """ manage a set of IPEngines to simplify parallel processing
@@ -36,7 +36,7 @@ class Engines(object):
         self.results=dict()
 
         try:
-            self.rc = parallel.Client(profile=profile)
+            self.rc = parallel.Client(profile=profile, **kwargs)
         except:
             raise Exception( 'No controller available: you must run ipcluster')
         if not self.quiet: print '%d engines available' %len(self.rc)
