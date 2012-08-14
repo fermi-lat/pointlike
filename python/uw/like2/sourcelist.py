@@ -1,7 +1,7 @@
 """
 Manage sources for likelihood: single class SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.19 2012/02/12 20:14:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.20 2012/06/24 04:52:29 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import types
@@ -25,6 +25,28 @@ def set_point_property(psource) :
     psource.__class__.spectral_model = property(getter, setter,doc='spectral model')
 
 class SourceListException(Exception):pass
+
+def set_default_bounds( model, force=False):
+    """
+    Handy utility to set bounds for a model from like.Models
+    """
+    if not force and hasattr(model, 'bounds'): return
+    bounds=[]
+    def to_internal(fun, values):
+        return [fun(value) if value is not None else None for value in values]
+    for pname, mp in zip(model.param_names, model.mappers):
+        plim = (None,None)
+        try:
+            plim = dict(
+                Index=(-0.5, 5), 
+                Norm=(10**-15, 10**-7),
+                Scale=(0.001, 4.0),
+                beta=(0, 5.), 
+                Cutoff=(100., 1e5),
+                )[pname]
+        except: pass
+        bounds.append( to_internal(mp.tointernal, plim) )
+    model.bounds = np.array(bounds) # convert to array so can mask with free
 
   
 class SourceList(list):
