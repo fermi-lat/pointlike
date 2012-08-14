@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.20 2012/08/13 19:52:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.21 2012/08/13 23:17:28 burnett Exp $
 
 """
 import types
@@ -274,7 +274,9 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
         source = self.sources.find_source(source_name)
         source.sedrec = self.get_sed(source.name, 
             event_class=kwargs.pop('event_class', None), update=kwargs.pop('update',True))
-        ps = pointlike_plotting.sed.Plot(source)
+        plot_kw=dict(energy_flux_unit=kwargs.pop('energy_flux_unit','eV'),
+                     gev_scale=kwargs.pop('gev_scale',True))
+        ps = pointlike_plotting.sed.Plot(source, **plot_kw)
         annotation =(0.05,0.9, 'TS=%.0f'% self.TS(source.name))
         plot_kw = dict(annotate=annotation)
         plot_kw.update(kwargs)
@@ -357,7 +359,11 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
 class Factory(roisetup.ROIfactory):
     """ subclass of ROIfactory that sets up a ROI_user analysis object"""
     def __call__(self, sel):
-        ### assume that this is a HEALPix selection
+        """
+        Select and setup an ROI.
+        sel : string or SkyDir
+            if string, the name of a source, or coordinate in form J123.9+30.1
+        """
         source_name=None
         if type(sel)==types.IntType:
             index = sel
@@ -368,8 +374,11 @@ class Factory(roisetup.ROIfactory):
             if source is not None:
                 skydir = source.skydir
             elif sel[0]=='J':
-                pass
                 # starts with 'J': try coordinate like J123.6-60.1
+                t = sel[1:]
+                i = max(t.find('+'), t.find('-'))
+                ra,dec = skymaps.SkyDir(float(t[0:i]),float(t[i:]))
+                
             index = self.skymodel.hpindex(skydir)
             source_name=sel
         else:

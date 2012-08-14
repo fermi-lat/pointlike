@@ -1,7 +1,7 @@
 """
 Set up an ROI factory object
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.13 2012/06/24 04:52:29 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.14 2012/08/13 23:17:28 burnett Exp $
 
 """
 import os, sys, types
@@ -118,7 +118,8 @@ class ROIfactory(object):
         for key in 'extended diffuse irf'.split():
             if self.__dict__[key] is None: 
                 self.__dict__[key]=input_config[key]
-                print 'Using "%s" from skymodel: "%s"' %(key, self.__dict__[key])
+                print 'Using %s from skymodel: "%s"' %(key, self.__dict__[key])
+        print 'self.irf::::' ,self.irf
 
         self.skymodel = skymodel.SkyModel(modeldir, diffuse=self.diffuse,  **self.skymodel_kw)
 
@@ -150,8 +151,9 @@ class ROIfactory(object):
                 datadict = dict(dataname=dataspec)\
                         if type(dataspec)!=types.DictType else dataspec
             print '\tdatadict: ', datadict
-            if self.analysis_kw.get('irf',None) is None:
-                t = self.irf
+            if True: #self.analysis_kw.get('irf',None) is None:
+                t = self.__dict__['irf']
+                print 'self.irf::::' ,self.irf
                 if t[0] in ('"',"'"): t = eval(t)
                 self.analysis_kw['irf'] = t
             print '\tirf:\t%s' % self.analysis_kw['irf'] ; sys.stdout.flush()
