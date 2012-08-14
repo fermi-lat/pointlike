@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Aug 14 15:16:55 PDT 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	main.py roisetup.py sourcelist.py 
+Log Message:
+move moving setup options to roisetup
+    *
+------------------------------------------------------------
 User: lande  Mon Aug 13 20:06:30 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
