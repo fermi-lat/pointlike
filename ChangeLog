@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Aug 14 16:04:42 PDT 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	pipe.py 
+Log Message:
+fix Tables to use special processor
+    *
+------------------------------------------------------------
 User: burnett  Tue Aug 14 15:17:44 PDT 2012
 pointlike/python/uw/like2/pipeline
 
