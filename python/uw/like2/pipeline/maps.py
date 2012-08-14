@@ -1,6 +1,6 @@
 """
 Code to generate a set of maps for each ROI
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/maps.py,v 1.2 2012/01/02 19:16:29 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/maps.py,v 1.3 2012/06/24 13:50:00 burnett Exp $
 
 """
 import os, sys,  pickle, types
@@ -8,11 +8,21 @@ import numpy as np
 from uw.like import Models
 from uw.utilities import fitter
 from skymaps import Band, SkyDir, PySkyFunction, Hep3Vector, PythonUtilities 
+from uw.like2 import sourcelist
 
 # convenience adapters for ResidualTS model
-def LogParabola(*pars):return Models.LogParabola(p=pars)
-def PowerLaw(*pars):   return Models.PowerLaw(p=pars)
-def ExpCutoff(*pars):  return Models.ExpCutoff(p=pars)
+def LogParabola(*pars):
+    model = Models.LogParabola(p=pars)
+    sourcelist.set_default_bounds(model)
+    return model
+def PowerLaw(*pars):   
+    model = Models.PowerLaw(p=pars)
+    sourcelist.set_default_bounds(model)
+    return model
+def ExpCutoff(*pars):  
+    model = Models.ExpCutoff(p=pars)
+    sourcelist.set_default_bounds(model)
+    return model
 
 class CountsMap(dict):
     """ A map with counts per HEALPix bin """
@@ -93,6 +103,7 @@ class ResidualTS(object):
         self.roi.select_source('tsmap')
         self.index = len(self.roi.get_parameters())-2
         self.model = self.source.spectral_model
+        sourcelist.set_default_bounds(self.model) # in case no bounds already
         
     def __enter__(self):
         return self
@@ -109,7 +120,7 @@ class ResidualTS(object):
         self.roi.update(reset=True)
         fn = fitter.Projector(self.roi, select=[self.index])  
         mm = fitter.Minimizer(fn, quiet=True)
-        mm(use_gradient=True, estimate_errors=False)
+        mm(use_gradient=True, estimate_errors=False, use_bounds=False)
         self.model[0]=1e-15
         llzero = self.roi.log_like()
         ts= 2*(-mm.fitvalue-llzero)
