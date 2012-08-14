@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.130 2012/07/31 17:44:17 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.131 2012/08/03 15:07:36 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -26,7 +26,7 @@ class Model(object):
         Default units are ph/cm^2/s/MeV.
     """
     
-    def __init__(self, p=None, free=None, set_default_limits=False, **kwargs):
+    def __init__(self, p=None, free=None, set_default_limits=False, set_default_oomp_limits=False, **kwargs):
         """ 
 
          Optional keyword arguments:
@@ -63,6 +63,10 @@ class Model(object):
              1.0
 
 	"""        
+        if set_default_limits and set_default_oomp_limits:
+            raise ModelException("Either set_default_limits or set_default_oomp_limits can be set")
+        
+
         if hasattr(self,'default_oomp_limits'):
             assert set(self.default_oomp_limits).issubset(set(self.param_names))
         if hasattr(self,'gtlike'):
@@ -111,6 +115,8 @@ class Model(object):
 
         if set_default_limits:
             self.set_default_limits()
+        if set_default_oomp_limits:
+            self.set_default_limits(oomp_limits=True)
     
     def len(self): 
         """ Exmaple:
