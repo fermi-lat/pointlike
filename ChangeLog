@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Aug 13 20:06:30 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+set_default_oomp_limits flag
+    *
+------------------------------------------------------------
 User: burnett  Mon Aug 13 16:17:28 PDT 2012
 pointlike/python/uw/like2
 
