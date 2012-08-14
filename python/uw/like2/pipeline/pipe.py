@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.13 2012/06/24 13:50:00 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.14 2012/08/13 19:52:22 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
@@ -144,11 +144,12 @@ class Setup(dict):
 import os, pickle; os.chdir(os.path.expandvars(r"%(cwd)s"));%(setup_cmds)s
 from uw.like2.pipeline import pipe,associate; from uw.like2 import skymodel;
 g=pipe.Pipe("%(indir)s", %(datadict)s, 
-        skymodel_kw=dict(auxcat="%(auxcat)s",diffuse=%(diffuse)s,
+        skymodel_kw=dict(auxcat="%(auxcat)s",
             extended_catalog_name=%(extended)s, update_positions=%(update_positions)s,
              %(skymodel_extra)s), 
         analysis_kw=dict(irf="%(irf)s", minROI=%(minROI)s, maxROI=%(maxROI)s, emin=%(emin)s,emax=%(emax)s),
         irf="%(irf)s",
+        diffuse=%(diffuse)s,
         processor="%(processor)s",
         process_kw=dict(outdir="%(outdir)s", dampen=%(dampen)s,
             fit_kw = %(fit_kw)s,
@@ -403,4 +404,14 @@ class Finish(Update):
             sedfig_dir = '"sedfig"',
             setup_cmds = 'from uw.like2.pipeline import associate ',
             associator="associate.SrcId('$FERMI/catalog','all_but_gammas')",quiet=True)
+            
+class Tables(Update):
+    """ create standard Tables """
+    skyfuns=[("CountsMap", "counts", {}), ("KdeMap", "kde", {}), ("ResidualTS", "ts", dict(photon_index=2.2))]
+    def defaults(self):
+        return dict(dampen=0,
+            tables="""maps.ROItables("%(outdir)s", nside=512, skyfuns=%(skyfuns)s)""" %\
+                        dict(skyfuns=Tables.skyfuns, outdir=self.outdir),
+            setup_cmds= 'from uw.like2.pipeline import maps', quiet=True
+            )
             
