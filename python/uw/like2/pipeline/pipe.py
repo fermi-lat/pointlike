@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.14 2012/08/13 19:52:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.15 2012/08/14 22:17:44 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
@@ -410,6 +410,7 @@ class Tables(Update):
     skyfuns=[("CountsMap", "counts", {}), ("KdeMap", "kde", {}), ("ResidualTS", "ts", dict(photon_index=2.2))]
     def defaults(self):
         return dict(dampen=0,
+            processor="processor.table_processor",
             tables="""maps.ROItables("%(outdir)s", nside=512, skyfuns=%(skyfuns)s)""" %\
                         dict(skyfuns=Tables.skyfuns, outdir=self.outdir),
             setup_cmds= 'from uw.like2.pipeline import maps', quiet=True
