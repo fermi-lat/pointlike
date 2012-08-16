@@ -1,5 +1,5 @@
 """ manage times 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fermitime.py,v 1.2 2010/04/19 21:04:51 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fermitime.py,v 1.4 2011/02/11 04:56:34 kerrm Exp $
 
 """
 import datetime
@@ -9,6 +9,7 @@ class MET(object):
     mission_start = datetime.datetime(2001,1,1)
     mjd_ref = 51910+7.428703703703703e-4
     def __init__(self, met):
+        if met>362793601: met=met-1 # 2012 leap second
         if met>252460801: met=met-1 # 2008 leap second
         if met>157766400: met=met-1 # 2005 leap second
         self.time = MET.mission_start + datetime.timedelta(0,met)
@@ -22,6 +23,7 @@ def utc_to_met(year,month,day,hour = 0,min = 0,sec =0):
     leap_secs = 0
     if utc.year>2005: leap_secs+=1
     if utc.year>2008: leap_secs+=1
+    if utc.year>2012 or (utc.year==2012 and utc.month>6): leap_secs+=1
     return diff.days*86400+diff.seconds+leap_secs
 
 def mjd_to_met(mjd):
