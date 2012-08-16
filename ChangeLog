@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Thu Aug 16 12:46:36 PDT 2012
+pointlike/python/uw/utilities
+
+Modified Files:
+	fermitime.py 
+Log Message:
+Add the 2012 leap second to met-utc conversions.
+
+    *
+------------------------------------------------------------
 User: burnett  Tue Aug 14 16:04:42 PDT 2012
 pointlike/python/uw/like2/pipeline
 
