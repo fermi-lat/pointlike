@@ -1,7 +1,7 @@
 """
 Manage sources for likelihood: single class SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.20 2012/06/24 04:52:29 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.21 2012/08/14 22:16:55 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import types
@@ -247,6 +247,7 @@ class SourceList(list):
         if source.name in self.source_names:
             raise SourceListException('Attempt to add source "%s": already exists' % source.name)
         set_point_property(source)
+        set_default_bounds(source.model)
         self.append(source)
  
     def del_source(self, source_name):

@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.21 2012/08/13 23:17:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.22 2012/08/14 22:16:55 burnett Exp $
 
 """
 import types
@@ -202,7 +202,7 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
         prev=''
         if type(select)==types.StringType:
             src = self.get_source(select)
-            select = [i for i in range(len(saved_pars)) if self.parameter_names[i].startswith(src.name)]
+            select = [i for i in range(len(self.get_parameters())) if self.parameter_names[i].startswith(src.name)]
 
         for index, (name, value, rsig) in enumerate(zip(self.parameter_names, self.model_parameters, self.sources.uncertainties)):
             if select is not None and index not in select: continue
@@ -334,7 +334,7 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
         keywords:
             name : string
             model
-            skypos
+            skydir
         """
         newsource = sources.PointSource(**kwargs)
         self.sources.add_source(newsource)

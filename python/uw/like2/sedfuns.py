@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.4 2011/12/06 22:12:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.5 2012/01/27 15:07:14 burnett Exp $
 
 """
 import os
@@ -83,6 +83,19 @@ class SourceFlux(object):
         self.emax = np.max([bandlike.band.emax for bandlike in self.rs.selected_bands])
         w = tools.LogLikelihood(self)
         return w
+        
+    def __enter__(self):
+        """ supports the 'with' construction, guarantees that restore is called to restore the ROI
+        example:
+        -------
+        with SourceFlux(roi, name) as sf:
+            # use sf ...
+        """
+        return self
+        
+    def __exit__(self, type, value, traceback):
+        self.restore()
+
 
         
 class SED(object):

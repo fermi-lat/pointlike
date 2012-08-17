@@ -1,7 +1,7 @@
 """
 Set up an ROI factory object
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.14 2012/08/13 23:17:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.15 2012/08/14 22:16:55 burnett Exp $
 
 """
 import os, sys, types
@@ -91,7 +91,7 @@ class ROIfactory(object):
                             pixelsize=0.05, # ExtendedSourceConvolution
                             num_points=25), # AnalyticConvolution
                                     'convolution parameters'),
-        ('irf', None,  'Set to override saved value with the skymodel'),
+        ('irf', None,  'Set to override saved value with the skymodel: expect to find in custom_irf_dir'),
         ('diffuse', None, 'Set to override saved value with skymodel'),
         ('extended', None, 'Set to override saved value with skymodel'),
         ('selector', skymodel.HEALPixSourceSelector,' factory of SourceSelector objects'),
@@ -119,7 +119,6 @@ class ROIfactory(object):
             if self.__dict__[key] is None: 
                 self.__dict__[key]=input_config[key]
                 print 'Using %s from skymodel: "%s"' %(key, self.__dict__[key])
-        print 'self.irf::::' ,self.irf
 
         self.skymodel = skymodel.SkyModel(modeldir, diffuse=self.diffuse,  **self.skymodel_kw)
 
@@ -153,7 +152,6 @@ class ROIfactory(object):
             print '\tdatadict: ', datadict
             if True: #self.analysis_kw.get('irf',None) is None:
                 t = self.__dict__['irf']
-                print 'self.irf::::' ,self.irf
                 if t[0] in ('"',"'"): t = eval(t)
                 self.analysis_kw['irf'] = t
             print '\tirf:\t%s' % self.analysis_kw['irf'] ; sys.stdout.flush()
@@ -163,6 +161,8 @@ class ROIfactory(object):
             self.dataset = dataset.DataSet(datadict['dataname'], **self.analysis_kw)
             self.exposure = ExposureManager(self.dataset, exposure_correction=exposure_correction)
         
+        if 'CUSTOM_IRF_DIR' not in os.environ and os.path.exists(os.path.expandvars('$FERMI/custom_irfs')):
+            os.environ['CUSTOM_IRF_DIR'] = os.path.expandvars('$FERMI/custom_irfs')
         self.psf = pypsf.CALDBPsf(self.dataset.CALDBManager)
  
         convolution.AnalyticConvolution.set_points(self.convolve_kw['num_points'])
