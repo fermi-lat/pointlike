@@ -1,7 +1,7 @@
 """
 Set up an ROI factory object
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.15 2012/08/14 22:16:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.16 2012/08/17 23:44:22 burnett Exp $
 
 """
 import os, sys, types
@@ -132,7 +132,8 @@ class ROIfactory(object):
             self.exposure = pointspec2.ExposureManager(self.data_manager,self.dataset.CALDBManager)
 
             self.exposure.correction = [lambda e: 1,lambda e : 1] #TODO
-        else: # not a DataSet
+             
+        else: # not a DataSet or dict
             if dataspec is None:
                 print 'dataspec is None: loading datadict from skymodel.config'; sys.stdout.flush()
                 datadict = self.skymodel.config['datadict']
@@ -140,13 +141,17 @@ class ROIfactory(object):
                 if isinstance(datadict, dataman.DataSet): 
                     interval = self.skymodel.config.get('interval', None)
                     if interval is None: interval = self.skymodel.config.get('data_interval', None)
-                    assert interval is not None, 'did not fine interval or data_interval in skymodel.conifg'
+                    assert interval is not None, 'did not fine interval or data_interval in skymodel.config'
                     dset = datadict[interval]
                     assert hasattr(dset, 'binfile'), 'Not a DataSet? %s' % dataset
                     datadict = dict(dataname=dset)
                 else:
                     assert type(datadict)==types.DictType, 'expected a dict'
+            elif isinstance(dataspec, dict):
+                # a dictionary
+                datadict = dataspec
             else:
+                print 'looking up dataspec %s' % dataspec
                 datadict = dict(dataname=dataspec)\
                         if type(dataspec)!=types.DictType else dataspec
             print '\tdatadict: ', datadict
@@ -157,7 +162,7 @@ class ROIfactory(object):
             print '\tirf:\t%s' % self.analysis_kw['irf'] ; sys.stdout.flush()
             #datadict = dict(dataname=dataspec, ) \
             #        if type(dataspec)!=types.DictType else dataspec
-            exposure_correction=self.analysis_kw.pop('exposure_correction', None)        
+            exposure_correction=datadict.pop('exposure_correction', None)        
             self.dataset = dataset.DataSet(datadict['dataname'], **self.analysis_kw)
             self.exposure = ExposureManager(self.dataset, exposure_correction=exposure_correction)
         
