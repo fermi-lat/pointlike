@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.15 2012/08/14 22:17:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.16 2012/08/14 23:04:42 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
@@ -24,6 +24,7 @@ class Pipe(roisetup.ROIfactory):
             name of a folder containing the sky model description, passed to 
                skymodel.SkyModel
         dataset : instance of a DataSpec object or a string used to lookup
+            if None, get from the model configuration
               
         keyword arguments:
             processor : if set, it is a function
@@ -44,7 +45,7 @@ class Pipe(roisetup.ROIfactory):
             self.processor = eval(self.processor)
 
         super(Pipe, self).__init__(indir, dataset, 
-            analysis_kw=self.analysis_kw, skymodel_kw=self.skymodel_kw)
+            analysis_kw=self.analysis_kw, skymodel_kw=self.skymodel_kw, **kwargs)
        
     def __str__(self):
         s = '%s configuration:\n'% self.__class__.__name__
@@ -414,5 +415,34 @@ class Tables(Update):
             tables="""maps.ROItables("%(outdir)s", nside=512, skyfuns=%(skyfuns)s)""" %\
                         dict(skyfuns=Tables.skyfuns, outdir=self.outdir),
             setup_cmds= 'from uw.like2.pipeline import maps', quiet=True
+            )
+            
+            
+class Create(Update):
+    """ create a new model, assuming appropriate config.txt
+        model_dir points to the new model, which must have an entry in its config.txt
+    """
+    def __init__(self, analysisdir, model_dir,  **kwargs):
+        """
+        
+        """
+        self.analysisdir = os.path.expandvars(analysisdir)
+        os.chdir(self.analysisdir)
+        config = eval(open(os.path.join(analysisdir,model_dir, 'config.txt')).read())
+        try:
+            self.indir=os.path.join(analysisdir,model_dir,config['input_model'])
+        except KeyError:
+            print '"input_model" not found in config: %s' %config
+            raise
+        self.outdir=model_dir
+        kw = self.defaults()
+        kw.update(outdir=model_dir, datadict=config['datadict'],
+            irf=config['irf'],
+            diffuse=config['diffuse'])
+        kw.update(kwargs)
+        self.setup = Setup(self.indir,  **kw)
+
+    def defaults(self):
+        return dict(dampen=1.0,
             )
             

@@ -1,7 +1,7 @@
 """
 Set up an ROI factory object
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.16 2012/08/17 23:44:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.17 2012/08/18 19:22:17 burnett Exp $
 
 """
 import os, sys, types
@@ -117,8 +117,8 @@ class ROIfactory(object):
         input_config = eval(open(os.path.expandvars(modeldir+'/config.txt')).read())
         for key in 'extended diffuse irf'.split():
             if self.__dict__[key] is None: 
+                #print '%s: %s replace from skymodel: "%s"' %(key, kwargs.get(key,None), input_config[key])
                 self.__dict__[key]=input_config[key]
-                print 'Using %s from skymodel: "%s"' %(key, self.__dict__[key])
 
         self.skymodel = skymodel.SkyModel(modeldir, diffuse=self.diffuse,  **self.skymodel_kw)
 
