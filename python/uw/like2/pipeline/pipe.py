@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.16 2012/08/14 23:04:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.17 2012/08/19 17:14:17 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
@@ -132,12 +132,12 @@ class Setup(dict):
         self.mypipe = None
         if not self.quiet:
             print 'Pipeline input, output: %s -> %s ' % (indir, outdir)
-        if os.path.exists(indir+'/config.txt'):
-            input_config = eval(open(indir+'/config.txt').read())
-            for key in 'extended diffuse irf'.split():
-                if self[key] is None: 
-                    self[key]=input_config[key]
-                    print 'updating %s from skymodel' %key
+        #if os.path.exists(indir+'/config.txt'):
+        #    input_config = eval(open(indir+'/config.txt').read())
+        #    for key in 'extended diffuse irf'.split():
+        #        if self[key] is None: 
+        #            self[key]=input_config[key]
+        #            print 'updating %s from skymodel' %key
 
         
     def create_string(self):
@@ -149,7 +149,7 @@ g=pipe.Pipe("%(indir)s", %(datadict)s,
             extended_catalog_name=%(extended)s, update_positions=%(update_positions)s,
              %(skymodel_extra)s), 
         analysis_kw=dict(irf="%(irf)s", minROI=%(minROI)s, maxROI=%(maxROI)s, emin=%(emin)s,emax=%(emax)s),
-        irf="%(irf)s",
+        irf=%(irf)s,
         diffuse=%(diffuse)s,
         processor="%(processor)s",
         process_kw=dict(outdir="%(outdir)s", dampen=%(dampen)s,
