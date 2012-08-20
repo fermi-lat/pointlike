@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.83 2012/07/16 16:44:18 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.84 2012/08/03 15:08:18 lande Exp $
 
    author: Matthew Kerr
 """
@@ -547,7 +547,7 @@ class Model_to_XML(object):
         if scaling and name == 'PowerLaw':
             model = Models.ScalingPowerLaw.from_powerlaw(model)
 
-        model.set_default_limits(strict, oomp_limits=True, only_unbound_parameters=True)
+        model.set_default_limits(strict=strict, oomp_limits=True, only_unbound_parameters=True)
 
         return model
 
@@ -1345,11 +1345,12 @@ def process_diffuse_source(ds,strict=False,convert_extended=False,expand_env_var
                     model = FileFunction(
                         normalization=ds.smodel['Scale'],
                         file=filename)
+                    m2x.process_model(model,scaling=True, expand_env_vars=expand_env_vars)
 
                 elif isinstance(m,IsotropicConstant):
                     model = ds.smodel
+                    m2x.process_model(model,scaling=False, expand_env_vars=expand_env_vars)
 
-                m2x.process_model(model,scaling=True, expand_env_vars=expand_env_vars)
 
                 m2x.extra_attrs+=' ctype="{0}"'.format(ct)
                 specxml += m2x.getXML(tablevel=len(dm))
