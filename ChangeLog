@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Aug 20 13:14:47 PDT 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Set scaling=False for IsotropicConstant models
+    *
+------------------------------------------------------------
 User: kadrlica  Mon Aug 20 12:45:17 PDT 2012
 ScienceTools-scons/pointlike/python/uw/darkmatter
 
