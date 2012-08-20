@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Mon Aug 20 12:45:17 PDT 2012
+ScienceTools-scons/pointlike/python/uw/darkmatter
+
+Modified Files:
+	spectral.py 
+Log Message:
+Changed mass parameter operator to pos
+    *
+------------------------------------------------------------
 User: kadrlica  Mon Aug 20 12:44:53 PDT 2012
 ScienceTools-scons/pointlike/python/uw/darkmatter
 
