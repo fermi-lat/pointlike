@@ -1,6 +1,6 @@
 """ Dark Matter spectral models
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spectral.py,v 1.9 2012/06/25 20:39:14 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spectral.py,v 1.10 2012/08/10 00:14:05 lande Exp $
 
     author: Alex Drlica-Wagner, Joshua Lande
 """
@@ -76,8 +76,8 @@ class DMFitFunction(Model):
         name='DMFitFunction',
         param_names=['sigmav','mass'],
         extra_param_names=dict(norm='norm', bratio='bratio', channel0='channel0', channel1='channel1'),
-        topointlike=[operator.pos,operator.neg],
-        togtlike=[operator.pos,operator.neg])
+        topointlike=[operator.pos,operator.pos],
+        togtlike=[operator.pos,operator.pos])
 
     default_limits = dict(
         sigmav=LimitMapper(0,1e-19,1e-25),
