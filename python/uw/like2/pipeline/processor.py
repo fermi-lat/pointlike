@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.16 2012/02/26 23:43:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.17 2012/06/24 13:50:00 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -385,13 +385,14 @@ def background_density(roi, source_name):
 def full_sed_processor(roi, **kwargs):
     """ roi processor to include front and back sed info 
     """
-    print 'processing ROI %s ' %roi.name
+    print 'processing ROI %s: creating full sedinfo ' %roi.name
     outdir   = kwargs.get('outdir')
     ts_min   = kwargs.get('ts_min', 25)
     sedinfo = os.path.join(outdir, 'sedinfo')
     if not os.path.exists(sedinfo): os.mkdir(sedinfo)
     ptsources = [(i,s) for i,s in enumerate(roi.sources) if s.skydir is not None and np.any(s.spectral_model.free)]
     bgsources = [(j,s) for j,s in enumerate(roi.sources) if s.skydir is None]
+    print 'evaluating %d sources' %len(ptsources)
     for pti,source in ptsources:
         try:
             ts = roi.TS(source.name)

@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.17 2012/08/19 17:14:17 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.18 2012/08/19 19:01:35 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
@@ -359,7 +359,9 @@ class NotebookPipe(object):
 
   
 class Update(NotebookPipe):
-    """ Update a model """
+    """ Update a model 
+        Note that dampen=0.5; may need adjustment
+    """
     def __init__(self, analysisdir, indir, outdir=None, **kwargs):
         """
         
@@ -375,7 +377,7 @@ class Update(NotebookPipe):
         self.setup = Setup(self.indir, outdir=self.outdir, **kw)
      
     def defaults(self):
-        return dict(sedfig_dir='"sedfig"', quiet=True)
+        return dict(sedfig_dir='"sedfig"', dampen=0.5, quiet=True)
     
      
     def __call__(self): return self.setup
