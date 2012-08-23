@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.18 2012/08/19 19:01:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.19 2012/08/23 18:19:13 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
@@ -149,7 +149,7 @@ g=pipe.Pipe("%(indir)s", %(datadict)s,
             extended_catalog_name=%(extended)s, update_positions=%(update_positions)s,
              %(skymodel_extra)s), 
         analysis_kw=dict(irf="%(irf)s", minROI=%(minROI)s, maxROI=%(maxROI)s, emin=%(emin)s,emax=%(emax)s),
-        irf=%(irf)s,
+        irf="%(irf)s",
         diffuse=%(diffuse)s,
         processor="%(processor)s",
         process_kw=dict(outdir="%(outdir)s", dampen=%(dampen)s,
