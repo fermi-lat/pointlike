@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Aug 23 11:19:13 PDT 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	pipe.py processor.py 
+Log Message:
+tweaks for processing
+    *
+------------------------------------------------------------
 User: lande  Mon Aug 20 13:14:47 PDT 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
