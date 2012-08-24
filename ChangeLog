@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Aug 24 16:32:57 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+fix typo
+    *
+------------------------------------------------------------
 User: burnett  Thu Aug 23 11:20:07 PDT 2012
 pointlike/python/uw/like2/pipeline
 
