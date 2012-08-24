@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.71 2012/08/05 02:27:39 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.72 2012/08/05 02:32:44 lande Exp $
 
 author: Joshua Lande
 """
@@ -322,7 +322,7 @@ class MCModelBuilder(object):
             ('roi_dir',          None, " Center of ROI. Gtobssim will use the use_ac flag if this is specified."),
             ('maxROI',           None, " Maximum ROI Size. Gtobssim will use the use_ac flag if this is specified."),
             ('quiet',           False, " Surpress output."),
-            ('diffuse_pad',      10.0, " How many area outside ROI should the diffuse emission be simulated to account for energy dispersion."),
+            ('diffuse_pad',      10.0, " How many degrees outside ROI should the diffuse emission be simulated to account for energy dispersion."),
             ('energy_pad',        2.0, """ Lower energy of simluated photons is emin/energy_bad and 
                                            upper energy of simulated photos is energy_pad*emax.
                                            This allows for energy dispersion effects to be 
