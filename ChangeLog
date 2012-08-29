@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Aug 29 14:55:11 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+cleanup set_limits_gtlike function
+    *
+------------------------------------------------------------
 User: kadrlica  Wed Aug 29 09:53:33 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
