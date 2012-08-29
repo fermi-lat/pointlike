@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Aug 29 14:55:44 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py roi_upper_limits.py 
+Log Message:
+refactor flux upper limits code
+    *
+------------------------------------------------------------
 User: lande  Wed Aug 29 14:55:11 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
