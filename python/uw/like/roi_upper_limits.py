@@ -1,7 +1,7 @@
 """
 Module to calculate flux and extension upper limits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.24 2012/08/03 17:31:07 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.25 2012/08/05 02:27:54 lande Exp $
 
 author:  Eric Wallace <ewallace@uw.edu>, Joshua Lande <joshualande@gmail.com>
 """
@@ -19,12 +19,7 @@ from uw.like.roi_extended import ExtendedSource
 from uw.like.SpatialModels import Disk
 from uw.like.roi_state import PointlikeState
 
-def upper_limit(roi, which=0,
-              confidence=0.95,
-              integral_min=-15,
-              integral_max =-8,
-              simps_points = 100,
-              **kwargs):
+class FluxUpperLimit(object):
     """Compute an upper limit on the source flux, by the "PDG Method"
 
     This method computes an upper limit on the flux of a specified source
@@ -39,58 +34,70 @@ def upper_limit(roi, which=0,
     model. For other models, especially PowerLawFlux, the limits should
     be specified appropriately.
 
-    The limit returned is the integrated flux above 100 MeV in photons
+    The limit returned is the integrated flux in photons
     per square centimeter per second.
-
-    Arguments:
-        which: integer [0]
-            Index of the point source for which to compute the limit.
-        confidence: float [.95]
-            Desired confidence level of the upper limit.
-        integral_min: float [-15]
-            Lower limit of the likelihood integral *in log space*.
-        integral_max: float [-8]
-            Upper limit of the likelihood integral *in log space*.
-        simps_points: int [10]
-            Number of evaluation points *per decade* for Simpson's rule.
-
-    All other arguments are passed into the uw.like.Models.i_flux function,
-    including e_weight, cgs, emin, and emax.
     """
-    state = PointlikeState(roi)
-    ll_0 = roi.logLikelihood(roi.parameters())
+    defaults = (
+        ('confidence',    0.95, 'Desired confidence level of the upper limit.'),
+        ('integral_min',   -15, 'Lower limit of the likelihood integral *in log space*.'),
+        ('integral_max',    -8, 'Upper limit of the likelihood integral *in log space*.'),
+        ('simps_points',   100, 'Desired confidence level of the upper limit.'),
+        ('flux_kwargs', dict(), 'kwargs passed into i_flux function, including e_weight, cgs, emin, and emax.'),
+    )
 
-    source = roi.get_source(which)
+    @keyword_options.decorate(defaults)
+    def __init__(self, roi, which, **kwargs):
+        """ Required arguments:
+                roi - ROIAnalysis boject
+                which - source for which to compute upper limit.
+        """
+        keyword_options.process(self, kwargs)
+        self.roi = roi
+        self.which = which
 
-    if not source.__dict__.has_key('model'):
-        raise Exception("upper_limit can only calculate upper limits of point and extended sources.")
-    model=source.model
+        self._compute()
 
-    # Unbound flux temporarily to avoid parameter limits
-    model.set_mapper(0,LinearMapper)
+    def _compute(self):
+        roi = self.roi
+        which = self.which
 
-    def like(norm):
-        model.setp(0,norm)
-        return np.exp(ll_0-roi.logLikelihood(roi.parameters()))
-    npoints = simps_points * (integral_max - integral_min)
-    points = np.logspace(integral_min, integral_max,npoints*2+1)
-    y = np.array([like(x)*10**x for x in points])
-    trapz1 = integrate.cumtrapz(y[::2])
-    trapz2 = integrate.cumtrapz(y)[::2]
-    cumsimps = (4*trapz2 - trapz1)/3.
-    cumsimps /= cumsimps[-1]
-    i1 = np.where(cumsimps<.95)[0][-1]
-    i2 = np.where(cumsimps>.95)[0][0]
-    x1, x2 = points[::2][i1], points[::2][i2]
-    y1, y2 = cumsimps[i1], cumsimps[i2]
-    #Linear interpolation should be good enough at this point
-    limit = x1 + ((x2-x1)/(y2-y1))*(confidence-y1)
-    model.setp(0,limit)
-    uflux = model.i_flux(**kwargs)
+        state = PointlikeState(roi)
+        ll_0 = roi.logLikelihood(roi.parameters())
 
-    state.restore(just_spectra=True)
+        source = roi.get_source(which)
 
-    return uflux
+        if not source.__dict__.has_key('model'):
+            raise Exception("upper_limit can only calculate upper limits of point and extended sources.")
+        model=source.model
+
+        # Unbound flux temporarily to avoid parameter limits
+        model.set_mapper(0,LinearMapper)
+
+        def like(norm):
+            model.setp(0,norm)
+            return np.exp(ll_0-roi.logLikelihood(roi.parameters()))
+        npoints = self.simps_points * (self.integral_max - self.integral_min)
+        points = np.logspace(self.integral_min, self.integral_max,npoints*2+1)
+        y = np.array([like(x)*10**x for x in points])
+        trapz1 = integrate.cumtrapz(y[::2])
+        trapz2 = integrate.cumtrapz(y)[::2]
+        cumsimps = (4*trapz2 - trapz1)/3.
+        cumsimps /= cumsimps[-1]
+        i1 = np.where(cumsimps<.95)[0][-1]
+        i2 = np.where(cumsimps>.95)[0][0]
+        x1, x2 = points[::2][i1], points[::2][i2]
+        y1, y2 = cumsimps[i1], cumsimps[i2]
+        #Linear interpolation should be good enough at this point
+        limit = x1 + ((x2-x1)/(y2-y1))*(self.confidence-y1)
+        model.setp(0,limit)
+        self.uflux = model.i_flux(**self.flux_kwargs)
+
+        self.upper_limit_model = model.copy()
+
+        state.restore(just_spectra=True)
+
+    def get_limit(self):
+        return self.uflux
 
 def upper_limit_quick(roi,which = 0,confidence = .95,e_weight = 0,cgs = False):
     """Compute an upper limit on the flux of a source assuming a gaussian likelihood.
