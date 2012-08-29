@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.131 2012/08/03 15:07:36 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.132 2012/08/14 03:06:11 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -372,7 +372,7 @@ class Model(object):
 
         self.set_mapper(i,LimitMapper(lower,upper,scale))
 
-    def set_limits_gtlike(self, i, *args):
+    def set_limits_gtlike(self, i, lower, upper, scale=-1, strict=False):
         """ like set_limits, but uses the gtlike convention.
 
                 >>> model = PowerLaw(index=1)
@@ -381,11 +381,15 @@ class Model(object):
                 [-3, 2]
                 >>> print model.get_limits_gtlike('index')
                 [-2, 3]
+                >>> print model.get_scale('index')
+                1
+                >>> print model.get_scale_gtlike('index')
+                -1
         """
         i=self.name_mapper(i)
         m = self.gtlike['topointlike'][i]
-        args = map(m, args)
-        self.set_limits(i, *args)
+        lower, upper, scale = map(m,[lower, upper, scale])
+        self.set_limits(i, lower=lower, upper=upper, scale=scale, strict=strict)
 
     def get_limits_gtlike(self, i):
         """ Get limits using a gtlike convention.
