@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Sep  3 11:59:49 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+doctest for spatial map center bug
+    *
+------------------------------------------------------------
 User: lande  Mon Sep  3 11:54:59 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
