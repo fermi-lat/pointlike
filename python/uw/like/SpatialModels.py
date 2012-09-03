@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.106 2012/07/31 22:52:29 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.107 2012/09/03 18:54:58 lande Exp $
 
    author: Joshua Lande
 
@@ -1699,6 +1699,18 @@ class SpatialMap(SpatialModel):
         A Template still has two spatial parameters, which represent a rotation of 
         the template away from the fits file's center.
 
+
+        Testing: make sure the center of the spatial map is consistent.
+        This was previously a bug:
+        
+            >>> gauss = Gaussian(p=[1.],center=SkyDir(41.234,42.345,SkyDir.EQUATORIAL))
+            >>> from tempfile import NamedTemporaryFile
+            >>> temp = NamedTemporaryFile()
+            >>> filename = temp.name
+            >>> f = gauss.save_template(filename,npix=150)
+            >>> map = SpatialMap(file="test.fits")
+            >>> np.allclose([map.center.ra(),map.center.dec()],[gauss.center.ra(),gauss.center.dec()])
+            True
     """
 
     default_p, param_names, default_limits, log, steps = [], [], [], [], []
