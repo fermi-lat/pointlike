@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Sep  3 11:54:59 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+better code to find center of fits file
+    *
+------------------------------------------------------------
 User: lande  Wed Aug 29 14:55:44 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
