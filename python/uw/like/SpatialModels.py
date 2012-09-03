@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.105 2012/07/16 16:44:08 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.106 2012/07/31 22:52:29 lande Exp $
 
    author: Joshua Lande
 
@@ -1724,7 +1724,7 @@ class SpatialMap(SpatialModel):
         def dir(x,y): return SkyDir(x,y,projection)
 
         # Set the source center to the center of the image.
-        self.center=SkyDir((naxis1-1)/2,(naxis2-1)/2,p)
+        self.center=SkyDir((naxis1+1.0)/2.0,(naxis2+1.0)/2.0,p)
 
         # the spatial parameters are just the center of the image.
         if self.coordsystem == SkyDir.EQUATORIAL:
