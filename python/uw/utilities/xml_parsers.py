@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.85 2012/08/20 20:14:47 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.86 2012/09/07 00:14:22 lande Exp $
 
    author: Matthew Kerr
 """
@@ -577,7 +577,7 @@ class Model_to_XML(object):
         self.pscale = []
         self.perr = []
         self.pfree = []
-        self.extra_attrs = ''
+        self.extra_attrs = ' '
 
         for pointlike_name,gtlike_name in zip(model.param_names, model.gtlike['param_names']):
 
