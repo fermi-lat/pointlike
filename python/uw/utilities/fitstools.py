@@ -1,150 +1,154 @@
 """A suite of tools for processing FITS files.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.18 2011/06/17 18:42:17 cohen Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.19 2012/03/20 21:33:03 wallacee Exp $
 
    author: Matthew Kerr
 
 """
 
-ZENITH_CUT = 105
-THETA_CUT  = 66.4
 INT_TYPES  = ['EVENT_CLASS','CONVERSION_TYPE']
 
 
-import pyfits as pf
-import numpy as N
+import pyfits as pf; import pyfits
+import numpy as N; import numpy as np
 from types import ListType,FunctionType,MethodType
 from math import cos,sin,pi
 from skymaps import SkyDir,Gti,BinnedPhotonData,PythonUtilities
 
 def rect_mask(lons,lats,cut_lon,cut_lat,lon_hwidth,lat_hwidth):
-   mask = N.abs( lons - cut_lon)/N.cos(lats * N.pi / 180.) < lon_hwidth
-   return N.logical_and(mask, N.abs( lats - cut_lat) < lat_hwidth)
+    """ lons -- longitude coordinate (deg.)
+        lats -- latitude coordinate (deg.)
+    """
+    mask = np.abs( lons - cut_lon)/np.cos(np.radians(lats)) < lon_hwidth
+    return mask & (np.abs(lats - cut_lat) < lat_hwidth)
 
 def trap_mask(ras,decs,cut_dir,radius):
-   """Make a conservative, trapezoid cut as a precursor to a radius cut."""
-   try:
-      rad_test = radius[0]
-   except:
-      rad_test = radius
-   if rad_test > 30: return N.asarray([True] * len(ras)) # cut no good for large radii
+    """ Make a conservative, trapezoidal cut as a precursor to a radius cut."""
+    try:
+        rad_test = radius[0]
+    except:
+        rad_test = radius
+    if rad_test > 30:
+        return np.asarray([True] * len(ras)) # cut no good for large radii
 
-   c1 = N.cos( (cut_dir.dec() - radius)*N.pi/180. )
-   c2 = N.cos( (cut_dir.dec() + radius)*N.pi/180. )
-   ra_radius =  radius/N.minimum(c1,c2) #conservative
+    c1 = np.cos( np.radians(cut_dir.dec() - radius) )
+    c2 = np.cos( np.radians(cut_dir.dec() + radius) )
+    ra_radius =  radius/np.minimum(c1,c2) #conservative
 
-   mask = N.abs(ras - cut_dir.ra()) <= ra_radius
-   mask = N.logical_and(mask,N.abs(decs - cut_dir.dec()) <= radius)
-   #If cut radius overlaps the pole, keep a polar cap above cut_dir.dec()
-   if N.any(cut_dir.dec()+radius > N.pi/2.) or N.any(cut_dir.dec() - radius < -N.pi/2.):
-      mask = N.logical_or(mask,N.abs(decs)>N.abs(cut_dir.dec()))
-   mask[radius > 20] = True # cut doesn't work for large radii?
-   return mask
+    mask = np.abs(ras - cut_dir.ra()) <= ra_radius
+    mask &= np.abs(decs - cut_dir.dec()) <= radius
+    #If cut radius overlaps the pole, keep a polar cap above cut_dir.dec()
+    if np.any(cut_dir.dec()+radius > np.pi/2.) or np.any(cut_dir.dec() - radius < -N.pi/2.):
+        mask |= np.abs(decs) > np.abs(cut_dir.dec())
+    mask[radius > 20] = True # cut doesn't work for large radii?
+    return mask
 
 def rad_mask(ras,decs,cut_dir,radius,mask_only=False):
-   """Make a slower, exact cut on radius."""
-   ra0,dec0 = N.radians(cut_dir.ra()),N.radians(cut_dir.dec())
-   ras,decs = N.radians(ras),N.radians(decs)
-   cos_diffs = N.sin(decs)*N.sin(dec0)+N.cos(decs)*N.cos(dec0)*N.cos(ras-ra0)
-   mask    = cos_diffs > N.cos(N.radians(radius))
-   if mask_only:
-      return mask
-   else:
-      return mask,N.arccos(cos_diffs)[mask]
+    """Make a slower, exact cut on radius."""
+    ra0,dec0 = np.radians(cut_dir.ra()),np.radians(cut_dir.dec())
+    ras,decs = np.radians(ras),np.radians(decs)
+    cos_diffs = np.sin(decs)*np.sin(dec0)+np.cos(decs)*np.cos(dec0)*np.cos(ras-ra0)
+    mask = cos_diffs > np.cos(np.radians(radius))
+    if mask_only:
+        return mask
+    else:
+        return mask,np.arccos(cos_diffs)[mask]
 
 def get_gti_mask(ft1file,times):
     gti = Gti(ft1file)
     gti_starts,gti_stops = \
-        N.asarray([(x.minValue(),x.maxValue()) for x in gti]).transpose()
-    a = N.argsort(gti_stops)
+        np.asarray([(x.minValue(),x.maxValue()) for x in gti]).transpose()
+    a = np.argsort(gti_stops)
     gti_starts = gti_starts[a]; gti_stops = gti_stops[a]
-    indices = N.searchsorted(gti_stops,times)
+    indices = np.searchsorted(gti_stops,times)
     accept = (times > gti_starts[indices]) & (times <= gti_stops[indices])
     return accept
 
-def rad_extract(eventfiles,center,radius_function,return_cols=['PULSE_PHASE'],cuts=None,apply_GTI=True,no_cuts=False):
-   """Extract events with a radial cut.  Return specified columns and perform additional boolean cuts.
+def rad_extract(eventfiles,center,radius_function,return_cols=['PULSE_PHASE'],cuts=None,apply_GTI=True,theta_cut=66.4,zenith_cut=105):
+    """ Extract events with a radial cut.  
+        Return specified columns and perform additional boolean cuts.
 
-      Return is in form of a dictionary whose keys are column names (and 'DIFFERENCES') and values are
-      numpy arrays with the column values.  These will have been concatenated.
+        Return is in form of a dictionary whose keys are column names 
+        (and 'DIFFERENCES') and values are numpy arrays with the column 
+        values.  These will have been concatenated if there are multiple
+        FT1 files.
 
-Arguments:
+    =========   =======================================================
+    Argument    Description
+    =========   =======================================================
+    eventfiles  -- a list of FT1 filenames
+    center      -- a SkyDir giving the center of the radial cut
+    radius_function -- can be either a float specifying a cookier cutter 
+                radial cut, or a function taking as arguments the energy 
+                and event_class and speciying the radius in degrees, e.g.
 
-  =========   =======================================================
-  Argument    Description
-  =========   =======================================================
-  eventfiles  -- a list of FT1 filenames
-  center      -- a SkyDir giving the center of the radial cut
-  radius_function -- can be either a float specifying a cookier cutter radial cut, or
-              a function taking as arguments the energy and event_class and speciying
-              the radius in degrees, e.g.
+              def radius(energy,event_class):
+                 return numpy.where(event_class,2,1)*(energy/1000)**-0.75
 
-                  def radius(energy,event_class):
-                     return numpy.where(event_class,2,1)*(energy/1000)**-0.75
-  =========   =======================================================
+    =========   =======================================================
+    Keyword     Description
+    =========   =======================================================
+    return_cols ['RA','DEC','ENERGY','EVENT_CLASS','PULSE_PHASE'] - 
+                a list of FT1 column names to return
+    cuts        None - an optional list of boolean cuts to apply, 
+                e.g., ['ENERGY > 100']
+                NB -- cuts not yet implemented!!
+    no_cuts     [False] do not apply default zenith and incidence angle cuts
+    apply_GTI   [True] accept or reject an event based on GTI if True; 
+                else ignore GTI
+    =========   =======================================================
+    """
+    if not hasattr(radius_function,'__call__'):
+        simple_scalar = True
+        rval = radius_function
+        radius_function = lambda e,event_class: rval
+    else:
+        simple_scalar = False
 
-Optional keyword arguments:
+    eventfiles = __FITS_parse__(eventfiles)
 
-  =========   =======================================================
-  Keyword     Description
-  =========   =======================================================
-  return_cols ['RA','DEC','ENERGY','EVENT_CLASS','PULSE_PHASE'] - a list of FT1 column names to return
-  cuts        None - an optional list of boolean cuts to apply, e.g., ['ENERGY > 100']
-              NB -- cuts not yet implemented!!
-  no_cuts     [False] do not apply default zenith and incidence angle cuts
-  apply_GTI   [True] accept or reject an event based on Gti if True; else ignore Gti
-  =========   =======================================================
-   """
-   if not hasattr(radius_function,'__call__'):
-      simple_scalar = True
-      rval = radius_function
-      radius_function = lambda e,event_class: rval
-   else:
-      simple_scalar = False
+    from collections import defaultdict,deque
+    coldict = defaultdict(deque)
+    cols = {}
+    cut_cols = ['ZENITH_ANGLE','THETA','TIME']
+    keys = list(set(['RA','DEC','ENERGY','CONVERSION_TYPE']+cut_cols+return_cols))
+    accepted = 0
+    total = 0
 
-   eventfiles = __FITS_parse__(eventfiles)
+    for eventfile in eventfiles:
+        #e = pf.open(eventfile,memmap=1)
+        #nrows = e[1].data.shape[0]
+        #e.close()
+        nrows = pyfits.getheader(eventfile,'EVENTS')['NAXIS2']
 
-   from collections import defaultdict,deque
-   coldict = defaultdict(deque)
-   cols = {}
-   cut_cols = ['ZENITH_ANGLE','THETA','TIME']
-   keys = list(set(['RA','DEC','ENERGY','CONVERSION_TYPE']+cut_cols+return_cols))
+        for key in keys:
+            cols[key] = np.empty(nrows,dtype=float)
+            PythonUtilities.get_float_col(cols[key],eventfile,'EVENTS',key)
 
-   for eventfile in eventfiles:
-      e = pf.open(eventfile,memmap=1)
-      nrows = e[1].data.shape[0]
-      e.close()
+        rad   = radius_function(cols['ENERGY'],cols['CONVERSION_TYPE'])
+        tmask = trap_mask(cols['RA'],cols['DEC'],center,rad)
+        tmask &= (cols['ZENITH_ANGLE'] < zenith_cut) & (cols['THETA'] < theta_cut)
+        if apply_GTI:
+            tmask &= get_gti_mask(eventfile,cols['TIME'])
+        if simple_scalar:
+            rmask,diffs = rad_mask(cols['RA'][tmask],cols['DEC'][tmask],center,rad)
+        else:
+            rmask,diffs = rad_mask(cols['RA'][tmask],cols['DEC'][tmask],center,rad[tmask])
 
-      for key in keys:
-         cols[key] = N.empty(nrows,dtype=float)
-         PythonUtilities.get_float_col(cols[key],eventfile,'EVENTS',key)
+        for key in keys: coldict[key].append(cols[key][tmask][rmask])
+        coldict['DIFFERENCES'].append(diffs)
+        accepted += tmask.sum()
+        total += len(tmask)
 
-      #for key in keys: cols[key] = N.asarray(e['EVENTS'].data.field(key)).astype(float)
-      #for key in keys: cols[key] = e['EVENTS'].data.field(key)
+    for key in coldict.keys():
+        if (key in cut_cols) and not (key in return_cols):
+            cols.pop(key)
+            continue
+        cols[key] = np.concatenate([x for x in coldict[key]])
+        if key in INT_TYPES: cols[key] = cols[key].astype(int)
 
-      rad   = radius_function(cols['ENERGY'],cols['CONVERSION_TYPE'])
-      tmask = trap_mask(cols['RA'],cols['DEC'],center,rad)
-      if not no_cuts:
-         tmask &= (cols['ZENITH_ANGLE'] < ZENITH_CUT) & (cols['THETA'] < THETA_CUT )
-      if apply_GTI:
-         tmask &= get_gti_mask(eventfile,cols['TIME'])
-      if simple_scalar:
-         rmask,diffs = rad_mask(cols['RA'][tmask],cols['DEC'][tmask],center,rad)
-      else:
-         rmask,diffs = rad_mask(cols['RA'][tmask],cols['DEC'][tmask],center,rad[tmask])
-
-      for key in keys: coldict[key].append(cols[key][tmask][rmask])
-      coldict['DIFFERENCES'].append(diffs)
-      e.close()
-
-   for key in coldict.keys():
-      if (key in cut_cols) and not (key in return_cols):
-         cols.pop(key)
-         continue
-      cols[key] = N.concatenate([x for x in coldict[key]])
-      if key in INT_TYPES: cols[key] = cols[key].astype(int)
-
-   return cols
+    print 'Cuts removed %d of %d photons.'%(total-accepted,total)
+    return cols
 
 #TODO: GTI
 #e.g. counts_plot(file_list,coordsys='galactic',cuts=['L  > 50','L < 100','B > -60'])
