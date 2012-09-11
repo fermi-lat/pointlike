@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.132 2012/08/14 03:06:11 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.133 2012/08/29 21:55:11 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -11,6 +11,7 @@ import operator
 import numpy as np
 from abc import abstractmethod
 
+from scipy.special import kv
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
 from scipy import roots, optimize
@@ -26,7 +27,7 @@ class Model(object):
         Default units are ph/cm^2/s/MeV.
     """
     
-    def __init__(self, p=None, free=None, set_default_limits=False, set_default_oomp_limits=False, **kwargs):
+    def __init__(self, p=None, free=None, set_default_limits=True, set_default_oomp_limits=False, **kwargs):
         """ 
 
          Optional keyword arguments:
@@ -1645,7 +1646,7 @@ class LogParabola(Model):
         x =np.log(e_break/e)
         y = (alpha - beta*x)*x
         f = n0*np.exp(y) # np.clip(y, -10, 100))
-        return np.asarray([f/n0, f*x, -f*x**2, f*alpha/e_break])
+        return np.asarray([f/n0, f*x, -f*x**2, f*(alpha-2*beta*x)/e_break])
 
     # overridden in base class -- leave here for refererence or later check
     #def pivot_energy(self):
@@ -1914,6 +1915,38 @@ class PLSuperExpCutoff(Model):
         gamma = self['Index']
         self['norm'] *= (e0p/self.e0)**-gamma
         self.e0 = e0p
+
+class MonoenergeticCurvature(Model):
+    """ Implement a curvature spectrum for a monoenergetic electron.               Spectral parameters:
+            n0            differential flux at ec
+            ec            critical energy/frequency [MeV]
+        """
+    default_p=[1e-11, 1000]
+    #default_extra_params=OrderedDict((('e0',1e3),))
+    default_extra_params=dict()
+    param_names=['Norm','Cutoff']
+    default_mappers=[LogMapper,LogMapper]
+    default_extra_attrs=dict()
+
+    default_limits = dict(
+        Norm=LimitMapper(1e-15,1e-3,1e-9),
+        Cutoff=LimitMapper(10,3e8,1000),
+        )
+    default_oomp_limits=['Norm','Cutoff']
+
+    def __call__(self,e):
+        n0,cutoff=self.get_all_parameters()
+        f = lambda x: kv(5./3,x)
+        if hasattr(e,'__len__'):
+            rvals = np.empty_like(e)
+            for i in xrange(len(rvals)):
+                rvals[i] = n0*quad(f,e[i]/cutoff,np.inf)[0]
+        else:
+            rvals = n0*quad(f,e/cutoff,np.inf)
+        return rvals
+
+    def external_gradient(self,e):
+        raise NotImplementedError
 
 
 class CompositeModel(Model):
