@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Sep 11 12:33:07 PDT 2012
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Fix e_break term in LogParabola gradient.
+
+    *
+------------------------------------------------------------
 User: kerrm  Mon Sep 10 16:31:01 PDT 2012
 pointlike/python/uw/utilities
 
