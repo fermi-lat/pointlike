@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Sep 12 00:26:24 PDT 2012
+pointlike/python/uw/like
+
+Modified Files:
+	roi_diffuse.py 
+Log Message:
+Fix several bugs in gradient calculation, and correct numpy notation.
+
+    *
+------------------------------------------------------------
 User: kerrm  Wed Sep 12 00:25:42 PDT 2012
 pointlike/python/uw/like
 
