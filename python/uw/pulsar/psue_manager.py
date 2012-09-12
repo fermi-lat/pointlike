@@ -129,9 +129,12 @@ class PSUEAnalysis():
         self.emin, self.emax  = 1e2, 3e5                 # MeV
         self.tmin, self.tmax  = 239557414, 334108802     # MET
         self.zmax             = 100
-        self.lc_radius        = 5.
+        self.lc_radius        = 2.
         self.fit_emin         = 1e2
         self.fit_emax         = 1e5
+        self.w_radius        = 2.
+        self.w_emin         = 1e2
+        self.w_emax         = 1e5
         self.evtclass         = 'Source'
         self.phase_colname    = 'PULSE_PHASE'
         self.irfs             = 'P7SOURCE_V6'
@@ -140,12 +143,14 @@ class PSUEAnalysis():
         self.xmlcat           = '/afs/slac/g/glast/groups/pulsar/share/catalog/gll_psc_v05.xml'
         self.galdiff          = '/afs/slac/g/glast/groups/diffuse/rings/2year/ring_2year_P76_v0.fits'
         self.isotropic        = '/afs/slac/g/glast/groups/diffuse/rings/2year/isotrop_2year_P76_source_v0.txt'
+        self.limb_spec        = '/afs/slac/g/glast/groups/diffuse/rings/2year/smooth_limb/limb_2year_P76_source_v0_smooth.txt'
+        self.limb_spatial     = '/afs/slac/g/glast/groups/diffuse/rings/2year/smooth_limb/limb_smooth.fits'
         self.template_dir     = '/afs/slac/g/glast/groups/pulsar/share/Templates'
         self.outdir           = None
         self.batch            = False
+        self.pulsar_class     = 0
 
-        if self.radius<self.lc_radius:
-            self.lc_radius = self.radius
+        assert(self.radius>=self.lc_radius)
         
     def __init__( self, parfile=None, **kwargs ):
         '''
@@ -159,13 +164,17 @@ class PSUEAnalysis():
         tmin            Start time (MET)                 [239557514]
         tmax            End time (MET)                   [334108802]
         zmax            Maximum zenith angle value (deg) [100]
-        lc_radius       Radius for pulse profile (deg)   [5]
+        lc_radius       Radius for pulse profile (deg)   [2]
         fit_emin        Minimum energy for spec (MeV)    [100]
         fit_emax        Maximum energy for spec (MeV)    [100000]
+        w_emin          Minimum energy for weights (MeV) [100]
+        w_emax          Maximum energy for weights (MeV) [100000]
+        w_radius        Maximum radius for weights (deg) [2]
         evtclass        Event class selection            [SOURCE]
         phase_colname   Name of the phase column         [PULSE_PHASE]
         irfs            IRFs version                     [P7SOURCE_V6]
         psfpar          PSF parameters                   [5.3,0.745,0.09]
+        pulsar_class    0=unid,1=RL,2=RL-MSP,3=RQ        [0]
         '''        
 
         self.init()
@@ -193,9 +202,9 @@ class PSUEAnalysis():
         self.ft1file_gtis    = join(self.outdir,'%s_%.0fDeg_%.0f_%.0fMET_%.0f_%.0fMeV_z%.0f_%s_gtis.fits') \
                                %(self.psrname,self.radius,self.tmin,self.tmax,self.emin,self.emax,self.zmax,self.evtclass)
         self.ft1file_diffrsp = join(self.outdir,'%s_%.0fDeg_%.0f_%.0fMET_%.0f_%.0fMeV_z%.0f_%s_gtis_diffrsp.fits') \
-                               %(self.psrname,self.lc_radius,self.tmin,self.tmax,self.fit_emin,self.fit_emax,self.zmax,self.evtclass)
+                               %(self.psrname,self.w_radius,self.tmin,self.tmax,self.w_emin,self.w_emax,self.zmax,self.evtclass)
         self.ft1file_weights = join(self.outdir,'%s_%.0fDeg_%.0f_%.0fMET_%.0f_%.0fMeV_z%.0f_%s_gtis_weights.fits') \
-                               %(self.psrname,self.lc_radius,self.tmin,self.tmax,self.fit_emin,self.fit_emax,self.zmax,self.evtclass)
+                               %(self.psrname,self.w_radius,self.tmin,self.tmax,self.w_emin,self.w_emax,self.zmax,self.evtclass)
         self.gtltcube        = self.ft1file_gtis.replace('.fits','_gtltcube.fits')
         self.ft2file         = abspath(self.ft2file)
         self.srcmdl_in       = self.ft1file_gtis.replace('.fits','_srcmdl_input.xml')
@@ -227,6 +236,7 @@ class PSUEAnalysis():
         self.PSUEoutfile.set('DECJ',self.dec)
         self.PSUEoutfile.set('TMIN',[self.tmin,'MET'])
         self.PSUEoutfile.set('TMAX',[self.tmax,'MET'])
+        self.PSUEoutfile.set('PULSAR_CLASS',self.pulsar_class)
         [self.PSUEoutfile.set('PARFILE'+str(i),basename(p)) for i, p in enumerate(self.parfile)]
         
     def WritePSUE(self):
@@ -280,17 +290,23 @@ class PSUEAnalysis():
             ft2file = self.ft2file
 
             if self.batch:
-                if not isfile(ft1file): copy(self.ft1file,self.outdir)
+                if not isfile(ft1file):
+                    print 'Copying %s to %s'%(self.ft1file,self.outdir)
+                    copy(self.ft1file,self.outdir)
                 if not isfile(ft2file): copy(self.ft2file,self.outdir)
                 
             # run TEMPO2
             for p in self.parfile:
                 start, finish = ParFile(p).get("START",type=float), ParFile(p).get("FINISH",type=float)
                 if len(self.parfile) == 1: start, finish = 54000, 58000
-                system("tempo2 -gr fermi -ft1 %s -ft2 %s -f %s -tmin %s -tmax %s -phase -graph 0" %(ft1file,ft2file,p,start,finish))                    
+                cmd = "tempo2 -gr fermi -ft1 %s -ft2 %s -f %s -tmin %s -tmax %s -phase -graph 0" %(ft1file,ft2file,p,start,finish)
+                print 'Issuing the folding command: \n%s'%cmd
+                system(cmd)
 
             # copy the ft1 file to the local directory
-            if self.batch: copy(ft1file,self.outdir_local)
+            if self.batch: 
+                print 'Copying %s to %s'%(ft1file,self.outdir_local)
+                copy(ft1file,self.outdir_local)
 
             # regenerate gtmktime-processed file if it already exists
             ft1file_gtis = join(self.outdir,basename(self.ft1file_gtis))
@@ -326,8 +342,8 @@ class PSUEAnalysis():
             return params
 
     def TimingAnalysis( self, nbins=None, weight=False, offmin=0, offmax=1, background=None, 
-                        profile=None, ncol=1, fidpt=0, peakShape=None, peakPos=None, psrtype=None,
-                        use_spw=False, dm_unc=0):
+                        profile=None, ncol=1, fidpt=0, peakShape=None, peakPos=None, 
+                        use_spw=False, dm_unc=0, phaseShift=0):
         '''Generate gamma-ray pulse profiles.
         ============    =============================================
         keyword         description
@@ -337,6 +353,7 @@ class PSUEAnalysis():
         profile         Name of the radio template          [None]
         use_spw         Use Weights from SearchPulsation    [False]
         dm_unc          Uncertainty on dispersion (DM)      [0]
+        phaseShift      A common shift to both radio/gamma  [0]
         '''
 
         if weight: ft1file = self.ft1file_weights
@@ -384,7 +401,7 @@ class PSUEAnalysis():
             phaseogram2d = ft1file.replace('.fits','_phaseogram2D_spwc.eps')
 
         # Fill histograms
-        phase_shift = plc.fill_phaseogram(nbins=nbins,weight=weight,profile=profile)
+        phase_shift = plc.fill_phaseogram(nbins=nbins,weight=weight,profile=profile,phase_shift=phaseShift)
         self.PSUEoutfile.set('PHASE_SHIFT','%.5f'%phase_shift)
         plc.print_summary()
 
@@ -418,6 +435,8 @@ class PSUEAnalysis():
         # =========== FIT PULSE PROFILE =============
         best_template = None # "forward declaration"
         if (peakShape is not None) and (peakPos is not None):
+
+            peakPos = np.mod([x+phase_shift for x in peakPos],1)
             
             import uw.pulsar.lcprimitives as lp
             import uw.pulsar.lcfitters as lf
@@ -487,16 +506,17 @@ class PSUEAnalysis():
                 else:
                     print 'We are using unbinned likelihood.'
                 t1 = time.time()
-                print 'Initial values'
-                print lcf
+                #print 'Initial values'
+                #print lcf
                 lcf.fit(quick_fit_first=False,unbinned=unbinned,estimate_errors=False)
                 if twoside:
                     for prim in prims: prim.free[2] = True
-                lcf.fit(quick_fit_first=False,unbinned=unbinned,estimate_errors=True)
-                print 'Fitted values'
-                print lcf
+                lcf.fit(quick_fit_first=False,unbinned=unbinned,estimate_errors=False)
+                #print '\nFitted values'
+                #print lcf
                 t2 = time.time()
                 print 'Required %ds for light curve fitting.'%(t2-t1)
+                print 'Loglikelihood for %s: %.2f'%(dummy.name,lcf.ll)
 
                 def primitive_string(prim,postfix=''):
                     l = prim.get_location(error=True)
@@ -509,8 +529,17 @@ class PSUEAnalysis():
                              [loc, w_l, w_r] )
             
                 if (loglike < lcf.ll) or (loglike==-np.inf): # always write at least one model
+                    # only calculate errors for models we're saving
+                    if lcf.hess_errors():
+                        self.PSUEoutfile.set('BOOTSTRAP','False')
+                        print 'Using hessian errors.'
+                    else:
+                        self.PSUEoutfile.set('BOOTSTRAP','True')
+                        lcf.bootstrap_errors(set_errors=True)
+                        print 'Using bootstrap errors.'
                     norms[:] = lcf.template.norms()
                     print 'Saving values for %s'%(dummy.name),loglike,lcf.ll
+                    print lcf
                     if not np.isnan(lcf.ll): loglike = lcf.ll
                     best_template = lcf.template
                     self.PSUEoutfile.set('N_PEAKS','%0.f'%npeaks)
@@ -536,13 +565,22 @@ class PSUEAnalysis():
                     except (KeyError,TypeError): loc_p2, err_loc_p2 = 0, 0
 
                     # delta, DELTA
-                    if psrtype == 'g': delta, err_delta = 0, 0
-                    else: delta, err_delta = loc_p1, err_loc_p1
+                    if self.pulsar_class&1:
+                        delta,err_delta = -0.1,0 # radio quiet
+                    else:
+                        delta,err_delta = loc_p1,err_loc_p1
+                    #if delta > 0.9: delta = 1-delta
                     self.PSUEoutfile.set('delta',[delta,err_delta])
 
-                    if len(peakPos)>1:
-                        DELTA, err_DELTA = (loc_p2-loc_p1), np.sqrt(err_loc_p1**2+err_loc_p2**2)
+                    if npeaks > 1:
+                        # use P3 for \Delta if present
+                        try:
+                            loc_p2, err_loc_p2 = self.PSUEoutfile.get('LOC_P3',first_elem=False,type=float)
+                        except (KeyError,TypeError):
+                            pass
+                        DELTA, err_DELTA = np.mod(loc_p2-loc_p1,1), np.sqrt(err_loc_p1**2+err_loc_p2**2)
                         self.PSUEoutfile.set('DELTA',['%.3f'%DELTA,'%.3f'%err_DELTA])
+
                     # uncertainty from DM
                     ephem = ParFile(self.parfile[0])
                     self.PSUEoutfile.set('DM_delta_UNC',
@@ -563,20 +601,26 @@ class PSUEAnalysis():
                     cPickle.dump(outdata,outfile)
                     outfile.close()
 
-        print 'Here there be odd stuff.'
-        print best_template
+        d = self.PSUEoutfile.get('delta',first_elem=False,type=float)
+        D = self.PSUEoutfile.get('DELTA',first_elem=False,type=float)
+        delta = None
+        if d is not None:
+            delta = (d[0],d[1],-1,0)
+            if D is not None:
+                delta = (d[0],d[1],D[0],D[1])
         nbands = 5
+        outascii = ft1file.replace('.fits','_profile.asc')
         plc.plot_lightcurve(nbands=nbands, background=bkg, zero_sup=True,
             substitute=False, color='black', reg=reg, template=best_template,
-            outfile=pulse_profile,
+            outfile=pulse_profile,outascii=outascii,
             period=self.period,inset=1,suppress_template_axis=True,
-            htest=H)
+            htest=H,delta=delta,pulsar_class=self.pulsar_class)
 
         plc.plot_lightcurve(nbands=nbands, background=bkg, zero_sup=True,
             substitute=False, color='black', reg=reg, template=best_template,
             outfile=pulse_profile.replace('.eps','.png'),
             period=self.period,inset=1,suppress_template_axis=True,
-            htest=H)
+            htest=H,delta=delta,pulsar_class=self.pulsar_class)
 
     def PointlikeSpectralAnalysis( self, free_roi=5, phase_range=None, phname="", plot=False, **kwargs):
         '''Perform a full spectral analysis using pointlike
@@ -798,33 +842,51 @@ class PSUEAnalysis():
         if self.batch:
             copy(gtltcube,self.outdir_local) # copy the ft1 file to the local directory
 
-    def WriteWeights(self, **kwargs):
+    def WriteWeights(self, ozlem_xml=None, clobber=False, outdir=None):
         '''Add the weights into a FT1 file from a source model.
         =============    ===============================================
         keyword          description
-            if isfile(ft1file_gtis
         =============    ===============================================
-        fit_emin         Minimum energy to fit (MeV)         [100]
-        fit_emax         Maximum energy to fit (MeV)         [100000]
-        lc_radius        Maximum radius                      [5]
+        ozlem_xml        XML file from Ozlem's spectral fits [None]
+        clobber          Overwrite files                     False
         '''
-        if not isfile(self.srcmdl_out):
-            print "Error. Cannot find %s! Exiting ..." %(self.srcmdl_out); exit()
+        if ozlem_xml is None:
+            if not isfile(self.srcmdl_out):
+                print "Error. Cannot find %s! Exiting ..." %(self.srcmdl_out); exit()
+        else:
+            if not isfile(ozlem_xml):
+                print "Error. Cannot find %s! Exiting ..." %(ozlem_xml); exit()
             
         # Generate a new xml source model
-        xml = xml_manager(self.srcmdl_out,template_dir=self.template_dir)        
-        srcmdl = join(self.outdir_local,basename(self.ft1file_gtis.replace('.fits','_srcmdl_weights.xml')))
-        xml.fill_srclist(ra=self.ra,dec=self.dec,max_roi=self.lc_radius)
-        xml.write_srcmdl(filename=srcmdl)
-        xml.print_srclist()
+        xml = xml_manager(ozlem_xml or self.srcmdl_out,template_dir=self.template_dir)        
+        srcmdl = ozlem_xml or join(self.outdir_local,basename(self.ft1file_gtis.replace('.fits','_srcmdl_weights.xml')))
+        xml.fill_srclist(ra=self.ra,dec=self.dec,max_roi=self.w_radius)
+        if ozlem_xml is None:
+            xml.write_srcmdl(filename=srcmdl)
+            xml.print_srclist()
         srcname = xml.get_srcname(which=0)        
 
+        print 'Using this for diffuse response'
+        print self.ft1file_diffrsp
+        # this is the local name of file (e.g. if running batch mode)
         ft1file_diffrsp = join(self.outdir,basename(self.ft1file_diffrsp))
-        if not isfile(self.ft1file_diffrsp):
+
+        # check that gtmktimed file exists
+        if not isfile(self.ft1file_gtis):
+            ft1file = join(self.outdir,basename(self.ft1file))
+            ft1file_gtis = join(self.outdir,basename(self.ft1file_gtis))
+            if self.batch:
+                if not isfile(ft1file): copy(self.ft1file,self.outdir)
+            filter = "DATA_QUAL==1 && LAT_CONFIG==1 && ABS(ROCK_ANGLE)<52"
+            GtApp('gtmktime').run(evfile=ft1file,outfile=ft1file_gtis,scfile=self.ft2file,filter=filter,roicut='no',chatter=4)
+            if self.batch:
+                copy(ft1file_gtis,self.outdir_local)
+
+        if (not isfile(self.ft1file_diffrsp)) or clobber:
             # select a sub-ft1 file
             GtApp('gtselect').run(infile=self.ft1file_gtis,outfile=ft1file_diffrsp,
-                rad=self.lc_radius,ra=self.ra,dec=self.dec,emin=self.fit_emin,
-                emax=self.fit_emax,tmin=self.tmin,tmax=self.tmax,zmax=self.zmax)
+                rad=self.w_radius,ra=self.ra,dec=self.dec,emin=self.w_emin,
+                emax=self.w_emax,tmin=self.tmin,tmax=self.tmax,zmax=self.zmax)
         elif self.batch:
             copy(self.ft1file_diffrsp,ft1file_diffrsp)
             
@@ -840,6 +902,8 @@ class PSUEAnalysis():
         srclist_file.write(srcname)
         srclist_file.close()
         
+        print 'Using this for weights'
+        print self.ft1file_weights
         # run gsrcprob
         print "add weights into the FT1 file ..."
         GtApp('gtsrcprob').run(evfile=ft1file_diffrsp,scfile=self.ft2file,
