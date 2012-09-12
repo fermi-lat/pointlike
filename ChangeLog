@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Sep 12 00:27:08 PDT 2012
+pointlike/python/uw/like
+
+Modified Files:
+	pointspec_helpers.py 
+Log Message:
+Add "Constant" to allow earth limb construction to pass.
+
+    *
+------------------------------------------------------------
 User: kerrm  Wed Sep 12 00:26:24 PDT 2012
 pointlike/python/uw/like
 
