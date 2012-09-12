@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Sep 12 15:03:57 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+make set_mapper preserve covariance matrix
+    *
+------------------------------------------------------------
 User: lande  Wed Sep 12 14:50:53 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
