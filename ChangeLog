@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Sep 12 00:25:42 PDT 2012
+pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Add "check_gradient" method to perform a numerical check of gradient.
+
+    *
+------------------------------------------------------------
 User: kerrm  Wed Sep 12 00:24:55 PDT 2012
 pointlike/python/uw/like
 
