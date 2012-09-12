@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
 on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.127 2012/08/29 21:55:44 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.128 2012/09/12 07:25:42 kerrm Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -356,7 +356,7 @@ class ROIAnalysis(object):
 
     def set_parameters(self,parameters):
         """Support for hessian calculation in specfitter module."""
-        assert len(parameters)==len(self.psm.parameters())+len(self.bgm.parameters()), 'bad parameter length'
+        assert len(parameters)==len(self.psm.parameters())+len(self.bgm.parameters()), 'bad parameter length, %s!=%s+%s' % (len(parameters),len(self.psm.parameters()),len(self.bgm.parameters()))
         self.bgm.set_parameters(parameters,current_position=0)
         self.psm.set_parameters(parameters,current_position=len(self.bgm.parameters()))
         self.fit_parameters = parameters
