@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.73 2012/08/24 23:32:56 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.74 2012/08/29 16:53:33 kadrlica Exp $
 
 author: Joshua Lande
 """
@@ -889,6 +889,7 @@ class MCModelBuilder(object):
             shrinker.shrink()
 
             filename = join(self.env_var,os.path.basename(allsky_filename).replace('.fits','_cut.fits'))
+            filename = filename.replace('.fits.gz','.fits') # cannot save out zipped fits files
 
             allsky.writeto(path.expand(filename), clobber=True)
         else:
@@ -1311,8 +1312,8 @@ class SpectralAnalysisMC(SpectralAnalysis):
 
         # Create a new SpectralAnalysis object with
         # the now existing ft1/ft2 files (Yo Dawg!)
-        if self.tstart is None: self.tstart = 0
-        if self.tstop is None: self.tstop = 0
+        self.tstart = 0
+        self.tstop = 0
         sa=SpectralAnalysis(self.dataspec,**keyword_options.defaults_to_kwargs(self,SpectralAnalysis))
         return sa.roi(roi_dir=roi_dir,
                       point_sources=point_sources, 
