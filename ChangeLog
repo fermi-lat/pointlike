@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Sep 12 15:04:42 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+more verbose exception
+    *
+------------------------------------------------------------
 User: lande  Wed Sep 12 15:03:57 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
