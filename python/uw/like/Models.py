@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.134 2012/09/11 19:33:07 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.135 2012/09/12 07:24:55 kerrm Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -301,6 +301,8 @@ class Model(object):
         """
         i=self.name_mapper(i)
 
+        external_cov_matrix = self.get_cov_matrix()
+
         if not (isinstance(mapper, type) and issubclass(mapper, ParameterMapper)) and \
             not isinstance(mapper, ParameterMapper):
             raise ModelException("mapper %s must be a subclass of uw.utilities.parmap.ParameterMapper" % str(mapper))
@@ -311,7 +313,8 @@ class Model(object):
         self.mappers[i] = mapper
 
         self.setp(i, p)
-        self.set_error(i, perr)
+
+        self.set_external_cov_matrix(external_cov_matrix)
 
     def set_limits(self, i, lower, upper, scale=1, strict=False):
         """ Convenience function for setting limits
@@ -519,11 +522,13 @@ class Model(object):
         i=self.name_mapper(i)
         return bool(self.free[i])
 
+    def set_external_cov_matrix(self,external_cov_matrix):
+        dintdext = 1/self.dexternaldinternal()
+        dintdext_t = dintdext.reshape((len(dintdext),1))
+        self.internal_cov_matrix = dintdext*external_cov_matrix*dintdext_t
+
     def set_cov_matrix(self,new_cov_matrix):
-        """
-        set the free submatrix of the internal format covariance matrix
-        
-        """
+        """ Set the free submatrix of the internal format covariance matrix """
         t = np.ravel(new_cov_matrix)
         assert len(t)==self.free.sum()**2, \
             'wrong size for new cov matrix: found %d, expected %d' % (len(t), self.free.sum()**2)
@@ -538,8 +543,8 @@ class Model(object):
     def get_cov_matrix(self):
         """Return covariance matrix transformed out of log space."""
         p = self.dexternaldinternal()
-        pt=p.reshape((p.shape[0],1))
-        return p*self.internal_cov_matrix*pt
+        p_t=p.reshape((p.shape[0],1))
+        return p*self.internal_cov_matrix*p_t
 
     def get_free_errors(self):
         """Return the diagonal elements of the (log space) covariance matrix for free parameters."""
