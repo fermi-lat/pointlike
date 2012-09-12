@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
 on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.126 2012/08/03 15:07:52 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.127 2012/08/29 21:55:44 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -46,8 +46,6 @@ def decorate_with(other_func, append=False, append_init=False):
         return func
     return decorator
 
-
-###====================================================================================================###
 
 class ROIAnalysis(object):
 
@@ -157,7 +155,6 @@ class ROIAnalysis(object):
             groupings[bc] = [band for band in self.bands if (band.e==bc and (band.emin>=emin[band.ct]))]
 
         self.energy_bands = [roi_bands.ROIEnergyBand(groupings[bc]) for bc in self.bin_centers]
-
 
     def mapper(self,which):
         """ Map the argument `which' passed into functions such as localize
@@ -279,7 +276,6 @@ class ROIAnalysis(object):
                           for band,myband in zip(bfe.bands,bfe.mybands))
             return ll
 
-
     def gradient(self,parameters,*args):
         """ Implement the gradient of the log likelihood wrt the model parameters."""
 
@@ -317,8 +313,35 @@ class ROIAnalysis(object):
         # Note, no need to transform gradient into log space because
         # gradient now returns the gradient with respect to internal parameters.
         return gradient
-         
 
+    def check_gradient(self,delta=1e-6,get_approx_gradient=False):
+        """ Compute numerical gradient by finite difference and compare to
+            analytic gradient.  Return True if they agree numerically.
+        """
+        p0 = self.get_parameters().copy()
+        grad = np.empty_like(p0)
+        for i in xrange(len(p0)):
+            pwork = p0.copy()
+            pwork[i] += delta
+            lhi = self.logLikelihood(pwork)
+            pwork[i] -= 2*delta
+            llo = self.logLikelihood(pwork)
+            grad[i] = (lhi-llo)/(2*delta)
+        if get_approx_gradient: return grad
+        ratio = self.gradient(p0)/grad
+        if np.allclose(ratio,1): return True
+        else:
+            print 'Gradients did not agree! Ratio of gradients:'
+            print ratio
+        return False
+
+    def _check_model_gradients(self):
+        """ Determine if all spectral models support gradient."""
+        for model in np.append(self.psm.models,self.dsm.models):
+            if np.any(model.free) and (not hasattr(model,'external_gradient')):
+                return False
+        return True
+         
     def parameters(self):
         """Merge parameters from background and point sources."""
         return np.asarray(self.bgm.parameters()+self.psm.parameters())
@@ -369,13 +392,6 @@ class ROIAnalysis(object):
             self.param_state = param_state
             self.param_vals  = param_vals
 
-    def _check_gradient(self):
-        """ Determine if it's OK to use the gradient fitter."""
-        for model in np.append(self.psm.models,self.dsm.models):
-            if np.any(model.free) and (not hasattr(model,'external_gradient')):
-                return False
-        return True
-
     def __update_state__(self):
         """ Helper function which should, hopefully, consistently update
             all of the model predictions for an ROI, even if some of
@@ -394,7 +410,7 @@ class ROIAnalysis(object):
 
         if method not in ['simplex','powell','minuit']:
             raise Exception('Unknown fitting method for F.fit(): "%s"' % method)
-        if use_gradient and (not self._check_gradient()):
+        if use_gradient and (not self._check_model_gradients()):
             if not self.quiet:
                 print 'Found a model without a gradient method.  Switching to simplex method.'
             method = 'simplex'; use_gradient = False
