@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Sep 12 00:24:55 PDT 2012
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Fix bug in FileFunction gradient.
+
+    *
+------------------------------------------------------------
 User: kerrm  Tue Sep 11 12:33:07 PDT 2012
 pointlike/python/uw/like
 
