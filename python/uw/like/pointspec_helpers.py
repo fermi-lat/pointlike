@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.56 2012/07/01 18:56:37 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.57 2012/07/16 16:44:09 lande Exp $
 
     author: Matthew Kerr
     """
@@ -148,7 +148,7 @@ def get_diffuse_source(spatialModel='ConstantValue',
         if (spectralModelFile is not None):
             if not os.path.exists(path.expand(spectralModelFile)):
                 raise Exception('Could not find the ASCII file specified for FileFunction')
-        elif spectralModel != 'PowerLaw':
+        elif not (spectralModel == 'PowerLaw' or spectralModel == 'Constant'):
             raise NotImplementedError,'Must provide one of the understood spectral models.'
         else:
             pass
