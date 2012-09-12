@@ -1,12 +1,12 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_diffuse.py,v 1.29 2012/07/06 00:45:00 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.30 2012/07/16 16:44:09 lande Exp $
 
 author: Matthew Kerr
 """
 import sys
-import numpy as N; np = N
+import numpy as np
 from uw.utilities.convolution import BackgroundConvolution
 from uw.utilities import keyword_options
 from skymaps import SkyIntegrator,Background,IsotropicSpectrum,IsotropicConstant,IsotropicPowerLaw,DiffuseFunction
@@ -129,7 +129,6 @@ class DiffuseSource(object):
             diffuse_model = self.dmodel,
             scaling_model = self.smodel.copy())
 
-###=========================================================================###
 class ROIDiffuseModel(object):
     """ Associate a SkySpectrum with a spectral model.
     
@@ -189,8 +188,6 @@ class ROIDiffuseModel(object):
         raise NotImplementedError,'Classes must implement this method!'
 
 
-###=========================================================================###
-
 class ROIDiffuseModel_OTF(ROIDiffuseModel):
     """ Use an on-the-fly numerical scheme to convolve the model
         with the PSF.
@@ -228,8 +225,8 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
         self.active_bgc = self.bgc[conversion_type if (len(self.bgc) > 1) else 0]
         multi = 1 + 0.01*(energy==band.emin) -0.01*(energy==band.emax)
         r95 = self.sa.psf.inverse_integral(energy*multi,conversion_type,95)
-        rad = self.r_multi*r95 + N.degrees(band.radius_in_rad)
-        rad = max(min(self.r_max,rad),N.degrees(band.radius_in_rad)+2.5)
+        rad = self.r_multi*r95 + np.degrees(band.radius_in_rad)
+        rad = max(min(self.r_max,rad),np.degrees(band.radius_in_rad)+2.5)
         npix = int(round(2*rad/self.pixelsize))
         npix += (npix%2 == 0)
         self.active_bgc.setup_grid(npix,self.pixelsize)
@@ -244,14 +241,13 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
         # use a higher nsimps at low energy where effective area is jagged
         ns = (2 if band.emin<200 else 1)*nsimps
         if ns > 0:
-            bg_points = sp = N.logspace(N.log10(band.emin),N.log10(band.emax),ns+1)
-            bg_vector = sp * (N.log(sp[-1]/sp[0])/(3.*ns)) * \
-                                     N.asarray([1.] + ([4.,2.]*(ns/2))[:-1] + [1.])
+            bg_points = sp = np.logspace(np.log10(band.emin),np.log10(band.emax),ns+1)
+            bg_vector = sp * (np.log(sp[-1]/sp[0])/(3.*ns)) * \
+                                     np.asarray([1.] + ([4.,2.]*(ns/2))[:-1] + [1.])
         else:
-            bg_points = sp = N.asarray([band.e])
-            bg_vector = sp * N.log(band.emax/band.emin)
+            bg_points = sp = np.asarray([band.e])
+            bg_vector = sp * np.log(band.emax/band.emin)
         return ns,bg_points,bg_vector
-
 
     def initialize_counts(self,bands,roi_dir=None):
         rd = self.roi_dir if roi_dir is None else roi_dir
@@ -265,9 +261,8 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
             ns,myband.bg_points,myband.bg_vector = ROIDiffuseModel_OTF.sub_energy_binning(band,self.nsimps)
 
             #figure out best way to handle no pixel cases...
-            myband.ap_evals  = N.empty(ns + 1)      
-            myband.pi_evals  = N.empty([len(band.wsdl),ns + 1]) if band.has_pixels else 0
-
+            myband.ap_evals  = np.empty(ns + 1)      
+            myband.pi_evals  = np.empty([len(band.wsdl),ns + 1]) if band.has_pixels else 0
                   
             for ne,e in enumerate(myband.bg_points):
                 self.set_state(e,band.ct,band)
@@ -298,13 +293,13 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
         #if N.all(self.prev_p == sm.p): return
         #self.prev_p[:] = sm.p
         smp = sm.get_all_parameters(internal=True)
-        if N.all(self.prev_p == smp): return
+        if np.all(self.prev_p == smp): return
         self.prev_p[:] = smp
         
 
         # counts can just be scaled from initial integral
         smp = sm.get_all_parameters(internal=True)
-        if N.all(smp[1:] == self.init_p[1:]):
+        if np.all(smp[1:] == self.init_p[1:]):
             ratio = sm[0]/self.init_norm
             for myband,band in zip(self.bands,bands): 
                band.bg_counts[mi] = ratio * myband.ap_counts
@@ -319,7 +314,6 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
                 if band.has_pixels:
                     band.bg_pix_counts[:,mi] = (myband.pi_evals * pts).sum(axis=1)               
                   
-
     def _ap_value(self,center,radius):
         """ Return the integral of the model over the aperture for the
             current state (energy/conversion type).
@@ -336,7 +330,7 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
 
     def gradient(self,bands,model_index):
         sm  = self.smodel
-        np  = len(sm.get_all_parameters())
+        npar  = len(sm.get_all_parameters())
         nfp = sm.free.sum()
 
         # special case -- no free parameters
@@ -346,15 +340,15 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
         if (nfp == 1) and sm.free[0]:
             apterm  = sum( (b.phase_factor*b.bg_counts[model_index] for b in bands) )
             pixterm = sum( ( (b.bg_pix_counts[:,model_index]*b.pix_weights).sum() for b in bands if b.has_pixels) )
-            return [(apterm - pixterm)/sm.getp(0)]
+            return [(apterm - pixterm)*sm.dexternaldinternal()[0]]
 
         # general case -- this is a little gross, improve if time
         gradient = [0]*nfp
         for myband,band in zip(self.bands,bands):
             pts = sm.gradient(myband.bg_points)
-            if nfp == 1: pts = N.asarray([pts])
+            #if nfp == 1: pts = np.asarray([pts])
             cp = 0
-            for j in xrange(np):
+            for j in xrange(npar):
                 if not sm.free[j]: continue
                 apterm = band.phase_factor*(myband.ap_evals * pts[j,:]).sum()
                 if band.has_pixels:
@@ -366,7 +360,6 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
         return gradient
 
 
-###====================================================================================================###
 class ROIDiffuseModel_PC(ROIDiffuseModel_OTF):
     """ The diffuse model is assumed to be pre-convolved.  This class then
         manages the exposure integral and model evaluation."""
@@ -397,7 +390,7 @@ class ROIDiffuseModel_PC(ROIDiffuseModel_OTF):
         return SkyIntegrator.ss_average(self.active_bg,center,radius)
 
     def _pix_value(self,pixlist):
-        return N.asarray(self.active_bg.wsdl_vector_value(pixlist))
+        return np.asarray(self.active_bg.wsdl_vector_value(pixlist))
 
 
 if __name__ == "__main__":
