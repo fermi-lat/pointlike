@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Sep 12 23:16:27 PDT 2012
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Fix shape of FileFunction gradient.
+
+    *
+------------------------------------------------------------
 User: lande  Wed Sep 12 15:04:42 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
