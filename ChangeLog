@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Sep 12 23:18:51 PDT 2012
+pointlike/python/uw/utilities
+
+Modified Files:
+	parmap.py 
+Log Message:
+Modify LimitMapper to use tan/arctan transformation.  The sine/arcsine transformation is now in LimitMapperMinuit.
+
+    *
+------------------------------------------------------------
 User: kerrm  Wed Sep 12 23:17:37 PDT 2012
 pointlike/python/uw/like
 
