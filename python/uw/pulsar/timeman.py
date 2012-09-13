@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/timeman.py,v 1.2 2011/07/08 23:05:48 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/timeman.py,v 1.3 2012/03/29 22:17:14 kerrm Exp $
 
 Handle MET(TT) to MJD(UTC) conversions.
 
@@ -98,10 +98,12 @@ class METConverter(object):
         try:
             self.MJDREF = ft1hdr['MJDREF']
         except KeyError:
-            # Here I have to work around an issue where the MJDREFF key is stored
-            # as a string in the header and uses the "1.234D-5" syntax for floats, which
-            # is not supported by Python
-            self.MJDREF = ft1hdr['MJDREFI'] + float(ft1hdr['MJDREFF'].replace('D','E'))
+            # some FT1 files store these values as floats; others as
+            # strings with the 'D' exponential syntax
+            try:
+                self.MJDREF = ft1hdr['MJDREFI'] + float(ft1hdr['MJDREFF'])
+            except ValueError:
+                self.MJDREF = ft1hdr['MJDREFI'] + float(ft1hdr['MJDREFF'].replace('D','E'))
 
         TSTART = float(ft1hdr['TSTART'])
         TSTOP = float(ft1hdr['TSTOP'])
