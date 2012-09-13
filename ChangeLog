@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Sep 12 23:17:37 PDT 2012
+pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Make check_gradient crudely adaptive in step size.
+
+    *
+------------------------------------------------------------
 User: kerrm  Wed Sep 12 23:16:44 PDT 2012
 pointlike/python/uw/like
 
