@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
 on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.128 2012/09/12 07:25:42 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.129 2012/09/12 22:04:41 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -314,25 +314,44 @@ class ROIAnalysis(object):
         # gradient now returns the gradient with respect to internal parameters.
         return gradient
 
-    def check_gradient(self,delta=1e-6,get_approx_gradient=False):
+    def check_gradient(self,tol=1e-3,get_approx_gradient=False):
         """ Compute numerical gradient by finite difference and compare to
             analytic gradient.  Return True if they agree numerically.
+
+            NB -- the numerical gradient accuracy is extremely sensitive
+            to step size, so the current algorithm is a crude adaptive
+            scheme.  A failure to agree numerically does not necessarily
+            imply an incorrect analytic gradient.
         """
         p0 = self.get_parameters().copy()
         grad = np.empty_like(p0)
+        max_iter = 40
         for i in xrange(len(p0)):
-            pwork = p0.copy()
-            pwork[i] += delta
-            lhi = self.logLikelihood(pwork)
-            pwork[i] -= 2*delta
-            llo = self.logLikelihood(pwork)
-            grad[i] = (lhi-llo)/(2*delta)
+            delta = 1e-2
+            prev_grad = np.inf
+            for j in xrange(max_iter):
+                pwork = p0.copy()
+                pwork[i] += delta
+                lhi = self.logLikelihood(pwork)
+                pwork[i] -= 2*delta
+                llo = self.logLikelihood(pwork)
+                g = (lhi-llo)/(2*delta)
+                if abs(g-prev_grad) < tol/2:
+                    grad[i] = g
+                    break
+                else:
+                    prev_grad = g
+                    delta /= 1.5
+            if j == (max_iter-1):
+                print 'Adaptive scheme did not converge for parameter %d.'%i
+
         if get_approx_gradient: return grad
+        if np.max(np.abs(grad-self.gradient(p0))) < tol:
+            return True
+        print np.max(np.abs(grad-self.gradient(p0)))
         ratio = self.gradient(p0)/grad
-        if np.allclose(ratio,1): return True
-        else:
-            print 'Gradients did not agree! Ratio of gradients:'
-            print ratio
+        print 'Gradients did not agree! Ratio of gradients:'
+        print ratio
         return False
 
     def _check_model_gradients(self):
