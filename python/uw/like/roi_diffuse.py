@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.30 2012/07/16 16:44:09 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.31 2012/09/12 07:26:24 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -17,7 +17,6 @@ class SmallBand(object):
     """ A little holder."""
     pass
 
-###=========================================================================###
 class DiffuseSource(object):
     """ Associate a spatial model with a spectral scaling model."""
     __counter = 0
@@ -336,17 +335,10 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
         # special case -- no free parameters
         if nfp == 0: return []
 
-        # special case -- only normalization free
-        if (nfp == 1) and sm.free[0]:
-            apterm  = sum( (b.phase_factor*b.bg_counts[model_index] for b in bands) )
-            pixterm = sum( ( (b.bg_pix_counts[:,model_index]*b.pix_weights).sum() for b in bands if b.has_pixels) )
-            return [(apterm - pixterm)*sm.dexternaldinternal()[0]]
-
         # general case -- this is a little gross, improve if time
         gradient = [0]*nfp
         for myband,band in zip(self.bands,bands):
             pts = sm.gradient(myband.bg_points)
-            #if nfp == 1: pts = np.asarray([pts])
             cp = 0
             for j in xrange(npar):
                 if not sm.free[j]: continue
