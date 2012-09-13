@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Sep 12 23:16:44 PDT 2012
+pointlike/python/uw/like
+
+Modified Files:
+	roi_diffuse.py 
+Log Message:
+Remove special case code for normalization.
+
+    *
+------------------------------------------------------------
 User: kerrm  Wed Sep 12 23:16:27 PDT 2012
 pointlike/python/uw/like
 
