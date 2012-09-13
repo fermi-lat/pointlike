@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.135 2012/09/12 07:24:55 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.136 2012/09/12 22:03:57 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -2533,7 +2533,7 @@ class FileFunction(Model):
         return self['Normalization']*10**self.interp(np.log10(e))
 
     def external_gradient(self,e):
-        return 10**self.interp(np.log10(e))
+        return np.asarray([10**self.interp(np.log10(e))])
 
     def __getstate__(self):
         """ You cannot pickle an interp1d object. """
