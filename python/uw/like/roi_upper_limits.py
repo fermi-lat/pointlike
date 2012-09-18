@@ -1,10 +1,11 @@
 """
 Module to calculate flux and extension upper limits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.26 2012/08/29 21:55:44 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.27 2012/09/18 00:43:45 lande Exp $
 
 author:  Eric Wallace <ewallace@uw.edu>, Joshua Lande <joshualande@gmail.com>
 """
+import math
 import numpy as np
 from scipy import integrate
 from scipy.stats.distributions import chi2
@@ -105,7 +106,7 @@ class FluxUpperLimit(object):
         def like(norm):
             model.setp(0,norm)
             return np.exp(ll_0-roi.logLikelihood(roi.parameters()))
-        npoints = self.simps_points * (np.log10(integral_max) - np.log10(integral_min))
+        npoints = int(math.ceil(self.simps_points * (np.log10(integral_max) - np.log10(integral_min))))
         points = np.logspace(np.log10(integral_min), np.log10(integral_max),npoints*2+1)
         y = np.array([like(x)*10**x for x in points])
         trapz1 = integrate.cumtrapz(y[::2])
