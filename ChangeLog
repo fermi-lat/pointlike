@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Sep 17 20:15:25 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_upper_limits.py 
+Log Message:
+buxfix for flux upper limit
+    *
+------------------------------------------------------------
 User: lande  Mon Sep 17 17:43:45 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
