@@ -1,7 +1,7 @@
 """
 Module to calculate flux and extension upper limits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.25 2012/08/05 02:27:54 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.26 2012/08/29 21:55:44 lande Exp $
 
 author:  Eric Wallace <ewallace@uw.edu>, Joshua Lande <joshualande@gmail.com>
 """
@@ -12,7 +12,7 @@ from scipy.optimize import fmin, fminbound, brentq
 
 from uw.utilities import keyword_options
 from uw.utilities.quantile import Quantile
-from uw.utilities.parmap import LinearMapper
+from uw.utilities.parmap import LinearMapper,LimitMapper
 
 from uw.like.roi_state import PointlikeState
 from uw.like.roi_extended import ExtendedSource
@@ -29,20 +29,24 @@ class FluxUpperLimit(object):
     Bayesian credible interval, using a uniform prior on the flux
     parameter.
 
-    Note that the default integral limits are determined assuming that
-    the relevant parameter is the normalization parameter of a PowerLaw
-    model. For other models, especially PowerLawFlux, the limits should
-    be specified appropriately.
+    Note that the default integral limits are taken from the spectral
+    model's default parameter limits. See uw.like.Models for your
+    particular model.  These should be a suitable integration range for
+    any parameter. In the situation where the normalization parameter
+    has a limit and those limits go outside the default limits, the
+    default parameter limits are expanded by the specified parameter
+    limits.  If the normalization parameter is unlimited and the current
+    normalization value is outside the default parameter limits, the
+    integration range will be expanded to include the current value.
 
     The limit returned is the integrated flux in photons
     per square centimeter per second.
     """
     defaults = (
         ('confidence',    0.95, 'Desired confidence level of the upper limit.'),
-        ('integral_min',   -15, 'Lower limit of the likelihood integral *in log space*.'),
-        ('integral_max',    -8, 'Upper limit of the likelihood integral *in log space*.'),
-        ('simps_points',   100, 'Desired confidence level of the upper limit.'),
+        ('simps_points',   100, 'Number of integration points (per log space).'),
         ('flux_kwargs', dict(), 'kwargs passed into i_flux function, including e_weight, cgs, emin, and emax.'),
+        ('verbosity', False, 'make lots of noise')
     )
 
     @keyword_options.decorate(defaults)
@@ -57,6 +61,21 @@ class FluxUpperLimit(object):
 
         self._compute()
 
+    @staticmethod
+    def get_integration_range(model):
+        norm_name = model.param_names[0]
+        default_norm_limits = model.default_limits[norm_name]
+        norm_mapper = model.get_mapper(norm_name)
+        if isinstance(norm_mapper,LimitMapper):
+            lower,upper = model.get_limits(norm_name)
+            norm_min = min(lower, default_norm_limits.lower)
+            norm_max = max(upper, default_norm_limits.upper)
+        else:
+            norm_min = min(model[norm_name], default_norm_limits.lower)
+            norm_max = max(model[norm_name], default_norm_limits.upper)
+        return norm_min, norm_max
+
+
     def _compute(self):
         roi = self.roi
         which = self.which
@@ -66,9 +85,19 @@ class FluxUpperLimit(object):
 
         source = roi.get_source(which)
 
-        if not source.__dict__.has_key('model'):
+        if self.verbosity:
+            print 'Computing upper limit for source %s with %s spectral model' % (source.name,source.model.name)
+
+        if not hasattr(source,'model'):
             raise Exception("upper_limit can only calculate upper limits of point and extended sources.")
         model=source.model
+
+        integral_min, integral_max = self.get_integration_range(model)
+
+        if self.verbosity:
+            print 'For source %s, setting integration range from' % model.name 
+            print ' * integration minimum = :',integral_min
+            print ' * integration maximum = :',integral_max
 
         # Unbound flux temporarily to avoid parameter limits
         model.set_mapper(0,LinearMapper)
@@ -76,8 +105,8 @@ class FluxUpperLimit(object):
         def like(norm):
             model.setp(0,norm)
             return np.exp(ll_0-roi.logLikelihood(roi.parameters()))
-        npoints = self.simps_points * (self.integral_max - self.integral_min)
-        points = np.logspace(self.integral_min, self.integral_max,npoints*2+1)
+        npoints = self.simps_points * (np.log10(integral_max) - np.log10(integral_min))
+        points = np.logspace(np.log10(integral_min), np.log10(integral_max),npoints*2+1)
         y = np.array([like(x)*10**x for x in points])
         trapz1 = integrate.cumtrapz(y[::2])
         trapz2 = integrate.cumtrapz(y)[::2]
