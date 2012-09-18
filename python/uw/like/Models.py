@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.136 2012/09/12 22:03:57 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.137 2012/09/13 06:16:27 kerrm Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -2510,7 +2510,7 @@ class FileFunction(Model):
         togtlike=[operator.pos])
 
     default_limits = dict(
-        Normalization=LimitMapper(0.1,10,1))
+        Normalization=LimitMapper(1e-4,1e4,1))
     default_oomp_limits=[]
 
     def __init__(self,**kwargs):
