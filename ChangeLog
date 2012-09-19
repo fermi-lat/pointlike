@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Sep 18 21:02:53 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lc_plotting_func.py 
+Log Message:
+Fix weights calculation.
+
+    *
+------------------------------------------------------------
 User: kerrm  Tue Sep 18 21:02:38 PDT 2012
 pointlike/python/uw/pulsar
 
