@@ -3,7 +3,7 @@ components of a pulsar light curve.  Includes primitives (Gaussian,
 Lorentzian), etc.  as well as more sophisticated holistic templates that
 provide single-parameter (location) representations of the light curve.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcprimitives.py,v 1.24 2012/06/28 22:13:03 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcprimitives.py,v 1.25 2012/07/22 18:32:53 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -52,9 +52,12 @@ class LCPrimitive(object):
     def __call__(self,phases):
         raise NotImplementedError('Virtual function must be implemented by child class.')
 
-    def integrate(self,x0=0,x1=1):
+    def integrate(self,x1=0,x2=1):
         """ Base implemention with scipy quad."""
-        return quad(self,x0,x1)[0]
+        return quad(self,x1,x2)[0]
+
+    def cdf(self,x):
+        return self.integrate(x1=0,x2=x)
 
     def fwhm(self):
         """Return the full-width at half-maximum of the light curve model."""
@@ -225,7 +228,6 @@ class LCPrimitive(object):
 
     def sanity_checks(self,eps=1e-6):
         """ A few checks on normalization, integration, etc. """
-        from scipy.integrate import quad
         errfac = 1
         # Normalization test
         y,ye = quad(self,0,1)
@@ -305,9 +307,8 @@ class LCWrappedFunction(LCPrimitive):
                 results[i,:] += gn[i]
         return results
 
-    def integrate(self,x1=0,x2=1):
-        #if(x1==0) and (x2==0): return self.p[0] # this is true by definition, now
-        if(x1==0) and (x2==0): return 1. # this is true by definition, now
+    def integrate(self,x1,x2):
+        #if(x1==0) and (x2==0): return 1.
         # NB -- this method is probably overkill now.
         results = self.base_int(x1,x2,index=0)
         for i in xrange(1,MAXWRAPS+1):
@@ -465,11 +466,10 @@ class LCLorentzian(LCPrimitive):
     def random(self,n):
         return np.mod(cauchy.rvs(loc=self.p[-1],scale=self.p[0]/TWOPI,size=n),1)
 
-    def integrate(self,x0=0,x1=1):
+    def integrate(self,x1,x2):
         gamma,loc = self.p
-        if (x0==0) and (x1==1): return self.p[0]
-        x0 = PI*(x0-loc)
         x1 = PI*(x1-loc)
+        x2 = PI*(x2-loc)
         t = cosh(gamma/2)/sinh(gamma/2)
         return (atan(t*tan(x1))-atan(t*tan(x0)))/PI
 
@@ -607,10 +607,9 @@ class LCHarmonic(LCPrimitive):
         x0 = self.p
         return 1+np.cos( (TWOPI*self.order) * (phases - x0 ) )
 
-    def integrate(self,x1=0,x2=1):
-        if x1 == 0 and x2 == 1: return 1
+    def integrate(self,x1,x2):
         t = self.order*TWOPI
-        return (x2-x1)+(sin(t*x2)-sin(t*x1))/t
+        return (x2-x1)+(np.sin(t*x2)-np.sin(t*x1))/t
 
 class LCEmpiricalFourier(LCPrimitive):
     """ Calculate a Fourier representation of the light curve.
@@ -687,7 +686,7 @@ class LCEmpiricalFourier(LCPrimitive):
         bk = np.asarray([np.sin(phases*k) for k in harm]).transpose()
         return (1 + 2*(a*ak + b*bk).sum(axis=1))
 
-    def integrate(self):
+    def integrate(self,x1,x2):
         """ The Fourier expansion by definition includes the entire signal, so
         the norm is always unity."""
         return 1
@@ -818,8 +817,8 @@ class LCKernelDensity(LCPrimitive):
         for i in xrange(len(self.xvals)):
             f.write('%s\t%s\n'%(self.xvals[i],self.yvals[i]))
 
-    def integrate(self,x0=0,x1=1):
-        if (x0==0) and (x1==1): return 1.
+    def integrate(self,x1=0,x2=1):
+        if (x1==0) and (x2==1): return 1.
         # crude nearest neighbor approximation
         x = self.interpolator.x; y = self.interpolator.y
         mask = (x >= x0) & (x <= x1)
