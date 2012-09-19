@@ -31,23 +31,9 @@ class Profile(object):
     def _process(self):
         """ Determine properties of profiles. """
         pfile = os.path.split(self.pfile)[-1]
-        #0 -- special cases
-        if 'J1446-4701' in pfile:
-            # oddball parfile -- must be PKS?
-            self.ncol = 4
-            self.obs = 'PKS'
-        elif 'J0102+4839' in pfile:
-            # profile from Megan, unknown convention
-            self.ncol = 3
-            self.obs = 'GBT'
-        elif '2051-0827' in pfile:
-            # WSRT profile from Cristobal, fiducial point at center
-            self.ncol = 4
-            self.fidpt = 0.5
-        elif '1741+1351' in pfile:
-            # AO profile from Cristobal, first harmonic convention
-            self.ncol = 2
-            self._first_harmonic()
+        #0 -- special cases from collected profiles
+        if self._process_special(pfile):
+            pass
         #1 -- if file name ends with '.asc', it's a Nancay profile
         elif pfile.endswith('.asc'):
             self._process_nan()
@@ -61,11 +47,57 @@ class Profile(object):
             self.ncol = 4
             self._process_pks()
         #4 -- a Camilo/GBT style bestprof file
-        elif pfile.endswith('bestprof'):
+        elif pfile.endswith('bestprof') or ('gbt' in pfile):
             self._process_bestprof()
         else:
             raise ValueError('Could not discern type of %s'%pfile)
-        self.fitpt = self.fidpt % 1 # just in case
+        self.fidpt = self.fidpt % 1 # just in case
+
+    def _process_special(self,pfile):
+        if 'J1446-4701' in pfile:
+            # oddball parfile -- must be PKS?
+            self.ncol = 4
+            self.obs = 'PKS'
+        elif '2043+1711' in pfile:
+            # L-band AO profile from Lucas
+            self.ncol = 2
+            self.obs = 'AO'
+            self.fidpt = 1-0.793468
+        elif 'J0102+4839' in pfile:
+            # profile from Megan, unknown convention
+            self.ncol = 3
+            self.obs = 'GBT'
+        elif '2051-0827' in pfile:
+            # WSRT profile from Cristobal, fiducial point at center
+            self.ncol = 4
+            self.fidpt = 0.5
+        elif '1741+1351' in pfile:
+            # AO profile from Cristobal, first harmonic convention
+            self.ncol = 2
+            self._first_harmonic()
+        elif 'J2047+1053' in pfile:
+            # 820 MHz profile from Scott, fiducial at 0
+            self.ncol = 1
+        elif 'J1124-5916' in pfile:
+            # 1PC profile from PKS
+            self.ncol = 4
+        elif 'J1907+0602' in pfile:
+            # profile from paper; AO L-band
+            self.ncol = 1
+        elif 'J1124-3653' in pfile:
+            # profile from Paul, fiducial point at 0
+            self.ncol = 2
+        elif (('J0023+0923' in pfile) or
+              ('J1810+1744' in pfile) or
+              ('J2215+5135' in pfile)):
+            # profiles by M. Kerr from PSRCHIVE files from J. Hessels
+            self.ncol = 4
+            self.obs = 'GBT'
+            self.freq = 2.0
+            self.fidpt = 0.5 # I *think* this is right
+        else:
+            return False
+        return True
 
     def _process_nan(self):
         """ Nancay profiles properties:
@@ -76,6 +108,8 @@ class Profile(object):
         """
         self.obs = 'NAN'
         if 'J2241-5236' in self.pfile: # special case -- why?
+            self.ncol = 4; self.fidpt = 0; return
+        if 'J1125-5825' in self.pfile: # pcm
             self.ncol = 4; self.fidpt = 0; return
         for line in file(self.pfile):
             if 'fiducial_point' in line: break
