@@ -342,7 +342,7 @@ class PSUEAnalysis():
             return params
 
     def TimingAnalysis( self, nbins=None, weight=False, offmin=0, offmax=1, background=None, 
-                        profile=None, ncol=1, fidpt=0, peakShape=None, peakPos=None, 
+                        profile=None, peakShape=None, peakPos=None, 
                         use_spw=False, dm_unc=0, phaseShift=0):
         '''Generate gamma-ray pulse profiles.
         ============    =============================================
