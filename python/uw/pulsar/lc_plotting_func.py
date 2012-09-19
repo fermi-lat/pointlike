@@ -447,9 +447,16 @@ class PulsarLightCurve:
                 weights = self.get_weights(i)                
                 bins = np.linspace(0,1,self.nbins+1)
                 counts = np.histogram(phases,bins=bins,normed=False)[0]
+                """
+                # this is an old formula -- not sure why it's here
                 w1 = (np.histogram(phases,bins=bins,weights=weights,normed=False)[0]).astype(float)/counts
                 w2 = (np.histogram(phases,bins=bins,weights=weights**2,normed=False)[0]).astype(float)/counts
                 errors = np.where(counts > 1, (counts*(w2-w1**2))**0.5, counts)
+                """
+                w1 = np.histogram(phases,bins=bins,weights=weights,normed=False)[0]
+                w2 = np.histogram(phases,bins=bins,weights=weights**2,normed=False)[0]
+                errors = np.maximum(w2**0.5, w1**0.5)
+                #
                 """
                 nmc = 100
                 errors = np.empty([self.nbins,nmc])
@@ -798,6 +805,7 @@ class PulsarLightCurve:
                 text.DrawText(self.binmax-0.8,ylevel,name_comment)
                 text.SetTextColor(1) # reset color
                 if htest is not None:
+                    if np.isnan(htest): htest = -1
                     text.DrawText(self.binmax-1.2,ylevel,'H=%d'%(round(htest)))
                 if self.renormalize:
                     text.SetTextColor(2)
