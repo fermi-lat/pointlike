@@ -2,7 +2,11 @@
    name: psue_manager.py
    author(s): Damien Parent <dmnparent@gmail.com>
    creation Date: July 2011
+
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.116 2011/11/28 22:27:40 kerrm Exp $
 """
+
+__version__ = 1.9
 
 from os import system, remove, F_OK, mkdir, access, environ, chdir, linesep, getcwd
 from os.path import join, basename, abspath, isfile
@@ -411,7 +415,8 @@ class PSUEAnalysis():
             for i in range(plc.nhisto):
                 radius = plc.get_radius_range(which=i)
                 bkg += [plc.get_background(which=i,phase_range=[offmin,offmax],ring_range=[radius-0.5,radius+0.5])[0]]
-        elif background == 'weight': bkg = plc.get_background(method='weight')
+        elif background == 'weight':
+            bkg = plc.get_background(method='weight')
         else: bkg = None
         
         # off-pulse region

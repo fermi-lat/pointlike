@@ -191,6 +191,7 @@ class PulsarLightCurve:
         energy = ft1file[hduname].data.field('ENERGY')
         evtclass = ft1file[hduname].data.field('EVENT_CLASS')
         zenith_angle = ft1file[hduname].data.field('ZENITH_ANGLE')
+        conv = ft1file[hduname].data.field('CONVERSION_TYPE')
         angsep = sepangle_deg(self.ra_src,self.dec_src,ra,dec)
 
         # get the phase column
@@ -216,10 +217,15 @@ class PulsarLightCurve:
         timecut    = np.logical_and( self.tmin<=time, time<=self.tmax )
         eclscut    = np.logical_and( self.eclsmin<=evtclass, evtclass<=self.eclsmax )
         phasecut   = np.logical_and( phase>=0, phase<=1 )
+        if self.convtype==-1:
+            convcut = np.asarray([True]*len(conv))
+        else:
+            convcut = conv==self.convtype
         print angularcut.sum(),len(angularcut)
         print energycut.sum(),len(energycut)
         print timecut.sum(),len(timecut)
-        self.eventlist = tmp[np.logical_and(phasecut,np.logical_and(angularcut,np.logical_and(energycut,np.logical_and(timecut,eclscut))))]
+        print convcut.sum(),len(convcut)
+        self.eventlist = tmp[phasecut & angularcut & energycut & timecut & eclscut & convcut]
 
     def set_psf_param(self,psfpar0=5.3,psfpar1=0.745,psfpar2=0.09):
         '''Set PSF parameterization: sqrt( (psfpar0x(100/E)^psfpar1)^2 + psfpar2^2 )'''
@@ -284,6 +290,7 @@ class PulsarLightCurve:
 
     def load_profile(self, profile, ytitle="Radio Flux (au)", comment="", histo=False,phase_shift=0,bin_goal=256):
         profile = Profile(profile)
+        self.profile_object = profile
         #phases,align_shift,delta_corr = profile.get_amplitudes()
         phases,align_shift = profile.get_amplitudes(phase_shift=phase_shift,bin_goal=bin_goal)
         phlen = len(phases)
@@ -658,13 +665,16 @@ class PulsarLightCurve:
         counts=np.asarray([p.GetBinContent(i) for i in range(p.GetNbinsX()+2)])
         return phase,counts
 
-    def plot_lightcurve( self, nbands=1, xdim=550, ydim=200, background=None, 
-                         zero_sup=False, inset=None, reg=None, color='black', 
-                         outfile=None, xtitle='Pulse Phase', ytitle='Counts/bin', 
-                         substitute=True,template=None,template_color='black',
-                         period=None,font=133,outascii=None,line_width=1,
-                         suppress_template_axis=False,htest=None,delta=None,
-                         pulsar_class=-1):
+    def 
+
+    def plot_lightcurve( self, nbands=1, xdim=550, ydim=200, 
+            background=None, 
+            zero_sup=False, inset=None, reg=None, color='black', 
+            outfile=None, xtitle='Pulse Phase', ytitle='Counts/bin', 
+            substitute=True,template=None,template_color='black',
+            period=None,font=133,outascii=None,line_width=1,
+            suppress_template_axis=False,htest=None,delta=None,
+            pulsar_class=-1):
         
         '''ROOT function to plot gamma-ray phaseograms + (radio,x-ray)
         ===========   ======================================================
@@ -673,7 +683,7 @@ class PulsarLightCurve:
         nbands        number of gamma-ray bands in the figure    [1,..,6]
         xdim, ydim    plot dimensions in pixels                  [550,200]
         substitute    substitute g-ray profile for r/x profile   [True]
-        backgroung    add a background level                     [None]
+        background    add a background level                     [None]
         zero_sup      active the zero-suppress on the top panel  [false]
         inset         add an inset on the xth panel              [None]
         reg           highlight a phase region                   [None]  
@@ -861,6 +871,7 @@ class PulsarLightCurve:
                 
             
         # ============== TEMPLATES ============== #
+        # draw radio profile(s)
         if profile is not None:
 
             for i, prof in enumerate(profile):
@@ -901,6 +912,10 @@ class PulsarLightCurve:
                     axis.SetLineColor(root.map_color(template_color)); axis.SetLabelColor(root.map_color(template_color))
                     if not suppress_template_axis: 
                         root.DrawAxis(axis,ytitle,TextSize,OffsetY+0.05,LabelSize,font=font)
+                    # write out information about the observatory and frequency
+                    ocomment = '%s %.1f'%(self.profile_object.obs,self.profile_object.freq)
+                    ylevel = root.get_txtlevel(phaseogram[which],0.1)
+                    text.DrawText(0.1,ylevel,ocomment)
                 else:
                     n = -(i+1)
                     BM, TM = pad[n].GetBottomMargin(), pad[n].GetTopMargin()
@@ -927,30 +942,7 @@ class PulsarLightCurve:
         canvas.Print(outfile); canvas.Close()
 
         if outascii is not None:
-
-            def right_pad(s,n=20):
-                s = str(s)
-                return s + ' '*(n-len(s))
-
-            f = file(outascii,'w')
-            f.write('# Gamma profile\n')
-            if background is not None:
-                f.write('BKG = %s\n'%background[0])
-            f.write('# Phase             Weighted_Counts     Weighted_Err\n')
-            y,yerr = root.get_histo_content(self.phaseogram[0])
-            for i in xrange(self.nbins):
-                # NB -- histogram values are very strange
-                f.write('%s%s%s\n'%(right_pad((i+0.5)/self.nbins),right_pad(y[i+1]),right_pad(yerr[i+1])))
-
-            if self.profile is not None:
-                f.write('# Radio profile\n')
-                f.write('# Phase             Intensity\n')
-                print self.profile
-                xr,yr = root.get_tgraph_content(self.profile[0][0])
-                for x,y in zip(xr,yr):
-                    if x >= 1: break
-                    f.write('%s%s\n'%(right_pad(x),right_pad(y)))
-            f.close()
+            self.toProfile(outascii,background=background)
         
     def plot_phase_time( self, which=0, background=None, zero_sup=True, reg=None, xdim=500, ydim=1000,
                          xtitle='Pulse Phase', ytitle='Counts/bin', color='black', outfile=None ):
@@ -1184,28 +1176,71 @@ class PulsarLightCurve:
 
         return ntrials, sigmax, postsig, bestE, bestR
         
-    def toASCII(self, outdir=""):
+    def toASCII(self, outdir="", err=False, bg=False):
         '''Copy the pulse phase of each phaseogram into an ascii file
            outdir      output directory
         '''
+        if not err:
+            self.toASCII(err=True)
+            err = False
         erange = self.__energy_range
-        filename = join(outdir,self.psrname+"_phaseogram.asc")
+        filename = join(outdir,self.psrname+"_phaseogram%s.asc"%('_err' if err else ''))
         outfile = open(filename,"w")
         outfile.write("# ------------------------------------------------------------------ \n")
-        outfile.write("# Private results: LAT Collaboration and PTC ONLY \n")
+        outfile.write("# Private results: LAT Collaboration/PTC/PSC ONLY \n")
         outfile.write("# Gamma-Ray Phase Histogram for %s \n" %self.psrname)
-        outfile.write("# column: number of counts per energy band [MeV] \n")
+        if err:
+            outfile.write('# column: error on bin content \n')
+        else:
+            outfile.write("# column: number of counts per energy band [MeV] \n")
         outfile.write("# Nbin   %.0f-%.0f   %.0f-%.0f   %.0f-%.0f   %.0f-%.0f   %.0f-%.0f\n"
                       %(erange[0][0],erange[0][1], erange[1][0],erange[1][1], erange[2][0],erange[2][1],
                         erange[3][0],erange[3][1], erange[4][0],erange[4][1]) )
         outfile.write("# ------------------------------------------------------------------ \n")
+        if bg:
+            outfile.write('# bg \t%s\n'%('\t'.join(['%.2f'%(x) for x in self.get_background(method='weight')])))
 
         for i in range(self.nbins):
             firsttime = True
             for histo in self.phaseogram:
-                if firsttime: outfile.write("%.0f\t\t" %i); firsttime = False
-                outfile.write("%.0f\t" %histo.GetBinContent(i+1))
+                if firsttime: outfile.write("%d\t\t" %i); firsttime = False
+                if err:
+                    outfile.write("%.2f\t" %histo.GetBinError(i+1))
+                else:
+                    outfile.write("%.2f\t" %histo.GetBinContent(i+1))
             outfile.write("\n")
 
         print "INFO:", filename, "has been created." 
         outfile.close()
+
+    def toProfile(self, filename, background=None):
+        """ Write out an ASCII profile with the 2PC light curve bands
+            and radio profiles."""
+
+        def right_pad(s,n=20):
+            s = str(s)
+            return s + ' '*(n-len(s))
+
+        f = file(filename,'w')
+        for i in xrange(len(self.phaseogram)):
+            elo,ehi = self.get_energy_range(i)
+            f.write('# Gamma profile\n')
+            f.write('ELO=%.2f\n'%elo)
+            f.write('EHI=%.2f\n'%ehi)
+            if background is not None:
+                f.write('BKG=%s\n'%background[0])
+            f.write('# PhaseLO           PhaseHI           Weighted_Counts     Weighted_Err\n')
+            y,yerr = root.get_histo_content(self.phaseogram[0])
+            for i in xrange(self.nbins):
+                # NB -- histogram values are very strange
+                f.write('%s%s%s%s\n'%(right_pad(i/self.nbins),right_pad((i+1)/self.nbins),right_pad(y[i+1]),right_pad(yerr[i+1])))
+        # write out radio profile if present
+        if self.profile is not None:
+            f.write('# Radio profile\n')
+            f.write('# PhaseLO           PhaseHI           Intensity\n')
+            xr,yr = root.get_tgraph_content(self.profile[0][0])
+            delta = (xr[1]-xr[0])/2
+            for x,y in zip(xr,yr):
+                if x >= 1: break
+                f.write('%s%s%s\n'%(right_pad(x-delta),right_pad(x-delta),right_pad(y)))
+        f.close()
