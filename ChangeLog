@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Sep 18 21:02:38 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	psue_manager.py 
+Log Message:
+Remove ncol/fidpt args (handled by radio_profile now).
+
+    *
+------------------------------------------------------------
 User: kerrm  Tue Sep 18 21:02:11 PDT 2012
 pointlike/python/uw/pulsar
 
