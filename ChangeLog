@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Sep 18 21:02:11 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	radio_profile.py 
+Log Message:
+Factor special cases and add some GBT spider profiles.
+
+    *
+------------------------------------------------------------
 User: lande  Mon Sep 17 20:15:25 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
