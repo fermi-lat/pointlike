@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Thu Sep 20 05:48:22 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lc_plotting_func.py 
+Log Message:
+Fix photon selection bug, adjust error bars.
+
+    *
+------------------------------------------------------------
 User: kerrm  Wed Sep 19 13:03:16 PDT 2012
 pointlike/python/uw/pulsar
 
