@@ -217,7 +217,7 @@ class PulsarLightCurve:
         timecut    = np.logical_and( self.tmin<=time, time<=self.tmax )
         eclscut    = np.logical_and( self.eclsmin<=evtclass, evtclass<=self.eclsmax )
         phasecut   = np.logical_and( phase>=0, phase<=1 )
-        if self.convtype==-1:
+        if (self.convtype==-1) or (self.convtype==-2):
             convcut = np.asarray([True]*len(conv))
         else:
             convcut = conv==self.convtype
@@ -462,7 +462,7 @@ class PulsarLightCurve:
                 """
                 w1 = np.histogram(phases,bins=bins,weights=weights,normed=False)[0]
                 w2 = np.histogram(phases,bins=bins,weights=weights**2,normed=False)[0]
-                errors = np.maximum(w2**0.5, w1**0.5)
+                errors = (1+w2)**0.5
                 #
                 """
                 nmc = 100
@@ -664,8 +664,6 @@ class PulsarLightCurve:
         phase=np.asarray([p.GetBinCenter(i) for i in range(p.GetNbinsX()+2)])
         counts=np.asarray([p.GetBinContent(i) for i in range(p.GetNbinsX()+2)])
         return phase,counts
-
-    def 
 
     def plot_lightcurve( self, nbands=1, xdim=550, ydim=200, 
             background=None, 
@@ -914,8 +912,8 @@ class PulsarLightCurve:
                         root.DrawAxis(axis,ytitle,TextSize,OffsetY+0.05,LabelSize,font=font)
                     # write out information about the observatory and frequency
                     ocomment = '%s %.1f'%(self.profile_object.obs,self.profile_object.freq)
-                    ylevel = root.get_txtlevel(phaseogram[which],0.1)
-                    text.DrawText(0.1,ylevel,ocomment)
+                    ylevel = root.get_txtlevel(phaseogram[which],0.86)
+                    text.DrawText(self.binmax-0.8,ylevel,ocomment)
                 else:
                     n = -(i+1)
                     BM, TM = pad[n].GetBottomMargin(), pad[n].GetTopMargin()
