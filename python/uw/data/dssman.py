@@ -5,8 +5,8 @@ in FITS files.
 author(s): M. Kerr
 """
 
-__version__ = '$Revision: 1.1 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dssman.py,v 1.1 2011/11/10 23:54:34 wallacee Exp $
+__version__ = '$Revision: 1.2 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dssman.py,v 1.2 2011/11/24 02:07:16 kerrm Exp $
 
 import pyfits
 from collections import deque
@@ -192,6 +192,7 @@ class DSSEntries(list):
                 counter += 1
             kdeque.append(keys[i]); vdeque.append(vals[i])
         self.append(DSSFactory(kdeque,vdeque))
+        self._remove_duplicates()
 
     def __str__(self):
         return '\n'.join([str(x) for x in self])
@@ -199,7 +200,11 @@ class DSSEntries(list):
     def get_simple_dss(self,colname):
         """ Return a DSS entry corresponding to a simple cut on colname."""
         for idss,dss in enumerate(self):
-            if dss['TYP'] == colname: return dss,idss
+            if dss['TYP'] == colname:
+                return dss,idss
+            #Slight kludge to handle weird formatting of EVENT_CLASS bitmasks
+            if colname=='EVENT_CLASS' and (colname in dss['TYP']):
+                return dss,idss
         return None,None
 
     def delete(self,index):  
@@ -253,6 +258,15 @@ class DSSEntries(list):
                         self.delete(i)
                         offset += 1
         return roi_info
+    
+    def _remove_duplicates(self):
+        duplicates = []
+        for i in xrange(len(self)):
+            for j in range(i+1,len(self)):
+                if self[i]==self[j] and j not in duplicates:
+                    duplicates.append(j)
+        for dup in duplicates:
+            self.delete(dup)
 
 def make_simple_dss(colname,unit,low,high,index=1):
     """ Return a DSSSimpleRange object with bounds specified by low/high.

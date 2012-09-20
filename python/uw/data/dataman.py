@@ -4,8 +4,8 @@ Module implements classes and functions to specify data for use in pointlike ana
 author(s): Matthew Kerr, Eric Wallace
 """
 
-__version__ = '$Revision: 1.13 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.13 2011/12/10 03:13:13 wallacee Exp $
+__version__ = '$Revision: 1.14 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.14 2011/12/10 23:09:51 wallacee Exp $
 
 import os
 import collections
@@ -296,6 +296,12 @@ class DataSpec(object):
             self.dss = dssman.DSSEntries(self.ft1files[0])
         else:
             all_dss = [dssman.DSSEntries(ft1) for ft1 in self.ft1files]
+            #Kludge to handle inconsistencies in DSS keywords between P120 and P130
+            if (pyfits.getheader(self.ft1files[0])['PROC_VER']==120 and 
+                pyfits.getheader(self.ft1files[-1])['PROC_VER']==130):
+                for dss in all_dss:
+                    for i,d in enumerate(dss):
+                        if isinstance(d,dssman.DSSBitMask): dss.delete(i)
             if not np.all([all_dss[0] == x for x in all_dss]):
                 raise ValueError('DSS keywords are inconsistent for FT1 files.')
             self.dss = all_dss[0]
@@ -337,7 +343,8 @@ class DataSpec(object):
                  ph_f = pointlike.Photon(dummy,bin_center,2.5e8,0)
                  ph_b = pointlike.Photon(dummy,bin_center,2.5e8,1)
                  bpd.addBand(ph_f); bpd.addBand(ph_b)
-        data = pointlike.Data(self.ft1files,-1,0,0, self.mc_src_id,'')
+        #data = pointlike.Data(self.ft1files,-1,self.gti.minValue(),self.gti.maxValue(), self.mc_src_id,'')
+        data = pointlike.Data(self.ft1files,-1,0,0 , self.mc_src_id,'')
         dmap = data.map() # local reference to avoid segfaults
         fill_empty_bands(dmap, self.bins)
         dmap.write(self.binfile)
@@ -658,11 +665,12 @@ class DataSet(object):
             raise DataError('DataSet only contains one DataSpec')
     def __getattr__(self,x):
         return getattr(self.dataspec,x)
-    def __call__(self):
+    def __call__(self,month=0):
         if not hasattr(self.dataspec,'__iter__'):
             return self.dataspec()
         else:
-            raise TypeError('"DataSpec" object is not callable.')
+            return self.dataspec[month]()
+            raise TypeError('"DataSet" object is not callable.')
 
 class DataError(Exception):
     """Exception class for data management errors"""
