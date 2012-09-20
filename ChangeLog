@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Thu Sep 20 13:14:04 PDT 2012
+pointlike/python/uw/data
+
+Modified Files:
+	dataman.py dssman.py 
+Log Message:
+Fixes to DSS handling to handle Pass 7 style event class bitmasks, and to
+account for an inconsistency between P120 and P130 FT1 DSS entries.
+
+    *
+------------------------------------------------------------
 User: kerrm  Thu Sep 20 05:48:22 PDT 2012
 pointlike/python/uw/pulsar
 
