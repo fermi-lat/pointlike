@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Sep 20 18:38:46 PDT 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	maps.py pipe.py 
+Log Message:
+implement pipeline pulsar residual table
+    *
+------------------------------------------------------------
 User: burnett  Thu Sep 20 18:38:45 PDT 2012
 pointlike/python/uw/like2
 
