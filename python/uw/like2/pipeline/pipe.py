@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.19 2012/08/23 18:19:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.20 2012/08/23 18:20:07 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
@@ -415,10 +415,14 @@ class Tables(Update):
         return dict(dampen=0,
             processor="processor.table_processor",
             tables="""maps.ROItables("%(outdir)s", nside=512, skyfuns=%(skyfuns)s)""" %\
-                        dict(skyfuns=Tables.skyfuns, outdir=self.outdir),
+                        dict(skyfuns=self.skyfuns, outdir=self.outdir),
             setup_cmds= 'from uw.like2.pipeline import maps', quiet=True
             )
             
+class PulsarLimitTables(Tables):
+    """ create tables with pulsar fits """
+    skyfuns=[ ("ResidualLikelihood", "pulsar_like", dict(model="Models.ExpCutoff(p=[1e-15,1.7, 2000.])"),)]
+           
             
 class Create(Update):
     """ create a new model, assuming appropriate config.txt
