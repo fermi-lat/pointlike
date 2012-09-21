@@ -1,9 +1,13 @@
 """
 manage publishing 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/publish.py,v 1.4 2012/06/24 04:54:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/publish.py,v 1.5 2012/08/13 19:52:23 burnett Exp $
 """
 import sys, os, pickle, glob, types, time
-import Image
+#import Image
+# workaround for PIL not being nice?
+# symptom: accessinit-hash-collision-3-both-1-and-1
+import PIL.Image
+sys.modules['Image']=PIL.Image
 import pyfits
 import numpy as np
 import pylab as plt
