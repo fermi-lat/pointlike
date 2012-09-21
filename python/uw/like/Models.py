@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.137 2012/09/13 06:16:27 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.138 2012/09/18 00:43:17 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -1783,7 +1783,7 @@ class ExpCutoff(Model):
  
     @property
     def eflux(self):
-        n0 = self['n0']
+        n0 = self['norm']
         return n0 * self.e0**2
 
     def create_super_cutoff(self, free_b=False):
