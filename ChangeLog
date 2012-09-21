@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Sep 20 18:38:45 PDT 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	loglikelihood.py 
+Log Message:
+implement pipeline pulsar residual table
+    *
+------------------------------------------------------------
 User: wallacee  Thu Sep 20 13:14:04 PDT 2012
 pointlike/python/uw/data
 
