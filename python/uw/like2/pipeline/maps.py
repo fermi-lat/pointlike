@@ -1,6 +1,6 @@
 """
 Code to generate a set of maps for each ROI
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/maps.py,v 1.3 2012/06/24 13:50:00 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/maps.py,v 1.4 2012/08/14 22:17:44 burnett Exp $
 
 """
 import os, sys,  pickle, types
@@ -8,7 +8,7 @@ import numpy as np
 from uw.like import Models
 from uw.utilities import fitter
 from skymaps import Band, SkyDir, PySkyFunction, Hep3Vector, PythonUtilities 
-from uw.like2 import sourcelist
+from uw.like2 import sourcelist, sedfuns, loglikelihood
 
 # convenience adapters for ResidualTS model
 def LogParabola(*pars):
@@ -99,8 +99,9 @@ class ResidualTS(object):
             print 'ResidualTS: using spectral model: %s' %model
             model = eval(model)
         photon_index=kwargs.pop('index', 2.2) 
-        self.source =roi.add_source(name='tsmap', skydir = roi.roi_dir, model=model)
-        self.roi.select_source('tsmap')
+        self.sourcename=kwargs.pop('sourcename', 'tsmap')
+        self.source =roi.add_source(name=self.sourcename, skydir = roi.roi_dir, model=model)
+        self.roi.select_source(self.sourcename)
         self.index = len(self.roi.get_parameters())-2
         self.model = self.source.spectral_model
         sourcelist.set_default_bounds(self.model) # in case no bounds already
@@ -130,6 +131,26 @@ class ResidualTS(object):
         skydir = SkyDir(Hep3Vector(v[0],v[1],v[2]))
         return self.tsfun(skydir)
         
+class ResidualLikelihood(ResidualTS):
+    """ save the likelihood function, as a 
+    """
+    def tsfun(self, skydir):
+        self.source.skydir = skydir
+        self.roi.update(True)
+        print 'Studying source %s at %s' % (self.sourcename, skydir) ,
+
+        with sedfuns.SourceFlux(self.roi, self.sourcename) as sf:
+            sf.select_band(None)
+            try:
+                pf = loglikelihood.PoissonFitter(sf, tol=1.0)
+                p = pf.poiss.p+ [pf.maxdev]
+                print 'TS, maxdev: %.2f %.2f' % (pf.poiss.ts, pf.maxdev)
+            except Exception, msg:
+                p = [0,0,0, 1.0]
+                print 'Failed: %s' % msg
+        p = pf.poiss.p+ [pf.maxdev]
+        return p 
+
 
 class ROItables(object):
     """ manage one or more tables of values subdividing a HEALpix roi
