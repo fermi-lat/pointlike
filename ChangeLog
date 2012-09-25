@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Sep 24 21:43:41 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lc_plotting_func.py 
+Log Message:
+Change handling of radio profile information.
+
+    *
+------------------------------------------------------------
 User: burnett  Fri Sep 21 09:52:34 PDT 2012
 pointlike/python/uw/like2/pub
 
