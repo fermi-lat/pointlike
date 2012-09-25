@@ -290,6 +290,8 @@ class PulsarLightCurve:
 
     def load_profile(self, profile, ytitle="Radio Flux (au)", comment="", histo=False,phase_shift=0,bin_goal=256):
         profile = Profile(profile)
+        if comment == "":
+            comment = '%s %.1f'%(profile.obs,profile.freq)
         self.profile_object = profile
         #phases,align_shift,delta_corr = profile.get_amplitudes()
         phases,align_shift = profile.get_amplitudes(phase_shift=phase_shift,bin_goal=bin_goal)
@@ -911,9 +913,9 @@ class PulsarLightCurve:
                     if not suppress_template_axis: 
                         root.DrawAxis(axis,ytitle,TextSize,OffsetY+0.05,LabelSize,font=font)
                     # write out information about the observatory and frequency
-                    ocomment = '%s %.1f'%(self.profile_object.obs,self.profile_object.freq)
-                    ylevel = root.get_txtlevel(phaseogram[which],0.86)
-                    text.DrawText(self.binmax-0.8,ylevel,ocomment)
+                    #ocomment = '%s %.1f'%(self.profile_object.obs,self.profile_object.freq)
+                    #ylevel = root.get_txtlevel(phaseogram[which],0.86)
+                    #text.DrawText(self.binmax-0.8,ylevel,ocomment)
                 else:
                     n = -(i+1)
                     BM, TM = pad[n].GetBottomMargin(), pad[n].GetTopMargin()
