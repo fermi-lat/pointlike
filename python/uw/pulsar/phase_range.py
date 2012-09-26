@@ -6,7 +6,7 @@ See the docstring for usage information.
 
 This object has SymPy as a dependency.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.14 2012/06/29 02:10:10 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.15 2012/09/26 18:03:13 lande Exp $
 
 author: J. Lande <joshualande@gmail.com>
 
@@ -332,8 +332,13 @@ class PhaseRange(object):
     def offset(self, offset):
         """ Offset by value:
 
-                >>> print PhaseRange(0.25, 0.5).offset(0.25)
+                >>> pr=PhaseRange(0.25, 0.5)
+                >>> print pr
+                [0.25, 0.5]
+                >>> print pr.offset(0.25)
                 [0.5, 0.75]
+                >>> print pr
+                [0.25, 0.5]
 
                 >>> print PhaseRange(0.0, 0.5).offset(0.75)
                 [0, 0.25] U [0.75, 1]
