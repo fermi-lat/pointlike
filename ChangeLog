@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Wed Sep 26 15:00:38 PDT 2012
+pointlike/python/uw/data
+
+Modified Files:
+	dataman.py dssman.py 
+Log Message:
+Modify equality tests for DSSEntries to ignore ordering of individual DSS entries.
+
+    *
+------------------------------------------------------------
 User: lande  Wed Sep 26 11:30:14 PDT 2012
 ScienceTools-scons/pointlike/python/uw/pulsar
 
