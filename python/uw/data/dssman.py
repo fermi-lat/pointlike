@@ -50,6 +50,8 @@ class DSSEntry(dict):
             if self[key] != other[key]:
                 return False
         return True
+    def __ne__(self,other):
+        return not self.__eq__(other)
     def __str__(self):
         return '\n'.join(['DS{0}{1}: {2}'.format(key,self['index'],self[key]) for key in DSSKeys])
     def to_header_entries(self,index=None):
@@ -196,6 +198,12 @@ class DSSEntries(list):
 
     def __str__(self):
         return '\n'.join([str(x) for x in self])
+
+    def __eq__(self,other):
+        """Test for equality of DSS entries, independent of order."""
+        return sorted(self)==sorted(other)
+    def __ne__(self,other):
+        return not self.__eq__(other)
 
     def get_simple_dss(self,colname):
         """ Return a DSS entry corresponding to a simple cut on colname."""

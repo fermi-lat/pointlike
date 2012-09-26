@@ -297,8 +297,8 @@ class DataSpec(object):
         else:
             all_dss = [dssman.DSSEntries(ft1) for ft1 in self.ft1files]
             #Kludge to handle inconsistencies in DSS keywords between P120 and P130
-            if (pyfits.getheader(self.ft1files[0])['PROC_VER']==120 and 
-                pyfits.getheader(self.ft1files[-1])['PROC_VER']==130):
+            if (pyfits.getheader(self.ft1files[0])['PROC_VER']<=120 and 
+                pyfits.getheader(self.ft1files[-1])['PROC_VER']>=130):
                 for dss in all_dss:
                     for i,d in enumerate(dss):
                         if isinstance(d,dssman.DSSBitMask): dss.delete(i)
