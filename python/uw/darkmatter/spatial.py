@@ -1,6 +1,6 @@
 """A set dark matter spatial models for pointlike analyses
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spatial.py,v 1.6 2012/06/25 20:39:14 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spatial.py,v 1.7 2012/08/10 00:14:05 lande Exp $
 
     author: Joshua Lande, Alex Drlica-Wagner
 """
@@ -29,6 +29,19 @@ class NFW(InterpProfile2D):
            >>> profile = NFW(sigma=sigma)
            >>> print profile.at_r_in_deg(r)
            [  3.46679557e+01   2.73145672e+00   1.51607416e-01   6.68125546e-03]
+
+        Note, previously this wouldn't raise an exception:
+            >>> np.allclose(profile.default_limits[-1],[0.01, 15])
+            True
+            >>> profile['sigma'] = 0.009
+            Traceback (most recent call last):
+                ...
+            SpatialModelException: sigma=0.009 is lower than the lower limit=0.01:
+            >>> profile['sigma'] = 15.001
+            Traceback (most recent call last):
+                ...
+            SpatialModelException: sigma=15.001 is larger than the upper limit=15.0:
+
         """
 
         infile = path.expand(file)
