@@ -1,6 +1,6 @@
 """
 Code to generate a set of maps for each ROI
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/maps.py,v 1.5 2012/09/21 01:38:46 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/maps.py,v 1.6 2012/09/21 16:51:55 burnett Exp $
 
 """
 import os, sys,  pickle, types
@@ -132,7 +132,7 @@ class ResidualTS(object):
         return self.tsfun(skydir)
         
 class ResidualLikelihood(ResidualTS):
-    """ save the likelihood function, as a 
+    """ save the likelihood function, as the 3-parameter representation of a shifted Poisson, plss the max dev.
     """
     def tsfun(self, skydir):
         self.source.skydir = skydir

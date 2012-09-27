@@ -1,9 +1,9 @@
 """Tools for parametrizing log likelihood curves.
 
 Author(s): Eric Wallace, Matthew Kerr
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.5 2012/08/13 19:52:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.6 2012/09/21 01:38:45 burnett Exp $
 """
-__version__ = "$Revision: 1.5 $"
+__version__ = "$Revision: 1.6 $"
 
 import numpy as np
 from scipy import optimize, special, polyfit, stats
@@ -289,14 +289,17 @@ class Poisson(object):
         """return percentile for given limit, default 95%"""
         e = abs(self.p[1]) 
         f = lambda x : self.cdf(x/e)-limit
-        xmax = self.find_delta(6)[1]*e
-        if f(xmax)< 0:
-            return xmax/e #kluge!!
-            #raise Exception('bad percentile limit: %s' % f(xmax))
-        ret = optimize.brentq(f, 0, xmax) 
-        if abs(f(ret))>1e-2:
-            raise Exception('percentile failed fit: %s %.1f %.1f %.1e' % (self.p,ret, f(ret), xmax))
-        return ret/e
+        try:
+            xmax = self.find_delta(6)[1]*e
+            if f(xmax)< 0:
+                return xmax/e #kluge!!
+                #raise Exception('bad percentile limit: %s' % f(xmax))
+            ret = optimize.brentq(f, 0, xmax) 
+            if abs(f(ret))>1e-2:
+                raise Exception('percentile failed fit: %s %.1f %.1f %.1e' % (self.p,ret, f(ret), xmax))
+            return ret/e
+        except:
+            return np.nan
         
     def pts(self):
         return 0 if self.flux<=0 else (self(self.flux)-self(0))*2.0

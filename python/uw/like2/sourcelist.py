@@ -1,7 +1,7 @@
 """
 Manage sources for likelihood: single class SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.21 2012/08/14 22:16:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.22 2012/08/17 23:44:22 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import types
@@ -103,15 +103,20 @@ class SourceList(list):
         set_point_property(source)
         self.append(source)
         
-    # note that properties are dynamic, in case sources or their models change
+    # note that the following properties are dynamic, in case sources or their models change interactively
     @property
     def source_names(self): return np.array([s.name for s in self])
     @property
     def models(self): return np.array([s.spectral_model for s in self])
+    
     @property
     def free(self): 
-        """ actually all global and local sources """
-        return np.array([np.any(s.spectral_model.free) or s.skydir is None for s in self])
+        """ mask which defines variable sources: all global and local sources with at least one variable parameter 
+        """
+        def free_source(s):
+            return np.any(s.spectral_model.free) or s.skydir is None
+        return np.array([ free_source(s) for s in self])
+        
     @property 
     def bounds(self):
         """ fitter representation of applied bounds """

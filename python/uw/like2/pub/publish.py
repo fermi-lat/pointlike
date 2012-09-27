@@ -1,6 +1,6 @@
 """
 manage publishing 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/publish.py,v 1.5 2012/08/13 19:52:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/publish.py,v 1.6 2012/09/21 16:52:34 burnett Exp $
 """
 import sys, os, pickle, glob, types, time
 #import Image
@@ -13,7 +13,7 @@ import numpy as np
 import pylab as plt
 from uw.utilities import makefig, makerec, colormaps
 from . import healpix_map, dz_collection 
-from . import source_pivot, roi_pivot, makecat, display_map, healpix_map, combine_figures
+from . import source_pivot, roi_pivot, makecat, display_map,  combine_figures
 #from ..analysis import residuals
 from .. import skymodel
 
