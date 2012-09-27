@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Sep 26 20:39:29 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	radio_profile.py 
+Log Message:
+Add comment handling and special cases.
+
+    *
+------------------------------------------------------------
 User: wallacee  Wed Sep 26 15:00:38 PDT 2012
 pointlike/python/uw/data
 
