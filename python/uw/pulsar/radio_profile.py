@@ -19,14 +19,24 @@ class Profile(object):
         self.pfile = profile
         self.jname = jname
         self.obs = None
+        self.freq = None
 
         ### default values -- will be updated automatically for profile type
         self.ncol = 2 # the ascii column with the Stokes I parameter (from 1)
-        self.freq = 1.4 # observing freq in GHz
         self.fidpt = 0 # fiducial point of TOAs relative to profile
         ###
 
         self._process()
+
+    def _process_comments(self):
+        """ Look for information encoded (by me) in profile.  This will
+        supercede any automatic classification based on file name."""
+        comments = [line for line in file(self.pfile) if line[0] == '#']
+        for comment in comments:
+            if 'obs = ' in comment:
+                self.obs = comment.split()[-1]
+            elif 'freq =' in comment:
+                self.freq = comment.split()[-1]
 
     def _process(self):
         """ Determine properties of profiles. """
@@ -52,6 +62,7 @@ class Profile(object):
         else:
             raise ValueError('Could not discern type of %s'%pfile)
         self.fidpt = self.fidpt % 1 # just in case
+        self._process_comments()
 
     def _process_special(self,pfile):
         if 'J1446-4701' in pfile:
@@ -78,9 +89,10 @@ class Profile(object):
         elif 'J2047+1053' in pfile:
             # 820 MHz profile from Scott, fiducial at 0
             self.ncol = 1
-        elif 'J1124-5916' in pfile:
-            # 1PC profile from PKS
-            self.ncol = 4
+        # removed from special cases, ID with PKS in name
+        #elif 'J1124-5916' in pfile:
+        ## 1PC profile from PKS
+        #self.ncol = 4
         elif 'J1907+0602' in pfile:
             # profile from paper; AO L-band
             self.ncol = 1
@@ -94,7 +106,9 @@ class Profile(object):
             self.ncol = 4
             self.obs = 'GBT'
             self.freq = 2.0
-            self.fidpt = 0.5 # I *think* this is right
+            self.fidpt = 0.5
+            # I *think* this is right, because I had rotate the profiles 
+            # half a cycle
         else:
             return False
         return True
@@ -107,6 +121,7 @@ class Profile(object):
             oo amplitude given by 2nd column
         """
         self.obs = 'NAN'
+        self.freq = 1.4 # true?
         if 'J2241-5236' in self.pfile: # special case -- why?
             self.ncol = 4; self.fidpt = 0; return
         if 'J1125-5825' in self.pfile: # pcm
@@ -123,6 +138,7 @@ class Profile(object):
             oo amplitude given by 2nd column
         """
         self.obs = 'JBO'
+        self.freq = 1.4
         self.fidpt = float((file(self.pfile).next()).split()[-1])
         #if self.fidpt != 0:
             #print 'Found a JBO profile (%s) without fidpt=0 (at %.4f)'%(self.pfile,self.fidpt)
@@ -135,6 +151,7 @@ class Profile(object):
         """
         # nothing to do for PKS
         self.obs = 'PKS'
+        self.freq = 1.4
 
     def _process_bestprof(self):
         """ 'bestprof' profiles properties:
@@ -143,14 +160,6 @@ class Profile(object):
             oo arbitrary observatory, typically PKS
             oo amplitude given by 2nd column
         """
-        # look for information encoded in .profile
-        comments = [line for line in file(self.pfile) if line[0] == '#']
-        for comment in comments:
-            if 'obs' in comment:
-                self.obs = comment.split()[-1]
-            elif 'freq' in comment:
-                self.freq = comment.split()[-1]
-        # otherwise, assume defaults
         self._first_harmonic()
 
     def _first_harmonic(self):
