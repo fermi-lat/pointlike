@@ -1,6 +1,6 @@
 """
 Check the residual TS maps for clusters
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/ts_clusters.py,v 1.1 2011/12/16 13:38:50 burnett Exp $
 
 """
 
@@ -11,12 +11,12 @@ import numpy as np
 import pylab as plt
 from pointlike import IntVector
 
-band = Band(256)
+band = Band(512)
 def sdir(index):
     return band.dir(int(index))
 
 class TSdata(object):
-    def __init__(self, outdir=None, filename='aladin256.fits', fieldname='ts'):
+    def __init__(self, outdir=None, filename='aladin512.fits', fieldname='ts'):
         if outdir is None:
             outdir = 'uw%02d' % int(open('version.txt').read())
         if not os.path.exists(os.path.join(outdir, filename)):
@@ -95,7 +95,7 @@ def make_seeds(tsdata, rcut=10, bcut=5, out=None, rec=None, seedroot='SEED-46'):
     cl = Cluster(tsdata.rts)
     if out is not None: print >> out,  '# Region file format: DS9 version 4.0 global color=green'
     if rec is not None:
-        print >> rec, 'name\t ra\t dec\t ts\t size\tl\tb'
+        print >> rec, 'name\tra\tdec\tts\tsize\tl\tb'
     for i,x in enumerate(clusters):
         cl.group(x)
         if out is not None: 

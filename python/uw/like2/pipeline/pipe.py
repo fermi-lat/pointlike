@@ -1,13 +1,13 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.20 2012/08/23 18:20:07 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.21 2012/09/21 01:38:46 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
 import numpy as np
 from . import processor,  engines, associate
 from .. import main, roisetup, skymodel
-from uw.utilities import makerec
+from uw.like import Models 
 
 class Pipe(roisetup.ROIfactory):
     """ This is a subclass of ROIfactory,
@@ -444,7 +444,10 @@ class Create(Update):
         kw = self.defaults()
         kw.update(outdir=model_dir, datadict=config['datadict'],
             irf=config['irf'],
-            diffuse=config['diffuse'])
+            diffuse=config['diffuse'],
+            auxcat=config.pop('auxcat', ''),
+            skymodel_extra=config.pop('skymodel_extra', ''),
+            )
         kw.update(kwargs)
         self.setup = Setup(self.indir,  **kw)
 

@@ -1,6 +1,6 @@
 """
 Utilities for managing Healpix arrays
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.3 2012/02/12 20:06:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.4 2012/06/24 04:54:18 burnett Exp $
 """
 import os,glob,pickle, types, copy
 import pylab as plt
@@ -73,41 +73,52 @@ class HParray(object):
         self.vec = newvec
            
         
-def make_index_table(nside, subnside):
+def make_index_table(nside, subnside, usefile=True):
+    filename = 'index_table_%02d_%03d.pickle' % (nside, subnside)
+    if os.path.exists(filename) and usefile:
+        return pickle.load(open(filename))
+    print 'generating index table for nside, subnside= %d %d' % (nside, subnside)
     band, subband = Band(nside), Band(subnside)
     npix, nsubpix = 12*nside**2, 12*subnside**2
     t=np.array([band.index(subband.dir(i)) for i in xrange(nsubpix)])
     a = np.arange(nsubpix)
     index_table = [a[t==i] for i in xrange(npix)]
+    if usefile:
+        pickle.dump(index_table, open(filename,'w'))
     return index_table
 
 class HPtables(HParray):
     """ assemble an array from tables in a set of ROIs
     """
 
-    def __init__(self, tname, outdir, nside=512, roi_nside=12):
+    def __init__(self, tname, outdir, nside=512, roi_nside=12, tmap=lambda x:x, fill=np.nan):
         """ combine the tables generarated at each ROI
         
         tname : name of the table, expect to find folder outdir/tname
         nside : nside parameter that the table was generated with
+        tmap  : function
+            The function allows mapping from an array to a scalar, perhaps choosing 
+            an element. default is identity
+        fill : scalar, defaul NaN
+            Use to fill missing tables, if any (warning issued)
         """
         self.name = tname
         self.nside = nside
         files =glob.glob(os.path.join(outdir, '%s_table'%tname,'*.pickle'))
         nf = len(files)
         assert nf>0, 'no pickle files found in %s' % os.path.join(outdir, '%s_table'%tname)
-        if nf<1728: print 'warning: missing %d files in folder %s' % ((1728-nf), tname)
+        if nf<1728: print 'warning: missing %d files in folder %s_table; will fill with %s' % ((1728-nf), tname,fill)
         files.sort()
 
         self.vec = np.zeros(12*nside**2)
-        self.vec.fill(np.nan)
+        self.vec.fill(fill)
         pklist = [pickle.load(open(f)) for f in files]
         i12 = [int(f[-11:-7]) for f in files]
         index_table = make_index_table(roi_nside, nside)
         for index, pk in zip(i12,pklist):
             indeces = index_table[index]
             for i,v in enumerate(pk):
-                self.vec[indeces[i]]=v
+                self.vec[indeces[i]] = tmap(v)  
     
 class HPskyfun(HParray):
     """generate from a sky function: base class for below
