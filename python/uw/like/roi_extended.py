@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.72 2012/04/10 20:12:09 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.73 2012/08/03 15:06:57 lande Exp $
 
     author: Joshua Lande
 """
@@ -213,7 +213,8 @@ class ROIExtendedModel(ROIDiffuseModel):
                  es.name,es.model.full_name(),
                  '\t'+es.model.__str__(indent='\t'))
 
-    def fit_extension(self,roi,tolerance=0.05, bandfits=False, error="UMINOS",init_grid=None, estimate_errors=True, **kwargs):
+    def fit_extension(self,roi,tolerance=0.05, maxcalls=500,
+                      bandfits=False, error="UMINOS",init_grid=None, estimate_errors=True, **kwargs):
         """ Fit the extension of this extended source by fitting all non-fixed spatial paraameters of 
             self.extended_source. The likelihood at the best position is returned.
 
@@ -374,7 +375,7 @@ Arguments:
 
         if not self.quiet: 
             print 'Localizing %s source %s Using %s' % (sm.pretty_name,es.name,
-                                                                       'BandFits' if bandfits else 'Spectral Fits')
+                                                        'BandFits' if bandfits else 'Spectral Fits')
 
         if init_grid is not None:
             print 'Testing initial grid values'
@@ -403,7 +404,7 @@ Arguments:
 
         m = Minuit(f,start_spatial,
                    up=0.5,
-                   maxcalls=500,
+                   maxcalls=maxcalls,
                    tolerance=tolerance,
                    printMode = -1 if self.quiet else 1,
                    param_names=relative_names,
