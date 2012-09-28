@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Sep 28 12:20:41 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+make maxcalls a flag
+    *
+------------------------------------------------------------
 User: burnett  Thu Sep 27 11:17:41 PDT 2012
 pointlike/python/uw/like2
 
