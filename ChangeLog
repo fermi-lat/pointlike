@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Fri Sep 28 21:17:19 PDT 2012
+pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+bugfix: import xml_parsers
+    *
+------------------------------------------------------------
 User: kadrlica  Fri Sep 28 20:43:13 PDT 2012
 pointlike/python/uw/like
 
