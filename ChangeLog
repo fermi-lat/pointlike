@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sat Sep 29 02:30:41 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lc_plotting_func.py 
+Log Message:
+Add radio information to plot.
+
+    *
+------------------------------------------------------------
 User: kerrm  Sat Sep 29 02:30:21 PDT 2012
 pointlike/python/uw/pulsar
 
