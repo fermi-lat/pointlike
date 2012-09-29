@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sat Sep 29 02:30:21 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	psue_manager.py 
+Log Message:
+Add ephemeris output and shift binning scheme.
+
+    *
+------------------------------------------------------------
 User: kerrm  Sat Sep 29 02:23:03 PDT 2012
 pointlike/python/uw/pulsar
 
