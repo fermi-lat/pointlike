@@ -1,9 +1,9 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.16 2012/09/27 14:23:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.17 2012/09/27 18:17:41 burnett Exp $
 
 """
-import os, pickle, glob, types, collections
+import os, pickle, glob, types, collections, zipfile
 import cPickle as pickle
 from xml import sax
 import numpy as np
@@ -44,7 +44,8 @@ class SkyModel(object):
         """
         folder: string
             name of folder to find all files defining the sky model, including:
-             a subfolder 'pickle' with files *.pickle describing each ROI, partitioned as a HEALpix set.
+             a subfolder 'pickle' with files *.pickle describing each ROI, partitioned as a HEALpix set. 
+             -- OR: a file pickle.zip with the same. 
              a file 'config.txt' written by the pipeline
         """
         keyword_options.process(self, kwargs)
@@ -103,7 +104,8 @@ class SkyModel(object):
         if not os.path.exists(cat):
             cat = os.path.join(self.folder, self.auxcat )
         if not os.path.exists(cat):
-            raise Exception('auxilliary source catalog "%s" not found locally or in $FERMI/catalog'%self.auxcat)
+            raise Exception('auxilliary source catalog "%s" not found locally (%s) or in $FERMI/catalog'
+                    %( self.folder,self.auxcat))
         ss = makerec.load(cat)
         names = [s.name for s in self.point_sources]
         toremove=[]
@@ -158,15 +160,24 @@ class SkyModel(object):
         """
         run through the pickled roi dictionaries, create lists of point and extended sources
         assume that the number of such corresponds to a HEALpix partition of the sky
+        Note that if 'pickle.zip' exists, use it instead of a pickle folder
         """
         self.point_sources= []
-        files = glob.glob(os.path.join(self.folder, 'pickle', '*.pickle'))
-        files.sort()
+        if os.path.exists(os.path.join(self.folder,'pickle.zip')):
+            pzip = zipfile.ZipFile(os.path.join(self.folder,'pickle.zip'))
+            files = ['pickle/HP12_%04d.pickle' %i for i in range(1728)]
+            assert all(f in pzip.namelist() for f in files), 'Improper model zip file'
+            opener = pzip.open
+        else:
+            files = glob.glob(os.path.join(self.folder, 'pickle', '*.pickle'))
+            files.sort()
+            opener = open
         self.nside = int(np.sqrt(len(files)/12))
         if len(files) != 12*self.nside**2:
             msg = 'Number of pickled ROI files, %d, found in folder %s, not consistent with HEALpix' \
                 % (len(files),os.path.join(self.folder, 'pickle'))
             raise Exception(msg)
+            
         self.global_sources = []  # allocate list to index parameters for global sources
         self.extended_sources=[]  # list of unique extended sources
         self.changed=set() # to keep track of extended models that are different from catalog
@@ -175,7 +186,7 @@ class SkyModel(object):
         self.tagged=set()
         source_names =[]
         for i,file in enumerate(files):
-            p = pickle.load(open(file))
+            p = pickle.load(opener(file))
             index = int(os.path.splitext(file)[0][-4:])
             assert i==index, 'logic error: file name %s inconsistent with expected index %d' % (file, i)
             roi_sources = p.get('sources',  {}) # don't know why this needed
