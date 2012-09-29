@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.74 2012/08/29 16:53:33 kadrlica Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_monte_carlo.py,v 1.75 2012/09/12 21:50:53 lande Exp $
 
 author: Joshua Lande
 """
@@ -25,7 +25,7 @@ from skymaps import IsotropicSpectrum,IsotropicPowerLaw,DiffuseFunction,\
 from . SpatialModels import Gaussian,EllipticalGaussian,RadiallySymmetricModel
 from . Models import PowerLaw,PowerLawFlux,Constant,FileFunction
 from . pointspec import DataSpecification,SpectralAnalysis
-from . pointspec_helpers import PointSource,PointSourceCatalog
+from . pointspec_helpers import PointSource,PointSourceCatalog,get_default_diffuse
 from . roi_diffuse import DiffuseSource
 from . roi_extended import ExtendedSource
 from . SpatialModels import Gaussian,EllipticalGaussian,SpatialModel,RadiallySymmetricModel,SpatialMap
@@ -1011,7 +1011,8 @@ class MonteCarlo(object):
                                           This allows for energy dispersion effects to be 
                                           naturally accounted for in the monte carlos simulation. """),
             ('zmax',            None, "Apply a gtselect zenith angle cut with gtselect to the simulated ft1 files."),
-            ('env_var_name','SIMDIR',"Environment variable for simulation directory")
+            ('env_var_name','SIMDIR', "Environment variable for simulation directory"),
+            ('diffrsp',        False, "Calculate the default diffuse response for given IRFs. WARNING: this is computationally intensive.")
     )
 
     @keyword_options.decorate(defaults)
@@ -1098,7 +1099,6 @@ class MonteCarlo(object):
     @staticmethod
     def gtmktime_from_file(evfile, scfile, outfile, gtifile):
         """ Apply the GTIs from gtifile to the file evfile. """
-
 
         # Note, add on gtis to 'evfile'. This is a bit distructive,
         # but should cause no real harm.
@@ -1213,6 +1213,30 @@ class MonteCarlo(object):
             old_ft1=ft1
             ft1 = join(self.savedir, 'ft1_gticut.fits')
             MonteCarlo.gtmktime_from_file(evfile=old_ft1,scfile=self.ft2,outfile=ft1, gtifile=self.gtifile)
+
+        if self.diffrsp:
+            # Grab default diffuse and rename to be consistent with the data
+            if irfs=='P6_V3_DIFFUSE':
+                gal,iso = get_default_diffuse(diffdir='${GLAST_EXT}/diffuseModels/v0r0/', 
+                                              gfile='gll_iem_v02.fit',
+                                              ifile='isotropic_iem_v02.txt')
+                gal.name='gal_v02'; iso.name='iso_v02'
+            elif irfs=='P7SOURCE_V6':
+                gal,iso = get_default_diffuse(diffdir='${GLAST_EXT}/diffuseModels/v2r0p1/', 
+                                              gfile='ring_2year_P76_v0.fits',
+                                              ifile='isotrop_2year_P76_source_v1.txt')
+                gal.name='gal_2yearp7v6_v0'; iso.name='iso_p7v6source'
+            else: 
+                raise Exception('Could not find default diffuse models for %s'%irfs)
+            sources = [gal,iso]
+            srcmdl = join(self.savedir,'srcmdl.xml')
+            xml_parsers.write_sources([], sources, srcmdl, convert_extended=True)
+            gtdiffrsp = GtApp('gtdiffrsp')
+            # Don't clobber output columns...
+            gtdiffrsp.run(evfile=ft1,
+                          scfile=self.ft2 if self.ft2 is not None else ft2,
+                          srcmdl=srcmdl,
+                          irfs=irfs)
 
         shutil.move(ft1,self.ft1)
 
