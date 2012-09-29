@@ -3,7 +3,7 @@
    author(s): Damien Parent <dmnparent@gmail.com>
    creation Date: July 2011
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.116 2011/11/28 22:27:40 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/psue_manager.py,v 1.7 2012/09/19 20:02:53 kerrm Exp $
 """
 
 __version__ = 1.9
@@ -409,6 +409,12 @@ class PSUEAnalysis():
         self.PSUEoutfile.set('PHASE_SHIFT','%.5f'%phase_shift)
         plc.print_summary()
 
+        # Write out new parfiles with correct TZR* parameters
+        for p in self.parfiles:
+            outp = ParFile(p)
+            outp.shift_tzr(phase_shift)
+            outp.write(p.append('shifted'))
+
         # background
         if background == 'ring':
             bkg = []
@@ -467,6 +473,7 @@ class PSUEAnalysis():
             norms = [0.9/len(peakShape)]*len(peakShape)
             const = consts[0]
             for (shape,pos) in zip(peakShape,peakPos):
+                print peakPos
                 prim = const()
                 if shape == 'P':
                     # normalization, width (standard dev), position
@@ -511,8 +518,8 @@ class PSUEAnalysis():
                 else:
                     print 'We are using unbinned likelihood.'
                 t1 = time.time()
-                #print 'Initial values'
-                #print lcf
+                print 'Initial values'
+                print lcf
                 lcf.fit(quick_fit_first=False,unbinned=unbinned,estimate_errors=False)
                 if twoside:
                     for prim in prims: prim.free[2] = True
@@ -540,8 +547,9 @@ class PSUEAnalysis():
                         print 'Using hessian errors.'
                     else:
                         self.PSUEoutfile.set('BOOTSTRAP','True')
-                        lcf.bootstrap_errors(set_errors=True)
                         print 'Using bootstrap errors.'
+                        fit_kwargs = dict(unbinned=unbinned,unbinned_refit=False)
+                        lcf.bootstrap_errors(set_errors=True,fit_kwargs=fit_kwargs)
                     norms[:] = lcf.template.norms()
                     print 'Saving values for %s'%(dummy.name),loglike,lcf.ll
                     print lcf
@@ -593,8 +601,9 @@ class PSUEAnalysis():
 
                     # figure
                     nbins = 25
-                    if H > 100: nbins = 50
-                    if H > 1000: nbins = 100
+                    if H > 150: nbins = 50
+                    if H > 1500: nbins = 100
+                    print 'Using %d bins'%nbins
                     fig = pl.figure(1);
                     lcf.plot(fignum=1,nbins=nbins); pl.show()
                     fig.savefig(ft1file.replace('.fits','_pulse_profile_template.png'))
