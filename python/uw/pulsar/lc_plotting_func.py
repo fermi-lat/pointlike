@@ -291,7 +291,7 @@ class PulsarLightCurve:
     def load_profile(self, profile, ytitle="Radio Flux (au)", comment="", histo=False,phase_shift=0,bin_goal=256):
         profile = Profile(profile)
         if comment == "":
-            comment = '%s %.1f'%(profile.obs,profile.freq)
+            comment = '%s %.1f GHz'%(profile.obs,float(profile.freq))
         self.profile_object = profile
         #phases,align_shift,delta_corr = profile.get_amplitudes()
         phases,align_shift = profile.get_amplitudes(phase_shift=phase_shift,bin_goal=bin_goal)
@@ -402,7 +402,7 @@ class PulsarLightCurve:
             self.pulse_phase[j] += [[P,W,T]]
 
         if nbins is None:
-            # set # of bins
+            # set # of bins according to H test
             phases, weights, T = self.pulse_phase[0][0]
             H = hmw(phases,weights)
             bm = best_m(phases,weights,m=100)
@@ -410,9 +410,9 @@ class PulsarLightCurve:
             print 'Mbins estimate: %d'%mbins
             sig = h2sig(H)
             nbins = 25
-            if H > 100:
+            if H > 150:
                 nbins = 50
-            if H > 1000:
+            if H > 1500:
                 nbins = 100
             print 'Found H = %.2f, setting nbins = %d'%(H,nbins)
         self.nbins = nbins
@@ -431,16 +431,9 @@ class PulsarLightCurve:
 
         # Fill histograms
         for j in range(len(self.phaseogram)):
-            #radius_filter = evtlist["ANGSEP"] <= rrange[j]
-            #energy_filter = np.logical_and( erange[j][0]<=evtlist["ENERGY"], evtlist["ENERGY"]<=erange[j][1] )
-            #mask = np.logical_and(radius_filter,energy_filter)
             P,W,T = self.pulse_phase[j][0]
             N = len(P)
 
-            #P = evtlist[self.phase_colname][mask]; N = len(P)
-            #T = met2mjd(evtlist["TIME"][mask])
-            #W = evtlist[self.weight_colname][mask] if self.weight else np.ones(N)
-            
             if len(P)>0:
                 self.phaseogram[j].FillN(N,P,W); self.phaseogram[j].FillN(N,P+1,W)
                 self.phaseogram2D[j].FillN(N,P,T,W); self.phaseogram2D[j].FillN(N,P+1,T,W)
@@ -464,7 +457,7 @@ class PulsarLightCurve:
                 """
                 w1 = np.histogram(phases,bins=bins,weights=weights,normed=False)[0]
                 w2 = np.histogram(phases,bins=bins,weights=weights**2,normed=False)[0]
-                errors = (1+w2)**0.5
+                errors = np.where(w2>0,(weights.max()**2+w2)**0.5,0)
                 #
                 """
                 nmc = 100
@@ -495,6 +488,9 @@ class PulsarLightCurve:
                 #if histo.GetMaximum()%5 == 2: histo.SetMaximum(histo.GetMaximum()*1.03)
             else:
                 histo.SetMaximum(1.1)        
+            if ymax < 0.01:
+                histo.SetMinimum(0)
+                histo.SetMaximum(0.01)
 
         return phase_shift
 
@@ -828,6 +824,12 @@ class PulsarLightCurve:
                     text.SetTextColor(2)
                     text.DrawText(0.1,dylevel,s)
                     text.SetTextColor(1)
+                if profile is not None:
+                    histo, rad_ytitle, comment = profile[0]
+                    dylevel = root.get_txtlevel(phaseogram[which],0.86)
+                    text.SetTextColor(kRed)
+                    text.DrawText(self.binmax-0.8,dylevel,comment)
+                    text.SetTextColor(1)
             
             if inset == which:   
                 phaseogram[-1].SetFillColor(14)
@@ -877,6 +879,7 @@ class PulsarLightCurve:
             for i, prof in enumerate(profile):
 
                 histo, ytitle, comment = prof   # get the profile
+                print comment
 
                 if (nbands == 1 or not substitute) and i == 0:
                     pad[i].cd()
@@ -909,13 +912,10 @@ class PulsarLightCurve:
                     
                     if len(comment) != 0: ytitle += " (" + comment + ")"
                     axis = TGaxis(xmax,ymin,xmax,ymax,ymin,ymax,510,"+L")
-                    axis.SetLineColor(root.map_color(template_color)); axis.SetLabelColor(root.map_color(template_color))
+                    axis.SetLineColor(root.map_color(template_color))
+                    axis.SetLabelColor(root.map_color(template_color))
                     if not suppress_template_axis: 
                         root.DrawAxis(axis,ytitle,TextSize,OffsetY+0.05,LabelSize,font=font)
-                    # write out information about the observatory and frequency
-                    #ocomment = '%s %.1f'%(self.profile_object.obs,self.profile_object.freq)
-                    #ylevel = root.get_txtlevel(phaseogram[which],0.86)
-                    #text.DrawText(self.binmax-0.8,ylevel,ocomment)
                 else:
                     n = -(i+1)
                     BM, TM = pad[n].GetBottomMargin(), pad[n].GetTopMargin()
@@ -1233,7 +1233,7 @@ class PulsarLightCurve:
             y,yerr = root.get_histo_content(self.phaseogram[0])
             for i in xrange(self.nbins):
                 # NB -- histogram values are very strange
-                f.write('%s%s%s%s\n'%(right_pad(i/self.nbins),right_pad((i+1)/self.nbins),right_pad(y[i+1]),right_pad(yerr[i+1])))
+                f.write('%s%s%s%s\n'%(right_pad(float(i)/self.nbins),right_pad(float(i+1)/self.nbins),right_pad(y[i+1]),right_pad(yerr[i+1])))
         # write out radio profile if present
         if self.profile is not None:
             f.write('# Radio profile\n')
