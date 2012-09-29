@@ -4,7 +4,7 @@ Manage likelihood calculations for an ROI
 mostly class ROIstat, which computes the likelihood and its derivative from the lists of
 sources (see .sourcelist) and bands (see .bandlike)
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.21 2012/06/24 04:52:29 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.22 2012/09/27 14:23:18 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import sys
@@ -137,7 +137,6 @@ class ROIstat(object):
         Note: this does not change the set of variable sources defined by the SourceList: but should.
         It should also require that the source has varaiable parameters
         """
-        source = self.sources.find
         if sourcename is None:
             self.initialize()
             return None
