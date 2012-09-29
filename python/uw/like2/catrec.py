@@ -1,8 +1,8 @@
 """
 Support for generating output files
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/catrec.py,v 1.4 2011/12/29 19:19:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/catrec.py,v 1.5 2012/06/24 04:52:29 burnett Exp $
 """
-import os, glob, types
+import os, glob, types, zipfile
 import cPickle as pickle
 import numpy as np
 from uw.utilities import makerec
@@ -45,9 +45,16 @@ def create_catalog(outdir, **kwargs):
             note that order of first 6 parameters is assumed above
         also make a diffuse parameter dictionary
     """
-    assert os.path.exists(os.path.join(outdir,'pickle')), 'pickle folder not found under %s' %outdir
-    filelist = sorted(glob.glob(os.path.join(outdir, 'pickle', '*.pickle')))
-    assert len(filelist)>0, 'no .pickle files found in %s/pickle' % outdir 
+    if os.path.exists(os.path.join(outdir,'pickle.zip')):
+        pzip = zipfile.ZipFile(os.path.join(outdir,'pickle.zip'))
+        filelist = ['pickle/HP12_%04d.pickle' %i for i in range(1728)]
+        assert all(f in pzip.namelist() for f in filelist), 'Improper model zip file: expected 1728 pickle files'
+        opener = pzip.open
+    else:
+        assert os.path.exists(os.path.join(outdir,'pickle')), 'pickle folder not found under %s' %outdir
+        files = sortec(glob.glob(os.path.join(outdir, 'pickle', '*.pickle')))
+        opener = open
+ 
     failed,maxfail = 0,kwargs.pop('maxfail',10)
     ignore_exception = kwargs.pop('ignore_exception',False)
     save_local = kwargs.pop('save_local',False) 
@@ -217,7 +224,7 @@ def create_catalog(outdir, **kwargs):
     drec = DiffuseRecArray()
     for fname in filelist:
         try:
-            p = pickle.load(open(fname))
+            p = pickle.load(opener(fname))
             crec.process(p)
             drec.process(p)
         except Exception, arg:
