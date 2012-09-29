@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sat Sep 29 02:23:03 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+Add some klugey code for shifting TZR parameters.
+
+    *
+------------------------------------------------------------
 User: kadrlica  Fri Sep 28 21:17:19 PDT 2012
 pointlike/python/uw/like
 
