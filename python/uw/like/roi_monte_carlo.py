@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_monte_carlo.py,v 1.75 2012/09/12 21:50:53 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_monte_carlo.py,v 1.76 2012/09/29 03:43:12 kadrlica Exp $
 
 author: Joshua Lande
 """
@@ -34,6 +34,7 @@ from uw.utilities import keyword_options
 from uw.utilities import path
 from uw.utilities.keyword_options import decorate, process, change_defaults, get_default, get_row
 from uw.utilities.fitstools import rad_mask
+from uw.utilities import xml_parsers
 
 import pyLikelihood
 
