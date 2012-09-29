@@ -12,6 +12,32 @@ def sex2dec(s,mode='ra'):
 def ra2dec(s): return sex2dec(s,mode='ra')
 def decl2dec(s): return sex2dec(s,mode='decl')
 
+class StringFloat(object):
+    """ Use strings and python longs to handle float strings with arbitrary
+        precision."""
+
+    def __init__(self,s):
+        s = str(s)
+        self._s = s
+        self._i = int(s.replace('.',''))
+        if '.' in s:
+            self.places = len(s.split('.')[-1])
+        else:
+            self.places = 0
+
+    def __str__(self):
+        return self._s
+
+    def __add__(self,other):
+        if self.places==0 and other.places==0:
+            return StringFloat(str(self._i+other._i))
+        t = max(self.places,other.places)
+        i1 = int(str(self._i) + '0'*(t-self.places))
+        i2 = int(str(other._i) + '0'*(t-other.places))
+        s = str(i1+i2)
+        return StringFloat(s[:-t]+'.'+s[-t:])
+        
+
 class ParFile(dict):
 
     def __init__(self,parfile):
@@ -21,6 +47,7 @@ class ParFile(dict):
         self.ordered_keys = []
         for line in file(parfile):
             tok = line.strip().split()
+            #if len(tok)==0 or tok[0][0]=='#': continue
             if len(tok)==0: continue
             known_key = False
             for key in self.ordered_keys:
@@ -184,6 +211,36 @@ class ParFile(dict):
             freq += tterm*multi
             multi *= (dts/(i+1))
         return freq
+
+    def shift_epoch(self,new_epoch,degree=None,t0=None):
+        if degree is None:
+            degree = self.degree
+        if t0 is None:
+            t0 = self.get('PEPOCH',type=np.longdouble)
+        else: t0 = np.asarray(t0,dtype=np.longdouble)
+        dt = (new_epoch-t0)*86400
+        multis = 1
+        fns = np.asarray([self.get('F%d'%i,type=np.longdouble) for i in xrange(0,degree+1)])
+        multis = np.empty_like(fns)
+        results = np.empty_like(fns)
+        multis[0] = 1
+        for i in xrange(1,degree+1):
+            multis[i] = multis[i-1] * dt/(i+1)
+        for i in xrange(0,degree+1):
+            print fns[i:]
+            print multis[:degree+1-i]
+            print fns[i:]*multis[:degree+1-i]
+            results[i] = (fns[i:]*multis[:degree+1-i]).sum()
+        return results
+
+    def shift_tzr(self,phase_shift):
+        from uw.pulsar import polyco
+        t0 = self.get('TZRMJD',type=float)
+        pc = polyco.Polyco(self.parfile)
+        dt = pc.invert_phase_shift(t0,phase_shift)
+        sf1 = StringFloat(self.get('TZRMJD'))
+        sf2 = StringFloat(dt)
+        self['TZRMJD'] = str(sf1+sf2)
 
     def eval_phase(self,times,degree=None,t0=None):
         degree = degree or self.degree
