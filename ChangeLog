@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Sun Sep 30 11:14:29 PDT 2012
+pointlike/python/uw/data
+
+Modified Files:
+	dssman.py 
+Log Message:
+Some changes to delete and _remove_duplicates functions
+    *
+------------------------------------------------------------
 User: lande  Sun Sep 30 09:57:32 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
