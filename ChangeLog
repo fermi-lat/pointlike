@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Sep 30 09:57:32 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pointspec_helpers.py 
+Log Message:
+standardize a few imports
+    *
+------------------------------------------------------------
 User: burnett  Sat Sep 29 09:05:12 PDT 2012
 pointlike/python/uw/like2
 
