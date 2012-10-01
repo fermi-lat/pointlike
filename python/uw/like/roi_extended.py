@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.75 2012/10/01 05:21:35 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.76 2012/10/01 05:23:27 lande Exp $
 
     author: Joshua Lande
 """
@@ -363,10 +363,12 @@ Arguments:
                         roi.print_summary(indent='    ')
 
                     if ll_alt > ll: 
-                        print 'Likelihood better than previous likelihood, so keeping it'
+                        if verbose: 
+                            print 'Likelihood better than previous likelihood, so keeping it'
                         ll=ll_alt
                     else: 
-                        print 'Likelihood worse than previous likelihood, so discarding it'
+                        if verbose:
+                            print 'Likelihood worse than previous likelihood, so discarding it'
                         prev_state.restore(just_spectra=True)
                 else:
                     if verbose:
@@ -384,14 +386,17 @@ Arguments:
                     ll_alt=roi.fit(estimate_errors=False,**kwargs)
 
                     if verbose:
-                        print 'After fit with initial parameters:'
+                        if verbose:
+                            print 'After fit with initial parameters:'
                         roi.print_summary(indent='    ')
 
                     if ll_alt > ll: 
-                        print 'Likelihood better than previous likelihood, so keeping it'
+                        if verbose:
+                            print 'Likelihood better than previous likelihood, so keeping it'
                         ll=ll_alt
                     else: 
-                        print 'Likelihood worse than previous likelihood, so discarding it'
+                        if verbose:
+                            print 'Likelihood worse than previous likelihood, so discarding it'
                         prev_state.restore(just_spectra=True)
                 else:
                     if verbose:
