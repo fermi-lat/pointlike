@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Sep 30 22:23:27 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+Use PointlikeState for ROI caching. Better verbose flag to fit_extension.
+    *
+------------------------------------------------------------
 User: lande  Sun Sep 30 22:21:35 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
