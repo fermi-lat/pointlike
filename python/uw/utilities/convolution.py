@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/convolution.py,v 1.43 2011/10/04 22:02:41 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.44 2011/10/11 19:52:51 burnett Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -349,49 +349,6 @@ class ExtendedSourceConvolution(BackgroundConvolution):
 
 #===============================================================================================#
 
-class ExtendedSourceConvolutionCache(ExtendedSourceConvolution):
-    """ Suitable only for convolving spatially extended sources.
-        
-        Abstracts away how the convolution is done for different
-        kinds of extended sources (the SpatialMap extended sources
-        vs. the ones with analytic function (and fill_grid).
-
-        Also, implements a caching mechanism so that when the
-        the position of the source changes (but not the extension
-        parmaeters), the convolution is not redone.
-    """
-    def __init__(self,*args,**kwargs):
-        super(ExtendedSourceConvolutionCache,self).__init__(*args,**kwargs)
-
-        self.last_p         = {}
-        self.last_npix      = {}
-        self.last_cvals     = {}
-
-    def do_convolution(self,band):
-
-        if self.last_p.has_key(band) and \
-                np.all(self.last_p[band] == self.extended_source.spatial_model.p[2:]):
-
-            self.npix=self.last_npix[band]
-            self.cvals = self.last_cvals[band]
-
-            # recenter convolution grid to (possibly) new extended source center.
-            # Useful since convolution need not be redone if only extended
-            # source center changes.
-            self.set_center(self.extended_source.spatial_model.center)
-
-            self.setup_grid(self.npix,self.pixelsize)
-
-
-        else:
-            super(ExtendedSourceConvolutionCache,self).do_convolution(band)
-
-            self.last_p[band]=self.extended_source.spatial_model.p[2:].copy()
-            self.last_cvals[band]=self.cvals
-            self.last_npix[band]=self.npix
-
-#===============================================================================================#
-
 class AnalyticConvolution(object):
     """ Calculates the convolution of the psf with a radially symmetric spatial_model. 
         This object has a similar interface to BackgroundConvolution.         
@@ -467,8 +424,7 @@ class AnalyticConvolution(object):
     def _get_pdf(self,energy,conversion_type,band):
         """ This function has to calculate self.rlist and self.pdf
             and is abstracted from the rest of the do_convolution
-            function so that it can be overloaded for caching
-            by AnalyticConvolutionCache. """
+            function so that it can be overloaded. """
 
         pb = PretendBand(energy,conversion_type)
         self.bpsf = BandCALDBPsf(self.psf,pb)
@@ -596,42 +552,6 @@ class AnalyticConvolution(object):
             Note that when dmax=0 (with dmin=0), the integral equals 0. When
             dmax->infty (with dmin=0), the integral aproaches 1. """
         return float(self.int_val(dmax)-self.int_val(dmin))
-
-class AnalyticConvolutionCache(AnalyticConvolution):
-    """ A child of the AnalyticConvolution object which should
-        perform the exact same cacluation. 
-        
-        This object implements a caching mechanism so that when the
-        same spatial parameters (except for the first 2) are passed  
-        as the last time, the previous value is
-        returned instead of being recalculated. """
-
-    defaults = AnalyticConvolution.defaults
-
-    @keyword_options.decorate(defaults)
-    def __init__(self,*args,**kwargs):
-
-        super(AnalyticConvolutionCache,self).__init__(*args,**kwargs)
-
-        self.last_p         = {}
-        self.last_pdf       = {}
-        self.last_rlist     = {}
-
-    def _get_pdf(self,energy,conversion_type,band):
-
-        if self.last_p.has_key(band) and \
-                np.all(self.last_p[band] == self.extended_source.spatial_model.p[2:]):
-
-            self.rlist   = self.last_rlist[band]
-            self.pdf     = self.last_pdf[band]
-
-        else:
-            super(AnalyticConvolutionCache,self)._get_pdf(
-                    energy,conversion_type,band)
-
-            self.last_p[band]=self.extended_source.spatial_model.p[2:].copy()
-            self.last_rlist[band]=self.rlist
-            self.last_pdf[band]=self.pdf
 
 """
 a little sanity check class
