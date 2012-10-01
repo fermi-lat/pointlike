@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Oct  1 08:51:59 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+bugfix for vebose printout
+    *
+------------------------------------------------------------
 User: kerrm  Mon Oct  1 01:08:11 PDT 2012
 pointlike/python/uw/pulsar
 
