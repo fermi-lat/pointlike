@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Sep 30 22:23:51 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_printing.py 
+Log Message:
+print log likelihood + allow print indenting
+    *
+------------------------------------------------------------
 User: lande  Sun Sep 30 22:23:27 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
