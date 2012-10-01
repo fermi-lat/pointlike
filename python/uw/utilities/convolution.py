@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.44 2011/10/11 19:52:51 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.45 2012/10/01 05:24:45 lande Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -358,7 +358,8 @@ class AnalyticConvolution(object):
         """
 
     defaults = (
-        ['num_points',     200, 'Number of points to calculate the PDF at. Interpolation is done in between.'],
+        ['num_points',     220, 'Number of points to calculate the PDF at. Interpolation is done in between.'],
+        ['roi_pad', 1, 'Number of degress away from ROI to perform convolution (helps with caching'],
     )
     @staticmethod
     def set_points(psize):
@@ -424,13 +425,14 @@ class AnalyticConvolution(object):
     def _get_pdf(self,energy,conversion_type,band):
         """ This function has to calculate self.rlist and self.pdf
             and is abstracted from the rest of the do_convolution
-            function so that it can be overloaded. """
+            function so that it can be overloaded for caching
+            by AnalyticConvolutionCache. """
 
         pb = PretendBand(energy,conversion_type)
         self.bpsf = BandCALDBPsf(self.psf,pb)
 
         self.edge_distance=band.sd.difference(self.extended_source.spatial_model.center) + \
-                band.radius_in_rad
+                band.radius_in_rad + self.roi_pad
 
         self.rmax=self.edge_distance
 
@@ -552,6 +554,47 @@ class AnalyticConvolution(object):
             Note that when dmax=0 (with dmin=0), the integral equals 0. When
             dmax->infty (with dmin=0), the integral aproaches 1. """
         return float(self.int_val(dmax)-self.int_val(dmin))
+
+class AnalyticConvolutionCache(AnalyticConvolution):
+    """ A child of the AnalyticConvolution object which should
+        perform the exact same cacluation. 
+        
+        This object implements a caching mechanism so that when the
+        same spatial parameters (except for the first 2) are passed  
+        as the last time, the previous value is
+        returned instead of being recalculated. """
+
+    defaults = AnalyticConvolution.defaults
+
+    @keyword_options.decorate(defaults)
+    def __init__(self,*args,**kwargs):
+
+        super(AnalyticConvolutionCache,self).__init__(*args,**kwargs)
+
+        self.last_p         = {}
+        self.last_pdf       = {}
+        self.last_rlist     = {}
+        self.last_center    = {}
+
+    def _get_pdf(self,energy,conversion_type,band):
+
+        sm=self.extended_source.spatial_model
+
+        if self.last_p.has_key(band) and \
+           np.all(self.last_p[band] == sm.p[2:]) and \
+           np.degrees(sm.center.difference(self.last_center[band])) < self.roi_pad:
+
+            self.rlist   = self.last_rlist[band]
+            self.pdf     = self.last_pdf[band]
+
+        else:
+            super(AnalyticConvolutionCache,self)._get_pdf(
+                    energy,conversion_type,band)
+
+            self.last_p[band]=sm.p[2:].copy()
+            self.last_rlist[band]=self.rlist
+            self.last_pdf[band]=self.pdf
+            self.last_center[band]=sm.center
 
 """
 a little sanity check class
