@@ -2,14 +2,14 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.76 2012/10/01 05:23:27 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.77 2012/10/01 15:51:58 lande Exp $
 
     author: Joshua Lande
 """
 
 import sys
 from SpatialModels import RadiallySymmetricModel,Disk,SpatialModel,SpatialMap
-from uw.utilities.convolution import ExtendedSourceConvolution,AnalyticConvolution
+from uw.utilities.convolution import ExtendedSourceConvolution,AnalyticConvolutionCache
 from roi_diffuse import DiffuseSource,ROIDiffuseModel,SmallBand
 from textwrap import dedent
 from skymaps import SkyDir,Background
@@ -566,7 +566,7 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
         convolution for a more efficient pdf calculation.
 
         Any of the optional keyword arguments to uw.utilities.convolution's 
-        AnalyticConvolution class will be passed on to that class.  """
+        AnalyticConvolutionCache class will be passed on to that class.  """
 
     defaults = ROIExtendedModel.defaults
 
@@ -580,7 +580,7 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
         psf = self.sa.psf
 
         d={'num_points':self.num_points} if self.__dict__.has_key('num_points') else {}
-        self.active_bgc = AnalyticConvolution(self.extended_source,psf,**d)
+        self.active_bgc = AnalyticConvolutionCache(self.extended_source,psf,**d)
 
     def set_state(self,band):
         self.active_bgc.do_convolution(band)
