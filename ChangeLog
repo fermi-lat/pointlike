@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Oct  1 11:12:54 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+reinsitute+bugfix analytic extended source convolution cache
+    *
+------------------------------------------------------------
 User: lande  Mon Oct  1 08:51:59 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
