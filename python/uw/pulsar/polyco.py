@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.2 2011/07/07 19:10:38 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.3 2012/01/27 19:11:27 kerrm Exp $
 
 Mange polycos from tempo2.
 
@@ -159,3 +159,10 @@ class Polyco:
         pces = self.getentry(times,use_keys=True)
         self.ids = np.asarray([pc.uid for pc in pces])
         return np.asarray([pce.evalphase(time) for pce,time in zip(pces,times)])
+
+    def invert_phase_shift(self,t0,phi):
+        """ Compute the time lapse (in s) corresponding to phi at t0."""
+        pe = self.getentry(t0)
+        f = pe.evalfreq(t0)
+        return phi/f
+            
