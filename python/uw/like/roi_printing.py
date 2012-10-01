@@ -1,13 +1,13 @@
 """
 Implementation of various roi printing
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_printing.py,v 1.7 2011/06/17 03:25:10 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_printing.py,v 1.8 2011/06/25 02:28:59 lande Exp $
 """
 import os, math
 import numpy as N
 
 from . pointspec_helpers import PointSource
 
-def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_all_ts=False):
+def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_all_ts=False, indent=''):
     """ formatted table point sources positions and parameter in the ROI, 
         followed by summary of diffuse names, parameters values.
         values are followed by a character to indicate status:
@@ -38,12 +38,12 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
     if sdir is None: sdir = self.roi_dir
     if title is None: 
         title = self.name if hasattr(self,'name') else ''
-    print 90*'-', '\n\t Nearby sources within %.1f degrees %s' % (maxdist,title)
+    print indent,90*'-', '\n\t Nearby sources within %.1f degrees %s' % (maxdist,title)
     colstring = 'name dist ra dec TS flux8 index beta cutoff'
     if galactic: colstring =colstring.replace('ra dec', 'l b')
     colnames = tuple(colstring.split())
     n = len(colnames)-1
-    print ('%-13s'+n*'%10s')% colnames
+    print indent,('%-13s'+n*'%10s')% colnames
     sources = self.get_sources()
     sources.sort(key=lambda s:s.skydir.difference(self.roi_dir))
     for ps in sources:
@@ -63,9 +63,11 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
             if expcutoff and i==npar-1: fmt+=10*' '# gap if ExpCutoff to line up with cutoff 
             fmt    += '%9.2f%1s' 
             values += (par[i], freeflag[i]) 
-        print fmt % values
+        print indent,fmt % values
         
-    print 90*'-','\n\tDiffuse sources\n',90*'-'
+    print indent,90*'-'
+    print indent,'\tDiffuse sources\n'
+    print indent,90*'-'
     for source in self.bgm.diffuse_sources:
         if  'spatial_model' in source.__dict__: continue
         par, sigpar = source.smodel.statistical()
@@ -76,8 +78,10 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
         for v,f in zip(par, freeflag):
             fmt +='%10.2f%1s'
             values +=(v,f)
-        print fmt % values
-    print 90*'-'
+        print indent,fmt % values
+    print indent,90*'-'
+    print indent,'logLikelihood = ',-roi.logLikelihood(roi.parameters())
+    print indent,90*'-'
 
 def print_resids(roi):
     """Print out (weighted) residuals for each energy range, both in
