@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.74 2012/09/28 19:20:41 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.75 2012/10/01 05:21:35 lande Exp $
 
     author: Joshua Lande
 """
@@ -18,7 +18,7 @@ import numpy as np
 import numbers
 from uw.like.Models import PowerLaw
 from uw.utilities import keyword_options
-from uw.like.pypsf import PsfOverlap
+from . pypsf import PsfOverlap
 
 class ExtendedSource(DiffuseSource):
     """ Class inherting from DiffuseSource but implementing a spatial source. 
@@ -214,7 +214,9 @@ class ROIExtendedModel(ROIDiffuseModel):
                  '\t'+es.model.__str__(indent='\t'))
 
     def fit_extension(self,roi,tolerance=0.05, maxcalls=500,
-                      bandfits=False, error="UMINOS",init_grid=None, estimate_errors=True, **kwargs):
+                      bandfits=False, error="UMINOS",init_grid=None, estimate_errors=True, 
+                      verbose=False,
+                      **kwargs):
         """ Fit the extension of this extended source by fitting all non-fixed spatial paraameters of 
             self.extended_source. The likelihood at the best position is returned.
 
@@ -256,6 +258,7 @@ Arguments:
         robust anywhere in the sky. """
 
         from uw.utilities.minuit import Minuit
+        from . roi_state import PointlikeState
 
         es = self.extended_source
 
@@ -271,14 +274,13 @@ Arguments:
         if roi.TS(which=self.name,quick=True,bandfits=bandfits) < 1:
             print "Warning: initial TS<1 (in point hypothesis) so TS_ext will likely not be trustworthy"
 
-        init_spectral = roi.parameters().copy()
+        init_state = PointlikeState(roi)
         init_spatial  = sm.get_parameters(absolute=False)
-        ll_0 = 0
 
         # Fix scoping issue in likelihood_wrapper
         # In python 3, could use 'nonlocal' parameter.
         # http://eli.thegreenplace.net/2011/05/15/understanding-unboundlocalerror-in-python/
-        d=dict(best_spectral = roi.parameters().copy(), ll_best = 0)
+        d=dict(best_spectral = PointlikeState(roi), ll_best = -np.inf, ll_0=-np.inf)
 
         if not np.any(sm.free):
             raise Exception("Unable to fit the diffuse source %s's extension. No parameters to fit. Perhaps when you wrote your xml file, you forgot to set some of the spatial parameters to be free?" % es.name)
@@ -324,6 +326,9 @@ Arguments:
             # update spatial model, then modify inside the ROI.
             sm.set_parameters(p=p[2:],absolute=False, center=new_dir)
 
+            if verbose:
+                print 'Extension fitting for spatial model with p(absolute=False)=',sm.get_parameters(absolute=False).tolist()
+
             temp=self.quiet;self.quiet=True
             self.initialize_counts(roi.bands)
             self.quiet=temp
@@ -332,37 +337,75 @@ Arguments:
             if bandfits:
                 ll=roi.bandFit(es)
             else:
+                if verbose:
+                    print 'About to do first fit:'
+                    roi.print_summary(indent='    ')
+
                 ll=roi.fit(estimate_errors=False,**kwargs)
 
+                if verbose:
+                    print 'After first fit:'
+                    roi.print_summary(indent='    ')
+
                 if ll < d['ll_best']:
-                    prev_fit=roi.parameters().copy()
-                    roi.set_parameters(d['best_spectral'].copy())
-                    roi.__update_state__()
+
+                    prev_state=PointlikeState(roi)
+                    d['best_state'].restore(just_spectra=True)
+
+                    if verbose:
+                        print 'likelihood=%s worse than best likelihood=%s, starting from best spectral parameters' % (ll, d['ll_best'])
+                        roi.print_summary(indent='    ')
+
                     ll_alt=roi.fit(estimate_errors=False,**kwargs)
 
+                    if verbose:
+                        print 'After fit with best parameters:'
+                        roi.print_summary(indent='    ')
+
                     if ll_alt > ll: 
+                        print 'Likelihood better than previous likelihood, so keeping it'
                         ll=ll_alt
                     else: 
-                        roi.set_parameters(prev_fit.copy())
-                        roi.__update_state__()
+                        print 'Likelihood worse than previous likelihood, so discarding it'
+                        prev_state.restore(just_spectra=True)
+                else:
+                    if verbose:
+                        print 'likelihood=%s is better than best likelihood=%s' % (ll, d['ll_best'])
 
-                if ll < ll_0:
-                    prev_fit=roi.parameters().copy()
-                    roi.set_parameters(init_spectral.copy())
-                    roi.__update_state__()
+                if ll < d['ll_0']:
+
+                    prev_state=PointlikeState(roi)
+                    init_state.restore(just_spectra=True)
+
+                    if verbose:
+                        print 'Likelihood=%s worse than initial likelihood=%s, starting from initial spectral parameters' % (ll, d['ll_0'])
+                        roi.print_summary(indent='    ')
+
                     ll_alt=roi.fit(estimate_errors=False,**kwargs)
 
+                    if verbose:
+                        print 'After fit with initial parameters:'
+                        roi.print_summary(indent='    ')
+
                     if ll_alt > ll: 
+                        print 'Likelihood better than previous likelihood, so keeping it'
                         ll=ll_alt
                     else: 
-                        roi.set_parameters(prev_fit)
-                        roi.__update_state__()
+                        print 'Likelihood worse than previous likelihood, so discarding it'
+                        prev_state.restore(just_spectra=True)
+                else:
+                    if verbose:
+                        print 'likelihood=%s is better than initial likelihood=%s' % (ll, d['ll_0'])
 
                 if ll > d['ll_best']: 
                     d['ll_best'] = ll
-                    d['best_spectral'] = roi.parameters().copy()
+                    d['best_state'] = PointlikeState(roi)
 
-            if not self.quiet: print '%s, logL = %.3f, dlogL = %.3f' % (sm.pretty_string(),ll,ll-ll_0)
+            if not self.quiet: print '%s, logL = %.3f, dlogL = %.3f' % (sm.pretty_string(),ll,ll-d['ll_0'])
+
+            if verbose: 
+                print;print
+
             return -ll # return negative log likelihood, suitable for minimizing
 
         f=likelihood_wrapper
@@ -370,7 +413,7 @@ Arguments:
 
         # shut up print just the first time
         old_quiet = self.quiet; self.quiet = True; 
-        ll_0 = d['ll_best'] = -f(init_spatial); 
+        d['ll_0'] = d['ll_best'] = -f(init_spatial); 
         self.quiet = old_quiet
 
         if not self.quiet: 
@@ -439,7 +482,7 @@ Arguments:
         # return log likelihood from fitting extension.
         final_dir=sm.center
         delt = np.degrees(final_dir.difference(init_dir))
-        return final_dir,0,delt,-2*(ll_0+fval)
+        return final_dir,0,delt,-2*(d['ll_0']+fval)
 
     def modify_loc(self,bands,center):
         self.extended_source.spatial_model.modify_loc(center)
