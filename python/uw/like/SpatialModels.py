@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.109 2012/09/27 21:37:27 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.110 2012/10/01 22:19:53 lande Exp $
 
    author: Joshua Lande
 
@@ -216,9 +216,9 @@ class SpatialModel(object):
 
         Test setting limits:
 
-            >>> disk = Disk(limits=[[-.1, .1], [-.1, .1], [0,2]])
+            >>> disk = Disk(limits=[[-.1, .1], [-.1, .1], [1e-20,2]])
             >>> disk.get_limits(absolute=True).tolist()
-            [[-0.1, 0.1], [-0.1, 0.1], [0.0, 2.0]]
+            [[-0.1, 0.1], [-0.1, 0.1], [1e-20, 2.0]]
 
     """
     def __init__(self, p=None, coordsystem=SkyDir.EQUATORIAL, free=None, limits=None, **kwargs):
@@ -292,8 +292,7 @@ class SpatialModel(object):
 
         # map the parameters/limits into log space.
         for i in range(2,len(self.log)):
-            if self.log[i]: 
-                self.limits[i,:] = np.log10(self.limits[i,:])
+            self.limits[i,:] = smart_log(self.limits[i,:], log=self.log[i])
 
         for k in kwargs.keys():
             if k in self:
@@ -381,7 +380,23 @@ class SpatialModel(object):
                     else n.replace('DEC','DEC (rotated)').replace('b','b (rotated)') \
                     for n,log in zip(self.param_names,self.log)]
 
-    def get_limits(self,absolute=False):
+    def set_limits(self, i, lower, upper, absolute=True):
+        """ >>> sm = Disk()
+            >>> print sm.get_limits().tolist()
+            [[-1.0, 1.0], [-1.0, 1.0], [1e-10, 3.0]]
+            >>> sm.set_limits('dec', -2, 2)
+            >>> print sm.get_limits().tolist()
+            [[-1.0, 1.0], [-2.0, 2.0], [1e-10, 3.0]]
+            >>> sm.set_limits('sigma', 1e-20, 10)
+            >>> print sm.get_limits().tolist()
+            [[-1.0, 1.0], [-2.0, 2.0], [1e-20, 10.0]]
+
+        """
+        i=self.mapper(i)
+        lim = np.asarray([lower,upper],dtype=float)
+        self.limits[i,:] = smart_log(lim, log=self.log[i])
+
+    def get_limits(self,absolute=True):
         ret = np.asarray([10**lim if log and absolute else lim \
                          for lim,log in zip(self.limits,self.log)])
         return ret
@@ -770,7 +785,7 @@ class RadiallySymmetricModel(SpatialModel):
 
             First, create a uniform disk spatial model
 
-                >>> center = SkyDir()
+                >>> center = SkyDir(0,0)
                 >>> disk = Disk(sigma=1, center=center)
 
             Save it to a file:
@@ -782,7 +797,7 @@ class RadiallySymmetricModel(SpatialModel):
 
             Then, create the spatial map:
 
-                >>> profile = RadialProfile(file = filename)
+                >>> profile = RadialProfile(file=filename)
                 
             In the center, the values are the same:
 
@@ -790,6 +805,9 @@ class RadiallySymmetricModel(SpatialModel):
                 True
 
             Outside the disk edge, the spatial map has intensity 0:
+
+                >>> print profile.effective_edge()
+                1.0
 
                 >>> print profile(SkyDir(1.5,0))
                 0.0
@@ -1713,7 +1731,7 @@ class SpatialMap(SpatialModel):
             >>> temp = NamedTemporaryFile()
             >>> filename = temp.name
             >>> f = gauss.save_template(filename,npix=150)
-            >>> map = SpatialMap(file="test.fits")
+            >>> map = SpatialMap(file=filename)
             >>> np.allclose([map.center.ra(),map.center.dec()],[gauss.center.ra(),gauss.center.dec()])
             True
     """
