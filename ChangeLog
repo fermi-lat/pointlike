@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Oct  1 01:08:11 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	polyco.py 
+Log Message:
+Add convenience method for getting a zero phase.
+
+    *
+------------------------------------------------------------
 User: lande  Sun Sep 30 22:24:45 PDT 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
