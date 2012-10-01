@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Sep 30 22:21:35 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+remove buggy caching code
+    *
+------------------------------------------------------------
 User: kadrlica  Sun Sep 30 11:14:29 PDT 2012
 pointlike/python/uw/data
 
