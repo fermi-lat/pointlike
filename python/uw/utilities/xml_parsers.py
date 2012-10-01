@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.86 2012/09/07 00:14:22 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.87 2012/09/07 00:18:50 lande Exp $
 
    author: Matthew Kerr
 """
@@ -443,7 +443,7 @@ class Model_to_XML(object):
             >>> fs = Models.FileFunction(Normalization=1,file=temp.name)
             >>> print model2xml(fs).replace(temp.name, '<FILENAME>')
             <spectrum file="<FILENAME>" type="FileFunction">
-                <parameter name="Normalization" value="1.0" free="1" max="10" min="0.1" scale="1" />
+                <parameter name="Normalization" value="1.0" free="1" max="10000.0" min="0.0001" scale="1" />
             </spectrum>
 
         Note, writing FileFunctions should preserve environment varaibles:
@@ -455,14 +455,14 @@ class Model_to_XML(object):
 
             >>> print model2xml(fs,expand_env_vars=False).replace(filename,'[FILENAME]')
             <spectrum file="[FILENAME]" type="FileFunction">
-                <parameter name="Normalization" value="1.0" free="1" max="10" min="0.1" scale="1" />
+                <parameter name="Normalization" value="1.0" free="1" max="10000.0" min="0.0001" scale="1" />
             </spectrum>
 
         Next, save it with the env var expanded:
 
             >>> print model2xml(fs,expand_env_vars=True).replace(path.expand(filename),'[FILENAME]')
             <spectrum file="[FILENAME]" type="FileFunction">
-                <parameter name="Normalization" value="1.0" free="1" max="10" min="0.1" scale="1" />
+                <parameter name="Normalization" value="1.0" free="1" max="10000.0" min="0.0001" scale="1" />
             </spectrum>
 
         Next, save out a PowerLaw with index=-2
@@ -518,7 +518,7 @@ class Model_to_XML(object):
             >>> print model2xml(s)
             <spectrum file="$(GLAST_EXT)/diffuseModels/v2r0p1/isotrop_2year_P76_source_v1.txt" type="ScaleFactor::FileFunction">
                 <parameter name="ScaleFactor" value="1.0" free="1" max="100.0" min="0.01" scale="10.0" />
-                <parameter name="Normalization" value="5.0" free="1" max="10" min="0.1" scale="1" />
+                <parameter name="Normalization" value="5.0" free="1" max="10000.0" min="0.0001" scale="1" />
             </spectrum>
 
    """
@@ -1243,7 +1243,7 @@ def process_diffuse_source(ds,strict=False,convert_extended=False,expand_env_var
             >>> print model2xml(iso, expand_env_vars=False)
             <source name="Isotropic Diffuse (isotrop_2year_P76_source_v1.txt)" type="DiffuseSource">
                 <spectrum file="$(GLAST_EXT)/diffuseModels/v2r0p1/isotrop_2year_P76_source_v1.txt" ctype="-1" type="FileFunction">
-                    <parameter name="Normalization" value="1.0" free="1" max="10" min="0.1" scale="1" />
+                    <parameter name="Normalization" value="1.0" free="1" max="10000.0" min="0.0001" scale="1" />
                 </spectrum>
                 <spatialModel type="ConstantValue">
                     <parameter  name="Value" value="1.0" free="0" max="10.0" min="0.0" scale="1.0" />
@@ -1255,7 +1255,7 @@ def process_diffuse_source(ds,strict=False,convert_extended=False,expand_env_var
             >>> print model2xml(iso, expand_env_vars=True).replace(path.expand(join(diffdir,ifile)),'[FILENAME]')
             <source name="Isotropic Diffuse (isotrop_2year_P76_source_v1.txt)" type="DiffuseSource">
                 <spectrum file="[FILENAME]" ctype="-1" type="FileFunction">
-                    <parameter name="Normalization" value="1.0" free="1" max="10" min="0.1" scale="1" />
+                    <parameter name="Normalization" value="1.0" free="1" max="10000.0" min="0.0001" scale="1" />
                 </spectrum>
                 <spatialModel type="ConstantValue">
                     <parameter  name="Value" value="1.0" free="0" max="10.0" min="0.0" scale="1.0" />
