@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.87 2012/09/07 00:18:50 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.88 2012/10/01 20:53:36 lande Exp $
 
    author: Matthew Kerr
 """
@@ -324,7 +324,7 @@ class XML_to_SpatialModel(object):
     spatialdict = {i.__name__:i for i in extended_sources}
 
     @staticmethod
-    def get_spatial_model(xml_dict,diffdir=None):
+    def get_spatial_model(xml_dict,source_name,diffdir=None):
         """ Kind of like getting a spectral model, but
             instead returns a SpatialModel object. 
             
@@ -363,16 +363,33 @@ class XML_to_SpatialModel(object):
         if spatialname == 'SpatialMap':
             return spatial_model
 
-        for p in spatial_model.param_names:
+        for i,p in enumerate(spatial_model.param_names):
             pdict =d[p]
 
             scale = float(pdict['scale'])
+
+            if scale != 1:
+                raise Exception("Error reading spatial parameter %s for source %s. Parameter scale must be set to 1" % (p,source_name))
+
             value = float(pdict['value'])
+            spatial_model[p] = value
 
+            if pdict.has_key('min') and pdict.has_key('max'):
 
-            spatial_model[p] = scale*value
+                min = float(pdict['min'])
+                max = float(pdict['max'])
 
-            free = pdict['free'] == '1'
+                if i == 0:
+                    if min != -360 or max != 360:
+                        raise Exception("Error reading spatial parameter %s for source %s. Parameter range must be -360 to 360" % (p,source_name))
+                elif i == 1:
+                    if min != -90 or max != 90:
+                        raise Exception("Error reading spatial parameter %s for source %s. Parameter range must be -90 to 90" % (p,source_name))
+                else:
+                    # only read limits for non-position parameters
+                    spatial_model.set_limits(p, min, max, absolute=True)
+
+            free = (pdict['free'] == '1')
             spatial_model.set_free(p, free)
 
         return spatial_model
@@ -704,6 +721,16 @@ def makeExtendedSourceSpatialModel(es,expand_env_vars,tablevel=1):
                 <parameter name="L" value="244" free="1" max="360" min="-360" scale="1.0" />
                 <parameter name="B" value="57" free="1" max="180" min="-180" scale="1.0" />
                 <parameter name="Sigma" value="1" free="1" max="3" min="1e-10" scale="1.0" />
+            </spatialModel>
+
+        Note, saving out spatial models will preserve limits
+
+            >>> disk = SpatialModels.Disk(limits=[[-2,2],[-2,2],[1e-3,30]])
+            >>> print make(disk)
+            <spatialModel type="Disk">
+                <parameter name="RA" value="0" free="1" max="360" min="-360" scale="1.0" />
+                <parameter name="DEC" value="0" free="1" max="180" min="-180" scale="1.0" />
+                <parameter name="Sigma" value="0.1" free="1" max="30" min="0.001" scale="1.0" />
             </spatialModel>
 
 
@@ -1047,6 +1074,57 @@ def parse_diffuse_sources(handler, roi_dir, max_roi, diffdir=None):
             0.0
             >>> ds.spatial_model.coordsystem == SkyDir.GALACTIC
             True
+
+        Note, reading spatial models will preserve limits:
+
+            >>> ds=l('''
+            ...   <source name="test_map" type="DiffuseSource">
+            ...      <spectrum type="ConstantValue">
+            ...        <parameter free="1" max="1000.0" min="0.001" name="Value" scale="1" value="1.0"/>
+            ...      </spectrum>
+            ...      <spatialModel type="Gaussian">
+            ...        <parameter free="0" name="RA" scale="1.0" value="0" min="-360" max="360" />
+            ...        <parameter free="1" name="DEC" scale="1.0" value="0" min="-90" max="90" />
+            ...        <parameter free="1" name="Sigma" scale="1.0" value="1" min="1e-3" max="1e3" />
+            ...      </spatialModel>
+            ...    </source>''')
+            >>> print ds.spatial_model.get_limits(absolute=True).tolist()
+            [[-1.0, 1.0], [-1.0, 1.0], [0.001, 1000.0]]
+
+        When the the position parameters don't the default limits, the code will crash:
+
+            >>> ds=l('''
+            ...   <source name="test_map" type="DiffuseSource">
+            ...      <spectrum type="ConstantValue">
+            ...        <parameter free="1" max="1000.0" min="0.001" name="Value" scale="1" value="1.0"/>
+            ...      </spectrum>
+            ...      <spatialModel type="Gaussian">
+            ...        <parameter free="0" name="RA" scale="1.0" value="0" min="-36" max="36" />
+            ...        <parameter free="1" name="DEC" scale="1.0" value="0" min="-9" max="9" />
+            ...        <parameter free="1" name="Sigma" scale="1.0" value="1" min="1e-3" max="1e3" />
+            ...      </spatialModel>
+            ...    </source>''')
+            Traceback (most recent call last):
+                ...
+            Exception: Error reading spatial parameter RA for source test_map. Parameter range must be -360 to 360
+
+
+        For now, you cannot scale parameters:
+
+            >>> ds=l('''
+            ...   <source name="test_map" type="DiffuseSource">
+            ...      <spectrum type="ConstantValue">
+            ...        <parameter free="1" max="1000.0" min="0.001" name="Value" scale="1" value="1.0"/>
+            ...      </spectrum>
+            ...      <spatialModel type="Gaussian">
+            ...        <parameter free="0" name="RA" scale="2.0" value="0" min="-360" max="360" />
+            ...        <parameter free="1" name="DEC" scale="2.0" value="0" min="-90" max="90" />
+            ...        <parameter free="1" name="Sigma" scale="2.0" value="1" min="1e-3" max="1e3" />
+            ...      </spatialModel>
+            ...    </source>''')
+            Traceback (most recent call last):
+                ...
+            Exception: Error reading spatial parameter RA for source test_map. Parameter scale must be set to 1
     """
     gds = get_diffuse_source
     ds = deque()
@@ -1067,7 +1145,7 @@ def parse_diffuse_sources(handler, roi_dir, max_roi, diffdir=None):
             ds.append(gds('MapCubeFunction',fname,mo,None,name,diffdir=diffdir))
         elif spatial['type'] in XML_to_SpatialModel.spatialdict:
 
-                spatial_model=XML_to_SpatialModel.get_spatial_model(spatial,diffdir=diffdir)
+                spatial_model=XML_to_SpatialModel.get_spatial_model(spatial,name,diffdir=diffdir)
                 spectral_model=xtm.get_model(spectral,name)
 
                 sd=spatial_model.center
