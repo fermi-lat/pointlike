@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Oct  2 12:15:30 PDT 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+better reading/writing of extended source spatial models
+    *
+------------------------------------------------------------
 User: lande  Mon Oct  1 15:24:42 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
