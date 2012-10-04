@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Oct  4 14:21:07 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_printing.py 
+Log Message:
+fix newline
+    *
+------------------------------------------------------------
 User: lande  Tue Oct  2 12:15:30 PDT 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
