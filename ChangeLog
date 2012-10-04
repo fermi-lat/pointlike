@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Oct  4 14:51:39 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	mapplots.py 
+Log Message:
+bugfix for color scale of psf inset
+    *
+------------------------------------------------------------
 User: lande  Thu Oct  4 14:21:22 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
