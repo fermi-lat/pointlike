@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.58 2012/09/12 07:27:08 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.59 2012/09/30 16:57:31 lande Exp $
 
     author: Matthew Kerr
     """
@@ -14,6 +14,8 @@ import os
 from abc import abstractmethod
 from uw.utilities import keyword_options
 from uw.utilities import path
+
+class PointlikeException(Exception): pass
 
 class PointSource(object):
     """ combine name, skydir, model """
