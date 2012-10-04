@@ -74,8 +74,7 @@ class ROIMapPlotter(object):
 
         self.axes = ax = axes
 
-        kwargs = self.imshow_kwargs()
-        im = ax.imshow(d, interpolation='nearest', origin="lower", **kwargs)
+        im = ax.imshow(d, interpolation='nearest', origin="lower", **self.imshow_kwargs())
 
         ax.axis[:].set_zorder(100)
 
@@ -446,7 +445,7 @@ class ROISmoothedSources(ROIMapPlotter):
                               axes_kwargs=dict(wcs=h_psf))
 
             # Note, match color maps with parent.
-            axins.imshow(d_psf, cmap=self.cmap, origin="lower")
+            axins.imshow(d_psf, origin="lower", **self.imshow_kwargs())
             axins.axis[:].set_zorder(100)
             axins.axis[:].toggle(all=False)
             axins.axis[:].line.set_color('white')
