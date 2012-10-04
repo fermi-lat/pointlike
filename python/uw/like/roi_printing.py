@@ -1,6 +1,6 @@
 """
 Implementation of various roi printing
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_printing.py,v 1.8 2011/06/25 02:28:59 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_printing.py,v 1.9 2012/10/01 05:23:51 lande Exp $
 """
 import os, math
 import numpy as N
@@ -66,7 +66,7 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
         print indent,fmt % values
         
     print indent,90*'-'
-    print indent,'\tDiffuse sources\n'
+    print indent,'\tDiffuse sources'
     print indent,90*'-'
     for source in self.bgm.diffuse_sources:
         if  'spatial_model' in source.__dict__: continue
