@@ -1,11 +1,12 @@
-"""  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
-     relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
-     class.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.45 2012/04/03 02:27:06 lande Exp $
+""" A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
+    relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
+    class.
+
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.46 2012/07/16 16:44:08 lande Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.45 $'.split()[1]
+version='$Revision: 1.46 $'.split()[1]
 import types
 import os
 from os.path import join
@@ -15,20 +16,22 @@ import collections
 from glob import glob
 from datetime import date,timedelta
 
-from pixeldata import PixelData
-from pypsf     import Psf,CALDBPsf
-from pycaldb   import CALDBManager
-from pointspec_helpers import *
-from roi_managers import ROIPointSourceManager,ROIBackgroundManager,ROIDiffuseManager
-from roi_analysis import ROIAnalysis
-from roi_extended import ExtendedSource,ROIExtendedModel
+from . pixeldata import PixelData
+from . pypsf     import Psf,CALDBPsf
+from . pycaldb   import CALDBManager
+from . pointspec_helpers import get_default_diffuse_mapper,PointlikeException,PointSource, ExposureManager
+from . roi_catalogs import PointSourceCatalog
+from . roi_managers import ROIPointSourceManager,ROIBackgroundManager,ROIDiffuseManager
+from . roi_analysis import ROIAnalysis
+from . roi_extended import ExtendedSource,ROIExtendedModel
 from . roi_diffuse import DiffuseSource
+
 from uw.utilities.fitstools import merge_bpd,merge_lt
 from uw.utilities.fermitime import MET,utc_to_met
 from uw.utilities.utils import get_data
 from uw.utilities import keyword_options
 from uw.utilities import path
-import numpy as N
+from uw.utilities.xml_parsers import parse_sources
 
 class DataSpecification(object):
     """ Specify the data to use for an analysis."""
@@ -59,18 +62,18 @@ class DataSpecification(object):
 
         keyword_options.process(self, kwargs)
 
-        if self.binfile is None: raise Exception("binfile must be specified.")
-        if self.ltcube is None: raise Exception("ltcube must be specified.")
+        if self.binfile is None: raise PointlikeException("binfile must be specified.")
+        if self.ltcube is None: raise PointlikeException("ltcube must be specified.")
             
         self.binfile = path.expand(self.binfile)
         self.ltcube = path.expand(self.ltcube)
 
         if self.ft1files is None and not os.path.exists(self.binfile):
-            raise Exception,'An FT1 file must be specified if the binfile does not exist.'
+            raise PointlikeException('An FT1 file must be specified if the binfile does not exist.')
 
         ltfile_exists = self.ltcube is not None and os.path.exists(self.ltcube)
         if self.ft2files is None and not ltfile_exists:
-            raise Exception,'No FT2 or livetime file provided! Must pass at least one of these.'
+            raise PointlikeException('No FT2 or livetime file provided! Must pass at least one of these.')
 
         # If string, expand it out
         if isinstance(self.ft1files,types.StringType):
@@ -87,71 +90,6 @@ class DataSpecification(object):
         else:
             self.ft2files = map(path.expand,self.ft2files)
 
-
-class SavedData(DataSpecification):
-    """Specify saved daily data files to use for analysis.
-
-    Current implementation assumes that the specified directory has subfolders
-    named 'daily','weekly', and 'monthly', each with subfolders 'bpd' and 'lt',
-    containing BinnedPhotonData and LivetimeCube files, respectively.  It looks
-    for filenames of the format 'timescale_yyyymmdd_type.fits', where timescale
-    is one of 'day', 'week', or 'month', and type is one of '#bpd' or 'lt' (the
-    # in the bpd filename is the number of bins per decade).  The yyyymmdd is
-    the date of the first day the file covers (UTC); in the monthly case, the
-    dd is dropped. So, for example, the BinnedPhotonData for Nov 6, 2009, with
-    4 bins/decade, is daily/bpd/day_20091106_4bpd.fits, the BinnedPhotonData
-    for the week beginning May 10, 2010, with 8 bins/decade,  is
-    weekly/bpd/week_20100510_8bpd.fits, and the livetime for the month of
-    December 2008 is monthly/lt/month_200812_lt.fits.
-
-    **Parameters**
-
-    tstart: Starting time for the analysis in MET.  Note that if this is not
-            the beginning of a day, the data for the full day containing tstart
-            will be used.
-    tstop: Ending time for the analysis in MET.  As with tstart, if it is not
-           at a boundary between days, the data for the full day containing
-           tstop will be used.
-    """
-    try:
-        default_data_dir = os.environ['DATA_DIR']
-    except KeyError:
-        default_data_dir = ''
-
-    new_defaults = (('data_dir',default_data_dir,'path to the saved data products')
-               ,('use_weighted_livetime',False,'''Specify whether to get
-                  the weighted livetimes.''')
-               ,('binsperdec',4,'''Bins per decade for the
-                  BinnedPhotonData files.''')
-               )
-    defaults = DataSpecification.defaults + new_defaults
-
-    @keyword_options.decorate(defaults)
-    def __init__(self,tstart,tstop,**kwargs):
-
-        keyword_options.process(self,kwargs)
-
-        if self.data_dir =='' or not os.path.exists(self.data_dir):
-            raise Exception("""No valid data directory provided. Either the DATA_DIR environment
-                               variable or the data_dir keyword argument must point to a valid 
-                               directory.""")
-
-        if not (os.path.exists(str(self.binfile)) and os.path.exists(str(self.ltcube))):
-            tstart = self.tstart if self.tstart else utc_to_met(2008,8,4)
-            tstop = self.tstop if self.tstop else utc_to_met(*date.today().timetuple()[:6])
-            bpds,lts = get_data(tstart,tstop,data_dir=self.data_dir)
-            start_date = MET(tstart).time
-            stop_date = MET(tstop).time
-            start_date = start_date.year*10000+start_date.month*100+start_date.day
-            stop_date = stop_date.year*10000+stop_date.month*100+stop_date.day
-            if not self.binfile:
-                self.binfile = '%i-%i_%ibpd.fits'%(start_date,stop_date,self.binsperdec)
-            if not self.ltcube:
-                self.ltcube = '%i-%i_lt.fits'%(start_date,stop_date)
-            if not os.path.exists(self.binfile):
-                merge_bpd(bpds,self.binfile)
-            if not os.path.exists(self.ltcube):
-                merge_lt(lts,self.ltcube,weighted = self.use_weighted_livetime)
 
 class SpectralAnalysis(object):
     """ Interface to the spectral analysis code."""
@@ -221,11 +159,49 @@ class SpectralAnalysis(object):
 
         self.psf.set_weights(self.ltcube,skydir)
 
+    def get_sources(self, roi_dir, point_sources=[], diffuse_sources=[],
+                    xmlfile=None, diffdir=None,
+                    catalogs = [],
+                    include_radius = None):
+        """ Create a list of PointSource and ROIDiffuseModel objects
+            that are needed for the ROI. """
+
+        for ps in point_sources: 
+            if not isinstance(ps, PointSource):
+                raise PointlikeException("Source %s is not a point source" % ps.name)
+        if diffuse_sources is not None:
+            for ds in diffuse_sources:
+                if not isinstance(ds, DiffuseSource):
+                    raise PointlikeException("Source %s is not a diffuse source" % ds.name)
+
+        if xmlfile is not None:
+            ps,ds = parse_sources(xmlfile,diffdir=diffdir, roi_dir=roi_dir,
+                                  max_roi=self.maxROI+5 if include_radius is None else include_radius)
+            point_sources += ps; diffuse_sources += ds
+
+        if not isinstance(catalogs,collections.Iterable) or \
+                isinstance(catalogs,types.StringType): catalogs = [catalogs]
+        for cat in catalogs:
+            if not isinstance(cat,PointSourceCatalog):
+                raise PointlikeException("Catalog %s must be of type PointSourceCatalog" % cat)
+
+            point_sources,diffuse_sources = cat.merge_lists(roi_dir,
+                    self.maxROI+5 if include_radius is None else include_radius,
+                    point_sources,diffuse_sources)
+
+        if point_sources == [] and not self.quiet:
+            print 'WARNING!  No point sources are included in the model.'
+        if diffuse_sources == [] and not self.quiet:
+            print 'WARNING!  No diffuse sources are included in the model.'
+
+        return point_sources, diffuse_sources
+
+
     def roi(self, roi_dir = None,
-                  point_sources = [], catalogs = [], catalog_mapper = None,
-                  diffuse_sources = [], diffuse_mapper = None,
-                  catalog_include_radius = None,
-                  **kwargs):
+            point_sources = [], diffuse_sources = [],
+            xmlfile=None, diffdir=None,
+            catalogs = [], include_radius = None,
+            **kwargs):
         """
         return an ROIAnalysis object
 
@@ -240,10 +216,13 @@ class SpectralAnalysis(object):
 
         point_sources    [[]] a list of PointSource objects to merge with a Catalog list
 
+        xmlfile          The full path to a gtlike-style XML file giving the
+                         source model for the ROI.
+
+        diffdir          [None] An optional path if the files necessary for 
+                         diffuse sources are specified relative to this path.
+
         catalogs         [[]] a list of PointSourceCatalog objects or strings;
-                         ***IF they are strings, they will be interpreted by the
-                            catalog_mapper.  If this argument is not set, the
-                            strings will be interpreted as Fermi-compatible catalogs.
                          ***
                          Catalogs  are processed sequentially;
                          if duplicate objects are found (as defined within
@@ -262,23 +241,13 @@ class SpectralAnalysis(object):
                          by setting the roi_dir element of this object.
                          ***************************************
 
-        catalog_mapper   [None] a function or instance of a class (via __call__)
-                         that takes a single argmument, a filename (including
-                         path), and returns an object implementing the
-                         PointSourceCatalog interface.
-
         diffuse_sources  [[]] a list of DiffuseSources; if an empty list, the
                          system tries to assemble a sensible default using the GLAST_EXT
                          environment variable. If None, no diffuse sources are used
                          (this is probably only useful for MC testing).
 
-        diffuse_mapper   [None] a function or instance of a class (via __call__)
-                         which takes two arguments, a DiffuseSource and the ROI
-                         center, and returns an object implementing the
-                         ROIDiffuseModel interface.  If None, the system uses
-                         the default, an on-the-fly numerical convolution.
-        catalog_include_radius [None] The radius within which all catalog sources are 
-                         included. The default is 5 degrees larger than maxROI
+        include_radius [None] The radius within which all catalog sources and XML sources
+                         are included. The default is 5 degrees larger than maxROI
 
         Optional Keyword Arguments:
             ==========   =============
@@ -287,85 +256,36 @@ class SpectralAnalysis(object):
             fit_emin     [125,125] minimum energies (separate for front and back) to use in spectral fitting.
             fit_emax     [1e5,1e5] maximum energies (separate for front and back) to use in spectral fitting.
             conv_type    [-1] conversion type selection (0 for front, 1 for back, -1 for all)
-            diffdir      [None] a directory to look for the default diffuse models (e.g. gll_iem_v02.fit)
             ==========   =============
         """
 
         # process kwargs
-        diffdir = None
-        if kwargs.has_key('diffdir'): diffdir = kwargs.pop('diffdir')
         if not kwargs.has_key('quiet'): kwargs['quiet']=self.quiet 
         if not kwargs.has_key("conv_type"): kwargs['conv_type'] = self.conv_type
         # determine ROI center
         if roi_dir is None:
             roi_dir = self.roi_dir if hasattr(self,'roi_dir') else point_sources[0].skydir
         if roi_dir is None:
-            raise Exception,'User must provide an ROI direction!  (See docstring.)'
+            raise PointlikeException('User must provide an ROI direction!  (See docstring.)')
 
         # set the PSF for the ROI center (important that this happens first)
         self.set_psf_weights(roi_dir)
+        # instantiate and return ROIAnalysis object
 
-        for ps in point_sources: 
-            if not isinstance(ps, PointSource):
-                raise Exception("Source %s is not a point source" % ps.name)
-        if diffuse_sources is not None:
-            for ds in diffuse_sources:
-                if not isinstance(ds, DiffuseSource):
-                    raise Exception("Source %s is not a diffuse source" % ds.name)
+        point_sources, diffuse_sources = self.get_sources(roi_dir=roi_dir,
+                                                          point_sources=point_sources, 
+                                                          diffuse_sources=diffuse_sources,
+                                                          xmlfile=xmlfile, diffdir=diffdir, 
+                                                          catalogs=catalogs, include_radius=include_radius)
 
-        # process point sources
-        if catalog_mapper is None:
-            catalog_mapper = lambda x: FermiCatalog(x)
-
-        if not isinstance(catalogs,collections.Iterable) or \
-                isinstance(catalogs,types.StringType): catalogs = [catalogs]
-        for cat in catalogs:
-            if not isinstance(cat,PointSourceCatalog):
-                cat = catalog_mapper(cat)
-            point_sources,diffuse_sources = cat.merge_lists(roi_dir,
-                    self.maxROI+5 if catalog_include_radius is None else catalog_include_radius,
-                    point_sources,diffuse_sources)
-        if point_sources == [] and not self.quiet:
-            print 'WARNING!  No point sources are included in the model.'
-
-        # process diffuse models
-        if diffuse_sources is not None and len(diffuse_sources) == 0:
-            # try to use default
-            diffuse_sources = get_default_diffuse(diffdir=diffdir)
-            if len(diffuse_sources) == 0 and not self.quiet:
-                print 'WARNING!  No diffuse sources are included in the model.'
-        if diffuse_mapper is None:
-            diffuse_mapper = get_default_diffuse_mapper(self,roi_dir,self.quiet)
-
+        diffuse_mapper = get_default_diffuse_mapper(self,roi_dir,self.quiet)
         diffuse_models = [diffuse_mapper(ds) for ds in diffuse_sources]  if diffuse_sources is not None else []
 
-        # instantiate and return ROIAnalysis object
         psm = ROIPointSourceManager(point_sources,roi_dir,quiet=self.quiet)
         dsm = ROIDiffuseManager(diffuse_models,roi_dir,quiet=self.quiet)
         return ROIAnalysis(roi_dir,psm,dsm,self,**kwargs)
 
-    def roi_from_xml(self,roi_dir,xmlfile,diffdir=None,*args,**kwargs):
-        """
-        return an ROIAnalysis object with a source model specified by
-        a gtlike-style XML file.
-
-        Arguments:
-
-        roi_dir          A SkyDir giving the center of the ROI.
-
-        xmlfile          The full path to a gtlike-style XML file giving the
-                         source model for the ROI.
-
-        diffdir          [None] An optional path if the files necessary for 
-                         diffuse sources are specified relative to this path.
-
-        Optional Arguments and Keyword Arguments:
-            see docstring for SpectralAnalysis.roi
-        """
-        from uw.utilities.xml_parsers import parse_sources
-        ps,ds = parse_sources(xmlfile,diffdir=diffdir,roi_dir=roi_dir,max_roi=self.maxROI+5)
-        return self.roi(roi_dir=roi_dir,point_sources=ps,diffuse_sources=ds,
-                        *args,**kwargs)
+    roi_from_xml = roi
 
 
     def __str__(self):
