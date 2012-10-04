@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Oct  4 14:21:22 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pointspec.py pointspec_helpers.py roi_monte_carlo.py 
+Log Message:
+refactor pointspec code
+    *
+------------------------------------------------------------
 User: lande  Thu Oct  4 14:21:07 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
