@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Thu Oct  4 17:48:27 PDT 2012
+pointlike/python/uw/like
+
+Modified Files:
+	pypsf.py 
+Log Message:
+Clean up parameter reading, add a bit of documentation.
+
+    *
+------------------------------------------------------------
 User: lande  Thu Oct  4 14:51:39 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
