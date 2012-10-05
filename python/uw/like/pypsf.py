@@ -2,7 +2,7 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.26 2011/05/06 21:53:12 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.27 2011/11/28 22:27:40 kerrm Exp $
 author: M. Kerr
 
 """
@@ -92,27 +92,46 @@ class CALDBPsf(Psf):
     """Handle reading in the parameters from CALDB for multiple formats and implement the PSF functions."""
 
     def __read_params__(self):        
+        """ Set up the internal tables of PSF parameters."""
 
-        h          = self.CALDBhandles # a tuple with handles to front and back CALDB
-        ne,nc     = len(self.e_los),len(self.c_his)
+        h = self.CALDBhandles # tuple with handles to front and back CALDB
+        ne,nc = len(self.e_los),len(self.c_his)
         self.newstyle = 'SCORE' in [x.name for x in h[0][1].get_coldefs()]
+
+        def proc(ct,pname):
+            """ Return the parameters from CALDB for conversion type
+                ct, and alter shape to match internal representation.
+            """
+            t = np.reshape(h[ct][1].data.field(pname),[nc,ne])
+            return t.transpose()[:,::-1]
 
         if self.newstyle:
 
-            tables = [[1./(1+np.reshape(h[i][1].data.field('NTAIL'),[nc,ne]).transpose()[:,::-1]),
-                          np.reshape(h[i][1].data.field('NTAIL'),[nc,ne]).transpose()[:,::-1]/(1+np.reshape(h[i][1].data.field('NTAIL'),[nc,ne]).transpose()[:,::-1]),
-                          np.reshape(h[i][1].data.field('GCORE'),[nc,ne]).transpose()[:,::-1],
-                          np.reshape(h[i][1].data.field('GTAIL'),[nc,ne]).transpose()[:,::-1],
-                          np.reshape(h[i][1].data.field('SCORE'),[nc,ne]).transpose()[:,::-1],
-                          np.reshape(h[i][1].data.field('STAIL'),[nc,ne]).transpose()[:,::-1]] for i in [0,1]]
+            # NB -- these follow the "P6" scheme where the psf is
+            # nc*fc + nc*nt*ft, and I normalize so that nc = 1/(1+nt)
+            # and pre-multiply nc*nt in the parmaeters below
+            self.tables = np.asarray([
+                      [1./(1+proc(ct,'NTAIL')), #NCORE = 1/(1+NTAIL)
+                       proc(ct,'NTAIL')/(1+proc(ct,'NTAIL')), #NCORE*NTAIL
+                       proc(ct,'GCORE'),
+                       proc(ct,'GTAIL'),
+                       proc(ct,'SCORE'),
+                       proc(ct,'STAIL')
+                      ] for ct in [0,1]])
 
         else:
-            tables = [[np.reshape(h[i][1].data.field('GCORE'),[nc,ne]).transpose()[:,::-1],
-                          np.reshape(h[i][1].data.field('SIGMA'),[nc,ne]).transpose()[:,::-1]] for i in [0,1]]
-
-        self.tables  = np.asarray(tables)
+            self.tables = np.asarray([
+                     [proc(ct,'GCORE'),
+                      proc(ct,'SIGMA')
+                     ] for ct in [0,1]])
 
     def __call__(self,e,ct,delta, scale_sigma=True, density = False):
+        """ Return the psf at the specified energy, for events
+            with conversion type ct, at a remove of delta RADIANS.
+
+            scale_sigma -- apply the energy prescaling
+            density -- divide by "jacobian" to turn into photon density
+        """
         sf = self.scale_func[ct](e) if scale_sigma else 1
         if self.newstyle:
             nc,nt,gc,gt,sc,st,w = self.get_p(e,ct)
