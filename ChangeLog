@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Fri Oct  5 18:00:36 PDT 2012
+pointlike/python/uw/like
+
+Modified Files:
+	pypsf.py 
+Log Message:
+Implement P7 normalization of PSF.
+
+    *
+------------------------------------------------------------
 User: lande  Fri Oct  5 17:06:55 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
