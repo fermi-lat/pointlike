@@ -1,7 +1,7 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.25 2012/07/16 16:44:09 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.26 2012/08/03 17:30:51 lande Exp $
 
 author: Joshua Lande
 """
@@ -17,7 +17,7 @@ import pyfits
 from skymaps import SkyDir
 
 from . SpatialModels import Disk,EllipticalDisk,Gaussian,EllipticalGaussian,SpatialMap
-from . Models import PowerLaw,PowerLawFlux,LogParabola,ExpCutoff
+from . Models import PowerLaw,PowerLawFlux,LogParabola,ExpCutoff,PLSuperExpCutoff
 from . roi_extended import ExtendedSource
 from uw.utilities import keyword_options
 from uw.utilities.parmap import LogMapper,LimitMapper
@@ -157,8 +157,8 @@ class FermiCatalog(SourceCatalog):
         return merged_list,user_diffuse_list
 
 
+class BaseCatalog2FGL(SourceCatalog):
 
-class Catalog2FGL(SourceCatalog):
     """ Catalog format suitable only for 2FGL.
 
         This object is designed only to open the 2FGL catalog file
@@ -220,23 +220,14 @@ class Catalog2FGL(SourceCatalog):
         pens      = point.field('PIVOT_ENERGY')
         n0s       = point.field('FLUX_DENSITY')
         inds      = point.field('SPECTRAL_INDEX')
-        names     = point.field('SOURCE_NAME')
-        extended_source_names = point.field('EXTENDED_SOURCE_NAME')
         f1000s     = point.field('FLUX1000')
         cutoffs   = point.field('CUTOFF')
         betas     = point.field('BETA')
         stypes    = point.field('SPECTRUMTYPE')
         f.close()
 
-        #self.names = names = np.char.strip(names)
-        self.names = names = np.asarray([x.strip() for x in names])
-
-        # not sure why there is the naming inconsistency
-        self.extended_source_names = extended_source_names = np.asarray([x.strip().replace(' ','') for x in extended_source_names])
-
-        self.extendeds = extendeds = (self.extended_source_names != '')
-        self.names[self.extendeds] = self.extended_source_names[self.extendeds]
-
+        # extended => is extended
+        self.names, self.extendeds = self.kluge_names_extended(point)
 
         dirs = map(SkyDir,np.asarray(ras).astype(float),np.asarray(decs).astype(float))
 
@@ -245,7 +236,7 @@ class Catalog2FGL(SourceCatalog):
 
         # This is for the new 2FGL style catalogs
         for name,extended,stype,n0,ind,pen,cutoff,beta,f1000,dir in \
-                zip(names,extendeds,stypes,n0s,inds,pens,cutoffs,betas,f1000s,dirs):
+                zip(self.names,self.extendeds,stypes,n0s,inds,pens,cutoffs,betas,f1000s,dirs):
 
             if stype == 'PowerLaw':
                 # note, np.isinf incorrectly raises annoying warning
@@ -254,14 +245,18 @@ class Catalog2FGL(SourceCatalog):
                 if n0 not in [-np.inf, np.inf]:
                     model=PowerLaw(norm=n0, index=ind, e0=pen)
                 else:
-                    # For some reason, the fixed extended sources don't have n0 set.
-                    # So create the source from the f1000 value.
+                    # For some reason, in 2FGL the fixed extended sources don't 
+                    # have n0 set. So create the source from the f1000 value.
                     model=PowerLawFlux(int_flux=f1000, index=ind, emin=1e3, emax=1e5)
+            elif stype == 'PowerLaw2':
+                model=PowerLawFlux(int_flux=f1000, index=ind, emin=1e3, emax=1e5)
             elif stype == 'LogParabola':
                 model=LogParabola(norm=n0, index=ind, beta=beta, e_break=pen)
                 model.freeze('e_break')
             elif stype == 'PLExpCutoff':
                 model=ExpCutoff(norm=n0, index=ind, cutoff=cutoff, e0=pen)
+            elif stype == 'PLSuperExpCutoff':
+                model=PLSuperExpCutoff(norm=n0, index=ind, cutoff=cutoff, e0=pen)
             else:
                 raise Exception("Unkown spectral model %s for source %s" % (stype,name))
 
@@ -319,7 +314,7 @@ class Catalog2FGL(SourceCatalog):
                     self.extended_models.append(
                         EllipticalGaussian(p=[major/Gaussian.x68,minor/Gaussian.x68,posang],center=center))
             else:
-                self.extended_models.append(SpatialMap(file=os.path.join('$LATEXTDIR',template)))
+                self.extended_models.append(SpatialMap(file=self.kluge_template_to_file_name(template)))
 
             # remember the fits file template in case the XML needs to be saved out.
             # (for gtlike compatability)
@@ -409,6 +404,47 @@ class Catalog2FGL(SourceCatalog):
 
         return user_point_list,user_extended_list+user_background_list
 
+
+class Catalog2FGL(BaseCatalog2FGL):
+    """ The 2FGL and 3Y catalog are slightly different. """
+    
+    @staticmethod
+    def kluge_names_extended(point):
+        names     = point.field('SOURCE_NAME')
+        names = np.asarray([x.strip() for x in names])
+        extended_source_names = point.field('EXTENDED_SOURCE_NAME')
+        # not sure why there is the naming inconsistency
+        extended_source_names = np.asarray([x.strip().replace(' ','') for x in extended_source_names])
+
+        extendeds = (extended_source_names != '')
+        names[extendeds] = extended_source_names[extendeds]
+
+        return names, extendeds
+
+    @staticmethod
+    def kluge_template_to_file_name(template):
+        return os.path.join('$LATEXTDIR',template)
+    
+class Catalog3Y(BaseCatalog2FGL):
+
+    @staticmethod
+    def kluge_names_extended(point):
+        names = point.field('NickName')
+        names = names = np.asarray([x.strip() for x in names])
+        extendeds = point.field('EXTENDED')
+        return names, extendeds
+
+    @staticmethod
+    def kluge_template_to_file_name(template):
+
+        # for some reason, Extended_Archive_v12 is inconsistent
+        if 'RXJ1713_hess.fits' in template:
+            return template.replace('RXJ1713_hess.fits','RXJ1713.fits')
+        elif 'S147_Halpha.fits' in template:
+            return template.replace('S147_Halpha.fits','S147.fits')
+            pass
+        else:
+            return template
 
 class ExtendedSourceCatalog(SourceCatalog):
     """ Object to read in spatially extended sources from Elizabeth Ferrara suggested
