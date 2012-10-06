@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Oct  5 17:06:55 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_catalogs.py 
+Log Message:
+Add support for 3Y catalog
+    *
+------------------------------------------------------------
 User: kerrm  Thu Oct  4 17:48:27 PDT 2012
 pointlike/python/uw/like
 
