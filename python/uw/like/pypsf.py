@@ -2,7 +2,7 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.27 2011/11/28 22:27:40 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.28 2012/10/05 00:48:27 kerrm Exp $
 author: M. Kerr
 
 """
@@ -22,6 +22,7 @@ def scale_factor(e,c0,c1,exp):
 TWOPI = (2*np.pi)
 RAD2DEG = 180./np.pi
 DEG2RAD = np.pi/180
+USEP7 = True
 
 class Psf(object):
 
@@ -106,18 +107,45 @@ class CALDBPsf(Psf):
             return t.transpose()[:,::-1]
 
         if self.newstyle:
+            try:
+                p7 = 'P7' in h[0][1].header['CBD20001']
+            except KeyError:
+                p7 = False
+            if not USEP7:
+                p7 = False
 
-            # NB -- these follow the "P6" scheme where the psf is
-            # nc*fc + nc*nt*ft, and I normalize so that nc = 1/(1+nt)
-            # and pre-multiply nc*nt in the parmaeters below
-            self.tables = np.asarray([
-                      [1./(1+proc(ct,'NTAIL')), #NCORE = 1/(1+NTAIL)
-                       proc(ct,'NTAIL')/(1+proc(ct,'NTAIL')), #NCORE*NTAIL
-                       proc(ct,'GCORE'),
-                       proc(ct,'GTAIL'),
-                       proc(ct,'SCORE'),
-                       proc(ct,'STAIL')
-                      ] for ct in [0,1]])
+            if not p7:
+                # NB -- these follow the "P6" scheme where the psf is
+                # nc*fc + nc*nt*ft, and I normalize so that nc = 1/(1+nt)
+                # and pre-multiply nc*nt in the parmaeters below
+                print 'Using legacy definition of psf.'
+                self.tables = np.asarray([
+                          [1./(1+proc(ct,'NTAIL')), #NCORE = 1/(1+NTAIL)
+                           proc(ct,'NTAIL')/(1+proc(ct,'NTAIL')), #NCORE*NTAIL
+                           proc(ct,'GCORE'),
+                           proc(ct,'GTAIL'),
+                           proc(ct,'SCORE'),
+                           proc(ct,'STAIL')
+                          ] for ct in [0,1]])
+            else:
+                # these follow the convention where the psf is
+                # nc*fc + (1-nc)*ft, and nc = 1/(1+NTAIL*STAIL^2/SCORE^2)
+                print 'Using P7 definition of psf.'
+                self.tables = np.empty([2,6]+list(proc(0,'NTAIL').shape))
+                for ct in [0,1]:
+                    print ct
+
+                    ntail = proc(ct,'NTAIL')
+                    score = proc(ct,'SCORE')
+                    stail = proc(ct,'STAIL')
+                    normc = 1./(1+ntail*score**2/stail**2)
+                    self.tables[ct,...] = np.asarray([
+                          normc,
+                          1-normc,
+                          proc(ct,'GCORE'),
+                          proc(ct,'GTAIL'),
+                          score,
+                          stail])
 
         else:
             self.tables = np.asarray([
