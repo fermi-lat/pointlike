@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Oct  9 06:08:42 PDT 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	pipe.py 
+Log Message:
+remove annoying pring
+    *
+------------------------------------------------------------
 User: kerrm  Mon Oct  8 18:19:53 PDT 2012
 pointlike/python/uw/like
 
