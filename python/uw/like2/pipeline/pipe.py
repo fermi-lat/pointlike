@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.21 2012/09/21 01:38:46 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.22 2012/09/27 14:23:18 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
@@ -8,6 +8,7 @@ import numpy as np
 from . import processor,  engines, associate
 from .. import main, roisetup, skymodel
 from uw.like import Models 
+from uw.utilities import makerec
 
 class Pipe(roisetup.ROIfactory):
     """ This is a subclass of ROIfactory,
@@ -308,7 +309,7 @@ def check_converge(month, tol=10, add_neighbors=True, log=None):
     from pointlike import IntVector
     from skymaps import Band
     outdir = 'month%02d'%month if type(month)==types.IntType else month
-    print '%s:' %outdir
+    #print '%s:' %outdir
     r = roirec(outdir)
     if r is None: return
     diff = r.loglike-r.prevlike
