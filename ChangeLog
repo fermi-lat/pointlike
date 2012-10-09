@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Oct  8 18:19:53 PDT 2012
+pointlike/python/uw/like
+
+Modified Files:
+	pypsf.py 
+Log Message:
+Adjust psf parameters to (hopefully) agree with CALDB definition...
+
+    *
+------------------------------------------------------------
 User: kerrm  Fri Oct  5 18:00:36 PDT 2012
 pointlike/python/uw/like
 
