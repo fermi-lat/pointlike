@@ -113,6 +113,7 @@ class CALDBPsf(Psf):
                 p7 = False
             if not USEP7:
                 p7 = False
+            #p7 = True
 
             if not p7:
                 # NB -- these follow the "P6" scheme where the psf is
@@ -133,15 +134,13 @@ class CALDBPsf(Psf):
                 print 'Using P7 definition of psf.'
                 self.tables = np.empty([2,6]+list(proc(0,'NTAIL').shape))
                 for ct in [0,1]:
-                    print ct
-
-                    ntail = proc(ct,'NTAIL')
                     score = proc(ct,'SCORE')
                     stail = proc(ct,'STAIL')
-                    normc = 1./(1+ntail*score**2/stail**2)
+                    ncore = proc(ct,'NCORE')*2*np.pi*score**2
+                    ntail = proc(ct,'NTAIL')*2*np.pi*stail**2
                     self.tables[ct,...] = np.asarray([
-                          normc,
-                          1-normc,
+                          1./(1+ntail),
+                          ntail,
                           proc(ct,'GCORE'),
                           proc(ct,'GTAIL'),
                           score,
