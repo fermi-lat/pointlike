@@ -136,6 +136,8 @@ class ROIMapPlotter(object):
     def overlay_source(source, ax, 
                        white_edge=True,
                        label_sources=False, 
+                       text_color='black',
+                       text_white_edge=False,
                        **kwargs
                       ):
 
@@ -162,9 +164,11 @@ class ROIMapPlotter(object):
 
         if label_sources: 
             txt=ax["gal"].annotate(source.name, (l,b), 
-                    ha='center', va='top',
-                    xytext=(0,markersize), textcoords='offset points')
-            if white_edge: set_path_effects(txt,foreground="w", linewidth=2)
+                                   ha='center', va='top',
+                                   color=text_color,
+                                   xytext=(0,1.5*all_kwargs['markersize']), textcoords='offset points')
+            if text_white_edge: 
+                set_path_effects(txt,foreground="w", linewidth=2)
 
     @staticmethod
     def overlay_extensions(roi, **kwargs):
