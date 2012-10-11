@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Oct 11 13:23:16 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	mapplots.py 
+Log Message:
+update label_sources flag
+    *
+------------------------------------------------------------
 User: burnett  Tue Oct  9 06:08:42 PDT 2012
 pointlike/python/uw/like2/pipeline
 
