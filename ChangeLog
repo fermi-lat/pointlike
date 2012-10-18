@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Oct 18 11:25:09 PDT 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	main.py 
+Log Message:
+add poisson_likelihood method to return Poisson object
+    *
+------------------------------------------------------------
 User: burnett  Thu Oct 18 11:23:48 PDT 2012
 pointlike/python/uw/like2
 
