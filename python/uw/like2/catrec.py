@@ -1,6 +1,6 @@
 """
 Support for generating output files
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/catrec.py,v 1.5 2012/06/24 04:52:29 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/catrec.py,v 1.6 2012/09/29 16:05:12 burnett Exp $
 """
 import os, glob, types, zipfile
 import cPickle as pickle
@@ -233,8 +233,35 @@ def create_catalog(outdir, **kwargs):
             failed +=1
     print 'read %d entries from %s (%d failed)' % (len(filelist),outdir,failed)
     for r,name in ((crec, 'sources'), (drec, 'rois')):
-        fname = '%s_%s.rec'%(name, outdir) if not save_local else '%s/%s.rec' % (outdir, name)
+        fname = '%s_%s.rec'%( outdir,name) if not save_local else '%s/%s.rec' % (outdir, name)
         rec = r()
         pickle.dump(rec, open(fname,'wb'))
         print 'saved %d entries to pickle file %s' % (len(rec), fname)
         
+class ZipOpener(object):
+    """
+        manage a set of files associated with a model
+    """
+    def __init__(self, outdir, name='pickle'):
+        self.name = name
+        if os.path.exists(os.path.join(outdir, name+'.zip')):
+            self.pzip = zipfile.ZipFile(os.path.join(outdir, name+'.zip'))
+            self.opener = self.pzip.open
+        else:
+            assert os.path.exists(os.path.join(outdir,name)), 'folder %s not found under %s' %(name,outdir)
+            #self.files = sorted(glob.glob(os.path.join(outdir, name, '*.pickle')))
+            self.opener = open
+    def __call__(self, fname):
+        """ return the opened file, either from the folder or a zip of the same name"""
+        return self.opener(os.path.join(self.name,fname))
+        
+class FitSource(dict):
+    """ get flux information from the pickle """
+    def __init__(self, versionfolder):
+        self.pickle_opener = ZipOpener(versionfolder,'pickle')
+    def __call__(self, src):
+        """ for src, a recarray with hp12 and name entries, return the dictionary
+        """
+        p = pickle.load( self.pickle_opener('HP12_%04d.pickle'%src.hp12) )
+        return p['sources'][src.name]
+    
