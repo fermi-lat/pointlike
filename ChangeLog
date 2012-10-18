@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Oct 18 11:22:56 PDT 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	loglikelihood.py 
+Log Message:
+fix cumulative, inversecumulative functions of Poisson
+    *
+------------------------------------------------------------
 User: lande  Thu Oct 11 13:23:16 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
