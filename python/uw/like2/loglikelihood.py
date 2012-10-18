@@ -1,9 +1,9 @@
 """Tools for parametrizing log likelihood curves.
 
 Author(s): Eric Wallace, Matthew Kerr
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.6 2012/09/21 01:38:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.7 2012/09/27 14:23:18 burnett Exp $
 """
-__version__ = "$Revision: 1.6 $"
+__version__ = "$Revision: 1.7 $"
 
 import numpy as np
 from scipy import optimize, special, polyfit, stats
@@ -231,9 +231,7 @@ class Poisson(object):
         return f - const
 
     def __str__(self):
-        e = abs(self.p[1])
-        beta = e * abs(self.p[2])
-        mu =   e * self.p[0] + beta
+        e, beta, mu = self.altpars()
         return 'Poisson: mu,beta= %.0f, %.0f' %( mu, beta)
     @property
     def flux(self):
@@ -246,7 +244,14 @@ class Poisson(object):
     @property
     def ts(self):
         return 0 if self.flux<=0 else (self(self.flux)-self(0))*2.0
-        
+    
+    def altpars(self):
+        """ compute alternate parameters """
+        e = abs(self.p[1])
+        beta = e * abs(self.p[2])
+        mu =   e * self.p[0] + beta
+        return e,beta,mu
+    
     def find_delta(self,delta_logl=.5):
         """Find points where the function decreases by delta from the max"""
         smax = max(0,self.p[0])
@@ -272,34 +277,43 @@ class Poisson(object):
 
     def cdf(self, flux ):
         """ cumulative pdf, from flux=0, according to Bayes
-        uses incomplete gamma function for integrals
+        uses incomplete gamma function for integrals. (Note that the scipy function
+        is a regularized incomplete gamma function)
         """
-        e = abs(self.p[1])
-        beta = e * abs(self.p[2])
-        mu =   e * self.p[0] + beta
-        norm = 1-special.gammainc(mu+1, beta)
-        if norm< 1e-6 or beta>40:
-            # special case: assume simple exponential: happens if beta large
-            sig = self.errors[1]
-            return 1 - np.exp(-flux/(2*sig))
-        q = special.gammainc(mu+1, beta + e*flux )
-        return (q-1)/norm  +1.
+        e, beta, mu = self.altpars()
+        offset = special.gammainc(mu+1, beta) # Bayes offset if beta>0
+        return (special.gammainc(mu+1, beta+flux*e)-offset)/(1-offset)
+
+    def cdfc(self,flux):
+        """ complementary cumulative cdf: 1-cdf(flux)"""
+        e, beta, mu = self.altpars()
+        return special.gammaincc(mu+1, beta+flux*e)/special.gammaincc(mu+1, beta)
+
+    def cdfinv(self, pval):
+        """ return the inverse of the cdf 
+         pval : float
+        """
+        e,beta,mu = self.altpars()
+        gbar = lambda x : special.gammainc(mu+1, beta+x)
+        chatinv = lambda pv : special.gammaincinv(mu+1, pv+gbar(0)*(1-pv))-beta
+        return  chatinv(pval)/e
+        
+    def cdfcinv(self, pvalc): 
+        """ return the inverse of cdfc = 1-cdf
+        useful for limits with very low probablity
+        pvalc : float
+            1-pval: zero corresponds to infinite flux
+        """
+        e,beta,mu = self.altpars()
+        gcbar = lambda x : special.gammaincc(mu+1, beta+x)
+        #cchat = lambda x : gcbar(x)/gcbar(0)
+        cchatinv = lambda pv : special.gammainccinv( mu+1, pv*gcbar(0) )-beta
+        return cchatinv(pvalc)/e
 
     def percentile(self, limit=0.95):
-        """return percentile for given limit, default 95%"""
-        e = abs(self.p[1]) 
-        f = lambda x : self.cdf(x/e)-limit
-        try:
-            xmax = self.find_delta(6)[1]*e
-            if f(xmax)< 0:
-                return xmax/e #kluge!!
-                #raise Exception('bad percentile limit: %s' % f(xmax))
-            ret = optimize.brentq(f, 0, xmax) 
-            if abs(f(ret))>1e-2:
-                raise Exception('percentile failed fit: %s %.1f %.1f %.1e' % (self.p,ret, f(ret), xmax))
-            return ret/e
-        except:
-            return np.nan
+        """Left for compatibility: use cdfinv or cdfcinv
+        """
+        return self.cdfinv(limit)
         
     def pts(self):
         return 0 if self.flux<=0 else (self(self.flux)-self(0))*2.0
