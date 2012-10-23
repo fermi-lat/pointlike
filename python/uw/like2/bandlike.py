@@ -11,7 +11,7 @@ classes:
 functions:
     factory -- create a list of BandLike objects from bands and sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.15 2012/01/29 02:01:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.16 2012/06/24 04:52:29 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -50,7 +50,7 @@ class BandSource(object):
         if hasattr(self,'exposure_ratio'):
             print >>out, '\texposure ratio, overlap: %.3f %.3f'%( self.exposure_ratio, self.overlap)
         pc = self.pix_counts
-        print >>out, ('\tpixel counts: min, max, sum: '+3*'%8.1f') % ( pc.min(), pc.max(), pc.sum())
+        print >>out, ('\tpixel counts: min, max, sum: '+3*'%8.2f') % ( pc.min(), pc.max(), pc.sum())
         print >>out, '\ttotal counts %8.1f'%  self.counts 
 
     @property 
@@ -145,7 +145,7 @@ class BandDiffuse(BandSource):
         """ Update self.counts and self.pix_counts by multiplying by the value of the scaling spectral model
         """
         ### Note making exposure correction to model ###
-        scale = self.spectral_model(self.energy) #/ self.band.diffuse_correction
+        scale = self.spectral_model(self.energy) / self.band.diffuse_correction
         self.counts = self.ap_evals * scale
         if self.band.has_pixels:
             self.pix_counts = self.pixel_values * scale
@@ -158,7 +158,7 @@ class BandDiffuse(BandSource):
         apterm  = exposure_factor * self.ap_evals 
         pixterm = ( self.pixel_values * weights ).sum() if self.band.has_pixels else 0
         ### Note making exposure correction to model ###
-        return (apterm - pixterm) * model.gradient(self.energy)[model.free] #/ self.band.diffuse_correction
+        return (apterm - pixterm) * model.gradient(self.energy)[model.free] / self.band.diffuse_correction
  
 class BandExtended(BandPoint):
     """  Apply extended model to an ROIband
@@ -361,7 +361,10 @@ def factory(bands, sources, exposure, quiet=False):
     for i,band in enumerate(bands):
         ## note: adding attribute to each band for access by BandLike object if needed
         band.exposure_correction = exposure.correction[band.ct](band.e)
-        #band.diffuse_correction = exposure.correction[band.ct+2](band.e)
+        if len(exposure.correction)>2:
+            band.diffuse_correction = exposure.correction[band.ct+2](band.e)
+        else:
+            band.diffuse_correction =1.
         bandlist.append(BandLike(band, 
                     np.array( [bandsource_factory(band, source) for source in sources]),
                     sources.free, exposure)
