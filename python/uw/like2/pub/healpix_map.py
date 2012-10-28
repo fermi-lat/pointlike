@@ -1,6 +1,6 @@
 """
 Utilities for managing Healpix arrays
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.4 2012/06/24 04:54:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.5 2012/09/27 14:23:19 burnett Exp $
 """
 import os,glob,pickle, types, copy
 import pylab as plt
@@ -15,19 +15,26 @@ from uw.utilities import image
 
 class HParray(object):
     """ base class, implement a HEALPix array, provide AIT plot
+        callable with SkyDir 
     """
     def __init__(self, name, vec): 
         self.name=name
         self.vec = vec
         self.nside = int(np.sqrt(len(vec)/12))
-        assert len(self.vec)==12*self.nside**2, 'length of %s not consistent with HEALPix' % self.name
+        assert len(self.vec)==12*self.nside**2, 'length of %s not consistent with HEALPix' % self.name        
+        self.index = Band(self.nside).index
+
     def __getitem__(self, index):
         return self.vec[index]
     def __len__(self): return 12*self.nside**2
     def getcol(self, type=np.float32): return np.asarray(self.vec, type)
+    
     def skyfun(self, skydir):
         return self[Band(self.nside).index(skydir)]
-        
+     
+    def __call__(self, skydir):
+        return self[self.index(skydir)]
+    
     def plot(self, title='', axes=None, fignum=30, ait_kw={}, **kwargs):
         """ make an AIT skyplot from the array 
         title : string
@@ -35,13 +42,15 @@ class HParray(object):
         ait_kw : dict
             to set kwargs for image.AIT, perhaps pixelsize
         
-        Other args passed to imshow
+        Other args passed to imshow, for example norm: to make a log plot,
+            from matplotlib.colors import LogNorm
+            plot(norm=LogNorm(vmin=1,vmax=10))
+        It returns a image.AIT object, which has a colorbar member that can be adjusted.
         """
         band = Band(self.nside)
         def skyplotfun(v):
             skydir = SkyDir(Hep3Vector(v[0],v[1],v[2]))
-            index = band.index(skydir)
-            return self[index]
+            return self(skydir)
         if axes is None:
             plt.close(fignum)
             fig = plt.figure(fignum, figsize=(12,6))
@@ -71,7 +80,39 @@ class HParray(object):
             hp.query_disc(band.dir(i), np.radians(radius),iv)
             newvec[i] = np.array([self.vec[j] for j in iv]).mean()
         self.vec = newvec
-           
+ 
+class HPGaussSmooth(HParray):
+    """ adapt an HParray object, and access it via a smoothing Gaussian """
+    
+    def __init__(self, hparray, sigma_deg):
+        """ hparray : HParray object
+            sigma_deg : float
+                sigma for convolution, in degrees. zero for no change
+        """
+        self.name = hparray.name
+        self.vec = hparray.vec  # note just reference
+        self.nside = hparray.nside
+        band = Band(self.nside)
+        self.dirfun = band.dir
+        self.indexfun = band.index
+        self.sigma = np.radians(sigma_deg)
+        # this guy to give access to basic query_disk (should make the Healpix object accessible in Band)
+        self.hp = Healpix(self.nside, Healpix.RING, SkyDir.GALACTIC)
+        
+    def __call__(self, skydir):
+        if self.sigma==0: return self.vec[self.indexfun(skydir)]
+        iv = IntVector()
+        self.hp.query_disc(skydir, 3*self.sigma, iv)
+        sds = map(self.dirfun, iv)
+        deltas = np.array(map(skydir.difference, sds))
+        values = np.array(self.vec[list(iv)])
+        notnan = ~np.isnan(values)
+        weights = np.array(map( lambda x: -0.5*(x/self.sigma)**2, deltas[notnan]))
+        ret =np.dot(values[notnan],weights) / sum(weights)
+        if np.isnan(ret) or np.isinf(ret):
+            raise Exception('Bad value at %s' %skydir)
+        return ret
+        
         
 def make_index_table(nside, subnside, usefile=True):
     filename = 'index_table_%02d_%03d.pickle' % (nside, subnside)
@@ -86,7 +127,9 @@ def make_index_table(nside, subnside, usefile=True):
     if usefile:
         pickle.dump(index_table, open(filename,'w'))
     return index_table
-
+    
+        
+        
 class HPtables(HParray):
     """ assemble an array from tables in a set of ROIs
     """
@@ -242,7 +285,7 @@ class Display_map(object):
         """
         hptable : HParray object
             expect to have vec, nside members
-        outdir : sring
+        outdir : string
             folder containing the skymodel
         map_dir : None, string
             folder name to save the images
