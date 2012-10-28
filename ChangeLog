@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Oct 28 14:15:54 PDT 2012
+pointlike/python/uw/like2/pub
+
+Modified Files:
+	healpix_map.py 
+Log Message:
+add call to HParray, class to smooth
+    *
+------------------------------------------------------------
 User: burnett  Tue Oct 23 13:04:42 PDT 2012
 pointlike/python/uw/like2
 
