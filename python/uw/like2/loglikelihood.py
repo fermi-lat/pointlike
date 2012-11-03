@@ -1,9 +1,9 @@
 """Tools for parametrizing log likelihood curves.
 
 Author(s): Eric Wallace, Matthew Kerr
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.7 2012/09/27 14:23:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.8 2012/10/18 18:22:56 burnett Exp $
 """
-__version__ = "$Revision: 1.7 $"
+__version__ = "$Revision: 1.8 $"
 
 import numpy as np
 from scipy import optimize, special, polyfit, stats
@@ -305,6 +305,7 @@ class Poisson(object):
             1-pval: zero corresponds to infinite flux
         """
         e,beta,mu = self.altpars()
+        if e==0: return np.nan
         gcbar = lambda x : special.gammaincc(mu+1, beta+x)
         #cchat = lambda x : gcbar(x)/gcbar(0)
         cchatinv = lambda pv : special.gammainccinv( mu+1, pv*gcbar(0) )-beta
