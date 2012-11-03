@@ -1,7 +1,7 @@
 """
 Manage sources for likelihood: single class SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.22 2012/08/17 23:44:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.23 2012/09/27 14:23:18 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import types
@@ -48,6 +48,20 @@ def set_default_bounds( model, force=False):
         bounds.append( to_internal(mp.tointernal, plim) )
     model.bounds = np.array(bounds) # convert to array so can mask with free
 
+def check_bounds(model):
+    """ check that free parameters in the model are within the bounds
+        could freeze the paramet
+    """
+    for pname, par, mp, bound, free in zip(model.param_names, model.parameters, model.mappers, model.bounds, model.free):
+        if free:
+            if bound[0] is not None:
+                if mp.toexternal(bound[0])>=par:
+                    raise SourceListException('Model %s, parameter %s (%s) fails lower bound' % (model.name, pname, par))
+            if bound[1] is not None:
+                if mp.toexternal(bound[1])<=par:
+                    raise SourceListException('Model %s, parameter %s (%s) fails upper bound' % (model.name, pname, par))
+                
+    
   
 class SourceList(list):
     """ manage properties of the list of sources

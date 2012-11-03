@@ -1,15 +1,15 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.11 2012/02/12 20:03:48 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.12 2012/02/26 23:47:49 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.11 $'.split()[1]
+version='$Revision: 1.12 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np
-import skymaps
+import skymaps, pointlike #from the science tools
 from ..like import pycaldb, roi_bands
 from ..data import dataman
 
@@ -26,6 +26,8 @@ class DataSpecification(object):
             the path to the folder where the dictionary was found
         data : dict
             dictionary that contains entries sufficient to describe the data, and how to generate it
+            
+        Note: if interval found, modify the binfile and ltcube name to include
         """
         if folder=='.': folder = os.getcwd()
         if 'pickle' in data:
@@ -41,8 +43,12 @@ class DataSpecification(object):
                         data[key] = os.path.join(folder,data[key])
                     # need a check, but will fail if need to glob
                     #assert os.path.exists(data[key]), 'DataSpec: file %s not found' % data[key]
+            interval = data.get('interval', None)
+            if interval is not None:
+                for name in ('binfile', 'ltcube'):
+                    data[name]=data[name].replace('.fit', '_%s.fit'%interval)
             self.__dict__.update(data)
-        #print 'data spec:\n', str(self.__dict__)
+        print 'data spec:\n', str(self.__dict__)
 
     def __str__(self):
         return self.data_name
@@ -58,7 +64,7 @@ class DataSet(dataman.DataSpec):
     """
     defaults = dataman.DataSpec.defaults + (
         ' legacy key words that should be in DSS',
-        ('zenithcut',105,'Maximum spacecraft pointing angle with respect to zenith to allow'),
+        ('zenithcut',100,'Maximum spacecraft pointing angle with respect to zenith to allow'),
         ('thetacut',66.4,'Cut on photon incidence angle'),
         ('use_weighted_livetime',False,'Use the weighted livetime'),
 
@@ -67,6 +73,7 @@ class DataSet(dataman.DataSpec):
         ('version', None, ''),
         ('binner', None, ''),
         ('bins',  None,  ''),
+        ('interval', None, 'Name for a specific time period: key in a dictionary to (start, stop)'),
 
         ' new feature',
         ('pickle', None, 'pickled dataspec'),
@@ -85,6 +92,7 @@ class DataSet(dataman.DataSpec):
         ('maxROI', 7, 'maximum ROI radius'),
         #('phase_factor', 1.0, 'phase factor for pulsar phase analysis'),
 
+        ('quiet', True, 'set False for some output'),
         ('verbose', False, 'more output'),)
     
     @keyword_options.decorate(defaults)
@@ -97,13 +105,14 @@ class DataSet(dataman.DataSpec):
                             (see docstring for that class) 
         """
 
-        dataspec = self._process_dataset(dataset_name).__dict__
+        dataspec = self._process_dataset(dataset_name, interval=kwargs.pop('interval',None)).__dict__
         dataspec.update(
                 ft1=dataspec.pop('ft1files',None), 
                 ft2=dataspec.pop('ft2files',None),
                 )
         dataspec.update(kwargs)
-        super(DataSet,self).__init__( **dataspec)
+        # Now invoke the superclass to actually load the data, which may involve creating the binfile and livetime cube
+        super(DataSet,self).__init__( quiet=False, **dataspec)
         assert self.irf is not None, 'irf was not specifed!'
         self.CALDBManager = pycaldb.CALDBManager(
                 irf=self.irf, 
@@ -112,9 +121,12 @@ class DataSet(dataman.DataSpec):
                 custom_irf_dir=self.custom_irf_dir)
         self.lt = skymaps.LivetimeCube(self.ltcube,weighted=False) ###<< ok?
         self._load_binfile()
+    
 
-    def _process_dataset(self,dataset,month=None):
+    def _process_dataset(self, dataset, interval=None, month=None):
         """ Parse the dataset as either a DataSpecification object, a dict, or a string lookup key.
+            interval: string
+                name of a 
             month: sub spec.
         """
         self.name= ''
@@ -130,16 +142,27 @@ class DataSet(dataman.DataSpec):
         folders = ['.'] + glob.glob( os.path.join(os.path.expandvars('$FERMI'),'data'))
         for folder in folders :
             dict_file=os.path.join(folder, 'dataspec.py')
-            if os.path.exists(dict_file):
+            if not os.path.exists(dict_file):
+                continue
+            try:
+                ldict = eval(open(dict_file).read())
+            except Exception, msg:
+                raise DataSetError( 'Data dictionary file %s not valid: %s' % (dict_file, msg))
+            if interval is not None:
                 try:
-                    ldict = eval(open(dict_file).read())
+                    idict = eval(open(os.path.join(folder, 'intervals.py')).read())
+                    gr = idict[interval]
+                    gti_mask = skymaps.Gti([gr[0]], [gr[1]])
+                    if True: #self.verbose: 
+                        print 'apply gti mask %s, %s' %(interval, gti_mask)
                 except Exception, msg:
-                    raise DataSetError( 'Data dictionary file %s not valid: %s' % (dict_file, msg))
-                if dataset in ldict: 
-                    print 'found dataset %s in %s' % (dataset, folder)
-                    return DataSpecification(folder, **ldict[dataset])
-        # not found: this is deprecated, leave for backwards consisency
-        raise DataSetError('dataset name %s not found in %s' % (dataset, folders))
+                    raise DataSetError('Interval dictionary file %s, key %s, problem: %s'\
+                                % (os.path.join(folder,  'intervals.py'),interval,msg))
+            else: gti_mask=None
+            if dataset in ldict: 
+                print 'found dataset %s in %s' % (dataset, folder)
+                return DataSpecification(folder,  interval=interval, gti_mask=gti_mask, **ldict[dataset])
+        raise DataSetError('dataset name "%s" not found in %s' % (dataset, folders))
 
     def __call__(self, psf, exposure, roi_dir, **kwargs):
         """ return array of ROIBand objects for given direction, radius, emin, emax
@@ -166,11 +189,11 @@ class DataSet(dataman.DataSpec):
     def _load_binfile(self):
         if not self.quiet: print 'loading binfile %s ...' % self.binfile ,
         self.dmap = skymaps.BinnedPhotonData(self.binfile)
-        if not self.quiet: print 'found %d bands, energies %.0f-%.0f MeV'\
-                % (len(self.dmap), self.dmap[1].emin(), self.dmap[len(self.dmap)-1].emax())
+        if not self.quiet: print 'found %d photons in %d bands, energies %.0f-%.0f MeV'\
+                % (self.dmap.photonCount(),len(self.dmap), self.dmap[1].emin(), self.dmap[len(self.dmap)-1].emax())
 
         if self.verbose:
-            self.datainfo()
+            self.dmap.info()
             print '---------------------'
             
     def info(self, out=None):
