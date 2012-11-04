@@ -1,11 +1,11 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.12 2012/02/26 23:47:49 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.13 2012/11/03 22:42:39 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.12 $'.split()[1]
+version='$Revision: 1.13 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np
@@ -53,7 +53,20 @@ class DataSpecification(object):
     def __str__(self):
         return self.data_name
         
-
+class Interval(dict):
+    """ simple dictionary for looking up an interval
+        Use if no intervals.py file found
+    """
+    start = 239557417
+    day = 24*60*60
+    length= [day, 7*day, 365.25*day/12.]
+    def __getitem__(self, x):
+        for i, kind in enumerate(['day', 'week', 'month']):
+            if not x.startswith(kind): continue
+            n = int(x[len(kind):])
+            s,w = Interval.start, Interval.length[i]
+            return (s+(n-1)*w, s+n*w)
+        raise KeyError(x)
         
 class DataSet(dataman.DataSpec):
     """
@@ -92,6 +105,7 @@ class DataSet(dataman.DataSpec):
         ('maxROI', 7, 'maximum ROI radius'),
         #('phase_factor', 1.0, 'phase factor for pulsar phase analysis'),
 
+        ('nocreate', False, 'Set True to suppress file creation'),
         ('quiet', True, 'set False for some output'),
         ('verbose', False, 'more output'),)
     
@@ -112,7 +126,7 @@ class DataSet(dataman.DataSpec):
                 )
         dataspec.update(kwargs)
         # Now invoke the superclass to actually load the data, which may involve creating the binfile and livetime cube
-        super(DataSet,self).__init__( quiet=False, **dataspec)
+        super(DataSet,self).__init__(  **dataspec)
         assert self.irf is not None, 'irf was not specifed!'
         self.CALDBManager = pycaldb.CALDBManager(
                 irf=self.irf, 
@@ -150,14 +164,15 @@ class DataSet(dataman.DataSpec):
                 raise DataSetError( 'Data dictionary file %s not valid: %s' % (dict_file, msg))
             if interval is not None:
                 try:
-                    idict = eval(open(os.path.join(folder, 'intervals.py')).read())
+                    pyfile = os.path.join(folder, 'intervals.py')
+                    idict = eval(open()).read()) ifos.path.exists(pyfile) else Interval()
                     gr = idict[interval]
                     gti_mask = skymaps.Gti([gr[0]], [gr[1]])
                     if True: #self.verbose: 
                         print 'apply gti mask %s, %s' %(interval, gti_mask)
                 except Exception, msg:
                     raise DataSetError('Interval dictionary file %s, key %s, problem: %s'\
-                                % (os.path.join(folder,  'intervals.py'),interval,msg))
+                                % (pyfile, interval, msg))
             else: gti_mask=None
             if dataset in ldict: 
                 print 'found dataset %s in %s' % (dataset, folder)
@@ -249,3 +264,40 @@ def main(datadict=dict(dataname='P7_V4_SOURCE_4bpd'), analysis_kw=dict(irf='P7SO
     """ for testing: must define a dataset, and and at least an IRF"""
     dataset = DataSet(datadict['dataname'], **analysis_kw)
     return dataset
+    
+def validate(model_path, interval=None, nocreate=False):
+    """
+    validate the dataset for a model, as defined by the pipeline architecture
+    
+    model_path: string
+        full path to the folder containing the model info, expect to find a file config.txt
+        can contain environment variables with $ prefix
+    
+    interval: string
+        name for an interval to use: override any specified in the config.txt
+        
+    nocreate: bool
+        if False (default), try to create the binned photon data and livetime cubes
+        if True, will return False if either file has to be generated
+        
+    returns True if the files exist or have been created OK
+    """
+    actual_path =  os.path.expandvars(model_path)
+    assert os.path.exists(actual_path), 'Model path %s not found' % actual_path
+    try:
+        modelspec = eval(open(os.path.join(actual_path, 'config.txt')).read())
+    except Exception, msg:
+        raise DataSetError('could not evaluate config.txt: '+msg)
+    
+    datadict = modelspec['datadict']
+    dataname = datadict['dataname']
+    if interval is None:
+        interval= datadict.get('interval', None)
+    try:
+        dset = DataSet(dataname, interval=interval, irf=modelspec['irf'], nocreate=nocreate)
+    except Exception, msg:
+        print 'Failed: %s ' % msg
+        raise 
+        return False
+    return True
+    
