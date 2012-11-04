@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Nov  4 14:59:18 PST 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	dataset.py 
+Log Message:
+implement validate function
+    *
+------------------------------------------------------------
 User: burnett  Sat Nov  3 15:42:39 PDT 2012
 pointlike/python/uw/like2
 
