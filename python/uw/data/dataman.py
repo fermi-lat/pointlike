@@ -4,8 +4,8 @@ Module implements classes and functions to specify data for use in pointlike ana
 author(s): Matthew Kerr, Eric Wallace
 """
 
-__version__ = '$Revision: 1.16 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.16 2012/09/26 22:00:38 wallacee Exp $
+__version__ = '$Revision: 1.17 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.17 2012/11/03 22:41:25 burnett Exp $
 
 import os, sys
 import collections
@@ -20,6 +20,8 @@ import pointlike
 import skymaps
 from uw.utilities import keyword_options,fitstools
 from uw.data import dssman
+
+class DataManException(Exception):pass
 
 dataman_version=__version__.split()[1]
 # TODO energy sanity check on DSS keywords
@@ -155,6 +157,7 @@ class DataSpec(object):
         ('data_name', '', 'descriptive name for the data set'),
         ('legacy', False,  'relax DSS requirements for legacy files'),
         ('data_pass',7,'the generation (Pass6, Pass7,...) of the data'),
+        ('nocreate', False, 'Set True to supress creation of files, raise exception instead'),
         # keyword controlling livetimecube pixel size? and buffer cone?
     )
     binner = None # static variable for PhotonBinner
@@ -167,14 +170,18 @@ class DataSpec(object):
         keyword_options.process(self,kwargs)
         self._set_bins()
         self.dss = None # initialize
+        self.gti = None
 
         self.ft1files = self._parse_filename(self.ft1)
         if self.ft1files is not None:
             # Register FT1 DSS keywords
             self._get_ft1_dss()
             self._make_cuts()
-            self.gti = self._get_GTI()
+            # Get GTI from FT1 if not already set
+            if self.gti is None:
+                self.gti = self._get_GTI() 
             if not self._check_binfile():
+                if self.nocreate: raise DataManException('need to create %s' %self.binfile)
                 self._make_binfile()
         elif not self._check_binfile():
             raise ValueError('No FT1 files or valid binned data found. (Looking for %s)' % self.binfile)
@@ -182,6 +189,7 @@ class DataSpec(object):
         self.ft2files = self._parse_filename(self.ft2)
         if self.ft2files is not None:
             if not self._check_ltcube():
+                if self.nocreate: raise DataManException('need to create %s' %self.ltcube)
                 self._make_ltcube()
         elif not self._check_ltcube():
             raise ValueError('No FT2 files or valid livetime found.')
@@ -332,11 +340,9 @@ class DataSpec(object):
         if (dss is None):
             print("dss is None"); sys.stdout.flush()
             return False
-        if self.dss is None: # legacy case -- bpd with no FT1
-            print('Warning! No DSS specified -- accepting binfile on its own merits.')
+        if self.dss is None: 
+            print('Extracting DSS from existing binfile')
             self.dss = dss
-            self.gti = gti
-            return True
         if self.dss != dss:
             print 'File %s Failed DSS keyword check: expect %s found %s' % (self.binfile, self.dss, dss)
             sys.stdout.flush()
@@ -345,9 +351,13 @@ class DataSpec(object):
         #  Check GTI
         #
         gti = skymaps.Gti(self.binfile)
+        print 'GTI from binfile', gti
+        if gti is None:
+            raise DataManException('GTI not found in the binfile %s' % self.binfile)
+        self.gti = gti
         if  (gti.minValue!=self.gti.minValue) or (gti.computeOntime() != self.gti.computeOntime()):
             print 'File %s Failed GTI check: \n  expect %s \n  found  %s' % (self.binfile, self.gti, gti)
-            return False
+            return self.legacy # ignore if legacy, for now
         
         if (not self.quiet): print('Verified binfile {0}'.format(self.binfile))
         return True
@@ -375,11 +385,11 @@ class DataSpec(object):
         
     def _check_ltcube(self):
         """ Verify ltcube exists and is consistent with any existing data cuts."""
-        if os.path.exists(self.ltcube) and self.legacy : 
-            print('Accepting ltcube without dss checks since legacy specified')
-            return True
+        #if os.path.exists(self.ltcube) and self.legacy : 
+        #    print('Accepting ltcube without dss checks since legacy specified')
+        #    return True
         if self.clobber or (not os.path.exists(self.ltcube or '')): 
-            print 'fail clobber;'
+            print 'checking ltcube: failed clobber, whatever that is'
             return False
         # check for presence of important history
         # eew -- primary header doesn't have info about extensions, so just
@@ -389,7 +399,8 @@ class DataSpec(object):
         lt = pyfits.open(self.ltcube)
         try:
             lt[0].header['RADIUS']; lt[0].header['PIXSIZE']
-        except KeyError: pass #return False
+        except KeyError: 
+            print 'no header info in ltcube?' #pass #return False
         # check for weighted extension if we are using it
         if self.use_weighted_livetime:
             #try: h['WEIGHTED_EXPOSURE']
@@ -398,19 +409,27 @@ class DataSpec(object):
             except AssertionError:
                 print 'fail len(lt)>3:%d' %len(lt)
                 return False
+        #        
+        # DSS check
+        #
         dss = dssman.DSSEntries(self.ltcube,header_key=0)
-        gti = skymaps.Gti(self.ltcube)
-        if (dss is None): 
-            print 'no dss found'
-            return False
-        # DSS *must* be set by this point, in binfile process
-        # check against FT1 info
+        if dss is None or len(dss)==0: 
+            if self.legacy:
+                print 'Accepting ltcube without DSS info since legacy specified'
+                dss=self.dss
+            else:
+                raise DataManException('DSS found in ltcube %s' % self.ltcube)
         if dss != self.dss:
-            print 'Failed dss check: %s,%s' % (dss, self.dss)
+            print 'Failed dss comparison:\n ltcube %s,\n FT1 %s' % (dss, self.dss)
             return False
+        #
+        # compare GTI with that found in FT1 or binfile
+        #
+        gti = skymaps.Gti(self.ltcube)
         if  (gti.minValue!=self.gti.minValue) or (gti.computeOntime() != self.gti.computeOntime()):
-            print 'Failed gti check:\n\t%s \n vs.\t%s' % (gti, self.gti)
-            return False
+            print 'Failed gti check:\n  ltcube: %s \n binfile: %s' % (gti, self.gti)
+            return self.legacy #ignore if legacy, for now
+            
         if (not self.quiet): print('Verified ltcube {0}'.format(self.ltcube))
         return True
         
@@ -464,12 +483,15 @@ class DataSpec(object):
         f[0]._header.update('PIXSIZE',self.livetime_pixelsize)
         f.writeto(self.ltcube,clobber=True)
         f.close()
+        
     def _get_GTI(self):
         """ Apply GTI cuts and get resulting merged GTI."""
+        
         # get GTI for a set of FT1 files
         gti = skymaps.Gti(self.ft1files[0])
         for ef in self.ft1files[1:]:
             gti.combine(skymaps.Gti(ef))
+        # apply mask if specified    
         if self.gti_mask is not None:
             before = gti.computeOntime()
             gti.intersection(self.gti_mask)
@@ -477,6 +499,7 @@ class DataSpec(object):
                 print('applied gti mask, before, after times: {0:.1f}, {1:.1f}'
                       .format(before, gti.computeOntime()))
         return gti
+        
     def _Data_setup(self):
         """ Set static variables in Data, GTI, etc. """
         zenithcut = self.zenith_cut.get_bounds()[1]
