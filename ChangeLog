@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Nov  4 15:08:54 PST 2012
+pointlike/python/uw/data
+
+Modified Files:
+	dataman.py 
+Log Message:
+More tweaks to provide more detailed output, perform GTI checks
+    *
+------------------------------------------------------------
 User: burnett  Sun Nov  4 14:59:18 PST 2012
 pointlike/python/uw/like2
 
