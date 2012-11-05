@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.18 2012/09/29 16:05:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.19 2012/11/05 17:20:42 burnett Exp $
 
 """
 import os, pickle, glob, types, collections, zipfile
@@ -246,7 +246,7 @@ class SkyModel(object):
                         self.changed.add(name)
                         print 'check mappers:', model.mappers
                     else: pass # was the following line; problem with mappers changing too
-                    es.smodel=es.model=model #update with fit values
+                        #es.smodel=es.model=model #update with fit values
                     if sources.validate(es,self.nside, self.filter): #lambda x: True): 
                         self.extended_sources.append(es)
             self.global_sources.append(t)
