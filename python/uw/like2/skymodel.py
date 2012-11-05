@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.17 2012/09/27 18:17:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.18 2012/09/29 16:05:12 burnett Exp $
 
 """
 import os, pickle, glob, types, collections, zipfile
@@ -235,17 +235,18 @@ class SkyModel(object):
                 else:
                     es = self.extended_catalog.lookup(name) if self.extended_catalog is not None else None
                     if es is None:
-                        raise Exception( 'Extended source %s not found in extended catalog' %name)
+                        #raise Exception( 'Extended source %s not found in extended catalog' %name)
                         print 'SkyModel warning: Extended source %s not found in extended catalog, removing' %name
-                        
+                        continue
                     if self.hpindex(es.skydir)!=index: continue
                     
                     if es.model.name!=model.name:
                         if name not in self.changed:
-                            print 'SkyModel warning: catalog model %s changed from %s for %s'% (es.model.name, model.name, name)
+                            print 'SkyModel warning: catalog model  %s changed from %s for source %s'% (es.model.name, model.name, name)
                         self.changed.add(name)
-                    else:
-                        es.model=model #update with fit values
+                        print 'check mappers:', model.mappers
+                    else: pass # was the following line; problem with mappers changing too
+                    es.smodel=es.model=model #update with fit values
                     if sources.validate(es,self.nside, self.filter): #lambda x: True): 
                         self.extended_sources.append(es)
             self.global_sources.append(t)
