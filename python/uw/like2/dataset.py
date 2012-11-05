@@ -1,11 +1,11 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.13 2012/11/03 22:42:39 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.14 2012/11/04 22:59:17 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.13 $'.split()[1]
+version='$Revision: 1.14 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np
@@ -165,7 +165,7 @@ class DataSet(dataman.DataSpec):
             if interval is not None:
                 try:
                     pyfile = os.path.join(folder, 'intervals.py')
-                    idict = eval(open()).read()) ifos.path.exists(pyfile) else Interval()
+                    idict = eval(open(pyfile).read()) if os.path.exists(pyfile) else Interval()
                     gr = idict[interval]
                     gti_mask = skymaps.Gti([gr[0]], [gr[1]])
                     if True: #self.verbose: 
