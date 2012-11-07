@@ -1,11 +1,11 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.14 2012/11/04 22:59:17 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.15 2012/11/05 17:21:56 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.14 $'.split()[1]
+version='$Revision: 1.15 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np
@@ -54,14 +54,17 @@ class DataSpecification(object):
         return self.data_name
         
 class Interval(dict):
-    """ simple dictionary for looking up an interval
+    """ dictionary for looking up an interval
         Use if no intervals.py file found
+        returns an MET tuple, e.g.
+        Interval()['day01']
+        
     """
     start = 239557417
     day = 24*60*60
-    length= [day, 7*day, 365.25*day/12.]
+    length= [day, 7*day, 365.25*day/12., 365.25]
     def __getitem__(self, x):
-        for i, kind in enumerate(['day', 'week', 'month']):
+        for i, kind in enumerate(['day', 'week', 'month', 'year']):
             if not x.startswith(kind): continue
             n = int(x[len(kind):])
             s,w = Interval.start, Interval.length[i]
