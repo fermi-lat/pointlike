@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Nov  6 17:22:58 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	mapplots.py roi_upper_limits.py 
+Log Message:
+bugfix for upper limit
+    *
+------------------------------------------------------------
 User: burnett  Mon Nov  5 09:48:24 PST 2012
 pointlike/python/uw/like2
 
