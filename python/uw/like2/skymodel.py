@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.20 2012/11/05 17:48:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.21 2012/11/07 14:35:11 burnett Exp $
 
 """
 import os, pickle, glob, types, collections, zipfile
@@ -248,8 +248,8 @@ class SkyModel(object):
                         if name not in self.changed:
                             print 'SkyModel warning: catalog model  %s changed from %s for source %s'% (es.model.name, model.name, name)
                         self.changed.add(name)
-                    else: pass # was the following line; problem with mappers changing too
-                        #es.smodel=es.model=model #update with fit values
+                    else:
+                        es.smodel=es.model=model #update with current fit values
                     if sources.validate(es,self.nside, self.filter): #lambda x: True): 
                         self.extended_sources.append(es)
             self.global_sources.append(t)
