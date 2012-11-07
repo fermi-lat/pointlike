@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.5 2012/01/31 21:44:07 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.6 2012/06/24 04:52:29 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -65,7 +65,11 @@ class Source(object):
         elif self.model.name=='PowerLawFlux':
             f, gamma = self.model.get_all_parameters() #10**self.model.p
             emin = self.model.emin
-            self.model=LogParabola(f*(gamma-1)/emin, gamma, 1e-3, emin)
+            try:
+                self.model=LogParabola(f*(gamma-1)/emin, gamma, 1e-3, emin)
+            except Exception, msg:
+                print 'Failed to create LogParabola for source %s, pars= %s'% (self.name, (f,gamma,emin))
+                raise
             self.model.free[2:]=False
         if self.model.name not in ['LogParabola','ExpCutoff','Constant']:
             raise Exception('model %s not supported' % self.model.name)
@@ -159,6 +163,12 @@ class ExtendedCatalog( pointspec_helpers.ExtendedSourceCatalog):
         super(ExtendedCatalog,self).__init__(*pars, **kwargs)
         # create list of sources using superclass, for lookup by name
         self.sources = [self.get_sources(self.dirs[i], 0.1)[0] for i in range(len(self.names))]
+        for source in self.sources:
+            model = source.model
+            if model.mappers[0].__class__.__name__== 'LimitMapper':
+                #print 'converting mappers for model for source %s, model %s' % (source.name, model.name)
+                source.model = eval('Models.%s(p=%s)' % (model.name, list(model.get_all_parameters())))
+
 
     def realname(self, cname):
         """ cname was truncated"""
@@ -181,10 +191,14 @@ class ExtendedCatalog( pointspec_helpers.ExtendedSourceCatalog):
         if source.model.name=='BrokenPowerLaw': #convert this
             model = Models.LogParabola()
         else: model = source.model
+        ### seems to be necessary for some models created from 
+        if model.mappers[0].__class__.__name__== 'LimitMapper':
+            print 'wrong mappers: converting model for source %s, model %s' % (name, model.name)
+            model = eval('Models.%s(p=%s)' % (model.name, list(model.get_all_parameters())))
         extsource= ExtendedSource(name=self.realname(aname), skydir=source.skydir,
             model = model, 
             spatial_model = source.spatial_model,
-            smodel= source.smodel,      # these reference copies needed
+            smodel= model,      # these reference copies needed
             dmodel= source.spatial_model
             )
         if extsource.model.name=='LogParabola': extsource.free[-1]=False # E_break not free
@@ -211,7 +225,8 @@ def validate( ps, nside, filter):
             check =  norm< 1e-4 and alpha>0.25 and alpha<5 
             if check: return True
             print 'SkyModel warning for %-20s(%d): out of range, norm,alpha=%.2e %.2f' %(ps.name, hpindex(ps.skydir),norm,alpha)
-            model.set_all_parameters( [-15, 0.4, -3, 3], internal=True)
+            assert False, 'debug'
+            model[:]= [1e-15, 2.0, 1e-3, 1000]
             ps.free[1:] = False
             model.cov_matrix[:] = 0 
         else: #log parabola
@@ -219,6 +234,7 @@ def validate( ps, nside, filter):
             if check: return True
             assert False, 'SkyModel warning for %-20s(%d): out of range, norm,alpha,beta=%.2e %.2f %.2f'\
                     %(ps.name, hpindex(ps.skydir),norm,alpha,beta)
+            assert False, 'debug'
             model[:]= [1e-15, 5.0, 10.0, 10000]
             ps.free[2:] = False
             model.cov_matrix[:] = 0 
