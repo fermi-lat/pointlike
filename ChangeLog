@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Nov  7 06:35:11 PST 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	skymodel.py sources.py 
+Log Message:
+fixes for extended source spectral model setup
+    *
+------------------------------------------------------------
 User: lande  Tue Nov  6 17:22:58 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
