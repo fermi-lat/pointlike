@@ -229,7 +229,6 @@ class ROITSMapPlotter(ROIMapPlotter):
     defaults = ROIMapPlotter.defaults + (
         ('pixelsize',               0.125, ),
     )
-    defaults = keyword_options.change_defaults(defaults,'title','Residual TS Map')
 
     def imshow_kwargs(self):
         # since this is a residual tsmap, never let the scale go below 25.
