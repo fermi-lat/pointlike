@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.6 2012/06/24 04:52:29 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.7 2012/11/07 14:35:11 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -76,6 +76,7 @@ class Source(object):
         if not hasattr(self.model, 'npar'):
             raise Exception('model %s for source %s was not converted to new format'\
                     % (self.model.name, self.name))
+            
             
         self.free = self.model.free.copy()  # save copy of initial free array to restore
     def freeze(self, freeze):
@@ -222,35 +223,35 @@ def validate( ps, nside, filter):
         norm, alpha, beta, eb = model.get_all_parameters() #10**model.p
         #if norm<1e-18: model[0]=1e-18 #quietly prevent too small
         if beta<0.01: # linear
-            check =  norm< 1e-4 and alpha>0.25 and alpha<5 
+            check =  norm< 1e-4 and alpha>-0.5 and alpha<=5 
             if check: return True
             print 'SkyModel warning for %-20s(%d): out of range, norm,alpha=%.2e %.2f' %(ps.name, hpindex(ps.skydir),norm,alpha)
-            assert False, 'debug'
-            model[:]= [1e-15, 2.0, 1e-3, 1000]
-            ps.free[1:] = False
-            model.cov_matrix[:] = 0 
+            #assert False, 'debug'
+            #model[:]= [1e-15, 2.4, 1e-3, 1000]
+            #ps.free[1:] = False
+            #model.cov_matrix[:] = 0 
         else: #log parabola
-            check =  alpha>1e-4 and alpha<100 and beta<100
+            check =  alpha>-0.5 and alpha<100 and beta<100
             if check: return True
             assert False, 'SkyModel warning for %-20s(%d): out of range, norm,alpha,beta=%.2e %.2f %.2f'\
                     %(ps.name, hpindex(ps.skydir),norm,alpha,beta)
             assert False, 'debug'
-            model[:]= [1e-15, 5.0, 10.0, 10000]
-            ps.free[2:] = False
-            model.cov_matrix[:] = 0 
+            #model[:]= [1e-15, 2.4, 1e-3, 1000]
+            #ps.free[1:] = False
+            #model.cov_matrix[:] = 0 
         
     elif model.name=='ExpCutoff':
         norm, gamma, ec = model.get_all_parameters() #10**model.p
         #if np.any(np.diag(model.cov_matrix)<0): model.cov_matrix[:]=0 
         if norm<1e-18: model[0]=1e-18 #quietly prevent too small
-        check =  gamma>1e-10 and gamma<5 and ec>100
+        check =  gamma>=-0.5 and gamma<5 and ec>100
         if check: return True
-        print 'SkyModel warning for %-20s(%d): out of range, ressetting from %s' %(ps.name, hpindex(ps.skydir),model.get_all_parameters())
-        model[:] = [1e-15, 1.0, 500.]
-        model.cov_matrix[:] = 0 
+        print 'SkyModel warning for %-20s(%d): out of range, norm, gamma,ec %s' %(ps.name, hpindex(ps.skydir),model.get_all_parameters())
+        #model[:] = [1e-15, 2.2, 2000.]
+        #model.cov_matrix[:] = 0 
     else:
         print 'Skymodel warning: model name %s for source %s not recognized'%(model.name, ps.name)
-    if np.any(np.diag(ps.model.cov_matrix)<0):
+    if np.any(np.diag(ps.model.internal_cov_matrix)<0):
         print 'SkyModel warning for %-20s: invalid cov matrix ' %ps.name
         ps.model.cov_matrix[:] = 0 
     return True

@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.21 2012/11/07 14:35:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.22 2012/11/07 18:54:50 burnett Exp $
 
 """
 import os, pickle, glob, types, collections, zipfile
@@ -32,7 +32,7 @@ class SkyModel(object):
         ('auxcat', None, 'name of auxilliary catalog of point sources to append or names to remove',),
         ('newmodel', None, 'if not None, a string to eval\ndefault new model to apply to appended sources'),
         ('update_positions', None, 'set to minimum ts  update positions if localization information found in the database'),
-        ('filter',   lambda s: True,   'selection filter: see examples at the end.'), 
+        ('filter',   lambda s: True,   'selection filter: see examples at the end. Can be string, which will be eval''ed '), 
         ('global_check', lambda s: None, 'check global sources: can modify parameters'),
         ('closeness_tolerance', 0., 'if>0, check each point source for being too close to another, print warning'),
         ('quiet',  False,  'make quiet' ),
@@ -65,6 +65,8 @@ class SkyModel(object):
             self.diffuse = eval(t) if type(t)==types.StringType else t 
             assert self.diffuse is not None, 'SkyModel: no diffuse in config'
         self.diffuse_dict = sources.DiffuseDict(self.diffuse)
+        if type(self.filter)==types.StringType:
+            self.filter = eval(self.filter)
         self._load_sources()
         self.load_auxcat()
 
@@ -217,7 +219,7 @@ class SkyModel(object):
                 #    nfreed +=1
                 #    if nfreed<10: print 'Freed photon index for source %s'%ps.name
                 #    elif nfreed==10: print ' [...]'
-                if True: # do not need? sources.validate(ps,self.nside, self.filter):
+                if sources.validate(ps,self.nside, self.filter):
                     self._check_position(ps) # check that it is not coincident with previous source(warning for now?)
                     self.point_sources.append( ps)
             # make a list of extended sources used in the model   
