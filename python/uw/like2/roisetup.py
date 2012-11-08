@@ -1,7 +1,7 @@
 """
 Set up an ROI factory object
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.19 2012/08/23 18:20:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.20 2012/11/03 22:42:39 burnett Exp $
 
 """
 import os, sys, types
@@ -120,6 +120,12 @@ class ROIfactory(object):
                 #print '%s: %s replace from skymodel: "%s"' %(key, kwargs.get(key,None), input_config[key])
                 self.__dict__[key]=input_config[key]
 
+        # check for skymodel_kw in the config,txt file, use if found
+        config_skymodel = input_config.get('skymodel_config', None)
+        if config_skymodel is not None:
+            self.skymodel_kw.update(config_skymodel)
+            print 'Using skymodel config: %s' % self.skymodel_kw
+            
         self.skymodel = skymodel.SkyModel(modeldir, diffuse=self.diffuse,  **self.skymodel_kw)
 
         if isinstance(dataspec,dataman.DataSet):
