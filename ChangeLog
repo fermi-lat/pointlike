@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Nov  8 12:16:17 PST 2012
+pointlike/python/uw/data
+
+Modified Files:
+	dataman.py 
+Log Message:
+avoid processing FT1 files with no overlap
+    *
+------------------------------------------------------------
 User: kerrm  Thu Nov  8 12:10:19 PST 2012
 pointlike/python/uw/like
 
