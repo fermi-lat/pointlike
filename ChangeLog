@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Nov  8 08:29:54 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	pipe.py processor.py 
+Log Message:
+change defaults for update processing
+    *
+------------------------------------------------------------
 User: burnett  Thu Nov  8 06:44:57 PST 2012
 pointlike/python/uw/like2
 
