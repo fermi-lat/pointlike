@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Nov  8 06:44:57 PST 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	roisetup.py skymodel.py sources.py 
+Log Message:
+restore filter, allow it to be string
+    *
+------------------------------------------------------------
 User: burnett  Wed Nov  7 10:54:50 PST 2012
 pointlike/python/uw/like2
 
