@@ -2,7 +2,7 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.28 2012/10/05 00:48:27 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.30 2012/10/09 01:19:52 kerrm Exp $
 author: M. Kerr
 
 """
@@ -53,9 +53,10 @@ class Psf(object):
         self.c_los            = np.asarray(h0[1].data.field('CTHETA_LO')).flatten().astype(float)
         self.c_his            = np.asarray(h0[1].data.field('CTHETA_HI')).flatten().astype(float)
 
+        # NB scaling functions in radians
         sf = self.scale_factors
         self.scale_func = [lambda e: ( (sf[0]*(e/100)**(sf[-1]))**2 + sf[1]**2 )**0.5,
-                                 lambda e: ( (sf[2]*(e/100)**(sf[-1]))**2 + sf[3]**2 )**0.5 ]
+                           lambda e: ( (sf[2]*(e/100)**(sf[-1]))**2 + sf[3]**2 )**0.5 ]
 
 
     def __calc_weights__(self,livetimefile='',skydir=None):
@@ -107,44 +108,17 @@ class CALDBPsf(Psf):
             return t.transpose()[:,::-1]
 
         if self.newstyle:
-            try:
-                p7 = 'P7' in h[0][1].header['CBD20001']
-            except KeyError:
-                p7 = False
-            if not USEP7:
-                p7 = False
-            #p7 = True
 
-            if not p7:
-                # NB -- these follow the "P6" scheme where the psf is
-                # nc*fc + nc*nt*ft, and I normalize so that nc = 1/(1+nt)
-                # and pre-multiply nc*nt in the parmaeters below
-                print 'Using legacy definition of psf.'
-                self.tables = np.asarray([
-                          [1./(1+proc(ct,'NTAIL')), #NCORE = 1/(1+NTAIL)
-                           proc(ct,'NTAIL')/(1+proc(ct,'NTAIL')), #NCORE*NTAIL
-                           proc(ct,'GCORE'),
-                           proc(ct,'GTAIL'),
-                           proc(ct,'SCORE'),
-                           proc(ct,'STAIL')
-                          ] for ct in [0,1]])
-            else:
-                # these follow the convention where the psf is
-                # nc*fc + (1-nc)*ft, and nc = 1/(1+NTAIL*STAIL^2/SCORE^2)
-                print 'Using P7 definition of psf.'
-                self.tables = np.empty([2,6]+list(proc(0,'NTAIL').shape))
-                for ct in [0,1]:
-                    score = proc(ct,'SCORE')
-                    stail = proc(ct,'STAIL')
-                    ncore = proc(ct,'NCORE')*2*np.pi*score**2
-                    ntail = proc(ct,'NTAIL')*2*np.pi*stail**2
-                    self.tables[ct,...] = np.asarray([
-                          1./(1+ntail),
-                          ntail,
-                          proc(ct,'GCORE'),
-                          proc(ct,'GTAIL'),
-                          score,
-                          stail])
+            # SHAPE = N_CT X N_PAR X N_EN X N_INC_ANGLE
+            self.tables = np.asarray([
+                      [proc(ct,'NCORE'),
+                       proc(ct,'NTAIL'),
+                       proc(ct,'GCORE'),
+                       proc(ct,'GTAIL'),
+                       proc(ct,'SCORE'),
+                       proc(ct,'STAIL')
+                      ] for ct in [0,1]])
+            self._norm_pars()
 
         else:
             self.tables = np.asarray([
@@ -152,19 +126,46 @@ class CALDBPsf(Psf):
                       proc(ct,'SIGMA')
                      ] for ct in [0,1]])
 
-    def __call__(self,e,ct,delta, scale_sigma=True, density = False):
+    def _norm_pars(self):
+        if hasattr(self,'_normalized'):
+            if self['_normalized']: return
+        self._normalized = True # attempt to ensure only called once
+
+        # recall table shape is N_CT X N_PAR X N_EN X N_INC
+
+        # normalize according to the irfs/latResponse conventions
+        ens = (self.e_los*self.e_his)**0.5
+        for ct in [0,1]: # iterate through conversion type
+            scale_func = self.scale_func[ct]
+            for i in xrange(self.tables.shape[2]): # iterate through energy
+                sf = scale_func(ens[i])
+                # vector operations in incidence angle
+                nc,nt,gc,gt,sc,st = self.tables[ct,:,i,:]
+                normc = self.psf_base_integral(gc,sc*sf,np.pi/2)[0]
+                normt = self.psf_base_integral(gt,st*sf,np.pi/2)[0]
+                # NB leave scale factor out here so we can adjust norm to
+                # a particular energy (effectively cancelling in integral)
+                norm = (TWOPI*(normc*sc**2+normt*nt*st**2))**-1
+                self.tables[ct,0,i,:] = norm # adjust NCORE
+                self.tables[ct,1,i,:]*= norm # set to NTAIL*NCORE
+
+    def __call__(self,e,ct,delta, scale_sigma=True, density=True):
         """ Return the psf at the specified energy, for events
             with conversion type ct, at a remove of delta RADIANS.
 
             scale_sigma -- apply the energy prescaling
             density -- divide by "jacobian" to turn into photon density
+                       NB -- this can only be TRUE now
         """
+        if density != True:
+            raise DeprecationWarning('This function only returns PSF density now.')
+            density = True
         sf = self.scale_func[ct](e) if scale_sigma else 1
         if self.newstyle:
             nc,nt,gc,gt,sc,st,w = self.get_p(e,ct)
-            yc = self.psf_base(gc,sc*sf,delta,density)
-            yt = self.psf_base(gt,st*sf,delta,density)
-            return (w * (nc*yc + nt*yt)).sum(axis=1)
+            yc = self.psf_base(gc,sc*sf,delta)
+            yt = self.psf_base(gt,st*sf,delta)
+            return (w * (nc*yc + nt*yt)/sf**2).sum(axis=1)
         else:
             # note retaining explicit old style for the nonce, for comparison testing
             gc,si,w = self.get_p(e,ct) # note each parameter is an 8-vector
@@ -173,26 +174,33 @@ class CALDBPsf(Psf):
             y    = (1-1./gc)*(1+us/gc)**(-gc)
             return (w*(y / (TWOPI*si**2 if density else 1.))).sum(axis=1)
 
-    def psf_base(self,g,s,delta,density=False):
-        """Implement the PSF base function; g = gamma, s = sigma, w = weight, delta = deviation in radians."""
+    def psf_base(self,g,s,delta):
+        """Implement the PSF base function; g = gamma, s = sigma (scaled), 
+           delta = deviation in radians.
+           
+            Operation is vectorized both in parameters and angles; return
+            is an array of shape (n_params,n_angles)."""
         u = 0.5 * np.outer(delta,1./s)**2
-        y = (1-1./g)*(1+u/g)**(-g)
-        return y / (TWOPI*s**2 if density else 1.)
+        return (1-1./g)*(1+u/g)**(-g)
+
+    def psf_base_integral(self,g,s,dmax,dmin=0):
+        """Integral of the PSF base function; g = gamma, s = sigma (scaled),
+           delta = deviation in radians."""
+        u0 = 0.5 * np.outer(dmin,1./s)**2
+        u1 = 0.5 * np.outer(dmax,1./s)**2
+        return (1+u0/g)**(1-g)-(1+u1/g)**(1-g)
 
     def integral(self,e,ct,dmax,dmin=0):
-        """ Note -- does *not* take a vector argument right now."""
-        """ Update to density-style."""
+        """ Return integral of PSF at given energy (e) and conversion type (ct)
+            from dmin to dmax (radians).
+            
+            Note -- does *not* take a vector argument right now."""
         if self.newstyle:
             nc,nt,gc,gt,sc,st,w = self.get_p(e,ct)
-            #if scale_sigma: # why no test in old version? think this code may have gotten stale
             sf = self.scale_func[ct](e)
-            sc *= sf
-            st *= sf
-            uc1 = 0.5 * (dmin / sc)**2
-            uc2 = 0.5 * (dmax / sc)**2
-            ut1 = 0.5 * (dmin / st)**2
-            ut2 = 0.5 * (dmax / st)**2
-            return (w*( nc*((1+uc1/gc)**(1-gc) - (1+uc2/gc)**(1-gc)) + nt*((1+ut1/gt)**(1-gt) - (1+ut2/gt)**(1-gt)) )).sum()
+            icore = TWOPI*(sc)**2*nc*self.psf_base_integral(gc,sc*sf,dmax)[0]
+            itail = TWOPI*(st)**2*nt*self.psf_base_integral(gt,st*sf,dmax)[0]
+            return (w*(icore+itail)).sum(axis=-1)
         else:
             gc,si,w = self.get_p(e,ct)
             si *= self.scale_func[ct](e)
@@ -229,22 +237,23 @@ class CALDBPsf(Psf):
         return seed*RAD2DEG
 
     def band_psf(self,band,weightfunc=None,adjust_mean=False):
-        return BandCALDBPsf(self,band,weightfunc=weightfunc,adjust_mean=adjust_mean,newstyle=self.newstyle)
+        return BandCALDBPsf(self,band,weightfunc=weightfunc,
+            adjust_mean=adjust_mean,newstyle=self.newstyle)
 
 class BandPsf(object):
 
     def init(self):
-        self.newstyle    = False
+        self.newstyle = False
         self.override_en = None
         self.adjust_mean = False
-        self.weightfunc  = None
+        self.weightfunc = None
 
     def __init__(self,psf,band,**kwargs):
         self.init()
         self.parent_psf = psf # save a reference
         self.newstyle = psf.newstyle
         self.__dict__.update(kwargs)
-        self.par     = psf.get_p(self.override_en or band.e,band.ct).copy()
+        self.par = psf.get_p(self.override_en or band.e,band.ct).copy()
 
         index = 2
         if self.adjust_mean:
@@ -290,11 +299,15 @@ class BandPsf(object):
 
         else:
             self.scale    = psf.scale_func[band.ct](self.override_en or band.e)
+        # scale sigma parameters
         if self.newstyle:
             self.par[4] *= self.scale
             self.par[5] *= self.scale
+            # also correct normalization
+            #self.par[0] /= self.scale**2
+            #self.par[1] /= self.scale**2
         else:
-            self.par[1] *= self.scale # scale sigma
+            self.par[1] *= self.scale
         if self.newstyle:
             pass
         else:
@@ -328,20 +341,18 @@ class BandPsf(object):
             u1 = gc[0]*( (1-frac)**(1./(1-gc[0])) - 1)
             return RAD2DEG*(2*u1)**0.5*sc[0]
 
-class BandCALDBPsf(BandPsf):
+class BandCALDBPsf(BandPsf,CALDBPsf):
 
-    def psf_base(self,g,s,delta,density=False):
-        """Implement the PSF base function; g = gamma, s = sigma, delta = deviation in radians."""
-        u = 0.5 * np.outer(delta,1./s)**2
-        y = (1-1./g)*(1+u/g)**(-g)
-        return y / (TWOPI*s**2 if density else 1.)
-
-    def __call__(self,delta,density=False):
+    def __call__(self,delta,density=True):
+        if density != True:
+            raise DeprecationWarning('This function only returns PSF density now.')
+            density = True
         if self.newstyle:
+            # NB, we've already corrected norms and sigmas with scale function
             nc,nt,gc,gt,sc,st,w = self.par
             yc = self.psf_base(gc,sc,delta,density)
             yt = self.psf_base(gt,st,delta,density)
-            return (w*(nc*yc + nt*yt)).sum(axis=1)
+            return (w*(nc*yc + nt*yt)/self.scale**2).sum(axis=1)
         else:
             gc,si,w = self.par
             us  = 0.5 * np.outer(delta,1./si)**2
@@ -352,11 +363,9 @@ class BandCALDBPsf(BandPsf):
         """ Note -- does *not* take a vector argument right now."""
         if self.newstyle:
             nc,nt,gc,gt,sc,st,w = self.par
-            uc1 = 0.5 * (dmin / sc)**2
-            uc2 = 0.5 * (dmax / sc)**2
-            ut1 = 0.5 * (dmin / st)**2
-            ut2 = 0.5 * (dmax / st)**2
-            return (w*( nc*((1+uc1/gc)**(1-gc) - (1+uc2/gc)**(1-gc)) + nt*((1+ut1/gt)**(1-gt) - (1+ut2/gt)**(1-gt)) )).sum()
+            icore = TWOPI*sc**2*nc*self.psf_base_integral(gc,sc*sf,dmax)
+            itail = TWOPI*st**2*nt*self.psf_base_integral(gt,st*sf,dmax)
+            return (w*(icore+itail)).sum()
         else:
             #gc,si,w = self.par
             #u1 = 0.5 * (dmin / si)**2
