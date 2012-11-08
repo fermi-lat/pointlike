@@ -4,8 +4,8 @@ Module implements classes and functions to specify data for use in pointlike ana
 author(s): Matthew Kerr, Eric Wallace
 """
 
-__version__ = '$Revision: 1.17 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.17 2012/11/03 22:41:25 burnett Exp $
+__version__ = '$Revision: 1.18 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.18 2012/11/04 23:08:54 burnett Exp $
 
 import os, sys
 import collections
@@ -373,7 +373,17 @@ class DataSpec(object):
                  ph_b = pointlike.Photon(dummy,bin_center,2.5e8,1)
                  bpd.addBand(ph_f); bpd.addBand(ph_b)
         if not self.quiet: print 'writing to binfile %s' %self.binfile
-        data = pointlike.Data(self.ft1files,-1, 0,0, self.mc_src_id,'')
+        def overlaps(f):
+            fgti = skymaps.Gti(f)
+            return fgti.minValue()> self.gti.maxValue() or \
+                 fgti.maxValue()< self.gti.minValue()
+        #
+        # sort through files first to limit list to those with overlaps
+        files = filter(overlaps, self.ft1files) ##TODO
+        if len(files)>==0:
+            raise DataManException('Attempt to create binned photon file with no data')
+        print 'Creating binfile from %d FT1 files' % len(files)
+        data = pointlike.Data(files,-1, 0,0, self.mc_src_id,'')
         dmap = data.map() # local reference to avoid segfaults
         fill_empty_bands(dmap, self.bins)
         dmap.write(self.binfile)
@@ -389,7 +399,7 @@ class DataSpec(object):
         #    print('Accepting ltcube without dss checks since legacy specified')
         #    return True
         if self.clobber or (not os.path.exists(self.ltcube or '')): 
-            print 'checking ltcube: failed clobber, whatever that is'
+            print 'checking ltcube: failed clobber on %s' % self.ltcube
             return False
         # check for presence of important history
         # eew -- primary header doesn't have info about extensions, so just
