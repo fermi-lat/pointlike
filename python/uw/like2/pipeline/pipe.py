@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.22 2012/09/27 14:23:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.23 2012/10/09 13:08:42 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
@@ -378,7 +378,7 @@ class Update(NotebookPipe):
         self.setup = Setup(self.indir, outdir=self.outdir, **kw)
      
     def defaults(self):
-        return dict(sedfig_dir='"sedfig"', dampen=0.5, quiet=True)
+        return dict( dampen=0.5, quiet=True)
     
      
     def __call__(self): return self.setup
