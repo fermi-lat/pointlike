@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.17 2012/06/24 13:50:00 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.18 2012/08/23 18:19:13 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -393,6 +393,13 @@ def full_sed_processor(roi, **kwargs):
     ptsources = [(i,s) for i,s in enumerate(roi.sources) if s.skydir is not None and np.any(s.spectral_model.free)]
     bgsources = [(j,s) for j,s in enumerate(roi.sources) if s.skydir is None]
     print 'evaluating %d sources' %len(ptsources)
+    def getdir(x ):
+        if not kwargs.get(x,False): return None
+        t = os.path.join(outdir, kwargs.get(x))
+        if not os.path.exists(t): os.mkdir(t)
+        return t
+    sedfuns.makesed_all(roi, sedfig_dir=getdir('sedfig_dir'))
+
     for pti,source in ptsources:
         try:
             ts = roi.TS(source.name)
