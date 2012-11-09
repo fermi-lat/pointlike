@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.7 2012/11/07 14:35:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.8 2012/11/08 14:44:57 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -231,12 +231,10 @@ def validate( ps, nside, filter):
             #ps.free[1:] = False
             #model.cov_matrix[:] = 0 
         else: #log parabola
-            check =  alpha>-0.5 and alpha<100 and beta<100
+            check =  alpha>=-0.5 and alpha<100 and beta<100
             if check: return True
-            assert False, 'SkyModel warning for %-20s(%d): out of range, norm,alpha,beta=%.2e %.2f %.2f'\
-                    %(ps.name, hpindex(ps.skydir),norm,alpha,beta)
-            assert False, 'debug'
-            #model[:]= [1e-15, 2.4, 1e-3, 1000]
+            print 'SkyModel warning for %-20s(%d): out of range, norm,alpha,beta=%.2e %.2f %.2f %.2f'\
+                    %(ps.name, hpindex(ps.skydir),norm,alpha,beta, eb)
             #ps.free[1:] = False
             #model.cov_matrix[:] = 0 
         
