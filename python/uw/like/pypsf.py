@@ -2,7 +2,7 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.30 2012/10/09 01:19:52 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.31 2012/11/08 20:10:19 kerrm Exp $
 author: M. Kerr
 
 """
@@ -12,7 +12,8 @@ import numpy as np
 from os.path import join
 import os
 from cPickle import load
-from skymaps import ExposureWeighter,SkyDir,PySkyFunction,Hep3Vector,WeightedSkyDirList,PythonUtilities
+from skymaps import ExposureWeighter,SkyDir,PySkyFunction,Hep3Vector,\
+    WeightedSkyDirList,PythonUtilities,PythonPsf
 from scipy.integrate import quad,simps
 from math import cos,sin
 
@@ -55,8 +56,8 @@ class Psf(object):
 
         # NB scaling functions in radians
         sf = self.scale_factors
-        self.scale_func = [lambda e: ( (sf[0]*(e/100)**(sf[-1]))**2 + sf[1]**2 )**0.5,
-                           lambda e: ( (sf[2]*(e/100)**(sf[-1]))**2 + sf[3]**2 )**0.5 ]
+        self.scale_func = [lambda e: ( (sf[0]*(e/100.)**(sf[-1]))**2 + sf[1]**2 )**0.5,
+                           lambda e: ( (sf[2]*(e/100.)**(sf[-1]))**2 + sf[3]**2 )**0.5 ]
 
 
     def __calc_weights__(self,livetimefile='',skydir=None):
@@ -240,6 +241,16 @@ class CALDBPsf(Psf):
         return BandCALDBPsf(self,band,weightfunc=weightfunc,
             adjust_mean=adjust_mean,newstyle=self.newstyle)
 
+    def get_cpp_psf(self,e,ct):
+        sf = self.scale_func[ct](e)
+        if self.newstyle:
+            nc,nt,gc,gt,sc,st,w = self.get_p(e,ct)
+            return PythonPsf(sc*sf,st*sf,gc,gt,nc/sf**2,nt/sf**2,w)
+        else:
+            gc,si,w = self.get_p(e,ct)
+            return PythonPsf(si*sf,gc,w)
+        
+
 class BandPsf(object):
 
     def init(self):
@@ -298,14 +309,14 @@ class BandPsf(object):
             print num,dom,num/dom,self.comp_scale
 
         else:
-            self.scale    = psf.scale_func[band.ct](self.override_en or band.e)
+            self.scale = psf.scale_func[band.ct](self.override_en or band.e)
         # scale sigma parameters
         if self.newstyle:
             self.par[4] *= self.scale
             self.par[5] *= self.scale
             # also correct normalization
-            #self.par[0] /= self.scale**2
-            #self.par[1] /= self.scale**2
+            self.par[0] /= self.scale**2
+            self.par[1] /= self.scale**2
         else:
             self.par[1] *= self.scale
         if self.newstyle:
@@ -318,6 +329,7 @@ class BandPsf(object):
     def get_cpp_psf(self):
         from skymaps import PythonPsf
         if self.newstyle:
+            # NB sigma parameters are prescaled by scale factor
             nc,nt,gc,gt,sc,st,w = self.par
             return PythonPsf(sc,st,gc,gt,nc,nt,w)
         else:
@@ -348,11 +360,11 @@ class BandCALDBPsf(BandPsf,CALDBPsf):
             raise DeprecationWarning('This function only returns PSF density now.')
             density = True
         if self.newstyle:
-            # NB, we've already corrected norms and sigmas with scale function
+            # NB, we've already corrected sigmas with scale function
             nc,nt,gc,gt,sc,st,w = self.par
-            yc = self.psf_base(gc,sc,delta,density)
-            yt = self.psf_base(gt,st,delta,density)
-            return (w*(nc*yc + nt*yt)/self.scale**2).sum(axis=1)
+            yc = self.psf_base(gc,sc,delta)
+            yt = self.psf_base(gt,st,delta)
+            return (w*(nc*yc + nt*yt)).sum(axis=1)
         else:
             gc,si,w = self.par
             us  = 0.5 * np.outer(delta,1./si)**2
@@ -363,14 +375,10 @@ class BandCALDBPsf(BandPsf,CALDBPsf):
         """ Note -- does *not* take a vector argument right now."""
         if self.newstyle:
             nc,nt,gc,gt,sc,st,w = self.par
-            icore = TWOPI*sc**2*nc*self.psf_base_integral(gc,sc*sf,dmax)
-            itail = TWOPI*st**2*nt*self.psf_base_integral(gt,st*sf,dmax)
+            icore = TWOPI*sc**2*nc*self.psf_base_integral(gc,sc,dmax)
+            itail = TWOPI*st**2*nt*self.psf_base_integral(gt,st,dmax)
             return (w*(icore+itail)).sum()
         else:
-            #gc,si,w = self.par
-            #u1 = 0.5 * (dmin / si)**2
-            #u2 = 0.5 * (dmax / si)**2
-            #return  ( w*( (1+u1/gc)**(1-gc)  - (1+u2/gc)**(1-gc)) ).sum()
             w,a,b = self.int_par
             return ( w*( (1+a*(dmin*dmin))**b - (1+a*(dmax*dmax))**b ) ).sum()
 
