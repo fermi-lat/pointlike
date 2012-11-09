@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.8 2012/11/08 14:44:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.9 2012/11/09 17:34:37 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -251,6 +251,6 @@ def validate( ps, nside, filter):
         print 'Skymodel warning: model name %s for source %s not recognized'%(model.name, ps.name)
     if np.any(np.diag(ps.model.internal_cov_matrix)<0):
         print 'SkyModel warning for %-20s: invalid cov matrix ' %ps.name
-        ps.model.cov_matrix[:] = 0 
+        #ps.model.cov_matrix[:] = 0 
     return True
   
