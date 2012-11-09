@@ -1,6 +1,6 @@
 """ Dark Matter spectral models
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spectral.py,v 1.10 2012/08/10 00:14:05 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spectral.py,v 1.11 2012/08/20 19:45:17 kadrlica Exp $
 
     author: Alex Drlica-Wagner, Joshua Lande
 """
@@ -12,7 +12,7 @@ from collections import OrderedDict
 import numpy as np
 from scipy.optimize.minpack import check_gradient
 
-from uw.like.Models import Model,CompositeModel,Constant
+from uw.like.Models import Model,CompositeModel,Constant,ModelException
 from uw.utilities import path
 
 from uw.utilities.parmap import LogMapper,LimitMapper
@@ -217,6 +217,9 @@ class ComprehensiveModel(CompositeModel):
     def pretty_name(self):
         g,f,theta=self.models
         return '%s^theta*%s^(1-theta)' % (g.pretty_name,f.pretty_name)
+
+    def external_gradient(self, energy):
+        raise ModelException("The ComprehensiveModel spectral model has no analytic gradient!")
 
     @property
     def theta(self):
