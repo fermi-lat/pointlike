@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Nov 12 10:08:43 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	pipe.py 
+Log Message:
+implement skymodel_extra processing for create
+    *
+------------------------------------------------------------
 User: burnett  Mon Nov 12 09:47:44 PST 2012
 pointlike/python/uw/like2
 
