@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.23 2012/10/09 13:08:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.24 2012/11/08 16:29:53 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
@@ -374,12 +374,20 @@ class Update(NotebookPipe):
             os.makedirs(self.analysisdir)
         os.chdir(self.analysisdir)
         kw = self.defaults()
+        kw.update(skymodel_extra = self.extra_check())
         kw.update(kwargs)
         self.setup = Setup(self.indir, outdir=self.outdir, **kw)
      
     def defaults(self):
         return dict( dampen=0.5, quiet=True)
     
+    def extra_check(self):
+        # if config has skymodel_kw, will add to the skymodel keywords by interpreting it and setting skymodel_extra
+        # especially, for a filter entry
+        config = eval(open(os.path.join(self.analysisdir, self.indir, 'config.txt')).read())
+        skykw = config.pop('skymodel_kw', None)
+        return  ','.join(['%s="%s"' % item for item in skykw.items() ]) if skykw is not None else ''
+
      
     def __call__(self): return self.setup
     def check(self):
@@ -427,7 +435,7 @@ class PulsarLimitTables(Tables):
             
 class Create(Update):
     """ create a new model, assuming appropriate config.txt
-        model_dir points to the new model, which must have an entry in its config.txt
+        model_dir points to the new model, which must have an entry "input_model" in its config.txt
     """
     def __init__(self, analysisdir, model_dir,  **kwargs):
         """
@@ -443,11 +451,17 @@ class Create(Update):
             raise
         self.outdir=model_dir
         kw = self.defaults()
+        
+        # if config has skymodel_kw, will add to the skymodel keywords by interpreting it and setting skymodel_extra
+        # especially, for a filter entry
+        skykw = config.pop('skymodel_kw', None)
+        skymodel_extra = ','.join(['%s="%s"' % item for item in skykw.items() ]) if skykw is not None else ''
+        
         kw.update(outdir=model_dir, datadict=config['datadict'],
             irf=config['irf'],
             diffuse=config['diffuse'],
             auxcat=config.pop('auxcat', ''),
-            skymodel_extra=config.pop('skymodel_extra', ''),
+            skymodel_extra=skymodel_extra,
             )
         kw.update(kwargs)
         self.setup = Setup(self.indir,  **kw)
