@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.22 2012/11/07 18:54:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.23 2012/11/08 14:44:57 burnett Exp $
 
 """
 import os, pickle, glob, types, collections, zipfile
@@ -32,8 +32,9 @@ class SkyModel(object):
         ('auxcat', None, 'name of auxilliary catalog of point sources to append or names to remove',),
         ('newmodel', None, 'if not None, a string to eval\ndefault new model to apply to appended sources'),
         ('update_positions', None, 'set to minimum ts  update positions if localization information found in the database'),
-        ('filter',   lambda s: True,   'selection filter: see examples at the end. Can be string, which will be eval''ed '), 
-        ('global_check', lambda s: None, 'check global sources: can modify parameters'),
+        ('filter',   lambda s: True,   'source selection filter, applied when creating list of all soruces: see examples at the end. Can be string, which will be eval''ed '), 
+        ('global_check', lambda s: None, 'check global sources: can modify parameters when loading'),
+        #('diffuse_check', lambda s: None, 'check diffuse sources: can modify parameters'),
         ('closeness_tolerance', 0., 'if>0, check each point source for being too close to another, print warning'),
         ('quiet',  False,  'make quiet' ),
         ('force_spatial_map', True, 'Force the use of a SpatialMap for extended sources'),
@@ -65,8 +66,11 @@ class SkyModel(object):
             self.diffuse = eval(t) if type(t)==types.StringType else t 
             assert self.diffuse is not None, 'SkyModel: no diffuse in config'
         self.diffuse_dict = sources.DiffuseDict(self.diffuse)
+        # evaluate the filter functions if necessary
         if type(self.filter)==types.StringType:
             self.filter = eval(self.filter)
+        if type(self.global_check)==types.StringType:
+            self.global_check = eval(self.global_check)
         self._load_sources()
         self.load_auxcat()
 
@@ -311,7 +315,7 @@ class SkyModel(object):
         """return diffuse, global and extended sources defined by src_sel
             always the global diffuse, and perhaps local extended sources.
             For the latter, make parameters free if not selected by src_sel.frozen
-            TODO: feature to override free selection for globals.
+            Note that the global_check function, default none, can modify free status for globals
         """
         globals = self.global_sources[self.hpindex(src_sel.skydir())]
         def iterable_check(x):
@@ -320,6 +324,7 @@ class SkyModel(object):
         for s in globals:
             prefix = s.name.split('_')[0]
             s.name, s.dmodel = prefix, self.diffuse_dict[prefix]
+            self.global_check(s)
             s.smodel = s.model
 
         extended = self._select_and_freeze(self.extended_sources, src_sel)
@@ -727,11 +732,11 @@ class MultiFilter(list):
         return True
 
 class FluxFreeOnly(object):
-    """ Filter that fixes all but flux for sources"""
+    """ Filter that fixes all but flux for sources, and freezes diffuse """
     def __init__(self):
         pass
     def __call__(self, source):
-        if np.any(source.free):
+        if np.any(source.free) :
             source.free[1:]=False
         return True
   
@@ -744,4 +749,7 @@ class FreeIndex(object):
         if ps.model.name=='LogParabola':
             ps.free[1]=True
         return True
-
+class AllFixed(object):
+    """ useful for setting all Global parameters fixed"""
+    def __call__(self, s):
+        s.model.free[:] = False
