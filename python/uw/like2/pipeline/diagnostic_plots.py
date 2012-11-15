@@ -1,11 +1,11 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.1 2012/11/15 00:56:48 burnett Exp $
 
 """
 
-import os, pickle, glob
+import os, pickle, glob, zipfile
 import numpy as np
 import pylab as plt
 
@@ -16,6 +16,7 @@ class Diagnostics(object):
         self.skymodel_dir = os.path.expandvars(skymodel_dir)
         assert os.path.exists(os.path.join(self.skymodel_dir, 'config.txt')), 'not a skymodel directory:%s'%skymodel_dir
         os.chdir(self.skymodel_dir)
+        # get the basic pickles with the model
         files, pkls = self.load_pickles()
         self.rois =  pkls
         assert len(self.rois)==1728
@@ -33,7 +34,7 @@ class Diagnostics(object):
         if os.path.exists(folder+'.zip'):
             print 'unpacking file %s.zip ...' % folder ,
             z=zipfile.ZipFile(folder+'.zip')
-            files = sorted(z.namelist())#[1:] # skip  folder?
+            files = sorted(z.namelist())[1:] # skip  folder?
             print 'found %d files ' % len(files)
             opener = z.open
         else:
@@ -59,3 +60,7 @@ class Diagnostics(object):
         plt.setp(ax, xlabel='chisq')
         fig.savefig('plots/chisq.png')
         return fig
+
+# temporary -- run in skymodel folder
+dp = Diagnostics('.')
+dp.chisq_plot()
