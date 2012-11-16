@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.138 2012/09/18 00:43:17 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.139 2012/09/21 14:24:32 burnett Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -1443,7 +1443,7 @@ class BrokenPowerLaw(Model):
 
     default_limits = dict(
         Norm=LimitMapper(1e-16,1e-3,1e-9),
-        Index_1=LimitMapper(5,5,1),
+        Index_1=LimitMapper(-5,5,1),
         Index_2=LimitMapper(-5,5,1),
         E_break=LimitMapper(30,5e5,1))
     default_oomp_limits=['Norm','E_break']
