@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Fri Nov 16 10:59:37 PST 2012
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Fixed typo in limits of BrokenPowerLaw Index_1
+    *
+------------------------------------------------------------
 User: burnett  Thu Nov 15 07:33:36 PST 2012
 pointlike/python/uw/like2/pipeline
 
