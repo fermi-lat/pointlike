@@ -412,7 +412,7 @@ class PulsarLightCurve:
             nbins = 25
             if H > 150:
                 nbins = 50
-            if H > 1500:
+            if H > 2000:
                 nbins = 100
             print 'Found H = %.2f, setting nbins = %d'%(H,nbins)
         self.nbins = nbins

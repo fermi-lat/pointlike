@@ -18,8 +18,20 @@ class StringFloat(object):
 
     def __init__(self,s):
         s = str(s)
+        if 'e' in s:
+            l,r = s.split('e')
+            sign = 1
+            if l[0] == '-':
+                sign = -1; l = l[1:]
+            if r[0]=='-':
+                s = '0.%s%s'%('0'*(int(r[1:])-1),l)
+            else:
+                s = l+'0'*int(r)
+            if sign == -1:
+                s = '-'+s
         self._s = s
         self._i = int(s.replace('.',''))
+        # "places" keeps track of places right of decimal pt
         if '.' in s:
             self.places = len(s.split('.')[-1])
         else:
@@ -238,8 +250,11 @@ class ParFile(dict):
         t0 = self.get('TZRMJD',type=float)
         pc = polyco.Polyco(self.parfile)
         dt = pc.invert_phase_shift(t0,phase_shift)
+        print dt
         sf1 = StringFloat(self.get('TZRMJD'))
+        print sf1
         sf2 = StringFloat(dt)
+        print sf2
         self['TZRMJD'] = str(sf1+sf2)
 
     def eval_phase(self,times,degree=None,t0=None):
@@ -275,9 +290,15 @@ class ParFile(dict):
         f = file(output,'w')
         for key in self.ordered_keys:
             val = self[key]
-            if hasattr(val,'__iter__'):
-                val = '  '.join(val)
             key = key + ' '*(15-len(key))
+            if hasattr(val,'__iter__'):
+                if hasattr(val[0],'__iter__'):
+                    # multiple vals are mapped to same key
+                    substrings = ['  '.join(v) for v in val]
+                    s = '\n%s'%key
+                    val = s.join([v for v in substrings])
+                else:
+                    val = '  '.join(val)
             f.write('%s%s\n'%(key,val))
         f.close()
 
@@ -372,6 +393,19 @@ class ParFile(dict):
         except KeyError:
             return 0
         return dme/2.41e-4/freq**2*f0
+
+    def get_tres_uncertainty(self):
+        """ Attempt to determine the contribution of the timing residuals to
+            peak width uncertainties.
+
+            Returns 0 if not able to determine such a thing.
+
+            Return value is in rotational phase."""
+        try:
+            tres = self.get('TRES',type=float,first_elem=True)
+        except KeyError:
+            return 0.
+        return tres/self.p()*1e-6 # residual in mus
 
     def is_binary(self):
         return 'BINARY' in self.keys()

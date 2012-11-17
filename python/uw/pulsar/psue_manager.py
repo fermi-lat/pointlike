@@ -3,7 +3,7 @@
    author(s): Damien Parent <dmnparent@gmail.com>
    creation Date: July 2011
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/psue_manager.py,v 1.7 2012/09/19 20:02:53 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/psue_manager.py,v 1.8 2012/09/29 09:30:20 kerrm Exp $
 """
 
 __version__ = 1.9
@@ -302,7 +302,8 @@ class PSUEAnalysis():
             # run TEMPO2
             for p in self.parfile:
                 start, finish = ParFile(p).get("START",type=float), ParFile(p).get("FINISH",type=float)
-                if len(self.parfile) == 1: start, finish = 54000, 58000
+                # remove line below for J2215 -- what other pulsars does it affect?
+                #if len(self.parfile) == 1: start, finish = 54000, 58000
                 cmd = "tempo2 -gr fermi -ft1 %s -ft2 %s -f %s -tmin %s -tmax %s -phase -graph 0" %(ft1file,ft2file,p,start,finish)
                 print 'Issuing the folding command: \n%s'%cmd
                 system(cmd)
@@ -312,13 +313,15 @@ class PSUEAnalysis():
                 print 'Copying %s to %s'%(ft1file,self.outdir_local)
                 copy(ft1file,self.outdir_local)
 
-            # regenerate gtmktime-processed file if it already exists
+            # regenerate gtmktime-processed file
             ft1file_gtis = join(self.outdir,basename(self.ft1file_gtis))
-            if isfile(ft1file_gtis):
-                filter = "DATA_QUAL==1 && LAT_CONFIG==1 && ABS(ROCK_ANGLE)<52"
-                GtApp('gtmktime').run(evfile=ft1file,outfile=ft1file_gtis,scfile=self.ft2file,filter=filter,roicut='no',chatter=4)
-                if self.batch: copy(ft1file_gtis,self.outdir_local)
-                
+            #if isfile(ft1file_gtis):
+            filter = "DATA_QUAL==1 && LAT_CONFIG==1 && ABS(ROCK_ANGLE)<52"
+            GtApp('gtmktime').run(evfile=ft1file,outfile=ft1file_gtis,scfile=self.ft2file,filter=filter,roicut='no',chatter=4)
+            if self.batch: 
+                print 'Copying %s to %s'%(ft1file,self.outdir_local)
+                copy(ft1file_gtis,self.outdir_local)
+
     def SearchPulsation(self):
         '''Run SearchPulsation (Philippe macro)'''
 
@@ -410,10 +413,10 @@ class PSUEAnalysis():
         plc.print_summary()
 
         # Write out new parfiles with correct TZR* parameters
-        for p in self.parfiles:
+        for p in self.parfile:
             outp = ParFile(p)
             outp.shift_tzr(phase_shift)
-            outp.write(p.append('shifted'))
+            outp.write(p+'.shifted')
 
         # background
         if background == 'ring':
@@ -599,10 +602,15 @@ class PSUEAnalysis():
                     self.PSUEoutfile.set('DM_delta_UNC',
                         ephem.get_dm_alignment_uncertainty(dme=dm_unc))
 
+                    # uncertainty from TRES
+                    self.PSUEoutfile.set('TRES_UNC',
+                        ephem.get_tres_uncertainty())
+
+
                     # figure
                     nbins = 25
                     if H > 150: nbins = 50
-                    if H > 1500: nbins = 100
+                    if H > 2000: nbins = 100
                     print 'Using %d bins'%nbins
                     fig = pl.figure(1);
                     lcf.plot(fignum=1,nbins=nbins); pl.show()
