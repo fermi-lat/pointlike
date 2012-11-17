@@ -69,6 +69,7 @@ class Profile(object):
             # oddball parfile -- must be PKS?
             self.ncol = 4
             self.obs = 'PKS'
+            self.freq = 1.4
         elif '2043+1711' in pfile:
             # L-band AO profile from Lucas
             self.ncol = 2
@@ -211,6 +212,7 @@ class Profile(object):
                 rvals = np.append(rvals,rvals[0])
             while len(rvals) > bin_goal:
                 rvals = (rvals[:-1:2]+rvals[1::2])/2
+            print 'Using %d profile bins with a goal of %d.'%(len(rvals),bin_goal)
         #return rvals,self.fidpt+align_shift,self.fidpt-align_shift
         return rvals,self.fidpt-align_shift
 
