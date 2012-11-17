@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Nov 16 16:10:41 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+refactor code
+    *
+------------------------------------------------------------
 User: kadrlica  Fri Nov 16 10:59:37 PST 2012
 pointlike/python/uw/like
 
