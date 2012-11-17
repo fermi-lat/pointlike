@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.77 2012/09/29 04:17:18 kadrlica Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.78 2012/10/04 21:21:22 lande Exp $
 
 author: Joshua Lande
 """
@@ -742,9 +742,24 @@ class MCModelBuilder(object):
 
             This function is an ugly mess and could probably be properly rewritten
             as a fully vecotrized numpy function, but this is good enough, for now.
-
         """
 
+        fits=pyfits.open(path.expand(filename))
+        energies,intensity = MCModelBuilder._spatial_map_integral(fits)
+
+        # Then integrate the spectral part connecting each point
+        # with a powerlaw
+        p = MCModelBuilder.powerLawIntegral
+        map_integral = np.sum(p(energies[0:-1],energies[1:],
+                                intensity[0:-1],intensity[1:]).sum(axis=0))
+
+        return map_integral
+
+    @staticmethod
+    def spatial_map_integral(fits):
+        """ Takes in a 3D fits file (l, b, and energy),
+            and returns a 1D array of the energy and the integral of
+            the map over solid angle. """
         fits=pyfits.open(path.expand(filename))
         energies=fits[1].data.field('Energy')
         data=fits[0].data
@@ -755,7 +770,7 @@ class MCModelBuilder(object):
         sa=np.asarray(mapcube.wcsmap().solidAngles()).transpose()
 
         # First, integrate the spatial part
-        d = (sa*data).sum(axis=2).sum(axis=1)
+        intensity = (sa*data).sum(axis=2).sum(axis=1)
 
         # now, free up the otherwise very costly memory
         del(data)
@@ -763,13 +778,8 @@ class MCModelBuilder(object):
         del(sa)
         fits.close()
 
-        # Then integrate the spectral part connecting each point
-        # with a powerlaw
-        p = MCModelBuilder.powerLawIntegral
-        map_integral = np.sum(p(energies[0:-1],energies[1:],
-                                d[0:-1],d[1:]).sum(axis=0))
+        return energies, intensity
 
-        return map_integral
 
     @staticmethod
     def powerLawIntegral(x1, x2, y1, y2):
