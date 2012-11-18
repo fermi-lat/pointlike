@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Nov 18 07:11:29 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	diagnostic_plots.py 
+Log Message:
+implement plots for chisq, source, diffuse
+    *
+------------------------------------------------------------
 User: kerrm  Sat Nov 17 14:56:44 PST 2012
 pointlike/python/uw/pulsar
 
