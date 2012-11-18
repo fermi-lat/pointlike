@@ -1,6 +1,6 @@
 """
 Support for generating output files
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/catrec.py,v 1.7 2012/10/18 18:23:48 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/catrec.py,v 1.8 2012/11/18 20:00:16 burnett Exp $
 """
 import os, glob, types, zipfile
 import cPickle as pickle
@@ -63,7 +63,7 @@ def create_catalog(outdir, **kwargs):
     addtorec = kwargs.pop('addtorec', None)
     assert len(kwargs.keys())==0, 'unrecognized kw %s' %kwargs 
     if 'LATEXTDIR' not in os.environ:
-        t = os.path.join(os.environ['FERMI'],'catalog','Extended_archive_v10') 
+        t = os.path.join(os.environ['FERMI'],'catalog','Extended_archive_v12') 
         assert os.path.exists(os.path.join(t,'Templates')), 'path %s not found' %t
         os.environ['LATEXTDIR']=t
     
