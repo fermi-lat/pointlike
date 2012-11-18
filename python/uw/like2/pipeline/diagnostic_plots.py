@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.2 2012/11/15 15:33:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.3 2012/11/18 15:11:29 burnett Exp $
 
 """
 
@@ -51,7 +51,9 @@ class Diagnostics(object):
     def savefigure(self, name=None, caption=None, **kwargs):
         if name is not None:
             savefig_kw=dict(dpi=60, bbox_inches='tight', pad_inches=0.5); savefig_kw.update(kwargs)
-            plt.savefig(os.path.join(self.plotfolder,'%s_%s.png'%(name,self.skymodel.replace('/','_'))), **savefig_kw)
+            savefile = os.path.join(self.plotfolder,'%s_%s.png'%(name,self.skymodel.replace('/','_')))
+            plt.savefig(savefile, **savefig_kw)
+            print 'saved plot to %s' % savefile
         return plt.gcf()
 
     def load_pickles(self,folder='pickle', offset=1):
@@ -72,6 +74,17 @@ class Diagnostics(object):
         pkls = [pickle.load(opener(file)) for file in files]
         return files,pkls
         
+    def multifig(self):
+        fig,ax = plt.subplots(2,4, figsize=(14,8));
+        fig.text(0.025,0.025, 'Asymmetry study %s' % time.asctime(),fontsize='small')
+        plt.subplots_adjust(left=0.10, wspace=0.25, hspace=0.25,right=0.95)
+        return ax.flatten()
+    def multilabels(self, xtext, ytext, title=None):
+        plt.subplots_adjust(bottom=0.2)
+        plt.figtext(0.5,0.07, xtext, ha='center');
+        plt.figtext(0.05, 0.5, ytext, rotation='vertical', va='center')
+        if title is not None: plt.suptitle(title)
+    
     def chisq_plots(self,  vmin=0, vmax=100):
         chisq = np.array([r['counts']['chisq'] for r in self.rois])
         fig, axs = plt.subplots( 1,2, figsize=(6,3))
@@ -163,15 +176,6 @@ class FrontBackSedPlots(Diagnostics):
         if axin is None:
             plt.setp(ax, xlabel=' flux (eV/cm**2/s)', ylabel='front/back asymmery',
             )
-    def multifig(self):
-        fig,ax = plt.subplots(2,4, figsize=(14,8));
-        fig.text(0.025,0.025, 'Asymmetry study %s' % time.asctime(),fontsize='small')
-        plt.subplots_adjust(left=0.10, wspace=0.25, hspace=0.25,right=0.95)
-        return ax.flatten()
-    def multilabels(self, xtext, ytext, title=None):
-        plt.figtext(0.5,0.07, xtext, ha='center');
-        plt.figtext(0.05, 0.5, ytext, rotation='vertical', va='center')
-        if title is not None: plt.suptitle(title)
 
     def asym_plots(self):
         map(self.asym_plot, range(8), self.multifig()); 
@@ -396,7 +400,10 @@ class SourceFits(Diagnostics):
         self.isotropic_plot()
   
 class GalDiffusePlots(Diagnostics):
+
     def diffuse_setup(self, which='gal'):
+    
+        self.which = which
         self.plotfolder = 'front_back_%s_diffuse' %which
         folder = '%sfits_all'%which
         if not os.path.exists(folder) and not os.path.exists(folder+'.zip'): folder = folder[:-4]
@@ -407,18 +414,19 @@ class GalDiffusePlots(Diagnostics):
         makearray = lambda name,eclass='both' :\
             np.array([p[eclass][name] if eclass is not None else p[name] for p in pkls])
         roinames = makearray('roiname',None)
-        
+        self.energy = makearray('energies')[0];
         # DataFrame of info per ROI
         glat   = makearray('glat',None); singlat = np.sin(np.radians(glat))
         glon   = makearray('glon',None); glon[glon>180] -= 360
-
+        self.latcut, self.latcut_name = (abs(glat)<10, 'plane') if which=='gal' else (abs(glat)>20, 'high-lat')
         self.rois = pd.DataFrame(dict(glat=glat, glon=glon, singlat=singlat), 
             index=roinames)
         
-        # create dictionary of data frames of TS, flux for front, back,  Columns are energies
+        # create dictionary of data frames of flux for front, back, with values, energies, deltalike;
+        #   Columns are energies
         self.flux = dict()
-        for fkey in ['front','back',]:
-            print fkey+':',
+        for fkey in ['front','back','both']:
+            print '\t',fkey+':',
             self.flux[fkey]=dict()
             for key in [ 'values', 'errors', ]: 
                 print key,
@@ -430,13 +438,141 @@ class GalDiffusePlots(Diagnostics):
 
     def setup(self):
         self.diffuse_setup('gal')
+        
+    def like_scat(self, ib, axin=None,fignum=22, fb='both', vmin=0, vmax=2):
+        ax=self.set_plot(axin,fignum); 
+        ax.scatter(self.rois.glon, self.rois.singlat, 
+                c=np.log10(self.flux[fb]['deltalike'].transpose().ix[ib]), 
+                s=15 if axin is not None else 25,
+                vmin=vmin, vmax=vmax, edgecolors='none')
+        ax.set_title('%.0f MeV'%(self.energy[ib]),fontsize='small')
+        plt.setp(ax, xlim=(180,-180), ylim=(-1.01, 1.01))
+        ax.set_xticks([180,90,0,-90,-180])
+        
+    def like_scats(self):
+        map(self.like_scat, range(8), self.multifig());
+        self.multilabels('glon', 'sin(glat)', '%s diffuse significance'%self.which)
+        self.savefigure('%s_significance'%self.which)
+    
+    def bfratio_hist(self, ib, axin=None, fignum=101, space = np.linspace(0.5, 1.5,26)):
+        ax = self.set_plot( axin, fignum)
+        f,b = [self.flux[fb]['values'].transpose().ix[ib] for fb in ['front', 'back'] ]
+        bfratio = f/b
+        ax.hist(bfratio, space, label='all', histtype='stepfilled',color='g')
+        ax.hist(bfratio[self.latcut], space, histtype='stepfilled',
+             label=self.latcut_name, color='r')
+        ax.set_title('%.0f MeV' % self.energy[ib], fontsize='medium')
+        plt.setp(ax, xlim=(space[0],space[-1]), )
+        ax.axvline(1.0, color='k', lw=2)
+        if axin is None:
+            ax.set_xlabel('%s diffuse front/back fit ratio'%self.which);
+            ax.legend(loc='upper left');
+        ax.grid(True); 
+        return (self.energy[ib],  bfratio[self.latcut].mean(), bfratio[self.latcut].std())
+        
+    def bfratio_hists(self):
+        ax = self.multifig()
+        self.bfratios = map(self.bfratio_hist, range(8),ax )
+        self.multilabels('front/back fit', '', '%s Diffuse fit ratio'%self.which)
+        ax[0].legend(loc='upper left',bbox_to_anchor=(-0.4,1.2));
+        self.savefigure('bf_%s_fit.png'%self.which)
+        
+        html_rows = ['<tr><td>%.0f</td><td>%.2f</td></tr>' %v[:2] for v in self.bfratios]
+        from IPython.core.display import HTML
+        h=HTML('<table><tr><th>Energy</th><th>front/back ratio</th></tr>'+\
+             ''.join(html_rows)+'</table>')
+        open(os.path.join(self.plotfolder,'%s_fb_ratio.html'%self.which),'w').write(h.data)
+  
+    def diffuse_ratio_plot(self, fignum=121):
+        ax = self.set_plot( None, fignum)
+        vals = self.bfratios # must have generated
+        x,y,yerr = [[v[i] for v in vals]  for i in range(3)]
+        ax.errorbar(x, y, yerr=yerr, marker='o', ms=12,fmt='', lw=2, linestyle='None')
+        plt.setp(ax, xscale='log',xlabel='Energy (MeV)', ylabel='front/back flux ratio',ylim=(0.55, 1.25))
+        ax.grid(True)
+        ax.axhline(1.0, color='k')
+        ax.set_title('%s diffuse spectral fits'%self.which, fontsize='medium')
+        self.savefigure('%s_diffuse_flux_ratio_vs_energy'%self.which, dpi=60)
+        
+    def diffuse_fit(self, axin, ind=0,  fignum=2, **kwargs):
+        plane = abs(self.rois.glat)<10
+        cut, cut_name = (plane, 'plane') if self.which=='gal' else (abs(self.rois.glat)>20, 'high-lat')
+        space=np.linspace(0.5,1.5, 41)
+        vals = self.flux['both']['values'].transpose().ix[ind] #values[:,ind]
+        kw = dict( histtype='stepfilled')
+        kw.update(kwargs)
+        ax = self.set_plot(axin, fignum)
+        ax.hist(vals, space,label='all', **kw)
+        ax.hist(vals[cut], space ,color='r',label=cut_name,**kw);
+        ax.grid(True);
+        ax.axvline(1.0, color='grey');
+        ax.set_xlim((0.5,1.5))
+        ax.set_title('%.0f MeV'%self.energy[ind],fontsize='medium')
+        ax.legend(prop=dict(size=10))
+        
+    def diffuse_fits(self):
+        ax = self.multifig()
+        self.multilabels('ratio', 'ROIs', '%s diffuse fit' %self.which)
+        map(self.diffuse_fit, ax, range(8))
+        self.savefigure('%sdiffuse_fits'%self.which)
+    
     def all_plots(self):
-        print 'not implemented yet'
+        self.like_scats()
+        self.bfratio_hists()
+        self.diffuse_ratio_plot()
+        self.diffuse_fits()
         
 class IsoDiffusePlots(GalDiffusePlots):
+
     def setup(self):
         self.diffuse_setup('iso')
+
         
+    def lowdiff_hist(self, ax, **kwargs):
+        plane=abs(self.rois.glat)<10
+        v0,v1 = [self.flux['both']['values'][i] for i in (0,1)]
+        delta=v1-v0
+        kw = dict(histtype='stepfilled'); kw.update(kwargs)
+        space = np.linspace(-0.5, 0.5, 41)
+        ax.hist(delta, space, label='all: mean %.2f'%delta.mean(), **kw)
+        ax.hist(delta[plane], space, color='r', label='plane: mean %.2f'%delta[plane].mean(), **kw)
+        ax.legend(); ax.grid();
+        ax.axvline(0, color='grey')
+        ax.set_title('%s diffuse fits %s'%(self.which,self.skymodel))
+        ax.set_xlabel('bin1 - bin0 difference')
+
+
+    def lowdiff_scat(self, ax, vmin=-0.2, vmax=0.2, **kwargs):
+        v0,v1 = [self.flux['both']['values'][i] for i in (0,1)]
+        delta=v1-v0
+        kw = dict(edgecolor='none');kw.update(kwargs)
+        t=ax.scatter(self.rois.glon, self.rois.singlat, c=delta, s=50,vmin=vmin, vmax=vmax, **kw)
+        plt.setp(ax, xlabel='glon', ylabel='sin(glat)', xlim=(180,-180), ylim=(-1,1))
+        ax.axhline(0, color='k')
+        ax.axvline(0, color='k')
+        ax.axhline(np.sin(np.radians(10.)), lw=2, color='grey')   
+        ax.axhline(np.sin(np.radians(-10.)), lw=2, color='grey')
+        # draw poles outline
+        try:
+            poles = pickle.load(open('../../polar_circle.pickle'))
+        except:
+            print 'could not find the polar_circle file'
+            return
+        for i in range(2):
+            ax.plot(poles[0,:,0]-360, np.sin(np.radians(poles[0,:,1])), '-',lw=2, color='grey')
+            ax.plot(poles[1,:,0], np.sin(np.radians(poles[1,:,1])), '-', lw=2,color='grey')
+
+    def all_plots(self):
+        self.like_scats()
+        self.bfratio_hists()
+        self.diffuse_ratio_plot()
+        self.diffuse_fits()
+        
+        fig,ax=plt.subplots(1,2, figsize=(14,6))
+        self.lowdiff_hist( ax[0])
+        self.lowdiff_scat( ax[1])
+        self.savefigure('isotropic_bin0_bin1_difference')
+       
 # temporary -- run in skymodel folder
 if __name__=='__main__':
     dp = Diagnostics('.')
