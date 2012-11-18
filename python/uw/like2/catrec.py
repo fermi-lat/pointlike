@@ -1,6 +1,6 @@
 """
 Support for generating output files
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/catrec.py,v 1.6 2012/09/29 16:05:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/catrec.py,v 1.7 2012/10/18 18:23:48 burnett Exp $
 """
 import os, glob, types, zipfile
 import cPickle as pickle
@@ -52,7 +52,7 @@ def create_catalog(outdir, **kwargs):
         opener = pzip.open
     else:
         assert os.path.exists(os.path.join(outdir,'pickle')), 'pickle folder not found under %s' %outdir
-        files = sortec(glob.glob(os.path.join(outdir, 'pickle', '*.pickle')))
+        filelist = sorted(glob.glob(os.path.join(outdir, 'pickle', '*.pickle')))
         opener = open
  
     failed,maxfail = 0,kwargs.pop('maxfail',10)
