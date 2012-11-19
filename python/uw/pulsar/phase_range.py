@@ -6,7 +6,7 @@ See the docstring for usage information.
 
 This object has SymPy as a dependency.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.15 2012/09/26 18:03:13 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.16 2012/09/26 18:30:13 lande Exp $
 
 author: J. Lande <joshualande@gmail.com>
 
@@ -91,113 +91,11 @@ class PhaseRange(object):
             >>> print PhaseRange(-0.5, 0.5)
             [0, 1]
 
-        The phase_fraction can be easily calulated:
-
-            >>> print PhaseRange(1.5, 0.25).phase_fraction
-            0.75
-
-            >>> print PhaseRange(0, 1).phase_fraction
-            1.0
-
-        The 'in' operator has been simply defined:
-
-            >>> print .3 in PhaseRange(0.1, 0.5)
-            True
-            >>> print .6 in PhaseRange(0.1, 0.5)
-            False
-
-            >>> print PhaseRange(0.2, 0.4) in PhaseRange(0.1, 0.5)
-            True
-            >>> print PhaseRange(0.4, 0.6) in PhaseRange(0.1, 0.5)
-            False
-
-        This function can be very usful for complicated phases
-
-            >>> print PhaseRange([0.2, 0.3], [0.6, 0.7]) in \
-                      PhaseRange([0.1, 0.4], [0.5, 0.8])
-            True
-            >>> print PhaseRange([0.2, 0.3], [0.6, 0.7]) in PhaseRange(0.1, 0.6)
-            False
-
-
-        Similarly, you can add two phases:
-
-            >>> print PhaseRange(0.2, 0.5) + PhaseRange(0.6, 0.8)
-            [0.2, 0.5] U [0.6, 0.8]
-
-
-        The tolist() function can be used exported the ranges to a simple list:
-
-            >>> print PhaseRange(0.25, 0.75).tolist()
-            [0.25, 0.75]
-
-
-            >>> print PhaseRange([0.25, 0.5], [0.75, 1]).tolist()
-            [[0.25, 0.5], [0.75, 1.0]]
-
-            >>> print PhaseRange(0.5, 0.25).tolist()
-            [0.5, 0.25]
-
-        This should also work in a couple of edge cases
-
-            >>> print PhaseRange(0.5, 0.5).tolist()
-            [0.5, 0.5]
-
-            >>> print PhaseRange().tolist()
-            []
-
-        To get out a more verbose list of phases, which does not
-        have assumed automatic wraping and is always a list of lists:
-
-            >>> print PhaseRange(0.5, 0.25).tolist(dense=False)
-            [[0.0, 0.25], [0.5, 1.0]]
-
-            >>> print PhaseRange(0.25, 0.75).tolist(dense=False)
-            [[0.25, 0.75]]
-
-            >>> z=(PhaseRange(0.9, 0.1) + PhaseRange(.2,.3))
-            >>> z.tolist(dense=True)
-            [[0.9, 0.1], [0.2, 0.3]]
-            >>> z.tolist(dense=False)
-            [[0.0, 0.1], [0.2, 0.3], [0.9, 1.0]]
-
-
-
-        Note, tolist() can be used to convert from and back to this object:
-
-            >>> p=PhaseRange(0.5, 0.2)
-            >>> PhaseRange(p.tolist()) == p
-            True
-
         You can make a copy easily of the object:
 
             >>> p = PhaseRange(0.2, 0.5)
             >>> print PhaseRange(p)
             [0.2, 0.5]
-
-        There is also the intersect and overlaps function: 
-
-            >>> print PhaseRange(.25,.75).intersect(PhaseRange(0.5,1)) 
-            [0.5, 0.75]
-
-            >>> print PhaseRange(.25,.5).intersect(PhaseRange(0.5,.75)) 
-            {0.5}
-
-            >>> PhaseRange(.25,.75).overlaps(PhaseRange(0.5,1)) 
-            True
-            >>> PhaseRange(.25,.5).overlaps(PhaseRange(0.5,.75)) 
-            False
-
-        There is a nice function phase_center:
-
-            >>> print PhaseRange(.25,.75).phase_center
-            0.5
-
-            >>> print PhaseRange(.75,.25).phase_center
-            0.0
-            >>> print PhaseRange(.25,.25).phase_center
-            0.25
-
     """
 
     # All input phases must be between 0 and 2
@@ -233,11 +131,14 @@ class PhaseRange(object):
                     if range[i] != 1: range[i] %= 1
 
             if range[0] > range[1]: 
-                # pulsar convention
-                ranges += [
-                    sympy.Interval(0, range[1]),
-                    sympy.Interval(range[0], 1)
-                ]
+                # worry about wraping phase ranges, for example [0.6, 0.2] -> [0,0.2]U[0.6,1]
+                if range[1] == 0:
+                    ranges.append(sympy.Interval(range[0],1))
+                else:
+                    ranges += [
+                        sympy.Interval(0, range[1]),
+                        sympy.Interval(range[0], 1)
+                    ]
             else:
                 ranges.append(sympy.Interval(*range))
 
@@ -245,13 +146,45 @@ class PhaseRange(object):
 
     @property
     def phase_fraction(self):
-        """ Fraction of pulsar phase that the range occupies. """
+        """ Fraction of pulsar phase that the range occupies. 
+            
+            Example:
+            
+                >>> print PhaseRange(1.5, 0.25).phase_fraction
+                0.75
+
+                >>> print PhaseRange(0, 1).phase_fraction
+                1.0
+        """
         return float(self.range.measure)
 
     def __str__(self):
         return self.range.__str__()
 
-    def __in__(self): pass
+    def __in__(self): 
+        """ The 'in' operator can be used to see if one phase range is inside another one.
+
+            Example:
+
+                >>> print .3 in PhaseRange(0.1, 0.5)
+                True
+                >>> print .6 in PhaseRange(0.1, 0.5)
+                False
+
+                >>> print PhaseRange(0.2, 0.4) in PhaseRange(0.1, 0.5)
+                True
+                >>> print PhaseRange(0.4, 0.6) in PhaseRange(0.1, 0.5)
+                False
+
+            This function can be very usful for complicated phases
+
+                >>> print PhaseRange([0.2, 0.3], [0.6, 0.7]) in \
+                          PhaseRange([0.1, 0.4], [0.5, 0.8])
+                True
+                >>> print PhaseRange([0.2, 0.3], [0.6, 0.7]) in PhaseRange(0.1, 0.6)
+                False
+        """
+        pass
 
     @staticmethod
     def _tolist(obj):
@@ -284,6 +217,57 @@ class PhaseRange(object):
             raise Exception("Unrecognized type %s" % type(obj))
 
     def tolist(self,dense=True):
+        """ The tolist() function can be used exported the ranges to a simple list:
+
+            Example:
+
+                >>> print PhaseRange(0.25, 0.75).tolist()
+                [0.25, 0.75]
+
+
+                >>> print PhaseRange([0.25, 0.5], [0.75, 1]).tolist()
+                [[0.25, 0.5], [0.75, 1.0]]
+
+                >>> print PhaseRange(0.5, 0.25).tolist()
+                [0.5, 0.25]
+
+            This should also work in a couple of edge cases
+
+                >>> print PhaseRange(0.5, 0.5).tolist()
+                [0.5, 0.5]
+
+                >>> print PhaseRange().tolist()
+                []
+
+            To get out a more verbose list of phases, which does not
+            have assumed automatic wraping and is always a list of lists:
+
+                >>> print PhaseRange(0.5, 0.25).tolist(dense=False)
+                [[0.0, 0.25], [0.5, 1.0]]
+
+                >>> print PhaseRange(0.25, 0.75).tolist(dense=False)
+                [[0.25, 0.75]]
+
+                >>> z=(PhaseRange(0.9, 0.1) + PhaseRange(.2,.3))
+                >>> z.tolist(dense=True)
+                [[0.9, 0.1], [0.2, 0.3]]
+                >>> z.tolist(dense=False)
+                [[0.0, 0.1], [0.2, 0.3], [0.9, 1.0]]
+
+            Note, tolist() can be used to convert from and back to this object:
+
+                >>> p=PhaseRange(0.5, 0.2)
+                >>> PhaseRange(p.tolist()) == p
+                True
+
+        This was a weird edge case/bug I found. Previously, it included
+        an unphysically small phase range (from 0 to 0. Now it works as expected:
+
+            >>> p = PhaseRange(0.6,0)
+            >>> print p.tolist(dense=True)
+            [0.6, 1.0]
+
+        """
         r = self.range
         if dense:
             return PhaseRange._tolist(r)
@@ -312,12 +296,28 @@ class PhaseRange(object):
             raise Exception("Unknown type %s" % type(other))
 
     def __add__(self, other):
+        """ You can add two phases.
+
+            Example:
+                >>> print PhaseRange(0.2, 0.5) + PhaseRange(0.6, 0.8)
+                [0.2, 0.5] U [0.6, 0.8]
+        """
         new=PhaseRange()
         new.range += self.range
         new.range += other.range
         return new
 
     def intersect(self, other):
+        """ Find if one phase range intersects another:
+        
+            Example:
+
+                >>> print PhaseRange(.25,.75).intersect(PhaseRange(0.5,1)) 
+                [0.5, 0.75]
+
+                >>> print PhaseRange(.25,.5).intersect(PhaseRange(0.5,.75)) 
+                {0.5}
+        """
         if isinstance(other, PhaseRange):
             new = PhaseRange()
             new.range = self.range.intersect(other.range)
@@ -326,7 +326,15 @@ class PhaseRange(object):
             raise Exception("Unknown type %s" % type(other))
 
     def overlaps(self, other):
-        """ True if the two regions have overlaping range. """
+        """ True if the two regions have overlaping range. 
+        
+            Example:
+
+                >>> PhaseRange(.25,.75).overlaps(PhaseRange(0.5,1)) 
+                True
+                >>> PhaseRange(.25,.5).overlaps(PhaseRange(0.5,.75)) 
+                False
+        """
         return self.intersect(other).phase_fraction > 0
 
     def offset(self, offset):
@@ -395,6 +403,16 @@ class PhaseRange(object):
 
     @property
     def phase_center(self):
+        """ There is a nice function phase_center:
+
+                >>> print PhaseRange(.25,.75).phase_center
+                0.5
+
+                >>> print PhaseRange(.75,.25).phase_center
+                0.0
+                >>> print PhaseRange(.25,.25).phase_center
+                0.25
+        """
         if not self.is_continuous(): raise Exception("unable to find phase center because multiple phase ranges.")
         a,b=self.tolist()
         center = (a+((b-a)%1)/2) % 1
