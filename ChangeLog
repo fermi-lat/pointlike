@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Nov 20 15:41:05 PST 2012
+pointlike/python/uw/like
+
+Modified Files:
+	pypsf.py 
+Log Message:
+Finish PSF bug fixes (hopefully), add C++ implementation of overlap integral.
+
+    *
+------------------------------------------------------------
 User: kerrm  Tue Nov 20 12:36:07 PST 2012
 pointlike/python/uw/like
 
