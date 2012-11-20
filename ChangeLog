@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Nov 20 12:36:07 PST 2012
+pointlike/python/uw/like
+
+Modified Files:
+	pypsf.py 
+Log Message:
+Fix bug in psf integral method, clean up code.
+
+    *
+------------------------------------------------------------
 User: burnett  Sun Nov 18 16:13:04 PST 2012
 pointlike/python/uw/like2/pipeline
 
