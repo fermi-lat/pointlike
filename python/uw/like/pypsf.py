@@ -2,7 +2,7 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.32 2012/11/09 02:32:16 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.33 2012/11/20 20:36:07 kerrm Exp $
 author: M. Kerr
 
 """
@@ -199,8 +199,10 @@ class CALDBPsf(Psf):
         if self.newstyle:
             nc,nt,gc,gt,sc,st,w = self.get_p(e,ct)
             sf = self.scale_func[ct](e)
-            icore = TWOPI*(sc)**2*nc*self.psf_base_integral(gc,sc*sf,dmax)[0]
-            itail = TWOPI*(st)**2*nt*self.psf_base_integral(gt,st*sf,dmax)[0]
+            icore = TWOPI*sc**2*nc*\
+                    self.psf_base_integral(gc,sc*sf,dmax,dmin=dmin)[0]
+            itail = TWOPI*st**2*nt*\
+                    self.psf_base_integral(gt,st*sf,dmax,dmin=dmin)[0]
             return (w*(icore+itail)).sum(axis=-1)
         else:
             gc,si,w = self.get_p(e,ct)
@@ -375,13 +377,10 @@ class BandCALDBPsf(BandPsf,CALDBPsf):
         """ Note -- does *not* take a vector argument right now."""
         if self.newstyle:
             nc,nt,gc,gt,sc,st,w = self.par
-            icore = self.psf_base_integral(gc,sc,dmax)
-            itail = self.psf_base_integral(gc,sc,dmax)
-            if dmin>0:
-                icore -= self.psf_base_integral(gc,sc,dmin)
-                itail -= self.psf_base_integral(gc,sc,dmin)
-            icore *= TWOPI*sc**2*nc
-            itail *= TWOPI*st**2*nt
+            icore = TWOPI*sc**2*nc*\
+                    self.psf_base_integral(gc,sc,dmax,dmin=dmin)
+            itail = TWOPI*st**2*nt*\
+                    self.psf_base_integral(gc,sc,dmax,dmin=dmin)
             return (w*(icore+itail)).sum()
 
         else:
@@ -468,9 +467,36 @@ class PsfOverlap(object):
         # or if we need instead to do a cubature with HEALPix
         if (((band.b.pixelArea()**0.5/band.radius_in_rad) > ragged_edge) 
             and (band.b.nside() < 200)):
-            print 'using numerical'
             n_overlap = self.num_overlap(band,roi_dir,ps_dir,roi_rad,override_pdf)
             return n_overlap
+
+        return overlap
+
+class CPsfOverlap(PsfOverlap):
+    """ Same as PsfOverlap, but using C++ implementation of the
+        overlap integral."""
+    def __call__(self,band,roi_dir,ps_dir,radius_in_rad=None,
+                 ragged_edge=0.06):
+        """ Return the fractional overlap for a point source at location 
+            skydir.
+
+            band           an ROIBand object
+            roi_dir        the SkyDir giving the center of the ROI
+            ps_dir         the SkyDir giving the point source position
+            radius_in_rad  the ROI radius (radians)
+            ragged_edge    tolerance for assumption that HEALPix
+                               representation is circular
+        """
+
+        roi_rad  = band.radius_in_rad if radius_in_rad is None \
+                    else radius_in_rad
+        overlap = band.psf.cpsf.overlap_circle(roi_dir,roi_rad,ps_dir)
+
+        # check to see if ROI is circular enough for above calculation
+        # or if we need instead to do a cubature with HEALPix
+        if (((band.b.pixelArea()**0.5/band.radius_in_rad) > ragged_edge) 
+            and (band.b.nside() < 200)):
+            overlap = self.num_overlap(band,roi_dir,ps_dir,roi_rad)
 
         return overlap
 
