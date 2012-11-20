@@ -2,7 +2,7 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.31 2012/11/08 20:10:19 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.32 2012/11/09 02:32:16 kerrm Exp $
 author: M. Kerr
 
 """
@@ -375,9 +375,15 @@ class BandCALDBPsf(BandPsf,CALDBPsf):
         """ Note -- does *not* take a vector argument right now."""
         if self.newstyle:
             nc,nt,gc,gt,sc,st,w = self.par
-            icore = TWOPI*sc**2*nc*self.psf_base_integral(gc,sc,dmax)
-            itail = TWOPI*st**2*nt*self.psf_base_integral(gt,st,dmax)
+            icore = self.psf_base_integral(gc,sc,dmax)
+            itail = self.psf_base_integral(gc,sc,dmax)
+            if dmin>0:
+                icore -= self.psf_base_integral(gc,sc,dmin)
+                itail -= self.psf_base_integral(gc,sc,dmin)
+            icore *= TWOPI*sc**2*nc
+            itail *= TWOPI*st**2*nt
             return (w*(icore+itail)).sum()
+
         else:
             w,a,b = self.int_par
             return ( w*( (1+a*(dmin*dmin))**b - (1+a*(dmax*dmax))**b ) ).sum()
@@ -400,7 +406,9 @@ class PsfOverlap(object):
 
     def num_overlap(self,band,roi_dir,ps_dir,radius_in_rad=None,override_pdf=None):
         roi_rad  = radius_in_rad or band.radius_in_rad
-        if self.cache_hash != hash(band): self.set_dir_cache(band,roi_dir,roi_rad) # fragile due to radius dep.
+        if self.cache_hash != hash(band):
+            # fragile due to radius dep.
+            self.set_dir_cache(band,roi_dir,roi_rad) 
         if override_pdf is None:
             band.psf.cpsf.wsdl_val(self.cache_diffs,ps_dir,self.cache_wsdl)
         else:
@@ -409,47 +417,59 @@ class PsfOverlap(object):
             self.cache_diffs = override_pdf(difference)
         return self.cache_diffs.sum()*band.b.pixelArea()
 
-    def __call__(self,band,roi_dir,ps_dir,radius_in_rad=None,ragged_edge=0.06,
+    def __call__(self,band,roi_dir,ps_dir,radius_in_rad=None,
+                 ragged_edge=0.06,
                  override_pdf=None,override_integral=None):
-        """Return the fractional overlap for a point source at location skydir.
-            Note radius arguments are in radians."""
+        """ Return the fractional overlap for a point source at location 
+            skydir.
 
-        roi_rad  = band.radius_in_rad if radius_in_rad is None else radius_in_rad
-        integral = band.psf.integral if override_integral is None else override_integral
+            band           an ROIBand object
+            roi_dir        the SkyDir giving the center of the ROI
+            ps_dir         the SkyDir giving the point source position
+            radius_in_rad  the ROI radius (radians)
+            ragged_edge    tolerance for assumption that HEALPix
+                               representation is circular
+            override_pdf   an alternative psf density to use
+            override_integral    an alternative cumulative psf to use
+        """
 
-        offset    = roi_dir.difference(ps_dir)
+        roi_rad  = band.radius_in_rad if radius_in_rad is None \
+                    else radius_in_rad
+        integral = band.psf.integral if override_integral is None \
+                    else override_integral
+        offset = roi_dir.difference(ps_dir)
+        tol = self.quadrature_tol
 
+        # if point source is close to center of ROI, use PSF integral
         if offset < 1e-5:
-            overlap = integral(roi_rad) #point source in center of ROI, symmetry
+            overlap = integral(roi_rad) 
 
+        # if point source within ROI
         elif offset < roi_rad:
-
             def interior(x):
+                c = cos(x)
+                s2 = c**2-1
+                effrad = (roi_rad**2 + s2*offset**2)**0.5 - offset*c
+                return integral(effrad)
+            overlap = quad(interior,0,np.pi,epsabs=tol)[0]/np.pi
 
-                c         = cos(x)
-                eff_rad = ( roi_rad**2 + offset**2*(c**2 - 1) )**0.5 - offset*c
-                return integral(eff_rad)
-
-            overlap = quad(interior,0,np.pi,epsabs=self.quadrature_tol)[0]/np.pi
-
+        # for point sources outside of ROI
         else:
-
             def exterior(x):
-
-                c     = cos(x)
-                r2    = ( roi_rad**2 - (1-c**2)*offset**2 )**0.5
-                de    = offset*c - r2
-                return integral(dmax=de+2*r2,dmin=de)
-
-
+                c = cos(x)
+                s2 = c**2-1
+                r2 = (roi_rad**2 + s2*offset**2)**0.5
+                de = offset*c - r2
+                return integral(de+2*r2,dmin=de)
             limit = np.arcsin(roi_rad / offset)
-            overlap = quad(exterior,0,limit,epsabs=self.quadrature_tol)[0]/np.pi
+            overlap = quad(exterior,0,limit,epsabs=tol)[0]/np.pi
 
-
-        if ((band.b.pixelArea()**0.5/band.radius_in_rad) > ragged_edge) and (band.b.nside() < 200):
+        # check to see if ROI is circular enough for above calculation
+        # or if we need instead to do a cubature with HEALPix
+        if (((band.b.pixelArea()**0.5/band.radius_in_rad) > ragged_edge) 
+            and (band.b.nside() < 200)):
+            print 'using numerical'
             n_overlap = self.num_overlap(band,roi_dir,ps_dir,roi_rad,override_pdf)
-            #print overlap,n_overlap
-            #print 'Using numerical overlap, difference is %.6f'%(n_overlap-overlap)
             return n_overlap
 
         return overlap
