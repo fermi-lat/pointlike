@@ -1,11 +1,11 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.5 2012/11/18 19:44:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.6 2012/11/19 00:13:04 burnett Exp $
 
 """
 
-import os, pickle, glob, zipfile, time, sys
+import os, pickle, glob, zipfile, time, sys, types
 import numpy as np
 import pylab as plt
 import pandas as pd
@@ -30,16 +30,8 @@ class Diagnostics(object):
 
         
     def setup(self):
-    
-         # get the basic pickles with the model
-        files, pkls = self.load_pickles()
-        self.rois =  pkls
-        assert len(self.rois)==1728
-        self.glon = np.array([r['skydir'].l() for r in self.rois]); self.glon[self.glon>180]-=360
-        self.glat = np.array([r['skydir'].b() for r in self.rois])
-        self.singlat = np.sin(np.radians(self.glat))
-        self.plot_folder = 'chisq'
-    
+        assert False, 'Base class not implemented'
+        
     def set_plot(self, ax, fignum, figsize=(4,4)):
         if ax is None:
             plt.figure(fignum, figsize=figsize);
@@ -84,23 +76,114 @@ class Diagnostics(object):
         plt.figtext(0.5,0.07, xtext, ha='center');
         plt.figtext(0.05, 0.5, ytext, rotation='vertical', va='center')
         if title is not None: plt.suptitle(title)
+        
+    def skyplot(self, values, ax=None, title='', vmin=None, vmax=None, 
+                    labels=True, colorbar=True, cbtext=''):
+        if ax is None:
+            fig, ax = plt.subplots( 1,1, figsize=(4,4))
+        else: fig = ax.figure
+        scat =ax.scatter(self.rois.glon, self.rois.singlat, s=20, 
+            c=values,  vmin=vmin, vmax=vmax,edgecolor='none')
+        if title is not None:
+            ax.set_title(title, fontsize='small')
+        ax.axhline(0, color='k');ax.axvline(0,color='k')
+        if labels: plt.setp(ax, xlabel='glon', ylabel='sin(glat)',)
+        plt.setp(ax, xlim=(180,-180), ylim=(-1.02, 1.02),)
+        ax.set_xticks([180,90,0,-90,-180])
+        if colorbar:
+            cb=plt.colorbar(scat)
+            cb.set_label(cbtext)
+        return fig
+
+class CountPlots(Diagnostics):
     
+    def setup(self):
+        self.plotfolder = 'counts'
+
+         # get the basic pickles with the model
+        files, pkls = self.load_pickles()
+        self.pkls = pkls # for development
+        assert len(pkls)==1728, 'expect to find 1728 pickled roi files'
+        glon = np.array([r['skydir'].l() for r in pkls]); 
+        glon[glon>180]-=360
+        glat = np.array([r['skydir'].b() for r in pkls])
+        singlat = np.sin(np.radians(glat))
+        roinames = [p['name'] for p in pkls]
+        self.rois = pd.DataFrame(
+            dict(glon=glon, glat=glat, singlat=singlat, 
+                chisq=[r['counts']['chisq'] for r in pkls],
+                bandts=[r['counts']['bandts'] for r in pkls],
+                ),
+                index = roinames )
+        # dict of dataframes with count info. columns are energies
+        self.energy = pkls[0]['counts']['energies'] # extract list from first pickle
+        counts = [p['counts'] for p in pkls]
+        self.counts=dict()
+        for key in ['observed', 'total']:
+            self.counts[key]= pd.DataFrame([x[key] for x in counts], index=roinames)
+        # also model info
+        for i,key in enumerate(['ring','isotrop', 'limb',]):
+            t = []
+            for j,p in enumerate(pkls):
+                if key in p['diffuse_names']:
+                    y=p['counts']['models'][i]
+                    assert y[0]==key, 'wrong key, %s, %s'% (key, y[0])
+                    t.append(y[1])
+                else:
+                    t.append(np.zeros(len(self.energy)))
+            self.counts[key]= pd.DataFrame(t, index=roinames)
+
+    def residual(self, ib):
+        """ residual DF array for energy band ib 
+        """
+        obs   = self.counts['observed'].transpose().ix[ib]
+        model = self.counts['total'].transpose().ix[ib]
+        resid = (obs-model)/np.sqrt(model)
+        return resid
+     
+    def residual_hists(self):
+        fig,axx = plt.subplots(3,4, figsize=(12,12))
+        for ib,ax in enumerate(axx.flatten()):
+            resid = self.residual(ib)
+            ax.hist(resid.clip(-5,5), np.linspace(-5,5,21))
+            ax.set_title('%.0f MeV'% self.energy[ib], fontsize=10)
+            ax.axvline(0, color='k')
+            plt.setp(ax, xlim=(-5,5))
+            ax.grid(True)
+        self.savefigure('residual_hists')
+    
+    def residual_plot(self):
+        res = [self.residual(ib) for ib in range(len(self.energy))]
+        means = [x.mean() for x in res]
+        stds  = [x.std() for x in res]
+        fig,ax= plt.subplots(figsize=(4,4))
+        ax.errorbar(self.energy, y=means, yerr=stds, fmt='o')
+        plt.setp(ax, xscale='log', xlabel='energy', ylabel='average residual')
+        ax.set_title('count residuals')
+        ax.grid()
+        ax.axhline(0, color='k')
+        self.savefigure('average_residual_plot')
+        
     def chisq_plots(self,  vmin=0, vmax=100):
-        chisq = np.array([r['counts']['chisq'] for r in self.rois])
         fig, axs = plt.subplots( 1,2, figsize=(6,3))
         ax = axs[0]
-        scat =ax.scatter(self.glon, self.singlat, s=15, c=chisq,  vmin=vmin, vmax=vmax,edgecolor='none')
+        scat =ax.scatter(self.rois.glon, self.rois.singlat, s=15, 
+            c=self.rois.chisq,  vmin=vmin, vmax=vmax,edgecolor='none')
         ax.set_title('chisq', fontsize='small')
         ax.axhline(0, color='k');ax.axvline(0,color='k')
         plt.setp(ax, xlabel='glon', ylabel='sin(glat)',xlim=(180,-180), ylim=(-1.02, 1.02),)
         ax = axs[1]
         bins = np.linspace(0,100, 26)
-        ax.hist(chisq.clip(0,100), bins, label='all')
-        ax.hist(chisq.clip(0,100)[np.abs(self.glat)<5], bins, color='red', label='|b|<5')
+        ax.hist(self.rois.chisq.clip(0,100), bins, label='all')
+        ax.hist(self.rois.chisq.clip(0,100)[np.abs(self.rois.glat)<5], bins, color='red', label='|b|<5')
         ax.legend(loc='upper right', prop=dict(size=10)) 
         plt.setp(ax, xlabel='chisq')
-        fig.savefig('plots/chisq.png')
+        self.savefigure('chisq.png')
         return fig
+        
+    def all_plots(self):
+        self.residual_hists()
+        self.chisq_plots()
 
 
 class FrontBackSedPlots(Diagnostics):
@@ -307,15 +390,15 @@ class SourceFits(Diagnostics):
             catrec.create_catalog('.', save_local=True)
         sin = pickle.load(open(recfile))
         localized = -np.isnan(sin.a)
-        use_localization =  sum(localized)>0
-        if use_localization:
+        self.use_localization =  sum(localized)>0
+        if self.use_localization:
             cut = (sin.ts>10)*(localized)*(sin.pindex<3.5)+ sin.extended
         else:
             cut = (sin.ts>10)*(sin.pindex<3.5)+ sin.extended
         print np.sum(sin.ts>10), sum(-np.isnan(sin.a)),np.sum(sin.pindex<3.5) , np.sum(sin.extended)
         self.s = sin[cut]
         print 'found %d  sources, selecting %d for analysis %s' %\
-            ( len(cut), sum(cut), ('' if use_localization else '(ignoring localization)'))
+            ( len(cut), sum(cut), ('' if self.use_localization else '(ignoring localization)'))
         self.plotfolder='sources'
         self.srcinfo = catrec.FitSource('.')
         
@@ -400,9 +483,28 @@ class SourceFits(Diagnostics):
         ax.grid(True); ax.legend()
         self.savefigure('isodiffuse', 'isotropic spectra:%s'% list(diffuse[1]))
         
+    def localization(self, bins=np.linspace(0,10,26)):
+        fig, axx = plt.subplots(1,2,figsize=(7,3)); 
+        plt.subplots_adjust(wspace=0.4)
+        wp = self.s
+        cut = wp.ts>10
+        ax=axx[0]
+        ax.hist(wp.delta_ts[cut].clip(0,10), bina)
+        ax.hist(wp.delta_ts[wp.ts>100].clip(0,10), bins,label='TS>100')
+        ax.legend(prop=dict(size=10))
+        plt.setp(ax, xlabel='delta TS')
+        ax=axx[1]
+        ax.plot( wp.ts[cut],wp.delta_ts[cut].clip(0,10), '.')
+        ax.grid()
+        setp(ax, xscale='log', xlabel='TS', ylabel='delta TS')
+        self.savefigure('localization')
+    
     def all_plots(self):
+        self.fitquality()
         self.lowfluxplots()
         self.isotropic_plot()
+        if self.use_localization:
+            self.localization()
   
 class GalDiffusePlots(Diagnostics):
 
@@ -413,7 +515,7 @@ class GalDiffusePlots(Diagnostics):
         folder = '%sfits_all'%which
         if not os.path.exists(folder) and not os.path.exists(folder+'.zip'): folder = folder[:-4]
         files, pkls = self.load_pickles(folder, 0)
-        assert len(files)==1728, 'Expect to fine 1728 files in %s' %folder
+        assert len(files)==1728, 'Expect to find 1728 files in %s' %folder
         self.project_title='diffuse systematics for %s'%self.skymodel
         print self.project_title
         makearray = lambda name,eclass='both' :\
@@ -578,22 +680,25 @@ class IsoDiffusePlots(GalDiffusePlots):
         self.lowdiff_scat( ax[1])
         self.savefigure('isotropic_bin0_bin1_difference')
        
-# temporary -- run in skymodel folder
+def main(args=None):
+    opts = [('iso',    IsoDiffusePlots),
+            ('gal',    GalDiffusePlots),
+            ('sources',SourceFits),
+            ('fb',     FrontBackSedPlots),
+            ('counts', CountPlots),
+            ]  
+    keys,classes =  [[t[j] for t in opts] for j in (0,1)]
+    if args is None:
+        print 'require an argument: expect one, or list of %s' %keys
+        return
+    if type(args)==types.StringType:
+        args = [args]
+    for arg in args:
+        i = keys.index(arg)
+        if i<0: print 'found %s; expect one of %s' %(arg,keys)
+        else:
+            classes[i]('.').all_plots()
+        
 if __name__=='__main__':
-    keys = 'iso gal sources fb'.split()
-    if len(sys.argv)<2: print 'require an argument: expect one of %s' % keys
-    
-    arg = sys.argv[1]
-    if arg not in keys: print 'found %s; expect one of %s' %(arg,keys)
-    
-    if arg=='iso':
-        IsoDiffusePlots('.').all_plots()
-    elif arg=='gal':
-        GalDiffusePlots('.').all_plots()
-    elif arg=='sources':
-        SourceFits('.').all_plots()
-    elif arg=='fb':
-        FrontBackSedPlots('.').all_plots()
-    else:
-        Diagnostics('.').chisq_plots()
-    
+    if len(sys.argv)<2:  main()
+    main(sys.argv[1:])
