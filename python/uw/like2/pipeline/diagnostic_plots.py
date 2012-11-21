@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.6 2012/11/19 00:13:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.7 2012/11/21 00:23:09 burnett Exp $
 
 """
 
@@ -499,10 +499,29 @@ class SourceFits(Diagnostics):
         setp(ax, xscale='log', xlabel='TS', ylabel='delta TS')
         self.savefigure('localization')
     
+    def cumulative_ts(self):
+        s = self.s
+        fig,ax = plt.subplots( figsize=(5,3))
+        dom = np.logspace(1,5,1601)
+        ax.axvline(25, color='k', lw=2) 
+        ax.hist( s.ts ,dom, cumulative=-1, lw=2, color='g', histtype='step')
+        plt.setp(ax, xscale='linear', ylabel='sources with greater TS', xlabel='TS',
+             xlim=(10,40), ylim=(2000,4000) )
+
+        cut = (s.ts>25)
+        n25 = sum(cut); ax.plot([23,27], [n25,n25], '--r');
+        n10 = len(s.ts); ax.plot([10,12], [n10,n10], '--r');
+        ax.text(27,n25, '%d'%n25, fontsize='small', va='center')
+        ax.text(12,n10, '%d'%n10, fontsize='small', va='center')
+        ax.set_title('cumulative TS distribution', fontsize='medium')
+        ax.grid()
+        self.savefigure('cumulative_ts')
+    
     def all_plots(self):
         self.fitquality()
         self.lowfluxplots()
         self.isotropic_plot()
+        self.cumulative_ts()
         if self.use_localization:
             self.localization()
   
