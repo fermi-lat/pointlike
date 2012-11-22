@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Nov 22 08:34:43 PST 2012
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+fix set_parameters for FrontBackConstant
+    *
+------------------------------------------------------------
 User: burnett  Wed Nov 21 16:29:24 PST 2012
 pointlike/python/uw/like2/pipeline
 
