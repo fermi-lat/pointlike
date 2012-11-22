@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.139 2012/09/21 14:24:32 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.140 2012/11/16 18:59:37 kadrlica Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -724,7 +724,10 @@ class Model(object):
                 args = (emin,emax,e_weight,cgs,False)
                 d    = self.__flux_derivs__(*args)[mask]
                 dt  = d.reshape( (d.shape[0],1) ) #transpose
-                err = (d * self.internal_cov_matrix[mask].transpose()[mask] * dt).sum()**0.5
+                try:
+                    err = (d * self.internal_cov_matrix[mask].transpose()[mask] * dt).sum()**0.5
+                except:
+                    err=np.nan
                 if not two_sided:
                     return (flux,err)
                 else: #use log transform to estimate two-sided errors
@@ -1760,6 +1763,14 @@ class ExpCutoff(Model):
     #    if C[1,1]==0:
     #        raise ModelException('%s fit required before calculating pivot energy' %self.name)
     #    return self.e0*np.exp( C[0,1]/(A*C[1,1]) )
+    def flux_relunc(self, energy):
+        """ Return relative uncertainty, ignoring contribution from exponential, if the parameter is free
+        """
+        f2 = self.free[2]
+        self.free[2]=False
+        r = super(ExpCutoff, self).flux_relunc(energy)
+        self.free[2]=f2
+        return r
         
     def set_e0(self, e0p):
         """ Set a new reference energy, adjusting the norm parameter 
@@ -2166,7 +2177,7 @@ class CompositeModel(Model):
         assert(len(self.free) == len(value))
         counter=0
         for i,n in enumerate(self.npars):
-            self.models[i].free = value[counter:counter+n]
+            self.models[i].free = np.array(value[counter:counter+n])
             counter += n
 
     def duplicate_names(self):
@@ -2279,7 +2290,19 @@ class FrontBackConstant(CompositeModel):
         self.models[0][0]=f
         self.models[1][0]=b
         self.ct = 0
-        
+    
+    def set_parameters(self,new_vals):
+        """ Set FREE internal parameters; new_vals should have length equal to number of free parameters.
+        Special version overriding CompositeModel, which does not seem to work for this class
+        """
+        assert(len(new_vals)==(self.free).sum()), 'problem with FrontBackConstant: %s'%new_vals
+        if len(new_vals)==1: # only setting one
+            which = 0 if self.free[0] else 1
+            self.models[which].set_parameters(new_vals)
+            return
+        self.models[0].set_parameters(new_vals[0:1])
+        self.models[1].set_parameters(new_vals[1:2])
+    
     def __call__(self, e):
         return self.models[self.ct](e)
         
