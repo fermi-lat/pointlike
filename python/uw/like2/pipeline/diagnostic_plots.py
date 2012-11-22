@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.7 2012/11/21 00:23:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.8 2012/11/21 15:22:43 burnett Exp $
 
 """
 
@@ -10,6 +10,7 @@ import numpy as np
 import pylab as plt
 import pandas as pd
 from uw.like2 import catrec
+from skymaps import SkyDir
 
 class Diagnostics(object):
     """ basic class to handle data for diagnostics, collect code to make plots
@@ -42,7 +43,8 @@ class Diagnostics(object):
         
     def savefigure(self, name=None, caption=None, **kwargs):
         if name is not None:
-            savefig_kw=dict(dpi=60, bbox_inches='tight', pad_inches=0.5); savefig_kw.update(kwargs)
+            savefig_kw=dict(dpi=60, bbox_inches='tight', pad_inches=0.5) 
+            savefig_kw.update(kwargs)
             savefile = os.path.join(self.plotfolder,'%s_%s.png'%(name,self.skymodel.replace('/','_')))
             plt.savefig(savefile, **savefig_kw)
             print 'saved plot to %s' % savefile
@@ -71,10 +73,11 @@ class Diagnostics(object):
         fig.text(0.025,0.025, 'Asymmetry study %s' % time.asctime(),fontsize='small')
         plt.subplots_adjust(left=0.10, wspace=0.25, hspace=0.25,right=0.95)
         return ax.flatten()
+    
     def multilabels(self, xtext, ytext, title=None):
         plt.subplots_adjust(bottom=0.2)
         plt.figtext(0.5,0.07, xtext, ha='center');
-        plt.figtext(0.05, 0.5, ytext, rotation='vertical', va='center')
+        plt.figtext(0.075, 0.5, ytext, rotation='vertical', va='center')
         if title is not None: plt.suptitle(title)
         
     def skyplot(self, values, ax=None, title='', vmin=None, vmax=None, 
@@ -104,6 +107,7 @@ class CountPlots(Diagnostics):
         files, pkls = self.load_pickles()
         self.pkls = pkls # for development
         assert len(pkls)==1728, 'expect to find 1728 pickled roi files'
+        sdirs = [r['skydir'] for r in pkls]
         glon = np.array([r['skydir'].l() for r in pkls]); 
         glon[glon>180]-=360
         glat = np.array([r['skydir'].b() for r in pkls])
@@ -111,6 +115,8 @@ class CountPlots(Diagnostics):
         roinames = [p['name'] for p in pkls]
         self.rois = pd.DataFrame(
             dict(glon=glon, glat=glat, singlat=singlat, 
+                ra= [d.ra() for d in sdirs],
+                dec = [d.dec() for d in sdirs],
                 chisq=[r['counts']['chisq'] for r in pkls],
                 bandts=[r['counts']['bandts'] for r in pkls],
                 ),
@@ -181,8 +187,45 @@ class CountPlots(Diagnostics):
         self.savefigure('chisq.png')
         return fig
         
+    def residual_maps(self, vmin=-5, vmax=5):
+        fig, axx = plt.subplots(3,4, figsize=(12,10))
+        for ib,energy in enumerate(self.energy[:12]):
+            ax = axx.flatten()[ib]
+            self.skyplot(self.residual(ib).clip(vmin,vmax), ax=ax, title='%d MeV'%energy,
+                vmin=vmin,vmax=vmax, colorbar=False, labels=False)
+        self.savefigure('residual_maps')
+        return fig
+        
+    def resid_vs_dec(self, ib=0, ax=None, labels=True):
+        if ax is None:
+            fig,ax = plt.subplots( figsize=(4,4))
+        else: fig = ax.figure
+        r = self.residual(ib)
+        ax.plot(self.rois.dec, r, '.')
+        galplane = np.abs(self.rois.glat)<5
+        ax.plot(self.rois.dec[galplane], r[galplane], '+r', label='|b|<5')
+        ax.axhline(0, color='k')
+        plt.setp(ax, ylim=(-8,8), xlim=(-90,90))
+        if labels: plt.setp(ax, xlabel='Dec', ylabel='normalized residual')
+        ax.set_xticks((-90,-45,0,45,90))
+        ax.set_title('%d MeV' % self.energy[ib], size=10)
+        ax.legend(prop=dict(size=10))
+        ax.grid()
+        return fig
+        
+    def resid_vs_dec_multi(self):
+        fig,axx = plt.subplots(2,4, figsize=(12,8))
+        for ib, ax in enumerate(axx.flatten()):
+            self.resid_vs_dec(ib, ax=ax, labels=None)
+        self.multilabels('Dec', 'nomrmalized residual')
+        self.savefigure('resid_vs_dec')
+        return fig
+    
     def all_plots(self):
         self.residual_hists()
+        self.residual_plot()
+        self.residual_maps()
+        self.resid_vs_dec_multi()
         self.chisq_plots()
 
 
@@ -699,6 +742,71 @@ class IsoDiffusePlots(GalDiffusePlots):
         self.lowdiff_scat( ax[1])
         self.savefigure('isotropic_bin0_bin1_difference')
        
+class LimbPlots(Diagnostics):
+    def setup(self):
+        self.plotfolder='limb'
+        files, pkls = self.load_pickles()
+        assert len(pkls)==1728, 'expect to find 1728 pickled roi files'
+        cut = np.array(['limb' in p['diffuse_names'] for p in pkls])
+        print 'Found %d rois with limb fits'% sum(cut)
+        dirs = [p['skydir'] for p in pkls]
+        indexes = np.arange(1728)[cut]; 
+        ra = np.array([d.ra() for d in dirs])[cut]
+        dec = np.array([d.dec() for d in dirs])[cut]
+        
+        limb_pkls = [pkls[i] for i in indexes]
+        limb_dirs = [p['skydir'] for p in limb_pkls]
+        fitpars = np.array([p['diffuse'][2].get_all_parameters()  for p in limb_pkls])
+        self.models = [  p['diffuse'][2]  for p in limb_pkls]
+        front_flux=[]; back_flux=[]
+        energy=133 #wire in first band for now
+        for m in self.models:
+            m.ct=0; front_flux.append( m(energy))
+            m.ct=1; back_flux.append(  m(energy))      
+        
+        self.limb = pd.DataFrame(dict(ra=ra,dec=dec, 
+                    glat = [d.b() for d in limb_dirs],
+                    glon = [d.l() for d in limb_dirs],
+                    fpar=fitpars[:,0], bpar=fitpars[:,1],
+                    front_flux=front_flux, back_flux=back_flux,), 
+                index=indexes)
+
+    def polar_plots(self, values, title=None,
+                vmin=None, vmax=None, vticks=5, vlabel=None):
+        """
+        values : array of float
+            Must have same length as self.limb
+        Creates a Figure that must be cleared
+        """
+        fig, axes = plt.subplots(1,2, figsize=(8,4),subplot_kw=dict(polar=True))
+        plt.subplots_adjust(bottom=0.12, top=0.90, wspace=0.3)
+        plot_kw = dict(s=120, edgecolor='none', vmin=vmin, vmax=vmax)
+        
+        #galeq = pickle.load(open('analysis/galactic_equator.pickle'))
+        galeq = [SkyDir(float(u),0, SkyDir.GALACTIC) for u in np.arange(0,360,1)]
+        galra = np.array([sd.ra() for sd in galeq])
+        galdec = np.array([sd.dec() for sd in galeq])
+        def radius( dec, i): return [90-dec, 90+dec][i] 
+        ra,dec =self.limb.ra, self.limb.dec
+        for i, ax in enumerate(axes[:2]):
+            cut = [dec>45, dec<-45][i]
+            r = [90-dec, 90+dec][i]
+            theta = np.radians(ra)
+            sc =ax.scatter(theta[cut], radius(dec[cut],i), c=values[cut], **plot_kw);
+            galtheta = galra; galrad = radius(galdec,i) 
+            ax.plot(np.radians(galtheta[galrad<60]),galrad[galrad<60], '-', color='grey', lw=2)
+            ax.set_ylim(ymax=50)
+            ax.set_title(['North','South'][i]+' Pole', ha='right', fontsize='medium')
+
+        cbax = fig.add_axes((0.25,0.08,0.5, 0.04))
+        cb=plt.colorbar(sc, cbax, orientation='horizontal')
+        if vlabel is not None: cb.set_label(vlabel)
+        cb.set_ticks(np.linspace(vmin, vmax, vticks))
+        plt.suptitle(title)   
+
+    def value_plots(self):
+        pass
+    
 def main(args=None):
     opts = [('iso',    IsoDiffusePlots),
             ('gal',    GalDiffusePlots),
