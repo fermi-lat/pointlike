@@ -1,7 +1,7 @@
 """
 Manage sources for likelihood: single class SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.23 2012/09/27 14:23:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.24 2012/11/03 22:42:39 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import types
@@ -26,27 +26,32 @@ def set_point_property(psource) :
 
 class SourceListException(Exception):pass
 
-def set_default_bounds( model, force=False):
-    """
-    Handy utility to set bounds for a model from like.Models
-    """
-    if not force and hasattr(model, 'bounds'): return
-    bounds=[]
-    def to_internal(fun, values):
-        return [fun(value) if value is not None else None for value in values]
-    for pname, mp in zip(model.param_names, model.mappers):
-        plim = (None,None)
-        try:
-            plim = dict(
-                Index=(-0.5, 5), 
-                Norm=(10**-15, 10**-7),
-                Scale=(0.001, 4.0),
-                beta=(0, 5.), 
-                Cutoff=(100., 1e5),
-                )[pname]
-        except: pass
-        bounds.append( to_internal(mp.tointernal, plim) )
-    model.bounds = np.array(bounds) # convert to array so can mask with free
+# redundant?
+#def set_default_bounds( model, force=False):
+#    """
+#    Handy utility to set bounds for a model from like.Models
+#    force=True to override previously set bounds.
+#    """
+#    if not force and hasattr(model, 'bounds'):
+#        # model has bounds. Were they set? check to see if all are None
+#        notset =  np.all(np.array([np.all(b ==[None,None]) for b in model.bounds]))
+#        if not notset: return
+#    bounds=[]
+#    def to_internal(fun, values):
+#        return [fun(value) if value is not None else None for value in values]
+#    for pname, mp in zip(model.param_names, model.mappers):
+#        plim = (None,None)
+#        try:
+#            plim = dict(
+#                Index=(-0.5, 5), 
+#                Norm=(10**-15, 10**-7),
+#                Scale=(0.001, 4.0),
+#                beta=(0, 5.), 
+#                Cutoff=(100., 1e5),
+#                )[pname.split('_')[0]]
+#        except: pass
+#        bounds.append( to_internal(mp.tointernal, plim) )
+#    model.bounds = np.array(bounds) # convert to array so can mask with free
 
 def check_bounds(model):
     """ check that free parameters in the model are within the bounds
@@ -92,7 +97,7 @@ class SourceList(list):
         def append(source):
             assert source.name not in self.source_names, 'attempt to add name %s twice' % source.name
             assert hasattr(source, 'spectral_model'), 'bug'
-            self.set_default_bounds(source)
+            self.set_default_bounds(source, True) # override until figure out more subtle
             self.append(source)
         for source in roi.global_sources:
             append(source)
@@ -239,7 +244,12 @@ class SourceList(list):
 
     def set_default_bounds(self, source, force=False):
         model = source.spectral_model
-        if not force and hasattr(model, 'bounds'): return
+        if not force and hasattr(model, 'bounds'):
+            # model has bounds. Were they set? check to see if all are None
+            notset =  np.all(np.array([np.all(b ==[None,None]) for b in model.bounds]))
+            if not notset: return
+
+        #if not force and hasattr(model, 'bounds'): return
         bounds=[]
         def to_internal(fun, values):
             return [fun(value) if value is not None else None for value in values]
@@ -252,7 +262,7 @@ class SourceList(list):
                     Scale=(0.001, 4.0),
                     beta=(0, 5.), 
                     Cutoff=(100., 1e5),
-                    )[pname]
+                    )[pname.split('_')[0]]
             except: pass
             # override for diffuse
             if source.name.startswith('ring') and pname=='Norm': 
