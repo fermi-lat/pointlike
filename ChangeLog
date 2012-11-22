@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Nov 21 16:28:28 PST 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	sourcelist.py 
+Log Message:
+fix setting bounds
+    *
+------------------------------------------------------------
 User: burnett  Wed Nov 21 07:22:43 PST 2012
 pointlike/python/uw/like2/pipeline
 
