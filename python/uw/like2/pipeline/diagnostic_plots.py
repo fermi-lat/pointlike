@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.8 2012/11/21 15:22:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.9 2012/11/22 00:29:24 burnett Exp $
 
 """
 
@@ -10,7 +10,7 @@ import numpy as np
 import pylab as plt
 import pandas as pd
 from uw.like2 import catrec
-from skymaps import SkyDir
+from skymaps import SkyDir, DiffuseFunction
 
 class Diagnostics(object):
     """ basic class to handle data for diagnostics, collect code to make plots
@@ -32,7 +32,8 @@ class Diagnostics(object):
         
     def setup(self):
         assert False, 'Base class not implemented'
-        
+    def describe(self):
+        return 'no description'
     def set_plot(self, ax, fignum, figsize=(4,4)):
         if ax is None:
             plt.figure(fignum, figsize=figsize);
@@ -41,13 +42,14 @@ class Diagnostics(object):
             plt.sca(ax); 
         return ax
         
-    def savefigure(self, name=None, caption=None, **kwargs):
-        if name is not None:
-            savefig_kw=dict(dpi=60, bbox_inches='tight', pad_inches=0.5) 
-            savefig_kw.update(kwargs)
-            savefile = os.path.join(self.plotfolder,'%s_%s.png'%(name,self.skymodel.replace('/','_')))
-            plt.savefig(savefile, **savefig_kw)
-            print 'saved plot to %s' % savefile
+    def savefigure(self, name, caption=None, **kwargs):
+        savefig_kw=dict(dpi=60, bbox_inches='tight', pad_inches=0.5) 
+        savefig_kw.update(kwargs)
+        savefile = os.path.join(self.plotfolder,'%s_%s.png'%(name,self.skymodel.replace('/','_')))
+        plt.savefig(savefile, **savefig_kw)
+        print 'saved plot to %s' % savefile
+        if caption is not None:
+            open(savefile.replace('.png','.txt'),'w').write(caption)
         return plt.gcf()
 
     def load_pickles(self,folder='pickle', offset=1):
@@ -97,6 +99,7 @@ class Diagnostics(object):
             cb=plt.colorbar(scat)
             cb.set_label(cbtext)
         return fig
+
 
 class CountPlots(Diagnostics):
     
@@ -424,7 +427,7 @@ class FrontBackSedPlots(Diagnostics):
         plt.close('all')
         
 
-class SourceFits(Diagnostics):
+class SourceFitPlots(Diagnostics):
     def setup(self):
         assert os.path.exists('pickle.zip') or os.path.exists('pickle'), 'No pickled ROI data found'
         recfile = 'sources.rec'
@@ -747,15 +750,17 @@ class LimbPlots(Diagnostics):
         self.plotfolder='limb'
         files, pkls = self.load_pickles()
         assert len(pkls)==1728, 'expect to find 1728 pickled roi files'
+        
         cut = np.array(['limb' in p['diffuse_names'] for p in pkls])
         print 'Found %d rois with limb fits'% sum(cut)
-        dirs = [p['skydir'] for p in pkls]
-        indexes = np.arange(1728)[cut]; 
-        ra = np.array([d.ra() for d in dirs])[cut]
-        dec = np.array([d.dec() for d in dirs])[cut]
         
+        indexes = np.arange(1728)[cut]; 
         limb_pkls = [pkls[i] for i in indexes]
+
         limb_dirs = [p['skydir'] for p in limb_pkls]
+        ra = np.array([d.ra() for d in limb_dirs])
+        dec = np.array([d.dec() for d in limb_dirs])
+        
         fitpars = np.array([p['diffuse'][2].get_all_parameters()  for p in limb_pkls])
         self.models = [  p['diffuse'][2]  for p in limb_pkls]
         front_flux=[]; back_flux=[]
@@ -764,18 +769,33 @@ class LimbPlots(Diagnostics):
             m.ct=0; front_flux.append( m(energy))
             m.ct=1; back_flux.append(  m(energy))      
         
-        self.limb = pd.DataFrame(dict(ra=ra,dec=dec, 
+        # get the diffuse function
+        try:
+            config = eval(open('config.txt').read())
+            self.limb_file = os.path.join(os.path.expandvars('$FERMI/diffuse'),config['diffuse'][2])
+            print 'loading diffuse definition %s' %self.limb_file
+            df = DiffuseFunction(self.limb_file)
+            flux = [df(sd, energy) for sd in limb_dirs]
+        except Exception, msg:
+            print 'Failed to load fluxes from diffuse definition: %s' %msg
+            flux = np.zeros(len(indeces))
+            
+        self.df = pd.DataFrame(dict(ra=ra,dec=dec, 
                     glat = [d.b() for d in limb_dirs],
                     glon = [d.l() for d in limb_dirs],
                     fpar=fitpars[:,0], bpar=fitpars[:,1],
-                    front_flux=front_flux, back_flux=back_flux,), 
-                index=indexes)
+                    flux=flux,
+                    ), 
+                index=pd.Index(indexes, name='ROI index'))
 
+    def describe(self):
+        return self.df.describe()
+        
     def polar_plots(self, values, title=None,
                 vmin=None, vmax=None, vticks=5, vlabel=None):
         """
         values : array of float
-            Must have same length as self.limb
+            Must have same length as self.df
         Creates a Figure that must be cleared
         """
         fig, axes = plt.subplots(1,2, figsize=(8,4),subplot_kw=dict(polar=True))
@@ -787,7 +807,7 @@ class LimbPlots(Diagnostics):
         galra = np.array([sd.ra() for sd in galeq])
         galdec = np.array([sd.dec() for sd in galeq])
         def radius( dec, i): return [90-dec, 90+dec][i] 
-        ra,dec =self.limb.ra, self.limb.dec
+        ra,dec =self.df.ra, self.df.dec
         for i, ax in enumerate(axes[:2]):
             cut = [dec>45, dec<-45][i]
             r = [90-dec, 90+dec][i]
@@ -801,18 +821,41 @@ class LimbPlots(Diagnostics):
         cbax = fig.add_axes((0.25,0.08,0.5, 0.04))
         cb=plt.colorbar(sc, cbax, orientation='horizontal')
         if vlabel is not None: cb.set_label(vlabel)
-        cb.set_ticks(np.linspace(vmin, vmax, vticks))
-        plt.suptitle(title)   
+        if vmin is not None and vmax is not None:
+            cb.set_ticks(np.linspace(vmin, vmax, vticks))
+        if title is not None: plt.suptitle(title)  
+        return fig
 
-    def value_plots(self):
-        pass
+    def ratio_hist(self):
+        fig, ax = plt.subplots(figsize=(4,4))
+        ratio = (self.df.fpar/self.df.bpar).clip(0,0.4)
+        space = np.linspace(0, 0.4,21)
+        ax.hist(ratio, space)
+        ax.hist(ratio[abs(self.df.glat)>20], space, label='|b|>20')
+        plt.setp(ax, xlabel='front/back ratio', xlim=(0,0.4))
+        ax.set_xticks(np.linspace(0,0.4,5))
+        ax.grid(); ax.legend(prop=dict(size=10))
+        return fig
+        
+    def all_plots(self):
+        self.polar_plots(self.df.bpar, vmin=0, vmax=2, title='Back normalization')
+        self.savefigure('back_normalization_polar')
     
+        self.polar_plots(self.df.fpar, vmin=0, vmax=0.5, title='Front normalization')
+        self.savefigure('front_normalization_polar')
+        self.polar_plots(self.df.flux, title='Nominal Flux at 133 MeV')
+        self.savefigure('nominal_flux_polar', caption="""Nominal flux at 133 MeV, from diffuse file %s"""%self.limb_file)
+        self.ratio_hist()
+        self.savefigure('front_back_ratio_hist', caption="""
+            Polar plots of the ratio of measured front to back""")
+        
 def main(args=None):
     opts = [('iso',    IsoDiffusePlots),
             ('gal',    GalDiffusePlots),
-            ('sources',SourceFits),
+            ('sources',SourceFitPlots),
             ('fb',     FrontBackSedPlots),
             ('counts', CountPlots),
+            ('limb',   LimbPlots),
             ]  
     keys,classes =  [[t[j] for t in opts] for j in (0,1)]
     if args is None:
