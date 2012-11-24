@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Nov 24 10:14:25 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	create_stream.py diagnostic_plots.py 
+Log Message:
+implement argument parsing
+    *
+------------------------------------------------------------
 User: burnett  Sat Nov 24 09:13:09 PST 2012
 pointlike/python/uw/like2/pipeline
 
