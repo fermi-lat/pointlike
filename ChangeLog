@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Nov 24 11:15:56 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	pipe.py 
+Log Message:
+turn off sedfig on finish stage
+    *
+------------------------------------------------------------
 User: burnett  Sat Nov 24 10:14:25 PST 2012
 pointlike/python/uw/like2/pipeline
 
