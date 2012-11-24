@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.18 2012/08/23 18:19:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.19 2012/11/08 16:29:53 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -268,7 +268,7 @@ def process(roi, **kwargs):
             fit_kw = kwargs.get('fit_kw', {})
             try:
                 if diffuse_only:
-                    ndiff = len([n for n in roi.parameter_names if n.split('_')[0] in ('ring','isotrop')])
+                    ndiff = len([n for n in roi.parameter_names if n.split('_')[0] in ('ring','isotrop', 'limb')])
                     roi.summary(range(ndiff), title='Before fit to diffuse components')
                     fit_kw.update(select=range(ndiff))
                     roi.fit(**fit_kw)
