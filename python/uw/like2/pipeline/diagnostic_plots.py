@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.9 2012/11/22 00:29:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.10 2012/11/23 15:26:10 burnett Exp $
 
 """
 
@@ -42,19 +42,23 @@ class Diagnostics(object):
             plt.sca(ax); 
         return ax
         
-    def savefigure(self, name, caption=None, **kwargs):
+    def savefigure(self, name, title=None, caption=None, **kwargs):
         savefig_kw=dict(dpi=60, bbox_inches='tight', pad_inches=0.5) 
         savefig_kw.update(kwargs)
-        savefile = os.path.join(self.plotfolder,'%s_%s.png'%(name,self.skymodel.replace('/','_')))
+        localfile = '%s_%s.png'%(name, self.skymodel.replace('/','_'))
+        savefile = os.path.join(self.plotfolder,localfile)
         plt.savefig(savefile, **savefig_kw)
         print 'saved plot to %s' % savefile
+        if title is None: title = name
         if caption is not None:
-            open(savefile.replace('.png','.txt'),'w').write(caption)
+            html = '<h2>%s</h2> <img src="%s" /> <br> %s '
+            open(savefile.replace('.png','.html'),'w').write(html % (title, localfile, caption))
         return plt.gcf()
 
-    def load_pickles(self,folder='pickle', offset=1):
+    def load_pickles(self,folder='pickle', offset=0):
         """
             load a set of pickles, return list from either zipfile or folder
+            (need offset=1 if folder name zipped as well)
         """
         pkls = []
         if os.path.exists(folder+'.zip'):
@@ -142,6 +146,7 @@ class CountPlots(Diagnostics):
                     t.append(np.zeros(len(self.energy)))
             self.counts[key]= pd.DataFrame(t, index=roinames)
 
+        
     def residual(self, ib):
         """ residual DF array for energy band ib 
         """
@@ -187,7 +192,7 @@ class CountPlots(Diagnostics):
         ax.hist(self.rois.chisq.clip(0,100)[np.abs(self.rois.glat)<5], bins, color='red', label='|b|<5')
         ax.legend(loc='upper right', prop=dict(size=10)) 
         plt.setp(ax, xlabel='chisq')
-        self.savefigure('chisq.png')
+        self.savefigure('chi_squared', caption='chi squarard distribution')
         return fig
         
     def residual_maps(self, vmin=-5, vmax=5):
@@ -196,7 +201,9 @@ class CountPlots(Diagnostics):
             ax = axx.flatten()[ib]
             self.skyplot(self.residual(ib).clip(vmin,vmax), ax=ax, title='%d MeV'%energy,
                 vmin=vmin,vmax=vmax, colorbar=False, labels=False)
-        self.savefigure('residual_maps')
+        self.savefigure('residual_maps', title='Sky maps of normalized residuals', caption="""\
+        
+        """)
         return fig
         
     def resid_vs_dec(self, ib=0, ax=None, labels=True):
@@ -221,7 +228,10 @@ class CountPlots(Diagnostics):
         for ib, ax in enumerate(axx.flatten()):
             self.resid_vs_dec(ib, ax=ax, labels=None)
         self.multilabels('Dec', 'nomrmalized residual')
-        self.savefigure('resid_vs_dec')
+        self.savefigure('resid_vs_dec', title='Residuals vs. declination', caption="""\
+        Normalized residuals for all ROIs, plotted vs. declination angle for each energy bin.
+        ROIs along the glactic plane are shown as red crosses """
+        )
         return fig
     
     def all_plots(self):
@@ -273,7 +283,7 @@ class FrontBackSedPlots(Diagnostics):
         # derived for convenience
         a = self.flux['front']['flux']
         b = self.flux['back']['flux']
-        self.asymmetry = (a-b)/(a+b)
+        self.asymmetry = (a-b)/(a+b) 
 
         # dictionary of diffuse background: galactic and isotropic densities for front and back
         fgal,bgal = [pd.DataFrame(np.array([pkl['bgdensity'][0][i::2] for pkl in pkls]),\
@@ -468,7 +478,7 @@ class SourceFitPlots(Diagnostics):
         plt.setp(ax, xscale='log', xlabel='TS', xlim=(10,1e5),
              ylabel='fit qual',ylim=(1,1e3),yscale='log')
         ax.grid()
-        self.savefigure('fitquality')#, 'Left: fit quality histogram; right: fit quality vs. TS'); 
+        self.savefigure('fitquality', title='Fit Quality', caption= 'Left: fit quality histogram; right: fit quality vs. TS'); 
         return fig #plt.close(fig)
         
     def _lowfluxplot(self, ax, cut, xmax=100., title='selected bad fits', energy=133):
@@ -549,10 +559,11 @@ class SourceFitPlots(Diagnostics):
         s = self.s
         fig,ax = plt.subplots( figsize=(5,3))
         dom = np.logspace(1,5,1601)
-        ax.axvline(25, color='k', lw=2) 
+        ax.axvline(25, color='gray', lw=1) 
         ax.hist( s.ts ,dom, cumulative=-1, lw=2, color='g', histtype='step')
-        plt.setp(ax, xscale='linear', ylabel='sources with greater TS', xlabel='TS',
-             xlim=(10,40), ylim=(2000,4000) )
+        plt.setp(ax,  ylabel='sources with greater TS', xlabel='TS',
+            xscale='log', yscale='log', xlim=(10, 1e5), ylim=(10,8000))
+            # xlim=(10,40), ylim=(2000,4000) )
 
         cut = (s.ts>25)
         n25 = sum(cut); ax.plot([23,27], [n25,n25], '--r');
@@ -561,13 +572,16 @@ class SourceFitPlots(Diagnostics):
         ax.text(12,n10, '%d'%n10, fontsize='small', va='center')
         ax.set_title('cumulative TS distribution', fontsize='medium')
         ax.grid()
-        self.savefigure('cumulative_ts')
+        return fig
     
     def all_plots(self):
         self.fitquality()
         self.lowfluxplots()
         self.isotropic_plot()
         self.cumulative_ts()
+        self.savefigure('cumulative_ts', title='Cumulative, or logN-logTS plot', caption="""\
+        The cumulative histogram of the number of sources vs. TS""")
+
         if self.use_localization:
             self.localization()
   
@@ -826,28 +840,41 @@ class LimbPlots(Diagnostics):
         if title is not None: plt.suptitle(title)  
         return fig
 
-    def ratio_hist(self):
+    def ratio_hist(self, vmax=1.0):
         fig, ax = plt.subplots(figsize=(4,4))
-        ratio = (self.df.fpar/self.df.bpar).clip(0,0.4)
-        space = np.linspace(0, 0.4,21)
+        ratio = (self.df.fpar/self.df.bpar).clip(0,vmax)
+        space = np.linspace(0, vmax,21)
         ax.hist(ratio, space)
         ax.hist(ratio[abs(self.df.glat)>20], space, label='|b|>20')
-        plt.setp(ax, xlabel='front/back ratio', xlim=(0,0.4))
-        ax.set_xticks(np.linspace(0,0.4,5))
+        plt.setp(ax, xlabel='front/back ratio', xlim=(0,vmax))
+        ax.set_xticks(np.linspace(0,vmax,5))
         ax.grid(); ax.legend(prop=dict(size=10))
         return fig
         
     def all_plots(self):
-        self.polar_plots(self.df.bpar, vmin=0, vmax=2, title='Back normalization')
-        self.savefigure('back_normalization_polar')
+        self.polar_plots(self.df.bpar, vmin=0, vmax=3, vticks=4)
+        self.savefigure('back_normalization_polar', title='Back normalization factor', caption="""\
+        Polar plots of the back limb normalization\
+        """)
     
-        self.polar_plots(self.df.fpar, vmin=0, vmax=0.5, title='Front normalization')
-        self.savefigure('front_normalization_polar')
+        self.polar_plots(self.df.fpar, vmin=0, vmax=1.0, vticks=5)
+        self.savefigure('front_normalization_polar', title='Front normalization', caption="""\
+        Polar plots of the front limb normalization\
+        """)
+        
+        self.polar_plots(self.df.fpar/self.df.bpar, vmin=0, vmax=1.0, vticks=5)
+        self.savefigure('front_back_ratio_polar', title='Front/Back flux ratio', caption="""\
+        Polar plots of the ratio of the front to back flux\
+        """)
         self.polar_plots(self.df.flux, title='Nominal Flux at 133 MeV')
         self.savefigure('nominal_flux_polar', caption="""Nominal flux at 133 MeV, from diffuse file %s"""%self.limb_file)
+        
         self.ratio_hist()
-        self.savefigure('front_back_ratio_hist', caption="""
-            Polar plots of the ratio of measured front to back""")
+        self.savefigure('front_back_ratio_hist', title='Histogram of Front/Back limb flux ratio', caption="""\
+        Histogram of the ratio of the front to the back flux. ROIs with |b|>20 degrees are shown in green.\
+        """)
+        
+       
         
 def main(args=None):
     opts = [('iso',    IsoDiffusePlots),
