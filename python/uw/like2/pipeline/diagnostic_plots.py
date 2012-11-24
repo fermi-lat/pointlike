@@ -1,11 +1,11 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.10 2012/11/23 15:26:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.11 2012/11/24 17:12:43 burnett Exp $
 
 """
 
-import os, pickle, glob, zipfile, time, sys, types
+import os, pickle, glob, zipfile, time, sys, types, argparse
 import numpy as np
 import pylab as plt
 import pandas as pd
@@ -875,27 +875,26 @@ class LimbPlots(Diagnostics):
         """)
         
        
+opts = [('iso',    IsoDiffusePlots),
+        ('gal',    GalDiffusePlots),
+        ('sources',SourceFitPlots),
+        ('fb',     FrontBackSedPlots),
+        ('counts', CountPlots),
+        ('limb',   LimbPlots),
+        ]  
         
-def main(args=None):
-    opts = [('iso',    IsoDiffusePlots),
-            ('gal',    GalDiffusePlots),
-            ('sources',SourceFitPlots),
-            ('fb',     FrontBackSedPlots),
-            ('counts', CountPlots),
-            ('limb',   LimbPlots),
-            ]  
+def main(args):
     keys,classes =  [[t[j] for t in opts] for j in (0,1)]
-    if args is None:
-        print 'require an argument: expect one, or list of %s' %keys
-        return
-    if type(args)==types.StringType:
-        args = [args]
-    for arg in args:
+    for arg in args.args:
         i = keys.index(arg)
         if i<0: print 'found %s; expect one of %s' %(arg,keys)
         else:
             classes[i]('.').all_plots()
         
 if __name__=='__main__':
-    if len(sys.argv)<2:  main()
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(description='run a diagnostic output job; must be in skymodel folder')
+    parser.add_argument('args', nargs='+', help='processsor identifier: must be one of %s' %[opt[0] for opt in opts])
+    #parser.add_argument('-j','--joblist',  help='Optional list of jobs; assume local to $POINTLIKE_DIR', default='job_list')
+    #parser.add_argument('--test', action='store_true', help='Do not run the pipeline createStream')
+    args = parser.parse_args()
+    main(args)
