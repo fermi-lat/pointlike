@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.23 2012/11/08 14:44:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.24 2012/11/12 17:47:44 burnett Exp $
 
 """
 import os, pickle, glob, types, collections, zipfile
@@ -33,7 +33,7 @@ class SkyModel(object):
         ('newmodel', None, 'if not None, a string to eval\ndefault new model to apply to appended sources'),
         ('update_positions', None, 'set to minimum ts  update positions if localization information found in the database'),
         ('filter',   lambda s: True,   'source selection filter, applied when creating list of all soruces: see examples at the end. Can be string, which will be eval''ed '), 
-        ('global_check', lambda s: None, 'check global sources: can modify parameters when loading'),
+        ('global_check', 'GlobalCheck()', 'check global sources: can modify parameters when loading'),
         #('diffuse_check', lambda s: None, 'check diffuse sources: can modify parameters'),
         ('closeness_tolerance', 0., 'if>0, check each point source for being too close to another, print warning'),
         ('quiet',  False,  'make quiet' ),
@@ -60,7 +60,7 @@ class SkyModel(object):
         self._setup_extended()
         if self.diffuse is not None:
             """ make a dictionary of (file, object) tuples with key the first part of the diffuse name"""
-            assert len(self.diffuse)<4, 'expect 2 or 3 diffuse names'
+            #assert len(self.diffuse)<4, 'expect 2 or 3 diffuse names'
         else:
             t = self.config['diffuse']
             self.diffuse = eval(t) if type(t)==types.StringType else t 
@@ -753,3 +753,19 @@ class AllFixed(object):
     """ useful for setting all Global parameters fixed"""
     def __call__(self, s):
         s.model.free[:] = False
+class GlobalCheck(object):
+    """ default check for global """
+    def __call__(self, s):
+        if s.name=='limb': # kluge for now.
+            pars = s.model.get_parameters()
+            if pars[1]<-2: 
+                pars[:]=[-2, -1]
+                s.model.set_parameters(pars)
+class LimbSpecial(object):
+    """ fix limb to freeze Front """
+    def __call__(self, s):
+        if s.name=='limb':
+            print 'fixing limb'
+            s.model.free = np.array([False, True])
+            pars = s.model.get_parameters()
+            if pars[0]<=-3: s.model.set_parameters(np.array([-1.]))

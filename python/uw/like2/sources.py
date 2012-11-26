@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.9 2012/11/09 17:34:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.10 2012/11/09 18:20:20 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -139,7 +139,7 @@ class DiffuseDict(dict):
     def __init__(self, diffuse):
         """ diffuse: a list, where each entry is a file name or a tuple of one or two file names, for front and back
         """
-        assert len(diffuse)<4, 'expect 2 or 3 diffuse names, or front/back tuples'
+        #assert len(diffuse)<6, 'expect 2 or 3 diffuse names, or front/back tuples'
         # convert each single entry to a tuple: assume iterables are tuples of strings
         tuplelist = map( lambda x: (x,) if not hasattr(x,'__iter__') else x, diffuse)
         keys = map( lambda x: x[0].split('_')[0], tuplelist) # key or name from first one
