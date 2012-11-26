@@ -1,6 +1,7 @@
 """
 setup and run pointlike all-sky analysis for subset of ROIs
 
+$Header$
 """
 import os, sys, logging
 from collections import OrderedDict
