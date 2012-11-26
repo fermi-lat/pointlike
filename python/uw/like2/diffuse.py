@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.13 2012/02/07 21:01:41 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.14 2012/06/24 04:52:29 burnett Exp $
 
 author: Matthew Kerr, Toby Burnett
 """
@@ -358,6 +358,7 @@ class CacheDiffuseModel(CacheDiffuseConvolution):
         ('binsperdec',      4,  'bands per decade'),
         ('decades',     3.5, 'number of decades'),
         ('npix_list',    (161,  141,  103,   81,   67,   61,), 'number of pixels: array for bands'),
+        ('ignore_nan', True, 'replace nan values with zero (generates warning)'), 
         )
 
     @keyword_options.decorate(defaults)
@@ -392,7 +393,15 @@ class CacheDiffuseModel(CacheDiffuseConvolution):
         self.df.setEnergy(energy) 
         grid.vals = grid.fill(self.df)
         if np.any(np.isnan(grid.vals)):
-            raise DiffuseException('grid had nan(s)')
+            vals = grid.vals.flatten()
+            ok = ~np.isnan(vals)
+            print '%d/%d nans for energy %.0f:  min %.2g, mean %.2g, max %.2g:'%(sum(np.isnan(vals)), len(vals), energy,
+                    vals[ok].min(), vals[ok].mean(), vals[ok].max())
+            if self.ignore_nan:
+                grid.vals[np.isnan(grid.vals)]=0
+            else:
+                raise DiffuseException('Convolution problem?: energy=%.1f, %d/%d nan(s)'\
+                    % (energy, np.sum(np.isnan(grid.vals)), len(grid.vals)) )
         return grid
         
     def process_bands(self, center, dumpto):
@@ -405,24 +414,68 @@ class CacheDiffuseModel(CacheDiffuseConvolution):
             npix = self.npix_list[min(iband, len(self.npix_list)-1)]
             energy = emin*self.efactor
             d = dict(emin=emin, emax=self.energies[iband+1], energy=energy)
-            d.update( self.fill(center, energy, npix).make_dict())
+            try:
+                d.update( self.fill(center, energy, npix).make_dict())
+            except DiffuseException, msg:
+                print 'exception in process_bands, emin=%.0f'%emin
+                raise
+            
             dicts.append(d)
         pickle.dump(dicts, open(dumpto, 'w'))
         print 'wrote pickle file %s with %d bands' % (dumpto, self.nbands)
 
 
-def create_diffuse_cache(diffuse, outdir, name='ring', idlist=xrange(1728), **kwargs):
+def create_diffuse_cache(name, **kwargs):
     """
     Create a file for each healpixel containing grids for each energy
     
+    name : string
+        name of the global diffuse. Unless specific file specified, expect to find a FITS file name_*fit*
+    
+    optional parameters
+        outdir :string
+            actual path to folder in which to create files (eventually zip?)
+            default determined from name of fits file found
+        idlist : int
+            number of HEALPix rois, default 1728
+        binsperdec : int
+            either 4 or 8, default 4
+        infile : string
+            name file to analyze. Default None, meaning expect to find with glob
+       others passed on to skymaps.DiffuseFunction
     """
-    diffuse_file = os.path.expandvars(diffuse)
+    
+    diffuse_dir = kwargs.pop('outdir', os.path.expandvars('$FERMI/diffuse')) 
+    assert os.path.exists(diffuse_dir), 'diffuse directory %s not found' %diffuse_Dir
+    binsperdec = kwargs.pop('binsperdec',4)
+    idlist = kwargs.pop('idlist', 1728) 
+
+    diffuse_file = kwargs.pop('infile', None)
+    if diffuse_file is None:
+        pattern = os.path.join(diffuse_dir, name+'_*.fit*')
+        diffuse_file = glob.glob(pattern)
+        if len(diffuse_file)==0:
+            raise DiffuseException('no files found with pattern %s'%pattern)
+        elif len(diffuse_file)>1:
+            raise DIffuseException("""more than one input file found, %s:
+                specify which one with infile"""%diffuse_file)
+        else: diffuse_file = diffuse_file[0]
     if not os.path.exists(diffuse_file):
         DiffuseException('Diffuse file %s nof found'%diffuse_file)
-    if not os.path.exists(outdir):
-        os.mkdir(outdir)
-    binsperdec = kwargs.pop('binsperdec',4)
+    
+    outdir = kwargs.pop('outdir', None)
+    if outdir is None:
+        outdir = os.path.join(diffuse_dir,
+                os.path.split(diffuse_file)[-1].split('.')[0])+'_%dbpd'%binsperdec
+        if not os.path.exists(outdir):
+            os.mkdir(outdir)
+
+    print 'will create cache from: %s\n\t\t    to: %s' % (diffuse_file, outdir)
+    if kwargs.pop('test', False): return
+
+    # load the FITS diffuse file
     diffusemodel = skymaps.DiffuseFunction(diffuse_file, **kwargs)
+    
     cdm = CacheDiffuseModel(diffusemodel, binsperdec=binsperdec)
     
     def makeone(hp12):
@@ -430,7 +483,7 @@ def create_diffuse_cache(diffuse, outdir, name='ring', idlist=xrange(1728), **kw
         filename = 'HP12_%04d_%s.pickle'%(hp12,name)
         cdm. process_bands(skydir, os.path.join(outdir,filename))
         
-    map(makeone, idlist)
+    map(makeone, range(idlist))
   
 
 def mapper(roi_factory, roiname, skydir, source, **kwargs): 
