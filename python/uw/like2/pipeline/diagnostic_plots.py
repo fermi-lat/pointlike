@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.11 2012/11/24 17:12:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.12 2012/11/24 18:14:25 burnett Exp $
 
 """
 
@@ -440,6 +440,7 @@ class FrontBackSedPlots(Diagnostics):
 class SourceFitPlots(Diagnostics):
     def setup(self):
         assert os.path.exists('pickle.zip') or os.path.exists('pickle'), 'No pickled ROI data found'
+        self.plotfolder='sources'
         recfile = 'sources.rec'
         if not os.path.exists(recfile):
             print 'creating %s...' % recfile, ; sys.stdout.flush()
@@ -449,14 +450,19 @@ class SourceFitPlots(Diagnostics):
         self.use_localization =  sum(localized)>0
         if self.use_localization:
             cut = (sin.ts>10)*(localized)*(sin.pindex<3.5)+ sin.extended
+            unloc = (sin.ts>10)*(~localized)*(sin.pindex<3.5)*(~sin.extended)
+            self.unloc = pd.DataFrame( sin[unloc], index=pd.Index(sin[unloc].name, name='name'))
+            if sum(unloc)>0:
+                print 'Ignoring %d sources (%d with TS>25) due to localization failure'\
+                %(sum(unloc), sum(unloc*(sin.ts>25)))
         else:
             cut = (sin.ts>10)*(sin.pindex<3.5)+ sin.extended
         print np.sum(sin.ts>10), sum(-np.isnan(sin.a)),np.sum(sin.pindex<3.5) , np.sum(sin.extended)
         self.s = sin[cut]
         print 'found %d  sources, selecting %d for analysis %s' %\
             ( len(cut), sum(cut), ('' if self.use_localization else '(ignoring localization)'))
-        self.plotfolder='sources'
         self.srcinfo = catrec.FitSource('.')
+        self.df = pd.DataFrame(self.s, index=pd.Index(self.s.name, name='name'))
         
     def fitquality(self):
         fig, axs = plt.subplots(1,2, figsize=(7,3))
@@ -539,37 +545,45 @@ class SourceFitPlots(Diagnostics):
         ax.grid(True); ax.legend()
         self.savefigure('isodiffuse', 'isotropic spectra:%s'% list(diffuse[1]))
         
-    def localization(self, bins=np.linspace(0,10,26)):
-        fig, axx = plt.subplots(1,2,figsize=(7,3)); 
+    def localization(self, maxdelta=9, mints=10):
+        bins=np.linspace(0,np.sqrt(maxdelta),26)
+        fig, axx = plt.subplots(1,2,figsize=(8,4)); 
         plt.subplots_adjust(wspace=0.4)
         wp = self.s
-        cut = wp.ts>10
+        cut = wp.ts>mints
         ax=axx[0]
-        ax.hist(wp.delta_ts[cut].clip(0,10), bina)
-        ax.hist(wp.delta_ts[wp.ts>100].clip(0,10), bins,label='TS>100')
+        ax.hist(np.sqrt(wp.delta_ts[cut].clip(0,maxdelta)), bins)
+        ax.hist(np.sqrt(wp.delta_ts[wp.ts>100].clip(0,maxdelta)), bins,label='TS>100')
         ax.legend(prop=dict(size=10))
-        plt.setp(ax, xlabel='delta TS')
-        ax=axx[1]
-        ax.plot( wp.ts[cut],wp.delta_ts[cut].clip(0,10), '.')
         ax.grid()
-        setp(ax, xscale='log', xlabel='TS', ylabel='delta TS')
-        self.savefigure('localization')
-    
+        plt.setp(ax, xlabel='sqrt(delta TS)')
+        ax=axx[1]
+        ax.plot( wp.ts[cut],np.sqrt(wp.delta_ts[cut].clip(0,maxdelta)), '.')
+        ax.grid()
+        plt.setp(ax, xscale='log', xlabel='TS', ylabel='sqrt(delta TS)')
+        return fig
+        
     def cumulative_ts(self):
         s = self.s
-        fig,ax = plt.subplots( figsize=(5,3))
+        fig,ax = plt.subplots( figsize=(5,4))
         dom = np.logspace(1,5,1601)
         ax.axvline(25, color='gray', lw=1) 
         ax.hist( s.ts ,dom, cumulative=-1, lw=2, color='g', histtype='step')
+        if self.use_localization:
+            n = len( self.unloc.ts>10 )
+            if n>10:
+                ax.hist(self.unloc.ts ,dom, cumulative=-1, lw=2, color='r', histtype='step',
+                    label='no localization')
+                ax.text(12,n, 'failed localization', fontsize=10, color='r')
+            #ax.legend(prop=dict(size=10))
         plt.setp(ax,  ylabel='sources with greater TS', xlabel='TS',
-            xscale='log', yscale='log', xlim=(10, 1e5), ylim=(10,8000))
-            # xlim=(10,40), ylim=(2000,4000) )
-
-        cut = (s.ts>25)
-        n25 = sum(cut); ax.plot([23,27], [n25,n25], '--r');
-        n10 = len(s.ts); ax.plot([10,12], [n10,n10], '--r');
-        ax.text(27,n25, '%d'%n25, fontsize='small', va='center')
-        ax.text(12,n10, '%d'%n10, fontsize='small', va='center')
+            xscale='log', yscale='log', xlim=(10, 1e4), ylim=(10,8000))
+        # label the plot with number at given TS
+        for t in (10,25):
+            n = sum(s.ts>t) 
+            ax.plot([t,2*t], [n,n], '-k');
+            ax.text(2*t, n, '%d'%n, fontsize=10, va='center')
+                
         ax.set_title('cumulative TS distribution', fontsize='medium')
         ax.grid()
         return fig
@@ -578,12 +592,17 @@ class SourceFitPlots(Diagnostics):
         self.fitquality()
         self.lowfluxplots()
         self.isotropic_plot()
+
         self.cumulative_ts()
         self.savefigure('cumulative_ts', title='Cumulative, or logN-logTS plot', caption="""\
         The cumulative histogram of the number of sources vs. TS""")
 
         if self.use_localization:
             self.localization()
+            self.savefigure('localization', title='Localization plots', caption="""\
+            Left: histogram of the square root of the TS difference from current position to
+            the fit; corresponds the number of sigmas. Right: scatter plot of this vs. TS
+            """)
   
 class GalDiffusePlots(Diagnostics):
 
