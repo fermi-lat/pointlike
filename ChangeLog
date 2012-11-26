@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Nov 26 08:00:05 PST 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	diffuse.py 
+Log Message:
+improve usability of function creating cache
+    *
+------------------------------------------------------------
 User: burnett  Mon Nov 26 07:59:06 PST 2012
 pointlike/python/uw/like2
 
