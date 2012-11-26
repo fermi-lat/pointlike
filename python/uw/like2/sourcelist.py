@@ -1,7 +1,7 @@
 """
 Manage sources for likelihood: single class SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.24 2012/11/03 22:42:39 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.25 2012/11/22 00:28:28 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import types
@@ -259,7 +259,7 @@ class SourceList(list):
                 plim = dict(
                     Index=(-0.5, 5), 
                     Norm=(10**-15, 10**-7),
-                    Scale=(0.001, 4.0),
+                    Scale=(0.0001, 10.0),
                     beta=(0, 5.), 
                     Cutoff=(100., 1e5),
                     )[pname.split('_')[0]]
