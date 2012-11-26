@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Nov 26 09:15:50 PST 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	localization.py 
+Log Message:
+ignore extended in localize_all
+    *
+------------------------------------------------------------
 User: burnett  Mon Nov 26 08:07:00 PST 2012
 pointlike/python/uw/like2/pipeline
 
