@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.12 2012/11/24 18:14:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.13 2012/11/26 16:03:38 burnett Exp $
 
 """
 
@@ -445,6 +445,7 @@ class SourceFitPlots(Diagnostics):
         if not os.path.exists(recfile):
             print 'creating %s...' % recfile, ; sys.stdout.flush()
             catrec.create_catalog('.', save_local=True)
+        
         sin = pickle.load(open(recfile))
         localized = -np.isnan(sin.a)
         self.use_localization =  sum(localized)>0
@@ -562,7 +563,23 @@ class SourceFitPlots(Diagnostics):
         ax.grid()
         plt.setp(ax, xscale='log', xlabel='TS', ylabel='sqrt(delta TS)')
         return fig
-        
+    def localization_quality(self, maxqual=10, mints=10):
+        bins=np.linspace(0,maxqual,26)
+        fig, axx = plt.subplots(1,2,figsize=(8,4)); 
+        plt.subplots_adjust(wspace=0.4)
+        wp = self.s
+        cut = wp.ts>mints
+        ax=axx[0]
+        ax.hist(wp.qual[cut].clip(0,maxqual), bins)
+        ax.hist(wp.qual[wp.ts>100].clip(0,maxqual), bins,label='TS>100')
+        ax.legend(prop=dict(size=10))
+        ax.grid()
+        plt.setp(ax, xlabel='fit quality')
+        ax=axx[1]
+        ax.plot( wp.ts[cut],wp.qual[cut].clip(0,maxqual), '.')
+        ax.grid()
+        plt.setp(ax, xscale='log', xlim=(10,1e5), xlabel='TS', ylabel='fit quality')
+        return fig   
     def cumulative_ts(self):
         s = self.s
         fig,ax = plt.subplots( figsize=(5,4))
@@ -603,6 +620,12 @@ class SourceFitPlots(Diagnostics):
             Left: histogram of the square root of the TS difference from current position to
             the fit; corresponds the number of sigmas. Right: scatter plot of this vs. TS
             """)
+            self.localization_quality()
+            self.savefigure('localization_quality', title='Localization quality plots', caption="""\
+            Left: histogram of the fit quality. This is a measure of the difference between the sampled
+            TS map points and the prediction of the quadratic model. Right: scatter plot of the quality vs. TS.
+            """)
+
   
 class GalDiffusePlots(Diagnostics):
 
