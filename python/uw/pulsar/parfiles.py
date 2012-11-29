@@ -17,19 +17,7 @@ class StringFloat(object):
         precision."""
 
     def __init__(self,s):
-        s = str(s)
-        if 'e' in s:
-            l,r = s.split('e')
-            sign = 1
-            if l[0] == '-':
-                sign = -1; l = l[1:]
-            if r[0]=='-':
-                s = '0.%s%s'%('0'*(int(r[1:])-1),l)
-            else:
-                s = l+'0'*int(r)
-            if sign == -1:
-                s = '-'+s
-        self._s = s
+        s = self._s = self._parse_enotation(str(s))
         self._i = int(s.replace('.',''))
         # "places" keeps track of places right of decimal pt
         if '.' in s:
@@ -37,8 +25,27 @@ class StringFloat(object):
         else:
             self.places = 0
 
+    def _parse_enotation(self,s):
+        s = s.replace('E','e').replace('d','e').replace('D','e')
+        if 'e' in s:
+            l,r = s.split('e')
+            if '.' not in l:
+                l = l + '.'
+            sl,sr = l.split('.')
+            if r[0] == '-':
+                places = int(r[1:])
+                s = '0.' + '0'*(places-len(sl)) + sl + sr
+            else:
+                if r[0] == '+': r = r[1:]
+                places = int(r)
+                s = sl + sr + '0'*(places-len(sr))
+        return s
+
     def __str__(self):
         return self._s
+
+    def __float__(self):
+        return float(self._s)
 
     def __add__(self,other):
         if self.places==0 and other.places==0:
@@ -48,7 +55,13 @@ class StringFloat(object):
         i2 = int(str(other._i) + '0'*(t-other.places))
         s = str(i1+i2)
         return StringFloat(s[:-t]+'.'+s[-t:])
-        
+
+    def __mul__(self,other):
+        if self.places==0 and other.places==0:
+            return StringFloat(str(self._i*other._i))
+        t = (self.places+other.places)
+        s = str(self._i*other._i)
+        return StringFloat(s[:-t]+'.'+s[-t:])
 
 class ParFile(dict):
 
