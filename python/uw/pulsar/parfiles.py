@@ -1,3 +1,11 @@
+"""
+Module reads and manipulates tempo2 parameter files.
+
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.130 2012/09/13 06:17:37 kerrm Exp $
+
+author: Matthew Kerr
+"""
+
 import numpy as np
 import os
 from uw.utilities.coords import ec2eq
