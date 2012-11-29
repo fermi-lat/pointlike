@@ -3,7 +3,7 @@ components of a pulsar light curve.  Includes primitives (Gaussian,
 Lorentzian), etc.  as well as more sophisticated holistic templates that
 provide single-parameter (location) representations of the light curve.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcprimitives.py,v 1.25 2012/07/22 18:32:53 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcprimitives.py,v 1.26 2012/09/19 20:02:53 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -586,6 +586,10 @@ class LCTopHat(LCPrimitive):
     def __call__(self,phases,wrap=True):
         width,x0 = self.p
         return np.where(np.mod(phases - x0 + width/2,1) < width,1./width,0)
+
+    def random(self,n):
+        return np.mod(
+            np.random.rand(n)*self.p[0]+self.p[-1]-self.p[0]/2,1)
 
 class LCHarmonic(LCPrimitive):
     """Represent a sinusoidal shape corresponding to a harmonic in a Fourier expansion.

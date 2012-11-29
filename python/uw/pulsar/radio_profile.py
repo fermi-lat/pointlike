@@ -13,7 +13,7 @@ class Profile(object):
     """
 
     #@keyword_options.decorate(defaults)
-    def __init__(self,profile,jname=None,**kwargs):
+    def __init__(self,profile,jname=None,custom=None,**kwargs):
         """ profile -- the (ASCII) radio profile file """
         #keyword_options.process(self,kwargs)
         self.pfile = profile
@@ -26,7 +26,10 @@ class Profile(object):
         self.fidpt = 0 # fiducial point of TOAs relative to profile
         ###
 
-        self._process()
+        if not custom:
+            self._process()
+        else:
+            self.__dict__.update(custom)
 
     def _process_comments(self):
         """ Look for information encoded (by me) in profile.  This will
