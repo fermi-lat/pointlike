@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Nov 28 16:28:24 PST 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+Fix floating point notation in StringFloat.
+
+    *
+------------------------------------------------------------
 User: burnett  Tue Nov 27 06:40:12 PST 2012
 pointlike/python/uw/like2/pipeline
 
