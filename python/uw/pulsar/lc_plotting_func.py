@@ -555,7 +555,17 @@ class PulsarLightCurve:
             elif method is 'weight':
                 mask = np.logical_and(energy_filter,np.logical_and(radius_filter,psf_filter))
                 W = evtlist[self.weight_colname][mask]
-                if self.weight: bg_level += [(W.sum()-(W**2).sum()) / float(self.nbins)]
+                if self.weight:
+                    bg = (W.sum()-(W**2).sum()) / float(self.nbins)
+                    # adjust weights for 6% error
+                    Wp = (1+1.06*((1-W)/W))**-1
+                    bg_lo = (Wp.sum()-(Wp**2).sum()) / float(self.nbins)
+                    Wp = (1+0.94*((1-W)/W))**-1
+                    bg_hi = (Wp.sum()-(Wp**2).sum()) / float(self.nbins)
+                    if bg_lo > bg_hi:
+                        bg_hi,bg_lo = bg_lo,bg_hi
+                    bg_level.append([bg,bg_hi,bg_lo])
+                    print 'My backgrounds, let me show you them:  ',bg,bg_hi,bg_lo
                 else: bg_level += [(len(W)-W.sum()) / float(self.nbins)]
             else:
                 print "Selected method does not exist!"
@@ -670,6 +680,7 @@ class PulsarLightCurve:
             substitute=True,template=None,template_color='black',
             period=None,font=133,outascii=None,line_width=1,
             suppress_template_axis=False,htest=None,delta=None,
+            offpulse=[],
             pulsar_class=-1):
         
         '''ROOT function to plot gamma-ray phaseograms + (radio,x-ray)
@@ -748,6 +759,7 @@ class PulsarLightCurve:
         if self.weight: ytitle = "W. Counts / bin"
 
         bkglevel = []
+        bkgbound = []
         pad[0].SetTopMargin(TopMarginDefault)
         
         # ============== G-RAY PANELS ============== #
@@ -763,7 +775,10 @@ class PulsarLightCurve:
                 if background is None:
                     root.zero_suppress(phaseogram[which])
                 else:
-                    root.zero_suppress(phaseogram[which],background=background[which])
+                    bg = background[which]
+                    if hasattr(bg,'__iter__'):
+                        bg = bg[-1] # use lowest bg level
+                    root.zero_suppress(phaseogram[which],background=bg)
 
             # draw histogram
             phaseogram[which].Draw("HIST E")
@@ -776,6 +791,11 @@ class PulsarLightCurve:
             axis.SetLineColor(root.map_color(color)); axis.SetLabelColor(root.map_color(color))
             root.DrawAxis(axis,xtitle,TextSize,OffsetX,LabelSize,font=font)
             """
+            # comment + psrname + other info (e.g. period)
+            if erange[which][1] > 3e4: ecomment = "> " + str(erange[which][0]/1e3) + " GeV"
+            else: ecomment = str(erange[which][0]/1e3) + " - " + str(erange[which][1]/1e3) + " GeV"
+            ylevel = root.get_txtlevel(phaseogram[which],0.91)
+            # delay display
 
             # overlap highlighted region
             if reg is not None and which == 0:
@@ -790,13 +810,28 @@ class PulsarLightCurve:
 
                 phaseogram[which].Draw("HIST E SAME")
                 gPad.RedrawAxis()   #  force a redraw of the axis
-                
-            # comment + psrname + other info (e.g. period)
-            if erange[which][1] > 3e4: ecomment = "> " + str(erange[which][0]/1e3) + " GeV"
-            else: ecomment = str(erange[which][0]/1e3) + " - " + str(erange[which][1]/1e3) + " GeV"
-            ylevel = root.get_txtlevel(phaseogram[which],0.91)
-            text.DrawText(0.1,ylevel,ecomment)
+            
+            # label & highlight offpulse for top panel
             if which==0:
+                if len(offpulse) > 0:
+                    histo = phaseogram[0]
+                    ymin, ymax = histo.GetMinimum(), histo.GetMaximum()
+                    boxes = []
+                    for lo,hi in offpulse:
+                        print lo,hi
+                        while (lo < 0):
+                            lo += 1; hi += 1
+                        if hi < lo: hi += 1
+                        print lo,hi
+                        box = TBox(lo,ymin,hi,ymax);
+                        #box.SetFillStyle(4050)
+                        box.SetFillColor(18)
+                        boxes.append(box)
+                    for box in boxes:
+                        box.Draw()
+                    histo.Draw("HIST E SAME")
+                    gPad.RedrawAxis()   #  force a redraw of the axis
+
                 name_comment = self.psrname if period is None else \
                                '%s, P=%.4fs'%(self.psrname,period)
                 if pulsar_class == 0:
@@ -824,12 +859,16 @@ class PulsarLightCurve:
                     text.SetTextColor(2)
                     text.DrawText(0.1,dylevel,s)
                     text.SetTextColor(1)
+                        
                 if profile is not None:
                     histo, rad_ytitle, comment = profile[0]
                     dylevel = root.get_txtlevel(phaseogram[which],0.86)
                     text.SetTextColor(kRed)
                     text.DrawText(self.binmax-0.8,dylevel,comment)
                     text.SetTextColor(1)
+                
+            # now display comment
+            text.DrawText(0.1,ylevel,ecomment)
             
             if inset == which:   
                 phaseogram[-1].SetFillColor(14)
@@ -849,8 +888,21 @@ class PulsarLightCurve:
             # draw a background level
             if (background is not None) and (not self.renormalize):
                 bkg = background[which]
-                bkglevel += [SetHistoLine(phaseogram[which],bkg,bkg)]
-                bkglevel[which].Draw()
+                if not hasattr(bkg,'__iter__'):
+                    bkglevel.append(SetHistoLine(phaseogram[which],bkg,bkg))
+                else:
+                #for bg in bkg:
+                    bkglevel.append(SetHistoLine(phaseogram[which],bkg[1],bkg[1]))
+                    bkglevel[-1].SetLineColor(4); bkglevel[-1].Draw()
+                    bkglevel.append(SetHistoLine(phaseogram[which],bkg[2],bkg[2]))
+                    bkglevel[-1].SetLineColor(4); bkglevel[-1].Draw()
+                    bkglevel.append(SetHistoLine(phaseogram[which],bkg[0],bkg[0]))
+                    #box = TBox(0,bkg[1],2,bkg[2]);
+                    #box.SetFillStyle(3254)
+                    #box.SetFillColor(4)
+                    #bkgbound.append(box)
+                    #bkgbound[-1].Draw()
+                bkglevel[-1].Draw()
 
         # draw (fitted) profile
         if template is not None:
@@ -901,10 +953,14 @@ class PulsarLightCurve:
                     xmin, xmax = self.binmin, self.binmax
                     ymin, ymax = histo.GetHistogram().GetMinimum(), histo.GetHistogram().GetMaximum()
                     if background is not None:
+                        if hasattr(background[0],'__iter__'):
+                            bg = background[0][0]
+                        else: bg =  background[-1] # use low background limit
                         ymin,ymax = root.tgraph_min_max(histo)
                         ymax *= 1.1 # typical peak is at 1
-                        m1 = self.phaseogram[0].GetMaximum(); m2 = self.phaseogram[0].GetMinimum()
-                        d = (background[0]-m2)/(m1-m2) # position in relative units
+                        m1 = self.phaseogram[0].GetMaximum();
+                        m2 = self.phaseogram[0].GetMinimum()
+                        d = (bg-m2)/(m1-m2) # position in relative units
                         ymin = ymax*d/(d-1)
                     hframe = overlay.DrawFrame(xmin,ymin,xmax,ymax)
                     hframe.GetXaxis().SetLabelOffset(99); hframe.GetYaxis().SetLabelOffset(99)

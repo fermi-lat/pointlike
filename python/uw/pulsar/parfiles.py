@@ -70,10 +70,13 @@ class ParFile(dict):
             raise IOError('Indicated file %s does not exist.'%parfile)
         self.parfile = parfile
         self.ordered_keys = []
+        comment_counter = 0
         for line in file(parfile):
             tok = line.strip().split()
-            #if len(tok)==0 or tok[0][0]=='#': continue
             if len(tok)==0: continue
+            if line.strip()[0] == '#': # handle comments
+                tok = ['#COMMENT%d'%(comment_counter),line.strip()[1:]]
+                comment_counter += 1
             known_key = False
             for key in self.ordered_keys:
                 if tok[0] == key: known_key = True
@@ -303,7 +306,10 @@ class ParFile(dict):
         f = file(output,'w')
         for key in self.ordered_keys:
             val = self[key]
-            key = key + ' '*(15-len(key))
+            if key[0] == '#': # handle comments
+                key = key.split('COMMENT')[0]
+            else:
+                key = key + ' '*(15-len(key))
             if hasattr(val,'__iter__'):
                 if hasattr(val[0],'__iter__'):
                     # multiple vals are mapped to same key
@@ -311,7 +317,10 @@ class ParFile(dict):
                     s = '\n%s'%key
                     val = s.join([v for v in substrings])
                 else:
-                    val = '  '.join(val)
+                    try:
+                        val = '  '.join(val)
+                    except TypeError:
+                        print key,val
             f.write('%s%s\n'%(key,val))
         f.close()
 
