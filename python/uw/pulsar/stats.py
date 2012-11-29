@@ -2,7 +2,7 @@
 A module collecting various routines for calculating pulsation test
 test statistics and helper functions.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/stats.py,v 1.5 2012/02/12 23:26:13 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/stats.py,v 1.6 2012/04/12 22:33:05 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 """
@@ -211,7 +211,7 @@ def sf_hm(h,m=20,c=4,logprob=False):
     """ Return (analytic, asymptotic) survival function (1-F(h))
         for the generalized H-test.
         For more details see:
-            docstring for hm
+            docstrings for hm, hmw
             M. Kerr dissertation (arXiv:1101.6072)
             Kerr, ApJ 732, 38, 2011 (arXiv:1103.2128)
 
@@ -258,3 +258,16 @@ def sf_h20_dj2010(h):
 def sig2h20(sig):
     """Use approximate (de Jager 2010) relation to invert."""
     return -np.log(sig)/0.4
+
+def sf_stackedh(k,h,l=0.398405):
+    """ Return the chance probability for a stacked H test assuming the
+        null df for H is exponentially distributed with scale l and that
+        there are k sub-integrations yielding a total TS of h.  See, e.g.
+        de Jager & Busching 2010."""
+    from scipy.special import gamma
+    fact = lambda x: gamma(x+1)
+    p = 0
+    c = l*h
+    for i in xrange(k):
+        p += c**i/fact(i)
+    return p*np.exp(-c)

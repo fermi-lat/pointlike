@@ -1,7 +1,7 @@
 """
 A module implementing a mixture model of LCPrimitives to form a
 normalized template representing directional data.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.5 2012/07/22 18:32:29 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.6 2012/09/19 20:03:16 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -280,8 +280,9 @@ class LCTemplate(object):
         rvals = np.empty(n)
         partition = np.empty(n)
         if weights is not None:
+            # perform a trial to see if each photon is from bg or template
             if len(weights) != n:
-                raise Exception('Provided weight vector does not provide a weight for each photon.')
+                raise ValueError('Provided weight vector does not provide a weight for each photon.')
             t = np.random.rand(n)
             m = t <= weights
             t_indices = np.arange(n)[m]
@@ -290,6 +291,8 @@ class LCTemplate(object):
             partition[~m] = len(norms)-1
         else:
             t_indices = np.arange(n)
+
+        # TODO -- faster implementation for single component case
 
         # multinomial implementation -- draw from the template components
         a = np.argsort(norms)[::-1]
