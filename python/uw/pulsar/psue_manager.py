@@ -3,7 +3,7 @@
    author(s): Damien Parent <dmnparent@gmail.com>
    creation Date: July 2011
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/psue_manager.py,v 1.8 2012/09/29 09:30:20 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/psue_manager.py,v 1.9 2012/11/17 22:56:44 kerrm Exp $
 """
 
 __version__ = 1.9
@@ -141,6 +141,7 @@ class PSUEAnalysis():
         self.w_emax         = 1e5
         self.evtclass         = 'Source'
         self.phase_colname    = 'PULSE_PHASE'
+        self.offpulse         = []
         self.irfs             = 'P7SOURCE_V6'
         self.psfpar           = [5.3,0.745,0.09]
         self.ft2file          = '/afs/slac/g/glast/groups/pulsar/data/WeeklyData/ft2/FT2.fits'
@@ -471,7 +472,7 @@ class PSUEAnalysis():
                 else: print "Error. Unknown model!"
             """
             # use seed values for initial Gaussian fit
-            npeaks = 0
+            npeaks = len(peakShape) - ('B' in peakShape)
             prims = []
             norms = [0.9/len(peakShape)]*len(peakShape)
             const = consts[0]
@@ -489,7 +490,7 @@ class PSUEAnalysis():
                         prim.lock_widths = True
                     prim.peak = True # definition
                     prims += [prim]
-                    npeaks += 1
+                    #npeaks += 1
                 elif shape == 'B':
                     prims += [lp.LCGaussian(p=[0.2,pos])]
                     prims[-1].peak = False
@@ -552,7 +553,10 @@ class PSUEAnalysis():
                         self.PSUEoutfile.set('BOOTSTRAP','True')
                         print 'Using bootstrap errors.'
                         fit_kwargs = dict(unbinned=unbinned,unbinned_refit=False)
-                        lcf.bootstrap_errors(set_errors=True,fit_kwargs=fit_kwargs)
+                        try:
+                            lcf.bootstrap_errors(set_errors=True,fit_kwargs=fit_kwargs)
+                        except ValueError:
+                            print 'Could not estimate bootstrap errors.'
                     norms[:] = lcf.template.norms()
                     print 'Saving values for %s'%(dummy.name),loglike,lcf.ll
                     print lcf
@@ -632,17 +636,20 @@ class PSUEAnalysis():
                 delta = (d[0],d[1],D[0],D[1])
         nbands = 5
         outascii = ft1file.replace('.fits','_profile.asc')
+        offpulse = [ [x+phase_shift for x in y] for y in self.offpulse ]
         plc.plot_lightcurve(nbands=nbands, background=bkg, zero_sup=True,
             substitute=False, color='black', reg=reg, template=best_template,
             outfile=pulse_profile,outascii=outascii,
             period=self.period,inset=1,suppress_template_axis=True,
-            htest=H,delta=delta,pulsar_class=self.pulsar_class)
+            htest=H,delta=delta,offpulse=offpulse,
+            pulsar_class=self.pulsar_class)
 
         plc.plot_lightcurve(nbands=nbands, background=bkg, zero_sup=True,
             substitute=False, color='black', reg=reg, template=best_template,
             outfile=pulse_profile.replace('.eps','.png'),
             period=self.period,inset=1,suppress_template_axis=True,
-            htest=H,delta=delta,pulsar_class=self.pulsar_class)
+            htest=H,delta=delta,offpulse=offpulse,
+            pulsar_class=self.pulsar_class)
 
     def PointlikeSpectralAnalysis( self, free_roi=5, phase_range=None, phname="", plot=False, **kwargs):
         '''Perform a full spectral analysis using pointlike

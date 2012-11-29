@@ -9,7 +9,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.36 2012/07/22 18:34:04 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.37 2012/11/29 00:29:45 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -114,18 +114,19 @@ class UnweightedLCFitter(object):
 
     def unbinned_loglikelihood(self,p,*args):
         t = self.template
-        t.set_parameters(p);
-        if (not t.shift_mode) and np.any(p<0):
+        params_ok = t.set_parameters(p);
+        #if (not t.shift_mode) and np.any(p<0):
+        if ((t.norm()>1) or (not params_ok)):
             return 2e20
-        t.set_parameters(p)
         rvals = -np.log(t(self.phases)).sum()
         if np.isnan(rvals): return 2e20 # NB need to do better accounting of norm
         return rvals
 
     def binned_loglikelihood(self,p,*args):
         t = self.template
-        t.set_parameters(p);
-        if (not t.shift_mode) and np.any(p<0):
+        params_ok = t.set_parameters(p);
+        #if (not t.shift_mode) and np.any(p<0):
+        if ((t.norm()>1) or (not params_ok)):
             return 2e20
         return -(self.counts*np.log(t(self.counts_centers))).sum()
 
@@ -227,7 +228,11 @@ class UnweightedLCFitter(object):
             return False
         if estimate_errors:
             if not self.hess_errors():
+                #try:
                 self.bootstrap_errors(set_errors=True)
+                #except ValueError:
+                #    print 'Warning, could not estimate errors.'
+                #    self.template.set_errors(np.zeros_like(p0))
         return True
 
     def fit_fmin(self,fit_func,ftol=1e-5):
@@ -311,6 +316,8 @@ class UnweightedLCFitter(object):
             self.phases = p0[a]
             if w0 is not None:
                 self.weights = w0[a]
+            if not fit_kwargs['unbinned']:
+                self._hist_setup()
             if self.fit(**fit_kwargs):
                 results[counter,:] = self.template.get_parameters()
                 counter += 1
@@ -483,16 +490,18 @@ class WeightedLCFitter(UnweightedLCFitter):
 
     def unbinned_loglikelihood(self,p,*args):
         t = self.template
-        t.set_parameters(p);
-        if (t.norm()>1) or (not t.shift_mode and np.any(p<0)):
+        params_ok = t.set_parameters(p);
+        if ((t.norm()>1) or (not params_ok)):
+        #if (t.norm()>1) or (not t.shift_mode and np.any(p<0)):
             return 2e20
         return -np.log(1+self.weights*(t(self.phases)-1)).sum()
         #return -np.log(1+self.weights*(self.template(self.phases,suppress_bg=True)-1)).sum()
 
     def binned_loglikelihood(self,p,*args):
         t = self.template
-        t.set_parameters(p)
-        if (t.norm()>1) or (not t.shift_mode and np.any(p<0)):
+        params_ok = t.set_parameters(p)
+        #if (t.norm()>1) or (not t.shift_mode and np.any(p<0)):
+        if ((t.norm()>1) or (not params_ok)):
             return 2e20
         template_terms = t(self.counts_centers)-1
         phase_template_terms = np.empty_like(self.weights)
@@ -503,7 +512,8 @@ class WeightedLCFitter(UnweightedLCFitter):
     def unbinned_gradient(self,p,*args):
         t = self.template
         t.set_parameters(p)
-        if t.norm()>1: return np.ones_like(p)*2e20
+        if t.norm()>1:
+            return np.ones_like(p)*2e20
         numer = self.weights*t.gradient(self.phases)
         denom = 1+self.weights*(t(self.phases)-1)
         return -(numer/denom).sum(axis=1)
@@ -511,7 +521,8 @@ class WeightedLCFitter(UnweightedLCFitter):
     def binned_gradient(self,p,*args):
         t = self.template
         t.set_parameters(p)
-        if t.norm()>1: return np.ones_like(p)*2e20
+        if t.norm()>1:
+            return np.ones_like(p)*2e20
         nump = len(p)
         template_terms = t(self.counts_centers)-1
         gradient_terms = t.gradient(self.counts_centers)
