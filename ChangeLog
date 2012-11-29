@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: kerrm  Wed Nov 28 16:30:37 PST 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lc_plotting_func.py lcfitters.py lcprimitives.py lctemplate.py 
+	parfiles.py psue_manager.py 
+Log Message:
+Bring repository up to date (from SLAC).
+
+    *
+------------------------------------------------------------
 User: kerrm  Wed Nov 28 16:29:46 PST 2012
 pointlike/python/uw/pulsar
 
