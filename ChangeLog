@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: kerrm  Wed Nov 28 16:29:46 PST 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py lcprimitives.py lctemplate.py modtest.py 
+	radio_profile.py stats.py 
+Log Message:
+Bring repository up to date.
+
+    *
+------------------------------------------------------------
 User: kerrm  Wed Nov 28 16:28:24 PST 2012
 pointlike/python/uw/pulsar
 
