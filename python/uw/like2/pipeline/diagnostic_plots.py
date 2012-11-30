@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.14 2012/11/27 03:00:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.15 2012/11/30 19:32:28 burnett Exp $
 
 """
 
@@ -927,7 +927,7 @@ opts = [('iso',    IsoDiffusePlots),
         
 def main(args):
     keys,classes =  [[t[j] for t in opts] for j in (0,1)]
-    for arg in args.args:
+    for arg in args:
         i = keys.index(arg)
         if i<0: print 'found %s; expect one of %s' %(arg,keys)
         else:
@@ -943,4 +943,4 @@ if __name__=='__main__':
     #parser.add_argument('-j','--joblist',  help='Optional list of jobs; assume local to $POINTLIKE_DIR', default='job_list')
     #parser.add_argument('--test', action='store_true', help='Do not run the pipeline createStream')
     args = parser.parse_args()
-    main(args)
+    main(args.args)
