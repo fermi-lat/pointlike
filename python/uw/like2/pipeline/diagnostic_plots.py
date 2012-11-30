@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.13 2012/11/26 16:03:38 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.14 2012/11/27 03:00:58 burnett Exp $
 
 """
 
@@ -931,7 +931,11 @@ def main(args):
         i = keys.index(arg)
         if i<0: print 'found %s; expect one of %s' %(arg,keys)
         else:
-            classes[i]('.').all_plots()
+            try:
+                classes[i]('.').all_plots()
+            except FloatingPointError, msg:
+                print 'Floating point error running %s, %s' % (keys[i], msg)
+                print 'seterr:', seterr()
         
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='run a diagnostic output job; must be in skymodel folder')
