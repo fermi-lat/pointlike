@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.17 2012/11/30 20:14:21 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.18 2012/11/30 23:33:55 burnett Exp $
 
 """
 
@@ -135,12 +135,12 @@ class CountPlots(Diagnostics):
         for key in ['observed', 'total']:
             self.counts[key]= pd.DataFrame([x[key] for x in counts], index=roinames)
         # also model info
-        for i,key in enumerate(['ring','isotrop', 'limb',]):
+        for i,key in enumerate(['ring','isotrop', 'SunMoon', 'limb',]): # the expected order
             t = []
             for j,p in enumerate(pkls):
                 if key in p['diffuse_names']:
                     y=p['counts']['models'][i]
-                    assert y[0]==key, 'wrong key, %s, %s'% (key, y[0])
+                    assert y[0]==key, 'wrong key, %s!=%s; list is %s'% (key, y[0], p['diffuse_names'])
                     t.append(y[1])
                 else:
                     t.append(np.zeros(len(self.energy)))
@@ -927,6 +927,7 @@ opts = [('iso',    IsoDiffusePlots),
         
 def main(args):
     if type(args)==types.StringType: args = [args]
+    np.seterr(invalid='warn', divide='warn')
     keys,classes =  [[t[j] for t in opts] for j in (0,1)]
     for arg in args:
         i = keys.index(arg)
