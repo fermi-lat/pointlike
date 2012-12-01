@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Dec  1 09:24:49 PST 2012
+pointlike/python/uw/utilities
+
+Modified Files:
+	fitter.py 
+Log Message:
+protect correlation check
+    *
+------------------------------------------------------------
 User: burnett  Sat Dec  1 09:21:22 PST 2012
 pointlike/python/uw/like2/pipeline
 
