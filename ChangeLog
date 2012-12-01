@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Dec  1 09:21:22 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	pipeline_job.py processor.py 
+Log Message:
+implement flux correlation
+    *
+------------------------------------------------------------
 User: burnett  Fri Nov 30 16:30:11 PST 2012
 pointlike/python/uw/like2/pipeline
 
