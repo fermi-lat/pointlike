@@ -2,7 +2,7 @@
 Basic fitter utilities
 
 Authors: Matthew Kerr, Toby Burnett
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitter.py,v 1.6 2012/03/12 17:40:58 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitter.py,v 1.7 2012/06/24 14:12:11 burnett Exp $
 
 """
 
@@ -190,8 +190,11 @@ class Minimizer(object):
         return np.sqrt(diag)
 
     def correlations(self, percent=False):
-        """Return the linear correlation coefficients for the estimated covariance matrix."""
+        """Return the linear correlation coefficients for the estimated covariance matrix.
+           any rows or columns with a zero error (failed fit) will be nan
+        """
         s = self.sigmas()
+        s[s==0] = np.nan
         t =self.cov_matrix / np.outer(s,s)
         return t*100. if percent else t
 
@@ -478,17 +481,28 @@ class TestFunc(Fitted):
         self.pars = pars
 
  
-#def test(x0=1.1, pars=[1.0, 1.5], **kwargs):
-#    """ test with a parabola corresponding to a Gaussian with mean, sigma in pars
-#    """
-#    testf = lambda p: 1.+ 0.5*((p[0]-pars[0])/pars[1])**2
-#        
-#    print 'input parameters:', pars
-#    func = TestFunc(testf, [x0])
-#    m = Minimizer(func)
-#    #m =  Minimizer(testf, [x0], )
-#    f = m(use_gradient=False)
-#    print 'solution at %.2f, +/- %.2f ' % (m[1], np.sqrt(m.cov_matrix.diagonal()[0]))
-#    return func, m, f
-#    
+def test(x0=1.1, pars=[1.0, 1.5], **kwargs):
+    """ test with a parabola corresponding to a Gaussian with mean, sigma in pars
     
+    >>> pars=[1.0, 1.5]; x0=1.1
+    >>> testf = lambda p: 1.+ 0.5*((p[0]-pars[0])/pars[1])**2
+    >>> func = TestFunc(testf, [x0])
+    >>> m = Minimizer(func) # create minimizer object
+    >>> m() # run default fit
+    (1.0000000000211928, array([ 0.99999023]), array([ 1.5]))
+    """
+    testf = lambda p: 1.+ 0.5*((p[0]-pars[0])/pars[1])**2
+        
+    print 'input parameters:', pars
+    func = TestFunc(testf, [x0])
+    m = Minimizer(func)
+    #m =  Minimizer(testf, [x0], )
+    f = m(use_gradient=False)
+    print 'solution at %.2f, +/- %.2f ' % (m.get_parameters(), np.sqrt(m.cov_matrix.diagonal()))
+    return func, m, f
+
+if __name__ == "__main__":
+    print __doc__
+    import doctest
+    doctest.testmod()
+  
