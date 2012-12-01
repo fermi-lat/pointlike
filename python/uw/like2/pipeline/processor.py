@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.19 2012/11/08 16:29:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.20 2012/11/24 17:12:30 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -303,6 +303,7 @@ def process(roi, **kwargs):
         return t
     sedfuns.makesed_all(roi, sedfig_dir=getdir('sedfig_dir'))
     if localize:
+        print 'localizing and associating all sources with variable...'
         q, roi.quiet = roi.quiet,False
         localization.localize_all(roi, tsmap_dir=getdir('tsmap_dir'), associator = associator)
         roi.quiet=q
@@ -517,20 +518,6 @@ def limb_processor(roi, **kwargs):
     
     
     
-def sed_roi(roi, **kwargs):
-    roi_refit_processor(roi, **kwargs)
-    full_sed_processor(roi, **kwargs)
-    
-    
-def cache_diffuse(roi, **kwargs):
-    """ roi processor saves the convolved diffuse maps for an roi"""
-    print 'processing %s' %roi.name
-    outdir = kwargs.get('outdir')
-    diffuse_maps = os.path.join(outdir, 'diffuse_maps')
-    if not os.path.exists(diffuse_maps): os.mkdir(diffusemaps)
-    
-    bands = roi.all_bands
-
 cat = None
 def gtlike_compare(roi, **kwargs):
     """
@@ -596,3 +583,40 @@ def gtlike_compare(roi, **kwargs):
     outfile = os.path.join(model_dir, '%s.pickle'%roi.name)
     pickle.dump(catmodels,open(outfile, 'w'))
     print 'wrote file %s' %outfile
+    
+    
+def flux_correlations(roi, **kwargs):
+
+    # make array with indices for the normalization parameters
+    outdir= kwargs.get('outdir')
+    flux_corr_dir = os.path.join(outdir, kwargs.get('fluxcorr', 'fluxcorr'))
+    if not os.path.exists(flux_corr_dir): os.mkdir(flux_corr_dir)
+    
+    logpath = os.path.join(outdir, 'log')
+    outtee = OutputTee(os.path.join(logpath, roi.name+'.txt'))
+    print  '='*80
+    print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (roi.name,))
+
+    normpar = np.array([name.endswith('_Norm') for name in roi.parameter_names])
+    normpar[1]=True # add the isotropic
+    names = np.array([name.split('_')[0] for name in roi.parameter_names])[normpar]
+    ipar = map(int, np.arange(len(normpar))[normpar])
+    # full correlation matrix
+    c1 = roi.fit().correlations(percent=True)
+    cs1= [c1[:,i][normpar] for i in range(2)]
+    # subset from fitting only normalizations
+    c2 = roi.fit(ipar).correlations(percent=True)
+    cs2 = c2[:2,:] 
+    # select low erergy band, refit to get correlations now
+    roi.select_bands(bandsel = lambda b: b.e<200)
+    c3 = roi.fit(ipar).correlations(percent=True)
+    cs3 = c3[:2,:]
+    roi.select_bands() # restore if needed
+    # prepare output pickle
+    d = dict([(names[i], np.array(np.vstack([cs1,cs2,cs3]))[:,i]) for i in range(len(names))])
+    fname = os.path.join(flux_corr_dir,'%s_fluxcorr.pickle' %roi.name)
+    pickle.dump( d, open(fname,'w'))
+    print 'wrote file to %s' %fname
+    outtee.close()
+  
+
