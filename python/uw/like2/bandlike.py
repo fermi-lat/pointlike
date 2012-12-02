@@ -11,7 +11,7 @@ classes:
 functions:
     factory -- create a list of BandLike objects from bands and sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.16 2012/06/24 04:52:29 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.17 2012/10/23 20:04:41 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -85,7 +85,10 @@ class BandPoint(BandSource):
         """
         band = self.band
         self.exposure_ratio = band.exposure(self.source.skydir)/band.exposure(self.band.sd)
-        self.overlap = band.psf_overlap(self.source.skydir)  
+        self.overlap = band.psf_overlap(self.source.skydir)
+        ## alternative for speedup?
+        #psf = band.psf
+        #self.overlap = psf.cpsf.overlap_circle(roidir, radius_in_rad, self.source.skydir)
         
         #unnormalized PSF evaluated at each pixel
         self.pixel_values = band.pixels_from_psf(self.source.skydir)
@@ -145,7 +148,7 @@ class BandDiffuse(BandSource):
         """ Update self.counts and self.pix_counts by multiplying by the value of the scaling spectral model
         """
         ### Note making exposure correction to model ###
-        scale = self.spectral_model(self.energy) / self.band.diffuse_correction
+        scale = self.spectral_model(self.energy) * self.band.diffuse_correction
         self.counts = self.ap_evals * scale
         if self.band.has_pixels:
             self.pix_counts = self.pixel_values * scale
@@ -158,7 +161,7 @@ class BandDiffuse(BandSource):
         apterm  = exposure_factor * self.ap_evals 
         pixterm = ( self.pixel_values * weights ).sum() if self.band.has_pixels else 0
         ### Note making exposure correction to model ###
-        return (apterm - pixterm) * model.gradient(self.energy)[model.free] / self.band.diffuse_correction
+        return (apterm - pixterm) * model.gradient(self.energy)[model.free] * self.band.diffuse_correction
  
 class BandExtended(BandPoint):
     """  Apply extended model to an ROIband
@@ -358,7 +361,7 @@ def factory(bands, sources, exposure, quiet=False):
                 ROIExtendedModel=BandExtended)[class_name]
         return B(band, source)
     bandlist = []
-    for i,band in enumerate(bands):
+    for band in bands:
         ## note: adding attribute to each band for access by BandLike object if needed
         band.exposure_correction = exposure.correction[band.ct](band.e)
         if len(exposure.correction)>2:
