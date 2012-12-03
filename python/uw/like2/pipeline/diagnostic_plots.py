@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.18 2012/11/30 23:33:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.19 2012/12/01 00:23:28 burnett Exp $
 
 """
 
@@ -206,16 +206,16 @@ class CountPlots(Diagnostics):
         """)
         return fig
         
-    def resid_vs_dec(self, ib=0, ax=None, labels=True):
+    def resid_vs_dec(self, ib=0, ax=None, ylim=(-8,8), labels=True):
         if ax is None:
             fig,ax = plt.subplots( figsize=(4,4))
         else: fig = ax.figure
-        r = self.residual(ib)
+        r = self.residual(ib).clip(ylim)
         ax.plot(self.rois.dec, r, '.')
         galplane = np.abs(self.rois.glat)<5
         ax.plot(self.rois.dec[galplane], r[galplane], '+r', label='|b|<5')
         ax.axhline(0, color='k')
-        plt.setp(ax, ylim=(-8,8), xlim=(-90,90))
+        plt.setp(ax, ylim=ylim, xlim=(-90,90))
         if labels: plt.setp(ax, xlabel='Dec', ylabel='normalized residual')
         ax.set_xticks((-90,-45,0,45,90))
         ax.set_title('%d MeV' % self.energy[ib], size=10)
@@ -233,6 +233,17 @@ class CountPlots(Diagnostics):
         ROIs along the glactic plane are shown as red crosses """
         )
         return fig
+        
+    def sunmoon(self):
+        fig,axx=plt.subplots(1,2, figsize=(10,5))
+        plt.subplots_adjust(hspace = 0.3)
+        sm = self.counts['SunMoon']
+        ax = axx[0]
+        ax.hist(sm[0], np.linspace(0,1000))
+        plt.setp(ax, xlabel='sun/moon counts per ROI')
+        ax = axx[1]
+        self.skyplot( np.log10(sm[0]), ax=ax, cbtext='log10(sunmoon counts)')
+        return fig
     
     def all_plots(self):
         self.residual_hists()
@@ -240,6 +251,9 @@ class CountPlots(Diagnostics):
         self.residual_maps()
         self.resid_vs_dec_multi()
         self.chisq_plots()
+        
+        self.sunmoon()
+        self.savefigure('sunmoon_counts', title='Sun and Moon counts per roi')
 
 
 class FrontBackSedPlots(Diagnostics):
@@ -817,8 +831,10 @@ class LimbPlots(Diagnostics):
         ra = np.array([d.ra() for d in limb_dirs])
         dec = np.array([d.dec() for d in limb_dirs])
         
-        fitpars = np.array([p['diffuse'][2].get_all_parameters()  for p in limb_pkls])
-        self.models = [  p['diffuse'][2]  for p in limb_pkls]
+        limb_index = limb_pkls[0]['diffuse_names'].index('limb')
+        assert limb_index>1, 'did not find limb index %s' %limb_pkls[0]['diffuse_names']
+        fitpars = np.array([p['diffuse'][limb_index].get_all_parameters()  for p in limb_pkls])
+        self.models = [  p['diffuse'][limb_index]  for p in limb_pkls]
         front_flux=[]; back_flux=[]
         energy=133 #wire in first band for now
         for m in self.models:
@@ -835,7 +851,7 @@ class LimbPlots(Diagnostics):
         except Exception, msg:
             print 'Failed to load fluxes from diffuse definition: %s' %msg
             flux = np.zeros(len(indeces))
-            
+        self.fitpars = fitpars
         self.df = pd.DataFrame(dict(ra=ra,dec=dec, 
                     glat = [d.b() for d in limb_dirs],
                     glon = [d.l() for d in limb_dirs],
