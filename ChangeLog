@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Dec  3 14:28:49 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	diagnostic_plots.py 
+Log Message:
+fix indexing for limb models
+    *
+------------------------------------------------------------
 User: burnett  Sun Dec  2 06:22:57 PST 2012
 pointlike/python/uw/like2
 
