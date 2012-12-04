@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.20 2012/12/03 22:28:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.21 2012/12/04 13:33:10 burnett Exp $
 
 """
 
@@ -451,6 +451,25 @@ class FrontBackSedPlots(Diagnostics):
         plt.close('all')
         
 
+class SourceInfo(Diagnostics):
+    """ To be superclass for specific source plot stuff, loads all sources """
+    def setup(self):
+        self.plotfolder='sources' #needed by superclass
+        filename = 'sources.pickle'
+        if not os.path.exists(filename):
+            files, pkls = self.load_pickles('pickle', 0)
+            assert len(files)==1728, 'Expected to find 1728 files'
+            sdict= dict()
+            for pkl in pkls:
+                for name, info in pkl['sources'].items():
+                    sdict[name] = info
+            self.df = pd.DataFrame(sdict).transpose()
+            self.df.save(filename)
+        else:
+            self.df = pd.load(filename)
+        
+
+  
 class SourceFitPlots(Diagnostics):
     def setup(self):
         assert os.path.exists('pickle.zip') or os.path.exists('pickle'), 'No pickled ROI data found'
@@ -844,7 +863,7 @@ class LimbPlots(Diagnostics):
         # get the diffuse function
         try:
             config = eval(open('config.txt').read())
-            self.limb_file = os.path.join(os.path.expandvars('$FERMI/diffuse'),config['diffuse'][2])
+            self.limb_file = os.path.join(os.path.expandvars('$FERMI/diffuse'),config['diffuse'][3])
             print 'loading diffuse definition %s' %self.limb_file
             df = DiffuseFunction(self.limb_file)
             flux = [df(sd, energy) for sd in limb_dirs]
@@ -939,6 +958,7 @@ opts = [('iso',    IsoDiffusePlots),
         ('fb',     FrontBackSedPlots),
         ('counts', CountPlots),
         ('limb',   LimbPlots),
+        ('sourceinfo',   SourceInfo),
         ]  
         
 def main(args):
