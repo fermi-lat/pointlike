@@ -11,7 +11,7 @@ classes:
 functions:
     factory -- create a list of BandLike objects from bands and sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.17 2012/10/23 20:04:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.18 2012/12/02 14:21:40 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -144,11 +144,15 @@ class BandDiffuse(BandSource):
             self.pixel_values = self.grid(band.wsdl, self.grid.cvals) * band.b.pixelArea() * delta_e 
         else: self.pix_counts=[]
         
+        # a little klugy -- only apply additional correction to Gal diffuse
+        self.diffuse_correction = self.band.diffuse_correction if self.source.name=='ring' else 1.0
+        
+        
     def update(self, fixed=False):
         """ Update self.counts and self.pix_counts by multiplying by the value of the scaling spectral model
         """
         ### Note making exposure correction to model ###
-        scale = self.spectral_model(self.energy) * self.band.diffuse_correction
+        scale = self.spectral_model(self.energy) * self.diffuse_correction
         self.counts = self.ap_evals * scale
         if self.band.has_pixels:
             self.pix_counts = self.pixel_values * scale
@@ -161,7 +165,7 @@ class BandDiffuse(BandSource):
         apterm  = exposure_factor * self.ap_evals 
         pixterm = ( self.pixel_values * weights ).sum() if self.band.has_pixels else 0
         ### Note making exposure correction to model ###
-        return (apterm - pixterm) * model.gradient(self.energy)[model.free] * self.band.diffuse_correction
+        return (apterm - pixterm) * model.gradient(self.energy)[model.free] * self.diffuse_correction
  
 class BandExtended(BandPoint):
     """  Apply extended model to an ROIband
@@ -220,8 +224,13 @@ class BandExtended(BandPoint):
  
 class BandDiffuseFB(BandDiffuse):
     """ subclass of BandDiffuse that has different spectral models for front and back
-    (designed for the limb, which apparently only has contributions from the back)
+    (designed for the limb, which has larger contributions from the back)
     """
+    def initialize(self):
+        """ do not apply special diffuse correction, since spectrum not fit with original effective area"""
+        super(BandDiffuseFB, self).initialize()
+        self.diffuse_correction = 1.0
+    
     @property 
     def spectral_model(self):
         # assume that the model has two states, and that we always update before returning the reference
