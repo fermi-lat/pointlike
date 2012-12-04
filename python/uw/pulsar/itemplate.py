@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/itemplate.py,v 1.4 2012/01/27 19:10:05 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/itemplate.py,v 1.5 2012/07/22 18:34:43 kerrm Exp $
 
 Provide a method for interactively fitting a multi-gaussian template to data.
 
@@ -48,6 +48,7 @@ class InteractiveFitter(object):
         self.__dict__.update(**kwargs)
         self.phases = phases
         self.primitives = []
+        self.norms = []
         self.dom = np.linspace(0,1,100)
         self.welcome()
         pl.close(self.fignum)
@@ -59,7 +60,7 @@ class InteractiveFitter(object):
 
     def do_fit(self):
         print 'Fitting the template with unbinned likelihood...'
-        template = LCTemplate(self.primitives)
+        template = LCTemplate(self.primitives,norms=self.norms)
         fitter   = LCFitter(template,self.phases,weights=self.weights)
         fitter.fit()
         print 'Fitting finished!'
@@ -91,8 +92,9 @@ class InteractiveFitter(object):
         sigma = fwhm/(8 * np.log(2))**0.5
         ampl  = peak * sigma * (2*np.pi)**0.5
 
-        self.primitives += [LCGaussian(p=[ampl,sigma,phase])]
-        template = LCTemplate(self.primitives)
+        self.primitives.append(LCGaussian(p=[sigma,phase]))
+        self.norms.append(ampl)
+        template = LCTemplate(self.primitives,norms=self.norms)
         self.ax.clear()
         light_curve(self.phases,weights=self.weights,nbins=self.nbins,axes=self.ax,template=template)
         pl.draw()
@@ -146,7 +148,7 @@ if __name__ == '__main__':
     elif line.startswith('kd'):
         dom = np.linspace(0.0,1.0,100)
         prim = LCKernelDensity(phases=phases)
-        template = LCTemplate([prim])
+        template = LCTemplate([prim],norms=None)
         pl.hist(phases,options.nbins,normed=True,histtype='step',edgecolor='k')
         pl.plot(dom,template(dom),color='red')
         pl.title('Kernel Density Template Fit')
@@ -162,7 +164,7 @@ if __name__ == '__main__':
         else:
             nharm = 16
         lcf = LCEmpiricalFourier(phases=phases,nharm=nharm)
-        template = LCTemplate([lcf])
+        template = LCTemplate([lcf],norms=None)
         pl.hist(phases,options.nbins,normed=True,histtype='step',edgecolor='k')
         pl.plot(dom,template(dom),color='red')
         pl.title('Empirical Fourier Template with %d harmonics' % (nharm,))

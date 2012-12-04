@@ -1,7 +1,7 @@
 """
 A module implementing a mixture model of LCPrimitives to form a
 normalized template representing directional data.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.7 2012/11/29 00:29:45 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.8 2012/11/29 00:30:37 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -22,7 +22,7 @@ class LCTemplate(object):
     """
 
     #def __init__(self,primitives=None,template=None,norms=None):
-    def __init__(self,primitives,norms):
+    def __init__(self,primitives,norms,template=None):
         """primitives -- a list of LCPrimitive instances."""
         self.primitives = primitives
         #if template is not None:
@@ -33,6 +33,8 @@ class LCTemplate(object):
         # new stuff for normalization
         #self.free = np.asarray([True]*len(self.primitives)])
         if norms is None: norms = np.ones(len(primitives))/len(primitives)
+        if len(primitives) != len(norms):
+            raise ValueError('Must provide a normalization for each component.')
         self.norms = NormAngles(norms)
 
     def __getitem__(self,index): return self.primitives[index]
@@ -43,7 +45,7 @@ class LCTemplate(object):
         start = 0
         params_ok = True
         for prim in self.primitives:
-            n = int(prim.free.sum())
+            n = len(prim.get_parameters())
             params_ok = prim.set_parameters(p[start:start+n]) and params_ok
             start += n
         self.norms.set_parameters(p[start:start+self.norms.free.sum()])
@@ -52,7 +54,7 @@ class LCTemplate(object):
     def set_errors(self,errs):
         start = 0
         for prim in self.primitives:
-            n = int(prim.free.sum())
+            n = len(prim.get_parameters())
             prim.errors = np.zeros_like(prim.p)
             prim.errors[prim.free] = errs[start:start+n]
             start += n
@@ -242,8 +244,8 @@ class LCTemplate(object):
       
         for nprim,prim in enumerate(self.primitives):
             phas = prim.get_location(error=True)
-            fwhm = prim.get_width(error=True,fwhm=True)
-            ampl = prim.get_norm(error=True)
+            fwhm = 2*prim.get_width(error=True,hwhm=True)
+            ampl = [self.norms()[nprim],0]
             norm += ampl[0]
             errnorm += (ampl[1]**2)
             for st,va in zip(['phas','fwhm','ampl'],[phas,fwhm,ampl]):
@@ -280,17 +282,17 @@ class LCTemplate(object):
         norms = self.norms()
         norms = np.append(norms,[1-sum(norms)])
         rvals = np.empty(n)
-        partition = np.empty(n)
+        partition = np.empty(n) # record the index of each component
         if weights is not None:
             # perform a trial to see if each photon is from bg or template
             if len(weights) != n:
                 raise ValueError('Provided weight vector does not provide a weight for each photon.')
             t = np.random.rand(n)
             m = t <= weights
-            t_indices = np.arange(n)[m]
+            t_indices = np.arange(n)[m] # indices to draw from templates (not bg)
             n = m.sum()
-            rvals[~m] = np.random.rand(len(m)-n)
-            partition[~m] = len(norms)-1
+            rvals[~m] = np.random.rand(len(m)-n) # assign uniform phases to the bg photons
+            partition[~m] = len(norms)-1 # set partition to bg component (last)
         else:
             t_indices = np.arange(n)
 
@@ -303,11 +305,12 @@ class LCTemplate(object):
         counter = 0
         for mapped_comp,comp in zip(a,np.arange(len(norms))):
             n = (components==comp).sum()
-            if mapped_comp == len(norms)-1:
-                rvals[t_indices[counter:counter+n]] = np.random.rand(n) 
+            idx = t_indices[counter:counter+n]
+            if mapped_comp == len(norms)-1: # uniform
+                rvals[idx] = np.random.rand(n)
             else:
-                rvals[t_indices[counter:counter+n]] = self.primitives[mapped_comp].random(n)
-            partition[t_indices[counter:counter+n]] = mapped_comp
+                rvals[idx] = self.primitives[mapped_comp].random(n)
+            partition[idx] = mapped_comp
             counter += n
         if return_partition:
             return rvals,partition
@@ -442,4 +445,29 @@ class GaussianPrior(object):
         rvals[self.mask] = 2*(parameters-self.x0)/self.s0**2
         return rvals
 
-        
+def prim_io(template):
+    """ Read files and build LCPrimitives. """
+
+    def read_gaussian(toks):
+        primitives = []
+        norms = []
+        for i,tok in enumerate(toks):
+            if tok[0].startswith('phas'):
+                g = LCGaussian()
+                g.p[-1] = float(tok[2])
+                g.errors[-1] = float(tok[4])
+                primitives += [g]
+            elif tok[0].startswith('fwhm'):
+                g = primitives[-1]
+                g.p[0] = float(tok[2])/2.3548200450309493      # kluge for now
+                g.errors[0] = float(tok[4])/2.3548200450309493
+            elif tok[0].startswith('ampl'):
+                norms.append(float(tok[2]))
+        return primitives,norms
+
+    toks = [line.strip().split() for line in file(template) if len(line.strip()) > 0]
+    if 'gauss' in toks[0]:     return read_gaussian(toks[1:])
+    elif 'kernel' in toks[0]:  return [LCKernelDensity(input_file=toks[1:])],None
+    elif 'fourier' in toks[0]: return [LCEmpiricalFourier(input_file=toks[1:])],None
+    raise ValueError,'Template format not recognized!'
+
