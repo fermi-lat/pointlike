@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.19 2012/12/01 00:23:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.20 2012/12/03 22:28:49 burnett Exp $
 
 """
 
@@ -210,7 +210,7 @@ class CountPlots(Diagnostics):
         if ax is None:
             fig,ax = plt.subplots( figsize=(4,4))
         else: fig = ax.figure
-        r = self.residual(ib).clip(ylim)
+        r = self.residual(ib).clip(*ylim)
         ax.plot(self.rois.dec, r, '.')
         galplane = np.abs(self.rois.glat)<5
         ax.plot(self.rois.dec[galplane], r[galplane], '+r', label='|b|<5')
