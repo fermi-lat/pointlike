@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Dec  4 15:52:47 PST 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	upolyfold.py lctemplate.py lcfitters.py itemplate.py 
+Log Message:
+Fixes to propagate normalization changes to timing code.
+
+    *
+------------------------------------------------------------
 User: burnett  Tue Dec  4 14:00:08 PST 2012
 pointlike/python/uw/like2
 
