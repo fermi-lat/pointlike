@@ -9,7 +9,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.37 2012/11/29 00:29:45 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.38 2012/11/29 00:30:37 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -21,33 +21,6 @@ from scipy.optimize import fmin,fmin_tnc,leastsq
 from uw.pulsar.stats import z2mw,hm,hmw
 
 SECSPERDAY = 86400.
-
-def prim_io(template):
-    """ Read files and build LCPrimitives. """
-
-    def read_gaussian(toks):
-        primitives = []
-        for i,tok in enumerate(toks):
-            if tok[0].startswith('phas'):
-                g = LCGaussian()
-                g.p[2] = float(tok[2])
-                g.errors[2] = float(tok[4])
-                primitives += [g]
-            elif tok[0].startswith('fwhm'):
-                g = primitives[-1]
-                g.p[1] = float(tok[2])/2.3548200450309493      # kluge for now
-                g.errors[1] = float(tok[4])/2.3548200450309493
-            elif tok[0].startswith('ampl'):
-                g = primitives[-1]
-                g.p[0] = float(tok[2])
-                g.errors[0] = float(tok[4])
-        return primitives
-
-    toks = [line.strip().split() for line in file(template) if len(line.strip()) > 0]
-    if 'gauss' in toks[0]:     return read_gaussian(toks[1:])
-    elif 'kernel' in toks[0]:  return [LCKernelDensity(input_file=toks[1:])]
-    elif 'fourier' in toks[0]: return [LCEmpiricalFourier(input_file=toks[1:])]
-    raise ValueError,'Template format not recognized!'
 
 def weighted_light_curve(nbins,phases,weights,normed=False,phase_shift=0):
     """ Return a set of bins, values, and errors to represent a
@@ -61,7 +34,8 @@ def weighted_light_curve(nbins,phases,weights,normed=False,phase_shift=0):
     return bins,w1/norm,errors/norm
 
 
-def LCFitter(template,phases,weights=None,times=1,binned_bins=100,phase_shift=0):
+def LCFitter(template,phases,weights=None,log10_ens=None,times=1,
+             binned_bins=100,phase_shift=0):
     """ Factory class for light curve fitters.
         Arguments:
         template -- an instance of LCTemplate
@@ -69,6 +43,7 @@ def LCFitter(template,phases,weights=None,times=1,binned_bins=100,phase_shift=0)
 
         Keyword arguments:
         weights     [None] optional photon weights
+        log10_ens   [None] optional photon energies (log10(E/MeV))
         times       [None] optional photon arrival times
         binned_bins [100]  # of bins to use in binned likelihood
         phase_shift [0] set this if a phase shift has been applied
