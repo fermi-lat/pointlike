@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/itemplate.py,v 1.5 2012/07/22 18:34:43 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/itemplate.py,v 1.6 2012/12/04 23:52:47 kerrm Exp $
 
 Provide a method for interactively fitting a multi-gaussian template to data.
 
@@ -32,6 +32,7 @@ class InteractiveFitter(object):
         self.nbins = 50
         self.weights = None
         self.fignum = 1
+        self.errors = False
 
     def welcome(self):
         print 'Welcome to the interactive unbinned template fitter!'
@@ -62,7 +63,7 @@ class InteractiveFitter(object):
         print 'Fitting the template with unbinned likelihood...'
         template = LCTemplate(self.primitives,norms=self.norms)
         fitter   = LCFitter(template,self.phases,weights=self.weights)
-        fitter.fit()
+        fitter.fit(estimate_errors=self.errors)
         print 'Fitting finished!'
         print fitter
         print 'Overlaying fitted template...'
@@ -114,6 +115,7 @@ if __name__ == '__main__':
     parser.add_option('-c','--weightcol',type='string',default='WEIGHT',help='Column in FT1 file that holds the weight')
     parser.add_option('-p','--prof',type='string',default=None,help='Output name for profile')
     parser.add_option('-m','--min_weight',type='float',default=1e-2,help='Minimum weight to include in fit.')
+    parser.add_option('-e','--errors',action='store_true',default=False,help='Compute errors on components.')
     
     ## Parse arguments
     (options,args) = parser.parse_args()
@@ -128,24 +130,10 @@ if __name__ == '__main__':
         weights = weights[weights > options.min_weight]
 
     print 'Welcome to the interactive unbinned template fitter!'
-    print 'What type of template would you like to fit (gauss=Gaussian, kd=Kernel Density, ef [NHARM]=Empirical Fourier):'
+    print 'What type of template would you like to fit?'
+    print 'gauss=Gaussian [default], kd=Kernel Density, ef [NHARM]=Empirical Fourier'
     line = raw_input()
-    if line.startswith('gauss'):
-        intf = InteractiveFitter(phases,nbins=options.nbins,weights=weights)
-        intf.do_fit()
-
-        if options.prof is not None:
-            # check that specified directory exists
-            out = options.prof
-            if not os.path.exists(os.path.dirname(out)):
-                raise IOError('Specified directory %s does not exist!'%(os.path.dirname(out)))
-        else:
-            out = ''
-            out = raw_input('Enter filename for gaussian profile output file, or just hit ENTER to exit...:  ')
-        if len(out) > 0:
-            print 'Writing Gaussian-style template to %s...'%(out)
-            intf.write_template(out)
-    elif line.startswith('kd'):
+    if line.startswith('kd'):
         dom = np.linspace(0.0,1.0,100)
         prim = LCKernelDensity(phases=phases)
         template = LCTemplate([prim],norms=None)
@@ -173,10 +161,20 @@ if __name__ == '__main__':
         if len(s) > 0:
             lcf.to_file(s)
     else:
-        print "Unrecognized template: ",line
-        sys.exit(1)
+        intf = InteractiveFitter(phases,nbins=options.nbins,weights=weights,errors=options.errors)
+        intf.do_fit()
 
-
+        if options.prof is not None:
+            # check that specified directory exists
+            out = options.prof
+            if not os.path.exists(os.path.dirname(out)):
+                raise IOError('Specified directory %s does not exist!'%(os.path.dirname(out)))
+        else:
+            out = ''
+            out = raw_input('Enter filename for gaussian profile output file, or just hit ENTER to exit...:  ')
+        if len(out) > 0:
+            print 'Writing Gaussian-style template to %s...'%(out)
+            intf.write_template(out)
 
     print 'Goodbye!'
     
