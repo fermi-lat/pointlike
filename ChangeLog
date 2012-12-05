@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Dec  4 16:12:27 PST 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	itemplate.py 
+Log Message:
+Add error estimation option and streamline i/o.
+
+    *
+------------------------------------------------------------
 User: kerrm  Tue Dec  4 15:52:47 PST 2012
 pointlike/python/uw/pulsar
 
