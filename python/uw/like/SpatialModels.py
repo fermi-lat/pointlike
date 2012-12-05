@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.110 2012/10/01 22:19:53 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.111 2012/10/01 22:24:42 lande Exp $
 
    author: Joshua Lande
 
@@ -1305,6 +1305,16 @@ class InterpProfile(RadiallySymmetricModel):
 
     def template_diameter(self): return 2.0*self.r_in_degrees[-1]*(6.0/5.0)
 
+    def __getstate__(self):
+        d=copy.copy(self.__dict__)
+        del d['spline']
+        return d
+
+    def __setstate__(self,state):
+        """ When unpickling the object, afterwords recreate the skymaps.SkyImage object. """
+        self.__dict__ = state
+        self.setup_spline()
+
 class InterpProfile2D(InterpProfile):
     default_p = [1]
     param_names = ['Sigma'] # limits set in __init__
@@ -1371,6 +1381,16 @@ class InterpProfile2D(InterpProfile):
         self.interp = lambda r,sigma: 10**(log_interp(r,sigma))
 
         return self.interp
+
+    def __getstate__(self):
+        d=super(InterpProfile2D,self).__getstate__()
+        del d['interp']
+        return d
+
+    def __setstate__(self,state):
+        """ When unpickling the object, afterwords recreate the skymaps.SkyImage object. """
+        super(InterpProfile2D,self).__setstate__(state)
+        self.setup_interp()
 
 
 class RadialProfile(InterpProfile):
