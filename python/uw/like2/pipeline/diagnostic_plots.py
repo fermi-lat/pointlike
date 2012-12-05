@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.21 2012/12/04 13:33:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.22 2012/12/04 18:17:47 burnett Exp $
 
 """
 
@@ -452,7 +452,10 @@ class FrontBackSedPlots(Diagnostics):
         
 
 class SourceInfo(Diagnostics):
-    """ To be superclass for specific source plot stuff, loads all sources """
+    """ To be superclass for specific source plot stuff, creates or loads
+        a DataFrame with all sources 
+        (will do away with the recarray, which takes very long to generate, and is rather flaky)
+        """
     def setup(self):
         self.plotfolder='sources' #needed by superclass
         filename = 'sources.pickle'
@@ -468,7 +471,65 @@ class SourceInfo(Diagnostics):
         else:
             self.df = pd.load(filename)
         
+    def lowenergyfluxratio(self, ax=None, cut=None, xmax=100., title='low energy fit consistency', energy=133, hist=False, minflux=2.0):
+        if cut is None: cut=self.df.ts>25
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(8,5))
+        else: fig = ax.figure
+        
+        s = self.df[cut]
+        fdata = np.array([s.ix[i]['sedrec'].flux[0] for i in range(len(s))])
+        udata = np.array([s.ix[i]['sedrec'].uflux[0] for i in range(len(s))])
+        ldata = np.array([s.ix[i]['sedrec'].lflux[0] for i in range(len(s))])
+        fmodel = np.array([s.ix[i]['model'](energy)*energy**2*1e6 for i in range(len(s))])
+        glat = np.array([x.b() for x in s.skydir])
+        
+        fluxcut = fmodel>minflux
+        latcut  = abs(glat)>5.0
+        hilat = fluxcut*(latcut)
+        lolat = fluxcut*(~latcut)
 
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(8,5))
+        else: fig = ax.figure
+        
+        y = fdata/fmodel
+        ylower, yupper =[(fdata-ldata)/fmodel,(udata-fdata)/fmodel]
+        xhi,yhi,yerrhi = fmodel[hilat], y[hilat], [ylower[hilat],yupper[hilat]]
+        xlo,ylo,yerrlo = fmodel[lolat], y[lolat], [ylower[lolat],yupper[lolat]]
+        
+        if not hist:
+            ax.errorbar(x=xhi, y=yhi, yerr=yerrhi, fmt='og', label='%d hilat sources'%sum(hilat))
+            ax.errorbar(x=xlo, y=ylo, yerr=yerrlo, fmt='or', label='%d lowlat sources'%sum(lolat))
+            plt.setp(ax, xlabel=r'$\mathsf{model\ flux\ (eV\ cm^{-2} s^{-1}})$', xscale='log', 
+                ylabel='data/model', ylim=(0,2.5), xlim=(minflux, 100) )
+            ax.set_xticks([2,5,10,20,50,100])
+            ax.set_title( title, fontsize='medium')
+
+        else:
+            dom = np.linspace(-4,4,51)
+            hist_kw=dict(lw=2, histtype='step')
+            q = ((y-1)/yupper).clip(-4,4)
+            q[y==0]=-4
+            
+            ax.hist(q[hilat], dom, color='g',  label='%d hilat sources'%sum(hilat),  **hist_kw)
+            ax.hist(q[lolat], dom, color='r',  label='%d lowlat sources'%sum(lolat), **hist_kw)
+            ax.set_xlabel('residual')
+            ax.axvline(0, color='k')
+            ax.set_xlim((-4,4))
+        ax.set_title( title, fontsize='medium')
+        ax.legend(prop=dict(size=10))
+        ax.grid()  
+
+        return fig
+    
+    
+    def all_plots(self):
+        self.lowenergyfluxratio(hist=True)
+        self.savefigure('low_energy_flux_ratio_hist')
+        self.lowenergyfluxratio(hist=False)
+        self.savefigure('low_energy_flux_ratio_scat')
+        pass
   
 class SourceFitPlots(Diagnostics):
     def setup(self):
