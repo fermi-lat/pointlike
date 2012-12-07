@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Dec  7 13:24:01 PST 2012
+pointlike/python/uw/utilities
+
+Modified Files:
+	fitter.py 
+Log Message:
+new class Profile to manage profile fits
+    *
+------------------------------------------------------------
 User: lande  Wed Dec  5 14:08:53 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
