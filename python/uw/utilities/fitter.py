@@ -2,10 +2,10 @@
 Basic fitter utilities
 
 Authors: Matthew Kerr, Toby Burnett
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitter.py,v 1.7 2012/06/24 14:12:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitter.py,v 1.8 2012/12/01 17:24:49 burnett Exp $
 
 """
-
+import types
 import numpy as np
 from scipy import optimize #for fmin,fmin_powell,fmin_bfgs
 from numpy import linalg  #for inv
@@ -16,6 +16,9 @@ class Fitted(object):
     """ base class to define fit properties """
     @property
     def bounds(self):
+        return None
+    @property
+    def parameter_names(self):
         return None
     def get_parameters(self):
         raise FitterException('get_parameters is not implemented')
@@ -139,7 +142,8 @@ class Minimizer(object):
             diag = self.cov_matrix.diagonal()
             bad = diag<0
             if np.any(bad):
-                print 'Minimizer warning: bad errors for values %s' %np.arange(len(bad))[bad]
+                print 'Minimizer warning: bad errors for values %s'\
+                     %np.asarray(self.fn.parameter_names)[bad] #    %np.arange(len(bad))[bad]
                 diag[bad]=np.nan
             return f[1], f[0], np.sqrt(diag)
         return f[1], f[0]
@@ -408,7 +412,7 @@ class Projector(Fitted):
         parameters:
             fn: function of par: should be minimizable 
             par: array type or None
-                default parameters to use: if None, get from fn.get_parameters9)
+                default parameters to use: if None, get from fn.get_parameters)
             select: list of free parameter 
             TODO: use mask instead or optionally
         """
@@ -418,6 +422,7 @@ class Projector(Fitted):
         self.mask[select]=True
         self.fpar= fn.get_parameters().copy()
         self.par = np.asarray(par[:]) if par is not None else self.fpar[self.mask]
+        assert len(self.par)==sum(self.mask), 'wrong number of specified parameters'
     def get_parameters(self):
         return self.par
     def set_parameters(self,par=None):
@@ -439,7 +444,10 @@ class Projector(Fitted):
         t = self.fn.gradient(self.fpar)[self.mask]
         #print 'gradient(%.2f)=%.2f' % (x, t)
         return t
-    
+    @property
+    def parameter_names(self):
+        return None if not hasattr(self.fn,'parameter_names') else self.fn.parameter_names[self.mask]
+        
     @property
     def bounds(self):
         return None if self.fn.bounds is None else np.array(self.fn.bounds)[self.mask]
@@ -467,6 +475,76 @@ class Projector(Fitted):
         self.set_parameters(par)
         return c2, par, dpar
 
+
+class Profile(Fitted):
+    """ Manage a function of one parameter, projected from a multi-parameter function,
+    with option evaluate by either optimizing on the remaining parameters or not
+    """
+
+    def __init__(self, fn, index, par=None, profile=True):
+        """
+        parameters
+        ---------
+        fn : function of a set of parameters
+            Must implement Fitted interface
+        index : integer or string
+            the index to examine, or its parameter name
+        par: arary type or None
+           initial set of parameters for fn if not None
+        profile: bool
+            set False to not apply profile
+        """
+        # local reference to the basic function, copy of original parametes
+        self.fn = fn
+        if type(index)==types.StringType:
+            try:
+                self.index = list(fn.parameter_names).index(index)
+            except ValueError:
+                raise FitterException('parameter name "%s" not one of %s' % (index, fn.parameter_names))
+            except Exception, msg:
+                raise
+        else:  self.index = index
+        self.fpar =  par if par is not None else fn.get_parameters().copy()
+        npar = len(self.fpar)
+        self.mask = np.ones(npar,bool)
+        self.mask[self.index]=False
+       
+        # set up function of the selected parameter (self) and a function of the rest
+        select = range(npar)
+        assert self.index in select, 'Expect index to select to be one of parameters'
+        self.par = self.fpar[self.index:self.index+1]
+        select.remove(self.index)
+        self.pfun = Projector(fn, select)
+        self.profile = profile
+        
+        # set up a fitter for the remaining parameters
+        self.fitter = Minimizer(self.pfun) 
+        
+    def __call__(self, x):
+        self.fpar[self.index]=x[0]
+        # if don't optimize the other parameters
+        if self.profile: 
+            v,p,s =self.fitter() #fit value, parameters, errors
+            self.fpar[self.mask]=p
+            r = self.fn(self.fpar)
+            print v,r
+        else:
+            r = self.fn(self.fpar)
+        return r
+    
+    @property
+    def parameter_names(self):
+        return self.fn.parameter_names[self.index:self.index+1]
+        
+    def get_parameters(self):
+        return self.par
+        
+    def set_parameters(self, par=None):
+        p = par if par is not None else self.par
+        self.par = p
+        self.fpar[self.index] = p
+        
+    
 class TestFunc(Fitted):
     def __init__(self, fn, pars):
         self.fn = fn
