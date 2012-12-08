@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.25 2012/11/26 15:57:39 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.26 2012/11/26 17:21:32 burnett Exp $
 
 """
 import os, pickle, glob, types, collections, zipfile
@@ -642,7 +642,7 @@ class Rename(object):
 #========================================================================================
 #  These classes are filters. An object of which can be loaded by the filter parameter
 # A filter must implement a __call__ method, which must return True to keep the source.
-# Since it is passed a refterence to the source, it may change any characteristic, such as the model
+# Since it is passed a reference to the source, it may change any characteristic, such as the model
 #
 # note MultiFilter that can be used to combine filters.
 
