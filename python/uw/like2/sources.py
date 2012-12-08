@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.10 2012/11/09 18:20:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.11 2012/11/26 15:58:02 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -116,6 +116,7 @@ class ExtendedSource(Source):
  
 class DiffuseFunction(skymaps.DiffuseFunction):
     """ wrapper for eventual invokation of skymaps.DiffuseFunction
+    load must be called before use
     """
     def __init__(self, filename):
         self.filename = filename
@@ -128,12 +129,39 @@ class DiffuseFunction(skymaps.DiffuseFunction):
     def name(self):
         return self.filename
         
+class IsotropicSpectralFunction(object): #skymaps.PySkySpectrum):
+    """ wrapper for using a standard spectral function with isotropic
+    This has to inherit from skymaps.SkySpectrum since it is used with 
+    PythonUtilities.val_grid in the convolution code
+    """
+    def __init__(self, expression):
+        """
+        expression: 
+        """
+        #locvalue = lambda v, energy:  self.value(v,engery)
+        #locintegral=lambda v,elow,ehigh: self.integral(v,elow,ehigh)
+        try:
+            self.expression  = expression.split('_')[-1]
+            self.spectral_function = eval(self.expression)
+            self.energy=1000.
+            #super(IsotropicSpectralFunction,self).__init__(locvalue, locintegral)
+        except Exception, msg:
+            print 'Failure to evaluate IsotropicSpectralFunction %s : %s' % (self.expression, msg)
+    def load(self): pass
+    def name(self): return 'IsotropicSpectralFunction/'+self.expression
+    def setEnergy(self, energy):  self.energy = energy
+    #def value(self, v, energy):   return self.spectral_function(self.energy)
+    #def integral(self, v, elow, ehigh): return self.value(self.energy)*(ehigh-elow)
+    def __call__(self, skydir, energy):return self.spectral_function(energy)
+    
 class DiffuseDict(dict):
     """ create a dictionary of global diffuse objects
-        key:   a string defined by the filename preceding an underscore
+        key:   a string defined by the filename following an underscore
         value: (both) or (front,back)  diffuse objects determined by the extension:
             txt: IsotropicSpectrum
             fit or fits: DiffuseFunction
+            ): IsotropicSpectralFunction
+            none: expect that the key is an expression to be evaluated to create a spectral model function
     
     """
     def __init__(self, diffuse):
@@ -144,14 +172,18 @@ class DiffuseDict(dict):
         tuplelist = map( lambda x: (x,) if not hasattr(x,'__iter__') else x, diffuse)
         keys = map( lambda x: x[0].split('_')[0], tuplelist) # key or name from first one
         for key, files in zip(keys, tuplelist):
-            full_files = map( lambda f: os.path.expandvars(os.path.join('$FERMI','diffuse',f)), files)
-            check = map(lambda f: os.path.exists(f), full_files) 
-            assert all(check), 'not all diffuse files %s found' % full_files
-            ext = os.path.splitext(full_files[0])[-1]
+            ext = os.path.splitext(files[0])[-1]
             try:
-                dfun = {'.txt':IsotropicSpectrum, '.fit':DiffuseFunction, '.fits':DiffuseFunction}[ext]
+                dfun = {'.txt': IsotropicSpectrum, 
+                    '.fit': DiffuseFunction, '.fits': DiffuseFunction, 
+                    ')': IsotropicSpectralFunction, 
+                    }[ext if ext[-1]!=')' else ')']
             except:
-                raise Exception('File type, %s, for diffuse not recognized'% ext)
+                raise Exception('File type, %s, for diffuse not recognized (from %s)'% (ext, files))
+
+            full_files = map( lambda f: os.path.expandvars(os.path.join('$FERMI','diffuse',f)), files)
+            check = map(lambda f: os.path.exists(f) or f[-1]==')', full_files) 
+            assert all(check), 'not all diffuse files %s found' % full_files
             self[key]= map(dfun, full_files) 
 
 
