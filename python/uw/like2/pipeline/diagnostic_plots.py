@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.22 2012/12/04 18:17:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.23 2012/12/05 04:42:22 burnett Exp $
 
 """
 
@@ -9,13 +9,13 @@ import os, pickle, glob, zipfile, time, sys, types, argparse
 import numpy as np
 import pylab as plt
 import pandas as pd
-from uw.like2 import catrec
-from skymaps import SkyDir, DiffuseFunction
+from uw.like2 import catrec  #deprecated: remove when no longer use sources.rec
+from skymaps import SkyDir, DiffuseFunction, Hep3Vector
 
 class Diagnostics(object):
     """ basic class to handle data for diagnostics, collect code to make plots
     """
-    def __init__(self, skymodel_dir='.'):
+    def __init__(self, skymodel_dir='.', **kwargs):
         """ skymodel_dir: string
             points to a directory containing a config.txt file, and perhaps other files
             
@@ -24,7 +24,7 @@ class Diagnostics(object):
         assert os.path.exists(os.path.join(self.skymodel_dir, 'config.txt')), 'not a skymodel directory:%s'%skymodel_dir
         os.chdir(self.skymodel_dir)
         self.skymodel = os.path.split(os.getcwd())[-1]
-        self.setup()
+        self.setup(**kwargs)
         if not os.path.exists('plots'):         os.mkdir('plots')
         self.plotfolder = os.path.join('plots', self.plotfolder)
         if not os.path.exists(self.plotfolder): os.makedirs(self.plotfolder)
@@ -41,6 +41,10 @@ class Diagnostics(object):
         else:
             plt.sca(ax); 
         return ax
+    def get_figure(self, ax, figsize=(5,4), **kwargs):
+        if ax is not None:
+            return ax.figure, ax
+        return plt.subplots( figsize=figsize, **kwargs)
         
     def savefigure(self, name, title=None, caption=None, **kwargs):
         savefig_kw=dict(dpi=60, bbox_inches='tight', pad_inches=0.5) 
@@ -55,7 +59,7 @@ class Diagnostics(object):
             open(savefile.replace('.png','.html'),'w').write(html % (title, localfile, caption))
         return plt.gcf()
 
-    def load_pickles(self,folder='pickle', offset=0):
+    def load_pickles(self,folder='pickle'):
         """
             load a set of pickles, return list from either zipfile or folder
             (need offset=1 if folder name zipped as well)
@@ -64,7 +68,7 @@ class Diagnostics(object):
         if os.path.exists(folder+'.zip'):
             print 'unpacking file %s.zip ...' % folder ,
             z=zipfile.ZipFile(folder+'.zip')
-            files = sorted(z.namelist())[offset:] # skip  folder?
+            files = sorted(z.namelist()) # skip  folder?
             print 'found %d files ' % len(files)
             opener = z.open
         else:
@@ -88,9 +92,7 @@ class Diagnostics(object):
         
     def skyplot(self, values, ax=None, title='', vmin=None, vmax=None, 
                     labels=True, colorbar=True, cbtext=''):
-        if ax is None:
-            fig, ax = plt.subplots( 1,1, figsize=(4,4))
-        else: fig = ax.figure
+        fig, ax = self.get_figure(ax)
         scat =ax.scatter(self.rois.glon, self.rois.singlat, s=20, 
             c=values,  vmin=vmin, vmax=vmax,edgecolor='none')
         if title is not None:
@@ -103,6 +105,27 @@ class Diagnostics(object):
             cb=plt.colorbar(scat)
             cb.set_label(cbtext)
         return fig
+     
+    def ecliptic_angle(self, skydir):
+        return np.degrees( SkyDir(270,90-23.439281).difference(skydir) ) -90.
+        
+    def draw_ecliptic(self, ax):
+        """ draw the ecliptic path onto the axis ax
+        """
+        ecl_glon=[]
+        ecl_singlat=[]
+        zaxis = SkyDir(270,90-23.439281)
+        xaxis = SkyDir()
+        yaxis = zaxis.cross(xaxis)
+        for phi in np.arange(0,2*np.pi, 0.05):
+            t = np.sin(phi)*xaxis+np.cos(phi)*yaxis
+            sd =SkyDir(Hep3Vector(*t))
+            tglon=sd.l(); 
+            if tglon>180:tglon-=360
+            ecl_glon.append(tglon)
+            ecl_singlat.append(np.sin(np.radians(sd.b())))
+        ia = np.argsort(ecl_glon)
+        ax.plot(np.array(ecl_glon)[ia], np.array(ecl_singlat)[ia], '-', color='gray') 
 
 
 class CountPlots(Diagnostics):
@@ -449,6 +472,98 @@ class FrontBackSedPlots(Diagnostics):
         self.ratio_plots()
         self.ts_hist()
         plt.close('all')
+ 
+
+class ROIinfo(Diagnostics):
+    """ setup pickled DataFrame for ROI info.
+    roi name is index
+    columns as the individual ROI, except exclude name itself, and enter only list of source names for sources
+    """
+    def setup(self, **kwargs):
+        self.plotfolder='rois'
+        filename = 'rois.pickle'
+        refresh = kwargs.pop('refresh', False)
+        if (not os.path.exists(filename)) or (refresh):
+            files, pkls = self.load_pickles('pickle')
+            assert len(files)==1728, 'Expected to find 1728 files'
+            rdict= dict()
+            exclude = ('sources', 'name')
+            for pkl in pkls:
+                tdict =dict((key,item) for key,item in pkl.items() if key not in exclude )
+                tdict.update(sources = pkl['sources'].keys())
+                glon = pkl['skydir'].l() 
+                if glon>180: glon-=360.
+                glat = pkl['skydir'].b(); 
+                tdict.update(glon = glon, glat=glat )
+                rdict[pkl['name']] = tdict
+            self.df = pd.DataFrame(rdict).transpose()
+            self.df.save(filename)
+            print 'saved %s' % filename
+        else:
+            print 'loading %s' % filename
+            self.df = pd.load(filename)
+        self.energy=self.df.ix[0]['counts']['energies']
+        
+    def skyplot(self, values, ax=None, title='', vmin=None, vmax=None, ecliptic=False,
+                    labels=True, colorbar=True, cbtext=''):
+        if ax is None:
+            fig, ax = plt.subplots( 1,1, figsize=(5,4))
+        else: fig = ax.figure
+        singlat=np.sin(np.radians(list(self.df.glat)))
+        scat =ax.scatter(self.df.glon, singlat, s=20, 
+            c=values,  vmin=vmin, vmax=vmax,edgecolor='none')
+        if title is not None:
+            ax.set_title(title, fontsize='small')
+        ax.axhline(0, color='k');ax.axvline(0,color='k')
+        if labels: plt.setp(ax, xlabel='glon', ylabel='sin(glat)',)
+        plt.setp(ax, xlim=(180,-180), ylim=(-1.02, 1.02),)
+        ax.set_xticks([180,90,0,-90,-180])
+        if ecliptic:
+            self.draw_ecliptic(ax)
+        
+        if colorbar:
+            cb=plt.colorbar(scat)
+            cb.set_label(cbtext)
+        return fig
+
+    def all_plots(self):
+        pass
+
+
+class SunMoon(ROIinfo):
+
+    def counts_map(self, ib=0, **kwargs):
+        sm = np.array([self.df.ix[i]['counts']['models'][2][1][ib] for i in range(len(self.df))])
+        return self.skyplot(sm, title='SunMoon counts at %d' % self.energy[ib], **kwargs)
+        
+    def count_fraction_map(self, ib=0, **kwargs):
+        kw=dict(vmin=0,vmax=10, cbtext='ratio (%)')
+        kw.update(kwargs)
+        sm = np.array([self.df.ix[i]['counts']['models'][2][1][ib] for i in range(len(self.df))])
+        total=np.array([self.df.ix[i]['counts']['total'][ib] for i in range(len(self.df))])
+        return self.skyplot(100.*sm/total, title='SunMoon fraction at %d' % self.energy[ib], **kw) 
+
+ 
+
+class Limb(ROIinfo):
+ 
+    def model_counts(self, ib=0):
+        def cts(i):
+            m = self.df.ix[i]['counts']['models']
+            dn = self.df.ix[i]['diffuse_names']
+            k = dn.index('limb') if 'limb' in dn else -1
+            return m[k][1][ib] if k>0 else 0
+        return np.array(map(cts, range(len(self.df))))
+    
+    def counts_map(self, ib=0, **kwargs):
+        return self.skyplot(self.model_counts(ib),
+            title='%s Limb counts at %d' % (self.skymodel,133), **kwargs)
+        
+    def count_fraction(self, ib=0, **kwargs):
+        sm = self.model_counts(ib)
+        tot = np.array([self.df.ix[i]['counts']['observed'][ib] for i in range(1728)])
+        return self.skyplot(sm/tot, title='%s Limb count fraction at %d MeV' % (self.skymodel,133), **kwargs)
+        
         
 
 class SourceInfo(Diagnostics):
@@ -456,20 +571,62 @@ class SourceInfo(Diagnostics):
         a DataFrame with all sources 
         (will do away with the recarray, which takes very long to generate, and is rather flaky)
         """
-    def setup(self):
+    def setup(self, **kwargs):
         self.plotfolder='sources' #needed by superclass
         filename = 'sources.pickle'
-        if not os.path.exists(filename):
-            files, pkls = self.load_pickles('pickle', 0)
+        refresh = kwargs.pop('refresh', False)
+        if (not os.path.exists(filename)) or (refresh):
+            files, pkls = self.load_pickles('pickle')
             assert len(files)==1728, 'Expected to find 1728 files'
             sdict= dict()
             for pkl in pkls:
                 for name, info in pkl['sources'].items():
                     sdict[name] = info
+                    sdict[name].update(glat=info['skydir'].b(), glon=info['skydir'].l(),
+                        roiname=pkl['name'])
             self.df = pd.DataFrame(sdict).transpose()
             self.df.save(filename)
+            print 'saved %s' % filename
         else:
+            print 'loading %s' % filename
             self.df = pd.load(filename)
+            
+    def skyplot(self, values, proj=None, ax=None, s=20, vmin=None, vmax=None, ecliptic=False,
+                labels=True, title='', colorbar=True, cbtext=''):
+        """ 
+        Make a sky plot of some quantity for a selected set of sources
+        Parameters:
+        ----------
+            values: a DataFrame column, posibly a subset: 
+                expect to have source name index to get position
+            proj: None, or a function to map values to colors
+            s : float
+                size of dot to plot
+        """
+        if ax is None:
+            fig, ax = plt.subplots(figsize = (6,5))
+        else: fig = ax.figure
+        # generate arrays of glon and singlat
+        sd = self.df.ix[values.index, ['glat', 'glon']] # see page 101
+        glon = sd.glon
+        glon[glon>180]-=360
+        singlat = np.sin(np.radians(list(sd.glat)))
+        c = values if proj is None else map(proj, values)
+        scat = ax.scatter(glon,singlat, s=s, c=c, 
+                vmin=vmin, vmax=vmax,edgecolor='none')
+        if title:
+            ax.set_title(title, fontsize='small')
+        plt.setp(ax, xlim=(180,-180),  ylim=(-1.02, 1.02));
+        ax.axhline(0, color='k');ax.axvline(0,color='k');
+        if labels: plt.setp(ax, xlabel='glon', ylabel='sin(glat)',)
+        plt.setp(ax, xlim=(180,-180), ylim=(-1.02, 1.02),)
+        ax.set_xticks([180,90,0,-90,-180])
+        if ecliptic:
+            self.draw_ecliptic(ax)
+        if colorbar:
+            cb=plt.colorbar(scat)
+            cb.set_label(cbtext)
+        return fig
         
     def lowenergyfluxratio(self, ax=None, cut=None, xmax=100., title='low energy fit consistency', energy=133, hist=False, minflux=2.0):
         if cut is None: cut=self.df.ts>25
@@ -523,6 +680,16 @@ class SourceInfo(Diagnostics):
 
         return fig
     
+    def ecliptic_hist(self, ax=None, title=''):
+        ea = map(self.ecliptic_angle, self.df.skydir)
+        fig, ax = self.get_figure(ax)
+        ax.hist( ea, np.linspace(-90, 90, 91))
+        plt.setp(ax, xlim=(-90,90), xlabel='ecliptic latitude')
+        ax.set_xticks([-90, -45, 0, 45, 90])
+        if title: ax.set_title(title)
+        ax.grid(True)
+        return fig
+    
     
     def all_plots(self):
         self.lowenergyfluxratio(hist=True)
@@ -531,6 +698,7 @@ class SourceInfo(Diagnostics):
         self.savefigure('low_energy_flux_ratio_scat')
         pass
   
+
 class SourceFitPlots(Diagnostics):
     def setup(self):
         assert os.path.exists('pickle.zip') or os.path.exists('pickle'), 'No pickled ROI data found'
@@ -729,7 +897,7 @@ class GalDiffusePlots(Diagnostics):
         self.plotfolder = 'front_back_%s_diffuse' %which
         folder = '%sfits_all'%which
         if not os.path.exists(folder) and not os.path.exists(folder+'.zip'): folder = folder[:-4]
-        files, pkls = self.load_pickles(folder, 0)
+        files, pkls = self.load_pickles(folder)
         assert len(files)==1728, 'Expect to find 1728 files in %s' %folder
         self.project_title='diffuse systematics for %s'%self.skymodel
         print self.project_title
@@ -844,6 +1012,7 @@ class GalDiffusePlots(Diagnostics):
         self.diffuse_ratio_plot()
         self.diffuse_fits()
         
+
 class IsoDiffusePlots(GalDiffusePlots):
 
     def setup(self):
@@ -895,6 +1064,7 @@ class IsoDiffusePlots(GalDiffusePlots):
         self.lowdiff_scat( ax[1])
         self.savefigure('isotropic_bin0_bin1_difference')
        
+
 class LimbPlots(Diagnostics):
     def setup(self):
         self.plotfolder='limb'
@@ -1020,6 +1190,7 @@ opts = [('iso',    IsoDiffusePlots),
         ('counts', CountPlots),
         ('limb',   LimbPlots),
         ('sourceinfo',   SourceInfo),
+        ('sunmoon',  SunMoon),
         ]  
         
 def main(args):
