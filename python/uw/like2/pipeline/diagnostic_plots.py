@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.23 2012/12/05 04:42:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.24 2012/12/08 19:27:23 burnett Exp $
 
 """
 
@@ -142,7 +142,7 @@ class CountPlots(Diagnostics):
         glon[glon>180]-=360
         glat = np.array([r['skydir'].b() for r in pkls])
         singlat = np.sin(np.radians(glat))
-        roinames = [p['name'] for p in pkls]
+        self.roinames=roinames = [p['name'] for p in pkls]
         self.rois = pd.DataFrame(
             dict(glon=glon, glat=glat, singlat=singlat, 
                 ra= [d.ra() for d in sdirs],
@@ -157,13 +157,17 @@ class CountPlots(Diagnostics):
         self.counts=dict()
         for key in ['observed', 'total']:
             self.counts[key]= pd.DataFrame([x[key] for x in counts], index=roinames)
-        # also model info
+        try:
+            self.add_model_info()
+        except:
+            pass
+    def add_model_info(self):
         for i,key in enumerate(['ring','isotrop', 'SunMoon', 'limb',]): # the expected order
             t = []
-            for j,p in enumerate(pkls):
+            for j,p in enumerate(self.pkls):
                 if key in p['diffuse_names']:
                     y=p['counts']['models'][i]
-                    assert y[0]==key, 'wrong key, %s!=%s; list is %s'% (key, y[0], p['diffuse_names'])
+                    assert y[0]==key, 'wrong key, roi %d: %s!=%s; list is %s'% (j,key, y[0], p['diffuse_names'])
                     t.append(y[1])
                 else:
                     t.append(np.zeros(len(self.energy)))
@@ -526,6 +530,14 @@ class ROIinfo(Diagnostics):
             cb.set_label(cbtext)
         return fig
 
+    def model_counts(self, name, ib=0):
+        def cts(i):
+            m = self.df.ix[i]['counts']['models']
+            dn = self.df.ix[i]['diffuse_names']
+            k = dn.index(name) if name in dn else -1
+            return m[k][1][ib] if k>=0 else 0
+        return np.array(map(cts, range(len(self.df))))
+
     def all_plots(self):
         pass
 
@@ -543,28 +555,29 @@ class SunMoon(ROIinfo):
         total=np.array([self.df.ix[i]['counts']['total'][ib] for i in range(len(self.df))])
         return self.skyplot(100.*sm/total, title='SunMoon fraction at %d' % self.energy[ib], **kw) 
 
- 
 
 class Limb(ROIinfo):
- 
-    def model_counts(self, ib=0):
-        def cts(i):
-            m = self.df.ix[i]['counts']['models']
-            dn = self.df.ix[i]['diffuse_names']
-            k = dn.index('limb') if 'limb' in dn else -1
-            return m[k][1][ib] if k>0 else 0
-        return np.array(map(cts, range(len(self.df))))
-    
+     
     def counts_map(self, ib=0, **kwargs):
-        return self.skyplot(self.model_counts(ib),
+        return self.skyplot(self.model_counts('limb', ib),
             title='%s Limb counts at %d' % (self.skymodel,133), **kwargs)
         
     def count_fraction(self, ib=0, **kwargs):
-        sm = self.model_counts(ib)
+        sm = self.model_counts('limb', ib)
         tot = np.array([self.df.ix[i]['counts']['observed'][ib] for i in range(1728)])
         return self.skyplot(sm/tot, title='%s Limb count fraction at %d MeV' % (self.skymodel,133), **kwargs)
         
         
+class Galactic(ROIinfo):
+    
+    def counts_map(self, ib=0, **kwargs):
+        return self.skyplot(self.model_counts('ring', ib),
+            title='%s Galactic counts at %d' % (self.skymodel,133), **kwargs)
+        
+    def count_fraction(self, ib=0, **kwargs):
+        sm = self.model_counts('ring', ib)
+        tot = np.array([self.df.ix[i]['counts']['observed'][ib] for i in range(1728)])
+        return self.skyplot(sm/tot, title='%s Galactic count fraction at %d MeV' % (self.skymodel,133), **kwargs)
 
 class SourceInfo(Diagnostics):
     """ To be superclass for specific source plot stuff, creates or loads
@@ -941,7 +954,7 @@ class GalDiffusePlots(Diagnostics):
         
     def like_scats(self):
         map(self.like_scat, range(8), self.multifig());
-        self.multilabels('glon', 'sin(glat)', '%s diffuse significance'%self.which)
+        self.multilabels('glon', 'sin(glat)', '%s diffuse likelihood difference'%self.which)
         self.savefigure('%s_significance'%self.which)
     
     def bfratio_hist(self, ib, axin=None, fignum=101, space = np.linspace(0.5, 1.5,26)):
@@ -1000,12 +1013,25 @@ class GalDiffusePlots(Diagnostics):
         ax.set_title('%.0f MeV'%self.energy[ind],fontsize='medium')
         ax.legend(prop=dict(size=10))
         
+    def fit_map(self, axin=None, ib=0, fignum=2, vmin=0.75, vmax=1.25, **kwars):
+        vals = self.flux['both']['values'].transpose().ix[ib] 
+        ax = self.set_plot(axin, fignum)
+        ax.scatter(self.rois.glon, self.rois.singlat, 
+                c=vals,
+                s=15 if axin is not None else 25,
+                vmin=vmin, vmax=vmax, edgecolors='none')
+        ax.set_title('%.0f MeV'%(self.energy[ib]),fontsize='small')
+        plt.setp(ax, xlim=(180,-180), ylim=(-1.01, 1.01))
+        ax.set_xticks([180,90,0,-90,-180])
+        return ax.figure
+    
+        
     def diffuse_fits(self):
         ax = self.multifig()
         self.multilabels('ratio', 'ROIs', '%s diffuse fit' %self.which)
         map(self.diffuse_fit, ax, range(8))
         self.savefigure('%sdiffuse_fits'%self.which)
-    
+            
     def all_plots(self):
         self.like_scats()
         self.bfratio_hists()
@@ -1095,12 +1121,17 @@ class LimbPlots(Diagnostics):
         try:
             config = eval(open('config.txt').read())
             self.limb_file = os.path.join(os.path.expandvars('$FERMI/diffuse'),config['diffuse'][3])
-            print 'loading diffuse definition %s' %self.limb_file
-            df = DiffuseFunction(self.limb_file)
-            flux = [df(sd, energy) for sd in limb_dirs]
+            if self.limb_file[-1]!=')':
+                print 'loading diffuse definition %s' %self.limb_file
+                df = DiffuseFunction(self.limb_file)
+                flux = [df(sd, energy) for sd in limb_dirs]
+            else:
+                print 'no limb template: used spectrum %s' % self.limb_file.split('_')[-1]
+                flux = np.zeros(len(indexes))
+
         except Exception, msg:
             print 'Failed to load fluxes from diffuse definition: %s' %msg
-            flux = np.zeros(len(indeces))
+            flux = np.zeros(len(indexes))
         self.fitpars = fitpars
         self.df = pd.DataFrame(dict(ra=ra,dec=dec, 
                     glat = [d.b() for d in limb_dirs],
