@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.26 2012/12/10 03:42:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.27 2012/12/10 03:54:11 burnett Exp $
 
 """
 
@@ -47,17 +47,20 @@ class Diagnostics(object):
         return plt.subplots( figsize=figsize, **kwargs)
         
     def savefigure(self, name, title=None, caption=None, **kwargs):
+        fig= plt.gcf()
+        fig.text(0.02, 0.02, self.skymodel, fontsize=8)
         savefig_kw=dict(dpi=60, bbox_inches='tight', pad_inches=0.5) 
         savefig_kw.update(kwargs)
         localfile = '%s_%s.png'%(name, self.skymodel.replace('/','_'))
         savefile = os.path.join(self.plotfolder,localfile)
+        
         plt.savefig(savefile, **savefig_kw)
         print 'saved plot to %s' % savefile
         if title is None: title = name
         if caption is not None:
             html = '<h2>%s</h2> <img src="%s" /> <br> %s '
             open(savefile.replace('.png','.html'),'w').write(html % (title, localfile, caption))
-        return plt.gcf()
+        return fig
 
     def load_pickles(self,folder='pickle'):
         """
@@ -270,7 +273,7 @@ class CountPlots(Diagnostics):
         
 
 class FrontBackSedPlots(Diagnostics):
-    """ in progress 
+    """
     """
     def setup(self):
         """
@@ -455,7 +458,8 @@ class FrontBackSedPlots(Diagnostics):
         ax.set_title('TS with zero flux, energy %.0f MeV'%self.energy[ib], fontsize='medium');
         ax.legend(prop=dict(size=10))  
         self.savefigure('ts_with_zero_flux')
- 
+
+    
     def all_plots(self):
         self.asym_plots()
         self.consistency_plots()
@@ -689,6 +693,7 @@ class SourceInfo(Diagnostics):
         else:
             print 'loading %s' % filename
             self.df = pd.load(filename)
+        self.energy = np.sqrt( self.df.ix[0]['sedrec'].elow * self.df.ix[0]['sedrec'].ehigh )
             
     def skyplot(self, values, proj=None, ax=None, s=20, vmin=None, vmax=None, ecliptic=False,
                 labels=True, title='', colorbar=True, cbtext=''):
@@ -702,19 +707,24 @@ class SourceInfo(Diagnostics):
             s : float
                 size of dot to plot
         """
-        if ax is None:
-            fig, ax = plt.subplots(figsize = (6,5))
-        else: fig = ax.figure
-        # generate arrays of glon and singlat
+        assert hasattr(values, 'index'), 'skyplot: values arg must have index attribute'
+        
+        # generate arrays of glon and singlat using index 
         sd = self.df.ix[values.index, ['glat', 'glon']] # see page 101
         glon = sd.glon
         glon[glon>180]-=360
         singlat = np.sin(np.radians(list(sd.glat)))
+
         c = values if proj is None else map(proj, values)
-        scat = ax.scatter(glon,singlat, s=s, c=c, 
-                vmin=vmin, vmax=vmax,edgecolor='none')
+
+        if ax is None:
+            fig, ax = plt.subplots(figsize = (6,5))
+        else: fig = ax.figure
+        scat = ax.scatter(glon, singlat, s=s, c=c, 
+                vmin=vmin, vmax=vmax, edgecolor='none')
         if title:
             ax.set_title(title, fontsize='small')
+        
         plt.setp(ax, xlim=(180,-180),  ylim=(-1.02, 1.02));
         ax.axhline(0, color='k');ax.axvline(0,color='k');
         if labels: plt.setp(ax, xlabel='glon', ylabel='sin(glat)',)
@@ -727,6 +737,52 @@ class SourceInfo(Diagnostics):
             cb.set_label(cbtext)
         return fig
         
+    def fluxinfo(self, ib=0, cut=None):
+        """ extract flux info for energy bin ib, return as a DataFrame
+        """
+        if cut is None: cut=self.df.ts>25
+        s = self.df[cut]
+        energy = self.energy[ib]
+        fdata = np.array([s.ix[i]['sedrec'].flux[0] for i in range(len(s))])
+        udata = np.array([s.ix[i]['sedrec'].uflux[0] for i in range(len(s))])
+        ldata = np.array([s.ix[i]['sedrec'].lflux[0] for i in range(len(s))])
+        fmodel = np.array([s.ix[i]['model'](energy)*energy**2*1e6 for i in range(len(s))])
+        return pd.DataFrame(dict(fdata=fdata, udata=udata, ldata=ldata, fmodel=fmodel, glat=s.glat, glon=s.glon),
+            index=s.index)
+
+    def low_energy_significance(self, ib=0, ax=None, minflux=2.,title='low energy fit consistency',hist=False):
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(5,4))
+        else: fig = ax.figure
+        
+        fx = self.fluxinfo(ib)
+        fxc = fx[fx.fmodel>minflux]
+        
+        x = fxc.fmodel
+        y = fxc.fdata
+        yerr = (fxc.udata-y)
+        q = (y-x)/yerr
+
+        if not hist:
+            self.skyplot(np.abs(q), ax=ax, vmin=0, vmax=5, title=title, cbtext='discrepancy in sigmas')
+            return fig
+        
+        xlim =(-5,5)
+        qlim = q.clip(*xlim)
+        lowlat = (abs(fxc.glat)<5)
+        dom = np.linspace(-5,5,46)
+        hist_kw=dict(lw=2, histtype='stepfilled')
+
+        ax.hist(qlim, dom, color='g',  label='%d all sources'%len(q),  **hist_kw)
+        ax.hist(qlim[lowlat], dom, color='r',  label='%d low latitude'%sum(lowlat),  **hist_kw)
+        ax.set_xlabel('residual')
+        ax.axvline(0, color='k')
+        ax.set_xlim(xlim)
+        ax.legend(prop=dict(size=10))
+        ax.set_title( title, fontsize='medium')
+        ax.grid()  
+        return fig
+
     def lowenergyfluxratio(self, ax=None, cut=None, xmax=100., title='low energy fit consistency', energy=133, hist=False, minflux=2.0):
         if cut is None: cut=self.df.ts>25
         if ax is None:
@@ -745,10 +801,6 @@ class SourceInfo(Diagnostics):
         hilat = fluxcut*(latcut)
         lolat = fluxcut*(~latcut)
 
-        if ax is None:
-            fig, ax = plt.subplots(figsize=(8,5))
-        else: fig = ax.figure
-        
         y = fdata/fmodel
         ylower, yupper =[(fdata-ldata)/fmodel,(udata-fdata)/fmodel]
         xhi,yhi,yerrhi = fmodel[hilat], y[hilat], [ylower[hilat],yupper[hilat]]
@@ -789,13 +841,15 @@ class SourceInfo(Diagnostics):
         ax.grid(True)
         return fig
     
-    
     def all_plots(self):
         self.lowenergyfluxratio(hist=True)
         self.savefigure('low_energy_flux_ratio_hist')
         self.lowenergyfluxratio(hist=False)
         self.savefigure('low_energy_flux_ratio_scat')
-        pass
+        self.low_energy_significance(hist=True)
+        self.savefigure('low_energy_flux_discrapancy_hist')
+        self.low_energy_significance()
+        self.savefigure('low_energy_flux_discrepancy_map')
   
 
 class SourceFitPlots(Diagnostics):
