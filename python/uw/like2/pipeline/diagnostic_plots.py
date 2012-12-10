@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.27 2012/12/10 03:54:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.28 2012/12/10 16:23:18 burnett Exp $
 
 """
 
@@ -101,7 +101,9 @@ class Diagnostics(object):
         if title is not None:
             ax.set_title(title, fontsize='small')
         ax.axhline(0, color='k');ax.axvline(0,color='k')
-        if labels: plt.setp(ax, xlabel='glon', ylabel='sin(glat)',)
+        if labels: 
+            ax.set_xlabel('glon')
+            ax.set_ylabel('sin(glat)', labelpad=-5) #note move label to right
         plt.setp(ax, xlim=(180,-180), ylim=(-1.02, 1.02),)
         ax.set_xticks([180,90,0,-90,-180])
         if colorbar:
@@ -208,20 +210,23 @@ class CountPlots(Diagnostics):
         ax.axhline(0, color='k')
         self.savefigure('average_residual_plot')
         
-    def chisq_plots(self,  vmin=0, vmax=100):
-        fig, axs = plt.subplots( 1,2, figsize=(6,3))
-        ax = axs[0]
-        scat =ax.scatter(self.rois.glon, self.rois.singlat, s=15, 
-            c=self.rois.chisq,  vmin=vmin, vmax=vmax,edgecolor='none')
-        ax.set_title('chisq', fontsize='small')
-        ax.axhline(0, color='k');ax.axvline(0,color='k')
-        plt.setp(ax, xlabel='glon', ylabel='sin(glat)',xlim=(180,-180), ylim=(-1.02, 1.02),)
+    def chisq_plots(self,  vmin=0, vmax=100, bcut=10):
+        fig, axs = plt.subplots( 1,2, figsize=(8,3))
+        plt.subplots_adjust(wspace=0.3)
         ax = axs[1]
+        #scat =ax.scatter(self.rois.glon, self.rois.singlat, s=15, 
+        #    c=self.rois.chisq,  vmin=vmin, vmax=vmax,edgecolor='none')
+        #ax.set_title('chisq', fontsize='small')
+        #ax.axhline(0, color='k');ax.axvline(0,color='k')
+        #plt.setp(ax, xlabel='glon', ylabel='sin(glat)',xlim=(180,-180), ylim=(-1.02, 1.02),)
+        self.skyplot(self.rois.chisq, ax=ax, vmin=vmin, vmax=vmax);
+        ax = axs[0]
         bins = np.linspace(0,100, 26)
         ax.hist(self.rois.chisq.clip(0,100), bins, label='all')
-        ax.hist(self.rois.chisq.clip(0,100)[np.abs(self.rois.glat)<5], bins, color='red', label='|b|<5')
+        ax.hist(self.rois.chisq.clip(0,100)[np.abs(self.rois.glat)<bcut], bins, color='red', label='|b|<%d'%bcut)
         ax.legend(loc='upper right', prop=dict(size=10)) 
         plt.setp(ax, xlabel='chisq')
+        ax.grid(True)
         self.savefigure('chi_squared', caption='chi squarard distribution')
         return fig
         
@@ -512,6 +517,7 @@ class ROIinfo(Diagnostics):
         if labels: plt.setp(ax, xlabel='glon', ylabel='sin(glat)',)
         plt.setp(ax, xlim=(180,-180), ylim=(-1.02, 1.02),)
         ax.set_xticks([180,90,0,-90,-180])
+        ax.get_yaxis().labelpad=-5 # clugy way to reduce space
         if ecliptic:
             self.draw_ecliptic(ax)
         
@@ -602,7 +608,7 @@ class Limb(ROIinfo):
             galtheta = galra; galrad = radius(galdec,i) 
             ax.plot(np.radians(galtheta[galrad<thetamax]),galrad[galrad<thetamax], '-', color='grey', lw=2)
             ax.set_ylim(ymax=thetamax)
-            ax.set_title(['North','South'][i]+' Pole', ha='right', fontsize='small')
+            ax.set_title(['North','South'][i], ha='right', fontsize='small')
 
         cbax = fig.add_axes((0.25,0.08,0.5, 0.04))
         cb=plt.colorbar(sc, cbax, orientation='horizontal')
@@ -1262,3 +1268,4 @@ if __name__=='__main__':
     #parser.add_argument('--test', action='store_true', help='Do not run the pipeline createStream')
     args = parser.parse_args()
     main(args.args)
+    
