@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.25 2012/12/09 20:15:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.26 2012/12/10 03:42:55 burnett Exp $
 
 """
 
@@ -261,17 +261,6 @@ class CountPlots(Diagnostics):
         )
         return fig
         
-    def sunmoon(self):
-        fig,axx=plt.subplots(1,2, figsize=(10,5))
-        plt.subplots_adjust(hspace = 0.3)
-        sm = self.counts['SunMoon']
-        ax = axx[0]
-        ax.hist(sm[0], np.linspace(0,1000))
-        plt.setp(ax, xlabel='sun/moon counts per ROI')
-        ax = axx[1]
-        self.skyplot( np.log10(sm[0]), ax=ax, cbtext='log10(sunmoon counts)')
-        return fig
-    
     def all_plots(self):
         self.residual_hists()
         self.residual_plot()
@@ -279,9 +268,6 @@ class CountPlots(Diagnostics):
         self.resid_vs_dec_multi()
         self.chisq_plots()
         
-        self.sunmoon()
-        self.savefigure('sunmoon_counts', title='Sun and Moon counts per roi')
-
 
 class FrontBackSedPlots(Diagnostics):
     """ in progress 
