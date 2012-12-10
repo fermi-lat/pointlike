@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.24 2012/12/08 19:27:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.25 2012/12/09 20:15:24 burnett Exp $
 
 """
 
@@ -399,7 +399,7 @@ class FrontBackSedPlots(Diagnostics):
         assert len(inds)==4, 'Must find four sources, maybe need to adjust cut on strength'
         return inds
         
-    def ratio_fit(self, ib=0, axin=None, fignum=11):
+    def ratio_fit(self, ib=0, axin=None):
         
         def checkflux( ind, ebin=0):
             fc = np.array([self.flux[x]['flux'][ebin][ind] for x in ['front','back']])
@@ -409,7 +409,7 @@ class FrontBackSedPlots(Diagnostics):
             rerr =ratio*np.sqrt((sig[0]/fc[0])**2+(sig[1]/fc[1])**2)
             return  ratio, rerr 
  
-        ax = self.set_plot( axin, fignum)
+        fig, ax = self.get_figure( axin)
         inds = self.get_strongest()
         
         name = [self.srcnames[ind] for ind in inds]
@@ -531,6 +531,8 @@ class ROIinfo(Diagnostics):
         return fig
 
     def model_counts(self, name, ib=0):
+        """ list of counts per ROI for model name, energy bin ib
+        """
         def cts(i):
             m = self.df.ix[i]['counts']['models']
             dn = self.df.ix[i]['diffuse_names']
@@ -538,47 +540,145 @@ class ROIinfo(Diagnostics):
             return m[k][1][ib] if k>=0 else 0
         return np.array(map(cts, range(len(self.df))))
 
+    def diffuse_models(self,  name):
+        """ return list of referernces to the diffuse spectral models
+        """
+        def mdl(index):
+            pkl = self.df.ix[index]
+            m =pkl['diffuse_names']
+            if name not in m: return None
+            return pkl['diffuse'][m.index(name)]
+        return map(mdl, range(1728))
+
+    def counts_map(self, ib=0, title='', **kwargs):
+        c = self.model_counts(self.source_name, ib)
+        cbtext='counts'
+        if kwargs.pop('log', True):
+            c = np.log10(c)
+            cbtext = 'log10(counts)'
+        return self.skyplot(c, cbtext=cbtext,
+            title='%s %s counts at %d MeV' % (self.skymodel, title, self.energy[ib]), **kwargs)
+        
+    def count_fraction(self, ib=0, title='', **kwargs):
+        sm = self.model_counts(self.source_name, ib)
+        tot = np.array([self.df.ix[i]['counts']['observed'][ib] for i in range(1728)])
+        return self.skyplot(sm/tot, title='%s %s count fraction at %d MeV' % (self.skymodel,title, self.energy[ib]), **kwargs)
+
     def all_plots(self):
-        pass
+    
+        self.counts_map(title=self.title);
+        self.savefigure('%s_counts'%self.source_name, title=self.title)
+        self.count_fraction(title=self.title)
+        self.savefigure('%s_count_fraction'%self.source_name, title=self.title)
 
 
 class SunMoon(ROIinfo):
-
-    def counts_map(self, ib=0, **kwargs):
-        sm = np.array([self.df.ix[i]['counts']['models'][2][1][ib] for i in range(len(self.df))])
-        return self.skyplot(sm, title='SunMoon counts at %d' % self.energy[ib], **kwargs)
-        
-    def count_fraction_map(self, ib=0, **kwargs):
-        kw=dict(vmin=0,vmax=10, cbtext='ratio (%)')
-        kw.update(kwargs)
-        sm = np.array([self.df.ix[i]['counts']['models'][2][1][ib] for i in range(len(self.df))])
-        total=np.array([self.df.ix[i]['counts']['total'][ib] for i in range(len(self.df))])
-        return self.skyplot(100.*sm/total, title='SunMoon fraction at %d' % self.energy[ib], **kw) 
-
+    def setup(self):
+        super(SunMoon, self).setup()
+        self.plotfolder='sunmoon'
+        self.source_name='SunMoon'
+        self.title='Sun/Moon'
+    
 
 class Limb(ROIinfo):
+    def setup(self):
+        super(Limb, self).setup()
+        self.plotfolder='limb'
+        self.source_name='limb'
+        self.title='Limb'
      
-    def counts_map(self, ib=0, **kwargs):
-        return self.skyplot(self.model_counts('limb', ib),
-            title='%s Limb counts at %d' % (self.skymodel,133), **kwargs)
+    def polar_plots(self, values, title=None,
+                vmin=None, vmax=None, vticks=5, vlabel=None, thetamax=60):
+        """
+        values : array of float
+        Creates a Figure that must be cleared
+        """
+        fig, axes = plt.subplots(1,2, figsize=(8,4),subplot_kw=dict(polar=True))
+        plt.subplots_adjust(bottom=0.12, top=0.90, wspace=0.3)
+        plot_kw = dict(s=120, edgecolor='none', vmin=vmin, vmax=vmax)
         
-    def count_fraction(self, ib=0, **kwargs):
-        sm = self.model_counts('limb', ib)
-        tot = np.array([self.df.ix[i]['counts']['observed'][ib] for i in range(1728)])
-        return self.skyplot(sm/tot, title='%s Limb count fraction at %d MeV' % (self.skymodel,133), **kwargs)
-        
-        
-class Galactic(ROIinfo):
-    
-    def counts_map(self, ib=0, **kwargs):
-        return self.skyplot(self.model_counts('ring', ib),
-            title='%s Galactic counts at %d' % (self.skymodel,133), **kwargs)
-        
-    def count_fraction(self, ib=0, **kwargs):
-        sm = self.model_counts('ring', ib)
-        tot = np.array([self.df.ix[i]['counts']['observed'][ib] for i in range(1728)])
-        return self.skyplot(sm/tot, title='%s Galactic count fraction at %d MeV' % (self.skymodel,133), **kwargs)
+        galeq = [SkyDir(float(u),0, SkyDir.GALACTIC) for u in np.arange(0,360,1)]
+        galra = np.array([sd.ra() for sd in galeq])
+        galdec = np.array([sd.dec() for sd in galeq])
+        def radius( dec, i): return [90-dec, 90+dec][i] 
+        ra = np.array(map(lambda dir: dir.ra(), self.df.skydir))
+        dec = np.array(map(lambda dir: dir.dec(), self.df.skydir))
+        for i, ax in enumerate(axes[:2]):
+            cut = [dec>(90-thetamax), dec<(thetamax-90)][i]
+            r = [90-dec, 90+dec][i]
+            theta = np.radians(ra)
+            c = np.array(values)[cut]
+            sc =ax.scatter(theta[cut], radius(dec[cut],i), c=c, **plot_kw);
+            galtheta = galra; galrad = radius(galdec,i) 
+            ax.plot(np.radians(galtheta[galrad<thetamax]),galrad[galrad<thetamax], '-', color='grey', lw=2)
+            ax.set_ylim(ymax=thetamax)
+            ax.set_title(['North','South'][i]+' Pole', ha='right', fontsize='small')
 
+        cbax = fig.add_axes((0.25,0.08,0.5, 0.04))
+        cb=plt.colorbar(sc, cbax, orientation='horizontal')
+        if vlabel is not None: cb.set_label(vlabel)
+        if vmin is not None and vmax is not None:
+            cb.set_ticks(np.linspace(vmin, vmax, vticks))
+        if title is not None: plt.suptitle(title)  
+        return fig
+        
+
+        
+    def ratio_hist(self, ratio, vmax=1.0, cut=None):
+        fig, ax = plt.subplots(figsize=(4,4))
+        space = np.linspace(0, vmax,21)
+        r = ratio.clip(0,vmax)
+        ax.hist(r[cut], space)
+        ax.hist(r[(abs(self.df.glat)>20) * cut], space, label='|b|>20')
+        plt.setp(ax, xlabel='front/back ratio', xlim=(0,vmax))
+        ax.set_xticks(np.linspace(0,vmax,5))
+        ax.grid(); ax.legend(prop=dict(size=10))
+        return fig
+
+  
+    def all_plots(self, thetamax=50):
+        super(Limb, self).all_plots()
+        
+        dm = self.diffuse_models('limb')
+        fpar,bpar = [np.array([m[i] if m else np.nan for m in dm] )for i in range(2)]
+
+        
+        self.polar_plots(bpar, vmin=0, vmax=3, vticks=4, thetamax=thetamax, title='back normalization')
+        self.savefigure('back_normalization_polar', title='Back normalization factor', caption="""\
+        Polar plots of the back limb normalization\
+        """)
+      
+        self.polar_plots(fpar, vmin=0, vmax=1.0, vticks=5, thetamax=thetamax, title='front normalization')
+        self.savefigure('front_normalization_polar', title='Front normalization', caption="""\
+        Polar plots of the front limb normalization\
+        """)
+        
+        self.polar_plots(fpar/bpar, vmin=0, vmax=1.0, vticks=5, thetamax=thetamax, title='front/back ratio')
+        self.savefigure('front_back_ratio_polar', title='Front/Back flux ratio', caption="""\
+        Polar plots of the ratio of the front to back flux\
+        """)
+        
+        self.ratio_hist((fpar/bpar), cut=bpar>0.2)
+        self.savefigure('front_back_ratio_hist', title='Histogram of Front/Back limb flux ratio', caption="""\
+        Histogram of the ratio of the front to the back flux. ROIs with |b|>20 degrees are shown in green. \
+        """)
+
+class Galactic(ROIinfo):
+    def setup(self):
+        super(Galactic, self).setup()
+        self.plotfolder='gal'
+        self.source_name='ring'
+        self.title='Galactic'
+
+class Isotropic(ROIinfo):
+
+    def setup(self):
+        super(Isotropic, self).setup()
+        self.plotfolder='iso'
+        self.source_name='isotrop'
+        self.title='Isotropic'
+    
+        
 class SourceInfo(Diagnostics):
     """ To be superclass for specific source plot stuff, creates or loads
         a DataFrame with all sources 
@@ -1091,135 +1191,12 @@ class IsoDiffusePlots(GalDiffusePlots):
         self.savefigure('isotropic_bin0_bin1_difference')
        
 
-class LimbPlots(Diagnostics):
-    def setup(self):
-        self.plotfolder='limb'
-        files, pkls = self.load_pickles()
-        assert len(pkls)==1728, 'expect to find 1728 pickled roi files'
-        
-        cut = np.array(['limb' in p['diffuse_names'] for p in pkls])
-        print 'Found %d rois with limb fits'% sum(cut)
-        
-        indexes = np.arange(1728)[cut]; 
-        limb_pkls = [pkls[i] for i in indexes]
-
-        limb_dirs = [p['skydir'] for p in limb_pkls]
-        ra = np.array([d.ra() for d in limb_dirs])
-        dec = np.array([d.dec() for d in limb_dirs])
-        
-        limb_index = limb_pkls[0]['diffuse_names'].index('limb')
-        assert limb_index>1, 'did not find limb index %s' %limb_pkls[0]['diffuse_names']
-        fitpars = np.array([p['diffuse'][limb_index].get_all_parameters()  for p in limb_pkls])
-        self.models = [  p['diffuse'][limb_index]  for p in limb_pkls]
-        front_flux=[]; back_flux=[]
-        energy=133 #wire in first band for now
-        for m in self.models:
-            m.ct=0; front_flux.append( m(energy))
-            m.ct=1; back_flux.append(  m(energy))      
-        
-        # get the diffuse function
-        try:
-            config = eval(open('config.txt').read())
-            self.limb_file = os.path.join(os.path.expandvars('$FERMI/diffuse'),config['diffuse'][3])
-            if self.limb_file[-1]!=')':
-                print 'loading diffuse definition %s' %self.limb_file
-                df = DiffuseFunction(self.limb_file)
-                flux = [df(sd, energy) for sd in limb_dirs]
-            else:
-                print 'no limb template: used spectrum %s' % self.limb_file.split('_')[-1]
-                flux = np.zeros(len(indexes))
-
-        except Exception, msg:
-            print 'Failed to load fluxes from diffuse definition: %s' %msg
-            flux = np.zeros(len(indexes))
-        self.fitpars = fitpars
-        self.df = pd.DataFrame(dict(ra=ra,dec=dec, 
-                    glat = [d.b() for d in limb_dirs],
-                    glon = [d.l() for d in limb_dirs],
-                    fpar=fitpars[:,0], bpar=fitpars[:,1],
-                    flux=flux,
-                    ), 
-                index=pd.Index(indexes, name='ROI index'))
-
-    def describe(self):
-        return self.df.describe()
-        
-    def polar_plots(self, values, title=None,
-                vmin=None, vmax=None, vticks=5, vlabel=None):
-        """
-        values : array of float
-            Must have same length as self.df
-        Creates a Figure that must be cleared
-        """
-        fig, axes = plt.subplots(1,2, figsize=(8,4),subplot_kw=dict(polar=True))
-        plt.subplots_adjust(bottom=0.12, top=0.90, wspace=0.3)
-        plot_kw = dict(s=120, edgecolor='none', vmin=vmin, vmax=vmax)
-        
-        #galeq = pickle.load(open('analysis/galactic_equator.pickle'))
-        galeq = [SkyDir(float(u),0, SkyDir.GALACTIC) for u in np.arange(0,360,1)]
-        galra = np.array([sd.ra() for sd in galeq])
-        galdec = np.array([sd.dec() for sd in galeq])
-        def radius( dec, i): return [90-dec, 90+dec][i] 
-        ra,dec =self.df.ra, self.df.dec
-        for i, ax in enumerate(axes[:2]):
-            cut = [dec>45, dec<-45][i]
-            r = [90-dec, 90+dec][i]
-            theta = np.radians(ra)
-            sc =ax.scatter(theta[cut], radius(dec[cut],i), c=values[cut], **plot_kw);
-            galtheta = galra; galrad = radius(galdec,i) 
-            ax.plot(np.radians(galtheta[galrad<60]),galrad[galrad<60], '-', color='grey', lw=2)
-            ax.set_ylim(ymax=50)
-            ax.set_title(['North','South'][i]+' Pole', ha='right', fontsize='medium')
-
-        cbax = fig.add_axes((0.25,0.08,0.5, 0.04))
-        cb=plt.colorbar(sc, cbax, orientation='horizontal')
-        if vlabel is not None: cb.set_label(vlabel)
-        if vmin is not None and vmax is not None:
-            cb.set_ticks(np.linspace(vmin, vmax, vticks))
-        if title is not None: plt.suptitle(title)  
-        return fig
-
-    def ratio_hist(self, vmax=1.0):
-        fig, ax = plt.subplots(figsize=(4,4))
-        ratio = (self.df.fpar/self.df.bpar).clip(0,vmax)
-        space = np.linspace(0, vmax,21)
-        ax.hist(ratio, space)
-        ax.hist(ratio[abs(self.df.glat)>20], space, label='|b|>20')
-        plt.setp(ax, xlabel='front/back ratio', xlim=(0,vmax))
-        ax.set_xticks(np.linspace(0,vmax,5))
-        ax.grid(); ax.legend(prop=dict(size=10))
-        return fig
-        
-    def all_plots(self):
-        self.polar_plots(self.df.bpar, vmin=0, vmax=3, vticks=4)
-        self.savefigure('back_normalization_polar', title='Back normalization factor', caption="""\
-        Polar plots of the back limb normalization\
-        """)
-    
-        self.polar_plots(self.df.fpar, vmin=0, vmax=1.0, vticks=5)
-        self.savefigure('front_normalization_polar', title='Front normalization', caption="""\
-        Polar plots of the front limb normalization\
-        """)
-        
-        self.polar_plots(self.df.fpar/self.df.bpar, vmin=0, vmax=1.0, vticks=5)
-        self.savefigure('front_back_ratio_polar', title='Front/Back flux ratio', caption="""\
-        Polar plots of the ratio of the front to back flux\
-        """)
-        self.polar_plots(self.df.flux, title='Nominal Flux at 133 MeV')
-        self.savefigure('nominal_flux_polar', caption="""Nominal flux at 133 MeV, from diffuse file %s"""%self.limb_file)
-        
-        self.ratio_hist()
-        self.savefigure('front_back_ratio_hist', title='Histogram of Front/Back limb flux ratio', caption="""\
-        Histogram of the ratio of the front to the back flux. ROIs with |b|>20 degrees are shown in green.\
-        """)
-        
-       
 opts = [('iso',    IsoDiffusePlots),
         ('gal',    GalDiffusePlots),
         ('sources',SourceFitPlots),
         ('fb',     FrontBackSedPlots),
         ('counts', CountPlots),
-        ('limb',   LimbPlots),
+        ('limb',   Limb),
         ('sourceinfo',   SourceInfo),
         ('sunmoon',  SunMoon),
         ]  
