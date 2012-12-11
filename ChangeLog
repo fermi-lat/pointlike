@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Dec 11 15:37:40 PST 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	skymodel.py 
+Log Message:
+support for DataFrame auxcat
+    *
+------------------------------------------------------------
 User: burnett  Mon Dec 10 15:25:33 PST 2012
 pointlike/python/uw/like2/pipeline
 
