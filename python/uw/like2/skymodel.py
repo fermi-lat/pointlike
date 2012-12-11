@@ -1,12 +1,13 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.26 2012/11/26 17:21:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.27 2012/12/08 19:25:40 burnett Exp $
 
 """
 import os, pickle, glob, types, collections, zipfile
 import cPickle as pickle
 from xml import sax
 import numpy as np
+import pandas as pd
 from skymaps import SkyDir, Band
 from uw.utilities import keyword_options, makerec, xml_parsers
 #  this is below: only needed when want to create XML
@@ -112,16 +113,24 @@ class SkyModel(object):
         if not os.path.exists(cat):
             raise Exception('auxilliary source catalog "%s" not found locally (%s) or in $FERMI/catalog'
                     %( self.folder,self.auxcat))
-        ss = makerec.load(cat)
+        if os.path.splitext(cat)[-1]=='.pickle':
+            ss = pd.load(cat).itertuples()
+            dataframe=True
+            print 'loading auxcat from DataFrame'
+        else:
+            ss = makerec.load(cat); dataframe=False
         names = [s.name for s in self.point_sources]
         toremove=[]
         print 'process auxcat %s' %cat
         for s in ss:
-            if not s.name.startswith('SEED'): # allow underscores
-                sname = s.name.replace('_',' ') 
-            else: sname=s.name
+            if dataframe:
+                sname,sra,sdec = s[1:4]
+            else:
+                sname,sra,sdec = s.name, s.ra, s.dec
+            if not sname.startswith('SEED'): # allow underscores
+                sname = sname.replace('_',' ') 
             if sname  not in names: 
-                skydir=SkyDir(float(s.ra), float(s.dec))
+                skydir=SkyDir(float(sra), float(sdec))
                 index=self.hpindex(skydir)
                 model = self.newmodel
                 if type(self.newmodel)==types.StringType: 
@@ -131,16 +140,16 @@ class SkyModel(object):
                     model=self.newmodel.copy() # make sure to get a new object
                 if model is not None:
                     model.free[0] = True # must have at least one free parameter to be set up properly in an ROI
-                self.point_sources.append(sources.PointSource(name=s.name, skydir=skydir, index=index,  model=model))
-                print '\tadded new source %s at ROI %d' % (s.name, index)
+                self.point_sources.append(sources.PointSource(name=sname, skydir=skydir, index=index,  model=model))
+                print '\tadded new source %s at ROI %d' % (sname, index)
             else: 
                 print '\t source %s is in the model:' %sname, # will remove if ra<0' % sname
                 ps = self.point_sources[names.index(sname)]
-                if float(s.ra)<=0: 
+                if float(sra)<=0: 
                     toremove.append(ps)
                     print ' removed.'
                 else:
-                    newskydir=SkyDir(float(s.ra),float(s.dec))
+                    newskydir=SkyDir(float(sra),float(sdec))
                     print 'moved from %s to %s' % (ps.skydir, newskydir)
                     ps.skydir=newskydir
         for ps in toremove:
