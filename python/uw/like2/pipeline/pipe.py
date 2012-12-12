@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.25 2012/11/12 18:08:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.26 2012/11/24 19:15:56 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
@@ -436,6 +436,7 @@ class PulsarLimitTables(Tables):
 class Create(Update):
     """ create a new model, assuming appropriate config.txt
         model_dir points to the new model, which must have an entry "input_model" in its config.txt
+        also look for keys auxcat and skymodel_kw
     """
     def __init__(self, analysisdir, model_dir,  **kwargs):
         """
@@ -445,7 +446,16 @@ class Create(Update):
         os.chdir(self.analysisdir)
         config = eval(open(os.path.join(analysisdir,model_dir, 'config.txt')).read())
         try:
-            self.indir=os.path.join(analysisdir,model_dir,config['input_model'])
+            input_model = config['input_model']
+            if type(input_model)==types.StringType:
+                self.indir=os.path.join(analysisdir,model_dir,input_model)
+                skykw = config.pop('skymodel_kw', None)
+                auxcat= config.pop('auxcat', '')
+            else:
+                self.indir=os.path.join(analysisdir,model_dir,input_model['path'])
+                skykw = input_model.get('skymodel_kw', None)
+                auxcat= input_model.get('auxcat', '')
+
         except KeyError:
             print '"input_model" not found in config: %s' %config
             raise
@@ -454,13 +464,12 @@ class Create(Update):
         
         # if config has skymodel_kw, will add to the skymodel keywords by interpreting it and setting skymodel_extra
         # especially, for a filter entry
-        skykw = config.pop('skymodel_kw', None)
         skymodel_extra = ','.join(['%s="%s"' % item for item in skykw.items() ]) if skykw is not None else ''
         
         kw.update(outdir=model_dir, datadict=config['datadict'],
             irf=config['irf'],
             diffuse=config['diffuse'],
-            auxcat=config.pop('auxcat', ''),
+            auxcat=auxcat,
             skymodel_extra=skymodel_extra,
             )
         kw.update(kwargs)
