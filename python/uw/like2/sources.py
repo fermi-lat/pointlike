@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.11 2012/11/26 15:58:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.12 2012/12/08 19:25:40 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -129,29 +129,23 @@ class DiffuseFunction(skymaps.DiffuseFunction):
     def name(self):
         return self.filename
         
-class IsotropicSpectralFunction(object): #skymaps.PySkySpectrum):
+class IsotropicSpectralFunction(object):
     """ wrapper for using a standard spectral function with isotropic
-    This has to inherit from skymaps.SkySpectrum since it is used with 
-    PythonUtilities.val_grid in the convolution code
     """
     def __init__(self, expression):
         """
         expression: 
         """
-        #locvalue = lambda v, energy:  self.value(v,engery)
-        #locintegral=lambda v,elow,ehigh: self.integral(v,elow,ehigh)
         try:
             self.expression  = expression.split('_')[-1]
             self.spectral_function = eval(self.expression)
             self.energy=1000.
-            #super(IsotropicSpectralFunction,self).__init__(locvalue, locintegral)
         except Exception, msg:
             print 'Failure to evaluate IsotropicSpectralFunction %s : %s' % (self.expression, msg)
+            raise
     def load(self): pass
     def name(self): return 'IsotropicSpectralFunction/'+self.expression
-    def setEnergy(self, energy):  self.energy = energy
-    #def value(self, v, energy):   return self.spectral_function(self.energy)
-    #def integral(self, v, elow, ehigh): return self.value(self.energy)*(ehigh-elow)
+    def setEnergy(self, energy):  self.energy = energy #needed?
     def __call__(self, skydir, energy):return self.spectral_function(energy)
     
 class DiffuseDict(dict):
@@ -166,8 +160,8 @@ class DiffuseDict(dict):
     """
     def __init__(self, diffuse):
         """ diffuse: a list, where each entry is a file name or a tuple of one or two file names, for front and back
+            if the name ends with a ')', assume it is an expression and pass it on to be evaluated by IsotropicSpectralFunction
         """
-        #assert len(diffuse)<6, 'expect 2 or 3 diffuse names, or front/back tuples'
         # convert each single entry to a tuple: assume iterables are tuples of strings
         tuplelist = map( lambda x: (x,) if not hasattr(x,'__iter__') else x, diffuse)
         keys = map( lambda x: x[0].split('_')[0], tuplelist) # key or name from first one
@@ -180,11 +174,13 @@ class DiffuseDict(dict):
                     }[ext if ext[-1]!=')' else ')']
             except:
                 raise Exception('File type, %s, for diffuse not recognized (from %s)'% (ext, files))
-
-            full_files = map( lambda f: os.path.expandvars(os.path.join('$FERMI','diffuse',f)), files)
-            check = map(lambda f: os.path.exists(f) or f[-1]==')', full_files) 
-            assert all(check), 'not all diffuse files %s found' % full_files
-            self[key]= map(dfun, full_files) 
+            if dfun==IsotropicSpectralFunction:
+                self[key] = map(dfun,files)
+            else:
+                full_files = map( lambda f: os.path.expandvars(os.path.join('$FERMI','diffuse',f)), files)
+                check = map(lambda f: os.path.exists(f) or f[-1]==')', full_files) 
+                assert all(check), 'not all diffuse files %s found' % full_files
+                self[key]= map(dfun, full_files) 
 
 
 class ExtendedCatalog( pointspec_helpers.ExtendedSourceCatalog):
