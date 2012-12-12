@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Dec 12 10:21:25 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	pipe.py 
+Log Message:
+implement alternate input_model for Create
+    *
+------------------------------------------------------------
 User: burnett  Wed Dec 12 07:59:56 PST 2012
 pointlike/python/uw/like2/pipeline
 
