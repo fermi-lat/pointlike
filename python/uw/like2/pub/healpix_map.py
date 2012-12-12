@@ -1,8 +1,8 @@
 """
 Utilities for managing Healpix arrays
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.5 2012/09/27 14:23:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.6 2012/10/28 21:15:54 burnett Exp $
 """
-import os,glob,pickle, types, copy
+import os,glob,pickle, types, copy, zipfile
 import pylab as plt
 import numpy as np
 import pyfits
@@ -147,15 +147,21 @@ class HPtables(HParray):
         """
         self.name = tname
         self.nside = nside
-        files =glob.glob(os.path.join(outdir, '%s_table'%tname,'*.pickle'))
+        if os.path.exists('%s_table.zip'%tname):
+            z=zipfile.ZipFile('%s_table.zip'%tname)
+            files = sorted(z.namelist()) # skip  folder?
+            print 'found %d files ' % len(files)
+            opener = z.open
+        else:
+           opener = open
+           files = sorted(glob.glob(os.path.join(outdir, '%s_table'%tname,'*.pickle')))
         nf = len(files)
         assert nf>0, 'no pickle files found in %s' % os.path.join(outdir, '%s_table'%tname)
         if nf<1728: print 'warning: missing %d files in folder %s_table; will fill with %s' % ((1728-nf), tname,fill)
-        files.sort()
 
         self.vec = np.zeros(12*nside**2)
         self.vec.fill(fill)
-        pklist = [pickle.load(open(f)) for f in files]
+        pklist = [pickle.load(opener(f)) for f in files]
         i12 = [int(f[-11:-7]) for f in files]
         index_table = make_index_table(roi_nside, nside)
         for index, pk in zip(i12,pklist):
