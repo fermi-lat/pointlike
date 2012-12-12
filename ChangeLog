@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Dec 12 07:59:56 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	diagnostic_plots.py 
+Log Message:
+ fix some colorbars
+    *
+------------------------------------------------------------
 User: burnett  Wed Dec 12 07:58:43 PST 2012
 pointlike/python/uw/like2/pub
 
