@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.28 2012/12/10 16:23:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.29 2012/12/10 23:25:32 burnett Exp $
 
 """
 
@@ -83,9 +83,9 @@ class Diagnostics(object):
         
     def multifig(self):
         fig,ax = plt.subplots(2,4, figsize=(14,8));
-        fig.text(0.025,0.025, 'Asymmetry study %s' % time.asctime(),fontsize='small')
+        #fig.text(0.025,0.025, 'Asymmetry study %s' % time.asctime(),fontsize='small')
         plt.subplots_adjust(left=0.10, wspace=0.25, hspace=0.25,right=0.95)
-        return ax.flatten()
+        return fig, ax.flatten()
     
     def multilabels(self, xtext, ytext, title=None):
         plt.subplots_adjust(bottom=0.2)
@@ -109,7 +109,7 @@ class Diagnostics(object):
         if colorbar:
             cb=plt.colorbar(scat)
             cb.set_label(cbtext)
-        return fig
+        return fig, scat
      
     def ecliptic_angle(self, skydir):
         return np.degrees( SkyDir(270,90-23.439281).difference(skydir) ) -90.
@@ -232,10 +232,16 @@ class CountPlots(Diagnostics):
         
     def residual_maps(self, vmin=-5, vmax=5):
         fig, axx = plt.subplots(3,4, figsize=(12,10))
+        plt.subplots_adjust(right=0.9)
         for ib,energy in enumerate(self.energy[:12]):
             ax = axx.flatten()[ib]
-            self.skyplot(self.residual(ib).clip(vmin,vmax), ax=ax, title='%d MeV'%energy,
+            fig, scat=self.skyplot(self.residual(ib).clip(vmin,vmax), ax=ax, title='%d MeV'%energy,
                 vmin=vmin,vmax=vmax, colorbar=False, labels=False)
+        #put colorbar at right        
+        cbax = fig.add_axes((0.92, 0.15, 0.02, 0.7) )
+        cb=plt.colorbar(scat, cbax, orientation='vertical')
+        cb.set_label('normalized residual')
+
         self.savefigure('residual_maps', title='Sky maps of normalized residuals', caption="""\
         
         """)
@@ -524,7 +530,7 @@ class ROIinfo(Diagnostics):
         if colorbar:
             cb=plt.colorbar(scat)
             cb.set_label(cbtext)
-        return fig
+        return fig, scat # so can add colorbar later
 
     def model_counts(self, name, ib=0):
         """ list of counts per ROI for model name, energy bin ib
@@ -560,11 +566,11 @@ class ROIinfo(Diagnostics):
         tot = np.array([self.df.ix[i]['counts']['observed'][ib] for i in range(1728)])
         return self.skyplot(sm/tot, title='%s %s count fraction at %d MeV' % (self.skymodel,title, self.energy[ib]), **kwargs)
 
-    def all_plots(self):
+    def all_plots(self, **kwargs):
     
-        self.counts_map(title=self.title);
+        self.counts_map(title=self.title, **kwargs);
         self.savefigure('%s_counts'%self.source_name, title=self.title)
-        self.count_fraction(title=self.title)
+        self.count_fraction(title=self.title, **kwargs)
         self.savefigure('%s_count_fraction'%self.source_name, title=self.title)
 
 
@@ -574,7 +580,8 @@ class SunMoon(ROIinfo):
         self.plotfolder='sunmoon'
         self.source_name='SunMoon'
         self.title='Sun/Moon'
-    
+    def all_plots(self, **kwargs):
+        super(SunMoon, self).all_plots( ecliptic=True)
 
 class Limb(ROIinfo):
     def setup(self):
@@ -639,7 +646,7 @@ class Limb(ROIinfo):
         fpar,bpar = [np.array([m[i] if m else np.nan for m in dm] )for i in range(2)]
 
         
-        self.polar_plots(bpar, vmin=0, vmax=3, vticks=4, thetamax=thetamax, title='back normalization')
+        self.polar_plots(bpar, vmin=0, vmax=2, vticks=5, thetamax=thetamax, title='back normalization')
         self.savefigure('back_normalization_polar', title='Back normalization factor', caption="""\
         Polar plots of the back limb normalization\
         """)
@@ -756,7 +763,7 @@ class SourceInfo(Diagnostics):
         return pd.DataFrame(dict(fdata=fdata, udata=udata, ldata=ldata, fmodel=fmodel, glat=s.glat, glon=s.glon),
             index=s.index)
 
-    def low_energy_significance(self, ib=0, ax=None, minflux=2.,title='low energy fit consistency',hist=False):
+    def spectral_fit_consistency(self, ib=0, ax=None, minflux=2.,title=None, bcut=10, hist=False):
         if ax is None:
             fig, ax = plt.subplots(figsize=(5,4))
         else: fig = ax.figure
@@ -768,19 +775,21 @@ class SourceInfo(Diagnostics):
         y = fxc.fdata
         yerr = (fxc.udata-y)
         q = (y-x)/yerr
-
+        if title is None:
+            title = 'spectral fit consistency at %d MeV' % self.energy[ib]
         if not hist:
-            self.skyplot(np.abs(q), ax=ax, vmin=0, vmax=5, title=title, cbtext='discrepancy in sigmas')
+            self.skyplot(q, ax=ax, vmin=-5, vmax=5, title=title, cbtext='discrepancy in sigmas')
             return fig
         
+        # make a hist here
         xlim =(-5,5)
         qlim = q.clip(*xlim)
-        lowlat = (abs(fxc.glat)<5)
+        lowlat = (abs(fxc.glat)<bcut)
         dom = np.linspace(-5,5,46)
         hist_kw=dict(lw=2, histtype='stepfilled')
 
         ax.hist(qlim, dom, color='g',  label='%d all sources'%len(q),  **hist_kw)
-        ax.hist(qlim[lowlat], dom, color='r',  label='%d low latitude'%sum(lowlat),  **hist_kw)
+        ax.hist(qlim[lowlat], dom, color='r',  label='%d |b|<%d' %(sum(lowlat), bcut),  **hist_kw)
         ax.set_xlabel('residual')
         ax.axvline(0, color='k')
         ax.set_xlim(xlim)
@@ -852,10 +861,10 @@ class SourceInfo(Diagnostics):
         self.savefigure('low_energy_flux_ratio_hist')
         self.lowenergyfluxratio(hist=False)
         self.savefigure('low_energy_flux_ratio_scat')
-        self.low_energy_significance(hist=True)
-        self.savefigure('low_energy_flux_discrapancy_hist')
-        self.low_energy_significance()
-        self.savefigure('low_energy_flux_discrepancy_map')
+        self.spectral_fit_consistency(hist=True)
+        self.savefigure('spectral_fit_consistency_hist')
+        self.spectral_fit_consistency()
+        self.savefigure('spectral_fit_consistency_map')
   
 
 class SourceFitPlots(Diagnostics):
@@ -1053,7 +1062,7 @@ class GalDiffusePlots(Diagnostics):
     def diffuse_setup(self, which='gal'):
     
         self.which = which
-        self.plotfolder = 'front_back_%s_diffuse' %which
+        self.plotfolder = which #'front_back_%s_diffuse' %which
         folder = '%sfits_all'%which
         if not os.path.exists(folder) and not os.path.exists(folder+'.zip'): folder = folder[:-4]
         files, pkls = self.load_pickles(folder)
@@ -1088,23 +1097,31 @@ class GalDiffusePlots(Diagnostics):
     def setup(self):
         self.diffuse_setup('gal')
         
-    def like_scat(self, ib, axin=None,fignum=22, fb='both', vmin=0, vmax=2):
-        ax=self.set_plot(axin,fignum); 
-        ax.scatter(self.rois.glon, self.rois.singlat, 
+    def like_scat(self, ib, axin=None, fb='both', vmin=0, vmax=2):
+        fig, ax=self.get_figure(axin); 
+        scat=ax.scatter(self.rois.glon, self.rois.singlat, 
                 c=np.log10(self.flux[fb]['deltalike'].transpose().ix[ib]), 
                 s=15 if axin is not None else 25,
                 vmin=vmin, vmax=vmax, edgecolors='none')
         ax.set_title('%.0f MeV'%(self.energy[ib]),fontsize='small')
         plt.setp(ax, xlim=(180,-180), ylim=(-1.01, 1.01))
         ax.set_xticks([180,90,0,-90,-180])
+        return scat
         
-    def like_scats(self):
-        map(self.like_scat, range(8), self.multifig());
-        self.multilabels('glon', 'sin(glat)', '%s diffuse likelihood difference'%self.which)
-        self.savefigure('%s_significance'%self.which)
+    def like_scats(self, title=None):
+        fig,ax = plt.subplots(2,4, figsize=(14,8));
+        plt.subplots_adjust(left=0.10, wspace=0.25, hspace=0.25,right=0.90, bottom=0.15)
+        scats =map(self.like_scat, range(8), ax.flatten());
+        plt.figtext(0.5,0.07, 'glon', ha='center');
+        plt.figtext(0.05, 0.5, 'sin(glat)', rotation='vertical', va='center')
+        if title is not None: plt.suptitle(title)
+        cbax = fig.add_axes((0.92, 0.15, 0.02, 0.7) )
+        cb=plt.colorbar(scats[0], cbax, orientation='vertical')
+        cb.set_label('log10(log likelihood difference)')
+        return fig
     
-    def bfratio_hist(self, ib, axin=None, fignum=101, space = np.linspace(0.5, 1.5,26)):
-        ax = self.set_plot( axin, fignum)
+    def bfratio_hist(self, ib, axin=None,  space = np.linspace(0.5, 1.5,26)):
+        fig, ax = self.get_figure( axin)
         f,b = [self.flux[fb]['values'].transpose().ix[ib] for fb in ['front', 'back'] ]
         bfratio = f/b
         ax.hist(bfratio, space, label='all', histtype='stepfilled',color='g')
@@ -1120,8 +1137,8 @@ class GalDiffusePlots(Diagnostics):
         return (self.energy[ib],  bfratio[self.latcut].mean(), bfratio[self.latcut].std())
         
     def bfratio_hists(self):
-        ax = self.multifig()
-        self.bfratios = map(self.bfratio_hist, range(8),ax )
+        fig, ax = self.multifig()
+        self.bfratios = map(self.bfratio_hist, range(8), ax )
         self.multilabels('front/back fit', '', '%s Diffuse fit ratio'%self.which)
         ax[0].legend(loc='upper left',bbox_to_anchor=(-0.4,1.2));
         self.savefigure('bf_%s_fit.png'%self.which)
@@ -1159,27 +1176,28 @@ class GalDiffusePlots(Diagnostics):
         ax.set_title('%.0f MeV'%self.energy[ind],fontsize='medium')
         ax.legend(prop=dict(size=10))
         
-    def fit_map(self, axin=None, ib=0, fignum=2, vmin=0.75, vmax=1.25, **kwars):
-        vals = self.flux['both']['values'].transpose().ix[ib] 
-        ax = self.set_plot(axin, fignum)
-        ax.scatter(self.rois.glon, self.rois.singlat, 
-                c=vals,
-                s=15 if axin is not None else 25,
-                vmin=vmin, vmax=vmax, edgecolors='none')
-        ax.set_title('%.0f MeV'%(self.energy[ib]),fontsize='small')
-        plt.setp(ax, xlim=(180,-180), ylim=(-1.01, 1.01))
-        ax.set_xticks([180,90,0,-90,-180])
-        return ax.figure
+    #def fit_map(self, axin=None, ib=0, fignum=2, vmin=0.75, vmax=1.25, **kwars):
+    #    vals = self.flux['both']['values'].transpose().ix[ib] 
+    #    ax = self.set_plot(axin, fignum)
+    #    ax.scatter(self.rois.glon, self.rois.singlat, 
+    #            c=vals,
+    #            s=15 if axin is not None else 25,
+    #            vmin=vmin, vmax=vmax, edgecolors='none')
+    #    ax.set_title('%.0f MeV'%(self.energy[ib]),fontsize='small')
+    #    plt.setp(ax, xlim=(180,-180), ylim=(-1.01, 1.01))
+    #    ax.set_xticks([180,90,0,-90,-180])
+    #    return ax.figure
     
         
     def diffuse_fits(self):
-        ax = self.multifig()
+        fig, ax = self.multifig()
         self.multilabels('ratio', 'ROIs', '%s diffuse fit' %self.which)
         map(self.diffuse_fit, ax, range(8))
         self.savefigure('%sdiffuse_fits'%self.which)
             
     def all_plots(self):
         self.like_scats()
+        self.savefigure('%s_delta_log_likelihood_maps'%self.which)
         self.bfratio_hists()
         self.diffuse_ratio_plot()
         self.diffuse_fits()
