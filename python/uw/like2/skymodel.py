@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.27 2012/12/08 19:25:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.28 2012/12/11 23:37:40 burnett Exp $
 
 """
 import os, pickle, glob, types, collections, zipfile
@@ -778,3 +778,8 @@ class LimbSpecial(object):
             s.model.free = np.array([False, True])
             pars = s.model.get_parameters()
             if pars[0]<=-3: s.model.set_parameters(np.array([-1.]))
+class TScut(object):
+    def __init__(self, cut=10):
+        self.cut=cut
+    def __call__(self, s):
+        return s.ts>10 if hasattr(s,'ts') else True
