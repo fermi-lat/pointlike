@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Dec 12 16:39:43 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	pipe.py 
+Log Message:
+move update_positions to extras
+    *
+------------------------------------------------------------
 User: burnett  Wed Dec 12 10:21:25 PST 2012
 pointlike/python/uw/like2/pipeline
 
