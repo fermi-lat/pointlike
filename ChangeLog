@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Wed Dec 12 20:02:22 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	check_converge.py 
+Added Files:
+	summary_plots.py 
+Log Message:
+separate analysis from iteration
+    *
+------------------------------------------------------------
 User: burnett  Wed Dec 12 16:40:16 PST 2012
 pointlike/python/uw/like2
 
