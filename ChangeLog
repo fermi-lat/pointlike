@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Dec 12 16:40:16 PST 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	skymodel.py 
+Log Message:
+add TScut filter
+    *
+------------------------------------------------------------
 User: burnett  Wed Dec 12 16:39:43 PST 2012
 pointlike/python/uw/like2/pipeline
 
