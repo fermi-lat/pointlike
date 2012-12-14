@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.20 2012/11/24 17:12:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.21 2012/12/01 17:21:21 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -40,15 +40,14 @@ def fix_beta(roi, bts_min=30, qual_min=15,):
     for source in roi.sources:
         model = source.spectral_model
         which = source.name
-        if not np.any(model.free): break
-        if model.name!='LogParabola': continue
+        if not np.any(model.free) or model.name!='LogParabola': continue
         if model.free[2]: continue  # already free 
         if not candidate:
-            print 'name            beta   band_ts  fitqual'
+            print 'name                      beta   band_ts  fitqual'
         candidate=True
         beta = model[2]
-        band_ts, ts = roi.band_ts(which=which), roi.TS(which=which)
-        print '%-20s %10.2f %10.1f %10.1f ' %(roi.psm.point_sources[which].name,beta, band_ts, band_ts-ts),
+        band_ts, ts = roi.band_ts(which), roi.TS(which)
+        print '%-20s %10.2f %10.1f %10.1f ' %(which, beta, band_ts, band_ts-ts),
         if beta>=3.0: print 'beta>1 too large'; continue
         if band_ts<bts_min: print 'band_ts< %.1f'%bts_min; continue # not significant
         if band_ts-ts < qual_min and beta<=0.01:print 'qual<%.1f' %qual_min; continue # already a good fit
