@@ -1,7 +1,7 @@
 """
 setup and run pointlike all-sky analysis for subset of ROIs
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.2 2012/11/26 16:07:00 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.3 2012/12/01 17:21:21 burnett Exp $
 """
 import os, sys, logging
 from collections import OrderedDict
@@ -56,12 +56,12 @@ mstage = stage
 stage=stage.split(':')[0] # allows multiple stages, separated by colons
 if stage=='create':
     update = pipe.Create(POINTLIKE_DIR, SKYMODEL_SUBDIR,)
-elif stage=='create_reloc': #perform relocalization when create
-    update = pipe.Create(POINTLIKE_DIR, SKYMODEL_SUBDIR, update_positions=10. )
 elif stage=='update_full':
     update = pipe.Update(POINTLIKE_DIR, SKYMODEL_SUBDIR, dampen=1.0, sedfig_dir=None, )
 elif stage=='update':
     update = pipe.Update(POINTLIKE_DIR, SKYMODEL_SUBDIR, dampen=0.5, sedfig_dir=None, )
+elif stage=='update_beta': # do an update, freeing beta when appropriate
+    update = pipe.Update(POINTLIKE_DIR, SKYMODEL_SUBDIR, dampen=1.0, sedfig_dir=None, fix_beta=True)
 elif stage=='finish':
     update = pipe.Finish(POINTLIKE_DIR, SKYMODEL_SUBDIR,)
 elif stage=='tables':
