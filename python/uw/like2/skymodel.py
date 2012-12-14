@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.28 2012/12/11 23:37:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.29 2012/12/13 00:40:16 burnett Exp $
 
 """
 import os, pickle, glob, types, collections, zipfile
@@ -224,7 +224,7 @@ class SkyModel(object):
                             moved +=1
                             self.tagged.add(i)
                 
-                ps = sources.PointSource(name=key, #name=self.rename_source(key), 
+                ps = sources.PointSource(name=key,
                     skydir=skydir, model= sources.convert_model(item['model']),
                     ts=item['ts'],band_ts=item['band_ts'], index=index)
                 #if self.free_index is not None and not ps.free[1] and ps.ts>self.free_index:
@@ -630,24 +630,7 @@ class HEALPixSourceSelector(SourceSelector):
         """
         return self.index(source.skydir) == self.myindex
         
-class Rename(object):
-    """ functor class to rename sources
-        pass as object:
-        SkyModel( ..., rename_source=Rename(s,'tset'),...)
-    """
-    def __init__(self, prefix, srec):
-        self.srec= srec.copy()
-        self.srec.sort(order='ra')
-        self.names = list(self.srec.name[-self.srec.extended])
-        self.prefix=prefix
-        print 'found %d names to convert' % len(self.names)
-        
-    def __call__(self, name):
-        """ name: string, name to convert"""
-        try:
-            return '%s%04d' %(self.prefix,self.names.index(name))
-        except:
-            return name
+
 #========================================================================================
 #  These classes are filters. An object of which can be loaded by the filter parameter
 # A filter must implement a __call__ method, which must return True to keep the source.
@@ -783,3 +766,18 @@ class TScut(object):
         self.cut=cut
     def __call__(self, s):
         return s.ts>10 if hasattr(s,'ts') else True
+        
+class Rename(object):
+    """ filter to rename sources
+    """
+    def __init__(self, namefile):
+        """ namefile : string
+                text file with from to pairs
+        """
+        with open(namefile) as inp:
+            self.namedict = dict( line.split() for line in inp if len(line)>9)
+        print 'found %d names to convert' % len(self.namedict)
+        
+    def __call__(self, s):
+        s.name = self.namedict.get(s.name, s.name)
+        return True
