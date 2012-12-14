@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.29 2012/12/10 23:25:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.30 2012/12/12 15:59:56 burnett Exp $
 
 """
 
@@ -335,10 +335,10 @@ class FrontBackSedPlots(Diagnostics):
         
         self.plotfolder = 'front_back'
         
-    def asym_plot(self, ib, axin=None, rcut=2,  fignum=31, size=15, **kwargs):
+    def asym_plot(self, ib, axin=None, rcut=2,  size=15, **kwargs):
         """ ib: band
         """
-        ax = self.set_plot( axin, fignum)
+        fig, ax = self.get_figure( axin)
         fgal = self.diffuse['fgal'][ib] #gal[:,2*ib] #front, back diffuse density
         fiso = self.diffuse['fiso'][ib] #iso[:,2*ib]
         cut = fgal/fiso>rcut
@@ -356,6 +356,7 @@ class FrontBackSedPlots(Diagnostics):
         if axin is None:
             plt.setp(ax, xlabel=' flux (eV/cm**2/s)', ylabel='front/back asymmery',
             )
+        return fig
 
     def asym_plots(self):
         map(self.asym_plot, range(8), self.multifig()); 
