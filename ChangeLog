@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Dec 14 10:55:44 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	pipe.py pipeline_job.py processor.py 
+Log Message:
+re-implement fix_beta
+    *
+------------------------------------------------------------
 User: burnett  Wed Dec 12 20:02:22 PST 2012
 pointlike/python/uw/like2/pipeline
 
