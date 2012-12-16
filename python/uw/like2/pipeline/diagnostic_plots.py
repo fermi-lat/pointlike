@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.30 2012/12/12 15:59:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.31 2012/12/14 20:29:20 burnett Exp $
 
 """
 
@@ -364,8 +364,8 @@ class FrontBackSedPlots(Diagnostics):
         self.savefigure('fb_asymmetry_test');
         return plt.gcf()
         
-    def consistency_plot(self, ib, axin=None, fignum=13, vmin=-1, vmax=np.log10(60)):
-        ax = self.set_plot( axin, fignum)
+    def consistency_plot(self, ib, axin=None, vmin=-1, vmax=np.log10(60)):
+        fix, ax = self.get_figure( axin)
         ts_f   = self.flux['front']['bts']
         ts_b   = self.flux['back']['bts']
         ts_all = self.flux['both']['bts']
@@ -432,12 +432,12 @@ class FrontBackSedPlots(Diagnostics):
         if axin is None: ax.set_ylabel('front/back flux ratio')
         return (self.elow[ib],self.ehigh[ib],mean,sigma)
       
-    def ratio_plots(self, fignum=12):
+    def ratio_plots(self):
         vals = map(self.ratio_fit, range(8), self.multifig())
         plt.suptitle('Front/back flux ratios for strong sources')
         self.savefigure('flux_ratio_strong')
         
-        ax = self.set_plot( None, fignum)
+        fig, ax = self.get_figure( None)
         
         y  = [v[2] for v in vals] 
         yerr = np.array([v[3] for v in vals])
@@ -453,8 +453,8 @@ class FrontBackSedPlots(Diagnostics):
         ax.set_title('Point source spectral fits', fontsize='medium')
         self.savefigure('fb_flux_vs_energy', dpi=60)
         
-    def ts_hist(self, ib=0, fignum=201, space=np.logspace(1,3,21), **kwargs):
-        plt.close(fignum); fig=plt.figure(fignum, figsize=(4.5,4.5), dpi=100)
+    def ts_hist(self, ib=0,  space=np.logspace(1,3,21), **kwargs):
+        fig,ax=self.get_figure()
         ax = plt.gca()
         defaults = dict( histtype='step', lw=2)
         defaults.update(kwargs)
@@ -698,9 +698,26 @@ class SourceInfo(Diagnostics):
             sdict= dict()
             for pkl in pkls:
                 for name, info in pkl['sources'].items():
+                    model = info['model']
+                    pars = np.empty(4); pars.fill(np.nan)
+                    errs = np.empty(4); errs.fill(-2)
+                    free = np.zeros(4, bool)
+                    n = model.len()
+                    pars[:n] = model.parameters
+                    free[:n] = model.free
+                    try:
+                        errs[:n] = np.diag(model.get_cov_matrix())**0.5
+                        errs[np.isnan(errs)]=-1
+                        badfit = np.any(errs[model.free]<=0)
+                    except Exception, msg:
+                        print 'fail errors for %s:%s' % (name, msg)
+                        badfit = True
                     sdict[name] = info
                     sdict[name].update(glat=info['skydir'].b(), glon=info['skydir'].l(),
-                        roiname=pkl['name'])
+                        roiname=pkl['name'], 
+                        pars= pars, errs=errs, free=free, badfit=badfit,
+                        modelname=model.name,
+                        )
             self.df = pd.DataFrame(sdict).transpose()
             self.df.save(filename)
             print 'saved %s' % filename
@@ -856,6 +873,24 @@ class SourceInfo(Diagnostics):
         if title: ax.set_title(title)
         ax.grid(True)
         return fig
+        
+    def fit_quality(self):
+        fig, ax = plt.subplots(figsize=(4,4))
+        s = self.df
+        s['beta'] = s.pars
+        logparabola = s.modelname=='LogParabola'
+        beta = np.array([pars[2] for pars in s.pars])
+        cut=s.band_ts>20
+        cut*=(logparabola)
+        cut*=(beta<0.01)
+        fitqual = s.band_ts-s.ts
+        dom = np.linspace(0,50,26)
+        ax.hist(fitqual.clip(0,50), dom, label='all non-PSF')
+        ax.hist(fitqual[cut].clip(0,50), dom, label=' powerlaw')
+        ax.grid(); ax.set_ylim(ymax=600); ax.set_xlabel('fit quality')
+        ax.legend(prop=dict(size=10))
+        return fig
+    
     
     def all_plots(self):
         self.lowenergyfluxratio(hist=True)
@@ -866,6 +901,9 @@ class SourceInfo(Diagnostics):
         self.savefigure('spectral_fit_consistency_hist')
         self.spectral_fit_consistency()
         self.savefigure('spectral_fit_consistency_map')
+        self.fit_quality()
+        self.savefigure('fit_quality_powerlaw_check')
+        plt.close('all')
   
 
 class SourceFitPlots(Diagnostics):
