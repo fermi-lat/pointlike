@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Dec 16 13:01:20 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	diagnostic_plots.py processor.py 
+Log Message:
+refresh depends on file time
+    *
+------------------------------------------------------------
 User: burnett  Sun Dec 16 09:08:37 PST 2012
 pointlike/python/uw/like2
 
