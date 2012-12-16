@@ -3,7 +3,7 @@ Run after a successful UWpipeline/job_task
 
 Summarize the execution,
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_converge.py,v 1.5 2012/12/01 00:30:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/summary_plots.py,v 1.1 2012/12/13 04:02:22 burnett Exp $
 """
 import os, sys,  argparse
 
@@ -26,8 +26,9 @@ def main(args):
         stage, nextstage = t 
     else: stage,nextstage = t[0], None
 
-    if stage=='update' or stage=='update_full':
+    if stage.split('_')[0]=='update':
         diagnostic_plots.main('counts');
+
     elif stage=='sedinfo':
         diagnostic_plots.main('fb')
 
@@ -43,6 +44,7 @@ def main(args):
         pass
     elif stage=='finish':
         diagnostic_plots.main('sources')
+        diagnostic_plots.main('sourceinfo') # join thise 
 
     elif stage=='tables':
         pass
