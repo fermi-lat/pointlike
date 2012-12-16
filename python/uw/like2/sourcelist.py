@@ -1,7 +1,7 @@
 """
 Manage sources for likelihood: single class SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.27 2012/12/02 14:22:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.28 2012/12/10 17:16:55 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import types
@@ -46,7 +46,7 @@ def set_default_bounds( model, force=False):
                 Index=(-0.5, 5), 
                 Norm=(10**-15, 10**-7),
                 Scale=(0.001, 4.0),
-                beta=(0, 5.), 
+                beta=(-0.1, 5.), 
                 Cutoff=(100., 1e5),
                 )[pname.split('_')[0]]
         except: pass
@@ -260,7 +260,7 @@ class SourceList(list):
                     Index=(-0.5, 5), 
                     Norm=(10**-15, 10**-7),
                     Scale=(0.0001, 10.0),
-                    beta=(0, 5.), 
+                    beta=(-0.1, 5.), 
                     Cutoff=(100., 1e5),
                     )[pname.split('_')[0]]
             except: pass
