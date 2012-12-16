@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.22 2012/12/14 18:55:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.23 2012/12/16 16:10:20 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -33,7 +33,7 @@ class OutputTee(object):
     def set_parent(self, parent):
         self.stdout.set_parent(parent) #needed??
         
-def fix_beta(roi, bts_min=30, qual_min=15,):
+def fix_beta(roi, bts_min=20, qual_min=15,):
     """ invoked by process() if fix_beta flag set, but can be run standalone for testing
     if beta=0.001, it has not been tested.
     if beta<0.01 or error exists and  >0.1
@@ -98,7 +98,7 @@ def fix_beta(roi, bts_min=30, qual_min=15,):
         if refit:
             print 'need to re-refit: beta too large'
             roi.fit()
-            roi.print_summary(title='re-refit after freeing one or more beta parameters')
+            roi.print_summary(title='re-refit after freeing/fixing one or more beta parameters')
     else:
         print 'none found'
     return refit    
@@ -194,47 +194,55 @@ def pickle_dump(roi, fit_sources, pickle_dir, dampen, failed=False, **kwargs):
     print 'saved pickle file to %s' % filename
         
 
-def repivot(roi, fit_sources, min_ts = 16, max_beta=3.0):
-        print '\ncheck need to repivot sources with TS>%.0f, beta<%.1f: \n'\
-        'source                     TS        e0      pivot' % (min_ts, max_beta)
-        need_refit =False
+def repivot(roi, fit_sources=None, min_ts = 16, max_beta=3.0, emin=200, emax=10000.):
+    """ invoked by process() if repivot flag set; can be run separately to test
+    
+    returns True if had to refit, allowing iteration
+    """
+    
+    print '\ncheck need to repivot sources with TS>%.0f, beta<%.1f: \n'\
+    'source                     TS        e0      pivot' % (min_ts, max_beta)
+    need_refit =False
+    if fit_sources is None:
+        fit_sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
 
-        for source in fit_sources:
-            model = source.spectral_model
-            try:
-                ts, e0, pivot = roi.TS(source.name),model.e0, model.pivot_energy()
-            except Exception, e:
-                print 'source %s:exception %s' %(source.name, e)
-                continue
-                
-            if pivot is None: continue
-            if model.name=='LogParabola': e0 = model[3]
-            elif model.name=='ExpCutoff':
-                e0 = model.e0
+    for source in fit_sources:
+        model = source.spectral_model
+        try:
+            ts, e0, pivot = roi.TS(source.name),model.e0, model.pivot_energy()
+        except Exception, e:
+            print 'source %s:exception %s' %(source.name, e)
+            continue
+            
+        if pivot is None: continue
+        if model.name=='LogParabola': e0 = model[3]
+        elif model.name=='ExpCutoff':
+            e0 = model.e0
+        else:
+            continue
+        print '%-20s %8.0f %9.0f %9.0f '  % (source.name, ts, e0, pivot),
+        if ts < min_ts: 
+            print 'TS too small'
+            continue
+        if model.name=='LogParabola':
+            if model[2]>max_beta: 
+                print 'beta= %.2f too large' %(model[2])
+                continue #very 
             else:
-                continue
-            print '%-20s %8.0f %9.0f %9.0f '  % (source.name, ts, e0, pivot),
-            if ts < min_ts: 
-                print 'TS too small'
-                continue
-            if model.name=='LogParabola':
-                if model[2]>max_beta: 
-                    print 'beta= %.2f too large' %(model[2])
-                    continue #very 
-                else:
-                    model.free[2]=False # make sure beta fixed?
- 
-            if pivot < roi.fit_emin[0] or pivot > roi.fit_emax[0]:
-                print 'bad pivot energy, not in range (%.0f, %.0f)' % (roi.fit_emin[0], roi.fit_emax[0])
-                continue
-            if abs(pivot/e0-1.)<0.05:
-                print 'converged'; continue
-            print 'will refit'
-            need_refit=True
-            model.set_e0(pivot)
-        if need_refit:
-            roi.fit()
-            #roi.print_summary(sdir=roi.roi_dir,maxdist=5, title='after pivot refit(s): logL=%0.f' % roi.logl)
+                model.free[2]=False # make sure beta fixed?
+
+        if pivot < emin or pivot > emax:
+            print 'bad pivot energy, not in range (%.0f, %.0f)' % (emin, emax)
+            continue
+        if abs(pivot/e0-1.)<0.05:
+            print 'converged'; continue
+        print 'will refit'
+        need_refit=True
+        model.set_e0(pivot)
+    if need_refit:
+        roi.fit()
+    return need_refit
+        #roi.print_summary(sdir=roi.roi_dir,maxdist=5, title='after pivot refit(s): logL=%0.f' % roi.logl)
 
 class Damper(object):
     """ manage adjustment of parameters for damping """
@@ -302,8 +310,11 @@ def process(roi, **kwargs):
                     if  abs(roi.log_like() - init_log_like)>1.0 :
                         roi.print_summary(title='after global fit, logL=%0.f'% roi.log_like())
                 if repivot_flag:
-                    repivot(roi, fit_sources)
-                
+                    # repivot, iterating a few times
+                    n = 3
+                    while n>0:
+                        if not repivot(roi, fit_sources): break
+                        n-=1
                 if fixbeta:
                     if not fix_beta(roi):
                         print 'fixbeta requested, but no refit needed, quitting'
