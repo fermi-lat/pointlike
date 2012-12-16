@@ -1,6 +1,6 @@
 """
 Implementation of various roi printing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/printing.py,v 1.2 2011/10/01 13:35:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/printing.py,v 1.4 2011/11/07 19:44:17 burnett Exp $
 """
 import os, math
 import numpy as np
@@ -52,7 +52,12 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
         dist=math.degrees(sdir.difference(self.roi_dir))
         if maxdist and dist>maxdist:  continue
         loc = (sdir.l(),sdir.b()) if galactic else (sdir.ra(),sdir.dec())
-        par, sigpar= model.statistical()
+        try:
+            par, sigpar= model.statistical()
+        except:
+            par  =model.parameters
+            sigpar = np.zeros(model.len())
+            
         expcutoff = model.name=='ExpCutoff'
         npar = len(par)
         ts = '%10.0f'% self.TS(ps.name) if (np.any(model.free) or print_all_ts) else 10*' '
