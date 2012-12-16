@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.21 2012/12/01 17:21:21 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.22 2012/12/14 18:55:44 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -34,21 +34,47 @@ class OutputTee(object):
         self.stdout.set_parent(parent) #needed??
         
 def fix_beta(roi, bts_min=30, qual_min=15,):
+    """ invoked by process() if fix_beta flag set, but can be run standalone for testing
+    if beta=0.001, it has not been tested.
+    if beta<0.01 or error exists and  >0.1
+    """
     refit=candidate=False
-    print 'checking for beta fit...'
+    print 'checking for beta fit: minTS %s, min qual %s...'% (bts_min, qual_min)
     models_to_fit=[]
     for source in roi.sources:
         model = source.spectral_model
         which = source.name
         if not np.any(model.free) or model.name!='LogParabola': continue
-        if model.free[2]: continue  # already free 
         if not candidate:
-            print 'name                      beta   band_ts  fitqual'
+            print 'name                      beta         band_ts  fitqual'
         candidate=True
         beta = model[2]
+        try:
+            beta_unc = np.sqrt(model.get_cov_matrix()[2,2])
+        except:
+            beta_unc=0
         band_ts, ts = roi.band_ts(which), roi.TS(which)
-        print '%-20s %10.2f %10.1f %10.1f ' %(which, beta, band_ts, band_ts-ts),
+        sbeta = '%5.2f+/-%5.2f' % (beta, beta_unc) if beta_unc>0 else '%5.2f        '%beta
+        print '%-20s %s %10.1f %10.1f ' %(which, sbeta, band_ts, band_ts-ts),
+        # beta is free: is it a good fit? check value, error if any
+        if model.free[2]:
+            # free: is the fit ok?
+            if beta>0.01 and beta_unc>0.001 and beta_unc< 2*beta:
+                print ' fit is ok'
+                continue
+            else:
+                print '<--- reseting to PowerLaw' 
+                model.free[2]=False
+                # this should be done by the freeze? dangerous direct access, oh well.
+                model.internal_cov_matrix[2,:]=0
+                model.internal_cov_matrix[:,2]=0
+                model[2]=0.
+                models_to_fit.append(model)
+                refit=True
+                continue
+
         if beta>=3.0: print 'beta>1 too large'; continue
+        if beta==0: print 'frozen previously'; continue
         if band_ts<bts_min: print 'band_ts< %.1f'%bts_min; continue # not significant
         if band_ts-ts < qual_min and beta<=0.01:print 'qual<%.1f' %qual_min; continue # already a good fit
         print '<-- select to free beta' # ok, modify
@@ -56,7 +82,7 @@ def fix_beta(roi, bts_min=30, qual_min=15,):
         models_to_fit.append(model) # save for later check
         refit = True
     if refit:    
-        print 'start refit with beta(s) freed...'
+        print 'start refit with beta(s) freed or refixed...'
         roi.fit()
         roi.print_summary(title='after freeing one or more beta parameters')
         # now check for overflow
