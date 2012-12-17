@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.32 2012/12/16 16:18:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.33 2012/12/16 21:01:20 burnett Exp $
 
 """
 
@@ -691,7 +691,7 @@ class SourceInfo(Diagnostics):
     def setup(self, **kwargs):
         self.plotfolder='sources' #needed by superclass
         filename = 'sources.pickle'
-        refresh = kwargs.pop('refresh', os.getmtime(filename)< os.getmtime('pickle.zip'))
+        refresh = kwargs.pop('refresh', os.path.getmtime(filename)< os.path.getmtime('pickle.zip'))
         if (not os.path.exists(filename)) or (refresh):
             files, pkls = self.load_pickles('pickle')
             assert len(files)==1728, 'Expected to find 1728 files'
@@ -716,6 +716,7 @@ class SourceInfo(Diagnostics):
                     sdict[name].update(glat=info['skydir'].b(), glon=info['skydir'].l(),
                         roiname=pkl['name'], 
                         pars= pars, errs=errs, free=free, badfit=badfit,
+                        e0 = model.e0,
                         modelname=model.name,
                         )
             self.df = pd.DataFrame(sdict).transpose()
