@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.33 2012/12/16 21:01:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.34 2012/12/17 00:08:40 burnett Exp $
 
 """
 
@@ -891,6 +891,16 @@ class SourceInfo(Diagnostics):
         ax.grid(); ax.set_ylim(ymax=600); ax.set_xlabel('fit quality')
         ax.legend(prop=dict(size=10))
         return fig
+        
+    def pivot_vs_e0(self, xylim=(100, 4e4)):
+        fig, ax = plt.subplots(figsize=(4,4))
+        s = self.df
+        ax.plot(s.e0.clip(*xylim), s.pivot_energy.clip(*xylim), '.')
+        plt.setp(ax, xscale='log',xlabel='e0', xlim=xylim, 
+                    ylabel='pivot', yscale='log', ylim=xylim)
+        ax.set_title('compare calculated pivot with e0', fontsize=10)
+        ax.grid()
+        return fig
     
     
     def all_plots(self):
@@ -904,6 +914,8 @@ class SourceInfo(Diagnostics):
         self.savefigure('spectral_fit_consistency_map')
         self.fit_quality()
         self.savefigure('fit_quality_powerlaw_check')
+        self.pivot_vs_e0()
+        self.savefigure('pivot_vs_e0')
         plt.close('all')
   
 
