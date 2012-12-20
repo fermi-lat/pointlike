@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.35 2012/12/17 01:12:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.36 2012/12/17 04:39:20 burnett Exp $
 
 """
 
@@ -41,12 +41,22 @@ class Diagnostics(object):
         else:
             plt.sca(ax); 
         return ax
-    def get_figure(self, ax, figsize=(5,4), **kwargs):
+    def get_figure(self, ax=None, figsize=(5,4), **kwargs):
         if ax is not None:
             return ax.figure, ax
         return plt.subplots( figsize=figsize, **kwargs)
         
     def savefigure(self, name, title=None, caption=None, **kwargs):
+        """ save a figure.
+        name : string
+            If name is the name of a function in the class, optionally define 
+                the title as the first line, the caption the following lines
+        """
+        if hasattr(self, name):
+            doclines = eval('self.%s' % name).__doc__.split('\n')
+            docslines.append('')
+            if caption is None:   caption = '\n'.join(doclines[1:])
+            if title is None:     title = doclines[0]
         fig= plt.gcf()
         fig.text(0.02, 0.02, self.skymodel, fontsize=8)
         savefig_kw=dict(dpi=60, bbox_inches='tight', pad_inches=0.5) 
@@ -56,10 +66,11 @@ class Diagnostics(object):
         
         plt.savefig(savefile, **savefig_kw)
         print 'saved plot to %s' % savefile
-        if title is None: title = name
+        # ceate a simple HTML file is there is a caption
         if caption is not None:
-            html = '<h2>%s</h2> <img src="%s" /> <br> %s '
-            open(savefile.replace('.png','.html'),'w').write(html % (title, localfile, caption))
+            if title is None: title = name.replace('_', ' ')
+            html = '<h2>%s</h2> <img src="%s" /> <br> %s '% (title, localfile, caption)
+            open(savefile.replace('.png','.html'),'w').write(html )
         return fig
 
     def load_pickles(self,folder='pickle'):
@@ -85,7 +96,7 @@ class Diagnostics(object):
         fig,ax = plt.subplots(2,4, figsize=(14,8));
         #fig.text(0.025,0.025, 'Asymmetry study %s' % time.asctime(),fontsize='small')
         plt.subplots_adjust(left=0.10, wspace=0.25, hspace=0.25,right=0.95)
-        return fig, ax.flatten()
+        return ax.flatten()
     
     def multilabels(self, xtext, ytext, title=None):
         plt.subplots_adjust(bottom=0.2)
@@ -359,7 +370,7 @@ class FrontBackSedPlots(Diagnostics):
         return fig
 
     def asym_plots(self):
-        map(self.asym_plot, range(8), self.multifig()); 
+        map(self.asym_plot,  range(8), self.multifig()); 
         self.multilabels('flux (eV/cm**2/s)','front/back asymmery','Asymmetries for all sources');
         self.savefigure('fb_asymmetry_test');
         return plt.gcf()
@@ -414,8 +425,12 @@ class FrontBackSedPlots(Diagnostics):
         inds = self.get_strongest()
         
         name = [self.srcnames[ind] for ind in inds]
-        realname = [{'P72Y3678':'3C454.3', 'PSR_J0835-4510':'Vela', 
-                        'PSR_J0534p2200':'Crab', 'PSR_J0633p1746':'Geminga'}[n] for n in name]
+        try:
+            realname = [{'P72Y3678':'3C454.3','P7R43539':'3C454.3', 'PSR_J0835-4510':'Vela', 
+                            'PSR_J0534p2200':'Crab', 'PSR_J0633p1746':'Geminga'}[n] for n in name]
+        except:
+            print 'did not find new names: perhaps changed: looking for %s' %name
+            realname=name
         ratio = np.array([checkflux(ind,ib) for ind in inds])
         wts = 1/ratio[:,1]**2; sigma = 1/np.sqrt(np.sum(wts))
         mean  = np.sum( ratio[:,0]*wts)/np.sum(wts)
@@ -454,7 +469,7 @@ class FrontBackSedPlots(Diagnostics):
         self.savefigure('fb_flux_vs_energy', dpi=60)
         
     def ts_hist(self, ib=0,  space=np.logspace(1,3,21), **kwargs):
-        fig,ax=self.get_figure()
+        fig,ax=self.get_figure(None)
         ax = plt.gca()
         defaults = dict( histtype='step', lw=2)
         defaults.update(kwargs)
@@ -488,7 +503,7 @@ class ROIinfo(Diagnostics):
     def setup(self, **kwargs):
         self.plotfolder='rois'
         filename = 'rois.pickle'
-        refresh = kwargs.pop('refresh', False)
+        refresh = kwargs.pop('refresh', os.path.getmtime('rois.pickle')<os.path.getmtime('pickle.zip') )
         if (not os.path.exists(filename)) or (refresh):
             files, pkls = self.load_pickles('pickle')
             assert len(files)==1728, 'Expected to find 1728 files'
@@ -584,6 +599,7 @@ class SunMoon(ROIinfo):
     def all_plots(self, **kwargs):
         super(SunMoon, self).all_plots( ecliptic=True)
 
+
 class Limb(ROIinfo):
     def setup(self):
         super(Limb, self).setup()
@@ -629,6 +645,9 @@ class Limb(ROIinfo):
 
         
     def ratio_hist(self, ratio, vmax=1.0, cut=None):
+        """ Histogram of Front/Back limb flux ratio
+        Histogram of the ratio of the front to the back flux. ROIs with |b|>20 degrees are shown in green. 
+        """
         fig, ax = plt.subplots(figsize=(4,4))
         space = np.linspace(0, vmax,21)
         r = ratio.clip(0,vmax)
@@ -638,9 +657,48 @@ class Limb(ROIinfo):
         ax.set_xticks(np.linspace(0,vmax,5))
         ax.grid(); ax.legend(prop=dict(size=10))
         return fig
-
-  
-    def all_plots(self, thetamax=50):
+        
+    def flux_vs_dec(self):
+        """
+        front and back flux vs dec
+        Plots of front and back flux measurements, with |b|>35
+        """
+        class PieceWise(object):
+            def __init__(self, a,b):
+                self.a, self.b =a,b
+                self.n = len(a)
+                self.s = [(b[i+1]-b[i])/(a[i+1]-a[i]) for i in range(self.n-1)]
+            def __call__(self, x):
+                if x<=self.a[0]: return self.b[0]
+                for i in range(self.n-1):
+                    if x<self.a[i+1]:
+                        return self.b[i]+(x-self.a[i])*self.s[i]
+                return self.b[-1]
+        limbfun = dict(front =PieceWise([-1., -0.4, 0.4, 1.0],[0.75, 0, 0, 0.75]),
+                back= PieceWise([-1., -0.7, -0.5, 0.5, 0.7, 0.85, 1.0],
+                                [2.0,  0.5, 0,    0,   0.5,  1.2, 0.9])    )
+        ra = np.array(map(lambda dir: dir.ra(), self.df.skydir))
+        dec = np.array(map(lambda dir: dir.dec(), self.df.skydir))
+        dom = np.linspace(-1,1,201) 
+        dm = self.diffuse_models('limb')
+        fpar,bpar = [np.array([m[i] if m else np.nan for m in dm] )for i in range(2)]
+        fig, axx = plt.subplots(2,1, figsize=(8,6))
+        plt.subplots_adjust(right=0.9)
+        c=np.abs(self.df.glat)
+        cut = c>35
+        for ax, par, label  in zip(axx, [fpar,bpar], 'front back'.split()):
+            scat=ax.scatter(np.sin(np.radians(dec))[cut], par[cut], c=c[cut], s=30,vmin=0, vmax=90)
+            plt.setp(ax, xlim=(-1,1), xlabel='sin(dec)' if label=='back' else '',  ylim=(0,2))
+            ax.plot(dom, map(limbfun[label],dom), '-', color='k', lw=2) 
+            ax.grid()
+            ax.text(-0.75, 1.6, label, fontsize=18)
+        fig.text(0.05, 0.5, 'flux normalization factor', rotation='vertical', va='center')
+        cax = fig.add_axes((0.94, 0.25, 0.02, 0.4))
+        cb=plt.colorbar(scat, cax)
+        cb.set_label('abs(glat)')
+        plt.suptitle('Limb observed flux') 
+    
+    def all_plots(self, thetamax=60):
         super(Limb, self).all_plots()
         
         dm = self.diffuse_models('limb')
@@ -663,9 +721,10 @@ class Limb(ROIinfo):
         """)
         
         self.ratio_hist((fpar/bpar), cut=bpar>0.2)
-        self.savefigure('front_back_ratio_hist', title='Histogram of Front/Back limb flux ratio', caption="""\
-        Histogram of the ratio of the front to the back flux. ROIs with |b|>20 degrees are shown in green. \
-        """)
+        self.savefigure('ratio_hist')
+        self.flux_vs_dec()
+        self.savefigure('flux_vs_dec')
+
 
 class Galactic(ROIinfo):
     def setup(self):
@@ -673,6 +732,7 @@ class Galactic(ROIinfo):
         self.plotfolder='gal'
         self.source_name='ring'
         self.title='Galactic'
+
 
 class Isotropic(ROIinfo):
 
@@ -683,6 +743,18 @@ class Isotropic(ROIinfo):
         self.title='Isotropic'
     
         
+class FluxCov(ROIinfo):
+    def setup(self):
+        super(FluxCov, self).setup()
+        self.plotfolder='cov'
+        self.source_name='cov'
+        self.title='Flux covariances'
+        fs, ps = self.load_pickles('fluxcorr')
+        d = dict()
+        for p in ps:
+            d.update( p.items()[:-2])
+        self.df = pd.DataFrame(d) #, columns=['gal_all', 'iso_all', 'gal_flux', 'iso_flux', 'gal_133', 'iso_133'])
+
 class SourceInfo(Diagnostics):
     """ To be superclass for specific source plot stuff, creates or loads
         a DataFrame with all sources 
@@ -691,7 +763,7 @@ class SourceInfo(Diagnostics):
     def setup(self, **kwargs):
         self.plotfolder='sources' #needed by superclass
         filename = 'sources.pickle'
-        refresh = kwargs.pop('refresh', not os.path.exists(filename) or os.path.getmtime(filename)< os.path.getmtime('pickle.zip'))
+        refresh = kwargs.pop('refresh', not os.path.exists(filename) or os.path.getmtime(filename)> os.path.getmtime('pickle.zip'))
         if refresh:
             files, pkls = self.load_pickles('pickle')
             assert len(files)==1728, 'Expected to find 1728 files'
@@ -781,6 +853,36 @@ class SourceInfo(Diagnostics):
         fmodel = np.array([s.ix[i]['model'](energy)*energy**2*1e6 for i in range(len(s))])
         return pd.DataFrame(dict(fdata=fdata, udata=udata, ldata=ldata, fmodel=fmodel, glat=s.glat, glon=s.glon),
             index=s.index)
+
+    def cumulative_ts(self):
+        df = self.df
+        fig,ax = plt.subplots( figsize=(5,4))
+        dom = np.logspace(1,5,1601)
+        ax.axvline(25, color='gray', lw=1) 
+        ax.hist( df.ts ,dom, cumulative=-1, lw=2, color='g', histtype='step')
+        localized = ~np.array(pd.isnull(df.ellipse))
+        extended = np.array(df.isextended, dtype=bool)
+        unloc = ~ (localized | extended)
+        ul = df[unloc * df.ts>10].sort_index(by='roiname')
+        # this sorted, can print out if needed
+
+        n = len(ul)
+        if n>10:
+            ax.hist(ul.ts ,dom, cumulative=-1, lw=2, color='r', histtype='step',
+                label='no localization')
+            ax.text(12,n, 'failed localization:%d'%n, fontsize=10, color='r')
+        plt.setp(ax,  ylabel='sources with greater TS', xlabel='TS',
+            xscale='log', yscale='log', xlim=(10, 1e4), ylim=(10,8000))
+            
+        # label the plot with number at given TS
+        for t in (10,25):
+            n = sum(df.ts>t) 
+            ax.plot([t,2*t], [n,n], '-k');
+            ax.text(2*t, n, '%d'%n, fontsize=10, va='center')
+                
+        ax.set_title('cumulative TS distribution', fontsize='medium')
+        ax.grid()
+        return fig
 
     def spectral_fit_consistency(self, ib=0, ax=None, minflux=2.,title=None, bcut=10, hist=False):
         if ax is None:
@@ -895,7 +997,8 @@ class SourceInfo(Diagnostics):
     def pivot_vs_e0(self, xylim=(100, 4e4)):
         fig, ax = plt.subplots(figsize=(4,4))
         s = self.df
-        ax.plot(s.e0.clip(*xylim), s.pivot_energy.clip(*xylim), '.')
+        cut = s.ts>10
+        ax.plot(s.e0[cut].clip(*xylim), s.pivot_energy[cut].clip(*xylim), '.')
         plt.setp(ax, xscale='log',xlabel='e0', xlim=xylim, 
                     ylabel='pivot', yscale='log', ylim=xylim)
         ax.set_title('compare calculated pivot with e0', fontsize=10)
@@ -916,6 +1019,8 @@ class SourceInfo(Diagnostics):
         self.savefigure('fit_quality_powerlaw_check')
         self.pivot_vs_e0()
         self.savefigure('pivot_vs_e0')
+        self.cumulative_ts()
+        self.savefigure('cumulative_ts')
         plt.close('all')
   
 
@@ -924,7 +1029,7 @@ class SourceFitPlots(Diagnostics):
         assert os.path.exists('pickle.zip') or os.path.exists('pickle'), 'No pickled ROI data found'
         self.plotfolder='sources'
         recfile = 'sources.rec'
-        if not os.path.exists(recfile):
+        if not os.path.exists(recfile) or os.path.getmtime(recfile)> os.path.getmtime('pickle.zip'):
             print 'creating %s...' % recfile, ; sys.stdout.flush()
             catrec.create_catalog('.', save_local=True)
         
@@ -1062,39 +1167,15 @@ class SourceFitPlots(Diagnostics):
         ax.grid()
         plt.setp(ax, xscale='log', xlim=(10,1e5), xlabel='TS', ylabel='fit quality')
         return fig   
-    def cumulative_ts(self):
-        s = self.s
-        fig,ax = plt.subplots( figsize=(5,4))
-        dom = np.logspace(1,5,1601)
-        ax.axvline(25, color='gray', lw=1) 
-        ax.hist( s.ts ,dom, cumulative=-1, lw=2, color='g', histtype='step')
-        if self.use_localization:
-            n = len( self.unloc.ts>10 )
-            if n>10:
-                ax.hist(self.unloc.ts ,dom, cumulative=-1, lw=2, color='r', histtype='step',
-                    label='no localization')
-                ax.text(12,n, 'failed localization', fontsize=10, color='r')
-            #ax.legend(prop=dict(size=10))
-        plt.setp(ax,  ylabel='sources with greater TS', xlabel='TS',
-            xscale='log', yscale='log', xlim=(10, 1e4), ylim=(10,8000))
-        # label the plot with number at given TS
-        for t in (10,25):
-            n = sum(s.ts>t) 
-            ax.plot([t,2*t], [n,n], '-k');
-            ax.text(2*t, n, '%d'%n, fontsize=10, va='center')
-                
-        ax.set_title('cumulative TS distribution', fontsize='medium')
-        ax.grid()
-        return fig
     
     def all_plots(self):
         self.fitquality()
         self.lowfluxplots()
         self.isotropic_plot()
 
-        self.cumulative_ts()
-        self.savefigure('cumulative_ts', title='Cumulative, or logN-logTS plot', caption="""\
-        The cumulative histogram of the number of sources vs. TS""")
+        #self.cumulative_ts()
+        #self.savefigure('cumulative_ts', title='Cumulative, or logN-logTS plot', caption="""\
+        #The cumulative histogram of the number of sources vs. TS""")
 
         if self.use_localization:
             self.localization()
