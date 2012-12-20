@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.25 2012/12/17 00:08:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.26 2012/12/17 04:40:24 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -638,18 +638,25 @@ def flux_correlations(roi, **kwargs):
     names = np.array([name.split('_')[0] for name in roi.parameter_names])[normpar]
     ipar = map(int, np.arange(len(normpar))[normpar])
     # full correlation matrix
-    c1 = roi.fit().correlations(percent=True)
+    c1 = roi.fit().cov_matrix #correlations(percent=True)
     cs1= [c1[:,i][normpar] for i in range(2)]
     # subset from fitting only normalizations
-    c2 = roi.fit(ipar).correlations(percent=True)
+    c2 = roi.fit(ipar).cov_matrix #correlations(percent=True)
     cs2 = c2[:2,:] 
     # select low erergy band, refit to get correlations now
     roi.select_bands(bandsel = lambda b: b.e<200)
-    c3 = roi.fit(ipar).correlations(percent=True)
+    c3 = roi.fit(ipar).cov_matrix #correlations(percent=True)
     cs3 = c3[:2,:]
     roi.select_bands() # restore if needed
+    
+    # select 237 MeV erergy band, refit to get correlations now
+    roi.select_bands(bandsel = lambda b: b.e>200 and b.e<400)
+    c4 = roi.fit(ipar).cov_matrix #correlations(percent=True)
+    cs4= c4[:2,:]
+    roi.select_bands() # restore if needed
+    
     # prepare output pickle
-    d = dict([(names[i], np.array(np.vstack([cs1,cs2,cs3]))[:,i]) for i in range(len(names))])
+    d = dict([(names[i], np.array(np.vstack([cs1,cs2,cs3, cs4]))[:,i]) for i in range(len(names))])
     fname = os.path.join(flux_corr_dir,'%s_fluxcorr.pickle' %roi.name)
     pickle.dump( d, open(fname,'w'))
     print 'wrote file to %s' %fname
