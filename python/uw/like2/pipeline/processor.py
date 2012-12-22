@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.27 2012/12/20 18:27:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.28 2012/12/22 14:55:18 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -648,7 +648,10 @@ def flux_correlations(roi, **kwargs):
             return (10**(fdict[delta]-fdict[0])-1)/delta
         
         def result(self, delta=0.01):
-            # return a DataFrame with names as indices, columns for plus, minus, average, difference/average
+            """ return a DataFrame with names as indices, columns for plus, minus, average, difference/average
+            """
+            if len(self.names)==0:
+                return None
             df=pd.DataFrame( self(delta), index=self.names, columns=[delta])
             df[-delta]=self(-delta)
             df['average'] = 0.5*(df[delta]+df[-delta])
