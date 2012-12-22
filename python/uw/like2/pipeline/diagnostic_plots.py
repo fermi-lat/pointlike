@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.36 2012/12/17 04:39:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.37 2012/12/20 13:25:18 burnett Exp $
 
 """
 
@@ -30,7 +30,7 @@ class Diagnostics(object):
         if not os.path.exists(self.plotfolder): os.makedirs(self.plotfolder)
 
         
-    def setup(self):
+    def setup(self, **kwargs):
         assert False, 'Base class not implemented'
     def describe(self):
         return 'no description'
@@ -54,7 +54,7 @@ class Diagnostics(object):
         """
         if hasattr(self, name):
             doclines = eval('self.%s' % name).__doc__.split('\n')
-            docslines.append('')
+            doclines.append('')
             if caption is None:   caption = '\n'.join(doclines[1:])
             if title is None:     title = doclines[0]
         fig= plt.gcf()
@@ -73,6 +73,13 @@ class Diagnostics(object):
             open(savefile.replace('.png','.html'),'w').write(html )
         return fig
 
+    def runfigures(self, functions ):
+        """ functions: list of bound functions 
+        """
+        for function in functions:
+            function()
+            self.savefigure(function.__name__)
+            
     def load_pickles(self,folder='pickle'):
         """
             load a set of pickles, return list from either zipfile or folder
@@ -199,6 +206,7 @@ class CountPlots(Diagnostics):
         return resid
      
     def residual_hists(self):
+        """ histograms of residuals """
         fig,axx = plt.subplots(3,4, figsize=(12,12))
         for ib,ax in enumerate(axx.flatten()):
             resid = self.residual(ib)
@@ -207,9 +215,10 @@ class CountPlots(Diagnostics):
             ax.axvline(0, color='k')
             plt.setp(ax, xlim=(-5,5))
             ax.grid(True)
-        self.savefigure('residual_hists')
     
     def residual_plot(self):
+        """ plot of the average residual
+        """
         res = [self.residual(ib) for ib in range(len(self.energy))]
         means = [x.mean() for x in res]
         stds  = [x.std() for x in res]
@@ -219,17 +228,14 @@ class CountPlots(Diagnostics):
         ax.set_title('count residuals')
         ax.grid()
         ax.axhline(0, color='k')
-        self.savefigure('average_residual_plot')
         
     def chisq_plots(self,  vmin=0, vmax=100, bcut=10):
+        """ chi squared plots
+        chi squared distribution
+        """
         fig, axs = plt.subplots( 1,2, figsize=(8,3))
         plt.subplots_adjust(wspace=0.3)
         ax = axs[1]
-        #scat =ax.scatter(self.rois.glon, self.rois.singlat, s=15, 
-        #    c=self.rois.chisq,  vmin=vmin, vmax=vmax,edgecolor='none')
-        #ax.set_title('chisq', fontsize='small')
-        #ax.axhline(0, color='k');ax.axvline(0,color='k')
-        #plt.setp(ax, xlabel='glon', ylabel='sin(glat)',xlim=(180,-180), ylim=(-1.02, 1.02),)
         self.skyplot(self.rois.chisq, ax=ax, vmin=vmin, vmax=vmax);
         ax = axs[0]
         bins = np.linspace(0,100, 26)
@@ -238,10 +244,11 @@ class CountPlots(Diagnostics):
         ax.legend(loc='upper right', prop=dict(size=10)) 
         plt.setp(ax, xlabel='chisq')
         ax.grid(True)
-        self.savefigure('chi_squared', caption='chi squarard distribution')
         return fig
         
     def residual_maps(self, vmin=-5, vmax=5):
+        """ Maps of the residuals 
+        """
         fig, axx = plt.subplots(3,4, figsize=(12,10))
         plt.subplots_adjust(right=0.9)
         for ib,energy in enumerate(self.energy[:12]):
@@ -252,20 +259,18 @@ class CountPlots(Diagnostics):
         cbax = fig.add_axes((0.92, 0.15, 0.02, 0.7) )
         cb=plt.colorbar(scat, cbax, orientation='vertical')
         cb.set_label('normalized residual')
-
-        self.savefigure('residual_maps', title='Sky maps of normalized residuals', caption="""\
-        
-        """)
         return fig
         
     def resid_vs_dec(self, ib=0, ax=None, ylim=(-8,8), labels=True):
+        """ residual vs. decllination angle
+        """
         if ax is None:
             fig,ax = plt.subplots( figsize=(4,4))
         else: fig = ax.figure
         r = self.residual(ib).clip(*ylim)
-        ax.plot(self.rois.dec, r, '.')
+        ax.plot(self.rois.dec, r, '.', color='gray')
         galplane = np.abs(self.rois.glat)<5
-        ax.plot(self.rois.dec[galplane], r[galplane], '+r', label='|b|<5')
+        ax.plot(self.rois.dec[galplane], r[galplane], 'or', label='|b|<5')
         ax.axhline(0, color='k')
         plt.setp(ax, ylim=ylim, xlim=(-90,90))
         if labels: plt.setp(ax, xlabel='Dec', ylabel='normalized residual')
@@ -275,23 +280,11 @@ class CountPlots(Diagnostics):
         ax.grid()
         return fig
         
-    def resid_vs_dec_multi(self):
-        fig,axx = plt.subplots(2,4, figsize=(12,8))
-        for ib, ax in enumerate(axx.flatten()):
-            self.resid_vs_dec(ib, ax=ax, labels=None)
-        self.multilabels('Dec', 'nomrmalized residual')
-        self.savefigure('resid_vs_dec', title='Residuals vs. declination', caption="""\
-        Normalized residuals for all ROIs, plotted vs. declination angle for each energy bin.
-        ROIs along the glactic plane are shown as red crosses """
-        )
-        return fig
-        
     def all_plots(self):
-        self.residual_hists()
-        self.residual_plot()
-        self.residual_maps()
-        self.resid_vs_dec_multi()
-        self.chisq_plots()
+        self.runfigures([self.residual_hists, 
+            self.residual_plot, 
+            self.residual_maps, 
+            self.chisq_plots])
         
 
 class FrontBackSedPlots(Diagnostics):
@@ -503,7 +496,8 @@ class ROIinfo(Diagnostics):
     def setup(self, **kwargs):
         self.plotfolder='rois'
         filename = 'rois.pickle'
-        refresh = kwargs.pop('refresh', os.path.getmtime('rois.pickle')<os.path.getmtime('pickle.zip') )
+        refresh = kwargs.pop('refresh', not os.path.exists('rois.pickle') 
+                    or os.path.getmtime('rois.pickle')<os.path.getmtime('pickle.zip') )
         if (not os.path.exists(filename)) or (refresh):
             files, pkls = self.load_pickles('pickle')
             assert len(files)==1728, 'Expected to find 1728 files'
@@ -575,12 +569,13 @@ class ROIinfo(Diagnostics):
             c = np.log10(c)
             cbtext = 'log10(counts)'
         return self.skyplot(c, cbtext=cbtext,
-            title='%s %s counts at %d MeV' % (self.skymodel, title, self.energy[ib]), **kwargs)
+            title='%s counts at %d MeV' % ( title, self.energy[ib]), **kwargs)
         
     def count_fraction(self, ib=0, title='', **kwargs):
         sm = self.model_counts(self.source_name, ib)
         tot = np.array([self.df.ix[i]['counts']['observed'][ib] for i in range(1728)])
-        return self.skyplot(sm/tot, title='%s %s count fraction at %d MeV' % (self.skymodel,title, self.energy[ib]), **kwargs)
+        return self.skyplot(100*(sm/tot), title='%s count fraction at %d MeV' % (title, self.energy[ib]),
+            cbtext='fraction (%)', **kwargs)
 
     def all_plots(self, **kwargs):
     
@@ -591,8 +586,8 @@ class ROIinfo(Diagnostics):
 
 
 class SunMoon(ROIinfo):
-    def setup(self):
-        super(SunMoon, self).setup()
+    def setup(self, **kwargs):
+        super(SunMoon, self).setup(**kwargs)
         self.plotfolder='sunmoon'
         self.source_name='SunMoon'
         self.title='Sun/Moon'
@@ -601,8 +596,8 @@ class SunMoon(ROIinfo):
 
 
 class Limb(ROIinfo):
-    def setup(self):
-        super(Limb, self).setup()
+    def setup(self, **kwargs):
+        super(Limb, self).setup(**kwargs)
         self.plotfolder='limb'
         self.source_name='limb'
         self.title='Limb'
@@ -642,8 +637,6 @@ class Limb(ROIinfo):
         if title is not None: plt.suptitle(title)  
         return fig
         
-
-        
     def ratio_hist(self, ratio, vmax=1.0, cut=None):
         """ Histogram of Front/Back limb flux ratio
         Histogram of the ratio of the front to the back flux. ROIs with |b|>20 degrees are shown in green. 
@@ -659,11 +652,11 @@ class Limb(ROIinfo):
         return fig
         
     def flux_vs_dec(self):
-        """
-        front and back flux vs dec
-        Plots of front and back flux measurements, with |b|>35
+        """ front and back flux vs dec
+        Plots of front and back flux normalizations, ploting ROIS with |b|>35
         """
         class PieceWise(object):
+            """ functiod that is a piecewise set of straight lines"""
             def __init__(self, a,b):
                 self.a, self.b =a,b
                 self.n = len(a)
@@ -720,7 +713,7 @@ class Limb(ROIinfo):
         Polar plots of the ratio of the front to back flux\
         """)
         
-        self.ratio_hist((fpar/bpar), cut=bpar>0.2)
+        #self.ratio_hist((fpar/bpar), cut=bpar>0.2)
         self.savefigure('ratio_hist')
         self.flux_vs_dec()
         self.savefigure('flux_vs_dec')
@@ -741,19 +734,24 @@ class Isotropic(ROIinfo):
         self.plotfolder='iso'
         self.source_name='isotrop'
         self.title='Isotropic'
+
     
-        
-class FluxCov(ROIinfo):
-    def setup(self):
-        super(FluxCov, self).setup()
-        self.plotfolder='cov'
-        self.source_name='cov'
+class FluxCorr(SourceInfo):
+
+    def setup(self, **kwargs):
+        super(FluxCorr, self).setup(**kwargs)
+        self.plotfolder='fluxcorr'
+        self.source_name='fluxcorr'
         self.title='Flux covariances'
+        # read in the flux correlation data, add new columns to the source DataFrame
         fs, ps = self.load_pickles('fluxcorr')
         d = dict()
         for p in ps:
-            d.update( p.items()[:-2])
-        self.df = pd.DataFrame(d) #, columns=['gal_all', 'iso_all', 'gal_flux', 'iso_flux', 'gal_133', 'iso_133'])
+            if len(p.keys())>2:
+                d.update( p.items()[:-2])
+        self.fluxcorr = pd.DataFrame(d).T 
+        for i,colname in enumerate(['gal_all', 'iso_all', 'gal_flux', 'iso_flux', 'gal_133', 'iso_133']):
+            self.df[colname] = self.fluxcorr[i]
 
 class SourceInfo(Diagnostics):
     """ To be superclass for specific source plot stuff, creates or loads
