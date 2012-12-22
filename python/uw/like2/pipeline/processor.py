@@ -1,11 +1,12 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.26 2012/12/17 04:40:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.27 2012/12/20 18:27:58 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
 import numpy as np
 import pylab as plt
+import pandas as pd
 from skymaps import SkyDir, Hep3Vector
 from uw.like import srcid  
 from uw.utilities import image
@@ -623,7 +624,37 @@ def gtlike_compare(roi, **kwargs):
     
 def flux_correlations(roi, **kwargs):
 
-    # make array with indices for the normalization parameters
+    class DiffuseDependence(object):
+        
+        def __init__(self, roi, diffuse='ring'):
+            self.roi = roi        
+            normpar = np.array([name.endswith('_Norm') for name in roi.parameter_names])
+            normpar[0]=False
+            self.names = np.array([name.split('_')[0] for name in roi.parameter_names])[normpar]
+            self.ipar = map(int, np.arange(len(normpar))[normpar])
+            self.ring = roi.get_model(diffuse)
+            self.rnorm = self.ring.getp(0)
+            
+        def __call__(self, delta=0.01):
+            """
+            """
+            fdict=dict()
+            for d in (0,delta):
+                self.ring.setp(0, self.rnorm*(1.+d))
+                t=self.roi.fit(self.ipar)
+                fdict[d] = t.get_parameters()
+            roi.set_parameters(roi.saved_pars)
+            # assume that all normalization parameters use log10 internal rep.
+            return (10**(fdict[delta]-fdict[0])-1)/delta
+        
+        def result(self, delta=0.01):
+            # return a DataFrame with names as indices, columns for plus, minus, average, difference/average
+            df=pd.DataFrame( self(delta), index=self.names, columns=[delta])
+            df[-delta]=self(-delta)
+            df['average'] = 0.5*(df[delta]+df[-delta])
+            df['reldiff'] = (df[delta]-df[-delta])/df['average']
+            return df
+
     outdir= kwargs.get('outdir')
     flux_corr_dir = os.path.join(outdir, kwargs.get('fluxcorr', 'fluxcorr'))
     if not os.path.exists(flux_corr_dir): os.mkdir(flux_corr_dir)
@@ -633,30 +664,9 @@ def flux_correlations(roi, **kwargs):
     print  '='*80
     print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (roi.name,))
 
-    normpar = np.array([name.endswith('_Norm') for name in roi.parameter_names])
-    normpar[1]=True # add the isotropic
-    names = np.array([name.split('_')[0] for name in roi.parameter_names])[normpar]
-    ipar = map(int, np.arange(len(normpar))[normpar])
-    # full correlation matrix
-    c1 = roi.fit().cov_matrix #correlations(percent=True)
-    cs1= [c1[:,i][normpar] for i in range(2)]
-    # subset from fitting only normalizations
-    c2 = roi.fit(ipar).cov_matrix #correlations(percent=True)
-    cs2 = c2[:2,:] 
-    # select low erergy band, refit to get correlations now
-    roi.select_bands(bandsel = lambda b: b.e<200)
-    c3 = roi.fit(ipar).cov_matrix #correlations(percent=True)
-    cs3 = c3[:2,:]
-    roi.select_bands() # restore if needed
+    t = DiffuseDependence(roi)
+    d = t.result()
     
-    # select 237 MeV erergy band, refit to get correlations now
-    roi.select_bands(bandsel = lambda b: b.e>200 and b.e<400)
-    c4 = roi.fit(ipar).cov_matrix #correlations(percent=True)
-    cs4= c4[:2,:]
-    roi.select_bands() # restore if needed
-    
-    # prepare output pickle
-    d = dict([(names[i], np.array(np.vstack([cs1,cs2,cs3, cs4]))[:,i]) for i in range(len(names))])
     fname = os.path.join(flux_corr_dir,'%s_fluxcorr.pickle' %roi.name)
     pickle.dump( d, open(fname,'w'))
     print 'wrote file to %s' %fname
