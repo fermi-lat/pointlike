@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Dec 22 07:32:40 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	processor.py 
+Log Message:
+fix flux_correlations
+    *
+------------------------------------------------------------
 User: burnett  Sat Dec 22 06:56:36 PST 2012
 pointlike/python/uw/like2/pipeline
 
