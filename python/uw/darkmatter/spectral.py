@@ -1,6 +1,6 @@
 """ Dark Matter spectral models
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spectral.py,v 1.11 2012/08/20 19:45:17 kadrlica Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/darkmatter/spectral.py,v 1.12 2012/11/09 00:11:46 lande Exp $
 
     author: Alex Drlica-Wagner, Joshua Lande
 """
@@ -66,8 +66,8 @@ class DMFitFunction(Model):
             >>> print np.allclose(model(e), dnde)
             True
     """
-    default_p=[1.0, 100.]
-    default_extra_params=dict(norm=1, bratio=1.0, channel0=1, channel1=1)
+    default_p=[1e-25, 100.]
+    default_extra_params=dict(norm=1e18, bratio=1.0, channel0=1, channel1=1)
     param_names=['sigmav','mass']
     default_mappers=[LogMapper,LogMapper]
     default_extra_attrs=OrderedDict((('file','$(INST_DIR)/Likelihood/src/dmfit/gammamc_dif.dat'),))
@@ -83,6 +83,22 @@ class DMFitFunction(Model):
         sigmav=LimitMapper(0,1e-19,1e-25),
         mass=LimitMapper(1,1e4,1))
     default_oomp_limits=['sigmav']
+
+    channel_mapping = {
+        1  :  ["e+e-","ee"]                  ,
+        2  :  ["mu+mu-","mumu","musrc"]      ,
+        3  :  ["tau+tau-","tautau","tausrc"] ,
+        4  :  ["bb-bar","bb","bbbar","bbsrc"],
+        5  :  ["tt-bar","tt"]                ,
+        6  :  ["gluons"]                     ,
+        7  :  ["W+W-","w+w-","ww","wwsrc"]   ,
+        8  :  ["ZZ","zz"]                    ,
+        9  :  ["cc-bar","cc"]                ,
+        10 :  ["uu-bar","uu"]                ,
+        11 :  ["dd-bar","dd"]                ,
+        12 :  ["ss-bar","ss"]                ,
+        }
+
 
     def full_name(self):
         return '%s, norm=%.1f, bratio=%.1f channel0=%d, channel1=%d' % (self.pretty_name,
@@ -156,6 +172,16 @@ class DMFitFunction(Model):
     def __call__(self,e):
         """ Return energy in MeV. This could be vectorized. """
         return DMFitFunction.call_pylike_spectrum(self.dmf, e)
+
+    @staticmethod
+    def channel2int(s):
+        for k,v in DMFitFunction.channel_mapping.items():
+            if s in v: return k
+        else:  raise ValueError("Can't find value %s"%s)
+
+    @staticmethod
+    def int2channel(i):
+        return DMFitFunction.channel_mapping[i][0]
 
 
 class ComprehensiveModel(CompositeModel):
