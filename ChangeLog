@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Sat Dec 22 18:04:09 PST 2012
+pointlike/python/uw/darkmatter
+
+Modified Files:
+	spectral.py 
+Log Message:
+Changed default values of sigmav (1e-25) and norm (1e18); added functionality to translate between channel name and number.
+    *
+------------------------------------------------------------
 User: burnett  Sat Dec 22 07:32:40 PST 2012
 pointlike/python/uw/like2/pipeline
 
