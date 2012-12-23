@@ -3,7 +3,7 @@ Run after a successful UWpipeline/job_task
 
 Summarize the execution,
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/summary_plots.py,v 1.1 2012/12/13 04:02:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/summary_plots.py,v 1.2 2012/12/16 16:24:03 burnett Exp $
 """
 import os, sys,  argparse
 
@@ -16,7 +16,7 @@ def main(args):
     pointlike_dir=args.pointlike_dir 
     skymodel  =args.skymodel 
     stream    =args.stream
-    stagelist = args.stage 
+    stagelist = args.stage[0] 
    
     absskymodel = os.path.join(pointlike_dir, skymodel)
 
