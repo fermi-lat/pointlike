@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.28 2012/12/13 00:39:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.29 2012/12/14 18:55:44 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
@@ -412,7 +412,7 @@ class Finish(Update):
     def defaults(self):
         return dict(dampen=0,
             localize=True, 
-            tsmap_dir='"tsmap"',  
+            ####### temporary #####  tsmap_dir='"tsmap"',  
             setup_cmds = 'from uw.like2.pipeline import associate ',
             associator="associate.SrcId('$FERMI/catalog','all_but_gammas')",quiet=True)
             
