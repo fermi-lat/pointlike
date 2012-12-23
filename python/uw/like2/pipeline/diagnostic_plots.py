@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.37 2012/12/20 13:25:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.38 2012/12/22 14:56:36 burnett Exp $
 
 """
 
@@ -73,11 +73,11 @@ class Diagnostics(object):
             open(savefile.replace('.png','.html'),'w').write(html )
         return fig
 
-    def runfigures(self, functions ):
+    def runfigures(self, functions , **kwargs):
         """ functions: list of bound functions 
         """
         for function in functions:
-            function()
+            function(**kwwargs)
             self.savefigure(function.__name__)
             
     def load_pickles(self,folder='pickle'):
@@ -495,6 +495,8 @@ class ROIinfo(Diagnostics):
     """
     def setup(self, **kwargs):
         self.plotfolder='rois'
+        self.title='ROI summary'
+      
         filename = 'rois.pickle'
         refresh = kwargs.pop('refresh', not os.path.exists('rois.pickle') 
                     or os.path.getmtime('rois.pickle')<os.path.getmtime('pickle.zip') )
@@ -519,13 +521,13 @@ class ROIinfo(Diagnostics):
             self.df = pd.load(filename)
         self.energy=self.df.ix[0]['counts']['energies']
         
-    def skyplot(self, values, ax=None, title='', vmin=None, vmax=None, ecliptic=False,
+    def skyplot(self, values, ax=None, title='', s=20, vmin=None, vmax=None, ecliptic=False,
                     labels=True, colorbar=True, cbtext=''):
         if ax is None:
             fig, ax = plt.subplots( 1,1, figsize=(5,4))
         else: fig = ax.figure
         singlat=np.sin(np.radians(list(self.df.glat)))
-        scat =ax.scatter(self.df.glon, singlat, s=20, 
+        scat =ax.scatter(self.df.glon, singlat, s=s, 
             c=values,  vmin=vmin, vmax=vmax,edgecolor='none')
         if title is not None:
             ax.set_title(title, fontsize='small')
@@ -563,6 +565,7 @@ class ROIinfo(Diagnostics):
         return map(mdl, range(1728))
 
     def counts_map(self, ib=0, title='', **kwargs):
+        
         c = self.model_counts(self.source_name, ib)
         cbtext='counts'
         if kwargs.pop('log', True):
@@ -577,11 +580,22 @@ class ROIinfo(Diagnostics):
         return self.skyplot(100*(sm/tot), title='%s count fraction at %d MeV' % (title, self.energy[ib]),
             cbtext='fraction (%)', **kwargs)
 
+    def norm_map(self, vmin=0.8, vmax=1.2):
+        """ Map of normalization factor for diffuse
+        The normalization should be nominally 1.0.
+        """ 
+        models = self.diffuse_models(self.source_name)
+        norms = [m.getp(0) for m in models]
+        fig,ax = plt.subplots(figsize=(5,5))
+        self.skyplot(norms, ax=ax, vmin=vmin, vmax=vmax, title='Normalization for %s'%self.title)
+        return fig
+        
     def all_plots(self, **kwargs):
-    
-        self.counts_map(title=self.title, **kwargs);
+        self.runfigures([self.norm_map], **kwargs)
+        
+        self.counts_map(title=self.title);
         self.savefigure('%s_counts'%self.source_name, title=self.title)
-        self.count_fraction(title=self.title, **kwargs)
+        self.count_fraction(title=self.title)
         self.savefigure('%s_count_fraction'%self.source_name, title=self.title)
 
 
@@ -736,22 +750,6 @@ class Isotropic(ROIinfo):
         self.title='Isotropic'
 
     
-class FluxCorr(SourceInfo):
-
-    def setup(self, **kwargs):
-        super(FluxCorr, self).setup(**kwargs)
-        self.plotfolder='fluxcorr'
-        self.source_name='fluxcorr'
-        self.title='Flux covariances'
-        # read in the flux correlation data, add new columns to the source DataFrame
-        fs, ps = self.load_pickles('fluxcorr')
-        d = dict()
-        for p in ps:
-            if len(p.keys())>2:
-                d.update( p.items()[:-2])
-        self.fluxcorr = pd.DataFrame(d).T 
-        for i,colname in enumerate(['gal_all', 'iso_all', 'gal_flux', 'iso_flux', 'gal_133', 'iso_133']):
-            self.df[colname] = self.fluxcorr[i]
 
 class SourceInfo(Diagnostics):
     """ To be superclass for specific source plot stuff, creates or loads
@@ -761,7 +759,7 @@ class SourceInfo(Diagnostics):
     def setup(self, **kwargs):
         self.plotfolder='sources' #needed by superclass
         filename = 'sources.pickle'
-        refresh = kwargs.pop('refresh', not os.path.exists(filename) or os.path.getmtime(filename)> os.path.getmtime('pickle.zip'))
+        refresh = kwargs.pop('refresh', not os.path.exists(filename) or os.path.getmtime(filename)<os.path.getmtime('pickle.zip'))
         if refresh:
             files, pkls = self.load_pickles('pickle')
             assert len(files)==1728, 'Expected to find 1728 files'
@@ -829,7 +827,10 @@ class SourceInfo(Diagnostics):
         
         plt.setp(ax, xlim=(180,-180),  ylim=(-1.02, 1.02));
         ax.axhline(0, color='k');ax.axvline(0,color='k');
-        if labels: plt.setp(ax, xlabel='glon', ylabel='sin(glat)',)
+        if labels: 
+            ax.set_xlabel('glon')
+            ax.set_ylabel('sin(glat)', labelpad=-5) #note move label to right
+
         plt.setp(ax, xlim=(180,-180), ylim=(-1.02, 1.02),)
         ax.set_xticks([180,90,0,-90,-180])
         if ecliptic:
@@ -1021,7 +1022,54 @@ class SourceInfo(Diagnostics):
         self.savefigure('cumulative_ts')
         plt.close('all')
   
+class FluxCorr(SourceInfo):
 
+    def setup(self, **kwargs):
+        super(FluxCorr, self).setup(**kwargs)
+        self.plotfolder='fluxcorr'
+        self.source_name='fluxcorr'
+        self.title='Source-diffuse flux dependence'
+        
+        # read in the flux correlation data, add new columns to the source DataFrame
+        fs, ps = self.load_pickles('fluxcorr')
+        ndf = None
+        for x in ps:
+            if x is not None:
+                ndf = ndf.append(x) if ndf is not None else x
+                
+        self.ndf = ndf
+        
+    def flux_sensitivity(self):
+        """ Galactic diffuse flux sensitivity
+        
+        Upper left: histogram of the <br>
+        Upper right: scatter plot <br>
+        Lower: Skymap for TS<100.
+        """
+        fig, axx = plt.subplots(2,2, figsize=(8,8))
+        ax = axx[0,0]
+        flux_ratio = self.ndf['average']
+        bins = np.linspace(-30,5,36)
+        ax.hist(flux_ratio.clip(bins[0],bins[-1]), bins, label='%d sources'%flux_ratio.count())
+        ax.hist(flux_ratio[self.df.ts<100].clip(bins[0],bins[-1]), bins, label='TS<100')
+        ax.hist(flux_ratio[self.df.ts<25].clip(bins[0],bins[-1]), bins, label='TS<25')
+        plt.setp(ax, xlabel='flux sensitivity')
+        ax.grid()
+        ax.legend(loc='upper left', prop=dict(size=10))
+        ax = axx[0,1]
+        ax.plot( self.df['ts'], flux_ratio, '.')
+        plt.setp(ax, xscale='log', xlim=(10,1e5), ylim=(-30,5) , xlabel='TS')
+        ax.grid()
+        ax = axx[1,1]
+        tscut = (self.df.ts<100) & (self.df.ts>10)
+        axx[1,0].set_axis_off()
+        self.skyplot(-flux_ratio[tscut], ax=ax ,s=15, vmax=20, vmin=0,cbtext='abs(flux sensitivity)')
+        return fig
+        
+    def all_plots(self):
+        self.runfigures([self.flux_sensitivity])
+
+        
 class SourceFitPlots(Diagnostics):
     def setup(self):
         assert os.path.exists('pickle.zip') or os.path.exists('pickle'), 'No pickled ROI data found'
@@ -1268,7 +1316,7 @@ class GalDiffusePlots(Diagnostics):
         return (self.energy[ib],  bfratio[self.latcut].mean(), bfratio[self.latcut].std())
         
     def bfratio_hists(self):
-        fig, ax = self.multifig()
+        ax = self.multifig()
         self.bfratios = map(self.bfratio_hist, range(8), ax )
         self.multilabels('front/back fit', '', '%s Diffuse fit ratio'%self.which)
         ax[0].legend(loc='upper left',bbox_to_anchor=(-0.4,1.2));
@@ -1321,7 +1369,7 @@ class GalDiffusePlots(Diagnostics):
     
         
     def diffuse_fits(self):
-        fig, ax = self.multifig()
+        ax = self.multifig()
         self.multilabels('ratio', 'ROIs', '%s diffuse fit' %self.which)
         map(self.diffuse_fit, ax, range(8))
         self.savefigure('%sdiffuse_fits'%self.which)
@@ -1339,7 +1387,6 @@ class IsoDiffusePlots(GalDiffusePlots):
     def setup(self):
         self.diffuse_setup('iso')
 
-        
     def lowdiff_hist(self, ax, **kwargs):
         plane=abs(self.rois.glat)<10
         v0,v1 = [self.flux['both']['values'][i] for i in (0,1)]
