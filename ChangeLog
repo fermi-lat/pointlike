@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: burnett  Sun Dec 23 12:19:11 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	check_converge.py check_data.py diagnostic_plots.py 
+	pipeline_job.py summary_plots.py 
+Added Files:
+	check_ts.py uwpipeline.py 
+Log Message:
+make compatible with new uwpipeline.py
+    *
+------------------------------------------------------------
 User: burnett  Sun Dec 23 05:33:11 PST 2012
 pointlike/python/uw/like2/pipeline
 
