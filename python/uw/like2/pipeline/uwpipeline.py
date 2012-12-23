@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.1 2012/12/23 20:19:11 burnett Exp $
 """
 import os, argparse
 import numpy as np
@@ -62,11 +62,11 @@ class Proc(dict):
             raise Exception( 'no code to run for proc %s'% self)
  
 procnames = dict(
-    start = Proc(startup, help='start a stream'),
+    start      = Proc(startup, help='start a stream'),
     check_data = Proc(check_data, help='check that required data files are present'),
-    job   = Proc(pipeline_job, help='run a parallel pipeline job'),
-    check_converge = Proc(check_converge, help='check for convergence, combine results, possibly submit new stream'),
-    summary =Proc(summary_plots, help='Process summaries, need stage'),
+    job_proc   = Proc(pipeline_job, help='run a parallel pipeline job'),
+    check_jobs = Proc(check_converge, help='check for convergence, combine results, possibly submit new stream'),
+    summary_plots= Proc(summary_plots, help='Process summaries, need stage'),
     )
     
 def check_names(stage, proc):
@@ -84,7 +84,12 @@ def check_names(stage, proc):
                 raise Exception('"%s" not found in possible stage names, %s' %(t, keys))
 
 def check_environment(args):
-    assert os.path.exists('config.txt'), 'expect this folder to have a file config.txt'
+    if 'SKYMODEL_SUBDIR' not in os.environ:
+        os.environ['SKYMODEL_SUBDIR'] = os.getcwd()
+    else:
+        os.chdir(os.environ['SKYMODEL_SUBDIR'])
+
+    assert os.path.exists('config.txt'), 'expect this folder (%s) to have a file config.txt'%cwd
     cwd = os.getcwd()
     m = cwd.find('skymodels')
     assert m>0, 'did not find "skymodels" in path to cwd, which is %s' %cwd
@@ -93,10 +98,8 @@ def check_environment(args):
     else:
         os.environ['stage']=args.stage[0]
 
-    if 'SKYMODEL_SUBDIR' not in os.environ:
-        os.environ['SKYMODEL_SUBDIR'] = cwd
     # add these to the Namespace object for convenience
-    args.__dict__.update(skymodel=cwd, pointlike_dir=cwd[:m], stream=-1)
+    args.__dict__.update(skymodel=cwd, pointlike_dir=cwd[:m])
 
 
 def main( args ):
@@ -113,6 +116,7 @@ if __name__=='__main__':
     parser.add_argument('-p', '--proc', default=os.environ.get('PIPELINE_PROCESS', 'start'),
         help='proc name as defined by the UWpipeline xml, one of: %s'%procnames.keys())
     parser.add_argument('--job_list', default=os.environ.get('job_list', 'joblist.txt'), help='file used to allocate jobs')
+    parser.add_argument('--stream', default=os.environ.get('PIPELINE_STREAM', -1), help='pipeline stream number')
     parser.add_argument('--test', action='store_true', help='Do not run' )
     args = parser.parse_args()
     main(args)
