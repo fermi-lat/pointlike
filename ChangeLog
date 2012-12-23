@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Dec 23 05:32:10 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	check_converge.py check_data.py pipe.py pipeline_job.py 
+Log Message:
+updates to SLAC batch processing
+    *
+------------------------------------------------------------
 User: kadrlica  Sat Dec 22 18:04:09 PST 2012
 pointlike/python/uw/darkmatter
 
