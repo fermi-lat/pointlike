@@ -1,6 +1,6 @@
 """
 Check that the data specification for this stream is valid, perhaps creating the intermediate files
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_data.py,v 1.1 2012/11/27 14:40:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_data.py,v 1.2 2012/12/23 13:32:10 burnett Exp $
 """
 import os, sys, glob, zipfile, logging, datetime
 import numpy as np
@@ -8,19 +8,28 @@ import numpy as np
 from uw.like2.pipeline import pipe, processor
 from uw.like2 import dataset
 
-pointlike_dir = os.environ.get('POINTLIKE_DIR', '.')
-skymodel = os.environ.get('SKYMODEL_SUBDIR', sys.argv[1] if len(sys.argv)>1 else '' )
-stream = os.environ.get('PIPELINE_STREAM', '0')
-absskymodel = os.path.join(pointlike_dir, skymodel)
+def main(args=None):
 
-tee = processor.OutputTee(os.path.join(absskymodel, 'summary_log.txt'))
+    if args is not None:
+        stage = args.stage[0]
+    else:
+        stage = os.environ.get('stage', 'update' )
 
-stagelist = os.environ.get('stage', 'update' if len(sys.argv)<3 else sys.argv[2])
-current = str(datetime.datetime.today())[:16]
-print '\n%s stage %s stream %s model %s ' % (current, stagelist, stream,  absskymodel)
+    pointlike_dir = os.environ.get('POINTLIKE_DIR', '.')
+    skymodel = os.environ.get('SKYMODEL_SUBDIR', '.')
+    stream = os.environ.get('PIPELINE_STREAM', '-1')
+    absskymodel = os.path.join(pointlike_dir, skymodel)
 
-rc = dataset.validate(absskymodel, nocreate=True)
-print 'Validated' if rc else 'NOT validated'
-tee.close()
+    tee = processor.OutputTee(os.path.join(absskymodel, 'summary_log.txt'))
 
-if not rc: raise Exception('Failed to validate data')
+    current = str(datetime.datetime.today())[:16]
+    print '\n%s stage %s stream %s model %s ' % (current, stage, stream,  absskymodel)
+
+    rc = dataset.validate(absskymodel, nocreate=True)
+    print 'Validated' if rc else 'NOT validated'
+    tee.close()
+
+    if not rc: raise Exception('Failed to validate data')
+ 
+if __name__=='__main__':
+    main()

@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.38 2012/12/22 14:56:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.39 2012/12/23 13:33:10 burnett Exp $
 
 """
 
@@ -77,7 +77,7 @@ class Diagnostics(object):
         """ functions: list of bound functions 
         """
         for function in functions:
-            function(**kwwargs)
+            function(**kwargs)
             self.savefigure(function.__name__)
             
     def load_pickles(self,folder='pickle'):
