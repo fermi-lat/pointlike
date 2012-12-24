@@ -1,6 +1,6 @@
 """
 Check that the data specification for this stream is valid, perhaps creating the intermediate files
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_data.py,v 1.2 2012/12/23 13:32:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_data.py,v 1.3 2012/12/23 20:19:11 burnett Exp $
 """
 import os, sys, glob, zipfile, logging, datetime
 import numpy as np
@@ -14,6 +14,10 @@ def main(args=None):
         stage = args.stage[0]
     else:
         stage = os.environ.get('stage', 'update' )
+    if stage!='create':
+        print 'assume validated'
+        return
+        
 
     pointlike_dir = os.environ.get('POINTLIKE_DIR', '.')
     skymodel = os.environ.get('SKYMODEL_SUBDIR', '.')
