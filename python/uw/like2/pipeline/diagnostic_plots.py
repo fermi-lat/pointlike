@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.39 2012/12/23 13:33:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.40 2012/12/23 20:19:11 burnett Exp $
 
 """
 
@@ -9,7 +9,6 @@ import os, pickle, glob, zipfile, time, sys, types, argparse
 import numpy as np
 import pylab as plt
 import pandas as pd
-from uw.like2 import catrec  #deprecated: remove when no longer use sources.rec
 from skymaps import SkyDir, DiffuseFunction, Hep3Vector
 
 class Diagnostics(object):
@@ -29,7 +28,6 @@ class Diagnostics(object):
         self.plotfolder = os.path.join('plots', self.plotfolder)
         if not os.path.exists(self.plotfolder): os.makedirs(self.plotfolder)
 
-        
     def setup(self, **kwargs):
         assert False, 'Base class not implemented'
     def describe(self):
@@ -53,10 +51,12 @@ class Diagnostics(object):
                 the title as the first line, the caption the following lines
         """
         if hasattr(self, name):
-            doclines = eval('self.%s' % name).__doc__.split('\n')
-            doclines.append('')
-            if caption is None:   caption = '\n'.join(doclines[1:])
-            if title is None:     title = doclines[0]
+            try:
+                doclines = eval('self.%s' % name).__doc__.split('\n')
+                doclines.append('')
+                if caption is None:   caption = '\n'.join(doclines[1:])
+                if title is None:     title = doclines[0]
+            except: pass # no doc string?
         fig= plt.gcf()
         fig.text(0.02, 0.02, self.skymodel, fontsize=8)
         savefig_kw=dict(dpi=60, bbox_inches='tight', pad_inches=0.5) 
@@ -294,7 +294,10 @@ class FrontBackSedPlots(Diagnostics):
         """
         Unpack the pickles, one per source, into convenient DataFrame objects
         """
-        files, pkls = self.load_pickles('sedinfo')
+        try:
+            files, pkls = self.load_pickles('sedinfo')
+        except:
+            raise Exception( 'No sedinfo files found: must run stage "sedinfo"')
         # get energies from first entry, assume all the same
         self.elow  = pkls[0]['elow']
         self.ehigh = pkls[0]['ehigh']
@@ -580,14 +583,14 @@ class ROIinfo(Diagnostics):
         return self.skyplot(100*(sm/tot), title='%s count fraction at %d MeV' % (title, self.energy[ib]),
             cbtext='fraction (%)', **kwargs)
 
-    def norm_map(self, vmin=0.8, vmax=1.2):
+    def norm_map(self, vmin=0.8, vmax=1.2, **kw):
         """ Map of normalization factor for diffuse
         The normalization should be nominally 1.0.
         """ 
         models = self.diffuse_models(self.source_name)
-        norms = [m.getp(0) for m in models]
+        norms = [m.getp(0) if m is not None else np.nan for m in models]
         fig,ax = plt.subplots(figsize=(5,5))
-        self.skyplot(norms, ax=ax, vmin=vmin, vmax=vmax, title='Normalization for %s'%self.title)
+        self.skyplot(norms, ax=ax, vmin=vmin, vmax=vmax, title='Normalization for %s'%self.title, **kw)
         return fig
         
     def all_plots(self, **kwargs):
@@ -748,9 +751,34 @@ class Isotropic(ROIinfo):
         self.plotfolder='iso'
         self.source_name='isotrop'
         self.title='Isotropic'
+        
+    def isotropic_flux(self):
+        """ Istropic flux from template
+        """
+        config = eval(open('config.txt').read())
+        diffuse=config['diffuse']
+        idfiles = [os.path.join(os.environ['FERMI'],'diffuse',diffuse[1][i]) for i in (0,1)]
+        nf,nb = map(np.loadtxt, idfiles)
+        energies = nf[:,0]; front,back = nf[:,1],nb[:,1]
+        fig, axs = plt.subplots(1,2, figsize=(7,3), dpi=50)
+        ax= axs[1]
+        ax.plot(energies, front/back, '-o');
+        ax.axhline(1.0, color='k')
+        plt.setp(ax, xscale='log', xlabel='Energy');ax.grid(True);
+        ax.set_title('Isotropic flux front/back ratio', fontsize='small');
+        ax = axs[0]
+        ax.plot(energies, front*energies**2, '-g', label='front')
+        ax.plot(energies, back*energies**2, '-r', label='back')
+        plt.setp(ax, xlabel='Energy', ylabel='flux*e**2', xscale='log')
+        ax.set_title('isotropic diffuse spectra', fontsize='small')
+        ax.grid(True); ax.legend()
+        self.savefigure('isodiffuse', 'isotropic spectra:%s'% list(diffuse[1]))
+        
+    def all_plots(self, **kwargs):
+        super(Isotropic, self).all_plots(**kwargs)
+        self.runfigures([self.isotropic_flux])
 
     
-
 class SourceInfo(Diagnostics):
     """ To be superclass for specific source plot stuff, creates or loads
         a DataFrame with all sources 
@@ -884,6 +912,9 @@ class SourceInfo(Diagnostics):
         return fig
 
     def spectral_fit_consistency(self, ib=0, ax=None, minflux=2.,title=None, bcut=10, hist=False):
+        """Spectral fit consistency
+        
+        """
         if ax is None:
             fig, ax = plt.subplots(figsize=(5,4))
         else: fig = ax.figure
@@ -976,7 +1007,13 @@ class SourceInfo(Diagnostics):
         ax.grid(True)
         return fig
         
-    def fit_quality(self):
+    def fit_quality(self, xlim=(0,50), ndf=12):
+        """ Fit quality
+        This is the difference between the TS from the fits in the individual energy bands, and that for the spectral fit.
+        It should be distributed as chi squared of 14-2 =12 degrees of freedom.
+        Spectral models shown are log parabola and power law. 
+        """
+        from scipy import stats
         fig, ax = plt.subplots(figsize=(4,4))
         s = self.df
         s['beta'] = s.pars
@@ -986,14 +1023,20 @@ class SourceInfo(Diagnostics):
         cut*=(logparabola)
         cut*=(beta<0.01)
         fitqual = s.band_ts-s.ts
-        dom = np.linspace(0,50,26)
-        ax.hist(fitqual.clip(0,50), dom, label='all non-PSF')
-        ax.hist(fitqual[cut].clip(0,50), dom, label=' powerlaw')
+        dom = np.linspace(xlim[0],xlim[1],26)
+        ax.hist(fitqual.clip(*xlim), dom, label='all non-PSR')
+        ax.hist(fitqual[cut].clip(*xlim), dom, label=' powerlaw')
+        chi2 = lambda x: stats.chi2.pdf(x,ndf)
+        d = np.linspace(xlim[0],xlim[1],51); delta=dom[1]-dom[0]
+        fudge = 1.4 # to scale, not sure why
+        ax.plot(d, chi2(d)*fitqual.count()*delta/fudge, 'r', lw=2, label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
         ax.grid(); ax.set_ylim(ymax=600); ax.set_xlabel('fit quality')
         ax.legend(prop=dict(size=10))
         return fig
         
     def pivot_vs_e0(self, xylim=(100, 4e4)):
+        """ pivot vs e0
+        """
         fig, ax = plt.subplots(figsize=(4,4))
         s = self.df
         cut = s.ts>10
@@ -1003,7 +1046,33 @@ class SourceInfo(Diagnostics):
         ax.set_title('compare calculated pivot with e0', fontsize=10)
         ax.grid()
         return fig
-    
+        
+    def fitquality(self):
+        """Fit Quality
+        
+        Left: fit quality histogram; right fit quality vs. TS'
+        
+        """
+        fig, axs = plt.subplots(1,2, figsize=(7,3))
+        plt.subplots_adjust(wspace=0.35)
+        s = self.df
+        fitqual = s.band_ts-s.ts
+        from scipy import stats
+        ndf=12
+        chi2 = lambda x: stats.chi2.pdf(x,ndf)
+        d = np.linspace(0,100,51); delta=d[1]-d[0]
+        ax =axs[0]
+        ax.hist(fitqual, d, log=False);
+        ax.hist(fitqual[s.ts>500], d, label='TS>500');
+        ax.plot(d, chi2(d)*len(fitqual)*delta/1.6, 'r', label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
+        plt.setp(ax, xlabel='fit qual', ylim=(0,500))
+        ax.grid(); ax.legend(prop=dict(size=10))
+        ax = axs[1]
+        ax.plot(s.ts, fitqual, '.'); 
+        plt.setp(ax, xscale='log', xlabel='TS', xlim=(10,1e5),
+             ylabel='fit qual',ylim=(1,1e3),yscale='log')
+        ax.grid()
+
     
     def all_plots(self):
         self.lowenergyfluxratio(hist=True)
@@ -1012,16 +1081,73 @@ class SourceInfo(Diagnostics):
         self.savefigure('low_energy_flux_ratio_scat')
         self.spectral_fit_consistency(hist=True)
         self.savefigure('spectral_fit_consistency_hist')
-        self.spectral_fit_consistency()
+        self.spectral_fit_consistency(hist=False)
         self.savefigure('spectral_fit_consistency_map')
-        self.fit_quality()
-        self.savefigure('fit_quality_powerlaw_check')
-        self.pivot_vs_e0()
-        self.savefigure('pivot_vs_e0')
-        self.cumulative_ts()
-        self.savefigure('cumulative_ts')
+        
+        self.runfigures([self.fit_quality, self.pivot_vs_e0, self.cumulative_ts])
+
         plt.close('all')
+        
+ 
+class Localization(SourceInfo):
+    def setup(self, **kw):
+        super(Localization, self).setup(**kw)
+        # need delta_ts, localization fit quality
+        el= self.df.ellipse # fit_ra fit_dec a b ang qual delta_ts
+        self.df['a'] = [x[2] if x is not None else np.nan  for x in el]
+        self.df['delta_ts']=[x[6] if x is not None else np.nan  for x in el]
+        self.df['locqual']=[x[5] if x is not None else np.nan  for x in el]
+        
+    def localization(self, maxdelta=9, mints=10):
+        """Localization plots
+            Left: histogram of the square root of the TS difference from current position to
+            the fit; corresponds the number of sigmas. <br>
+            Right: scatter plot of this vs. TS
+            """
+        bins=np.linspace(0,np.sqrt(maxdelta),26)
+        fig, axx = plt.subplots(1,2,figsize=(8,4)); 
+        plt.subplots_adjust(wspace=0.4)
+        wp = self.df
+        cut = wp.ts>mints
+        ax=axx[0]
+        ax.hist(np.sqrt(wp.delta_ts[cut].clip(0,maxdelta)), bins)
+        ax.hist(np.sqrt(wp.delta_ts[wp.ts>100].clip(0,maxdelta)), bins,label='TS>100')
+        ax.legend(prop=dict(size=10))
+        ax.grid()
+        plt.setp(ax, xlabel='sqrt(delta TS)')
+        ax=axx[1]
+        ax.plot( wp.ts[cut],np.sqrt(wp.delta_ts[cut].clip(0,maxdelta)), '.')
+        ax.grid()
+        plt.setp(ax, xscale='log', xlabel='TS', ylabel='sqrt(delta TS)')
+        return fig
+        
+    def localization_quality(self, maxqual=10, mints=10):
+        """Localization quality plots
+            Left: histogram of the fit quality. This is a measure of the difference between the sampled
+            TS map points and the prediction of the quadratic model. <br>
+            Right: scatter plot of the quality vs. TS.
+        """
+        bins=np.linspace(0,maxqual,26)
+        fig, axx = plt.subplots(1,2,figsize=(8,4)); 
+        plt.subplots_adjust(wspace=0.4)
+        wp = self.df
+        cut = wp.ts>mints
+        ax=axx[0]
+        ax.hist(wp.locqual[cut].clip(0,maxqual), bins)
+        ax.hist(wp.locqual[wp.ts>100].clip(0,maxqual), bins,label='TS>100')
+        ax.legend(prop=dict(size=10))
+        ax.grid()
+        plt.setp(ax, xlabel='localization fit quality')
+        ax=axx[1]
+        ax.plot( wp.ts[cut],wp.locqual[cut].clip(0,maxqual), '.')
+        ax.grid()
+        plt.setp(ax, xscale='log', xlim=(10,1e5), xlabel='TS', ylabel='localization fit quality')
+        return fig 
   
+    def all_plots(self):
+        return self.runfigures([self.localization,self.localization_quality])
+
+
 class FluxCorr(SourceInfo):
 
     def setup(self, **kwargs):
@@ -1070,172 +1196,6 @@ class FluxCorr(SourceInfo):
         self.runfigures([self.flux_sensitivity])
 
         
-class SourceFitPlots(Diagnostics):
-    def setup(self):
-        assert os.path.exists('pickle.zip') or os.path.exists('pickle'), 'No pickled ROI data found'
-        self.plotfolder='sources'
-        recfile = 'sources.rec'
-        if not os.path.exists(recfile) or os.path.getmtime(recfile)> os.path.getmtime('pickle.zip'):
-            print 'creating %s...' % recfile, ; sys.stdout.flush()
-            catrec.create_catalog('.', save_local=True)
-        
-        sin = pickle.load(open(recfile))
-        localized = -np.isnan(sin.a)
-        self.use_localization =  sum(localized)>0
-        if self.use_localization:
-            cut = (sin.ts>10)*(localized)*(sin.pindex<3.5)+ sin.extended
-            unloc = (sin.ts>10)*(~localized)*(sin.pindex<3.5)*(~sin.extended)
-            self.unloc = pd.DataFrame( sin[unloc], index=pd.Index(sin[unloc].name, name='name'))
-            if sum(unloc)>0:
-                print 'Ignoring %d sources (%d with TS>25) due to localization failure'\
-                %(sum(unloc), sum(unloc*(sin.ts>25)))
-        else:
-            cut = (sin.ts>10)*(sin.pindex<3.5)+ sin.extended
-        print np.sum(sin.ts>10), sum(-np.isnan(sin.a)),np.sum(sin.pindex<3.5) , np.sum(sin.extended)
-        self.s = sin[cut]
-        print 'found %d  sources, selecting %d for analysis %s' %\
-            ( len(cut), sum(cut), ('' if self.use_localization else '(ignoring localization)'))
-        self.srcinfo = catrec.FitSource('.')
-        self.df = pd.DataFrame(self.s, index=pd.Index(self.s.name, name='name'))
-        
-    def fitquality(self):
-        fig, axs = plt.subplots(1,2, figsize=(7,3))
-        plt.subplots_adjust(wspace=0.35)
-        s = self.s
-        fitqual = s.band_ts-s.ts
-        from scipy import stats
-        ndf=12
-        chi2 = lambda x: stats.chi2.pdf(x,ndf)
-        d = np.linspace(0,100,51); delta=d[1]-d[0]
-        ax =axs[0]
-        ax.hist(fitqual, d, log=False);
-        ax.hist(fitqual[s.ts>500], d, label='TS>500');
-        ax.plot(d, chi2(d)*len(fitqual)*delta/1.6, 'r', label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
-        plt.setp(ax, xlabel='fit qual', ylim=(0,500))
-        ax.grid(); ax.legend(prop=dict(size=10))
-        ax = axs[1]
-        ax.plot(s.ts, fitqual, '.'); 
-        plt.setp(ax, xscale='log', xlabel='TS', xlim=(10,1e5),
-             ylabel='fit qual',ylim=(1,1e3),yscale='log')
-        ax.grid()
-        self.savefigure('fitquality', title='Fit Quality', caption= 'Left: fit quality histogram; right: fit quality vs. TS'); 
-        return fig #plt.close(fig)
-        
-    def _lowfluxplot(self, ax, cut, xmax=100., title='selected bad fits', energy=133):
-        """ s is list of sources"""
-        from skymaps import SkyDir
-        s = self.s
-        fitqual = s.band_ts-s.ts
-        sd = map(SkyDir, s[cut].ra, s[cut].dec)
-        glat = np.array([x.b() for x in sd])
-        hilat = abs(glat)>5.0
-        fss = [self.srcinfo(src) for src in s[cut]]
-        fdata = np.array([fs['sedrec'].flux[0] for fs in fss])
-        udata = np.array([fs['sedrec'].uflux[0] for fs in fss])
-        ldata = np.array([fs['sedrec'].lflux[0] for fs in fss])
-        fmodel = np.array([fs['model'](energy)*energy**2*1e6 for fs in fss])
-        y = fdata/fmodel
-        yerr=[(fdata-ldata)/fmodel,(udata-fdata)/fmodel]
-        xhi,yhi,yerrhi = fmodel[hilat],  y[hilat],  [((fdata-ldata)/fmodel)[hilat],((udata-fdata)/fmodel)[hilat]]
-        xlo,ylo,yerrlo = fmodel[~hilat], y[~hilat], [((fdata-ldata)/fmodel)[~hilat],((udata-fdata)/fmodel)[~hilat]]
-        ax.errorbar(x=xhi, y=yhi, yerr=yerrhi, fmt='og', label='%d hilat sources'%sum(hilat))
-        ax.errorbar(x=xlo, y=ylo, yerr=yerrlo, fmt='or', label='%d lowlat sources'%sum(~hilat))
-        plt.setp(ax, xlabel=r'$\mathsf{model\ flux\ (eV\ cm^{-2} s^{-1}})$', xscale='log', 
-            ylabel='data/model', ylim=(0,2.5),)
-        ax.set_title( title, fontsize='medium')
-        ax.set_xlim( (1,100) )
-
-        ax.axhline(1.0,color='k')
-        ax.legend(prop=dict(size=10))
-        ax.grid()  
-  
-    def lowfluxplots(self):
-        s = self.s
-        fitqual = s.band_ts-s.ts
-        bad = (s.ts>100)*(fitqual>50); 
-        fig, ax = plt.subplots(1,2, figsize=(12,5))
-        self._lowfluxplot(ax=ax[0], cut=bad, xmax=100, title='133 MeV flux ratio, selected bad fits')
-        self._lowfluxplot(ax=ax[1], cut=s.ts>1000, xmax=2000, title='133 MeV flux ratio for TS>1000')
-        self.savefigure('low_flux_plots')
-        return fig
-        
-    def isotropic_plot(self):
-        config = eval(open('config.txt').read())
-        diffuse=config['diffuse']
-        idfiles = [os.path.join(os.environ['FERMI'],'diffuse',diffuse[1][i]) for i in (0,1)]
-        nf,nb = map(np.loadtxt, idfiles)
-        energies = nf[:,0]; front,back = nf[:,1],nb[:,1]
-        fig, axs = plt.subplots(1,2, figsize=(7,3), dpi=50)
-        ax= axs[1]
-        ax.plot(energies, front/back, '-o');
-        ax.axhline(1.0, color='k')
-        plt.setp(ax, xscale='log', xlabel='Energy');ax.grid(True);
-        ax.set_title('Isotropic flux front/back ratio', fontsize='small');
-        ax = axs[0]
-        ax.plot(energies, front*energies**2, '-g', label='front')
-        ax.plot(energies, back*energies**2, '-r', label='back')
-        plt.setp(ax, xlabel='Energy', ylabel='flux*e**2', xscale='log')
-        ax.set_title('isotropic diffuse spectra', fontsize='small')
-        ax.grid(True); ax.legend()
-        self.savefigure('isodiffuse', 'isotropic spectra:%s'% list(diffuse[1]))
-        
-    def localization(self, maxdelta=9, mints=10):
-        bins=np.linspace(0,np.sqrt(maxdelta),26)
-        fig, axx = plt.subplots(1,2,figsize=(8,4)); 
-        plt.subplots_adjust(wspace=0.4)
-        wp = self.s
-        cut = wp.ts>mints
-        ax=axx[0]
-        ax.hist(np.sqrt(wp.delta_ts[cut].clip(0,maxdelta)), bins)
-        ax.hist(np.sqrt(wp.delta_ts[wp.ts>100].clip(0,maxdelta)), bins,label='TS>100')
-        ax.legend(prop=dict(size=10))
-        ax.grid()
-        plt.setp(ax, xlabel='sqrt(delta TS)')
-        ax=axx[1]
-        ax.plot( wp.ts[cut],np.sqrt(wp.delta_ts[cut].clip(0,maxdelta)), '.')
-        ax.grid()
-        plt.setp(ax, xscale='log', xlabel='TS', ylabel='sqrt(delta TS)')
-        return fig
-    def localization_quality(self, maxqual=10, mints=10):
-        bins=np.linspace(0,maxqual,26)
-        fig, axx = plt.subplots(1,2,figsize=(8,4)); 
-        plt.subplots_adjust(wspace=0.4)
-        wp = self.s
-        cut = wp.ts>mints
-        ax=axx[0]
-        ax.hist(wp.qual[cut].clip(0,maxqual), bins)
-        ax.hist(wp.qual[wp.ts>100].clip(0,maxqual), bins,label='TS>100')
-        ax.legend(prop=dict(size=10))
-        ax.grid()
-        plt.setp(ax, xlabel='fit quality')
-        ax=axx[1]
-        ax.plot( wp.ts[cut],wp.qual[cut].clip(0,maxqual), '.')
-        ax.grid()
-        plt.setp(ax, xscale='log', xlim=(10,1e5), xlabel='TS', ylabel='fit quality')
-        return fig   
-    
-    def all_plots(self):
-        self.fitquality()
-        self.lowfluxplots()
-        self.isotropic_plot()
-
-        #self.cumulative_ts()
-        #self.savefigure('cumulative_ts', title='Cumulative, or logN-logTS plot', caption="""\
-        #The cumulative histogram of the number of sources vs. TS""")
-
-        if self.use_localization:
-            self.localization()
-            self.savefigure('localization', title='Localization plots', caption="""\
-            Left: histogram of the square root of the TS difference from current position to
-            the fit; corresponds the number of sigmas. Right: scatter plot of this vs. TS
-            """)
-            self.localization_quality()
-            self.savefigure('localization_quality', title='Localization quality plots', caption="""\
-            Left: histogram of the fit quality. This is a measure of the difference between the sampled
-            TS map points and the prediction of the quadratic model. Right: scatter plot of the quality vs. TS.
-            """)
-
-  
 class GalDiffusePlots(Diagnostics):
 
     def diffuse_setup(self, which='gal'):
@@ -1433,33 +1393,34 @@ class IsoDiffusePlots(GalDiffusePlots):
         self.savefigure('isotropic_bin0_bin1_difference')
        
 
-opts = [('iso',    IsoDiffusePlots),
-        ('gal',    GalDiffusePlots),
-        ('sources',SourceFitPlots),
-        ('fb',     FrontBackSedPlots),
-        ('counts', CountPlots),
-        ('limb',   Limb),
-        ('sourceinfo',   SourceInfo),
-        ('sunmoon',  SunMoon),
-        ]  
+opts = dict(
+        counts=  (CountPlots,),
+        sources= (SourceInfo, Localization,),
+        diffuse= (Galactic, Isotropic, Limb, SunMoon),
+        iso   =  (IsoDiffusePlots,),
+        gal   =  (GalDiffusePlots,),
+        limb=    (Limb,),
+        sunmoon= (SunMoon,),
+        fb=      (FrontBackSedPlots,),
+        ) 
         
 def main(args):
-    if type(args)==types.StringType: args = [args]
+    args=args.split()
     np.seterr(invalid='warn', divide='warn')
-    keys,classes =  [[t[j] for t in opts] for j in (0,1)]
     for arg in args:
-        i = keys.index(arg)
-        if i<0: print 'found %s; expect one of %s' %(arg,keys)
+        if arg not in opts.keys():
+            print 'found %s; expect one of %s' % (arg, opts.keys())
         else:
             try:
-                classes[i]('.').all_plots()
+                for cls in opts[arg]:
+                    cls('.').all_plots()
             except FloatingPointError, msg:
-                print 'Floating point error running %s: "%s"' % (keys[i], msg)
+                print 'Floating point error running %s: "%s"' % (arg, msg)
                 print 'seterr:', np.seterr()
         
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='run a diagnostic output job; must be in skymodel folder')
-    parser.add_argument('args', nargs='+', help='processsor identifier: must be one of %s' %[opt[0] for opt in opts])
+    parser.add_argument('args', nargs='+', help='processsor identifier: must be one of %s' %opts.keys())
     #parser.add_argument('-j','--joblist',  help='Optional list of jobs; assume local to $POINTLIKE_DIR', default='job_list')
     #parser.add_argument('--test', action='store_true', help='Do not run the pipeline createStream')
     args = parser.parse_args()
