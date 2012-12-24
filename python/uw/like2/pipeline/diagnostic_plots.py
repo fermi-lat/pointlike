@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.40 2012/12/23 20:19:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.41 2012/12/24 17:24:03 burnett Exp $
 
 """
 
@@ -44,19 +44,27 @@ class Diagnostics(object):
             return ax.figure, ax
         return plt.subplots( figsize=figsize, **kwargs)
         
-    def savefigure(self, name, title=None, caption=None, **kwargs):
+    def savefigure(self, name, func=None, title=None, caption=None, **kwargs):
         """ save a figure.
         name : string
             If name is the name of a function in the class, optionally define 
                 the title as the first line, the caption the following lines
+        func : executable function, or None
+            if not None, run the func, use it to get docs
+        Note that the docstring may have %(xxx)s, which will be replaced by attribute xxx.
         """
-        if hasattr(self, name):
+        if func is not None:
+            func(**kwargs)
+            fname = func.__name__
+        else: fname = name
+        if hasattr(self, fname):
             try:
-                doclines = eval('self.%s' % name).__doc__.split('\n')
+                doclines = ((eval('self.%s' % fname).__doc__%self.__dict__).split('\n'))
                 doclines.append('')
                 if caption is None:   caption = '\n'.join(doclines[1:])
                 if title is None:     title = doclines[0]
-            except: pass # no doc string?
+            except Exception, msg:
+                print 'docstring processing problem: %s' % msg
         fig= plt.gcf()
         fig.text(0.02, 0.02, self.skymodel, fontsize=8)
         savefig_kw=dict(dpi=60, bbox_inches='tight', pad_inches=0.5) 
@@ -71,6 +79,7 @@ class Diagnostics(object):
             if title is None: title = name.replace('_', ' ')
             html = '<h2>%s</h2> <img src="%s" /> <br> %s '% (title, localfile, caption)
             open(savefile.replace('.png','.html'),'w').write(html )
+            print 'saved html doc to %s' % savefile.replace('.png','.html')
         return fig
 
     def runfigures(self, functions , **kwargs):
@@ -501,9 +510,9 @@ class ROIinfo(Diagnostics):
         self.title='ROI summary'
       
         filename = 'rois.pickle'
-        refresh = kwargs.pop('refresh', not os.path.exists('rois.pickle') 
-                    or os.path.getmtime('rois.pickle')<os.path.getmtime('pickle.zip') )
-        if (not os.path.exists(filename)) or (refresh):
+        refresh = kwargs.pop('refresh', not os.path.exists(filename) 
+                    or os.path.getmtime(filename)<os.path.getmtime('pickle.zip') )
+        if refresh:
             files, pkls = self.load_pickles('pickle')
             assert len(files)==1728, 'Expected to find 1728 files'
             rdict= dict()
@@ -514,7 +523,9 @@ class ROIinfo(Diagnostics):
                 glon = pkl['skydir'].l() 
                 if glon>180: glon-=360.
                 glat = pkl['skydir'].b(); 
-                tdict.update(glon = glon, glat=glat )
+                ra = pkl['skydir'].ra()
+                dec= pkl['skydir'].dec()
+                tdict.update(glon = glon, glat=glat, ra=ra, dec=dec )
                 rdict[pkl['name']] = tdict
             self.df = pd.DataFrame(rdict).transpose()
             self.df.save(filename)
@@ -568,7 +579,9 @@ class ROIinfo(Diagnostics):
         return map(mdl, range(1728))
 
     def counts_map(self, ib=0, title='', **kwargs):
+        """ counts map
         
+        """
         c = self.model_counts(self.source_name, ib)
         cbtext='counts'
         if kwargs.pop('log', True):
@@ -578,13 +591,16 @@ class ROIinfo(Diagnostics):
             title='%s counts at %d MeV' % ( title, self.energy[ib]), **kwargs)
         
     def count_fraction(self, ib=0, title='', **kwargs):
+        """ Count Fraction for %(title)s
+        For each ROI, the fraction of %(title)s counts
+        """
         sm = self.model_counts(self.source_name, ib)
         tot = np.array([self.df.ix[i]['counts']['observed'][ib] for i in range(1728)])
         return self.skyplot(100*(sm/tot), title='%s count fraction at %d MeV' % (title, self.energy[ib]),
             cbtext='fraction (%)', **kwargs)
 
     def norm_map(self, vmin=0.8, vmax=1.2, **kw):
-        """ Map of normalization factor for diffuse
+        """ Map of normalization factor for %(title)s
         The normalization should be nominally 1.0.
         """ 
         models = self.diffuse_models(self.source_name)
@@ -593,13 +609,31 @@ class ROIinfo(Diagnostics):
         self.skyplot(norms, ax=ax, vmin=vmin, vmax=vmax, title='Normalization for %s'%self.title, **kw)
         return fig
         
-    def all_plots(self, **kwargs):
-        self.runfigures([self.norm_map], **kwargs)
+    def norm_vs_dec(self, vmin=0, vmax=90, size=15, ylim=(0.7,1.2), **kw):
+        """ Normalization factor for %(title)s vs Dec
+        The color represents the absolute Galactic latitude
+        """
+        models = self.diffuse_models(self.source_name)
+        norms = [m.getp(0) if m is not None else np.nan for m in models]
+        sindec = np.sin(np.radians(np.array(self.df.dec,float)))
+
+        fig,ax = plt.subplots(figsize=(5,4))
+        c=np.abs(self.df.glat.values)
+        cut= c>vmin
+        defaults =dict(edgecolors='none', s=size)
+        defaults.update(kw)
+        scat=ax.scatter( sindec, norms, c=c, vmin=vmin, vmax=vmax, **defaults) #'red')
+        plt.setp(ax, xlim=(-1,1), ylim=ylim, xlabel='sin(dec)', ylabel='normalization')
+        ax.grid()
+        cb =plt.colorbar(scat)
+        cb.set_label('abs(b)')
+        return fig
         
-        self.counts_map(title=self.title);
-        self.savefigure('%s_counts'%self.source_name, title=self.title)
-        self.count_fraction(title=self.title)
-        self.savefigure('%s_count_fraction'%self.source_name, title=self.title)
+    def all_plots(self, **kwargs):
+        self.savefigure('%s_norm_map'%self.source_name, func=self.norm_map)
+        self.savefigure('%s_counts'%self.source_name, func=self.counts_map)
+        self.savefigure('%s_count_fraction'%self.source_name, func=self.count_fraction)
+        self.savefigure('%s_norm_vs_dec'%self.source_name, func=self.norm_vs_dec)
 
 
 class SunMoon(ROIinfo):
@@ -737,8 +771,8 @@ class Limb(ROIinfo):
 
 
 class Galactic(ROIinfo):
-    def setup(self):
-        super(Galactic, self).setup()
+    def setup(self, **kw):
+        super(Galactic, self).setup(**kw)
         self.plotfolder='gal'
         self.source_name='ring'
         self.title='Galactic'
@@ -746,19 +780,21 @@ class Galactic(ROIinfo):
 
 class Isotropic(ROIinfo):
 
-    def setup(self):
-        super(Isotropic, self).setup()
+    def setup(self, **kw):
+        super(Isotropic, self).setup(**kw)
         self.plotfolder='iso'
         self.source_name='isotrop'
         self.title='Isotropic'
         
-    def isotropic_flux(self):
-        """ Istropic flux from template
+    def isotropic_spectrum(self):
+        """ Isotropic Spectrum from template
+        
+        Files for front/back: %(idfiles)s
         """
         config = eval(open('config.txt').read())
         diffuse=config['diffuse']
-        idfiles = [os.path.join(os.environ['FERMI'],'diffuse',diffuse[1][i]) for i in (0,1)]
-        nf,nb = map(np.loadtxt, idfiles)
+        self.idfiles = [os.path.join(os.environ['FERMI'],'diffuse',diffuse[1][i]) for i in (0,1)]
+        nf,nb = map(np.loadtxt, self.idfiles)
         energies = nf[:,0]; front,back = nf[:,1],nb[:,1]
         fig, axs = plt.subplots(1,2, figsize=(7,3), dpi=50)
         ax= axs[1]
@@ -772,11 +808,10 @@ class Isotropic(ROIinfo):
         plt.setp(ax, xlabel='Energy', ylabel='flux*e**2', xscale='log')
         ax.set_title('isotropic diffuse spectra', fontsize='small')
         ax.grid(True); ax.legend()
-        self.savefigure('isodiffuse', 'isotropic spectra:%s'% list(diffuse[1]))
         
     def all_plots(self, **kwargs):
         super(Isotropic, self).all_plots(**kwargs)
-        self.runfigures([self.isotropic_flux])
+        self.runfigures([self.isotropic_spectrum,])
 
     
 class SourceInfo(Diagnostics):
@@ -1397,10 +1432,12 @@ opts = dict(
         counts=  (CountPlots,),
         sources= (SourceInfo, Localization,),
         diffuse= (Galactic, Isotropic, Limb, SunMoon),
-        iso   =  (IsoDiffusePlots,),
-        gal   =  (GalDiffusePlots,),
+        isotropic=(Isotropic,),
+        galactic=(Galactic,),
         limb=    (Limb,),
         sunmoon= (SunMoon,),
+        iso   =  (IsoDiffusePlots,),
+        gal   =  (GalDiffusePlots,),
         fb=      (FrontBackSedPlots,),
         ) 
         
@@ -1410,19 +1447,20 @@ def main(args):
     for arg in args:
         if arg not in opts.keys():
             print 'found %s; expect one of %s' % (arg, opts.keys())
-        else:
-            try:
-                for cls in opts[arg]:
-                    cls('.').all_plots()
-            except FloatingPointError, msg:
-                print 'Floating point error running %s: "%s"' % (arg, msg)
-                print 'seterr:', np.seterr()
+            continue
+        try:
+            for cls in opts[arg]:
+                cls('.').all_plots()
+                plt.close('all')
+        except FloatingPointError, msg:
+            print 'Floating point error running %s: "%s"' % (arg, msg)
+            print 'seterr:', np.seterr()
+        except Exception, msg:
+            print 'Exception running %s: "%s"' (arg, msg)
         
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='run a diagnostic output job; must be in skymodel folder')
     parser.add_argument('args', nargs='+', help='processsor identifier: must be one of %s' %opts.keys())
-    #parser.add_argument('-j','--joblist',  help='Optional list of jobs; assume local to $POINTLIKE_DIR', default='job_list')
-    #parser.add_argument('--test', action='store_true', help='Do not run the pipeline createStream')
     args = parser.parse_args()
     main(args.args)
     
