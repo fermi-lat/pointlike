@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Dec 25 11:55:44 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	processor.py 
+Log Message:
+modify fluxcorr for multiple
+    *
+------------------------------------------------------------
 User: burnett  Mon Dec 24 12:06:24 PST 2012
 pointlike/python/uw/like2/pipeline
 
