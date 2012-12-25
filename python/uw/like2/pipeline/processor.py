@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.28 2012/12/22 14:55:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.29 2012/12/22 15:32:40 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -634,6 +634,7 @@ def flux_correlations(roi, **kwargs):
             self.ipar = map(int, np.arange(len(normpar))[normpar])
             self.ring = roi.get_model(diffuse)
             self.rnorm = self.ring.getp(0)
+            self.df = pd.DataFrame(index=self.names)
             
         def __call__(self, delta=0.01):
             """
@@ -647,18 +648,22 @@ def flux_correlations(roi, **kwargs):
             # assume that all normalization parameters use log10 internal rep.
             return (10**(fdict[delta]-fdict[0])-1)/delta
         
-        def result(self, delta=0.01):
+        def run(self, emin=100, delta=0.01,):
             """ return a DataFrame with names as indices, columns for plus, minus, average, difference/average
             """
             if len(self.names)==0:
                 return None
-            df=pd.DataFrame( self(delta), index=self.names, columns=[delta])
-            df[-delta]=self(-delta)
-            df['average'] = 0.5*(df[delta]+df[-delta])
-            df['reldiff'] = (df[delta]-df[-delta])/df['average']
-            return df
+            plus, minus, average, reldiff= ['%s_%d'%(t,emin) for t in 'plus minus average reldiff'.split()]
+            df = self.df
+            if emin >100:
+                roi.select_bands(emin=emin)
+            df[plus] = self(delta)
+            df[minus]=self(-delta)
+            df[average] = 0.5*(df[plus]+df[minus])
+            df[reldiff] = (df[plus]-df[minus])/df[average]
 
     outdir= kwargs.get('outdir')
+    emin = kwargs.get('emin', None)
     flux_corr_dir = os.path.join(outdir, kwargs.get('fluxcorr', 'fluxcorr'))
     if not os.path.exists(flux_corr_dir): os.mkdir(flux_corr_dir)
     
@@ -668,10 +673,11 @@ def flux_correlations(roi, **kwargs):
     print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (roi.name,))
 
     t = DiffuseDependence(roi)
-    d = t.result()
+    for emin in 100, 1000, 4000:
+        t.run(emin)
     
     fname = os.path.join(flux_corr_dir,'%s_fluxcorr.pickle' %roi.name)
-    pickle.dump( d, open(fname,'w'))
+    pickle.dump( t.df, open(fname,'w'))
     print 'wrote file to %s' %fname
     outtee.close()
   
