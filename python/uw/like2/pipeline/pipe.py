@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.29 2012/12/14 18:55:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.30 2012/12/23 13:32:10 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
@@ -41,6 +41,7 @@ class Pipe(roisetup.ROIfactory):
         self.selector.nside = self.nside
 
         # the function that will be called for each ROI: default is processor.process
+        # note that if the name has arguments, extract them as process_kw
         self.processor = kwargs.pop('processor', processor.process)
         if type(self.processor)==types.StringType:
             self.processor = eval(self.processor)
@@ -104,6 +105,7 @@ class Setup(dict):
                 emin=100, emax=316227, minROI=5, maxROI=5,
                 extended= None, #flag to get from model
                 skymodel_extra = '',
+                process_extra='',
                 irf = None, # flag to get from model 'P7SOURCE_V6',
                 associator = None,
                 sedfig_dir = None,
@@ -122,11 +124,17 @@ class Setup(dict):
                 ))
         self.update(kwargs)
         # first-order replace
-        for key in self:
-            if type(self[key])== types.StringType and self[key].find('%(')>=0: 
-                self[key]=self[key]%self
-                self['tables'] = self['tables']%self
-                #print 'fix key %s: %s' % (key, self[key])
+        #for key in self:
+        #    if type(self[key])== types.StringType and self[key].find('%(')>=0: 
+        #        self[key]=self[key]%self
+        #        self['tables'] = self['tables']%self
+        #        print 'fix key %s: %s' % (key, self[key])
+        # Turn apparent args in processor kw to process_exta list.
+        if '(' in self['processor']:
+            p,q = self['processor'].split('(')
+            self['processor'] = p
+            self['process_extra']=q[:-1]
+
         self.create_string()
         self.mecsetup=False
         self.mypipe = None
@@ -159,6 +167,7 @@ g=pipe.Pipe("%(indir)s", %(datadict)s,
             localize=%(localize)s, associate=%(associator)s,
             fix_beta= %(fix_beta)s, repivot=%(repivot)s,
             tables= %(tables)s,
+            %(process_extra)s
             ),
     ) 
 n,chisq = len(g.names()), -1
@@ -362,7 +371,7 @@ class Update(NotebookPipe):
     """ Update a model 
         Note that dampen=0.5; may need adjustment
     """
-    def __init__(self, analysisdir, indir, outdir=None, **kwargs):
+    def __init__(self, analysisdir='.', indir='.', outdir=None, **kwargs):
         """
         
         """

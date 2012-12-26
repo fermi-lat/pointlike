@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.42 2012/12/24 20:06:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.43 2012/12/26 13:41:15 burnett Exp $
 
 """
 
@@ -899,7 +899,7 @@ class SourceInfo(Diagnostics):
         if ecliptic:
             self.draw_ecliptic(ax)
         if colorbar:
-            cb=plt.colorbar(scat)
+            cb=plt.colorbar(scat, ax)
             cb.set_label(cbtext)
         return fig
         
@@ -1189,55 +1189,79 @@ class FluxCorr(SourceInfo):
         super(FluxCorr, self).setup(**kwargs)
         self.plotfolder='fluxcorr'
         self.source_name='fluxcorr'
-        self.title='Source-diffuse flux dependence'
+        self.title='Source-galactic diffuse flux dependence'
+        self.diffuse_name='Galactic'
+        self._readdata()
         
-        # read in the flux correlation data, add new columns to the source DataFrame
-        fs, ps = self.load_pickles('fluxcorr')
+    def _readdata(self)
+        # read in the flux correlation data, in DataFrame, combine to DataFrame
+        fs, ps = self.load_pickles(self.sourcename)
         ndf = None
         for x in ps:
             if x is not None:
                 ndf = ndf.append(x) if ndf is not None else x
                 
         self.ndf = ndf
+        self.emins=(100, 1000, 4000) # assume 
         
-    def flux_sensitivity(self):
-        """ Galactic diffuse flux sensitivity
+    def flux_sensitivity(self, axx=None, emin=100, **kwargs):
+        """ Galactic diffuse flux sensitivity, emin=%(emin)s
         
-        Upper left: histogram of the <br>
-        Upper right: scatter plot <br>
-        Lower: Skymap for TS<100.
+        Let fs be the flux sensitivity, defined as the ratio of measured flux change to change in Galactic diffuse
+        left: histogram of fs<br>
+        center: scatter plot, flux sensitivity vs. TS<br>
+        rignt: Skymap for fs<100.
         """
-        fig, axx = plt.subplots(2,2, figsize=(8,8))
-        ax = axx[0,0]
-        flux_ratio = self.ndf['average']
-        bins = np.linspace(-30,5,36)
-        ax.hist(flux_ratio.clip(bins[0],bins[-1]), bins, label='%d sources'%flux_ratio.count())
-        ax.hist(flux_ratio[self.df.ts<100].clip(bins[0],bins[-1]), bins, label='TS<100')
-        ax.hist(flux_ratio[self.df.ts<25].clip(bins[0],bins[-1]), bins, label='TS<25')
-        plt.setp(ax, xlabel='flux sensitivity')
-        ax.grid()
-        ax.legend(loc='upper left', prop=dict(size=10))
-        ax = axx[0,1]
-        ax.plot( self.df['ts'], flux_ratio, '.')
-        plt.setp(ax, xscale='log', xlim=(10,1e5), ylim=(-30,5) , xlabel='TS')
-        ax.grid()
-        ax = axx[1,1]
-        tscut = (self.df.ts<100) & (self.df.ts>10)
-        axx[1,0].set_axis_off()
-        self.skyplot(-flux_ratio[tscut], ax=ax ,s=15, vmax=20, vmin=0,cbtext='abs(flux sensitivity)')
+        self.emin = emin
+        colorbar = kwargs.pop('colorbar', True)
+        if axx is None:
+            fig, axx = plt.subplots(1,3, figsize=(12,4))
+        flux_ratio = self.ndf['average_%d'%emin]
+        def plot1(ax):
+            bins = np.linspace(-30,5,36)
+            ax.hist(flux_ratio.clip(bins[0],bins[-1]), bins, label='%d sources'%flux_ratio.count())
+            ax.hist(flux_ratio[self.df.ts<100].clip(bins[0],bins[-1]), bins, label='TS<100')
+            ax.hist(flux_ratio[self.df.ts<25].clip(bins[0],bins[-1]), bins, label='TS<25')
+            plt.setp(ax, xlabel='flux sensitivity')
+            ax.grid()
+            ax.legend(loc='upper left', prop=dict(size=10))
+        def plot2(ax):
+            ax.plot( self.df['ts'], flux_ratio, '.')
+            plt.setp(ax, xscale='log', xlim=(10,1e5), ylim=(-30,5) , xlabel='TS')
+            ax.grid()
+        def plot3(ax):
+            tscut = (self.df.ts<100) & (self.df.ts>10)
+            self.skyplot(-flux_ratio[tscut], ax=ax ,s=15, vmax=20, vmin=0, colorbar=colorbar,cbtext='abs(flux sensitivity)')
+        for ax, plot in zip(axx.flatten(), (plot1,plot2, plot3)):
+            plot(ax)
+   
+    def flux_sensitivity_all(self):
+        """ %(diffuse_name)s diffuse flux sensitivity
+        Rows are, from the top, for emin=%(emins)s MeV.<br>
+        Let fs be the flux sensitivity, defined as the ratio of the measured flux change 
+        to the change in %(diffuse_name)s diffuse flux.
+        Columns are:
+        left: histogram of fs;
+        center: scatter plot, flux sensitivity vs. TS; 
+        right: Skymap for TS<100, showing that the sensitivity is limited to the galactic plane.
+        """
+
+        fig, axx = plt.subplots(3,3, figsize=(12,12))
+        for i, emin in enumerate(self.emins):
+            self.flux_sensitivity(axx[i,:], emin, colorbar=False)
         return fig
-        
+    
     def all_plots(self):
-        self.runfigures([self.flux_sensitivity])
+        self.runfigures([self.flux_sensitivity_all])
 
-
-class FluxCorr4G(FluxCorr):
-
+class FluxCorrIso(FluxCorr):
     def setup(self, **kw):
-        super(FluxCorr4G,self).setup(**kw)
-        self.plotfolder='fluxcorr4g'
-        self.source_name='fluxcorr4g'
-        self.title='Source-diffuse flux dependence, E>4GeV'
+        super(FluxCorrIso,self).setup(**kw)
+        self.plotfolder='fluxcorriso'
+        self.source_name='fluxcorriso'
+        self.title='Source-isotropic diffuse flux dependence'
+        self.diffuse_name='Isotropic'
+        self._readdata()
 
         
 class GalDiffusePlots(Diagnostics):
@@ -1466,7 +1490,7 @@ def main(args):
             print 'Floating point error running %s: "%s"' % (arg, msg)
             print 'seterr:', np.seterr()
         except Exception, msg:
-            print 'Exception running %s: "%s"' (arg, msg)
+            print 'Exception running %s: "%s"' % (arg, msg)
         
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='run a diagnostic output job; must be in skymodel folder')
