@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Dec 26 14:11:39 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	processor.py 
+Log Message:
+fix isotropic diffuse dependence
+    *
+------------------------------------------------------------
 User: burnett  Wed Dec 26 10:47:53 PST 2012
 pointlike/python/uw/like2/pipeline
 
