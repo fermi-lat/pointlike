@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Dec 26 05:41:15 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	check_converge.py diagnostic_plots.py uwpipeline.py 
+Log Message:
+fluxcorr
+    *
+------------------------------------------------------------
 User: burnett  Tue Dec 25 11:55:44 PST 2012
 pointlike/python/uw/like2/pipeline
 
