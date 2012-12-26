@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Wed Dec 26 05:44:05 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	pipeline_job.py 
+Log Message:
+set seterr to warn about division by zero
+
+    *
+------------------------------------------------------------
 User: burnett  Wed Dec 26 05:41:15 PST 2012
 pointlike/python/uw/like2/pipeline
 
