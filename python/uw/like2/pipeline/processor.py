@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.29 2012/12/22 15:32:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.30 2012/12/25 19:55:44 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -671,8 +671,9 @@ def flux_correlations(roi, **kwargs):
     outtee = OutputTee(os.path.join(logpath, roi.name+'.txt'))
     print  '='*80
     print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (roi.name,))
-
-    t = DiffuseDependence(roi)
+    diffuse=kwargs.get('diffuse', 'ring')
+    print 'Running diffuse dependence for %s'%diffuse
+    t = DiffuseDependence(roi, diffuse=diffuse)
     for emin in 100, 1000, 4000:
         t.run(emin)
     
