@@ -1,10 +1,12 @@
 """
 setup and run pointlike all-sky analysis for subset of ROIs
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.5 2012/12/23 13:32:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.6 2012/12/23 20:19:11 burnett Exp $
 """
 import os, sys, logging
 from collections import OrderedDict
+
+import numpy as np
 
 ### Set variables corresponding to the environment
 # these can be overridden by setting environment variables
@@ -35,6 +37,8 @@ def main(args=None):
         return 
     # make sure that matplotlib conif is ok
     #os.environ['MPLCONFIGDIR'] = POINTLIKE_DIR+'./matplotlib
+	
+    np.seterr(invalid='warn', divide='warn')
 
     streamlogdir = os.path.join(POINTLIKE_DIR,SKYMODEL_SUBDIR,'streamlogs')
     streamlogfile=os.path.join(streamlogdir,'stream%s.%04d.log' % ( PIPELINE_STREAMPATH.split('.')[0], int(PIPELINE_STREAM)) )
