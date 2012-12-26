@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.2 2012/12/23 22:15:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.3 2012/12/24 17:24:03 burnett Exp $
 """
 import os, argparse
 import numpy as np
@@ -32,8 +32,7 @@ class Summary(object):
         if kw is not None:
             diagnostic_plots.main(kw)
 
-        
-        
+   
 class Proc(dict):
     def __init__(self, run, help='', **kwargs):
         """ run: class or module -- must have main function """
@@ -72,7 +71,7 @@ stagenames = dict(
     diffuse     = Stage(sum='gal', help=''),
     isodiffuse  = Stage(sum='iso', help=''),
     limb        = Stage(sum='limb',help=''),
-    fluxcorr    = Stage(help=''),
+    fluxcorr    = Stage(sum='fluxcorr', help=''),
     pulsar_table= Stage(help=''),
 )
 
