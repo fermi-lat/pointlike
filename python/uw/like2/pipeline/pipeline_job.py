@@ -1,7 +1,7 @@
 """
 setup and run pointlike all-sky analysis for subset of ROIs
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.6 2012/12/23 20:19:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.7 2012/12/26 13:44:05 burnett Exp $
 """
 import os, sys, logging
 from collections import OrderedDict
@@ -88,9 +88,8 @@ def main(args=None):
     elif stage=='limb':
         update = pipe.Update(POINTLIKE_DIR, SKYMODEL_SUBDIR, 
             processor='processor.limb_processor')
-    elif stage=='fluxcorr':
-        update = pipe.Update(POINTLIKE_DIR, SKYMODEL_SUBDIR, 
-            processor='processor.flux_correlations')
+    elif stage=='fluxcorr':     update = pipe.Update( processor='processor.flux_correlations')
+    elif stage=='fluxcorriso':  update = pipe.Update( processor='processor.flux_correlations(diffuse="iso", fluxcorr="fluxicorrso")')
     elif stage=='pulsar_table':
         update = pipe.PulsarLimitTables(POINTLIKE_DIR, SKYMODEL_SUBDIR) 
     else:
