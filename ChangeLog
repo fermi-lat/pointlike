@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Dec 26 14:13:35 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	diagnostic_plots.py 
+Log Message:
+fix fluxcorriso
+    *
+------------------------------------------------------------
 User: burnett  Wed Dec 26 14:11:39 PST 2012
 pointlike/python/uw/like2/pipeline
 
