@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.43 2012/12/26 13:41:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.44 2012/12/26 18:47:53 burnett Exp $
 
 """
 
@@ -856,6 +856,8 @@ class SourceInfo(Diagnostics):
         else:
             print 'loading %s' % filename
             self.df = pd.load(filename)
+        self.df['flux']    = [v[0] for v in self.df.pars.values]
+        self.df['flux_unc']= [v[0] for v in self.df.errs.values]
         self.energy = np.sqrt( self.df.ix[0]['sedrec'].elow * self.df.ix[0]['sedrec'].ehigh )
             
     def skyplot(self, values, proj=None, ax=None, s=20, vmin=None, vmax=None, ecliptic=False,
@@ -1188,14 +1190,15 @@ class FluxCorr(SourceInfo):
     def setup(self, **kwargs):
         super(FluxCorr, self).setup(**kwargs)
         self.plotfolder='fluxcorr'
-        self.source_name='fluxcorr'
+        self.source_name=kwargs.pop('source_name', 'fluxcorr')
         self.title='Source-galactic diffuse flux dependence'
         self.diffuse_name='Galactic'
+        
         self._readdata()
         
-    def _readdata(self)
+    def _readdata(self):
         # read in the flux correlation data, in DataFrame, combine to DataFrame
-        fs, ps = self.load_pickles(self.sourcename)
+        fs, ps = self.load_pickles(self.source_name)
         ndf = None
         for x in ps:
             if x is not None:
@@ -1256,12 +1259,9 @@ class FluxCorr(SourceInfo):
 
 class FluxCorrIso(FluxCorr):
     def setup(self, **kw):
-        super(FluxCorrIso,self).setup(**kw)
-        self.plotfolder='fluxcorriso'
-        self.source_name='fluxcorriso'
+        super(FluxCorrIso,self).setup(source_name='fluxcorriso', **kw)
         self.title='Source-isotropic diffuse flux dependence'
         self.diffuse_name='Isotropic'
-        self._readdata()
 
         
 class GalDiffusePlots(Diagnostics):
