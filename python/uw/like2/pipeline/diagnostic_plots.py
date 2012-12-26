@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.41 2012/12/24 17:24:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.42 2012/12/24 20:06:24 burnett Exp $
 
 """
 
@@ -1230,6 +1230,15 @@ class FluxCorr(SourceInfo):
     def all_plots(self):
         self.runfigures([self.flux_sensitivity])
 
+
+class FluxCorr4G(FluxCorr):
+
+    def setup(self, **kw):
+        super(FluxCorr4G,self).setup(**kw)
+        self.plotfolder='fluxcorr4g'
+        self.source_name='fluxcorr4g'
+        self.title='Source-diffuse flux dependence, E>4GeV'
+
         
 class GalDiffusePlots(Diagnostics):
 
@@ -1439,6 +1448,7 @@ opts = dict(
         iso   =  (IsoDiffusePlots,),
         gal   =  (GalDiffusePlots,),
         fb=      (FrontBackSedPlots,),
+        fluxcorr=(FluxCorr,),
         ) 
         
 def main(args):
