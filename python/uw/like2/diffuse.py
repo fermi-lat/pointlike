@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.16 2012/12/08 19:25:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.17 2012/12/27 00:13:37 burnett Exp $
 
 author: Matthew Kerr, Toby Burnett
 """
@@ -134,7 +134,7 @@ class DiffuseModelFromCache(DiffuseModel):
         else:
             if not os.path.exists(cache_path):
                 raise DiffuseException('cache folder or zip %s not found' %cache_path)
-            files = sorted(glob.glob(os.path.join(cache_path, test)))
+            files = sorted(glob.glob(cache_path+'/*'))
             opener=open
         assert len(files)==1728, 'wrong number of files: expected 1728, found %d' % len(files)
         try:
