@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Dec 26 16:13:37 PST 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	diffuse.py 
+Log Message:
+enable use of zipped diffuse files
+    *
+------------------------------------------------------------
 User: burnett  Wed Dec 26 14:13:35 PST 2012
 pointlike/python/uw/like2/pipeline
 
