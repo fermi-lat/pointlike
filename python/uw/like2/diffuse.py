@@ -1,11 +1,11 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.15 2012/11/26 16:00:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.16 2012/12/08 19:25:40 burnett Exp $
 
 author: Matthew Kerr, Toby Burnett
 """
-import sys, os, types, pickle, glob, copy
+import sys, os, types, pickle, glob, copy, zipfile
 import numpy as np
 from . import models
 from uw.utilities import keyword_options, convolution
@@ -125,17 +125,24 @@ class DiffuseModelFromCache(DiffuseModel):
         cache_path = os.path.splitext(filename)[0]+'_%dbpd'%self.binsperdec
         assert os.path.exists(filename), 'oops, %s not found' %filename
         if os.path.exists(cache_path+'.zip'):
-            print 'found a zip file with cached diffuse maps'
-            print '(not doing anything yet)'
-        if not os.path.exists(cache_path):
-            raise DiffuseException('cache folder %s not found' %cache_path)
+            z = zipfile.ZipFile(cache_path+'.zip')
+            t = z.namelist()
+            if len(t)==1729: # if ziped with foldername
+                t = t[1:]
+            files = sorted(t) 
+            opener = z.open
+        else:
+            if not os.path.exists(cache_path):
+                raise DiffuseException('cache folder or zip %s not found' %cache_path)
+            files = sorted(glob.glob(os.path.join(cache_path, test)))
+            opener=open
+        assert len(files)==1728, 'wrong number of files: expected 1728, found %d' % len(files)
+        try:
+            self.filename = files[self.diffuse_source.index]
+            self.cached_diffuse = pickle.load(opener(self.filename))
+        except:
+            raise DiffuseException( 'Diffuse cache file # %d not found' %self.diffuse_source.index)
 
-        test = 'HP12_%04d*.pickle'% self.diffuse_source.index
-        globbed = glob.glob(os.path.join(cache_path, test))
-        if len(globbed)!=1:
-            raise DiffuseException( 'Diffuse cache file %s not found' %test)
-        self.filename= globbed[0]
-        self.cached_diffuse = pickle.load(open(self.filename))
         if not self.quiet: print 'Using cached diffuse in %s'%self.filename
         self.emins = [cd['emin'] for cd in self.cached_diffuse]
 
