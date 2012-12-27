@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Dec 27 07:49:02 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	pipe.py pipeline_job.py 
+Log Message:
+clean up, assume run from model dir
+    *
+------------------------------------------------------------
 User: burnett  Thu Dec 27 07:47:43 PST 2012
 pointlike/python/uw/like2
 
