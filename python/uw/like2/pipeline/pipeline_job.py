@@ -1,12 +1,14 @@
 """
 setup and run pointlike all-sky analysis for subset of ROIs
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.7 2012/12/26 13:44:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.8 2012/12/26 18:47:53 burnett Exp $
 """
 import os, sys, logging
 from collections import OrderedDict
 
 import numpy as np
+from uw.like2.pipeline import pipe
+
 
 ### Set variables corresponding to the environment
 # these can be overridden by setting environment variables
@@ -24,7 +26,8 @@ defaults=OrderedDict([
     ('begin_roi','0'), # defaults for test.
     ('end_roi', '1'),
     ])
-    
+ 
+ 
 def main(args=None):
     print '\npointlike skymodel configuration'
     for key,default_value in defaults.items():
@@ -37,7 +40,6 @@ def main(args=None):
         return 
     # make sure that matplotlib conif is ok
     #os.environ['MPLCONFIGDIR'] = POINTLIKE_DIR+'./matplotlib
-	
     np.seterr(invalid='warn', divide='warn')
 
     streamlogdir = os.path.join(POINTLIKE_DIR,SKYMODEL_SUBDIR,'streamlogs')
@@ -59,48 +61,34 @@ def main(args=None):
     logging.info('Start setup: rois %s-%s on host %s' % (int(begin_roi), int(end_roi)-1, 
         os.environ.get('HOSTNAME','unknown')))
 
-    from uw.like2.pipeline import pipe
     mstage = stage
     stage=stage.split(':')[0] # allows multiple stages, separated by colons
-    if stage=='create':
-        update = pipe.Create(POINTLIKE_DIR, SKYMODEL_SUBDIR,)
-    elif stage=='update_full':
-        update = pipe.Update(POINTLIKE_DIR, SKYMODEL_SUBDIR, dampen=1.0, sedfig_dir=None, )
-    elif stage=='update':
-        update = pipe.Update(POINTLIKE_DIR, SKYMODEL_SUBDIR, dampen=0.5, sedfig_dir=None, )
+    
+
+    if stage==  'create':       update = pipe.Create()
+    elif stage=='update_full':  update = pipe.Update( dampen=1.0, sedfig_dir=None, )
+    elif stage=='update':       update = pipe.Update( dampen=0.5, sedfig_dir=None, )
     elif stage=='update_beta': # do an update, freeing/freezing beta when appropriate
-        update = pipe.Update(POINTLIKE_DIR, SKYMODEL_SUBDIR, dampen=1.0, sedfig_dir=None, fix_beta=True)
+                                update = pipe.Update( dampen=1.0, sedfig_dir=None, fix_beta=True)
     elif stage=='update_pivot': # do an update, modifying pivot energy when appropriate
-        update = pipe.Update(POINTLIKE_DIR, SKYMODEL_SUBDIR, dampen=1.0, sedfig_dir=None, repivot=True)
-    elif stage=='finish':
-        update = pipe.Finish(POINTLIKE_DIR, SKYMODEL_SUBDIR,)
-    elif stage=='tables':
-        update = pipe.Tables(POINTLIKE_DIR, SKYMODEL_SUBDIR)
-    elif stage=='sedinfo':
-        update = pipe.Update(POINTLIKE_DIR, SKYMODEL_SUBDIR, 
-            processor='processor.full_sed_processor', sedfig_dir='"sedfig"',)
-    elif stage=='diffuse':
-        update = pipe.Update(POINTLIKE_DIR, SKYMODEL_SUBDIR, 
-            processor='processor.roi_refit_processor')
-    elif stage=='isodiffuse':
-        update = pipe.Update(POINTLIKE_DIR, SKYMODEL_SUBDIR, 
-            processor='processor.iso_refit_processor')
-    elif stage=='limb':
-        update = pipe.Update(POINTLIKE_DIR, SKYMODEL_SUBDIR, 
-            processor='processor.limb_processor')
+                                update = pipe.Update( dampen=1.0, sedfig_dir=None, repivot=True)
+    elif stage=='finish':       update = pipe.Finish()
+    elif stage=='tables':       update = pipe.Tables()
+    elif stage=='sedinfo':      update = pipe.Update( processor='processor.full_sed_processor', sedfig_dir='"sedfig"',)
+    elif stage=='diffuse':      update = pipe.Update( processor='processor.roi_refit_processor')
+    elif stage=='isodiffuse':   update = pipe.Update( processor='processor.iso_refit_processor')
+    elif stage=='limb':         update = pipe.Update( processor='processor.limb_processor')
     elif stage=='fluxcorr':     update = pipe.Update( processor='processor.flux_correlations')
-    elif stage=='fluxcorriso':  update = pipe.Update( processor='processor.flux_correlations(diffuse="iso", fluxcorr="fluxicorrso")')
-    elif stage=='pulsar_table':
-        update = pipe.PulsarLimitTables(POINTLIKE_DIR, SKYMODEL_SUBDIR) 
+    elif stage=='fluxcorrgal':  update = pipe.Update( processor='processor.flux_correlations')
+    elif stage=='fluxcorriso':  update = pipe.Update( processor='processor.flux_correlations(diffuse="iso*", fluxcorr="fluxcorriso")')
+    elif stage=='pulsar_table': update = pipe.PulsarLimitTables() 
     else:
         raise Exception('stage "%s" not recognized' % stage)
-
     g = update.g()
     tprev, tnow= tnow, logging.time.time()
     logging.info('Finish: elapsed= %.1f (total %.1f)' % ( tnow-tprev, tnow-tzero ))
 
     ### process eash ROI
-
 
     for s in range(int(begin_roi), int(end_roi)):
         logging.info('Start roi %d' % s )
