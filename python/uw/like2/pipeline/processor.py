@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.30 2012/12/25 19:55:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.31 2012/12/26 22:11:39 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -636,32 +636,31 @@ def flux_correlations(roi, **kwargs):
             self.rnorm = self.ring.getp(0)
             self.df = pd.DataFrame(index=self.names)
             
-        def __call__(self, delta=0.01):
-            """
-            """
-            fdict=dict()
-            for d in (0,delta):
-                self.ring.setp(0, self.rnorm*(1.+d))
-                t=self.roi.fit(self.ipar)
-                fdict[d] = t.get_parameters()
-            roi.set_parameters(roi.saved_pars)
-            # assume that all normalization parameters use log10 internal rep.
-            return (10**(fdict[delta]-fdict[0])-1)/delta
+        def pars(self):
+            return self.roi.model_parameters[self.ipar]
+        def errs(self):
+            return self.roi.sources.uncertainties[self.ipar]
         
+        def ts(self):
+            return map(self.roi.TS, self.names)
+        
+        def fit(self, suffix, delta):
+            self.ring.setp(0, self.rnorm*(1.+delta))
+            t = self.roi.fit(self.ipar)
+            self.df['par_'+suffix]=t.get_parameters()
+            self.df['unc_'+suffix]=self.errs()
+            self.df['ts_'+suffix]=self.ts()
+            roi.set_parameters(roi.saved_pars) # always restore
+                           
         def run(self, emin=100, delta=0.01,):
-            """ return a DataFrame with names as indices, columns for plus, minus, average, difference/average
+            """ 
             """
             if len(self.names)==0:
-                return None
-            plus, minus, average, reldiff= ['%s_%d'%(t,emin) for t in 'plus minus average reldiff'.split()]
-            df = self.df
+                return 
             if emin >100:
                 roi.select_bands(emin=emin)
-            df[plus] = self(delta)
-            df[minus]=self(-delta)
-            df[average] = 0.5*(df[plus]+df[minus])
-            df[reldiff] = (df[plus]-df[minus])/df[average]
-
+            for suffix, delt in zip('z p m'.split(), (0,delta,-delta)):
+                self.fit(suffix+'%d'%emin, delt)
     outdir= kwargs.get('outdir')
     emin = kwargs.get('emin', None)
     flux_corr_dir = os.path.join(outdir, kwargs.get('fluxcorr', 'fluxcorr'))
