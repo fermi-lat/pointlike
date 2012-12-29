@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.44 2012/12/26 18:47:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.45 2012/12/26 22:13:35 burnett Exp $
 
 """
 
@@ -21,7 +21,7 @@ class Diagnostics(object):
         """
         self.skymodel_dir = os.path.expandvars(skymodel_dir)
         assert os.path.exists(os.path.join(self.skymodel_dir, 'config.txt')), 'not a skymodel directory:%s'%skymodel_dir
-        os.chdir(self.skymodel_dir)
+        if skymodel_dir != '.': os.chdir(self.skymodel_dir)
         self.skymodel = os.path.split(os.getcwd())[-1]
         self.setup(**kwargs)
         if not os.path.exists('plots'):         os.mkdir('plots')
@@ -599,14 +599,22 @@ class ROIinfo(Diagnostics):
         return self.skyplot(100*(sm/tot), title='%s count fraction at %d MeV' % (title, self.energy[ib]),
             cbtext='fraction (%)', **kwargs)
 
-    def norm_map(self, vmin=0.8, vmax=1.2, **kw):
-        """ Map of normalization factor for %(title)s
+    def normalization(self, vmin=0.8, vmax=1.2, clip =(0.5,1.5), **kw):
+        """ normalization factor for %(title)s
         The normalization should be nominally 1.0.
+        Left: histogram: right: map
         """ 
         models = self.diffuse_models(self.source_name)
-        norms = [m.getp(0) if m is not None else np.nan for m in models]
-        fig,ax = plt.subplots(figsize=(5,5))
-        self.skyplot(norms, ax=ax, vmin=vmin, vmax=vmax, title='Normalization for %s'%self.title, **kw)
+        norms = np.array([m.getp(0) if m is not None else np.nan for m in models])
+        fig,ax = plt.subplots(1,2, figsize=(12,5))
+        
+        self.skyplot(norms, ax=ax[1], vmin=vmin, vmax=vmax,  **kw)
+        def hist(ax):
+            ax.hist(norms.clip(*clip), np.linspace(clip[0],clip[1], 26))
+            ax.grid()
+            ax.axvline(1.0, color='k')
+            plt.setp(ax, xlabel='normalization', xlim=clip)
+        hist(ax[0])
         return fig
         
     def norm_vs_dec(self, vmin=0, vmax=90, size=15, ylim=(0.7,1.2), **kw):
@@ -630,7 +638,7 @@ class ROIinfo(Diagnostics):
         return fig
         
     def all_plots(self, **kwargs):
-        self.savefigure('%s_norm_map'%self.source_name, func=self.norm_map)
+        self.savefigure('%s_normalization'%self.source_name, func=self.normalization)
         self.savefigure('%s_counts'%self.source_name, func=self.counts_map)
         self.savefigure('%s_count_fraction'%self.source_name, func=self.count_fraction)
         self.savefigure('%s_norm_vs_dec'%self.source_name, func=self.norm_vs_dec)
@@ -901,7 +909,7 @@ class SourceInfo(Diagnostics):
         if ecliptic:
             self.draw_ecliptic(ax)
         if colorbar:
-            cb=plt.colorbar(scat, ax)
+            cb=plt.colorbar(scat)
             cb.set_label(cbtext)
         return fig
         
@@ -919,6 +927,10 @@ class SourceInfo(Diagnostics):
             index=s.index)
 
     def cumulative_ts(self):
+        """ Cumulative TS
+        
+        A logN-logS plot, but using TS. Important thresholds at TS=10 and 25 are shown.
+        """
         df = self.df
         fig,ax = plt.subplots( figsize=(5,4))
         dom = np.logspace(1,5,1601)
@@ -1110,6 +1122,38 @@ class SourceInfo(Diagnostics):
              ylabel='fit qual',ylim=(1,1e3),yscale='log')
         ax.grid()
 
+    def flux_uncertainty(self):
+        """ flux uncertainty compared with TS
+        
+        """
+        fig, axx = plt.subplots(1,2, figsize=(10,4))
+        plots=[]
+        relflux_unc= self.df.flux_unc/self.df.flux
+        ts = np.asarray(self.df.ts, float)
+        ru= np.array(relflux_unc*100.,float)
+
+        def plot1(ax):   
+            dom = np.logspace(0,2,26)
+            ax.hist(ru[ts>9], dom, label='%d sources'% sum(ts>9))
+            for tsmin in (25,100,1000):
+                ax.hist(ru[ts>tsmin], dom, label='TS<%d' % tsmin )
+            plt.setp(ax, xscale='log', xlabel='relative flux uncertainty (%)', xlim=(1,100))
+            ax.set_xticklabels([1,10,100])
+            ax.grid()
+            ax.legend(loc='upper left', prop=dict(size=10))
+        plots.append(plot1)
+            
+        def plot2(ax):
+            ax.plot(ts, ru*np.sqrt(ts)/100, '.')
+            plt.setp(ax, xlabel='TS', xlim=(10,10000), xscale='log',
+                 yscale='log',ylabel='ru*sqrt(ts)', ylim=(0.8,4))
+            ax.plot([0.1,100], [0.1,100],'-g')
+            ax.grid()
+        plots.append(plot2)
+            
+        for plotf, ax in zip( (plots), axx.flatten(),):
+            plotf(ax)
+        return fig
     
     def all_plots(self):
         self.lowenergyfluxratio(hist=True)
@@ -1142,7 +1186,7 @@ class Localization(SourceInfo):
             Right: scatter plot of this vs. TS
             """
         bins=np.linspace(0,np.sqrt(maxdelta),26)
-        fig, axx = plt.subplots(1,2,figsize=(8,4)); 
+        fig, axx = plt.subplots(1,2,figsize=(10,5)); 
         plt.subplots_adjust(wspace=0.4)
         wp = self.df
         cut = wp.ts>mints
@@ -1165,7 +1209,7 @@ class Localization(SourceInfo):
             Right: scatter plot of the quality vs. TS.
         """
         bins=np.linspace(0,maxqual,26)
-        fig, axx = plt.subplots(1,2,figsize=(8,4)); 
+        fig, axx = plt.subplots(1,2,figsize=(10,5)); 
         plt.subplots_adjust(wspace=0.4)
         wp = self.df
         cut = wp.ts>mints
@@ -1193,22 +1237,29 @@ class FluxCorr(SourceInfo):
         self.source_name=kwargs.pop('source_name', 'fluxcorr')
         self.title='Source-galactic diffuse flux dependence'
         self.diffuse_name='Galactic'
+        self.delta = kwargs.get('delta', 0.01) # default delta is 1%
+
         
         self._readdata()
         
     def _readdata(self):
         # read in the flux correlation data, in DataFrame, combine to DataFrame
         fs, ps = self.load_pickles(self.source_name)
-        ndf = None
+        print 'Combining with Source info...'
+        #first combine the roi DataFrames
+        ndf = None 
         for x in ps:
-            if x is not None:
+            if len(x)>0:
                 ndf = ndf.append(x) if ndf is not None else x
                 
-        self.ndf = ndf
-        self.emins=(100, 1000, 4000) # assume 
+        self.df = self.df.join(ndf)
+        self.emins=(100, 316, 1000) # assume 
+        for emin in self.emins:
+            self.df['flux_dependence_ratio_%d'%emin]= \
+                (10**(ndf['par_p%d'%emin] - ndf['par_m%d'%emin])-1)/(2.*self.delta)
         
     def flux_sensitivity(self, axx=None, emin=100, **kwargs):
-        """ Galactic diffuse flux sensitivity, emin=%(emin)s
+        """ %(diffuse_name)s diffuse flux sensitivity, emin=%(emin)s
         
         Let fs be the flux sensitivity, defined as the ratio of measured flux change to change in Galactic diffuse
         left: histogram of fs<br>
@@ -1218,8 +1269,8 @@ class FluxCorr(SourceInfo):
         self.emin = emin
         colorbar = kwargs.pop('colorbar', True)
         if axx is None:
-            fig, axx = plt.subplots(1,3, figsize=(12,4))
-        flux_ratio = self.ndf['average_%d'%emin]
+            fig, axx = plt.subplots(1,3, figsize=(10,5))
+        flux_ratio = self.df['flux_dependence_ratio_%d'%emin]
         def plot1(ax):
             bins = np.linspace(-30,5,36)
             ax.hist(flux_ratio.clip(bins[0],bins[-1]), bins, label='%d sources'%flux_ratio.count())
@@ -1246,22 +1297,48 @@ class FluxCorr(SourceInfo):
         Columns are:
         left: histogram of fs;
         center: scatter plot, flux sensitivity vs. TS; 
-        right: Skymap for TS<100, showing that the sensitivity is limited to the galactic plane.
+        right: Skymap for TS<100, showing  where the highest sensitivity is located.
         """
 
-        fig, axx = plt.subplots(3,3, figsize=(12,12))
+        fig, axx = plt.subplots(3,3, figsize=(9,12))
         for i, emin in enumerate(self.emins):
             self.flux_sensitivity(axx[i,:], emin, colorbar=False)
         return fig
     
+    def ratio_vs_stat(self):
+        """Compare statistical error with systematic dependence
+        The red diagonal line corresponds to the relative statistical error being equal to the flux change for a 1%% change in the 
+        %(diffuse_name)s flux. Sources below this line are at risk.
+        The color represent the absolute value of the Galactic latitude.
+        """
+        fig, axx = plt.subplots(3,1, squeeze=False, figsize=(6,8))
+        plt.subplots_adjust(left=0.2,right=0.85)
+        def plot1(ax, emin=100):
+            fdr = -self.df['flux_dependence_ratio_%d' % emin]
+            relflux_unc = self.df['unc_z%d'%emin]*100.
+            scat=ax.scatter( fdr, relflux_unc, c = np.abs(np.array(self.df.glat,float)),edgecolor='none', s=10)
+            plt.setp(ax, xlabel='%s diffuse dependence ratio'%self.diffuse_name, xscale='log', xlim=(0.1,40),
+                 yscale='log', ylim=(1,100));
+            ax.plot([1.0, 100], (1,100.0),'r-')
+            ax.text(8, 1.5, 'emin=%d'%emin)
+            ax.grid(True)
+            return scat
+        scats = map(plot1, axx.flatten(), self.emins)
+        cbax = fig.add_axes((0.92, 0.3, 0.025, 0.4) )
+        cb = plt.colorbar(scats[0], cbax, orientation='vertical')
+        fig.text(0.1, 0.5, 'relative flux uncertainty (%)', va='center', rotation='vertical')
+        cb.set_label('abs(b)')
+        return fig
+    
     def all_plots(self):
-        self.runfigures([self.flux_sensitivity_all])
+        self.runfigures([self.flux_sensitivity_all, self.ratio_vs_stat])
 
 class FluxCorrIso(FluxCorr):
     def setup(self, **kw):
         super(FluxCorrIso,self).setup(source_name='fluxcorriso', **kw)
         self.title='Source-isotropic diffuse flux dependence'
         self.diffuse_name='Isotropic'
+        self.plotfolder='fluxcorriso'
 
         
 class GalDiffusePlots(Diagnostics):
@@ -1461,6 +1538,68 @@ class IsoDiffusePlots(GalDiffusePlots):
         self.savefigure('isotropic_bin0_bin1_difference')
        
 
+class HTMLindex():
+    style="""
+<style type="text/css">
+body {
+	font-family:verdana,arial,sans-serif;
+	font-size:10pt;
+	margin:10px;
+	background-color:white;
+	}
+</style>"""
+
+    menu_header="""<html> <head> <title>Plot index for model %(model)s </title> %(style)s 
+    <script> function load(){ parent.content.location.href = 'config.txt';} </script>
+    </head>
+<body onload="load()">
+<h2><a href="config.txt", target="content">%(model)s</a></h2>"""
+
+    top_nav="""<html> <head> <title>Top Nav</title> %(style)s 
+    <script> function load(){ parent.menu.location.href = '%(last_model)s';} </script>
+    </head>
+<body onload="load()">
+<h3>Skymodels</h3><p>""" 
+
+    def __init__(self, folder='plots/*'):
+        self.style = HTMLindex.style
+    
+        w= glob.glob(folder)
+        assert len(w)>0, 'Did not find any plot folders under %s' % folder
+        z = dict( zip(w, [glob.glob(a+'/*.htm*') for a in w] ) )
+        self.model = os.getcwd().split('/')[-1]
+        s= HTMLindex.menu_header % self.__dict__
+        
+        def parse_item(x):
+            head, tail =os.path.split(x)
+            name = os.path.splitext(tail)[0]
+            n = name.find('_uw')
+            return '<a href="%s" target="content">%s</a><br>' % (x,name[:n])
+
+        for k,v in z.items():
+            if len(v)==0: continue
+            s += '\n<h4>%s</h4>'% k.split('/')[-1]
+            s += '\n\t' + '\n\t'.join(map(parse_item, v)) 
+        self.ul = s + '\n</body>'
+        
+    def _repr_html_(self):    return self.ul
+    
+    def create_menu(self, filename='plot_index.html'):
+        open(filename, 'w').write(self.ul)
+        print 'wrote menu %s' % filename
+
+    def update_top(self, filename='../plot_browser/top_nav.html'):
+        def parse_model(x):
+            return '<a href="%s" target="menu"> %s </a>' %(x, x.split('/')[1])
+        models = sorted(glob.glob('../*/plot_index.html'))
+        self.last_model = models[-1]
+        s = HTMLindex.top_nav % self.__dict__
+        s += ' | '.join(map(parse_model, models))
+        s += '</p></body></html>\n'
+        open(filename, 'w').write(s)
+        print 'wrote top menu %s' % filename
+        
+
 opts = dict(
         counts=  (CountPlots,),
         sources= (SourceInfo, Localization,),
@@ -1473,15 +1612,18 @@ opts = dict(
         gal   =  (GalDiffusePlots,),
         fb=      (FrontBackSedPlots,),
         fluxcorr=(FluxCorr,),
+        fluxcorriso=(FluxCorrIso,),
         ) 
         
 def main(args):
     args=args.split()
     np.seterr(invalid='warn', divide='warn')
+    success=True
     for arg in args:
         if arg not in opts.keys():
             print 'found %s; expect one of %s' % (arg, opts.keys())
             continue
+            success = False
         try:
             for cls in opts[arg]:
                 cls('.').all_plots()
@@ -1489,12 +1631,16 @@ def main(args):
         except FloatingPointError, msg:
             print 'Floating point error running %s: "%s"' % (arg, msg)
             print 'seterr:', np.seterr()
+            success=False
         except Exception, msg:
             print 'Exception running %s: "%s"' % (arg, msg)
-        
+            success = False
+    if success: HTMLindex().create_menu()
+    return success    
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='run a diagnostic output job; must be in skymodel folder')
     parser.add_argument('args', nargs='+', help='processsor identifier: must be one of %s' %opts.keys())
     args = parser.parse_args()
-    main(args.args)
+    if not main(args.args):
+        raise Exception
     
