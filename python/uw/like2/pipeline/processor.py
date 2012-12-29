@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.31 2012/12/26 22:11:39 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.32 2012/12/27 15:49:38 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -372,6 +372,37 @@ def process(roi, **kwargs):
     if outtee is not None: outtee.close() 
     return chisq
 
+def localize(roi, **kwargs):
+    """ special processor to perform localization for tests """
+    outdir = kwargs.get('outdir')
+    tsmin = kwargs.get('tsmin', 10)
+    logpath = os.path.join(outdir, 'log')
+    locdir = os.path.join(outdir, 'localization')
+    if not os.path.exists(locdir): os.mkdir(locdir)
+    outtee = OutputTee(os.path.join(logpath, roi.name+'.txt'))
+    print  '='*80
+    print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (roi.name,))
+    emin = kwargs.pop('emin', None)
+    if emin is not None:
+        roi.select_bands(emin=emin)
+    # extract only relevant keywords
+    loc_kw =dict() 
+    for x in localization.Localization.defaults:
+        kw = x[0]
+        if kw in kwargs:
+            loc_kw[kw]=kwargs[kw]
+    localization.localize_all(roi, **loc_kw)
+    sources = [s for s in roi.sources if s.skydir is not None\
+        and np.any(s.spectral_model.free) and s.ts>tsmin\
+        and s.__dict__.get(  'spatial_model', None) is None ]
+
+    for source in sources:
+        outfile = os.path.join(locdir, source.name.replace(' ', '_').replace('+','p')+'.pickle')
+        pickle.dump(source, open(outfile, 'w'))
+        print 'wrote file %s' % outfile
+    outtee.close()
+
+    
 def table_processor(roi, **kwargs):
     """ do only tables """
     outdir = kwargs.get('outdir')
