@@ -1,7 +1,7 @@
 """
 setup and run pointlike all-sky analysis for subset of ROIs
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.8 2012/12/26 18:47:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.9 2012/12/27 15:49:02 burnett Exp $
 """
 import os, sys, logging
 from collections import OrderedDict
@@ -19,27 +19,22 @@ defaults=OrderedDict([
 	('HOSTNAME', '?'),
 	('PIPELINE_STREAMPATH', '-1'),
 	('PIPELINE_STREAM', '-1'),
-
+    
     ('POINTLIKE_DIR','.'),
     ('SKYMODEL_SUBDIR','?'),
     ('stage', '?'),
-    ('begin_roi','0'), # defaults for test.
-    ('end_roi', '1'),
+    ('begin_roi','2'), # defaults for test: #2 has one source
+    ('end_roi', '3'),
     ])
  
- 
-def main(args=None):
+def main( update):
+
     print '\npointlike skymodel configuration'
     for key,default_value in defaults.items():
         item = (key, os.environ.get(key, default_value))
         exec('%s="%s"'%item)
         print '\t%-20s: %s' % item
-
-    if args is not None and args.test:
-        print 'test mode, quitting'
-        return 
-    # make sure that matplotlib conif is ok
-    #os.environ['MPLCONFIGDIR'] = POINTLIKE_DIR+'./matplotlib
+    print '--> executing:\n', update.setup()
     np.seterr(invalid='warn', divide='warn')
 
     streamlogdir = os.path.join(POINTLIKE_DIR,SKYMODEL_SUBDIR,'streamlogs')
@@ -63,27 +58,7 @@ def main(args=None):
 
     mstage = stage
     stage=stage.split(':')[0] # allows multiple stages, separated by colons
-    
-
-    if stage==  'create':       update = pipe.Create()
-    elif stage=='update_full':  update = pipe.Update( dampen=1.0, sedfig_dir=None, )
-    elif stage=='update':       update = pipe.Update( dampen=0.5, sedfig_dir=None, )
-    elif stage=='update_beta': # do an update, freeing/freezing beta when appropriate
-                                update = pipe.Update( dampen=1.0, sedfig_dir=None, fix_beta=True)
-    elif stage=='update_pivot': # do an update, modifying pivot energy when appropriate
-                                update = pipe.Update( dampen=1.0, sedfig_dir=None, repivot=True)
-    elif stage=='finish':       update = pipe.Finish()
-    elif stage=='tables':       update = pipe.Tables()
-    elif stage=='sedinfo':      update = pipe.Update( processor='processor.full_sed_processor', sedfig_dir='"sedfig"',)
-    elif stage=='diffuse':      update = pipe.Update( processor='processor.roi_refit_processor')
-    elif stage=='isodiffuse':   update = pipe.Update( processor='processor.iso_refit_processor')
-    elif stage=='limb':         update = pipe.Update( processor='processor.limb_processor')
-    elif stage=='fluxcorr':     update = pipe.Update( processor='processor.flux_correlations')
-    elif stage=='fluxcorrgal':  update = pipe.Update( processor='processor.flux_correlations')
-    elif stage=='fluxcorriso':  update = pipe.Update( processor='processor.flux_correlations(diffuse="iso*", fluxcorr="fluxcorriso")')
-    elif stage=='pulsar_table': update = pipe.PulsarLimitTables() 
-    else:
-        raise Exception('stage "%s" not recognized' % stage)
+        
     g = update.g()
     tprev, tnow= tnow, logging.time.time()
     logging.info('Finish: elapsed= %.1f (total %.1f)' % ( tnow-tprev, tnow-tzero ))
@@ -97,5 +72,5 @@ def main(args=None):
         logging.info('Finish: elapsed= %.1f (total %.1f)' % ( tnow-tprev, tnow-tzero ))
         sys.stdout.flush()
 
-if __name__=='__main__':
-    main()
+#if __name__=='__main__':
+#    main()
