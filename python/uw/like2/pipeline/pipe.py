@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.31 2012/12/26 18:47:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.32 2012/12/27 15:49:02 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
@@ -443,7 +443,7 @@ class Create(Update):
         model_dir points to the new model, which must have an entry "input_model" in its config.txt
         also look for keys auxcat and skymodel_kw
     """
-    def __init__(self, analysisdir='.', indir='.',  **kwargs):
+    def __init__(self, analysisdir='.', model_dir='.',  **kwargs):
         """
         
         """
