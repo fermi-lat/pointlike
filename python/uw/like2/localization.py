@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.7 2012/11/26 15:57:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.8 2012/11/26 17:15:49 burnett Exp $
 
 """
 import os
@@ -226,8 +226,8 @@ def localize_all(roi, **kwargs):
     """
     tsmin = kwargs.get('tsmin',10)
     sources = [s for s in roi.sources if s.skydir is not None\
-            and np.any(s.spectral_model.free) and s.ts>tsmin\
-            and s.__dict__.get(  'spatial_model', None) is None ]
+            and s.__dict__.get(  'spatial_model', None) is None \
+            and np.any(s.spectral_model.free) and s.ts>tsmin]
     tsmap_dir = kwargs.pop('tsmap_dir', None)
     associator = kwargs.pop('associator', None)
     tsfits = kwargs.pop('tsfits', False) #TODO: reimplement this to generate FITS maps
