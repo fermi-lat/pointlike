@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Dec 29 08:28:07 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	pipeline_job.py uwpipeline.py 
+Log Message:
+move stage check from pipeline_job to uwpipeline
+    *
+------------------------------------------------------------
 User: burnett  Fri Dec 28 18:07:14 PST 2012
 pointlike/python/uw/like2/pipeline
 
