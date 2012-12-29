@@ -1,14 +1,14 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.4 2012/12/26 13:41:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.5 2012/12/26 18:47:53 burnett Exp $
 """
 import os, argparse
 import numpy as np
 from uw.like2.pipeline import check_data
 from uw.like2.pipeline import pipeline_job
 from uw.like2.pipeline import check_converge
-from uw.like2.pipeline import diagnostic_plots
+from uw.like2.pipeline import diagnostic_plots, pipe
 
 class StartStream(object):
     """ setup, start a stream """
@@ -22,16 +22,25 @@ class StartStream(object):
                 os.system(cmd)
 
 class Summary(object):
-    def main(self, args):
+    def get_stage(self, args):
         stagelist = args.stage[0] 
         t = stagelist.split(':',1)
         if len(t)==2:
             stage, nextstage = t 
         else: stage,nextstage = t[0], None
+        return stage
+    def main(self, args):
+        stage = self.get_stage(args)
         kw = stagenames[stage].get('sum', None)
         if kw is not None:
             diagnostic_plots.main(kw)
-
+            
+class JobProc(Summary):
+    """ process args for running pipeline jobs"""
+    def main(self, args):
+        stage = self.get_stage(args)
+        setup = stagenames[stage].setup()
+        pipeline_job.main(setup)
    
 class Proc(dict):
     def __init__(self, run, help='', **kwargs):
@@ -47,35 +56,37 @@ procnames = dict(
     # start actually launches a stream
     start      = Proc(StartStream(), help='start a stream'),
     check_data = Proc(check_data, help='check that required data files are present'),
-    job_proc   = Proc(pipeline_job, help='run a parallel pipeline job'),
+    job_proc   = Proc(JobProc(),  help='run a parallel pipeline job'),
     check_jobs = Proc(check_converge, help='check for convergence, combine results, possibly submit new stream'),
     summary_plots= Proc(Summary(), help='Process summaries, need stage'),
     )
     
 class Stage(dict):
-    def __init__(self, help='', **kwargs):
-        super(Stage,self).__init__(help=help, **kwargs)
+    def __init__(self, proc, pars, help='', **kwargs):
+        super(Stage,self).__init__(proc=proc, pars=pars, help=help, **kwargs)
+    def setup(self):
+        return self['proc'](**self['pars'])
 
 stagenames = dict(
-    # List of possible stages
-    # not yet coordinated with redundant lists in pipeline_job, check_converge
-    # eventually put in code perhaps
-    create      = Stage(sum='counts', help='Create a new skymodel'),
-    update_full = Stage(sum='counts',help='perform update'),
-    update      = Stage(sum='counts',help='perform update'),
-    update_beta = Stage(sum='counts',help='update beta'),
-    update_pivot= Stage(sum='counts',help='update pivot'),
-    finish      = Stage(sum='sources diffuse',help='perform localization'),
-    tables      = Stage(help='create tables'),
-    sedinfo     = Stage(sum='fb', help=''),
-    diffuse     = Stage(sum='gal', help=''),
-    isodiffuse  = Stage(sum='iso', help=''),
-    limb        = Stage(sum='limb',help=''),
-    fluxcorr    = Stage(sum='fluxcorr', help=''),
-    fluxcorriso = Stage(sum='fluxcorriso', help=''),
-    pulsar_table= Stage(help=''),
-)
-
+    # List of possible stages, with proc to run, parameters for it,  summary string
+    # list is partly recognized by check_converge.py, TODO to incoprorate it here, especially the part that may start a new stream
+    create     =  Stage(pipe.Create, {}, sum='counts', help='Create a new skymodel'),
+    update_full =  Stage(pipe.Update, dict( dampen=1.0,),sum='counts',help='perform update' ),
+    update      =  Stage(pipe.Update, dict( dampen=0.5,),sum='counts',help='perform update' ),
+    update_beta =  Stage(pipe.Update, dict( dampen=1.0, fix_beta=True),sum='counts',help='perform update', ),
+    update_pivot=  Stage(pipe.Update, dict( dampen=1.0, repivot=True), sum='counts',help='update pivot', ), 
+    finish      =  Stage(pipe.Finish, {}, sum='sources diffuse',help='perform localization', ),
+    tables      =  Stage(pipe.Tables, {}, help='create tables',),
+    sedinfo     =  Stage(pipe.Update, dict( processor='processor.full_sed_processor',sedfig_dir='"sedfig"',), sum='fb', ),
+    diffuse     =  Stage(pipe.Update, dict( processor='processor.roi_refit_processor'), sum='gal', ),
+    isodiffuse  =  Stage(pipe.Update, dict( processor='processor.iso_refit_processor'), sum='iso', ),
+    limb        =  Stage(pipe.Update, dict( processor='processor.limb_processor'), sum='limb', ),
+    fluxcorr    =  Stage(pipe.Update, dict( processor='processor.flux_correlations'), sum='fluxcorr', ),
+    fluxcorrgal =  Stage(pipe.Update, dict( processor='processor.flux_correlations'), sum='flxcorriso', ),
+    fluxcorriso =  Stage(pipe.Update, dict( processor='processor.flux_correlations(diffuse="iso*", fluxcorr="fluxcorriso")'), ),
+    pulsar_table=  Stage(pipe.PulsarLimitTables, {}),
+    localize    =  Stage(pipe.Update, dict( processor='processor.localize(emin=1000.)'), help='localize with energy cut' ),
+) 
 keys = stagenames.keys()
 stage_help = 'stage name, or sequential stages separaged by : must be one of %s' %keys
 
