@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.33 2012/12/29 16:28:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.34 2012/12/29 17:02:29 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -693,7 +693,7 @@ def flux_correlations(roi, **kwargs):
             for suffix, delt in zip('z p m'.split(), (0,delta,-delta)):
                 self.fit(suffix+'%d'%emin, delt)
     outdir= kwargs.get('outdir')
-    emin = kwargs.get('emin', None)
+    eminlist = kwargs.get('eminlist', (100, 316, 1000) )
     flux_corr_dir = os.path.join(outdir, kwargs.get('fluxcorr', 'fluxcorr'))
     if not os.path.exists(flux_corr_dir): os.mkdir(flux_corr_dir)
     
@@ -704,7 +704,7 @@ def flux_correlations(roi, **kwargs):
     diffuse=kwargs.get('diffuse', 'ring')
     print 'Running diffuse dependence for %s'%diffuse
     t = DiffuseDependence(roi, diffuse=diffuse)
-    for emin in 100, 1000, 4000:
+    for emin in eminlist:
         t.run(emin)
     
     fname = os.path.join(flux_corr_dir,'%s_fluxcorr.pickle' %roi.name)
