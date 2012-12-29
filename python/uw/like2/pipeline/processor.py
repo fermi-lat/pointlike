@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.32 2012/12/27 15:49:38 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.33 2012/12/29 16:28:34 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -393,8 +393,8 @@ def localize(roi, **kwargs):
             loc_kw[kw]=kwargs[kw]
     localization.localize_all(roi, **loc_kw)
     sources = [s for s in roi.sources if s.skydir is not None\
-        and np.any(s.spectral_model.free) and s.ts>tsmin\
-        and s.__dict__.get(  'spatial_model', None) is None ]
+        and s.__dict__.get(  'spatial_model', None) is None \
+        and np.any(s.spectral_model.free) and s.ts>tsmin]
 
     for source in sources:
         outfile = os.path.join(locdir, source.name.replace(' ', '_').replace('+','p')+'.pickle')
