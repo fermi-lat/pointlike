@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.45 2012/12/26 22:13:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.46 2012/12/29 02:07:14 burnett Exp $
 
 """
 
@@ -205,7 +205,12 @@ class CountPlots(Diagnostics):
                     t.append(np.zeros(len(self.energy)))
             self.counts[key]= pd.DataFrame(t, index=roinames)
 
-        
+    def counts_map(self):
+        """ Sum, for E>100 Mev
+        """
+        obs = self.counts['observed']
+        total = np.array([sum(x[1]) for x in obs.iterrows()])
+        sy
     def residual(self, ib):
         """ residual DF array for energy band ib 
         """
@@ -245,11 +250,13 @@ class CountPlots(Diagnostics):
         fig, axs = plt.subplots( 1,2, figsize=(8,3))
         plt.subplots_adjust(wspace=0.3)
         ax = axs[1]
-        self.skyplot(self.rois.chisq, ax=ax, vmin=vmin, vmax=vmax);
+        chisq = self.rois.chisq
+        self.skyplot(chisq, ax=ax, vmin=vmin, vmax=vmax);
         ax = axs[0]
         bins = np.linspace(0,100, 26)
-        ax.hist(self.rois.chisq.clip(0,100), bins, label='all')
-        ax.hist(self.rois.chisq.clip(0,100)[np.abs(self.rois.glat)<bcut], bins, color='red', label='|b|<%d'%bcut)
+        lolat = np.abs(self.rois.glat)<bcut
+        ax.hist(chisq.clip(0,100), bins, label='all: mean=%.1f'%chisq.mean())
+        ax.hist(chisq.clip(0,100)[lolat], bins, color='red', label='|b|<%d (%.1f)'%(bcut, chisq[lolat].mean()))
         ax.legend(loc='upper right', prop=dict(size=10)) 
         plt.setp(ax, xlabel='chisq')
         ax.grid(True)
@@ -508,6 +515,7 @@ class ROIinfo(Diagnostics):
     def setup(self, **kwargs):
         self.plotfolder='rois'
         self.title='ROI summary'
+        self.source_name='observed' # default for base class
       
         filename = 'rois.pickle'
         refresh = kwargs.pop('refresh', not os.path.exists(filename) 
@@ -535,10 +543,10 @@ class ROIinfo(Diagnostics):
             self.df = pd.load(filename)
         self.energy=self.df.ix[0]['counts']['energies']
         
-    def skyplot(self, values, ax=None, title='', s=20, vmin=None, vmax=None, ecliptic=False,
+    def skyplot(self, values, ax=None, title='', s=50, vmin=None, vmax=None, ecliptic=False,
                     labels=True, colorbar=True, cbtext=''):
         if ax is None:
-            fig, ax = plt.subplots( 1,1, figsize=(5,4))
+            fig, ax = plt.subplots( 1,1, figsize=(6,5))
         else: fig = ax.figure
         singlat=np.sin(np.radians(list(self.df.glat)))
         scat =ax.scatter(self.df.glon, singlat, s=s, 
@@ -559,13 +567,33 @@ class ROIinfo(Diagnostics):
         return fig, scat # so can add colorbar later
 
     def model_counts(self, name, ib=0):
-        """ list of counts per ROI for model name, energy bin ib
+        """ 
+        return an array, in ROI order, of the counts corresponding to the name
+            name: string
+                either 'observed', the name of a diffuse model, or 'sources' for the total
+            ib : int or None
+                the energy bin number, of return a sum if None
         """
+        def select_band(x):
+            return x[ib] if ib is not None else x.sum()
+        if name=='observed':
+            return np.array([ select_band(self.df.ix[i]['counts']['observed']) for i in range(1728)])
+        def source_counts(i):
+            m = self.df.ix[i]['counts']['models']
+            dn = self.df.ix[i]['diffuse_names']
+            r=0
+            for nm, cnts in m:
+                if nm in dn: continue
+                r+= select_band(cnts)
+            return r 
+        if name=='sources':
+            return np.array(map(source_counts, range(1728)))
+            
         def cts(i):
             m = self.df.ix[i]['counts']['models']
             dn = self.df.ix[i]['diffuse_names']
             k = dn.index(name) if name in dn else -1
-            return m[k][1][ib] if k>=0 else 0
+            return select_band(m[k][1]) if k>=0 else 0
         return np.array(map(cts, range(len(self.df))))
 
     def diffuse_models(self,  name):
@@ -578,26 +606,40 @@ class ROIinfo(Diagnostics):
             return pkl['diffuse'][m.index(name)]
         return map(mdl, range(1728))
 
-    def counts_map(self, ib=0, title='', **kwargs):
-        """ counts map
-        
+    def counts_map(self,  title='', **kwargs):
+        """ counts map for %(title)s
+        For each ROI, the total counts corresponding to the %(title)s component, 
+        for %(energy_selection)s MeV.
         """
+        ib = kwargs.pop('ib', None)
+        self.energy_selection= 'E=%.0f' %self.energy[ib] if ib is not None else 'E>100'
         c = self.model_counts(self.source_name, ib)
         cbtext='counts'
         if kwargs.pop('log', True):
             c = np.log10(c)
             cbtext = 'log10(counts)'
-        return self.skyplot(c, cbtext=cbtext,
-            title='%s counts at %d MeV' % ( title, self.energy[ib]), **kwargs)
+        if ib is not None:
+            return self.skyplot(c, cbtext=cbtext,
+                title='%s counts at %d MeV' % ( title, self.energy[ib]), **kwargs)
+        else:
+            return self.skyplot(c, cbtext=cbtext, title=title,  **kwargs)
         
-    def count_fraction(self, ib=0, title='', **kwargs):
+        
+    def count_fraction(self,  title='', **kwargs):
         """ Count Fraction for %(title)s
-        For each ROI, the fraction of %(title)s counts
+        For each ROI, the fraction of %(title)s counts, 
+        for %(energy_selection)s MeV.
         """
+        ib = kwargs.pop('ib', None)
+        self.energy_selection= 'E=%.0f' %self.energy[ib] if ib is not None else 'E>100'
+
         sm = self.model_counts(self.source_name, ib)
-        tot = np.array([self.df.ix[i]['counts']['observed'][ib] for i in range(1728)])
-        return self.skyplot(100*(sm/tot), title='%s count fraction at %d MeV' % (title, self.energy[ib]),
-            cbtext='fraction (%)', **kwargs)
+        tot = self.model_counts('observed', ib)
+        if ib is not None:
+            return self.skyplot(100*(sm/tot), title='%s count fraction at %d MeV' % (title, self.energy[ib]),
+                cbtext='fraction (%)', **kwargs)
+        else:
+            return self.skyplot(100*(sm/tot), title=title,  cbtext='fraction (%)', **kwargs)
 
     def normalization(self, vmin=0.8, vmax=1.2, clip =(0.5,1.5), **kw):
         """ normalization factor for %(title)s
@@ -643,7 +685,50 @@ class ROIinfo(Diagnostics):
         self.savefigure('%s_count_fraction'%self.source_name, func=self.count_fraction)
         self.savefigure('%s_norm_vs_dec'%self.source_name, func=self.norm_vs_dec)
 
+class Exposure(ROIinfo):
 
+    def setup(self, **kw):
+        super(Exposure, self).setup(**kw)
+        self.plotfolder='exposure'
+        # use the fact that the isotopic diffuse compoenent is isotropic, so that
+        # the ratio of the computed counts, to the fit normalization, is proportional
+        # to the exposure.
+        iso = self.model_counts('isotrop')
+        models = self.diffuse_models('isotrop')
+        norms = np.array([m.getp(0) if m is not None else np.nan for m in models])
+        self.relative_exp = iso/norms/(iso/norms).mean()
+        
+    def exposure_plots(self):
+        """ exposure dependence
+        Examine the relative exposure, per ROI. Express in terms of the mean. Note that
+        ROIs are distributed uniformly over the sky.
+        <p>Left: histogram, center: scatter plot vs. Declination; right: map on sky, in Galactic coordinates.
+        
+        """
+        fig, axx = plt.subplots(1,3, figsize=(15,4))
+        relative_exp = self.relative_exp
+        label = 'exposure relative to mean'
+        lim = (0.7, 1.6)
+        def left(ax):
+            ax.hist(relative_exp, np.linspace(*lim))
+            plt.setp(ax, xlim=lim, xlabel=label)
+            ax.axvline(1.0, color='k')
+            ax.grid()
+
+        def center(ax):
+            ax.plot(self.df.dec, relative_exp, '.')
+            ax.grid()
+            plt.setp(ax, xlim=(-90,90), xlabel='Dec (deg)',ylabel=label, ylim=lim)
+            ax.set_xticks(range(-90,91,30))
+            ax.axhline(1, color='k')
+        def right(ax):
+            self.skyplot(relative_exp, ax=ax)
+        
+        for f,ax in zip((left, center, right), axx.flatten()): f(ax)
+        return fig
+    def all_plots(self, **kw):
+        self.runfigures([self.exposure_plots])
+    
 class SunMoon(ROIinfo):
     def setup(self, **kwargs):
         super(SunMoon, self).setup(**kwargs)
@@ -797,7 +882,8 @@ class Isotropic(ROIinfo):
     def isotropic_spectrum(self):
         """ Isotropic Spectrum from template
         
-        Files for front/back: %(idfiles)s
+        The spectrum used to define the isotropic diffuse component.
+        <br>Files for front/back: %(idfiles)s
         """
         config = eval(open('config.txt').read())
         diffuse=config['diffuse']
@@ -805,23 +891,37 @@ class Isotropic(ROIinfo):
         nf,nb = map(np.loadtxt, self.idfiles)
         energies = nf[:,0]; front,back = nf[:,1],nb[:,1]
         fig, axs = plt.subplots(1,2, figsize=(7,3), dpi=50)
-        ax= axs[1]
-        ax.plot(energies, front/back, '-o');
-        ax.axhline(1.0, color='k')
-        plt.setp(ax, xscale='log', xlabel='Energy');ax.grid(True);
-        ax.set_title('Isotropic flux front/back ratio', fontsize='small');
-        ax = axs[0]
-        ax.plot(energies, front*energies**2, '-g', label='front')
-        ax.plot(energies, back*energies**2, '-r', label='back')
-        plt.setp(ax, xlabel='Energy', ylabel='flux*e**2', xscale='log')
-        ax.set_title('isotropic diffuse spectra', fontsize='small')
-        ax.grid(True); ax.legend()
+        def right(ax):
+            ax.plot(energies, front/back, '-o');
+            ax.axhline(1.0, color='k')
+            plt.setp(ax, xscale='log', xlabel='Energy');ax.grid(True);
+            ax.set_title('Isotropic flux front/back ratio', fontsize='small');
+        def left(ax):
+            ax.plot(energies, front*energies**2, '-g', label='front')
+            ax.plot(energies, back*energies**2, '-r', label='back')
+            plt.setp(ax, xlabel='Energy', ylabel='flux*e**2', xscale='log')
+            ax.set_title('isotropic diffuse spectra', fontsize='small')
+            ax.grid(True); ax.legend()
+        for f,a in zip((left,right), axs.flatten()): f(a)
+        return fig
         
     def all_plots(self, **kwargs):
         super(Isotropic, self).all_plots(**kwargs)
         self.runfigures([self.isotropic_spectrum,])
 
     
+class SourceTotal(ROIinfo):
+    def setup(self, **kw):
+        super(SourceTotal, self).setup(**kw)
+        self.plotfolder='sources'
+        self.source_name='sources'
+        self.title='Sources'
+    def all_plots(self, **kwargs):
+        self.savefigure('%s_counts'%self.source_name, func=self.counts_map)
+        self.savefigure('%s_count_fraction'%self.source_name, func=self.count_fraction)
+
+
+
 class SourceInfo(Diagnostics):
     """ To be superclass for specific source plot stuff, creates or loads
         a DataFrame with all sources 
@@ -926,37 +1026,39 @@ class SourceInfo(Diagnostics):
         return pd.DataFrame(dict(fdata=fdata, udata=udata, ldata=ldata, fmodel=fmodel, glat=s.glat, glon=s.glon),
             index=s.index)
 
-    def cumulative_ts(self):
+    def cumulative_ts(self, tscut=(10,25)):
         """ Cumulative TS
         
         A logN-logS plot, but using TS. Important thresholds at TS=10 and 25 are shown.
         """
         df = self.df
-        fig,ax = plt.subplots( figsize=(5,4))
-        dom = np.logspace(1,5,1601)
+        fig,ax = plt.subplots( figsize=(8,6))
+        dom = np.logspace(np.log10(9),5,1601)
         ax.axvline(25, color='gray', lw=1) 
         ax.hist( df.ts ,dom, cumulative=-1, lw=2, color='g', histtype='step')
         localized = ~np.array(pd.isnull(df.ellipse))
         extended = np.array(df.isextended, dtype=bool)
         unloc = ~ (localized | extended)
-        ul = df[unloc * df.ts>10].sort_index(by='roiname')
+        ul = df[unloc * df.ts>tscut[0]].sort_index(by='roiname')
         # this sorted, can print out if needed
 
         n = len(ul)
         if n>10:
             ax.hist(ul.ts ,dom, cumulative=-1, lw=2, color='r', histtype='step',
                 label='no localization')
-            ax.text(12,n, 'failed localization:%d'%n, fontsize=10, color='r')
-        plt.setp(ax,  ylabel='sources with greater TS', xlabel='TS',
-            xscale='log', yscale='log', xlim=(10, 1e4), ylim=(10,8000))
+            ax.text(12, n, 'failed localization (TS>%d) :%d'%(tscut[0],n), fontsize=12, color='r')
+        plt.setp(ax,  ylabel='# sources with greater TS', xlabel='TS',
+            xscale='log', yscale='log', xlim=(9, 1e4), ylim=(9,8000))
+        ax.set_xticklabels([' ', '10', '100', '1000'])
+        ax.set_yticklabels(['', '10', '100', '1000'])
             
         # label the plot with number at given TS
-        for t in (10,25):
+        for t in tscut:
             n = sum(df.ts>t) 
             ax.plot([t,2*t], [n,n], '-k');
-            ax.text(2*t, n, '%d'%n, fontsize=10, va='center')
+            ax.plot(t, n, 'og')
+            ax.text(2*t, n, 'TS>%d: %d'%(t,n), fontsize=14, va='center')
                 
-        ax.set_title('cumulative TS distribution', fontsize='medium')
         ax.grid()
         return fig
 
@@ -1059,28 +1161,40 @@ class SourceInfo(Diagnostics):
     def fit_quality(self, xlim=(0,50), ndf=12):
         """ Fit quality
         This is the difference between the TS from the fits in the individual energy bands, and that for the spectral fit.
-        It should be distributed as chi squared of 14-2 =12 degrees of freedom.
-        Spectral models shown are log parabola and power law. 
+        It should be distributed as chi squared of 14-2 =12 degrees of freedom.<br>
+        Left: non-pulsar fits, showing the powerlaw subset. This is important since these can in principle be 
+        improved by converting to log parabola.
+        <br>Right: Fits for the pulsars. 
         """
         from scipy import stats
-        fig, ax = plt.subplots(figsize=(4,4))
+        fig, axx = plt.subplots(1,2, figsize=(10,5))
         s = self.df
         s['beta'] = s.pars
         logparabola = s.modelname=='LogParabola'
         beta = np.array([pars[2] for pars in s.pars])
         cut=s.band_ts>20
-        cut*=(logparabola)
-        cut*=(beta<0.01)
         fitqual = s.band_ts-s.ts
         dom = np.linspace(xlim[0],xlim[1],26)
-        ax.hist(fitqual.clip(*xlim), dom, label='all non-PSR')
-        ax.hist(fitqual[cut].clip(*xlim), dom, label=' powerlaw')
-        chi2 = lambda x: stats.chi2.pdf(x,ndf)
         d = np.linspace(xlim[0],xlim[1],51); delta=dom[1]-dom[0]
+        chi2 = lambda x: stats.chi2.pdf(x,ndf)
         fudge = 1.4 # to scale, not sure why
-        ax.plot(d, chi2(d)*fitqual.count()*delta/fudge, 'r', lw=2, label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
-        ax.grid(); ax.set_ylim(ymax=600); ax.set_xlabel('fit quality')
-        ax.legend(prop=dict(size=10))
+        
+        def left(ax):
+            mycut=cut*(logparabola)
+            ax.hist(fitqual[mycut].clip(*xlim), dom, label='all non-PSR')
+            ax.hist(fitqual[mycut*(beta<0.01)].clip(*xlim), dom, label=' powerlaw')
+            ax.plot(d, chi2(d)*fitqual[mycut].count()*delta/fudge, 'r', lw=2, label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
+            ax.grid(); ax.set_ylim(ymax=500); ax.set_xlabel('fit quality')
+            ax.legend(prop=dict(size=10))
+        def right(ax):
+            mycut = cut*(~logparabola)
+            ax.hist(fitqual[mycut].clip(*xlim), dom, label='PSR')
+            ax.plot(d, chi2(d)*fitqual[mycut].count()*delta/fudge, 'r', lw=2, label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
+            ax.grid();ax.set_xlabel('fit quality')
+            ax.legend(loc='upper left', prop=dict(size=10))
+        
+        left(axx[0])
+        right(axx[1])
         return fig
         
     def pivot_vs_e0(self, xylim=(100, 4e4)):
@@ -1171,14 +1285,13 @@ class SourceInfo(Diagnostics):
         
  
 class Localization(SourceInfo):
+
     def setup(self, **kw):
         super(Localization, self).setup(**kw)
-        # need delta_ts, localization fit quality
-        el= self.df.ellipse # fit_ra fit_dec a b ang qual delta_ts
-        self.df['a'] = [x[2] if x is not None else np.nan  for x in el]
-        self.df['delta_ts']=[x[6] if x is not None else np.nan  for x in el]
-        self.df['locqual']=[x[5] if x is not None else np.nan  for x in el]
-        
+        # unpack the ellipse info into a new DataFrame
+        self.ebox = pd.DataFrame([x if x is not None else [np.nan]*7 for x in self.df.ellipse], index=self.df.index)
+        self.ebox.columns = 'fit_ra fit_dec a b ang locqual delta_ts'.split()
+
     def localization(self, maxdelta=9, mints=10):
         """Localization plots
             Left: histogram of the square root of the TS difference from current position to
@@ -1188,16 +1301,18 @@ class Localization(SourceInfo):
         bins=np.linspace(0,np.sqrt(maxdelta),26)
         fig, axx = plt.subplots(1,2,figsize=(10,5)); 
         plt.subplots_adjust(wspace=0.4)
-        wp = self.df
-        cut = wp.ts>mints
+        wp = self.ebox
+        cut = self.df.ts>mints
         ax=axx[0]
-        ax.hist(np.sqrt(wp.delta_ts[cut].clip(0,maxdelta)), bins)
-        ax.hist(np.sqrt(wp.delta_ts[wp.ts>100].clip(0,maxdelta)), bins,label='TS>100')
+        for tcut in (mints, 100):
+            t = np.sqrt(wp.delta_ts[self.df.ts>tcut].clip(0,maxdelta))
+            ax.hist(t, bins, label='ts>%d: mean=%.2f'%(tcut, t.mean()) )
+        #ax.hist(np.sqrt(wp.delta_ts[self.df.ts>100].clip(0,maxdelta)), bins,label='TS>100\nmean:%f.1'%wp.delta)
         ax.legend(prop=dict(size=10))
         ax.grid()
         plt.setp(ax, xlabel='sqrt(delta TS)')
         ax=axx[1]
-        ax.plot( wp.ts[cut],np.sqrt(wp.delta_ts[cut].clip(0,maxdelta)), '.')
+        ax.plot( self.df.ts[cut],np.sqrt(wp.delta_ts[cut].clip(0,maxdelta)), '.')
         ax.grid()
         plt.setp(ax, xscale='log', xlabel='TS', ylabel='sqrt(delta TS)')
         return fig
@@ -1211,16 +1326,16 @@ class Localization(SourceInfo):
         bins=np.linspace(0,maxqual,26)
         fig, axx = plt.subplots(1,2,figsize=(10,5)); 
         plt.subplots_adjust(wspace=0.4)
-        wp = self.df
-        cut = wp.ts>mints
+        wp = self.ebox
+        cut = self.df.ts>mints
         ax=axx[0]
         ax.hist(wp.locqual[cut].clip(0,maxqual), bins)
-        ax.hist(wp.locqual[wp.ts>100].clip(0,maxqual), bins,label='TS>100')
+        ax.hist(wp.locqual[self.df.ts>100].clip(0,maxqual), bins,label='TS>100')
         ax.legend(prop=dict(size=10))
         ax.grid()
         plt.setp(ax, xlabel='localization fit quality')
         ax=axx[1]
-        ax.plot( wp.ts[cut],wp.locqual[cut].clip(0,maxqual), '.')
+        ax.plot( self.df.ts[cut],wp.locqual[cut].clip(0,maxqual), '.')
         ax.grid()
         plt.setp(ax, xscale='log', xlim=(10,1e5), xlabel='TS', ylabel='localization fit quality')
         return fig 
@@ -1228,6 +1343,52 @@ class Localization(SourceInfo):
     def all_plots(self):
         return self.runfigures([self.localization,self.localization_quality])
 
+
+class Localization1K(Localization):
+    """ load and analyze a special localization-only run"""
+    def setup(self, zipname='localization', ecut=1000,  **kw):
+        super(Localization1K, self).setup(**kw)
+        try:
+            f, pk = self.load_pickles(zipname)
+        except:
+            print 'failed to load %s, which should have zipped pickles of sources after localization attempt'%zipname
+            raise
+        d = dict( (x.name, x.ellipse if hasattr(x,'ellipse') else [np.nan]*7) for x in pk)
+        self.ebox1K = pd.DataFrame( d ).T  
+        self.ebox1K.columns = self.ebox.columns
+        self.plotfolder='sources' #needed by superclass
+        
+    def ellipse_ratio(self):
+        """ Ratio of error ellipse for E>1GeV
+        Compare the error ellipse major axis for the full fit, with a fit using energies above 1 GeV 
+        <br>Left: scatter plot of the ratio vs. the value, for TS>25
+        <br>Right: Histogram of the ratio, showing subset with TS>100
+        """
+        fig, axx = plt.subplots(1,2, figsize=(12,5))
+        aratio = self.ebox1K.a/self.ebox.a
+        ratio_label = 'Ratio for E>1 GeV'
+        cut = self.df.ts>25
+        def plot1(ax):
+            ax.plot( 2.5*60*self.ebox.a[cut],aratio[cut], '.')
+            plt.setp(ax, xscale='log', xlim=(0.5,10), xlabel='error ellipse major axis (arc min)', 
+                         yscale='linear', ylim=(0.95,1.1), ylabel=ratio_label)
+            ax.axhline(1.0, color='k')
+            ax.grid()
+        def plot2(ax):
+            xlim = (0.90, 1.25); bins=np.linspace(xlim[0],xlim[1],36)
+            tscut=100
+            cut2 = self.df.ts>tscut
+            ax.hist(aratio[cut].clip(*xlim),bins , label='%d sources'%sum(cut.values))
+            ax.hist(aratio[cut2].clip(*xlim), bins, label='TS>%d'%tscut)
+            ax.legend(loc='upper right', prop=dict(size=10))
+            plt.setp(ax, xlim=xlim, xlabel =ratio_label)
+            ax.grid(); ax.axvline(1.0, color='k')
+            
+        plot1(axx[0])
+        plot2(axx[1])
+    def all_plots(self, **kw):
+        self.runfigures([self.ellipse_ratio,])
+    
 
 class FluxCorr(SourceInfo):
 
@@ -1321,6 +1482,7 @@ class FluxCorr(SourceInfo):
                  yscale='log', ylim=(1,100));
             ax.plot([1.0, 100], (1,100.0),'r-')
             ax.text(8, 1.5, 'emin=%d'%emin)
+            ax.text(25,30, '1%', color='r')
             ax.grid(True)
             return scat
         scats = map(plot1, axx.flatten(), self.emins)
@@ -1330,8 +1492,20 @@ class FluxCorr(SourceInfo):
         cb.set_label('abs(b)')
         return fig
     
+    def ts_ratio(self):
+        """ Ratio of TS for fits at 100 and 1000 Mev
+        Compare the ratio of the TS values for fits at 100 MeV, with that at 1 GeV, vs the 100 MeV TS
+        """
+        fig, ax = plt.subplots(1,1, figsize=(10,5))
+        ax.plot(self.df.ts_z100, self.df.ts_z1000/self.df.ts_z100, '.')
+        ax.axhline(1.0, color='k')
+        plt.setp(ax, xscale='log',  xlim=(10,1e5), xlabel='TS', 
+                    yscale='log', ylim=(0.1, 2), ylabel='TS_1000/TS_100')
+        ax.grid()
+    
     def all_plots(self):
-        self.runfigures([self.flux_sensitivity_all, self.ratio_vs_stat])
+        self.runfigures([self.flux_sensitivity_all, self.ratio_vs_stat, self.ts_ratio,])
+
 
 class FluxCorrIso(FluxCorr):
     def setup(self, **kw):
@@ -1602,7 +1776,7 @@ body {
 
 opts = dict(
         counts=  (CountPlots,),
-        sources= (SourceInfo, Localization,),
+        sources= (SourceInfo, Localization, SourceTotal,),
         diffuse= (Galactic, Isotropic, Limb, SunMoon),
         isotropic=(Isotropic,),
         galactic=(Galactic,),
@@ -1613,12 +1787,17 @@ opts = dict(
         fb=      (FrontBackSedPlots,),
         fluxcorr=(FluxCorr,),
         fluxcorriso=(FluxCorrIso,),
+        loc =    (Localization,),
+        loc1K =  (Localization1K,),
+        exp =    (Exposure,),
+        exposure=(Exposure,),
+
         ) 
         
-def main(args):
-    args=args.split()
+def main(args, update_top=False ):
     np.seterr(invalid='warn', divide='warn')
     success=True
+    args=args.split()
     for arg in args:
         if arg not in opts.keys():
             print 'found %s; expect one of %s' % (arg, opts.keys())
@@ -1635,12 +1814,16 @@ def main(args):
         except Exception, msg:
             print 'Exception running %s: "%s"' % (arg, msg)
             success = False
-    if success: HTMLindex().create_menu()
+    if success: 
+        HTMLindex().create_menu()
+        if update_top: HTMLindex().update_top()
+        
     return success    
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='run a diagnostic output job; must be in skymodel folder')
     parser.add_argument('args', nargs='+', help='processsor identifier: must be one of %s' %opts.keys())
+    parser.add_argument('--update_top', action='store_true', help='Update the top level Web  menu')
     args = parser.parse_args()
-    if not main(args.args):
+    if not main(args.args, update_top=args.parser_top):
         raise Exception
     
