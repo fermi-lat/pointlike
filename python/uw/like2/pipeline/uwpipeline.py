@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.5 2012/12/26 18:47:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.6 2012/12/29 16:28:07 burnett Exp $
 """
 import os, argparse
 import numpy as np
@@ -41,7 +41,14 @@ class JobProc(Summary):
         stage = self.get_stage(args)
         setup = stagenames[stage].setup()
         pipeline_job.main(setup)
-   
+  
+class CheckJobs(Summary):
+    """ process args for the check_jobs step"""
+    def main(self, args):
+        stage = self.get_stage(args)
+        # do something instead
+        check_converge.main(args)
+ 
 class Proc(dict):
     def __init__(self, run, help='', **kwargs):
         """ run: class or module -- must have main function """
@@ -57,12 +64,12 @@ procnames = dict(
     start      = Proc(StartStream(), help='start a stream'),
     check_data = Proc(check_data, help='check that required data files are present'),
     job_proc   = Proc(JobProc(),  help='run a parallel pipeline job'),
-    check_jobs = Proc(check_converge, help='check for convergence, combine results, possibly submit new stream'),
+    check_jobs = Proc(CheckJobs(),  help='check for convergence, combine results, possibly submit new stream'),
     summary_plots= Proc(Summary(), help='Process summaries, need stage'),
     )
     
 class Stage(dict):
-    def __init__(self, proc, pars, help='', **kwargs):
+    def __init__(self, proc, pars={}, help='', **kwargs):
         super(Stage,self).__init__(proc=proc, pars=pars, help=help, **kwargs)
     def setup(self):
         return self['proc'](**self['pars'])
@@ -70,13 +77,13 @@ class Stage(dict):
 stagenames = dict(
     # List of possible stages, with proc to run, parameters for it,  summary string
     # list is partly recognized by check_converge.py, TODO to incoprorate it here, especially the part that may start a new stream
-    create     =  Stage(pipe.Create, {}, sum='counts', help='Create a new skymodel'),
+    create      =  Stage(pipe.Create,  sum='counts', help='Create a new skymodel'),
     update_full =  Stage(pipe.Update, dict( dampen=1.0,),sum='counts',help='perform update' ),
     update      =  Stage(pipe.Update, dict( dampen=0.5,),sum='counts',help='perform update' ),
     update_beta =  Stage(pipe.Update, dict( dampen=1.0, fix_beta=True),sum='counts',help='perform update', ),
     update_pivot=  Stage(pipe.Update, dict( dampen=1.0, repivot=True), sum='counts',help='update pivot', ), 
-    finish      =  Stage(pipe.Finish, {}, sum='sources diffuse',help='perform localization', ),
-    tables      =  Stage(pipe.Tables, {}, help='create tables',),
+    finish      =  Stage(pipe.Finish,  sum='sources diffuse',help='perform localization', ),
+    tables      =  Stage(pipe.Tables,  help='create tables',),
     sedinfo     =  Stage(pipe.Update, dict( processor='processor.full_sed_processor',sedfig_dir='"sedfig"',), sum='fb', ),
     diffuse     =  Stage(pipe.Update, dict( processor='processor.roi_refit_processor'), sum='gal', ),
     isodiffuse  =  Stage(pipe.Update, dict( processor='processor.iso_refit_processor'), sum='iso', ),
@@ -84,7 +91,7 @@ stagenames = dict(
     fluxcorr    =  Stage(pipe.Update, dict( processor='processor.flux_correlations'), sum='fluxcorr', ),
     fluxcorrgal =  Stage(pipe.Update, dict( processor='processor.flux_correlations'), sum='flxcorriso', ),
     fluxcorriso =  Stage(pipe.Update, dict( processor='processor.flux_correlations(diffuse="iso*", fluxcorr="fluxcorriso")'), ),
-    pulsar_table=  Stage(pipe.PulsarLimitTables, {}),
+    pulsar_table=  Stage(pipe.PulsarLimitTables,),
     localize    =  Stage(pipe.Update, dict( processor='processor.localize(emin=1000.)'), help='localize with energy cut' ),
 ) 
 keys = stagenames.keys()
