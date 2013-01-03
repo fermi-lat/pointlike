@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.17 2012/12/27 00:13:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.18 2012/12/27 15:47:43 burnett Exp $
 
 author: Matthew Kerr, Toby Burnett
 """
@@ -223,8 +223,10 @@ class IsotropicModel(DiffuseModel):
             npix=npix, pixelsize=pixelsize)
         
         grid.cvals = grid.fill(exp) * dm(self.roi_dir, energy) 
-        assert not np.any(np.isnan(grid.cvals)), \
-            'Grid for %s has nan values' %dm.name()
+        nnan = np.sum(np.isnan(grid.cvals))
+        if nnan>0: print 'Grid for %s has %d nan values ' %( dm.name(), nnan)
+        assert nnan<5, \
+            'Grid for %s has %d >5 nan values ' %( dm.name(), nnan)
         return grid
 
 class DiffuseModelFromFits( DiffuseModel):
