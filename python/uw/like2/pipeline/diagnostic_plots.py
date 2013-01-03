@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.47 2013/01/01 20:09:51 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.48 2013/01/03 04:03:46 burnett Exp $
 
 """
 
@@ -1779,9 +1779,10 @@ body {
         self.style = HTMLindex.style
     
         w= glob.glob(folder)
-        assert len(w)>0, 'Did not find any plot folders under %s' % folder
+        if len(w)==0: 
+            print 'Did not find any plot folders under %s' % folder
         z = dict( zip(w, [glob.glob(a+'/*.htm*') for a in w] ) )
-        self.model = os.getcwd().split('/')[-1]
+        self.model = '/'.join(os.getcwd().split('/')[-2:])
         self.model_summary='config.txt' ## TODO: make a special page
         s= HTMLindex.menu_header % self.__dict__
         
@@ -1802,18 +1803,22 @@ body {
     def create_menu(self, filename='plot_index.html'):
         ###summary = open(filename, 'w')
         open(filename, 'w').write(self.ul)
-        print 'wrote menu %s' % filename
+        print 'wrote menu %s' % os.path.join(os.getcwd(),filename)
 
-    def update_top(self, filename='../plot_browser/top_nav.html'):
+    def update_top(self, filename='../../plot_browser/top_nav.html'):
+        def parse_path(x): 
+            'return relative path, model name'
+            t = x.split('/')
+            return  '/'.join(t[1:]) , '/'.join(t[2:4])
         def parse_model(x):
-            return '<a href="%s" target="menu"> %s </a>' %(x, x.split('/')[1])
-        models = sorted(glob.glob('../*/plot_index.html'))
-        self.last_model = models[-1]
+            return '<a href="%s" target="menu"> %s </a>' %(parse_path(x) )
+        models = sorted(glob.glob('../../*/*/plot_index.html'))
+        self.last_model = parse_path(models[-1])[0]
         s = HTMLindex.top_nav % self.__dict__
         s += ' | '.join(map(parse_model, models))
         s += '</p></body></html>\n'
         open(filename, 'w').write(s)
-        print 'wrote top menu %s' % filename
+        print 'wrote top menu %s' % os.path.join(os.getcwd(),filename)
         
 
 opts = dict(
