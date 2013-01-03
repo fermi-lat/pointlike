@@ -1,13 +1,16 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.46 2012/12/29 02:07:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.47 2013/01/01 20:09:51 burnett Exp $
 
 """
 
 import os, pickle, glob, zipfile, time, sys, types, argparse
 import numpy as np
 import pylab as plt
+import mpl_toolkits.axes_grid.axes_size as Size
+from mpl_toolkits.axes_grid import axes_grid, axes_size, Divider
+
 import pandas as pd
 from skymaps import SkyDir, DiffuseFunction, Hep3Vector
 
@@ -39,10 +42,27 @@ class Diagnostics(object):
         else:
             plt.sca(ax); 
         return ax
-    def get_figure(self, ax=None, figsize=(5,4), **kwargs):
-        if ax is not None:
-            return ax.figure, ax
-        return plt.subplots( figsize=figsize, **kwargs)
+ 
+    def subplot_array( self, hsize, vsize=(1.0,), figsize=(10,10)):
+        """ Use the axes_divider module to make a single row of plots
+        hsize : list of floats
+            horizontal spacing: alternates Scaled for plot, Fixed for between plots
+        vsize : list of floats
+            vertical spacing
+            
+        ref:   http://matplotlib.org/mpl_toolkits/axes_grid/users/axes_divider.html
+        """
+        nx = (len(hsize)+1)/2
+        ny = (len(vsize)+1)/2
+        fig, axx = plt.subplots(ny,nx,squeeze=False, figsize=figsize) # just to make the axes, will move them
+        sizer = lambda x,i: axes_size.Scaled(x) if i%2==0 else axes_size.Fixed(x)
+        horiz = [ sizer(h,i) for i,h in enumerate(hsize) ]
+        vert  = [ sizer(v,i) for i,v in enumerate(vsize) ]
+        divider = Divider(fig, (0.1, 0.1, 0.8, 0.8), horiz, vert, aspect=False)
+        for i,ax in enumerate(axx.flatten()):
+            iy = i//nx; ix = i%nx
+            ax.set_axes_locator(divider.new_locator(nx=2*ix, ny=2*iy))
+        return fig, axx
         
     def savefigure(self, name, func=None, title=None, caption=None, **kwargs):
         """ save a figure.
@@ -100,6 +120,8 @@ class Diagnostics(object):
             z=zipfile.ZipFile(folder+'.zip')
             files = sorted(z.namelist()) # skip  folder?
             print 'found %d files ' % len(files)
+            if folder=='pickle' and len(files)==1729:
+                files = files[1:]
             opener = z.open
         else:
            files = sorted(glob.glob(os.path.join(folder,'*.pickle')))
@@ -120,24 +142,6 @@ class Diagnostics(object):
         plt.figtext(0.075, 0.5, ytext, rotation='vertical', va='center')
         if title is not None: plt.suptitle(title)
         
-    def skyplot(self, values, ax=None, title='', vmin=None, vmax=None, 
-                    labels=True, colorbar=True, cbtext=''):
-        fig, ax = self.get_figure(ax)
-        scat =ax.scatter(self.rois.glon, self.rois.singlat, s=20, 
-            c=values,  vmin=vmin, vmax=vmax,edgecolor='none')
-        if title is not None:
-            ax.set_title(title, fontsize='small')
-        ax.axhline(0, color='k');ax.axvline(0,color='k')
-        if labels: 
-            ax.set_xlabel('glon')
-            ax.set_ylabel('sin(glat)', labelpad=-5) #note move label to right
-        plt.setp(ax, xlim=(180,-180), ylim=(-1.02, 1.02),)
-        ax.set_xticks([180,90,0,-90,-180])
-        if colorbar:
-            cb=plt.colorbar(scat)
-            cb.set_label(cbtext)
-        return fig, scat
-     
     def ecliptic_angle(self, skydir):
         return np.degrees( SkyDir(270,90-23.439281).difference(skydir) ) -90.
         
@@ -158,6 +162,33 @@ class Diagnostics(object):
             ecl_singlat.append(np.sin(np.radians(sd.b())))
         ia = np.argsort(ecl_glon)
         ax.plot(np.array(ecl_glon)[ia], np.array(ecl_singlat)[ia], '-', color='gray') 
+        
+    def basic_skyplot(self, ax, glon, singlat, c,
+                title=None, ecliptic=False, labels=True, colorbar=False, cbtext='', 
+                aspect=180., **scatter_kw):
+        """ basic formatting used for ROI and sources
+            note that with aspect=180, the aspect ratio is 1:1 in angular space at the equator
+        """
+        scat = ax.scatter(glon, singlat, c=c, **scatter_kw)
+        if title:
+            ax.set_title(title, fontsize='small')
+        
+        plt.setp(ax, xlim=(180,-180),  ylim=(-1.02, 1.02));
+        ax.axhline(0, color='k');ax.axvline(0,color='k');
+        if labels: 
+            ax.set_xlabel('glon')
+            ax.set_ylabel('sin(glat)', labelpad=-5) #note move label to right
+
+        plt.setp(ax, xlim=(180,-180), ylim=(-1.02, 1.02),aspect=aspect,)
+        ax.set_xticks([180,90,0,-90,-180])
+        ax.set_xticklabels([180,90,0,270, 180])
+        if ecliptic:
+            self.draw_ecliptic(ax)
+        if colorbar:
+            cb=ax.figure.colorbar(scat, ax=ax)
+            cb.set_label(cbtext)    
+        return scat
+        
 
 
 class CountPlots(Diagnostics):
@@ -243,23 +274,29 @@ class CountPlots(Diagnostics):
         ax.grid()
         ax.axhline(0, color='k')
         
-    def chisq_plots(self,  vmin=0, vmax=100, bcut=10):
+    def chisq_plots(self, hsize=(1.0, 0.8, 1.5, 0.5), vmin=0, vmax=100, bcut=10):
         """ chi squared plots
         chi squared distribution
         """
-        fig, axs = plt.subplots( 1,2, figsize=(8,3))
-        plt.subplots_adjust(wspace=0.3)
-        ax = axs[1]
+        #fig, axs = plt.subplots( 1,2, figsize=(8,3))
+        #plt.subplots_adjust(wspace=0.3)
+        fig, axs = self.subplot_array( hsize, figsize=(8,3))
         chisq = self.rois.chisq
-        self.skyplot(chisq, ax=ax, vmin=vmin, vmax=vmax);
-        ax = axs[0]
-        bins = np.linspace(0,100, 26)
-        lolat = np.abs(self.rois.glat)<bcut
-        ax.hist(chisq.clip(0,100), bins, label='all: mean=%.1f'%chisq.mean())
-        ax.hist(chisq.clip(0,100)[lolat], bins, color='red', label='|b|<%d (%.1f)'%(bcut, chisq[lolat].mean()))
-        ax.legend(loc='upper right', prop=dict(size=10)) 
-        plt.setp(ax, xlabel='chisq')
-        ax.grid(True)
+
+        def chisky(ax):
+            self.basic_skyplot(ax, self.rois.glon, self.rois.singlat, chisq, 
+                s=25, vmin=vmin, vmax=vmax,  edgecolor='none', colorbar=True);
+                
+        def chihist(ax):
+            bins = np.linspace(0,100, 26)
+            lolat = np.abs(self.rois.glat)<bcut
+            ax.hist(chisq.clip(0,100), bins, label='all: mean=%.1f'%chisq.mean())
+            ax.hist(chisq.clip(0,100)[lolat], bins, color='red', label='|b|<%d (%.1f)'%(bcut, chisq[lolat].mean()))
+            ax.legend(loc='upper right', prop=dict(size=10)) 
+            plt.setp(ax, xlabel='chisq')
+            ax.grid(True)
+            
+        for f, ax in zip( (chihist, chisky), axs.flatten()): f(ax)
         return fig
         
     def residual_maps(self, vmin=-5, vmax=5):
@@ -269,8 +306,9 @@ class CountPlots(Diagnostics):
         plt.subplots_adjust(right=0.9)
         for ib,energy in enumerate(self.energy[:12]):
             ax = axx.flatten()[ib]
-            fig, scat=self.skyplot(self.residual(ib).clip(vmin,vmax), ax=ax, title='%d MeV'%energy,
-                vmin=vmin,vmax=vmax, colorbar=False, labels=False)
+            scat=self.basic_skyplot(ax, self.rois.glon, self.rois.singlat, self.residual(ib).clip(vmin,vmax),
+                 title='%d MeV'%energy,
+                vmin=vmin,vmax=vmax, s=25, edgecolor='none', colorbar=False, labels=False)
         #put colorbar at right        
         cbax = fig.add_axes((0.92, 0.15, 0.02, 0.7) )
         cb=plt.colorbar(scat, cbax, orientation='vertical')
@@ -543,27 +581,19 @@ class ROIinfo(Diagnostics):
             self.df = pd.load(filename)
         self.energy=self.df.ix[0]['counts']['energies']
         
-    def skyplot(self, values, ax=None, title='', s=50, vmin=None, vmax=None, ecliptic=False,
-                    labels=True, colorbar=True, cbtext=''):
+    def skyplot(self, values, ax=None, title='', ecliptic=False,
+                    labels=True, colorbar=True, cbtext='', **scatter_kw):
         if ax is None:
+            # note that different size might mean different marker size
             fig, ax = plt.subplots( 1,1, figsize=(6,5))
         else: fig = ax.figure
         singlat=np.sin(np.radians(list(self.df.glat)))
-        scat =ax.scatter(self.df.glon, singlat, s=s, 
-            c=values,  vmin=vmin, vmax=vmax,edgecolor='none')
-        if title is not None:
-            ax.set_title(title, fontsize='small')
-        ax.axhline(0, color='k');ax.axvline(0,color='k')
-        if labels: plt.setp(ax, xlabel='glon', ylabel='sin(glat)',)
-        plt.setp(ax, xlim=(180,-180), ylim=(-1.02, 1.02),)
-        ax.set_xticks([180,90,0,-90,-180])
-        ax.get_yaxis().labelpad=-5 # clugy way to reduce space
-        if ecliptic:
-            self.draw_ecliptic(ax)
+        scat_default = dict(s=60, marker='D', vmin=None, vmax=None, edgecolor='none')
+        scat_default.update(scatter_kw)
         
-        if colorbar:
-            cb=plt.colorbar(scat)
-            cb.set_label(cbtext)
+        scat =self.basic_skyplot(ax, self.df.glon, singlat, c=values,
+            labels=labels, colorbar=colorbar, cbtext=cbtext, **scat_default)
+        
         return fig, scat # so can add colorbar later
 
     def model_counts(self, name, ib=0):
@@ -675,7 +705,7 @@ class ROIinfo(Diagnostics):
         scat=ax.scatter( sindec, norms, c=c, vmin=vmin, vmax=vmax, **defaults) #'red')
         plt.setp(ax, xlim=(-1,1), ylim=ylim, xlabel='sin(dec)', ylabel='normalization')
         ax.grid()
-        cb =plt.colorbar(scat)
+        cb =fig.colorbar(scat, ax=ax)
         cb.set_label('abs(b)')
         return fig
         
@@ -698,19 +728,20 @@ class Exposure(ROIinfo):
         norms = np.array([m.getp(0) if m is not None else np.nan for m in models])
         self.relative_exp = iso/norms/(iso/norms).mean()
         
-    def exposure_plots(self):
+    def exposure_plots(self, hsize=(1.0,1.0,1.5,1.0, 2.0, 0.7),):
         """ exposure dependence
         Examine the relative exposure, per ROI. Express in terms of the mean. Note that
         ROIs are distributed uniformly over the sky.
         <p>Left: histogram, center: scatter plot vs. Declination; right: map on sky, in Galactic coordinates.
         
         """
-        fig, axx = plt.subplots(1,3, figsize=(15,4))
+        #fig, axx = plt.subplots(1,3, figsize=(15,4))
+        fig, axx = self.subplot_array(hsize, figsize=(12,4))
         relative_exp = self.relative_exp
         label = 'exposure relative to mean'
         lim = (0.7, 1.6)
         def left(ax):
-            ax.hist(relative_exp, np.linspace(*lim))
+            ax.hist(relative_exp, np.linspace(*lim, num=25))
             plt.setp(ax, xlim=lim, xlabel=label)
             ax.axvline(1.0, color='k')
             ax.grid()
@@ -722,7 +753,7 @@ class Exposure(ROIinfo):
             ax.set_xticks(range(-90,91,30))
             ax.axhline(1, color='k')
         def right(ax):
-            self.skyplot(relative_exp, ax=ax)
+            self.skyplot(relative_exp, ax=ax, s=40)
         
         for f,ax in zip((left, center, right), axx.flatten()): f(ax)
         return fig
@@ -736,7 +767,10 @@ class SunMoon(ROIinfo):
         self.source_name='SunMoon'
         self.title='Sun/Moon'
     def all_plots(self, **kwargs):
-        super(SunMoon, self).all_plots( ecliptic=True)
+        try:
+            super(SunMoon, self).all_plots( ecliptic=True)
+        except:
+            print 'no sunmoon?'
 
 
 class Limb(ROIinfo):
@@ -857,8 +891,6 @@ class Limb(ROIinfo):
         Polar plots of the ratio of the front to back flux\
         """)
         
-        #self.ratio_hist((fpar/bpar), cut=bpar>0.2)
-        self.savefigure('ratio_hist')
         self.flux_vs_dec()
         self.savefigure('flux_vs_dec')
 
@@ -968,8 +1000,8 @@ class SourceInfo(Diagnostics):
         self.df['flux_unc']= [v[0] for v in self.df.errs.values]
         self.energy = np.sqrt( self.df.ix[0]['sedrec'].elow * self.df.ix[0]['sedrec'].ehigh )
             
-    def skyplot(self, values, proj=None, ax=None, s=20, vmin=None, vmax=None, ecliptic=False,
-                labels=True, title='', colorbar=True, cbtext=''):
+    def skyplot(self, values, proj=None, ax=None, ecliptic=False,
+                labels=True, title='', colorbar=True, cbtext='', **scatter_kw):
         """ 
         Make a sky plot of some quantity for a selected set of sources
         Parameters:
@@ -993,24 +1025,12 @@ class SourceInfo(Diagnostics):
         if ax is None:
             fig, ax = plt.subplots(figsize = (6,5))
         else: fig = ax.figure
-        scat = ax.scatter(glon, singlat, s=s, c=c, 
-                vmin=vmin, vmax=vmax, edgecolor='none')
-        if title:
-            ax.set_title(title, fontsize='small')
         
-        plt.setp(ax, xlim=(180,-180),  ylim=(-1.02, 1.02));
-        ax.axhline(0, color='k');ax.axvline(0,color='k');
-        if labels: 
-            ax.set_xlabel('glon')
-            ax.set_ylabel('sin(glat)', labelpad=-5) #note move label to right
-
-        plt.setp(ax, xlim=(180,-180), ylim=(-1.02, 1.02),)
-        ax.set_xticks([180,90,0,-90,-180])
-        if ecliptic:
-            self.draw_ecliptic(ax)
-        if colorbar:
-            cb=plt.colorbar(scat)
-            cb.set_label(cbtext)
+        scatter_kw_default=dict(s=20, vmin=None, vmax=None, edgecolor='none')
+        scatter_kw_default.update(scatter_kw)
+        
+        scat = self.basic_skyplot(ax, glon, singlat, c=c,
+                title=title, ecliptic=ecliptic, **scatter_kw_default)
         return fig
         
     def fluxinfo(self, ib=0, cut=None):
@@ -1446,13 +1466,14 @@ class FluxCorr(SourceInfo):
             ax.grid()
         def plot3(ax):
             tscut = (self.df.ts<100) & (self.df.ts>10)
-            self.skyplot(-flux_ratio[tscut], ax=ax ,s=15, vmax=20, vmin=0, colorbar=colorbar,cbtext='abs(flux sensitivity)')
+            self.skyplot(-flux_ratio[tscut], ax=ax ,s=15, vmax=20, vmin=0, 
+                colorbar=colorbar,cbtext='abs(flux sensitivity)')
         for ax, plot in zip(axx.flatten(), (plot1,plot2, plot3)):
             plot(ax)
    
-    def flux_sensitivity_all(self):
+    def flux_sensitivity_all(self, colorbar=False):
         """ %(diffuse_name)s diffuse flux sensitivity
-        Rows are, from the top, for emin=%(emins)s MeV.<br>
+        Rows are, from the bottom, for emin=%(emins)s MeV.<br>
         Let fs be the flux sensitivity, defined as the ratio of the measured flux change 
         to the change in %(diffuse_name)s diffuse flux.
         Columns are:
@@ -1461,9 +1482,10 @@ class FluxCorr(SourceInfo):
         right: Skymap for TS<100, showing  where the highest sensitivity is located.
         """
 
-        fig, axx = plt.subplots(3,3, figsize=(9,12))
+        #fig, axx = plt.subplots(3,3, figsize=(9,12))
+        fig, axx = self.subplot_array(hsize=(1.0, 0.75, 1.2, 0.5, 2.0,0.5 ),vsize=[1.0,0.75]*3, figsize=(10,10))
         for i, emin in enumerate(self.emins):
-            self.flux_sensitivity(axx[i,:], emin, colorbar=False)
+            self.flux_sensitivity(axx[i,:], emin, colorbar=colorbar)
         return fig
     
     def ratio_vs_stat(self):
@@ -1502,6 +1524,23 @@ class FluxCorr(SourceInfo):
         plt.setp(ax, xscale='log',  xlim=(10,1e5), xlabel='TS', 
                     yscale='log', ylim=(0.1, 2), ylabel='TS_1000/TS_100')
         ax.grid()
+        return fig
+        
+    def ts_dependence(self):
+        """ TS dependence on diffuse
+        """
+        ts100 = self.df.ts_z100
+        tsdiff = ts100 - self.df.ts_p100
+        fig, axx = plt.subplots(2,1, figsize=(10,10))
+        def plotit(ax, tsdiff):
+            scat =ax.scatter(ts100, tsdiff/np.sqrt(ts100), s=20, edgecolor='none', c = np.abs(np.asarray(self.df.glat,float)))
+            plt.setp(ax, xscale='log', xlabel='delta TS/sqrt(TS)', ylim=(-0.001, 2), xlim=(10,10000))
+            ax.axhline(0, color='k')
+            cbar=fig.colorbar(scat, ax=ax); cbar.set_label('|b|')
+            ax.grid()
+        plotit(axx[0], tsdiff)
+        plotit(axx[1], self.df.ts_m100-ts100)
+        return fig
     
     def all_plots(self):
         self.runfigures([self.flux_sensitivity_all, self.ratio_vs_stat, self.ts_ratio,])
@@ -1512,6 +1551,7 @@ class FluxCorrIso(FluxCorr):
         super(FluxCorrIso,self).setup(source_name='fluxcorriso', **kw)
         self.title='Source-isotropic diffuse flux dependence'
         self.diffuse_name='Isotropic'
+        
         self.plotfolder='fluxcorriso'
 
         
@@ -1724,10 +1764,10 @@ body {
 </style>"""
 
     menu_header="""<html> <head> <title>Plot index for model %(model)s </title> %(style)s 
-    <script> function load(){ parent.content.location.href = 'config.txt';} </script>
+    <script> function load(){ parent.content.location.href = '%(model_summary)s';} </script>
     </head>
 <body onload="load()">
-<h2><a href="config.txt", target="content">%(model)s</a></h2>"""
+<h2><a href="%(model_summary)s", target="content">%(model)s</a></h2>"""
 
     top_nav="""<html> <head> <title>Top Nav</title> %(style)s 
     <script> function load(){ parent.menu.location.href = '%(last_model)s';} </script>
@@ -1742,6 +1782,7 @@ body {
         assert len(w)>0, 'Did not find any plot folders under %s' % folder
         z = dict( zip(w, [glob.glob(a+'/*.htm*') for a in w] ) )
         self.model = os.getcwd().split('/')[-1]
+        self.model_summary='config.txt' ## TODO: make a special page
         s= HTMLindex.menu_header % self.__dict__
         
         def parse_item(x):
@@ -1759,6 +1800,7 @@ body {
     def _repr_html_(self):    return self.ul
     
     def create_menu(self, filename='plot_index.html'):
+        ###summary = open(filename, 'w')
         open(filename, 'w').write(self.ul)
         print 'wrote menu %s' % filename
 
