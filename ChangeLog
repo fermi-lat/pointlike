@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jan  3 09:22:16 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	diffuse.py 
+Log Message:
+adjust nan check on make grid
+    *
+------------------------------------------------------------
 User: burnett  Wed Jan  2 20:03:46 PST 2013
 pointlike/python/uw/like2/pipeline
 
