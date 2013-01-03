@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jan  3 14:45:31 PST 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	uwpipeline.py 
+Log Message:
+handle job_list
+    *
+------------------------------------------------------------
 User: burnett  Thu Jan  3 09:22:16 PST 2013
 pointlike/python/uw/like2
 
