@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Jan  2 20:03:46 PST 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	diagnostic_plots.py 
+Log Message:
+implement nice multiplot arrangement
+    *
+------------------------------------------------------------
 User: burnett  Tue Jan  1 12:09:51 PST 2013
 pointlike/python/uw/like2/pipeline
 
