@@ -1,6 +1,6 @@
 """
 Utilities for managing Healpix arrays
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.6 2012/10/28 21:15:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.7 2012/12/12 15:58:43 burnett Exp $
 """
 import os,glob,pickle, types, copy, zipfile
 import pylab as plt
@@ -150,13 +150,15 @@ class HPtables(HParray):
         if os.path.exists('%s_table.zip'%tname):
             z=zipfile.ZipFile('%s_table.zip'%tname)
             files = sorted(z.namelist()) # skip  folder?
-            print 'found %d files ' % len(files)
             opener = z.open
         else:
-           opener = open
-           files = sorted(glob.glob(os.path.join(outdir, '%s_table'%tname,'*.pickle')))
+            folder = '%s_table'%tname
+            if not os.path.exists(folder):
+                raise Exception('Did not find zip file %s.zip or folder  %s'% (folder,folder))
+            opener = open
+            files = sorted(glob.glob(os.path.join(outdir, folder,'*.pickle')))
         nf = len(files)
-        assert nf>0, 'no pickle files found in %s' % os.path.join(outdir, '%s_table'%tname)
+        assert nf>0, 'no pickle files found in %s' % os.path.join(outdir, folder)
         if nf<1728: print 'warning: missing %d files in folder %s_table; will fill with %s' % ((1728-nf), tname,fill)
 
         self.vec = np.zeros(12*nside**2)
@@ -274,6 +276,23 @@ class HEALPixFITS(list):
             os.remove(outfile)
         pyfits.HDUList(hdus).writeto(outfile)
         print '\nwrote FITS file to %s' % outfile
+
+def assemble_tables(table_names, outputfile=None, folder= '.'):
+    """ assemble one or more healpix tables from individual ROIs into a single FITS file
+    parameters
+    ----------
+    table_names : list of strings
+        prefix names, with suffix '_table'. Can be either zip or folders
+    outputfile : string
+        path, releative to folder, to write output file; default constructed from list of table names
+    folder : string
+        path name, default current dir.
+    """
+    tables = [HPtables(name, folder) for name in table_names]
+    if outputfile is None:
+        outputfile='hptables_'+'_'.join(table_names)+'.fits'
+    f = HEALPixFITS(tables)
+    f.write(os.path.join(folder,outputfile))
         
 def hpname(index):
     return 'HP12_%04d'%index
