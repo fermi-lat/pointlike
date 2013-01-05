@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.209 2012/11/29 18:51:58 lande Exp $
+$Id: release.notes,v 1.210 2012/11/29 21:37:02 jrb Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-08-00-00 05-Jan-2013 burnett stable like2/pipeline setup
  pointlike-07-10-00 29-Nov-2012    jrb new code
  pointlike-07-10-00 29-Nov-2012  lande new code
  pointlike-07-09-07 06-Sep-2012  lande update
