@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Jan  5 06:58:10 PST 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	diagnostic_plots.py 
+Log Message:
+implement table processing
+    *
+------------------------------------------------------------
 User: burnett  Fri Jan  4 06:30:58 PST 2013
 pointlike/python/uw/like2/pipeline
 
