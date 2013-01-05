@@ -1,3 +1,0 @@
-"""
-UW pipeline analysis package
-"""
