@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jan  8 14:14:59 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	skymodel.py 
+Log Message:
+check proximity when add seeds
+    *
+------------------------------------------------------------
 User: burnett  Tue Jan  8 14:14:35 PST 2013
 pointlike/python/uw/like2
 
