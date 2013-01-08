@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jan  8 14:15:27 PST 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	processor.py uwpipeline.py 
+Log Message:
+implement checkseeds
+    *
+------------------------------------------------------------
 User: burnett  Tue Jan  8 14:14:59 PST 2013
 pointlike/python/uw/like2
 
