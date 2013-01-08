@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.8 2013/01/03 22:45:31 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.9 2013/01/05 15:04:31 burnett Exp $
 """
 import os, argparse
 import numpy as np
@@ -109,6 +109,7 @@ stagenames = dict(
     fluxcorriso =  Stage(pipe.Update, dict( processor='processor.flux_correlations(diffuse="iso*", fluxcorr="fluxcorriso")'), ),
     pulsar_table=  Stage(pipe.PulsarLimitTables,),
     localize    =  Stage(pipe.Update, dict( processor='processor.localize(emin=1000.)'), help='localize with energy cut' ),
+    seedcheck   =  Stage(pipe.Update, dict( processor='processor.seed_check(prefix="SEED")',auxcat="seeds.txt"), help='refit seeds'),
 ) 
 keys = stagenames.keys()
 stage_help = '\nstage name, or sequential stages separaged by ":" names are\n\t' \
