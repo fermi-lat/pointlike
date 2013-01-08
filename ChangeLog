@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jan  8 14:14:35 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	localization.py 
+Log Message:
+allow subset localize_all
+    *
+------------------------------------------------------------
 User: burnett  Sat Jan  5 09:03:21 PST 2013
 pointlike/cmt
 
