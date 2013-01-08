@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.29 2012/12/13 00:40:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.30 2012/12/14 22:29:15 burnett Exp $
 
 """
 import os, pickle, glob, types, collections, zipfile
@@ -96,7 +96,7 @@ class SkyModel(object):
             if len(item)>1:
                 self.config[item[0].strip()]=item[1].strip()
  
-    def load_auxcat(self):
+    def load_auxcat(self, tol=0.2):
         """ modify the list of pointsources from entries in the auxcat: for now:
             * add it not there
             * move there, at new ra,dec
@@ -120,6 +120,10 @@ class SkyModel(object):
         else:
             ss = makerec.load(cat); dataframe=False
         names = [s.name for s in self.point_sources]
+        sdirs = [s.skydir for s in self.point_sources] 
+        def check_near(sdir):
+            closest = np.degrees(np.min(np.array(map(sdir.difference, sdirs))))
+            return closest
         toremove=[]
         print 'process auxcat %s' %cat
         for s in ss:
@@ -131,6 +135,10 @@ class SkyModel(object):
                 sname = sname.replace('_',' ') 
             if sname  not in names: 
                 skydir=SkyDir(float(sra), float(sdec))
+                close = check_near(skydir)
+                if close < tol:
+                    print '\ssource %s close to another source, reject' % sname
+                    continue
                 index=self.hpindex(skydir)
                 model = self.newmodel
                 if type(self.newmodel)==types.StringType: 
@@ -141,7 +149,7 @@ class SkyModel(object):
                 if model is not None:
                     model.free[0] = True # must have at least one free parameter to be set up properly in an ROI
                 self.point_sources.append(sources.PointSource(name=sname, skydir=skydir, index=index,  model=model))
-                print '\tadded new source %s at ROI %d' % (sname, index)
+                print '\tadded new source %s at ROI %d (%.1f deg )' % (sname, index, close)
             else: 
                 print '\t source %s is in the model:' %sname, # will remove if ra<0' % sname
                 ps = self.point_sources[names.index(sname)]
