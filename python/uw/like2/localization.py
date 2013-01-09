@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.9 2012/12/29 17:02:29 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.10 2013/01/08 22:14:35 burnett Exp $
 
 """
 import os
@@ -167,8 +167,8 @@ class Localization(object):
         #roi.delta_loc_logl = (ll0 - ll1)
         # this is necessary in case the fit always fails.
         delt = np.degrees(l.dir.difference(self.skydir))
-        if self.update:
-            self.source.skydir = l.dir
+        if self.update: # this will be copied to the source on exit.
+            self.skydir = l.dir
         self.delta_ts = 2*(ll0-ll1)
         self.delt = delt
         self.niter = i
@@ -225,7 +225,7 @@ def localize_all(roi, **kwargs):
         ignore if extended -- has 'spatial_model'
         kwargs can have prefix to select subset with name starting with the prefix, e.g. 'SEED'
     """
-    tsmin = kwargs.get('tsmin',10)
+    tsmin = kwargs.pop('tsmin',10)
     prefix = kwargs.pop('prefix', None)
     sources = [s for s in roi.sources if s.skydir is not None\
             and s.__dict__.get(  'spatial_model', None) is None \
