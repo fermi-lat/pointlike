@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Jan  9 08:12:40 PST 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	processor.py 
+Log Message:
+seed check now updates localization, refits
+    *
+------------------------------------------------------------
 User: burnett  Wed Jan  9 08:11:41 PST 2013
 pointlike/python/uw/like2/pipeline
 
