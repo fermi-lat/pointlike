@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Jan  9 08:11:41 PST 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	uwpipeline.py 
+Log Message:
+have seedcheck perform association
+    *
+------------------------------------------------------------
 User: burnett  Wed Jan  9 08:10:44 PST 2013
 pointlike/python/uw/like2
 
