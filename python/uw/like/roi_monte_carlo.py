@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.78 2012/10/04 21:21:22 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.79 2012/11/17 00:10:41 lande Exp $
 
 author: Joshua Lande
 """
@@ -744,8 +744,7 @@ class MCModelBuilder(object):
             as a fully vecotrized numpy function, but this is good enough, for now.
         """
 
-        fits=pyfits.open(path.expand(filename))
-        energies,intensity = MCModelBuilder._spatial_map_integral(fits)
+        energies,intensity = MCModelBuilder.spatial_map_integral(filename)
 
         # Then integrate the spectral part connecting each point
         # with a powerlaw
@@ -756,7 +755,7 @@ class MCModelBuilder(object):
         return map_integral
 
     @staticmethod
-    def spatial_map_integral(fits):
+    def spatial_map_integral(filename):
         """ Takes in a 3D fits file (l, b, and energy),
             and returns a 1D array of the energy and the integral of
             the map over solid angle. """
