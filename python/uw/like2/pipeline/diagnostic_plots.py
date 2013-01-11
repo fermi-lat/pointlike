@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.49 2013/01/03 22:46:31 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.50 2013/01/05 14:58:10 burnett Exp $
 
 """
 
@@ -11,7 +11,7 @@ import pylab as plt
 import pandas as pd
 import pyfits
 import mpl_toolkits.axes_grid.axes_size as Size
-from mpl_toolkits.axes_grid import axes_grid, axes_size, Divider
+from mpl_toolkits.axes_grid import axes_grid, axes_size, Divider, make_axes_locatable
 from matplotlib.colors import LogNorm
 
 from skymaps import SkyDir, DiffuseFunction, Hep3Vector
@@ -45,6 +45,11 @@ class Diagnostics(object):
         else:
             plt.sca(ax); 
         return ax
+
+    def get_figure(self, ax, figsize=(5,4), **kwargs):
+        if ax is not None:
+            return ax.figure, ax
+        return plt.subplots( figsize=figsize, **kwargs)
  
     def subplot_array( self, hsize, vsize=(1.0,), figsize=(10,10)):
         """ Use the axes_divider module to make a single row of plots
@@ -84,7 +89,7 @@ class Diagnostics(object):
             try:
                 doclines = ((eval('self.%s' % fname).__doc__%self.__dict__).split('\n'))
                 doclines.append('')
-                if caption is None:   caption = '\n'.join(doclines[1:])
+                if caption is None:   caption = '\n<p>'+'\n'.join(doclines[1:])+'</p>\n'
                 if title is None:     title = doclines[0]
             except Exception, msg:
                 print 'docstring processing problem: %s' % msg
@@ -97,20 +102,30 @@ class Diagnostics(object):
         
         plt.savefig(savefile, **savefig_kw)
         print 'saved plot to %s' % savefile
-        # ceate a simple HTML file is there is a caption
-        if caption is not None:
-            if title is None: title = name.replace('_', ' ')
-            html = '<h2>%s</h2> <img src="%s" /> <br> %s '% (title, localfile, caption)
-            open(savefile.replace('.png','.html'),'w').write(html )
-            print 'saved html doc to %s' % os.path.join(os.getcwd(),savefile.replace('.png','.html'))
-        return fig
+        # ceate a simple HTML file 
+        if title is None: title = name.replace('_', ' ')
+        html = '<h3>%s</h3> <img src="%s" />\n <br> %s '% (title, localfile, caption if caption is not None else '')
+        open(savefile.replace('.png','.html'),'w').write(html )
+        print 'saved html doc to %s' % os.path.join(os.getcwd(),savefile.replace('.png','.html'))
+        return html
 
     def runfigures(self, functions , **kwargs):
-        """ functions: list of bound functions 
+        """ 
+        run the function, create web page containing them
+        functions: list of bound functions 
+        
+        Expect to be called from all_plots, get a summary from its docstring
         """
+        html = '<head>'+ HTMLindex.style + '</head>\n' 
+        html+='<body><h2>%(plotfolder)s</h2>'
+        docstring = self.all_plots.__doc__
+        if docstring is not None: html+=docstring
         for function in functions:
             function(**kwargs)
-            self.savefigure(function.__name__)
+            html+='\n'+self.savefigure(function.__name__)
+        html+='\n</body>'
+        open(os.path.join(self.plotfolder,'index.html'), 'w').write(html%self.__dict__)
+        print 'saved html doc to %s' %os.path.join(self.plotfolder,'index.html')
             
     def load_pickles(self,folder='pickle'):
         """
@@ -168,10 +183,11 @@ class Diagnostics(object):
         
     def basic_skyplot(self, ax, glon, singlat, c,
                 title=None, ecliptic=False, labels=True, colorbar=False, cbtext='', 
-                aspect=180., **scatter_kw):
+                aspect=180.,  **scatter_kw):
         """ basic formatting used for ROI and sources
             note that with aspect=180, the aspect ratio is 1:1 in angular space at the equator
         """
+        cb_kw = scatter_kw.pop('cb_kw', {}) 
         scat = ax.scatter(glon, singlat, c=c, **scatter_kw)
         if title:
             ax.set_title(title, fontsize='small')
@@ -188,7 +204,12 @@ class Diagnostics(object):
         if ecliptic:
             self.draw_ecliptic(ax)
         if colorbar:
-            cb=ax.figure.colorbar(scat, ax=ax)
+            # supposed to be nice, didn't work with already-locatable?
+            #http://matplotlib.org/mpl_toolkits/axes_grid/users/overview.html#colorbar-whose-height-or-width-in-sync-with-the-master-axes
+            #divider = make_axes_locatable(ax)
+            #cax = divider.append_axes("right", size="5%", pad=0.05)
+            #cb=plt.colorbar(scat, cax=cax)
+            cb=ax.figure.colorbar(scat, ax=ax, **cb_kw)
             cb.set_label(cbtext)    
         return scat       
 
@@ -337,10 +358,13 @@ class CountPlots(Diagnostics):
         return fig
         
     def all_plots(self):
-        self.runfigures([self.residual_hists, 
-            self.residual_plot, 
+        """ Plots generated for any iteration, reflecting quality of counts histogram""" 
+        self.runfigures([
+            self.chisq_plots,
             self.residual_maps, 
-            self.chisq_plots])
+            self.residual_plot, 
+            self.residual_hists, 
+            ])
         
 
 class FrontBackSedPlots(Diagnostics):
@@ -422,9 +446,9 @@ class FrontBackSedPlots(Diagnostics):
         return fig
 
     def asym_plots(self):
+        """ Asymmety maps"""
         map(self.asym_plot,  range(8), self.multifig()); 
         self.multilabels('flux (eV/cm**2/s)','front/back asymmery','Asymmetries for all sources');
-        self.savefigure('fb_asymmetry_test');
         return plt.gcf()
         
     def consistency_plot(self, ib, axin=None, vmin=-1, vmax=np.log10(60)):
@@ -448,9 +472,9 @@ class FrontBackSedPlots(Diagnostics):
         return scat
 
     def consistency_plots(self):
+        """ Front-Back consistency"""
         map(self.consistency_plot, range(8), self.multifig()); 
         self.multilabels('flux (eV/cm**2/s)','front/back asymmery','Asymmetries for all sources');
-        self.savefigure('fb_consistency_test');
         return plt.gcf()
     
     def get_strongest(self):
@@ -499,7 +523,8 @@ class FrontBackSedPlots(Diagnostics):
         if axin is None: ax.set_ylabel('front/back flux ratio')
         return (self.elow[ib],self.ehigh[ib],mean,sigma)
       
-    def ratio_plots(self):
+    def fb_flux_vs_energy(self):
+        """ Front-Back flux vs energy"""
         vals = map(self.ratio_fit, range(8), self.multifig())
         plt.suptitle('Front/back flux ratios for strong sources')
         self.savefigure('flux_ratio_strong')
@@ -518,9 +543,9 @@ class FrontBackSedPlots(Diagnostics):
         ax.grid(True)
         ax.axhline(1.0, color='k')
         ax.set_title('Point source spectral fits', fontsize='medium')
-        self.savefigure('fb_flux_vs_energy', dpi=60)
         
     def ts_hist(self, ib=0,  space=np.logspace(1,3,21), **kwargs):
+        """TS histogram """
         fig,ax=self.get_figure(None)
         ax = plt.gca()
         defaults = dict( histtype='step', lw=2)
@@ -536,16 +561,10 @@ class FrontBackSedPlots(Diagnostics):
         plt.setp(ax, xlabel='TS', xscale='log');
         ax.set_title('TS with zero flux, energy %.0f MeV'%self.energy[ib], fontsize='medium');
         ax.legend(prop=dict(size=10))  
-        self.savefigure('ts_with_zero_flux')
-
     
     def all_plots(self):
-        self.asym_plots()
-        self.consistency_plots()
-        self.ratio_plots()
-        self.ts_hist()
-        plt.close('all')
- 
+        self.runfigures([self.asym_plots, self.consistency_plots, self.fb_flux_vs_energy])
+
 
 class ROIinfo(Diagnostics):
     """ setup pickled DataFrame for ROI info.
@@ -638,25 +657,40 @@ class ROIinfo(Diagnostics):
             return pkl['diffuse'][m.index(name)]
         return map(mdl, range(1728))
 
-    def counts_map(self,  title='', **kwargs):
+    def counts_map(self,  hsize= (1.0, 1.7, 1.0, 1.4),  **kwargs):
         """ counts map for %(title)s
-        For each ROI, the total counts corresponding to the %(title)s component, 
-        for %(energy_selection)s MeV.
+        Left:  each ROI, the total counts corresponding to the %(title)s component, 
+        for %(energy_selection)s MeV. There are %(total_counts)s total.
+        <br>Right: the fraction, %(total_fraction)s percent of the total.
         """
         ib = kwargs.pop('ib', None)
+        if 'cb_kw' not in kwargs:
+            kwargs['cb_kw'] = dict(shrink=0.70, anchor=(-1.0,0.5)) #ugly tweaking
         self.energy_selection= 'E=%.0f' %self.energy[ib] if ib is not None else 'E>100'
-        c = self.model_counts(self.source_name, ib)
-        cbtext='counts'
-        if kwargs.pop('log', True):
-            c = np.log10(c)
-            cbtext = 'log10(counts)'
-        if ib is not None:
-            return self.skyplot(c, cbtext=cbtext,
-                title='%s counts at %d MeV' % ( title, self.energy[ib]), **kwargs)
-        else:
-            return self.skyplot(c, cbtext=cbtext, title=title,  **kwargs)
+        sm = self.model_counts(self.source_name, ib)
+        tot = self.model_counts('observed', ib)
+        self.total_counts ='{:,d}'.format(int(np.sum(sm)))
+        self.total_fraction = '%.1f' % (np.sum(sm)/np.sum(tot) * 100.)
         
-        
+        fig, ax = self.subplot_array(hsize, figsize=(12,6))
+        def left(ax):
+            if kwargs.pop('log', True):
+                c,cbtext = np.log10(sm), 'log10(counts)'
+            else: 
+                c,cbtext = sm, 'counts'
+            if ib is not None:
+                return self.skyplot(c, ax=ax, cbtext=cbtext,  **Kwargs)
+                 #   title='%s counts at %d MeV' % ( title, self.energy[ib]), **kwargs)
+            else:
+                return self.skyplot(c, ax=ax, cbtext=cbtext, **kwargs) #title=title,  **kwargs)
+        def right(ax):
+            if ib is not None:
+                return self.skyplot(100*(sm/tot), ax=ax, cbtext='fraction (%)', **kwargs) #title='%s count fraction at %d MeV' % (title, self.energy[ib]),
+            else:
+                return self.skyplot(100*(sm/tot), ax=ax, cbtext='fraction (%)', **kwargs) #title=title,  cbtext='fraction (%)', **kwargs)
+        for f, ax in zip((left,right), ax.flatten()): f(ax)
+        return fig
+            
     def count_fraction(self,  title='', **kwargs):
         """ Count Fraction for %(title)s
         For each ROI, the fraction of %(title)s counts, 
@@ -673,14 +707,18 @@ class ROIinfo(Diagnostics):
         else:
             return self.skyplot(100*(sm/tot), title=title,  cbtext='fraction (%)', **kwargs)
 
-    def skyplot_with_hist(self, values, xlabel, vmin, vmax, clip, **kw):
+    def skyplot_with_hist(self, values, xlabel, vmin, vmax, clip,  **kw):
     
-        fig, ax = self.subplot_array( (1.0, 0.4, 1.5, 0.6), figsize=(10,5))
+        fig, ax = self.subplot_array( (1.0, 0.6, 1.5, 0.7), figsize=(10,5))
+        stats = kw.pop('stats', True)
         def hist(ax):
-            ax.hist(values.clip(*clip), np.linspace(clip[0],clip[1], 51))
+            t = 'count %d\nmean  %.2f\nstd   %.2f'  %(len(values),values.mean(),values.std())
+            ax.hist(values.clip(*clip), np.linspace(clip[0],clip[1], 51), label=t)
             ax.grid()
             ax.axvline(1.0, color='k')
-            plt.setp(ax, xlabel='normalization uncertainty', xlim=clip)
+            plt.setp(ax, xlabel=xlabel, xlim=clip)
+            ax.legend( prop=dict(size=10))
+                
         hist(ax[0,0])
         self.skyplot(values, ax=ax[0,1], vmin=vmin, vmax=vmax,  **kw)
         return fig
@@ -693,7 +731,7 @@ class ROIinfo(Diagnostics):
         """ 
         models = self.diffuse_models(self.source_name)
         norms = np.array([m.getp(0) if m is not None else np.nan for m in models])
-        return self.skyplot_with_hist(unc, 'normalization', vmin, vmax, clip, **kw)
+        return self.skyplot_with_hist(norms, 'normalization', vmin, vmax, clip, **kw)
         
     def norm_unc(self, vmin=0, vmax=0.05, clip =(0, 0.05), **kw):
         """ normalization uncertainty for %(title)s
@@ -724,11 +762,19 @@ class ROIinfo(Diagnostics):
         cb.set_label('abs(b)')
         return fig
         
-    def all_plots(self, **kwargs):
-        self.savefigure('%s_normalization'%self.source_name, func=self.normalization)
-        self.savefigure('%s_counts'%self.source_name, func=self.counts_map)
-        self.savefigure('%s_count_fraction'%self.source_name, func=self.count_fraction)
-        self.savefigure('%s_norm_vs_dec'%self.source_name, func=self.norm_vs_dec)
+    def all_plots(self, other_html='', **kwargs):
+        html = '<head>' + HTMLindex.style + '</head>\n'
+        html+='<body><h2>%(plotfolder)s</h2>'
+        html+='\n'+self.savefigure('%s_counts'%self.source_name, func=self.counts_map)
+        html+='\n'+self.savefigure('%s_normalization'%self.source_name, func=self.normalization)
+        html+='\n'+self.savefigure('%s_norm_unc'%self.source_name, func=self.norm_unc)
+        #html+='\n'+self.savefigure('%s_counts'%self.source_name, func=self.counts_map)
+        html+='\n'+self.savefigure('%s_norm_vs_dec'%self.source_name, func=self.norm_vs_dec)
+        html+=other_html 
+        html+='\n</body>'
+        open(os.path.join(self.plotfolder,'index.html'), 'w').write(html%self.__dict__)
+        print 'saved html doc to %s' %os.path.join(self.plotfolder,'index.html')
+
 
 class Exposure(ROIinfo):
 
@@ -747,7 +793,7 @@ class Exposure(ROIinfo):
         """ exposure dependence
         Examine the relative exposure, per ROI. Express in terms of the mean. Note that
         ROIs are distributed uniformly over the sky.
-        <p>Left: histogram, center: scatter plot vs. Declination; right: map on sky, in Galactic coordinates.
+        <br>Left: histogram, center: scatter plot vs. Declination; right: map on sky, in Galactic coordinates.
         
         """
         #fig, axx = plt.subplots(1,3, figsize=(15,4))
@@ -775,6 +821,7 @@ class Exposure(ROIinfo):
     def all_plots(self, **kw):
         self.runfigures([self.exposure_plots])
     
+
 class SunMoon(ROIinfo):
     def setup(self, **kwargs):
         super(SunMoon, self).setup(**kwargs)
@@ -884,30 +931,30 @@ class Limb(ROIinfo):
         cb.set_label('abs(glat)')
         plt.suptitle('Limb observed flux') 
     
-    def all_plots(self, thetamax=60):
-        super(Limb, self).all_plots()
-        
+    def all_plots(self, thetamax=60, **kw):
         dm = self.diffuse_models('limb')
         fpar,bpar = [np.array([m[i] if m else np.nan for m in dm] )for i in range(2)]
 
+        html = ''
         
         self.polar_plots(bpar, vmin=0, vmax=2, vticks=5, thetamax=thetamax, title='back normalization')
-        self.savefigure('back_normalization_polar', title='Back normalization factor', caption="""\
+        html+=self.savefigure('back_normalization_polar', title='Back normalization factor', caption="""\
         Polar plots of the back limb normalization\
         """)
       
         self.polar_plots(fpar, vmin=0, vmax=1.0, vticks=5, thetamax=thetamax, title='front normalization')
-        self.savefigure('front_normalization_polar', title='Front normalization', caption="""\
+        html+=self.savefigure('front_normalization_polar', title='Front normalization', caption="""\
         Polar plots of the front limb normalization\
         """)
         
         self.polar_plots(fpar/bpar, vmin=0, vmax=1.0, vticks=5, thetamax=thetamax, title='front/back ratio')
-        self.savefigure('front_back_ratio_polar', title='Front/Back flux ratio', caption="""\
+        html+=self.savefigure('front_back_ratio_polar', title='Front/Back flux ratio', caption="""\
         Polar plots of the ratio of the front to back flux\
         """)
         
         self.flux_vs_dec()
-        self.savefigure('flux_vs_dec')
+        html+=self.savefigure('flux_vs_dec')
+        super(Limb, self).all_plots(other_html=html, **kw)
 
 
 class Galactic(ROIinfo):
@@ -953,25 +1000,27 @@ class Isotropic(ROIinfo):
         return fig
         
     def all_plots(self, **kwargs):
-        super(Isotropic, self).all_plots(**kwargs)
-        self.runfigures([self.isotropic_spectrum,])
+        html=self.savefigure('isotropic_spectrum', func=self.isotropic_spectrum,)
+        super(Isotropic, self).all_plots(other_html=html, **kwargs)
 
     
 class SourceTotal(ROIinfo):
     def setup(self, **kw):
         super(SourceTotal, self).setup(**kw)
-        self.plotfolder='sources'
+        self.plotfolder='sourcetotal'
         self.source_name='sources'
         self.title='Sources'
+        
     def all_plots(self, **kwargs):
-        self.savefigure('%s_counts'%self.source_name, func=self.counts_map)
-        self.savefigure('%s_count_fraction'%self.source_name, func=self.count_fraction)
+        html=HTMLindex.head()+'<body><h2>%(plotfolder)s</h2>'
+        html+='\n'+self.savefigure('%s_counts'%self.source_name, func=self.counts_map)
+        open(os.path.join(self.plotfolder,'index.html'), 'w').write(html%self.__dict__)
+        print 'saved html doc to %s' %os.path.join(self.plotfolder,'index.html')
 
 
 class SourceInfo(Diagnostics):
     """ To be superclass for specific source plot stuff, creates or loads
         a DataFrame with all sources 
-        (will do away with the recarray, which takes very long to generate, and is rather flaky)
         """
     def setup(self, **kwargs):
         self.plotfolder='sources' #needed by superclass
@@ -997,10 +1046,12 @@ class SourceInfo(Diagnostics):
                     except Exception, msg:
                         print 'fail errors for %s:%s' % (name, msg)
                         badfit = True
+                    ellipse = info.get('ellipse', None)
                     sdict[name] = info
                     sdict[name].update(glat=info['skydir'].b(), glon=info['skydir'].l(),
                         roiname=pkl['name'], 
                         pars= pars, errs=errs, free=free, badfit=badfit,
+                        delta_ts = ellipse[5] if ellipse is not None else np.nan,
                         e0 = model.e0,
                         modelname=model.name,
                         )
@@ -1060,27 +1111,32 @@ class SourceInfo(Diagnostics):
         return pd.DataFrame(dict(fdata=fdata, udata=udata, ldata=ldata, fmodel=fmodel, glat=s.glat, glon=s.glon),
             index=s.index)
 
-    def cumulative_ts(self, tscut=(10,25)):
-        """ Cumulative TS
+    def cumulative_ts(self, ts=None, tscut=(10,25), check_localized=True):
+        """ Cumulative test statistic TS
         
         A logN-logS plot, but using TS. Important thresholds at TS=10 and 25 are shown.
+        %(badloc_check)s.
         """
+        usets = self.df.ts if ts is None else ts
         df = self.df
         fig,ax = plt.subplots( figsize=(8,6))
         dom = np.logspace(np.log10(9),5,1601)
         ax.axvline(25, color='gray', lw=1) 
-        ax.hist( df.ts ,dom, cumulative=-1, lw=2, color='g', histtype='step')
-        localized = ~np.array(pd.isnull(df.ellipse))
-        extended = np.array(df.isextended, dtype=bool)
-        unloc = ~ (localized | extended)
-        ul = df[unloc * df.ts>tscut[0]].sort_index(by='roiname')
-        # this sorted, can print out if needed
-
-        n = len(ul)
-        if n>10:
-            ax.hist(ul.ts ,dom, cumulative=-1, lw=2, color='r', histtype='step',
-                label='no localization')
-            ax.text(12, n, 'failed localization (TS>%d) :%d'%(tscut[0],n), fontsize=12, color='r')
+        ax.hist( usets ,dom, cumulative=-1, lw=2, color='g', histtype='step')
+        if check_localized:
+            localized = ~np.array(pd.isnull(df.delta_ts))
+            extended = np.array(df.isextended, bool)
+            unloc = ~ (localized | extended)
+            ul = df[unloc * usets>tscut[0]] 
+            n = len(ul)
+            if n>10:
+                ax.hist(ul.ts ,dom, cumulative=-1, lw=2, color='r', histtype='step',
+                    label='no localization')
+                ax.text(12, n, 'failed localization (TS>%d) :%d'%(tscut[0],n), fontsize=12, color='r')
+            self.badloc = df[unloc*(df.ts>25)][['ts','roiname']]
+            if len(self.badloc)>0:
+                print 'check self.badloc for %d sources' %len(self.badloc)
+                self.badloc_check = '<h4> Unlocalized above TS=25:</h4>'+self.badloc.to_html()
         plt.setp(ax,  ylabel='# sources with greater TS', xlabel='TS',
             xscale='log', yscale='log', xlim=(9, 1e4), ylim=(9,8000))
         ax.set_xticklabels([' ', '10', '100', '1000'])
@@ -1088,7 +1144,7 @@ class SourceInfo(Diagnostics):
             
         # label the plot with number at given TS
         for t in tscut:
-            n = sum(df.ts>t) 
+            n = sum(usets>t) 
             ax.plot([t,2*t], [n,n], '-k');
             ax.plot(t, n, 'og')
             ax.text(2*t, n, 'TS>%d: %d'%(t,n), fontsize=14, va='center')
@@ -1302,6 +1358,53 @@ class SourceInfo(Diagnostics):
         for plotf, ax in zip( (plots), axx.flatten(),):
             plotf(ax)
         return fig
+        
+    def source_confusion(self, bmin=10, dtheta=0.1, nbins=50, deficit_angle=1.0):
+        """ Source Confusion
+        Distribution of the distances to the nearest neighbors of all detected sources with |b|> %(bmin)s degrees.
+        <br> Left:The number of entries per angular bin divided by the bin's solid angle. The overlaid curve is the expected
+        distribution for a uniform distribution of sources with no confusion.
+        <br> Right: ratio of measured to expected. 
+        <br> Estimated loss: %(loss)s.
+        """
+        sdirs = self.df[np.abs(self.df.glat)>bmin]['skydir'].values
+        closest = ([sorted(map(sdirs[i].difference, sdirs))[1] for i in range(len(sdirs))])
+        z = np.degrees(closest)
+        n = len(z)
+        rho = n /(4*np.pi*np.degrees(1)**2) / (1-np.sin(np.radians(bmin)))
+        f = lambda x : n*rho * np.exp( -np.pi*rho*x**2)
+        
+        def deficit(theta):
+            n1, n1t =n-sum(z>theta), n*(1-np.exp(-np.pi * rho*theta**2))
+            return n1t-n1, 100*(n1t-n1)/n
+        loss = deficit(deficit_angle)
+        self.loss ='%d, or %.1f percent' % loss
+        self.bmin = bmin
+        print 'lost: ', self.loss
+        n += loss[0]
+        rho *=(1+loss[0]/n)
+        fig, axx = plt.subplots(1,2, figsize=(12,5))
+        plt.subplots_adjust(wspace=0.3)
+        bins = np.arange(nbins+1)*dtheta
+        cumarea=np.cos(np.radians(bins))*2*np.pi*np.degrees(1)**2
+        dA = cumarea[:-1]-cumarea[1:]
+        h = np.histogram(z,bins)[0]
+        x = bins[:-1]+dtheta/2
+        
+        ax = axx[0]
+        ax.errorbar(x, h/dA ,yerr=np.sqrt(h)/dA,  fmt='.')
+        ax.plot(bins,f(bins), '--g')
+        plt.setp(ax, yscale='log', ylim=(1,1000), 
+            ylabel='Number of sources per square degree', xlabel='closest distance (deg)')
+        ax.grid()
+        
+        ax=axx[1]
+        ax.errorbar(x, h/dA/f(x), yerr=np.sqrt(h)/dA/f(x),  fmt='o')
+        ax.axhline(1.0, color='k')
+        ax.grid()
+        plt.setp(ax, xlim=(0,3), ylim=(0,1.4),  xlabel='closest distance (deg)',
+            ylabel='ratio of detected to expected')
+        return fig
     
     def all_plots(self):
         self.lowenergyfluxratio(hist=True)
@@ -1313,7 +1416,7 @@ class SourceInfo(Diagnostics):
         self.spectral_fit_consistency(hist=False)
         self.savefigure('spectral_fit_consistency_map')
         
-        self.runfigures([self.fit_quality, self.pivot_vs_e0, self.cumulative_ts])
+        self.runfigures([self.fit_quality, self.pivot_vs_e0, self.cumulative_ts, self.source_confusion])
 
         plt.close('all')
         
@@ -1325,6 +1428,7 @@ class Localization(SourceInfo):
         # unpack the ellipse info into a new DataFrame
         self.ebox = pd.DataFrame([x if x is not None else [np.nan]*7 for x in self.df.ellipse], index=self.df.index)
         self.ebox.columns = 'fit_ra fit_dec a b ang locqual delta_ts'.split()
+        self.plotfolder='localization'
 
     def localization(self, maxdelta=9, mints=10):
         """Localization plots
@@ -1420,6 +1524,7 @@ class Localization1K(Localization):
             
         plot1(axx[0])
         plot2(axx[1])
+        
     def all_plots(self, **kw):
         self.runfigures([self.ellipse_ratio,])
     
@@ -1765,6 +1870,77 @@ class IsoDiffusePlots(GalDiffusePlots):
         self.lowdiff_scat( ax[1])
         self.savefigure('isotropic_bin0_bin1_difference')
 
+class SeedCheck(SourceInfo):
+
+    def setup(self, **kw):
+        self.plotfolder = 'seedcheck'
+        files, sources = self.load_pickles('seedcheck')
+        sdict={}
+        for source in sources:
+            name = source.name
+            model = source.model
+            pars = np.empty(4); pars.fill(np.nan)
+            errs = np.empty(4); errs.fill(-2)
+            free = np.zeros(4, bool)
+            n = model.len()
+            pars[:n] = model.parameters
+            free[:n] = model.free
+            try:
+                errs[:n] = np.diag(model.get_cov_matrix())**0.5
+                errs[np.isnan(errs)]=-1
+                badfit = np.any(errs[model.free]<=0)
+            except Exception, msg:
+                print 'fail errors for %s:%s' % (name, msg)
+                badfit = True
+            sdict[name] = dict(
+                ts=source.ts,
+                #ellipse = source.ellipse if hasattr(source, 'ellipse') else None,
+                delta_ts=source.ellipse[5] if hasattr(source, 'ellipse') else np.nan,
+                glat=source.skydir.b(), glon=source.skydir.l(),
+                eflux=pars[0] * model.e0**2 *1e6,
+                eflux_unc=errs[0] * model.e0**2 *1e6 if errs[0]>0 else np.nan,
+                pindex = pars[1],
+                pindex_unc = errs[1] if errs[1]>0 else np.nan,
+                e0 = model.e0,
+                )
+        self.df = pd.DataFrame(sdict).transpose()
+    
+    def seed_cumulative_ts(self):
+        """ Cumulative TS distribution for seeds 
+        
+        """
+        fig = self.cumulative_ts(self.df.ts, label='seeds')
+        ax = plt.gca()
+        plt.setp(ax, ylim=(9,1000), xlim=(9,100))
+        leg =ax.legend()
+        pbox = leg.get_patches()[0]; pbox._height=0; pbox._y=5
+        return fig
+        
+    def spectral_parameters(self, ax=None):
+        """ Spectral fit parameters
+        Flux vs. spectral index for power-law fit
+        """
+        fig, ax = plt.subplots(figsize=(5,5))
+        good = self.df.ts>10
+        super = self.df.ts>25
+        for cut, c,label in zip((good, super), ('.b', 'or'), ('TS>10', 'TS>25')):
+            ax.plot(self.df.eflux[cut], self.df.pindex[cut], c, label=label)
+        ax.grid()
+        ax.legend()
+        plt.setp(ax, ylim=(1.0,3.0), ylabel='spectral index', xlabel='enegy flux (eV)')
+
+    def locations(self):
+        """ Positions
+        """
+        return self.skyplot(self.df.ts)
+        
+    def all_plots(self):
+        """ Results of analysis of seeds
+        %(info)s
+        """
+        self.info = self.df.describe().to_html()
+        self.runfigures([self.seed_cumulative_ts, self.spectral_parameters])
+        
 class HPtables(Diagnostics):
     """ process Healpix tables, inclucing TS residual map files generated by table, perhaps generating list of new seeds """
     def setup(self, **kw):
@@ -1827,12 +2003,14 @@ class HPtables(Diagnostics):
 class HTMLindex():
     style="""
 <style type="text/css">
-body {
-	font-family:verdana,arial,sans-serif;
+body {	font-family:verdana,arial,sans-serif;
 	font-size:10pt;
 	margin:10px;
 	background-color:white;
 	}
+p { font-size:10pt; margin:25pt; }
+h4 {margin:25pt;}
+table { margin:25pt; font-size:8pt; }
 </style>"""
 
     menu_header="""<html> <head> <title>Plot index for model %(model)s </title> %(style)s 
@@ -1845,7 +2023,7 @@ body {
     <script> function load(){ parent.menu.location.href = '%(last_model)s';} </script>
     </head>
 <body onload="load()">
-<h3>Skymodels</h3><p>""" 
+<h3>Skymodels</h3>""" 
 
     def __init__(self, folder='plots/*'):
         self.style = HTMLindex.style
@@ -1866,7 +2044,12 @@ body {
 
         for k,v in z.items():
             if len(v)==0: continue
-            s += '\n<h4>%s</h4>'% k.split('/')[-1]
+            index = '%s/index.html'%k
+            if index in v:
+                v.remove(index)
+                s += '\n<h4><a href="%s" target="content">%s</a></h4>'% (index, k.split('/')[-1])
+            else:
+                s += '\n<h4>%s</h4>'% k.split('/')[-1]
             s += '\n\t' + '\n\t'.join(map(parse_item, v)) 
         self.ul = s + '\n</body>'
         
@@ -1891,7 +2074,9 @@ body {
         s += '</p></body></html>\n'
         open(filename, 'w').write(s)
         print 'wrote top menu %s' % os.path.join(os.getcwd(),filename)
-        
+    @staticmethod
+    def head(title=''):
+        return '<head><title>%s</title>\n'+HTMLindex.style+'</head>\n'
 
 opts = dict(
         counts=  (CountPlots,),
@@ -1912,12 +2097,15 @@ opts = dict(
         exposure=(Exposure,),
         hptables = (HPtables,),
         tables = (HPtables,),
+        sourcetotal=(SourceTotal,),
+        seedcheck=(SeedCheck,),
 
         ) 
         
-def main(args, update_top=False ):
+def main(args, update_top=False , raise_exception=False):
     np.seterr(invalid='warn', divide='warn')
     success=True
+    if type(args)==types.StringType: args = args.split()
     for arg in args:
         if arg not in opts.keys():
             print 'found %s; expect one of %s' % (arg, opts.keys())
@@ -1933,6 +2121,7 @@ def main(args, update_top=False ):
             success=False
         except Exception, msg:
             print 'Exception running %s: "%s"' % (arg, msg)
+            if raise_exception: raise
             success = False
     if success: 
         HTMLindex().create_menu()
