@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.12 2012/12/08 19:25:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.13 2012/12/12 15:57:45 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -169,7 +169,7 @@ class DiffuseDict(dict):
             ext = os.path.splitext(files[0])[-1]
             try:
                 dfun = {'.txt': IsotropicSpectrum, 
-                    '.fit': DiffuseFunction, '.fits': DiffuseFunction, 
+                    '.fit': DiffuseFunction, '.fits': DiffuseFunction, '.zip': DiffuseFunction,
                     ')': IsotropicSpectralFunction, 
                     }[ext if ext[-1]!=')' else ')']
             except:
