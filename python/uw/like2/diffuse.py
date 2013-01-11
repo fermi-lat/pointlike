@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.18 2012/12/27 15:47:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.19 2013/01/03 17:22:16 burnett Exp $
 
 author: Matthew Kerr, Toby Burnett
 """
@@ -123,6 +123,7 @@ class DiffuseModelFromCache(DiffuseModel):
         except AttributeError:
             filename = self.diffuse_source.dmodel[0].name()
         cache_path = os.path.splitext(filename)[0]+'_%dbpd'%self.binsperdec
+        cache_path_alt = os.path.splitext(filename)[0]
         assert os.path.exists(filename), 'oops, %s not found' %filename
         if os.path.exists(cache_path+'.zip'):
             z = zipfile.ZipFile(cache_path+'.zip')
@@ -131,9 +132,18 @@ class DiffuseModelFromCache(DiffuseModel):
                 t = t[1:]
             files = sorted(t) 
             opener = z.open
+        elif os.path.exists(cache_path_alt+'.zip'):
+            z = zipfile.ZipFile(cache_path_alt+'.zip')
+            t = z.namelist()
+            if len(t)==1729: # if ziped with foldername
+                t = t[1:]
+            files = sorted(t) 
+            opener = z.open
         else:
             if not os.path.exists(cache_path):
-                raise DiffuseException('cache folder or zip %s not found' %cache_path)
+                cache_path = cache_path_alt
+                if not os.path.exists(cache_path):
+                    raise DiffuseException('cache folder or zip %s not found' %cache_path)
             files = sorted(glob.glob(cache_path+'/*'))
             opener=open
         assert len(files)==1728, 'wrong number of files: expected 1728, found %d' % len(files)
@@ -221,12 +231,15 @@ class IsotropicModel(DiffuseModel):
         exp.setEnergy(energy)
         grid = ConvolvableGrid(self.roi_dir, None, self.psf, 
             npix=npix, pixelsize=pixelsize)
-        
-        grid.cvals = grid.fill(exp) * dm(self.roi_dir, energy) 
+        cflux = dm(self.roi_dir, energy)
+        if np.isnan(cflux):
+            print 'WARNING: nan flux from diffuse map: using zero'
+            cflux=0
+        grid.cvals = grid.fill(exp) * cflux 
         nnan = np.sum(np.isnan(grid.cvals))
         if nnan>0: print 'Grid for %s has %d nan values ' %( dm.name(), nnan)
         assert nnan<5, \
-            'Grid for %s has %d >5 nan values ' %( dm.name(), nnan)
+            'Grid for %s, %.0f Mev< has %d >5 nan values ' %( dm.name(), energy, pnnan)
         return grid
 
 class DiffuseModelFromFits( DiffuseModel):
