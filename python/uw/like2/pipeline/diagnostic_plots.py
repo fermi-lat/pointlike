@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.50 2013/01/05 14:58:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.51 2013/01/11 22:04:56 burnett Exp $
 
 """
 
@@ -96,7 +96,6 @@ class Diagnostics(object):
         fig= plt.gcf()
         fig.text(0.02, 0.02, self.skymodel, fontsize=8)
         savefig_kw=dict(dpi=60, bbox_inches='tight', pad_inches=0.5) 
-        savefig_kw.update(kwargs)
         localfile = '%s_%s.png'%(name, self.skymodel.replace('/','_'))
         savefile = os.path.join(self.plotfolder,localfile)
         
@@ -109,20 +108,23 @@ class Diagnostics(object):
         print 'saved html doc to %s' % os.path.join(os.getcwd(),savefile.replace('.png','.html'))
         return html
 
-    def runfigures(self, functions , **kwargs):
+    def runfigures(self, functions, names=None,  **kwargs):
         """ 
         run the function, create web page containing them
         functions: list of bound functions 
+        names: names to use instad of function names
         
         Expect to be called from all_plots, get a summary from its docstring
         """
+        if names is None:
+            names=[None]*len(functions)
         html = '<head>'+ HTMLindex.style + '</head>\n' 
         html+='<body><h2>%(plotfolder)s</h2>'
         docstring = self.all_plots.__doc__
         if docstring is not None: html+=docstring
-        for function in functions:
-            function(**kwargs)
-            html+='\n'+self.savefigure(function.__name__)
+        for function, name in zip(functions,names):
+            fname = name if name is not None else function.__name__
+            html+='\n'+self.savefigure(fname, function, **kwargs)
         html+='\n</body>'
         open(os.path.join(self.plotfolder,'index.html'), 'w').write(html%self.__dict__)
         print 'saved html doc to %s' %os.path.join(self.plotfolder,'index.html')
@@ -150,14 +152,13 @@ class Diagnostics(object):
         
     def multifig(self):
         fig,ax = plt.subplots(2,4, figsize=(14,8));
-        #fig.text(0.025,0.025, 'Asymmetry study %s' % time.asctime(),fontsize='small')
         plt.subplots_adjust(left=0.10, wspace=0.25, hspace=0.25,right=0.95)
         return ax.flatten()
     
     def multilabels(self, xtext, ytext, title=None):
         plt.subplots_adjust(bottom=0.2)
         plt.figtext(0.5,0.07, xtext, ha='center');
-        plt.figtext(0.075, 0.5, ytext, rotation='vertical', va='center')
+        plt.figtext(0.05, 0.5, ytext, rotation='vertical', va='center')
         if title is not None: plt.suptitle(title)
         
     def ecliptic_angle(self, skydir):
@@ -188,6 +189,7 @@ class Diagnostics(object):
             note that with aspect=180, the aspect ratio is 1:1 in angular space at the equator
         """
         cb_kw = scatter_kw.pop('cb_kw', {}) 
+        ecliptic = scatter_kw.pop('ecliptic', False)
         scat = ax.scatter(glon, singlat, c=c, **scatter_kw)
         if title:
             ax.set_title(title, fontsize='small')
@@ -575,6 +577,7 @@ class ROIinfo(Diagnostics):
         self.plotfolder='rois'
         self.title='ROI summary'
         self.source_name='observed' # default for base class
+        self.plots_kw={}
       
         filename = 'rois.pickle'
         refresh = kwargs.pop('refresh', not os.path.exists(filename) 
@@ -601,6 +604,14 @@ class ROIinfo(Diagnostics):
             print 'loading %s' % filename
             self.df = pd.load(filename)
         self.energy=self.df.ix[0]['counts']['energies']
+        self.funcs = []
+        self.fnames=[]
+        
+    def default_plots(self):
+        # the set of defaults plots to generate: subclasses can add
+        self.funcs = [self.counts_map, self.normalization, self.norm_unc, self.norm_vs_dec]
+        self.fnames= map(lambda s: self.source_name+'_'+s, ['counts', 'normalization', 'norm_unc',  'norm_vs_dec'])
+
         
     def skyplot(self, values, ax=None, title='', ecliptic=False,
                     labels=True, colorbar=True, cbtext='', **scatter_kw):
@@ -691,21 +702,21 @@ class ROIinfo(Diagnostics):
         for f, ax in zip((left,right), ax.flatten()): f(ax)
         return fig
             
-    def count_fraction(self,  title='', **kwargs):
-        """ Count Fraction for %(title)s
-        For each ROI, the fraction of %(title)s counts, 
-        for %(energy_selection)s MeV.
-        """
-        ib = kwargs.pop('ib', None)
-        self.energy_selection= 'E=%.0f' %self.energy[ib] if ib is not None else 'E>100'
-
-        sm = self.model_counts(self.source_name, ib)
-        tot = self.model_counts('observed', ib)
-        if ib is not None:
-            return self.skyplot(100*(sm/tot), title='%s count fraction at %d MeV' % (title, self.energy[ib]),
-                cbtext='fraction (%)', **kwargs)
-        else:
-            return self.skyplot(100*(sm/tot), title=title,  cbtext='fraction (%)', **kwargs)
+#    def count_fraction(self,  title='', **kwargs):
+#        """ Count Fraction for %(title)s
+#        For each ROI, the fraction of %(title)s counts, 
+#        for %(energy_selection)s MeV.
+#        """
+#        ib = kwargs.pop('ib', None)
+#        self.energy_selection= 'E=%.0f' %self.energy[ib] if ib is not None else 'E>100'
+#
+#        sm = self.model_counts(self.source_name, ib)
+#        tot = self.model_counts('observed', ib)
+#        if ib is not None:
+#            return self.skyplot(100*(sm/tot), title='%s count fraction at %d MeV' % (title, self.energy[ib]),
+#                cbtext='fraction (%)', **kwargs)
+#        else:
+#            return self.skyplot(100*(sm/tot), title=title,  cbtext='fraction (%)', **kwargs)
 
     def skyplot_with_hist(self, values, xlabel, vmin, vmax, clip,  **kw):
     
@@ -750,30 +761,23 @@ class ROIinfo(Diagnostics):
         norms = [m.getp(0) if m is not None else np.nan for m in models]
         sindec = np.sin(np.radians(np.array(self.df.dec,float)))
 
-        fig,ax = plt.subplots(figsize=(5,4))
+        fig,ax = plt.subplots(figsize=(6,5))
         c=np.abs(self.df.glat.values)
         cut= c>vmin
         defaults =dict(edgecolors='none', s=size)
-        defaults.update(kw)
-        scat=ax.scatter( sindec, norms, c=c, vmin=vmin, vmax=vmax, **defaults) #'red')
+        scat=ax.scatter( sindec, norms, c=c, vmin=vmin, vmax=vmax, **defaults)
         plt.setp(ax, xlim=(-1,1), ylim=ylim, xlabel='sin(dec)', ylabel='normalization')
         ax.grid()
         cb =fig.colorbar(scat, ax=ax)
         cb.set_label('abs(b)')
         return fig
         
-    def all_plots(self, other_html='', **kwargs):
-        html = '<head>' + HTMLindex.style + '</head>\n'
-        html+='<body><h2>%(plotfolder)s</h2>'
-        html+='\n'+self.savefigure('%s_counts'%self.source_name, func=self.counts_map)
-        html+='\n'+self.savefigure('%s_normalization'%self.source_name, func=self.normalization)
-        html+='\n'+self.savefigure('%s_norm_unc'%self.source_name, func=self.norm_unc)
-        #html+='\n'+self.savefigure('%s_counts'%self.source_name, func=self.counts_map)
-        html+='\n'+self.savefigure('%s_norm_vs_dec'%self.source_name, func=self.norm_vs_dec)
-        html+=other_html 
-        html+='\n</body>'
-        open(os.path.join(self.plotfolder,'index.html'), 'w').write(html%self.__dict__)
-        print 'saved html doc to %s' %os.path.join(self.plotfolder,'index.html')
+    def all_plots(self):
+        """ ROI-based plots, for %(title)s diffuse component. These are based on the 
+            individual ROI fits and examine only the normalization factor. See the spectral information, if present, for more
+            information about the consistency of the model for this component.
+        """
+        self.runfigures(self.funcs, self.fnames, **self.plots_kw)
 
 
 class Exposure(ROIinfo):
@@ -819,6 +823,7 @@ class Exposure(ROIinfo):
         for f,ax in zip((left, center, right), axx.flatten()): f(ax)
         return fig
     def all_plots(self, **kw):
+        """ Plots associated with the exposure"""
         self.runfigures([self.exposure_plots])
     
 
@@ -828,12 +833,9 @@ class SunMoon(ROIinfo):
         self.plotfolder='sunmoon'
         self.source_name='SunMoon'
         self.title='Sun/Moon'
-    def all_plots(self, **kwargs):
-        try:
-            super(SunMoon, self).all_plots( ecliptic=True)
-        except:
-            print 'no sunmoon?'
-
+        self.default_plots()
+        self.plots_kw=dict(ecliptic=True)
+        
 
 class Limb(ROIinfo):
     def setup(self, **kwargs):
@@ -841,6 +843,7 @@ class Limb(ROIinfo):
         self.plotfolder='limb'
         self.source_name='limb'
         self.title='Limb'
+        self.default_plots()
      
     def polar_plots(self, values, title=None,
                 vmin=None, vmax=None, vticks=5, vlabel=None, thetamax=60):
@@ -963,15 +966,19 @@ class Galactic(ROIinfo):
         self.plotfolder='gal'
         self.source_name='ring'
         self.title='Galactic'
+        self.default_plots()
 
 
-class Isotropic(ROIinfo):
+class Isotropic(Galactic):
 
     def setup(self, **kw):
         super(Isotropic, self).setup(**kw)
         self.plotfolder='iso'
         self.source_name='isotrop'
         self.title='Isotropic'
+        self.default_plots()
+        self.funcs += [self.isotropic_spectrum]
+        self.fnames +=['isotropic_spectrum']
         
     def isotropic_spectrum(self):
         """ Isotropic Spectrum from template
@@ -999,10 +1006,6 @@ class Isotropic(ROIinfo):
         for f,a in zip((left,right), axs.flatten()): f(a)
         return fig
         
-    def all_plots(self, **kwargs):
-        html=self.savefigure('isotropic_spectrum', func=self.isotropic_spectrum,)
-        super(Isotropic, self).all_plots(other_html=html, **kwargs)
-
     
 class SourceTotal(ROIinfo):
     def setup(self, **kw):
@@ -1010,12 +1013,12 @@ class SourceTotal(ROIinfo):
         self.plotfolder='sourcetotal'
         self.source_name='sources'
         self.title='Sources'
-        
+
     def all_plots(self, **kwargs):
-        html=HTMLindex.head()+'<body><h2>%(plotfolder)s</h2>'
-        html+='\n'+self.savefigure('%s_counts'%self.source_name, func=self.counts_map)
-        open(os.path.join(self.plotfolder,'index.html'), 'w').write(html%self.__dict__)
-        print 'saved html doc to %s' %os.path.join(self.plotfolder,'index.html')
+        """ Counts for all sources, per RIO"""
+    
+        self.runfigures([self.counts_map], ['source_counts'], **kwargs)
+
 
 
 class SourceInfo(Diagnostics):
@@ -1674,12 +1677,13 @@ class FluxCorrIso(FluxCorr):
         self.plotfolder='fluxcorriso'
 
         
-class GalDiffusePlots(Diagnostics):
+class GalacticSpectra(Diagnostics):
 
     def diffuse_setup(self, which='gal'):
     
         self.which = which
-        self.plotfolder = which #'front_back_%s_diffuse' %which
+        self.title=dict(gal='galactic', iso='isotropic')[which]
+        self.plotfolder = self.title+'_spectra' 
         folder = '%sfits_all'%which
         if not os.path.exists(folder) and not os.path.exists(folder+'.zip'): folder = folder[:-4]
         files, pkls = self.load_pickles(folder)
@@ -1710,9 +1714,13 @@ class GalDiffusePlots(Diagnostics):
             self.flux[fkey]['deltalike'] = pd.DataFrame( np.array([ p[fkey]['loglike'] for p in pkls]), index=roinames)
             print 'deltalike'
                                                     
+        self.plot_functions =[ [self.like_scats, self.diffuse_fits, self.bfratio_hists, self.diffuse_ratio_plot],
+                    map( lambda s: self.which+'_'+s, ['likelihood_diff', 'diffuse_fits', 'bfratio', 'diffuse_ratio']),
+                    ]
 
     def setup(self):
         self.diffuse_setup('gal')
+
         
     def like_scat(self, ib, axin=None, fb='both', vmin=0, vmax=2):
         fig, ax=self.get_figure(axin); 
@@ -1726,6 +1734,11 @@ class GalDiffusePlots(Diagnostics):
         return scat
         
     def like_scats(self, title=None):
+        """ Likelihood ratios for individual fits.
+        These all-sky plots show, for each ROI and each energy band, the consistency of the %(title)s spectral fit 
+        to a value determined for just that energy band. The distribution of the log likelihood should be approximately 
+        the chi squared distribution of one degree of freedom. The lighter colors, especially red, indicate serious discrepancy.
+        """
         fig,ax = plt.subplots(2,4, figsize=(14,8));
         plt.subplots_adjust(left=0.10, wspace=0.25, hspace=0.25,right=0.90, bottom=0.15)
         scats =map(self.like_scat, range(8), ax.flatten());
@@ -1754,19 +1767,27 @@ class GalDiffusePlots(Diagnostics):
         return (self.energy[ib],  bfratio[self.latcut].mean(), bfratio[self.latcut].std())
         
     def bfratio_hists(self):
+        """ Check the front/back consistency
+        These histograms show the front/back ratio for all ROIs, and the %(latcut_name)s subset.
+        """
         ax = self.multifig()
         self.bfratios = map(self.bfratio_hist, range(8), ax )
         self.multilabels('front/back fit', '', '%s Diffuse fit ratio'%self.which)
         ax[0].legend(loc='upper left',bbox_to_anchor=(-0.4,1.2));
-        self.savefigure('bf_%s_fit.png'%self.which)
         
         html_rows = ['<tr><td>%.0f</td><td>%.2f</td></tr>' %v[:2] for v in self.bfratios]
         from IPython.core.display import HTML
         h=HTML('<table><tr><th>Energy</th><th>front/back ratio</th></tr>'+\
              ''.join(html_rows)+'</table>')
+        self.fb_ratio = h.data
         open(os.path.join(self.plotfolder,'%s_fb_ratio.html'%self.which),'w').write(h.data)
   
     def diffuse_ratio_plot(self, fignum=121):
+        """ Front/back %(title)s diffuse ratio
+        The front to back ratio, measured from the front/back fit ratios.
+        
+        <br>%(fb_ratio)s
+        """
         ax = self.set_plot( None, fignum)
         vals = self.bfratios # must have generated
         x,y,yerr = [[v[i] for v in vals]  for i in range(3)]
@@ -1775,9 +1796,9 @@ class GalDiffusePlots(Diagnostics):
         ax.grid(True)
         ax.axhline(1.0, color='k')
         ax.set_title('%s diffuse spectral fits'%self.which, fontsize='medium')
-        self.savefigure('%s_diffuse_flux_ratio_vs_energy'%self.which, dpi=60)
         
     def diffuse_fit(self, axin, ind=0,  fignum=2, **kwargs):
+    
         plane = abs(self.rois.glat)<10
         cut, cut_name = (plane, 'plane') if self.which=='gal' else (abs(self.rois.glat)>20, 'high-lat')
         space=np.linspace(0.5,1.5, 41)
@@ -1807,23 +1828,29 @@ class GalDiffusePlots(Diagnostics):
     
         
     def diffuse_fits(self):
+        """ %(title)s normalization
+        For the eight lowest energy bands, the normalization factors, for both front and back. 
+        
+        """
         ax = self.multifig()
         self.multilabels('ratio', 'ROIs', '%s diffuse fit' %self.which)
         map(self.diffuse_fit, ax, range(8))
-        self.savefigure('%sdiffuse_fits'%self.which)
+        return plt.gcf()
             
     def all_plots(self):
-        self.like_scats()
-        self.savefigure('%s_delta_log_likelihood_maps'%self.which)
-        self.bfratio_hists()
-        self.diffuse_ratio_plot()
-        self.diffuse_fits()
+        """Set of plots to check consistency of %(title)s spectra. These result 
+        from analysis of a special run that, for each ROI and each energy band, allows this diffuse component to be free.
+        This is done three times: using only front, only back, and both.
+        """
+        self.runfigures(*self.plot_functions)
         
 
-class IsoDiffusePlots(GalDiffusePlots):
+class IsotropicSpectra(GalacticSpectra):
 
     def setup(self):
         self.diffuse_setup('iso')
+        self.plot_functions[0] += [self.lowdiff_plots]
+        self.plot_functions[1] += ['low_energy_difference']
 
     def lowdiff_hist(self, ax, **kwargs):
         plane=abs(self.rois.glat)<10
@@ -1859,16 +1886,28 @@ class IsoDiffusePlots(GalDiffusePlots):
             ax.plot(poles[0,:,0]-360, np.sin(np.radians(poles[0,:,1])), '-',lw=2, color='grey')
             ax.plot(poles[1,:,0], np.sin(np.radians(poles[1,:,1])), '-', lw=2,color='grey')
 
-    def all_plots(self):
-        self.like_scats()
-        self.bfratio_hists()
-        self.diffuse_ratio_plot()
-        self.diffuse_fits()
+    def lowdiff_plots(self):
+        """ Isotropic bin0-bin1 differences 
         
+        This is an indicator of the adequacy of the Limb contribution, sinc it only affects the lowest energy band.
+        <br>Left: Histogram of the normalization difference between the two lowest energy bands.
+        <br>Right: distribution of this over the plane, with the 45-degree Dec shown.
+        """
         fig,ax=plt.subplots(1,2, figsize=(14,6))
         self.lowdiff_hist( ax[0])
         self.lowdiff_scat( ax[1])
-        self.savefigure('isotropic_bin0_bin1_difference')
+        return fig
+        
+    #def all_plots(self):
+    #    self.like_scats()
+    #    self.bfratio_hists()
+    #    self.diffuse_ratio_plot()
+    #    self.diffuse_fits()
+    #    
+    #    fig,ax=plt.subplots(1,2, figsize=(14,6))
+    #    self.lowdiff_hist( ax[0])
+    #    self.lowdiff_scat( ax[1])
+    #    self.savefigure('isotropic_bin0_bin1_difference')
 
 class SeedCheck(SourceInfo):
 
@@ -2086,8 +2125,8 @@ opts = dict(
         galactic=(Galactic,),
         limb=    (Limb,),
         sunmoon= (SunMoon,),
-        iso   =  (IsoDiffusePlots,),
-        gal   =  (GalDiffusePlots,),
+        isospect =  (IsotropicSpectra,),
+        galspect =  (GalacticSpectra,),
         fb=      (FrontBackSedPlots,),
         fluxcorr=(FluxCorr,),
         fluxcorriso=(FluxCorrIso,),
@@ -2133,6 +2172,6 @@ if __name__=='__main__':
     parser.add_argument('args', nargs='+', help='processsor identifier: must be one of %s' %opts.keys())
     parser.add_argument('--update_top', action='store_true', help='Update the top level Web  menu')
     args = parser.parse_args()
-    if not main(args.args, update_top=args.parser_top):
+    if not main(args.args, update_top=args.update_top):
         raise Exception
     
