@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.11 2013/01/08 22:34:38 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.12 2013/01/09 16:11:41 burnett Exp $
 """
 import os, argparse
 import numpy as np
@@ -110,6 +110,7 @@ stagenames = dict(
     pulsar_table=  Stage(pipe.PulsarLimitTables,),
     localize    =  Stage(pipe.Update, dict( processor='processor.localize(emin=1000.)'), help='localize with energy cut' ),
     seedcheck   =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="SEED")',auxcat="seeds.txt"), help='refit seeds'),
+    pulsar_detection=Stage(pipe.PulsarDetection, job_list='joblist8.txt', sum='pts', help='Create ts tables for pulsar detection'),
 ) 
 keys = stagenames.keys()
 stage_help = '\nstage name, or sequential stages separaged by ":" names are\n\t' \
@@ -167,6 +168,7 @@ if __name__=='__main__':
     parser.add_argument('--job_list', default=os.environ.get('job_list', None), help='file used to allocate jobs, default "%(default)s"')
     parser.add_argument('--stream', default=os.environ.get('PIPELINE_STREAM', -1), help='pipeline stream number, default %(default)s')
     parser.add_argument('--test', action='store_true', help='Do not run' )
+    parser.add_argument('--processor',  help='specify the processor' )
     args = parser.parse_args()
     main(args)
     
