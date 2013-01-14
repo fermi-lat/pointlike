@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Jan 14 14:24:55 PST 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	diagnostic_plots.py 
+Log Message:
+add possibility of generating all relevant plots
+    *
+------------------------------------------------------------
 User: burnett  Mon Jan 14 14:24:22 PST 2013
 pointlike/python/uw/like2/pipeline
 
