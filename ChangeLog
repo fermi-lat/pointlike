@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: jrb  Mon Jan 14 11:53:08 PST 2013
+pointlike
+
+Modified Files:
+	SConscript 
+Log Message:
+do not build test program; it fails everywhere anyway
+    *
+------------------------------------------------------------
 User: burnett  Sat Jan 12 13:03:06 PST 2013
 pointlike/python/uw/like2/pipeline
 
