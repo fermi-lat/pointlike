@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.51 2013/01/11 22:04:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.52 2013/01/12 21:03:06 burnett Exp $
 
 """
 
@@ -119,14 +119,21 @@ class Diagnostics(object):
         if names is None:
             names=[None]*len(functions)
         html = '<head>'+ HTMLindex.style + '</head>\n' 
-        html+='<body><h2>%(plotfolder)s</h2>'
+        html+='<body><h2>%(header)s</h2>'
         docstring = self.all_plots.__doc__
         if docstring is not None: html+=docstring
         for function, name in zip(functions,names):
             fname = name if name is not None else function.__name__
             html+='\n'+self.savefigure(fname, function, **kwargs)
         html+='\n</body>'
-        open(os.path.join(self.plotfolder,'index.html'), 'w').write(html%self.__dict__)
+        t = os.path.split(os.getcwd())
+        self.header='/'.join([t[-1], os.path.split(self.plotfolder)[-1]])
+        try:
+            text = html%self.__dict__
+        except:
+            print 'failed filling %s' % html
+            raise
+        open(os.path.join(self.plotfolder,'index.html'), 'w').write(text)
         print 'saved html doc to %s' %os.path.join(self.plotfolder,'index.html')
             
     def load_pickles(self,folder='pickle'):
@@ -217,7 +224,7 @@ class Diagnostics(object):
 
 
 class CountPlots(Diagnostics):
-    
+    require='pickle.zip'
     def setup(self):
         self.plotfolder = 'counts'
 
@@ -305,12 +312,12 @@ class CountPlots(Diagnostics):
         """
         #fig, axs = plt.subplots( 1,2, figsize=(8,3))
         #plt.subplots_adjust(wspace=0.3)
-        fig, axs = self.subplot_array( hsize, figsize=(8,3))
+        fig, axs = self.subplot_array( hsize, figsize=(11,5))
         chisq = self.rois.chisq
 
         def chisky(ax):
             self.basic_skyplot(ax, self.rois.glon, self.rois.singlat, chisq, 
-                s=25, vmin=vmin, vmax=vmax,  edgecolor='none', colorbar=True);
+                s=60, vmin=vmin, vmax=vmax,  edgecolor='none', colorbar=True);
                 
         def chihist(ax):
             bins = np.linspace(0,100, 26)
@@ -370,6 +377,7 @@ class CountPlots(Diagnostics):
         
 
 class FrontBackSedPlots(Diagnostics):
+    require = 'sedinfo.zip'
     """
     """
     def setup(self):
@@ -448,7 +456,10 @@ class FrontBackSedPlots(Diagnostics):
         return fig
 
     def asym_plots(self):
-        """ Asymmety maps"""
+        """ Asymmety maps
+        Shows the front/back flux asymmetry for sources, vs. the energy flux, for each band.
+        Red indicates large galactic diffuse flux, green small.
+        """
         map(self.asym_plot,  range(8), self.multifig()); 
         self.multilabels('flux (eV/cm**2/s)','front/back asymmery','Asymmetries for all sources');
         return plt.gcf()
@@ -474,7 +485,9 @@ class FrontBackSedPlots(Diagnostics):
         return scat
 
     def consistency_plots(self):
-        """ Front-Back consistency"""
+        """ Front-Back consistency
+        Measure of the likelihood ratio test for front/back consistency.
+        """
         map(self.consistency_plot, range(8), self.multifig()); 
         self.multilabels('flux (eV/cm**2/s)','front/back asymmery','Asymmetries for all sources');
         return plt.gcf()
@@ -526,13 +539,19 @@ class FrontBackSedPlots(Diagnostics):
         return (self.elow[ib],self.ehigh[ib],mean,sigma)
       
     def fb_flux_vs_energy(self):
-        """ Front-Back flux vs energy"""
-        vals = map(self.ratio_fit, range(8), self.multifig())
+        """ Front-Back flux vs energy
+        The front/back ratio for each of the four strongest soucces
+        """
+        self.vals = map(self.ratio_fit, range(8), self.multifig())
         plt.suptitle('Front/back flux ratios for strong sources')
-        self.savefigure('flux_ratio_strong')
+        return plt.gcf()
         
+    def fb_summary(self):
+        """Front/Back flux vs energy summary.
+        Weighted average of the four strongest sources.
+        """
         fig, ax = self.get_figure( None)
-        
+        vals = self.vals # fb_flux_vs_energy first
         y  = [v[2] for v in vals] 
         yerr = np.array([v[3] for v in vals])
         xmin = np.array([v[0] for v in vals])
@@ -545,6 +564,7 @@ class FrontBackSedPlots(Diagnostics):
         ax.grid(True)
         ax.axhline(1.0, color='k')
         ax.set_title('Point source spectral fits', fontsize='medium')
+        return fig
         
     def ts_hist(self, ib=0,  space=np.logspace(1,3,21), **kwargs):
         """TS histogram """
@@ -565,7 +585,10 @@ class FrontBackSedPlots(Diagnostics):
         ax.legend(prop=dict(size=10))  
     
     def all_plots(self):
-        self.runfigures([self.asym_plots, self.consistency_plots, self.fb_flux_vs_energy])
+        """ Analysis of a special "sedinfo" run, which records SED information for all sources
+        with fits to front and back only, as well as both.
+        """
+        self.runfigures([self.asym_plots, self.consistency_plots, self.fb_flux_vs_energy, self.fb_summary])
 
 
 class ROIinfo(Diagnostics):
@@ -573,6 +596,7 @@ class ROIinfo(Diagnostics):
     roi name is index
     columns as the individual ROI, except exclude name itself, and enter only list of source names for sources
     """
+    require=  'pickle.zip'
     def setup(self, **kwargs):
         self.plotfolder='rois'
         self.title='ROI summary'
@@ -772,7 +796,7 @@ class ROIinfo(Diagnostics):
         cb.set_label('abs(b)')
         return fig
         
-    def all_plots(self):
+    def all_plots(self): #, other_html=None):
         """ ROI-based plots, for %(title)s diffuse component. These are based on the 
             individual ROI fits and examine only the normalization factor. See the spectral information, if present, for more
             information about the consistency of the model for this component.
@@ -781,7 +805,7 @@ class ROIinfo(Diagnostics):
 
 
 class Exposure(ROIinfo):
-
+    
     def setup(self, **kw):
         super(Exposure, self).setup(**kw)
         self.plotfolder='exposure'
@@ -833,6 +857,8 @@ class SunMoon(ROIinfo):
         self.plotfolder='sunmoon'
         self.source_name='SunMoon'
         self.title='Sun/Moon'
+        t = np.any([x is not None for x in self.diffuse_models(self.source_name)])
+        assert t, 'No sun-moon component in this sky model'
         self.default_plots()
         self.plots_kw=dict(ecliptic=True)
         
@@ -843,10 +869,16 @@ class Limb(ROIinfo):
         self.plotfolder='limb'
         self.source_name='limb'
         self.title='Limb'
+        dm = self.diffuse_models('limb')
+        self.fpar,self.bpar = [np.array([m[i] if m else np.nan for m in dm] )for i in range(2)]
+
         self.default_plots()
+        self.funcs += [self.bpar_plot, self.fpar_plot, self.flux_vs_dec, ]
+        self.fnames+= ['limb_polar_back', 'limb_polar_front', 'limb_flux_vs_dec',]
+
      
     def polar_plots(self, values, title=None,
-                vmin=None, vmax=None, vticks=5, vlabel=None, thetamax=60):
+                vmin=0, vmax=2, vticks=5, vlabel=None, thetamax=60):
         """
         values : array of float
         Creates a Figure that must be cleared
@@ -880,19 +912,6 @@ class Limb(ROIinfo):
         if title is not None: plt.suptitle(title)  
         return fig
         
-    def ratio_hist(self, ratio, vmax=1.0, cut=None):
-        """ Histogram of Front/Back limb flux ratio
-        Histogram of the ratio of the front to the back flux. ROIs with |b|>20 degrees are shown in green. 
-        """
-        fig, ax = plt.subplots(figsize=(4,4))
-        space = np.linspace(0, vmax,21)
-        r = ratio.clip(0,vmax)
-        ax.hist(r[cut], space)
-        ax.hist(r[(abs(self.df.glat)>20) * cut], space, label='|b|>20')
-        plt.setp(ax, xlabel='front/back ratio', xlim=(0,vmax))
-        ax.set_xticks(np.linspace(0,vmax,5))
-        ax.grid(); ax.legend(prop=dict(size=10))
-        return fig
         
     def flux_vs_dec(self):
         """ front and back flux vs dec
@@ -933,31 +952,16 @@ class Limb(ROIinfo):
         cb=plt.colorbar(scat, cax)
         cb.set_label('abs(glat)')
         plt.suptitle('Limb observed flux') 
+        return fig
     
-    def all_plots(self, thetamax=60, **kw):
-        dm = self.diffuse_models('limb')
-        fpar,bpar = [np.array([m[i] if m else np.nan for m in dm] )for i in range(2)]
-
-        html = ''
-        
-        self.polar_plots(bpar, vmin=0, vmax=2, vticks=5, thetamax=thetamax, title='back normalization')
-        html+=self.savefigure('back_normalization_polar', title='Back normalization factor', caption="""\
-        Polar plots of the back limb normalization\
-        """)
-      
-        self.polar_plots(fpar, vmin=0, vmax=1.0, vticks=5, thetamax=thetamax, title='front normalization')
-        html+=self.savefigure('front_normalization_polar', title='Front normalization', caption="""\
-        Polar plots of the front limb normalization\
-        """)
-        
-        self.polar_plots(fpar/bpar, vmin=0, vmax=1.0, vticks=5, thetamax=thetamax, title='front/back ratio')
-        html+=self.savefigure('front_back_ratio_polar', title='Front/Back flux ratio', caption="""\
-        Polar plots of the ratio of the front to back flux\
-        """)
-        
-        self.flux_vs_dec()
-        html+=self.savefigure('flux_vs_dec')
-        super(Limb, self).all_plots(other_html=html, **kw)
+    def bpar_plot(self):
+        """ Back normalization
+        """
+        return self.polar_plots(self.bpar)
+    def fpar_plot(self):
+        """ front normalization
+        """
+        return self.polar_plots(self.fpar)
 
 
 class Galactic(ROIinfo):
@@ -1013,6 +1017,8 @@ class SourceTotal(ROIinfo):
         self.plotfolder='sourcetotal'
         self.source_name='sources'
         self.title='Sources'
+        self.funcs = [self.counts_map]
+        self.fnames=['source_counts']
 
     def all_plots(self, **kwargs):
         """ Counts for all sources, per RIO"""
@@ -1020,11 +1026,11 @@ class SourceTotal(ROIinfo):
         self.runfigures([self.counts_map], ['source_counts'], **kwargs)
 
 
-
 class SourceInfo(Diagnostics):
     """ To be superclass for specific source plot stuff, creates or loads
         a DataFrame with all sources 
         """
+    require='pickle.zip'
     def setup(self, **kwargs):
         self.plotfolder='sources' #needed by superclass
         filename = 'sources.pickle'
@@ -1114,7 +1120,7 @@ class SourceInfo(Diagnostics):
         return pd.DataFrame(dict(fdata=fdata, udata=udata, ldata=ldata, fmodel=fmodel, glat=s.glat, glon=s.glon),
             index=s.index)
 
-    def cumulative_ts(self, ts=None, tscut=(10,25), check_localized=True):
+    def cumulative_ts(self, ts=None, tscut=(10,25), check_localized=True, label=None):
         """ Cumulative test statistic TS
         
         A logN-logS plot, but using TS. Important thresholds at TS=10 and 25 are shown.
@@ -1125,7 +1131,7 @@ class SourceInfo(Diagnostics):
         fig,ax = plt.subplots( figsize=(8,6))
         dom = np.logspace(np.log10(9),5,1601)
         ax.axvline(25, color='gray', lw=1) 
-        ax.hist( usets ,dom, cumulative=-1, lw=2, color='g', histtype='step')
+        ax.hist( usets ,dom, cumulative=-1, lw=2, color='g', histtype='step',label=label)
         if check_localized:
             localized = ~np.array(pd.isnull(df.delta_ts))
             extended = np.array(df.isextended, bool)
@@ -1487,6 +1493,8 @@ class Localization(SourceInfo):
 
 class Localization1K(Localization):
     """ load and analyze a special localization-only run"""
+    require='loccalization.zip'
+    
     def setup(self, zipname='localization', ecut=1000,  **kw):
         super(Localization1K, self).setup(**kw)
         try:
@@ -1534,6 +1542,7 @@ class Localization1K(Localization):
 
 class FluxCorr(SourceInfo):
 
+    require='fluxcorr.zip'
     def setup(self, **kwargs):
         super(FluxCorr, self).setup(**kwargs)
         self.plotfolder='fluxcorr'
@@ -1612,7 +1621,7 @@ class FluxCorr(SourceInfo):
     
     def ratio_vs_stat(self):
         """Compare statistical error with systematic dependence
-        The red diagonal line corresponds to the relative statistical error being equal to the flux change for a 1%% change in the 
+        The red diagonal line corresponds to the relative statistical error being equal to the flux change for a 1 percent change in the 
         %(diffuse_name)s flux. Sources below this line are at risk.
         The color represent the absolute value of the Galactic latitude.
         """
@@ -1669,6 +1678,8 @@ class FluxCorr(SourceInfo):
 
 
 class FluxCorrIso(FluxCorr):
+
+    require = 'fluxcorriso.zip'
     def setup(self, **kw):
         super(FluxCorrIso,self).setup(source_name='fluxcorriso', **kw)
         self.title='Source-isotropic diffuse flux dependence'
@@ -1679,6 +1690,8 @@ class FluxCorrIso(FluxCorr):
         
 class GalacticSpectra(Diagnostics):
 
+    require = 'galfits_all.zip'
+    
     def diffuse_setup(self, which='gal'):
     
         self.which = which
@@ -1846,6 +1859,7 @@ class GalacticSpectra(Diagnostics):
         
 
 class IsotropicSpectra(GalacticSpectra):
+    require = 'isofits.zip'
 
     def setup(self):
         self.diffuse_setup('iso')
@@ -1898,19 +1912,9 @@ class IsotropicSpectra(GalacticSpectra):
         self.lowdiff_scat( ax[1])
         return fig
         
-    #def all_plots(self):
-    #    self.like_scats()
-    #    self.bfratio_hists()
-    #    self.diffuse_ratio_plot()
-    #    self.diffuse_fits()
-    #    
-    #    fig,ax=plt.subplots(1,2, figsize=(14,6))
-    #    self.lowdiff_hist( ax[0])
-    #    self.lowdiff_scat( ax[1])
-    #    self.savefigure('isotropic_bin0_bin1_difference')
 
 class SeedCheck(SourceInfo):
-
+    require='seedcheck.zip'
     def setup(self, **kw):
         self.plotfolder = 'seedcheck'
         files, sources = self.load_pickles('seedcheck')
@@ -1948,7 +1952,7 @@ class SeedCheck(SourceInfo):
         """ Cumulative TS distribution for seeds 
         
         """
-        fig = self.cumulative_ts(self.df.ts, label='seeds')
+        fig = self.cumulative_ts(self.df.ts,check_localized=False, label='seeds')
         ax = plt.gca()
         plt.setp(ax, ylim=(9,1000), xlim=(9,100))
         leg =ax.legend()
@@ -1982,6 +1986,7 @@ class SeedCheck(SourceInfo):
         
 class HPtables(Diagnostics):
     """ process Healpix tables, inclucing TS residual map files generated by table, perhaps generating list of new seeds """
+    require = 'ts_table.zip'
     def setup(self, **kw):
         fnames = glob.glob('hptables_*.fits')
         assert len(fnames)==1, 'expect one hptable*.fits file'
@@ -2039,6 +2044,17 @@ class HPtables(Diagnostics):
     def all_plots(self):
         self.runfigures([self.kde_map,self.seed_plots, self.ts_map,])
 
+class Components(ROIinfo):
+    def setup(self):
+        self.plotfolder='components'
+        self.title = 'All components'
+        self.plots_kw={}
+        self.components = [x() for x in (Galactic, Isotropic, Limb, SunMoon, SourceTotal)]
+        self.funcs = np.hstack([x.funcs for x in self.components])
+        self.fnames= np.hstack([x.fnames for x in self.components])
+
+    
+    
 class HTMLindex():
     style="""
 <style type="text/css">
@@ -2047,9 +2063,11 @@ body {	font-family:verdana,arial,sans-serif;
 	margin:10px;
 	background-color:white;
 	}
-p { font-size:10pt; margin:25pt; }
-h4 {margin:25pt;}
-table { margin:25pt; font-size:8pt; }
+p ,pre { font-size:10pt; margin-left:25pt; }
+h5 {margin-left:25pt;}
+table { margin-left:25pt; font-size:8pt; }
+a:link { text-decoration: none ; color:green}
+a:hover { background-color:yellow; }
 </style>"""
 
     menu_header="""<html> <head> <title>Plot index for model %(model)s </title> %(style)s 
@@ -2072,7 +2090,7 @@ table { margin:25pt; font-size:8pt; }
             print 'Did not find any plot folders under %s' % folder
         z = dict( zip(w, [glob.glob(a+'/*.htm*') for a in w] ) )
         self.model = '/'.join(os.getcwd().split('/')[-2:])
-        self.model_summary='config.txt' ## TODO: make a special page
+        self.model_summary='plots/config.html' ## TODO: make a special page
         s= HTMLindex.menu_header % self.__dict__
         
         def parse_item(x):
@@ -2081,7 +2099,8 @@ table { margin:25pt; font-size:8pt; }
             n = name.find('_uw')
             return '<a href="%s" target="content">%s</a><br>' % (x,name[:n])
 
-        for k,v in z.items():
+        for k in sorted(z.keys()):
+            v = z[k]
             if len(v)==0: continue
             index = '%s/index.html'%k
             if index in v:
@@ -2089,11 +2108,17 @@ table { margin:25pt; font-size:8pt; }
                 s += '\n<h4><a href="%s" target="content">%s</a></h4>'% (index, k.split('/')[-1])
             else:
                 s += '\n<h4>%s</h4>'% k.split('/')[-1]
-            s += '\n\t' + '\n\t'.join(map(parse_item, v)) 
-        self.ul = s + '\n</body>'
+            s += '\n\t<p>' + '\n\t'.join(map(parse_item, v)) 
+        self.ul = s + '</p>\n</body>'
+        self.make_config_link()
         
     def _repr_html_(self):    return self.ul
     
+    def make_config_link(self):
+        config = open('config.txt').read()
+        html = '<body><h3>%s - configuration</h3><pre>%s</pre></body>' % (self.model, config)
+        open('plots/config.html', 'w2').write(html)
+        print 'wrote plots/config.html'
     def create_menu(self, filename='plot_index.html'):
         ###summary = open(filename, 'w')
         open(filename, 'w').write(self.ul)
@@ -2146,6 +2171,20 @@ def main(args, update_top=False , raise_exception=False):
     success=True
     if type(args)==types.StringType: args = args.split()
     for arg in args:
+        if arg=='all':
+            cs = set(np.hstack(opts.values()))
+            for cls in cs:
+                if os.path.exists(cls.require):
+                    print 'running %s' % cls.__name__
+                    try:
+                        cls('.').all_plots()
+                        plt.close('all')
+                    except Exception, msg:
+                        print '=====failed====\n %s\n=============='% msg
+                else:
+                    print 'skipped %s, missing %s' % (cls.__name__, cls.require)
+            break
+
         if arg not in opts.keys():
             print 'found %s; expect one of %s' % (arg, opts.keys())
             continue
