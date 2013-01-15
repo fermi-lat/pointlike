@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.36 2013/01/08 22:15:27 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.37 2013/01/09 16:12:40 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -604,7 +604,9 @@ def check_seeds(roi, **kwargs):
         print 'no sources to refit, locate'
         outtee.close()
         return
-    roi.fit()
+    # initial fit to norm only
+    seednorms = np.arange(len(roi.parameter_names))[np.array([s.startswith(prefix) and s.endswith('_Norm') for s in roi.parameter_names])]
+    roi.fit(seednorms)
     for s in seed_sources:
         s.ts=ts = roi.TS(s.name)
     localization.localize_all(roi, prefix=prefix, tsmap_dir=tsmap_dir, associator = associator, update=True, tsmin=tsmin)
