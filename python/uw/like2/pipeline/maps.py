@@ -1,6 +1,6 @@
 """
 Code to generate a set of maps for each ROI
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/maps.py,v 1.7 2012/09/27 14:23:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/maps.py,v 1.8 2013/01/14 22:24:22 burnett Exp $
 
 """
 import os, sys,  pickle, types
@@ -106,8 +106,13 @@ class ResidualTS(object):
         sourcelist.set_default_bounds(self.model) # in case no bounds already
         roi.summary()
         roi.fit([self.index]) #check
+        print 'TS check:', roi.TS('tsmap')
         
     def __enter__(self):
+        roi.summary()
+        roi.fit([self.index]) #check
+        print 'TS check:', roi.TS('tsmap')
+
         return self
     def __exit__(self,*pars):
         self.reset()
@@ -120,10 +125,11 @@ class ResidualTS(object):
         self.source.skydir = skydir
         self.roi.calls =0
         self.roi.update(reset=True)
+        self.model[0]=1e-14 # initial value above limit
         fn = fitter.Projector(self.roi, select=[self.index])  
         mm = fitter.Minimizer(fn, quiet=True)
         mm(use_gradient=True, estimate_errors=False, use_bounds=False)
-        self.model[0]=1e-15
+        self.model[0]=1e-15 # for TS computation
         llzero = self.roi.log_like()
         ts= 2*(-mm.fitvalue-llzero)
         return max(ts, 0)
