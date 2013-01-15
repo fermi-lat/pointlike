@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.52 2013/01/12 21:03:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.53 2013/01/14 22:24:55 burnett Exp $
 
 """
 
@@ -983,16 +983,16 @@ class Isotropic(Galactic):
         self.default_plots()
         self.funcs += [self.isotropic_spectrum]
         self.fnames +=['isotropic_spectrum']
+        config = eval(open('config.txt').read())
+        diffuse=config['diffuse']
+        self.idfiles = [os.path.join(os.environ['FERMI'],'diffuse',diffuse[1][i]) for i in (0,1)]
         
-    def isotropic_spectrum(self):
+    def isotropic_spectrum(self, other=None):
         """ Isotropic Spectrum from template
         
         The spectrum used to define the isotropic diffuse component.
         <br>Files for front/back: %(idfiles)s
         """
-        config = eval(open('config.txt').read())
-        diffuse=config['diffuse']
-        self.idfiles = [os.path.join(os.environ['FERMI'],'diffuse',diffuse[1][i]) for i in (0,1)]
         nf,nb = map(np.loadtxt, self.idfiles)
         energies = nf[:,0]; front,back = nf[:,1],nb[:,1]
         fig, axs = plt.subplots(1,2, figsize=(7,3), dpi=50)
@@ -1009,7 +1009,25 @@ class Isotropic(Galactic):
             ax.grid(True); ax.legend()
         for f,a in zip((left,right), axs.flatten()): f(a)
         return fig
-        
+     
+    def combined_spectra(self, other='isotrop_4years_P7_v9_repro_data_source.txt'):
+        """ Special isotropic spectrum plot"""
+        nf,nb = map(np.loadtxt, self.idfiles)
+        fig, ax = plt.subplots(figsize=(5,5))
+        energies = nf[:,0]; front,back = nf[:,1],nb[:,1]
+        ax.plot(energies, front*energies**2, '-g', label='1year_P76R_source_front')
+        ax.plot(energies, back*energies**2, '-r', label='1year_P76R_source_back')
+        plt.setp(ax, xlabel='Energy', ylabel='flux*e**2', xscale='log')
+        ax.set_title('isotropic diffuse spectra', fontsize='small')
+        f =os.path.join(os.path.expandvars('$FERMI/diffuse'),other)
+        assert os.path.exists(f)
+        iso = np.loadtxt(f)
+        energies, fluxes =iso[:,0], iso[:,1] 
+        ax.plot(energies, fluxes*energies**2, '-', label ='4years_P7-v9_source')
+        plt.setp(ax, xlim=(1e2,1e4))
+        ax.legend();ax.grid(True)
+        return fig
+
     
 class SourceTotal(ROIinfo):
     def setup(self, **kw):
@@ -2063,7 +2081,10 @@ body {	font-family:verdana,arial,sans-serif;
 	margin:10px;
 	background-color:white;
 	}
-p ,pre { font-size:10pt; margin-left:25pt; }
+p   { font-size:10pt; margin-left:25pt; }
+pre { font-size:10pt; margin-left:25pt; 
+    border-style:solid;
+    border-width:medium;}
 h5 {margin-left:25pt;}
 table { margin-left:25pt; font-size:8pt; }
 a:link { text-decoration: none ; color:green}
@@ -2115,9 +2136,11 @@ a:hover { background-color:yellow; }
     def _repr_html_(self):    return self.ul
     
     def make_config_link(self):
-        config = open('config.txt').read()
-        html = '<body><h3>%s - configuration</h3><pre>%s</pre></body>' % (self.model, config)
-        open('plots/config.html', 'w2').write(html)
+        html = '<head>%s</head><body><h3>%s - configuration and analysis history files</h3>' %(self.style,self.model)
+        for filename in ('config.txt', 'converge.txt', 'summary_log.txt'):
+            html += '<h4>%s</h4>\n<pre>%s</pre>' % (filename, open(filename).read())
+        html += '\n</body>'
+        open('plots/config.html', 'w').write(html)
         print 'wrote plots/config.html'
     def create_menu(self, filename='plot_index.html'):
         ###summary = open(filename, 'w')
