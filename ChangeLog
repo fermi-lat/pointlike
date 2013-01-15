@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jan 15 07:00:49 PST 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	check_converge.py 
+Log Message:
+summarize number of executions
+    *
+------------------------------------------------------------
 User: burnett  Tue Jan 15 07:00:06 PST 2013
 pointlike/python/uw/like2/pipeline
 
