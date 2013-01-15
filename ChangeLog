@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jan 15 15:04:43 PST 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	processor.py 
+Log Message:
+initial fit to seed norms only
+    *
+------------------------------------------------------------
 User: burnett  Tue Jan 15 13:27:55 PST 2013
 pointlike/python/uw/like2/pipeline
 
