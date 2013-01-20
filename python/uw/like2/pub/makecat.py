@@ -1,11 +1,12 @@
 """
 Code to generate a standard Fermi-LAT catalog FITS file
 also, see to_xml, to generate XML for the sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/makecat.py,v 1.1 2011/12/29 19:17:51 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/makecat.py,v 1.2 2012/02/26 23:44:56 burnett Exp $
 """
 import os
 import pyfits
 from skymaps import SkyDir
+import numpy as np
 
 #catdir  = config.catalog_path
 #catalog = config.default_catalog
@@ -105,6 +106,61 @@ def move(z):
     z.ra[canmove]=z.fit_ra[canmove]
     z.dec[canmove]=z.fit_dec[canmove]
 
+
+def model_info(model):
+    """ helper function to interpret the model object
+    Returns tuple of: 
+            pnorm pindex cutoff 
+            pnorm_unc pindex_unc cutoff_unc
+            e0 pivot_energy 
+            flux flux_unc
+            eflux eflux_unc
+            beta beta_unc
+            index2 index2_unc
+            modelname 
+    """
+    data = []
+    eflux = list(np.array(model.i_flux(e_weight=1, error=True, emax=1e5, quiet=True))*1e6)
+    if np.isnan(eflux[0]):
+        import pdb; pdb.set_trace()
+    p,p_relunc = model.statistical()
+    p_unc = p*p_relunc
+    psr_fit =  model.name.endswith('Cutoff')
+    data += [p[0],     p[1],     p[2] if psr_fit else np.nan, ]
+    data += [p_unc[0], p_unc[1] ,p_unc[2] if psr_fit else np.nan,]
+    pivot_energy=model.e0
+    e0 = model.e0 if model.name!='LogParabola' else p[3]
+    flux = model(e0)
+    flux_unc = flux*p_relunc[0]
+    data += [e0, pivot_energy]
+    data += [flux, flux_unc]
+    
+    # energy flux from model e < 1e5, 1e-6 MeV units
+    data += eflux
+    if model.name=='ExpCutoff':
+        data += [np.nan,np.nan, 1.0, np.nan, 'ExpCutoff']
+    elif model.name=='PLSuperExpCutoff':
+        data += [np.nan,np.nan, p[3], p_unc[3], model.name]
+    elif p[2]<0.01:
+        data += [0.0, np.nan,    np.nan, np.nan, 'PowerLaw'] 
+    else:
+        data += [p[2], p_unc[2], np.nan, np.nan, 'LogParabola']
+    return data                
+
+def test(s):
+    """  return a DataFrame with model info
+        first step takes a long time """
+    t =  map( makecat.model_info, s.models)
+    df = pd.DataFrame(t, index=s.index ,columns="""pnorm pindex cutoff 
+            pnorm_unc pindex_unc cutoff_unc
+            e0 pivot_energy 
+            flux flux_unc
+            eflux eflux_unc
+            beta beta_unc
+            index2 index2_unc
+            modelname""".split() 
+        )
+    return df
     
 class MakeCat(object):
     
@@ -141,32 +197,29 @@ class MakeCat(object):
         sdir = map(SkyDir, z.ra, z.dec)
         self.add('GLON', [s.l() for s in sdir])
         self.add('GLAT', [s.b() for s in sdir])
+        
+        # localization 
         f95 = 2.45*1.1 # from 
         self.add('Conf_95_SemiMajor', f95*z.a)
         self.add('Conf_95_SemiMinor', f95*z.b)
-        try:
-            self.add('Conf_95_PosAng',    z.ang)
-        except:
-            self.add('Conf_95_PosAng',    z.phi)
+        self.add('Conf_95_PosAng',    z.ang)
+            
         self.add('Test_Statistic',    z.ts)
-        #self.check = True # rows for bad sources set to zero
+        
+        # Spectral details
         self.add('Pivot_Energy',      z.e0)  # note that pivot_energy is the measured value
         self.add('Flux_Density',      z.flux)
         self.add('Unc_Flux_Density',  z.flux_unc)
         self.add('Spectral_Index',    z.pindex)
         self.add('Unc_Spectral_Index',z.pindex_unc)
-        try:
-            self.add('beta',              z.beta)
-            self.add('Unc_beta',          z.beta_unc)
-        except:
-            print 'attempt to add beta, Unc_beta failed'
-        try:
-            self.add('Index2',          z.index2)
-            self.add('Unc_Index2',      z.index2_unc)
-        except:
-            print 'attempt to add Index2, Unc_Index2 failed'
+        self.add('beta',              z.beta)
+        self.add('Unc_beta',          z.beta_unc)
+        self.add('Index2',            z.index2)
+        self.add('Unc_Index2',        z.index2_unc)
         self.add('Cutoff_Energy',     z.cutoff) ## need to get this from info
         self.add('Cutoff_Energy_Unc', z.cutoff_unc) ## need to get this from info
+        
+        
         self.add('SpectralFitQuality',    z.band_ts-z.ts)  # sort of an approximation?
         #if self.add_assoc:
         #    assoc = Assoc()

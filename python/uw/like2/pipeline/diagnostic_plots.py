@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.54 2013/01/15 15:00:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.55 2013/01/15 21:27:55 burnett Exp $
 
 """
 
@@ -143,7 +143,7 @@ class Diagnostics(object):
         """
         pkls = []
         if os.path.exists(folder+'.zip'):
-            print 'unpacking file %s.zip ...' % folder ,
+            print 'unpacking file %s.zip ...' % (os.getcwd()+'/'+folder ,),
             z=zipfile.ZipFile(folder+'.zip')
             files = sorted(z.namelist()) # skip  folder?
             print 'found %d files ' % len(files)
@@ -1504,9 +1504,33 @@ class Localization(SourceInfo):
         ax.grid()
         plt.setp(ax, xscale='log', xlim=(10,1e5), xlabel='TS', ylabel='localization fit quality')
         return fig 
-  
+        
+    def r95(self):
+        """ Error circle radius
+        R95 is the 95% containment radius. Here I show the semi-major axis.
+        """
+        fig, ax = plt.subplots(1,2, figsize=(12,5))
+        r95 = 60* 2.6 * self.ebox.a
+        ts = self.df.ts
+        def hist(ax):
+            bins = np.linspace(0,30,61)
+            ax.hist(r95, bins, label='all')
+            ax.hist(r95[ts>1000], bins, label='TS>1000')
+            plt.setp(ax, xlabel='R95 (arcmin)')
+            ax.grid(); ax.legend(prop=dict(size=10))
+        def scat(ax):
+            ax.plot( ts, r95, '.')
+            plt.setp(ax, xscale='log', xlim=(10,1000), ylim=(0,30), xlabel='TS', ylabel='r95')
+            ax.grid()
+        for f,a in zip((hist,scat), ax): f(a)
+        return fig
+        
     def all_plots(self):
-        return self.runfigures([self.localization,self.localization_quality])
+        """ Localization summary
+        %(ebox_info)s
+        """
+        self.ebox_info = self.ebox.describe().to_html()
+        return self.runfigures([self.r95, self.localization,self.localization_quality])
 
 
 class Localization1K(Localization):
@@ -1935,8 +1959,12 @@ class SeedCheck(SourceInfo):
     require='seedcheck.zip'
     def setup(self, **kw):
         self.plotfolder = 'seedcheck'
-        files, sources = self.load_pickles('seedcheck')
+        self.spectral_type='power law'
+        
+    def load(self):
+        files, sources = self.load_pickles(self.plotfolder)
         sdict={}
+        assoc={}
         for source in sources:
             name = source.name
             model = source.model
@@ -1953,42 +1981,115 @@ class SeedCheck(SourceInfo):
             except Exception, msg:
                 print 'fail errors for %s:%s' % (name, msg)
                 badfit = True
+            has_adict = hasattr(source,'adict') and source.adict is not None
             sdict[name] = dict(
                 ts=source.ts,
-                #ellipse = source.ellipse if hasattr(source, 'ellipse') else None,
                 delta_ts=source.ellipse[5] if hasattr(source, 'ellipse') else np.nan,
+                r95 = 2.6*source.ellipse[2] if hasattr(source, 'ellipse') else np.nan,
                 glat=source.skydir.b(), glon=source.skydir.l(),
                 eflux=pars[0] * model.e0**2 *1e6,
                 eflux_unc=errs[0] * model.e0**2 *1e6 if errs[0]>0 else np.nan,
                 pindex = pars[1],
                 pindex_unc = errs[1] if errs[1]>0 else np.nan,
+                par2 = pars[2],
+                par2_unc = errs[2] if errs[2]>0 else np.nan,
                 e0 = model.e0,
+                aprob = source.adict['prob'][0] if has_adict else 0,
+                index = source.index,
+                )
+            assoc[name] = dict(
+                acat = source.adict['cat'][0] if has_adict else None,
+                aname= source.adict['name'][0] if has_adict else None,
+                adelta_ts = source.adict['deltats'][0] if has_adict else None,
+                aprob = source.adict['prob'][0] if has_adict else 0.,
+                adict = source.adict if has_adict else None,
                 )
         self.df = pd.DataFrame(sdict).transpose()
+        self.assoc = pd.DataFrame(assoc).transpose()
+        #associated = (self.df.aprob>0.8)
+        #t = self.assoc.acat
+        #self.psr = [  s is not None and ('pulsar' in s or 'msp' in s ) for s in t] * associated
+        #self.agn = [  s is not None and ('agn' in s or 'crates' in s or 'bzcat' in s or 'bllac' in s or 'qso' in s or 'cgrabs' in s) for s in t] * associated
+
     
-    def seed_cumulative_ts(self):
+    def seed_cumulative_ts(self, cut=None, label='all seeds'):
         """ Cumulative TS distribution for seeds 
-        
         """
-        fig = self.cumulative_ts(self.df.ts,check_localized=False, label='seeds')
+        v = self.df.ts
+        if cut is not None: v=v[cut]
+        fig = self.cumulative_ts(v, check_localized=False, label=label)
         ax = plt.gca()
         plt.setp(ax, ylim=(9,1000), xlim=(9,100))
         leg =ax.legend()
         pbox = leg.get_patches()[0]; pbox._height=0; pbox._y=5
         return fig
         
+    def unassoc_seed_cumulative_ts(self):
+        """ Cumulative TS distribution for seed sources that are not associated
+        """
+        return self.seed_cumulative_ts(cut=self.assoc.aprob<0.8, label='unassociated')
+        
+    def histo(self, ax, v, bins):
+        ax.hist(v, bins)
+        ax.hist(v[self.df.ts>10], bins, label='TS>10')
+        ax.hist(v[self.df.ts>25], bins, label='TS>25')
+        ax.legend(prop=dict(size=10))
+        ax.grid()
+    
+    def localization(self):
+        """ Localization results
+        <br>Left: r95; right; delta TS
+        """
+        fig, ax = plt.subplots(1,2, figsize=(12,5))
+        def r95(ax):
+            v = 60.*self.df.r95; bins = np.linspace(0, 25,26)
+            self.histo(ax, v[~pd.isnull(v)], bins)
+            plt.setp(ax, xlabel='r95 (arcmin)')
+        def delta_ts(ax):
+            v = np.sqrt(list(self.df.delta_ts)); bins = np.linspace(0,10,26)
+            self.histo(ax, v, bins)
+            plt.setp(ax, xlabel='sqrt(delta_ts)', xlim=(0,10))
+
+        for f, a in zip((r95, delta_ts), ax.flatten()):
+            f(a)
+        return fig
+
+    
     def spectral_parameters(self, ax=None):
         """ Spectral fit parameters
-        Flux vs. spectral index for power-law fit
+        Flux vs. spectral index for %(spectral_type)s fit
+        <br>histograms of sin(glat) and sqrt(delta_ts) for all, TS>10, and TS>25
         """
-        fig, ax = plt.subplots(figsize=(5,5))
+        fig, ax = plt.subplots(2,2, figsize=(12,12))
         good = self.df.ts>10
         super = self.df.ts>25
-        for cut, c,label in zip((good, super), ('.b', 'or'), ('TS>10', 'TS>25')):
-            ax.plot(self.df.eflux[cut], self.df.pindex[cut], c, label=label)
-        ax.grid()
-        ax.legend()
-        plt.setp(ax, ylim=(1.0,3.0), ylabel='spectral index', xlabel='enegy flux (eV)')
+        def flux_index(ax):
+            for cut, c,label in zip((good, super), ('.b', 'or'), ('TS>10', 'TS>25')):
+                ax.plot(self.df.eflux[cut], self.df.pindex[cut], c, label=label)
+            ax.grid()
+            ax.legend(prop=dict(size=10))
+            plt.setp(ax, ylim=(0.5,3.0), xlim=(0.1,10), xscale='log', ylabel='spectral index', xlabel='enegy flux (eV)')
+        def singlat(ax):
+            v = np.sin(np.radians(list(self.df.glat))); bins=np.linspace(-1,1,26)
+            self.histo(ax, v, bins)
+            plt.setp(ax, xlabel='sin(glat)')
+        def skyplot(ax):
+            glon = self.df.glon
+            glon[glon>180]-=360
+            ax.plot(glon, np.sin(np.radians(list(self.df.glat))))
+            plt.setp(ax, xlim=(180,-180), xlabel='glon', ylabel='sin(glat)')
+            #self.skyplot(self, self.df.ts, ax=ax)
+        def index_vs_cutoff(ax):
+            cutoff = self.df.par2
+            for tsmin, marker in zip((10,25), ('.b', 'or')):
+                cut = self.df.ts>tsmin
+                ax.plot(cutoff[cut], self.df.pindex[cut],  marker, label='TS>%d'%tsmin)
+            plt.setp(ax, ylabel='spectral index', xlabel='cutoff', ylim=(0.5,3.0), xlim=(0, 3000))
+            ax.grid(); ax.legend(prop=dict(size=10))
+        for f, a in zip((flux_index, index_vs_cutoff, singlat,), ax.flatten()):
+            f(a)
+            
+        return fig
 
     def locations(self):
         """ Positions
@@ -2002,6 +2103,22 @@ class SeedCheck(SourceInfo):
         self.info = self.df.describe().to_html()
         self.runfigures([self.seed_cumulative_ts, self.spectral_parameters])
         
+class PulsarSeedCheck(SeedCheck):
+    require='pseedcheck.zip'
+    def setup(self, **kw):
+        self.plotfolder = 'pseedcheck'
+        self.spectral_type = 'exponential cutoff'
+        self.load()
+
+    def all_plots(self):
+        """ Results of analysis of pulsar seeds
+        %(info)s
+        """
+        self.info = self.df.describe().to_html()
+        self.runfigures([self.seed_cumulative_ts, self.unassoc_seed_cumulative_ts, self.spectral_parameters, self.localization],
+                ('pulsar_cumulative_ts', 'pulsar_unassoc_cumulative_ts', 'pulsar_spectral_pars', 'pulsar_localization'))
+
+
 class HPtables(Diagnostics):
     """ process Healpix tables, inclucing TS residual map files generated by table, perhaps generating list of new seeds """
     require = 'ts_table' ## fix.
@@ -2090,8 +2207,6 @@ class PTStable(HPtables):
         self.runfigures([ self.seed_plots, self.ts_map,])
 
 
-
-
 class Components(ROIinfo):
     def setup(self):
         self.plotfolder='components'
@@ -2116,7 +2231,8 @@ pre { font-size:10pt; margin-left:25pt;
     border-style:solid;
     border-width:medium;}
 h5 {margin-left:25pt;}
-table { margin-left:25pt; font-size:8pt; }
+table { margin-left:25pt; margin-top:15pt; font-size:8pt; 
+    border-style: solid; border-width: 1px;  border-collapse: collapse;}
 a:link { text-decoration: none ; color:green}
 a:hover { background-color:yellow; }
 </style>"""
@@ -2216,7 +2332,7 @@ opts = dict(
         tables = (HPtables,),
         sourcetotal=(SourceTotal,),
         seedcheck=(SeedCheck,),
-        pseedcheck= PTStable,),
+        pseedcheck=(PulsarSeedCheck,),
         pts=     (PTStable,),
         ) 
         

@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.24 2012/10/18 18:25:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.25 2012/11/26 16:04:09 burnett Exp $
 
 """
 import types
@@ -63,7 +63,7 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
             selectpar = select
             if not hasattr(select, '__iter__'): select = [select]
             for item in select:
-                if type(item)==types.IntType:
+                if type(item)==types.IntType or type(item)==np.int64:
                     selected.add(item)
                     if item>=npars:
                         raise Exception('Selected parameter number, %d, not in range [0,%d)' %(item, npars))
@@ -81,7 +81,7 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
                         toadd = filter(lambda i: self.parameter_names[i].startswith(src.name), range(npars))
                     selected = selected.union(toadd )
                 else:
-                    raise Exception('fit parameter select list item %s must be either an integer or a string' %item)
+                    raise Exception('fit parameter select list item %s, type %s, must be either an integer or a string' %(item, type(item)))
             select = sorted(list(selected))
             if len(select)==0:
                 raise Exception('nothing selected for fit from selection "%s"' % selectpar)
@@ -138,8 +138,9 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
             mm = fitter.Minimizer(fn, quiet=quiet)
             mm(**fit_kw)
             w = self.log_like()
-            print '%d calls, function value, improvement: %.0f, %.1f'\
-                % (self.calls, w, w - initial_value)
+            if summarize:
+                print '%d calls, function value, improvement: %.0f, %.1f'\
+                    % (self.calls, w, w - initial_value)
             if fit_kw['estimate_errors'] :
                 self.sources.set_covariance_matrix(mm.cov_matrix, select)
             if summarize: self.summary(selected)

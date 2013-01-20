@@ -1,17 +1,17 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.15 2012/11/05 17:21:56 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.16 2012/11/07 14:36:18 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.15 $'.split()[1]
+version='$Revision: 1.16 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np
 import skymaps, pointlike #from the science tools
 from ..like import pycaldb, roi_bands
-from ..data import dataman
+from ..data import dataman, dssman
 
 from ..utilities import keyword_options
 
@@ -83,6 +83,7 @@ class DataSet(dataman.DataSpec):
         ('zenithcut',100,'Maximum spacecraft pointing angle with respect to zenith to allow'),
         ('thetacut',66.4,'Cut on photon incidence angle'),
         ('use_weighted_livetime',False,'Use the weighted livetime'),
+        ('event_class', 'source', 'either source or clean'),
 
         ('gti',    None, 'good time interval'),
         ('dss',    None, 'DSS keyword object'),
@@ -127,7 +128,11 @@ class DataSet(dataman.DataSpec):
                 ft1=dataspec.pop('ft1files',None), 
                 ft2=dataspec.pop('ft2files',None),
                 )
+                
         dataspec.update(kwargs)
+        if dataspec.pop('event_class').lower()=='clean':
+            d = dict(TYP='BIT_MASK(EVENT_CLASS,3)',UNI='DIMENSIONLESS', VAL='1:1', REF=None)
+            dataspec['event_class_cut'] =d
         # Now invoke the superclass to actually load the data, which may involve creating the binfile and livetime cube
         super(DataSet,self).__init__(  **dataspec)
         assert self.irf is not None, 'irf was not specifed!'
