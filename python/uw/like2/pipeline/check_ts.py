@@ -1,6 +1,6 @@
 """
 Check the residual TS maps for clusters
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_ts.py,v 1.1 2012/12/23 20:19:11 burnett Exp $
 
 """
 
@@ -112,7 +112,7 @@ def main(args):
     global nside
     nside=args.nside
     assert os.path.exists(args.files[0]), 'did not find file %s'%args.files[0]
-    tsdata = TSdata('.', args.files[0])
+    tsdata = TSdata('.', args.files[0], args.tsfield)
     rec = open(args.files[1], 'w')
     make_seeds(tsdata, rcut=args.tsmin, bcut=args.bmin, rec=rec, seedroot=args.seedroot, minsize=args.minsize)
     
@@ -124,6 +124,8 @@ if __name__=='__main__':
     parser.add_argument('--minsize',  help='minimum cluster size',   default=2)
     parser.add_argument('--seedroot', help='root for seed names',    default='SEED')
     parser.add_argument('--nside',    help='nside for healpix map',  default=512)
+    parser.add_argument('--tsfield',  help='name of field with TS data',  default='ts')
+    
 
     args = parser.parse_args()
     main(args)
