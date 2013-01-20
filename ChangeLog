@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Jan 20 06:07:44 PST 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	diagnostic_plots.py 
+Log Message:
+implement clean selection
+    *
+------------------------------------------------------------
 User: burnett  Sun Jan 20 06:07:43 PST 2013
 pointlike/python/uw/like2
 
