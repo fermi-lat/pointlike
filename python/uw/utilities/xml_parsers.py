@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.88 2012/10/01 20:53:36 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.89 2012/10/02 19:15:30 lande Exp $
 
    author: Matthew Kerr
 """
@@ -1250,7 +1250,9 @@ def unparse_point_sources(point_sources, strict=False, expand_env_vars=False, pr
     return xml_blurbs
 
 
-def process_diffuse_source(ds,strict=False,convert_extended=False,expand_env_vars=False,filename=None,ctype=None):
+def process_diffuse_source(ds,strict=False,convert_extended=False,
+                           extended_dir_name=None,
+                           expand_env_vars=False,filename=None,ctype=None):
     """ Convert an instance of DiffuseSource into an XML blurb.
         
         Some simple testing of saving out diffuse sources:
@@ -1375,7 +1377,10 @@ def process_diffuse_source(ds,strict=False,convert_extended=False,expand_env_var
                 # out with the original template.
                 spatial=SpatialModels.SpatialMap(file=spatial.original_template)
             else:
-                folder=os.path.dirname(filename or os.getcwd())
+                if extended_dir_name is not None:
+                    folder = extended_dir_name
+                else:
+                    folder=os.path.dirname(filename or os.getcwd())
                 template_name=folder+os.sep if folder != '' else ''
                 template_name+='template_%s_%s_%s.fits' % (ds.name.replace(' ','_'),
                                                            spatial.pretty_name, 
@@ -1452,13 +1457,17 @@ def process_diffuse_source(ds,strict=False,convert_extended=False,expand_env_var
     s2 = '</source>'
     return ''.join([s1,specxml,skyxml,s2])
     
-def unparse_diffuse_sources(diffuse_sources,strict=False,convert_extended=False,expand_env_vars=False,filename=None):
+def unparse_diffuse_sources(diffuse_sources,strict=False,
+                            convert_extended=False,
+                            extended_dir_name=None,
+                            expand_env_vars=False,filename=None):
     """Convert a list of DiffuseSources into XML blurbs."""
     xml_blurbs = Stack()
     for ds in diffuse_sources:
         xml_blurbs.push(process_diffuse_source(ds,
                                                strict=strict,
                                                convert_extended=convert_extended,
+                                               extended_dir_name=extended_dir_name,
                                                expand_env_vars=expand_env_vars,
                                                filename=filename))
     return xml_blurbs
@@ -1473,12 +1482,16 @@ def writeXML(stacks,filename, title='source_library'):
     f.write('\n</source_library>')
     f.close()
 
-def write_sources(point_sources, diffuse_sources, filename, strict=False,convert_extended=False,expand_env_vars=False):
+def write_sources(point_sources, diffuse_sources, filename, strict=False,
+                  convert_extended=False,
+                  extended_dir_name=None,
+                  expand_env_vars=False):
     source_xml = [unparse_point_sources(point_sources, strict=strict, expand_env_vars=expand_env_vars)]
     if len(diffuse_sources)>0:
         source_xml.append(unparse_diffuse_sources(diffuse_sources,
                                                   strict=strict,
                                                   convert_extended=convert_extended,
+                                                  extended_dir_name=extended_dir_name,
                                                   expand_env_vars=expand_env_vars,
                                                   filename=filename))
     writeXML(source_xml,filename)
@@ -1499,7 +1512,11 @@ def writeROI(roi,*args, **kwargs):
         pointlike. OTOH, it is sometimes desirable for extended source
         output to be strictly compatable with gtlike. This can be done
         with the convert_extended flag, which converts all extended
-        sources to SpatialMap objects before the xml is created. """
+        sources to SpatialMap objects before the xml is created. 
+
+        The extended_dir_name flag specifies the directory to but
+        converted extended sources into.
+        """
     write_sources(roi.psm.point_sources, roi.dsm.diffuse_sources, *args, **kwargs)
 
 
