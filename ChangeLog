@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Jan 24 09:38:42 PST 2013
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+extended_dir_name flag
+    *
+------------------------------------------------------------
 User: burnett  Sun Jan 20 06:07:44 PST 2013
 pointlike/python/uw/like2/pub
 
