@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.45 2012/10/01 05:24:45 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.46 2012/10/01 18:12:54 lande Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -444,6 +444,14 @@ class AnalyticConvolution(object):
             nclist,ntlist,gclist,gtlist,\
                     sclist,stlist,wlist = self.bpsf.par
 
+            # apparently, in the new BandCALDBPsf implementation,
+            # nc and nt are no longer fractions from 0 to 1 but also
+            # have the density term in it. Too keep compatable
+            # with the extended soruce code, undo the density
+            # part of nc and nt.
+            nclist*=2*np.pi*sclist**2 
+            ntlist*=2*np.pi*stlist**2 
+
             smax = np.append(sclist,stlist).max()
 
             # For P7SOURCE_V6, there is no theta dependence to the
@@ -459,6 +467,7 @@ class AnalyticConvolution(object):
                     self.pdf += w*(nc*self._convolve(self.rlist,gc,sc,energy)+
                                    nt*self._convolve(self.rlist,gt,st,energy))
         else:
+            raise Exception("I am not at all sure that the extended source code works with the old-style PSF any more.")
 
             # g = gamma, s = sigma, w = weight
             glist,slist,wlist = self.bpsf.par
