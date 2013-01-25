@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.79 2012/11/17 00:10:41 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.80 2013/01/10 16:45:19 lande Exp $
 
 author: Joshua Lande
 """
@@ -1286,8 +1286,6 @@ class SpectralAnalysisMC(SpectralAnalysis):
     for i in ['tstart', 'tstop']:
         defaults=change_defaults(defaults, i, get_default(MonteCarlo.defaults,i))
 
-    defaults=change_defaults(defaults,'event_class',0)
-
     @decorate(defaults)
     def __init__(self, data_specification, seed, **kwargs):
         """ Don't do anything here. """
@@ -1295,9 +1293,6 @@ class SpectralAnalysisMC(SpectralAnalysis):
         self.seed = seed
 
         process(self, kwargs)
-
-        if self.event_class != 0:
-            raise Exception("event_class must be set to 0 for MC data.")
 
     def roi(self, roi_dir,
             point_sources = [], diffuse_sources = [],
