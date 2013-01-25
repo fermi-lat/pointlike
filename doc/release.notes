@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.213 2013/01/15 17:55:02 lande Exp $
+$Id: release.notes,v 1.214 2013/01/15 18:48:42 jrb Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-08-00-03 24-Jan-2013    jrb [for lande] Bugfix for extended sources with new PSF convention
  pointlike-08-00-02 15-Jan-2013    jrb updating (for Joshua)
  pointlike-08-00-02 15-Jan-2013  lande Bug Fix
  pointlike-08-00-01 14-Jan-2013    jrb Do not build broken test program
