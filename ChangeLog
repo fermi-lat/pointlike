@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Jan 24 16:14:10 PST 2013
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+change event_class handeling following new updates to gtobssim
+    *
+------------------------------------------------------------
 User: lande  Thu Jan 24 16:13:03 PST 2013
 ScienceTools-scons/pointlike/python/uw/like
 
