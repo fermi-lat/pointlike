@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Jan 24 16:53:35 PST 2013
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+bugfix for convolution
+    *
+------------------------------------------------------------
 User: lande  Thu Jan 24 16:14:10 PST 2013
 ScienceTools-scons/pointlike/python/uw/like
 
