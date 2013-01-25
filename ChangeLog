@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Jan 24 16:13:03 PST 2013
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	mapplots.py 
+Log Message:
+avoid annoying bug with bad residuals
+    *
+------------------------------------------------------------
 User: lande  Thu Jan 24 09:38:42 PST 2013
 ScienceTools-scons/pointlike/python/uw/utilities
 
