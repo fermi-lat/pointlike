@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jan 25 14:10:10 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	localization.py 
+Log Message:
+disable exception, screwed up state
+    *
+------------------------------------------------------------
 User: burnett  Fri Jan 25 12:30:25 PST 2013
 pointlike/python/uw/like2/pipeline
 
