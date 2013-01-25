@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.10 2013/01/08 22:14:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.11 2013/01/09 16:10:44 burnett Exp $
 
 """
 import os
@@ -147,7 +147,8 @@ class Localization(object):
             if not self.quiet: print ('\t'+7*'%10.4f')% (diff, delt, l.par[0],l.par[1],l.par[3],l.par[4], l.par[6])
             if delt>self.maxdist:
                 if not self.quiet: print '\t -attempt to move beyond maxdist=%.1f' % self.maxdist
-                raise Exception('localize failure: -attempt to move beyond maxdist=%.1f' % self.maxdist)
+                break # hope this does not screw things up
+                #raise Exception('localize failure: -attempt to move beyond maxdist=%.1f' % self.maxdist)
             if (diff < tolerance) and (abs(sigma-old_sigma) < tolerance):
                 break
             ld = l.dir
