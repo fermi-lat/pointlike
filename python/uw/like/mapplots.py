@@ -616,7 +616,11 @@ class ROIDisplay(object):
 
         bins=np.linspace(-5,5,20)
         dx=bins[1]-bins[0]
-        self.ax_resplot.hist(rc, bins=bins, histtype='step')
+
+        try:
+            self.ax_resplot.hist(rc, bins=bins, histtype='step')
+        except ValueError:
+            pass
         b=np.linspace(-5,5,100)
         # overlay gaussian with same normalization
         self.ax_resplot.plot(b,(len(mc)*dx)*norm.pdf(b))
