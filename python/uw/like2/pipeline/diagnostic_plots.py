@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.55 2013/01/15 21:27:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.56 2013/01/20 14:07:43 burnett Exp $
 
 """
 
@@ -1138,7 +1138,7 @@ class SourceInfo(Diagnostics):
         return pd.DataFrame(dict(fdata=fdata, udata=udata, ldata=ldata, fmodel=fmodel, glat=s.glat, glon=s.glon),
             index=s.index)
 
-    def cumulative_ts(self, ts=None, tscut=(10,25), check_localized=True, label=None):
+    def cumulative_ts(self, ts=None, other_ts=None, tscut=(10,25), check_localized=True, label=None, otherlabel=None):
         """ Cumulative test statistic TS
         
         A logN-logS plot, but using TS. Important thresholds at TS=10 and 25 are shown.
@@ -1148,8 +1148,11 @@ class SourceInfo(Diagnostics):
         df = self.df
         fig,ax = plt.subplots( figsize=(8,6))
         dom = np.logspace(np.log10(9),5,1601)
-        ax.axvline(25, color='gray', lw=1) 
+        ax.axvline(25, color='gray', lw=1)
         ax.hist( usets ,dom, cumulative=-1, lw=2, color='g', histtype='step',label=label)
+        if other_ts is not None:
+            ax.hist( other_ts ,dom, cumulative=-1, lw=2, color='b', histtype='step',label=otherlabel)
+        
         if check_localized:
             localized = ~np.array(pd.isnull(df.delta_ts))
             extended = np.array(df.isextended, bool)
@@ -1275,13 +1278,14 @@ class SourceInfo(Diagnostics):
         ax.grid(True)
         return fig
         
-    def fit_quality(self, xlim=(0,50), ndf=12):
+    def fit_quality(self, xlim=(0,50), ndf=12, tsbandcut=20):
         """ Fit quality
         This is the difference between the TS from the fits in the individual energy bands, and that for the spectral fit.
-        It should be distributed as chi squared of 14-2 =12 degrees of freedom.<br>
-        Left: non-pulsar fits, showing the powerlaw subset. This is important since these can in principle be 
-        improved by converting to log parabola.
-        <br>Right: Fits for the pulsars. 
+        It should be distributed as chi squared of 14-2 =12 degrees of freedom.
+        All sources with TS_bands>%(tsbandcut)d are shown.<br>
+        Left: non-pulsar fits, showing the powerlaw subset. This is important since these can be 
+        improved by converting to log parabola. Overall average is %(average1).1f
+        <br>Right: Fits for the pulsars. Average %(average2).1f
         """
         from scipy import stats
         fig, axx = plt.subplots(1,2, figsize=(10,5))
@@ -1289,29 +1293,34 @@ class SourceInfo(Diagnostics):
         s['beta'] = s.pars
         logparabola = s.modelname=='LogParabola'
         beta = np.array([pars[2] for pars in s.pars])
-        cut=s.band_ts>20
+        self.tsbandcut=tsbandcut
+        cut=s.band_ts>tsbandcut
         fitqual = s.band_ts-s.ts
         dom = np.linspace(xlim[0],xlim[1],26)
         d = np.linspace(xlim[0],xlim[1],51); delta=dom[1]-dom[0]
         chi2 = lambda x: stats.chi2.pdf(x,ndf)
         fudge = 1.4 # to scale, not sure why
         
-        def left(ax):
+        def left(ax, label='all non_PSR'):
             mycut=cut*(logparabola)
-            ax.hist(fitqual[mycut].clip(*xlim), dom, label='all non-PSR')
-            ax.hist(fitqual[mycut*(beta<0.01)].clip(*xlim), dom, label=' powerlaw')
+            ax.hist(fitqual[mycut].clip(*xlim), dom, label=label+' (%d)'%sum(mycut))
+            powerlaw =mycut*(beta<0.01) 
+            ax.hist(fitqual[powerlaw].clip(*xlim), dom, label=' powerlaw (%d)'%sum(powerlaw))
+            self.average1=fitqual[mycut].mean()
             ax.plot(d, chi2(d)*fitqual[mycut].count()*delta/fudge, 'r', lw=2, label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
             ax.grid(); ax.set_ylim(ymax=500); ax.set_xlabel('fit quality')
             ax.legend(prop=dict(size=10))
-        def right(ax):
+        def right(ax, label='PSR'):
             mycut = cut*(~logparabola)
-            ax.hist(fitqual[mycut].clip(*xlim), dom, label='PSR')
+            ax.hist(fitqual[mycut].clip(*xlim), dom, label=label+' (%d)' %sum(mycut))
+            self.average2=fitqual[mycut].mean()
             ax.plot(d, chi2(d)*fitqual[mycut].count()*delta/fudge, 'r', lw=2, label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
             ax.grid();ax.set_xlabel('fit quality')
             ax.legend(loc='upper left', prop=dict(size=10))
         
         left(axx[0])
         right(axx[1])
+        print 'fit quality averages: %.1f, %.1f' % (self.average1, self.average2)
         return fig
         
     def pivot_vs_e0(self, xylim=(100, 4e4)):
@@ -1433,17 +1442,25 @@ class SourceInfo(Diagnostics):
             ylabel='ratio of detected to expected')
         return fig
     
-    def all_plots(self):
-        self.lowenergyfluxratio(hist=True)
-        self.savefigure('low_energy_flux_ratio_hist')
-        self.lowenergyfluxratio(hist=False)
-        self.savefigure('low_energy_flux_ratio_scat')
-        self.spectral_fit_consistency(hist=True)
-        self.savefigure('spectral_fit_consistency_hist')
-        self.spectral_fit_consistency(hist=False)
-        self.savefigure('spectral_fit_consistency_map')
+            
+    def spectral_fit_consistency_plots(self):
+        """ Study spectral fit consistency for the lowest energy bin
         
-        self.runfigures([self.fit_quality, self.pivot_vs_e0, self.cumulative_ts, self.source_confusion])
+        """
+        fig,ax = plt.subplots(2,2, figsize=(12,10))
+        for f, t, ax in zip( [self.spectral_fit_consistency]*2+ [self.lowenergyfluxratio]*2,
+                    (False, True, False, True), ax.flatten()):
+            f( hist=t, ax=ax)
+        return fig
+        
+        
+    def all_plots(self):
+        """ Source associate plots, from analysis of spectral fits
+        """
+       
+        self.runfigures([self.fit_quality, self.pivot_vs_e0, self.cumulative_ts, self.source_confusion,
+            self.spectral_fit_consistency_plots]
+        )
 
         plt.close('all')
         
@@ -1507,7 +1524,7 @@ class Localization(SourceInfo):
         
     def r95(self):
         """ Error circle radius
-        R95 is the 95% containment radius. Here I show the semi-major axis.
+        R95 is the 95 %%%% containment radius. Here I show the semi-major axis.
         """
         fig, ax = plt.subplots(1,2, figsize=(12,5))
         r95 = 60* 2.6 * self.ebox.a
@@ -1996,6 +2013,7 @@ class SeedCheck(SourceInfo):
                 e0 = model.e0,
                 aprob = source.adict['prob'][0] if has_adict else 0,
                 index = source.index,
+                #gflux  = model.i_flux(), ## photon flux
                 )
             assoc[name] = dict(
                 acat = source.adict['cat'][0] if has_adict else None,
@@ -2284,6 +2302,7 @@ a:hover { background-color:yellow; }
     def make_config_link(self):
         html = '<head>%s</head><body><h3>%s - configuration and analysis history files</h3>' %(self.style,self.model)
         for filename in ('config.txt', 'converge.txt', 'summary_log.txt'):
+            if not os.path.exists(filename): continue
             html += '<h4>%s</h4>\n<pre>%s</pre>' % (filename, open(filename).read())
         html += '\n</body>'
         open('plots/config.html', 'w').write(html)
@@ -2354,6 +2373,9 @@ def main(args, update_top=False , raise_exception=False):
                 else:
                     print 'skipped %s, missing %s' % (cls.__name__, cls.require)
             break
+        if arg=='menu': 
+            update_top=True
+            continue
 
         if arg not in opts.keys():
             print 'found %s; expect one of %s' % (arg, opts.keys())
