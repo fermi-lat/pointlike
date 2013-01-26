@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Jan 26 13:39:09 PST 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	processor.py 
+Log Message:
+efficiency, protection for TS value
+    *
+------------------------------------------------------------
 User: burnett  Fri Jan 25 14:10:10 PST 2013
 pointlike/python/uw/like2
 
