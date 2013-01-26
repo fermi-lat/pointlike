@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.37 2013/01/09 16:12:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.38 2013/01/15 23:04:42 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -180,7 +180,7 @@ def pickle_dump(roi, fit_sources, pickle_dir, dampen, failed=False, **kwargs):
             model=s.spectral_model,
             isextended=isextended(s),
             #extent = s.__dict__.get('spatial_model', None),
-            ts = roi.TS(s.name),
+            ts = s.ts if hasattr(s, 'ts') else roi.TS(s.name),
             sedrec = sedrec,
             band_ts=0 if sedrec is None else sedrec.ts.sum(),
             pivot_energy = pivot_energy,
