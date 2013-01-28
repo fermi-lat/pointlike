@@ -4,8 +4,8 @@ Module implements classes and functions to specify data for use in pointlike ana
 author(s): Matthew Kerr, Eric Wallace
 """
 
-__version__ = '$Revision: 1.19 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.19 2012/11/08 20:16:17 burnett Exp $
+__version__ = '$Revision: 1.20 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.20 2012/11/09 06:29:38 kerrm Exp $
 
 import os, sys
 import collections
@@ -58,14 +58,17 @@ def SimpleCut(vmin,vmax,vuni,colname):
 
     return dssman.make_simple_dss(colname,vuni,vmin,vmax)
 
-def get_default(colname,pass7=True):
+def get_default(colname, **kw):
+    """return DSS object for colname
+    defaults wired in, except for event class, get info from kw args
+    """
     if colname == 'ZENITH_ANGLE':
         return SimpleCut(None,100,'deg','ZENITH_ANGLE')
     if colname == 'THETA':
         return SimpleCut(None,66.4,'deg','THETA')
     if colname == 'EVENT_CLASS':
-        if pass7:
-            d = dict(TYP='BIT_MASK(EVENT_CLASS,2)',UNI='DIMENSIONLESS',
+        if kw.get('pass7', False):
+            d = dict(TYP='BIT_MASK(EVENT_CLASS,%d)'%kw.get('event_class_bit',2),UNI='DIMENSIONLESS',
                      VAL='1:1', REF=None)
             return dssman.DSSBitMask(d)
         else:
@@ -146,6 +149,8 @@ class DataSpec(object):
         ('zenith_cut',None,'a SimpleCut wrapper giving zenith cuts'),
         ('theta_cut',None,'a SimpleCut wrapper giving theta cuts'),
         ('event_class_cut',None,'a SimpleCut wrapper giving event cuts'),
+        ('event_class_bit',2, 'an integer specifying the event class, post pass 6'),
+        ('pass7', True,  'Set False to process pass 6'),
         ('gti_mask',None,'a GTI mask to apply to the data (intersection); note this can be used to set tstart/tstop for the data'),
         ('mc_src_id',-1,'select only photons from MC source ID; default is no selection'),
         ('mc_energy',False,'bin on MC_ENERGY instead of ENERGY'),
@@ -276,7 +281,8 @@ class DataSpec(object):
             Order of precedence: user specified cut, existing FT1 cut, default cuts."""
         basic_cuts = [('ZENITH_ANGLE','zenith_cut'),
                       ('THETA','theta_cut'),
-                      ('EVENT_CLASS','event_class_cut')]
+                      ('EVENT_CLASS','event_class_cut'),
+                      ]
         for col,mycut in basic_cuts:
             ft1_cut,index = self.dss.get_simple_dss(col)
             if self.__dict__[mycut] is not None:
@@ -292,9 +298,10 @@ class DataSpec(object):
             else:
                 if ft1_cut is not None: self.__dict__[mycut] = ft1_cut
                 else:
-                    self.__dict__[mycut] = get_default(col)
+                    self.__dict__[mycut] = get_default(col, self.__dict__)
                     self.__dict__[mycut]['index'] = len(self.dss)+1
                     self.dss.append(self.__dict__[mycut])
+
     def _get_ft1_dss(self):
         """ Get existing DSS keywords from FT1 files.
             If there is more than one FT1 file present, the protocol
@@ -327,6 +334,8 @@ class DataSpec(object):
             Return False if fails any, print message
             (why not an exception?)
         """
+        if self.binfile is None:
+            raise DataManException('No bin file specified')
         if not os.path.exists(self.binfile) :
             print 'File %s not found' % self.binfile; sys.stdout.flush()
             return False
