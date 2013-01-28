@@ -1,11 +1,11 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.18 2013/01/25 20:28:36 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.19 2013/01/28 16:55:21 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.18 $'.split()[1]
+version='$Revision: 1.19 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np
@@ -130,9 +130,6 @@ class DataSet(dataman.DataSpec):
                 )
                 
         dataspec.update(kwargs)
-        if dataspec.pop('event_class', 'Source').lower()=='clean':
-            d = dict(TYP='BIT_MASK(EVENT_CLASS,3)',UNI='DIMENSIONLESS', VAL='1:1', REF=None)
-            dataspec['event_class_cut'] =d
         # Now invoke the superclass to actually load the data, which may involve creating the binfile and livetime cube
         super(DataSet,self).__init__(  **dataspec)
         assert self.irf is not None, 'irf was not specifed!'
