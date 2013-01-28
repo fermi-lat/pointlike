@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Jan 28 09:48:55 PST 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	check_converge.py 
+Log Message:
+catch pulsar_detection
+    *
+------------------------------------------------------------
 User: burnett  Mon Jan 28 08:56:11 PST 2013
 pointlike/python/uw/like2
 
