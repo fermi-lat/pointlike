@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.39 2013/01/26 21:39:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.40 2013/01/29 18:40:36 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -577,6 +577,11 @@ def iso_refit_processor(roi, **kwargs):
 def limb_processor(roi, **kwargs):
     """ report on limb fit, perhaps refit"""
     outdir= kwargs.get('outdir')
+    logpath = os.path.join(outdir, 'log')
+    outtee = OutputTee(os.path.join(logpath, roi.name+'.txt'))
+    print  '='*80
+    print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (roi.name,))
+
     limbdir = os.path.join(outdir, kwargs.get('limbdir', 'limb'))
     if not os.path.exists(limbdir): os.mkdir(limbdir)
     refit = kwargs.get('refit', True)
@@ -596,6 +601,8 @@ def limb_processor(roi, **kwargs):
     pickle.dump( dict(ra=roi.roi_dir.ra(), dec=roi.roi_dir.dec(), model=limb,
         counts=t.counts, pixel_values=t.pixel_values), open(fname,'w'))
     print 'wrote file to %s' %fname
+    outtee.close()
+
     
 def check_seeds(roi, **kwargs):
     """ Evaluate a set of seeds: fit, localize with position update, fit again
