@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.56 2013/01/20 14:07:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.57 2013/01/25 20:30:25 burnett Exp $
 
 """
 
@@ -2247,7 +2247,7 @@ body {	font-family:verdana,arial,sans-serif;
 p   { font-size:10pt; margin-left:25pt; }
 pre { font-size:10pt; margin-left:25pt; 
     border-style:solid;
-    border-width:medium;}
+    border-width:thin;}
 h5 {margin-left:25pt;}
 table { margin-left:25pt; margin-top:15pt; font-size:8pt; 
     border-style: solid; border-width: 1px;  border-collapse: collapse;}
@@ -2301,7 +2301,7 @@ a:hover { background-color:yellow; }
     
     def make_config_link(self):
         html = '<head>%s</head><body><h3>%s - configuration and analysis history files</h3>' %(self.style,self.model)
-        for filename in ('config.txt', 'converge.txt', 'summary_log.txt'):
+        for filename in ('config.txt', 'dataset.txt', 'converge.txt', 'summary_log.txt'):
             if not os.path.exists(filename): continue
             html += '<h4>%s</h4>\n<pre>%s</pre>' % (filename, open(filename).read())
         html += '\n</body>'
