@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jan 29 14:30:10 PST 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	diagnostic_plots.py processor.py uwpipeline.py 
+Log Message:
+add sunmoon refit
+    *
+------------------------------------------------------------
 User: burnett  Tue Jan 29 12:14:42 PST 2013
 pointlike/python/uw/like2/pipeline
 
