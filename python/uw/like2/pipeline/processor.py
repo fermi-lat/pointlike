@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.41 2013/01/29 18:49:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.42 2013/01/29 20:14:42 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -605,6 +605,38 @@ def limb_processor(roi, **kwargs):
     fname = os.path.join(limbdir,'%s_limb.pickle' %roi.name)
     pickle.dump( dict(ra=roi.roi_dir.ra(), dec=roi.roi_dir.dec(), model=limb,
         counts=t.counts, pixel_values=t.pixel_values), open(fname,'w'))
+    print 'wrote file to %s' %fname
+    outtee.close()
+
+
+def sunmoon_processor(roi, **kwargs):
+    """ report on sunmon refit """
+    outdir= kwargs.get('outdir')
+    logpath = os.path.join(outdir, 'log')
+    outtee = OutputTee(os.path.join(logpath, roi.name+'.txt'))
+    print  '='*80
+    print '%4d-%02d-%02d %02d:%02d:%02d - %s sunmoon processor' %(time.localtime()[:6]+ (roi.name,))
+
+    sunmoondir = os.path.join(outdir, kwargs.get('sunmoondir', 'sunmoon'))
+    if not os.path.exists(sunmoondir): os.mkdir(sunmoondir)
+    refit = kwargs.get('refit', True)
+    try:
+        sunmoon = roi.get_model('SunMoon')
+    except:
+        print 'No sunmoon source: no pickle file saved'
+        outtee.close()
+        return
+    sunmoon.free[:] = True
+    roi.initialize()
+    names = roi.parameter_names
+    u = np.arange(len(names))
+    i = np.array(['SunMoon' in x for x in names])
+    before = roi.log_like()
+    roi.fit(u[i])
+        
+    fname = os.path.join(sunmoondir,'%s_sunmoon.pickle' %roi.name)
+    pickle.dump( dict(ra=roi.roi_dir.ra(), dec=roi.roi_dir.dec(), model=sunmoon, skydir=roi.roi_dir,
+      delta_likelihood=roi.log_like()-before ), open(fname,'w'))
     print 'wrote file to %s' %fname
     outtee.close()
 
