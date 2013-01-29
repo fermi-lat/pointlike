@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.40 2013/01/29 18:40:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.41 2013/01/29 18:49:23 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -580,12 +580,17 @@ def limb_processor(roi, **kwargs):
     logpath = os.path.join(outdir, 'log')
     outtee = OutputTee(os.path.join(logpath, roi.name+'.txt'))
     print  '='*80
-    print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (roi.name,))
+    print '%4d-%02d-%02d %02d:%02d:%02d - %s limb processor' %(time.localtime()[:6]+ (roi.name,))
 
     limbdir = os.path.join(outdir, kwargs.get('limbdir', 'limb'))
     if not os.path.exists(limbdir): os.mkdir(limbdir)
     refit = kwargs.get('refit', True)
-    limb = roi.get_model('limb')
+    try:
+        limb = roi.get_model('limb')
+    except:
+        print 'No limb source: no pickle file saved'
+        outtee.close()
+        return
     if refit:
         for m in limb.models:
             m.free[:]=True
