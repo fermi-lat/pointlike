@@ -1,11 +1,11 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.19 2013/01/28 16:55:21 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.20 2013/01/28 18:46:04 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.19 $'.split()[1]
+version='$Revision: 1.20 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np
@@ -182,8 +182,9 @@ class DataSet(dataman.DataSpec):
             if dataset in ldict: 
                 print 'found dataset %s in %s' % (dataset, folder)
                 # translate event class name to appropriate bit
-                ldict['event_class_bit']= dict(source=2, clean=3, extraclean=4)[ldict.get('event_class','source').lower()]
-                return DataSpecification(folder,  interval=interval, gti_mask=gti_mask, **ldict[dataset])
+                ddict=ldict[dataset]
+                ddict['event_class_bit']= dict(source=2, clean=3, extraclean=4)[ddict.get('event_class','source').lower()]
+                return DataSpecification(folder,  interval=interval, gti_mask=gti_mask, **ddict)
         raise DataSetError('dataset name "%s" not found in %s' % (dataset, folders))
 
     def __call__(self, psf, exposure, roi_dir, **kwargs):
@@ -272,7 +273,7 @@ def main(datadict=dict(dataname='P7_V4_SOURCE_4bpd'), analysis_kw=dict(irf='P7SO
     dataset = DataSet(datadict['dataname'], **analysis_kw)
     return dataset
     
-def validate(model_path, interval=None, nocreate=False):
+def validate(model_path, interval=None, nocreate=False, logfile='dataset.txt'):
     """
     validate the dataset for a model, as defined by the pipeline architecture
     
@@ -286,6 +287,9 @@ def validate(model_path, interval=None, nocreate=False):
     nocreate: bool
         if False (default), try to create the binned photon data and livetime cubes
         if True, will return False if either file has to be generated
+        
+    logfile: string
+        if not None, name of a file to write info
         
     returns True if the files exist or have been created OK
     """
@@ -302,6 +306,7 @@ def validate(model_path, interval=None, nocreate=False):
         interval= datadict.get('interval', None)
     try:
         dset = DataSet(dataname, interval=interval, irf=modelspec['irf'], nocreate=nocreate)
+        if logfile is not None: open(logfile, 'w').write(dset.__str__())
     except Exception, msg:
         print 'Failed: %s ' % msg
         raise 
