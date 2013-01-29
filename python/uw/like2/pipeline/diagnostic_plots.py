@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.57 2013/01/25 20:30:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.58 2013/01/29 16:38:16 burnett Exp $
 
 """
 
@@ -935,16 +935,19 @@ class Limb(ROIinfo):
         ra = np.array(map(lambda dir: dir.ra(), self.df.skydir))
         dec = np.array(map(lambda dir: dir.dec(), self.df.skydir))
         dom = np.linspace(-1,1,201) 
-        dm = self.diffuse_models('limb')
-        fpar,bpar = [np.array([m[i] if m else np.nan for m in dm] )for i in range(2)]
+        
+        #dm = self.diffuse_models('limb')
+        #fpar,bpar = [np.array([m[i] if m else np.nan for m in dm] )for i in range(2)]
+        
+        
         fig, axx = plt.subplots(2,1, figsize=(8,6))
         plt.subplots_adjust(right=0.9)
         c=np.abs(self.df.glat)
         cut = c>35
-        for ax, par, label  in zip(axx, [fpar,bpar], 'front back'.split()):
-            scat=ax.scatter(np.sin(np.radians(dec))[cut], par[cut], c=c[cut], s=30,vmin=0, vmax=90)
+        for ax, par, label  in zip(axx, [self.fpar,self.bpar], 'front back'.split()):
+            scat=ax.scatter(np.sin(np.radians(dec))[cut], par[cut], c=c[cut], s=30,vmin=0, vmax=90, edgecolor='none')
             plt.setp(ax, xlim=(-1,1), xlabel='sin(dec)' if label=='back' else '',  ylim=(0,2))
-            ax.plot(dom, map(limbfun[label],dom), '-', color='k', lw=2) 
+            ax.plot(dom, map(limbfun[label],dom), '--', color='k', lw=1) 
             ax.grid()
             ax.text(-0.75, 1.6, label, fontsize=18)
         fig.text(0.05, 0.5, 'flux normalization factor', rotation='vertical', va='center')
@@ -963,6 +966,31 @@ class Limb(ROIinfo):
         """
         return self.polar_plots(self.fpar)
 
+class LimbRefit(Limb):
+    def setup(self, **kw):
+        self.plotfolder = 'limb_refit'
+        self.source_name='limb'
+        self.title='Limb refit'
+        files, pickles = self.load_pickles('limb')
+        rdict = dict()
+        for f,p in zip(files,pickles):
+            name = os.path.split(f)[-1][:9]
+            front, back = p['model'].parameters if 'model' in p else (np.nan, np.nan)
+            if 'model' not in p: p['model']= None
+            ra, dec = p['ra'], p['dec']
+            skydir = SkyDir(ra,dec)
+            glat,glon = skydir.b(), skydir.l()
+            rdict[name] = dict(ra=ra, dec=dec, glat=glat, glon=glon,skydir=skydir, front=front, back=back)
+        self.df = pd.DataFrame(rdict).transpose()
+        self.fpar = self.df.front
+        self.bpar = self.df.back
+        
+    def all_plots(self):
+        """ Special run to refit Limb normalization"""
+        self.runfigures([self.flux_vs_dec], ['limb_fit_norm_vs_dec'] )
+        
+    
+        
 
 class Galactic(ROIinfo):
     def setup(self, **kw):
