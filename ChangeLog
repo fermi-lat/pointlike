@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jan 29 10:40:36 PST 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	processor.py 
+Log Message:
+limb processor does refit
+    *
+------------------------------------------------------------
 User: burnett  Tue Jan 29 08:38:16 PST 2013
 pointlike/python/uw/like2/pipeline
 
