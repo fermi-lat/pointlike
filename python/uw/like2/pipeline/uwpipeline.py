@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.17 2013/01/29 22:30:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.18 2013/01/29 22:31:06 burnett Exp $
 """
 import os, argparse
 import numpy as np
@@ -104,8 +104,8 @@ stagenames = dict(
                             help='process SED information' ),
     diffuse     =  Stage(pipe.Update, dict( processor='processor.roi_refit_processor'), sum='gal', ),
     isodiffuse  =  Stage(pipe.Update, dict( processor='processor.iso_refit_processor'), sum='iso', ),
-    limb        =  Stage(pipe.Update, dict( processor='processor.limb_processor'), sum='limb', help='Refit the limb component, usually fixed' ),
-    sunmoon     =  Stage(pipe.Update, dict( processor='processor.sunmoon_processor'), sum='sunmoon', help='Refit the SunMoon compoent, usually fixed' ),
+    limb        =  Stage(pipe.Update, dict( processor='processor.limb_processor'),     sum='limb_refit', help='Refit the limb component, usually fixed' ),
+    sunmoon     =  Stage(pipe.Update, dict( processor='processor.sunmoon_processor'), sum='sunmoon_refit', help='Refit the SunMoon compoent, usually fixed' ),
     fluxcorr    =  Stage(pipe.Update, dict( processor='processor.flux_correlations'), sum='fluxcorr', ),
     fluxcorrgal =  Stage(pipe.Update, dict( processor='processor.flux_correlations'), sum='flxcorriso', ),
     fluxcorriso =  Stage(pipe.Update, dict( processor='processor.flux_correlations(diffuse="iso*", fluxcorr="fluxcorriso")'), ),
