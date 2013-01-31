@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.19 2013/01/03 17:22:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.20 2013/01/11 22:04:06 burnett Exp $
 
 author: Matthew Kerr, Toby Burnett
 """
@@ -249,7 +249,7 @@ class DiffuseModelFromFits( DiffuseModel):
         
     def setup(self):
         if not self.quiet:
-            print 'set up diffuse_model(s):'
+            print 'set up %d diffuse_models from Fits files:' %len(self.diffuse_source.dmodel)
             for dm in self.diffuse_source.dmodel:
                 print '\t%s'% dm.name()
                 
@@ -517,15 +517,26 @@ def mapper(roi_factory, roiname, skydir, source, **kwargs):
     """
     psf = roi_factory.psf
     exposure = roi_factory.exposure
-    if source.name.lower().startswith('iso'):
-        return IsotropicModel(psf, exposure,skydir, source, **kwargs)
-    elif source.name.startswith('limb'):
-        for dmodel in source.dmodel:
-            if not getattr(dmodel,'loaded', False): dmodel.load()
-        if source.smodel.name=='Constant':
-            # limb model must be separate front and back!
-            source.smodel = models.FrontBackConstant(0.001, 2.0)
-        return DiffuseModelFB(psf, exposure,skydir, source, **kwargs)
-    return DiffuseModelFromCache(psf, exposure,skydir, source, **kwargs)
+    try:
+        if source.name.lower().startswith('iso'):
+            return IsotropicModel(psf, exposure,skydir, source, **kwargs)
+        elif source.name.startswith('limb'):
+            for dmodel in source.dmodel:
+                if not getattr(dmodel,'loaded', False): dmodel.load()
+            if source.smodel.name=='Constant':
+                # limb model must be separate front and back!
+                source.smodel = models.FrontBackConstant(0.001, 2.0)
+            return DiffuseModelFB(psf, exposure,skydir, source, **kwargs)
+        elif source.name=='ring':
+            print '>>>>Loading', source.dmodel[0].name()
+            for dmodel in source.dmodel:
+                if not getattr(dmodel,'loaded', False): dmodel.load()
+            if os.path.splitext(source.dmodel[0].name())[-1]=='.fits':
+                return DiffuseModelFromFits(psf, exposure, skydir, source, **kwargs)
+        ### cache is default, it seems
+        return DiffuseModelFromCache(psf, exposure,skydir, source, **kwargs)
+    except Exception, msg:
+        print 'Failed to map diffuse source "%s" : %s' % (source.name, msg)
+        raise
         
    
