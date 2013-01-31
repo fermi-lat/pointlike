@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jan 31 15:48:03 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	diffuse.py roisetup.py sourcelist.py bandlike.py 
+Log Message:
+restore possibility for diffuse fits
+    *
+------------------------------------------------------------
 User: burnett  Tue Jan 29 16:07:07 PST 2013
 pointlike/python/uw/like2/pipeline
 
