@@ -1,7 +1,7 @@
 """
 Manage sources for likelihood: single class SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.28 2012/12/10 17:16:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.29 2012/12/16 16:19:57 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import types
@@ -79,7 +79,8 @@ class SourceList(list):
             
             roi : an ROIdef object:
                 expect to find attributes:
-                    bgmodels : a list of global and extended sources
+                    global_sources : a list of global sources
+                    extended_sources : lost of local extended sources
                     point_sources : list of point sources
                     roi_dir: the center of the ROI
         """

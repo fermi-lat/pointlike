@@ -1,7 +1,7 @@
 """
 Set up an ROI factory object
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.21 2012/11/08 14:44:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.22 2013/01/28 16:56:11 burnett Exp $
 
 """
 import os, sys, types
@@ -148,7 +148,7 @@ class ROIfactory(object):
                 if isinstance(datadict, dataman.DataSet): 
                     interval = self.skymodel.config.get('interval', None)
                     if interval is None: interval = self.skymodel.config.get('data_interval', None)
-                    assert interval is not None, 'did not fine interval or data_interval in skymodel.config'
+                    assert interval is not None, 'did not find interval or data_interval in skymodel.config'
                     dset = datadict[interval]
                     assert hasattr(dset, 'binfile'), 'Not a DataSet? %s' % dataset
                     datadict = dict(dataname=dset)
