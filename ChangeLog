@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Fri Feb  1 15:03:30 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	roisetup.py 
+Added Files:
+	roi_bands.py 
+Log Message:
+switch to edited version of roi_band
+    *
+------------------------------------------------------------
 User: burnett  Fri Feb  1 15:01:51 PST 2013
 pointlike/python/uw/like2/plotting
 
