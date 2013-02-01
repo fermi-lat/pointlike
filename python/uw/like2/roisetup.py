@@ -1,15 +1,15 @@
 """
 Set up an ROI factory object
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.22 2013/01/28 16:56:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.23 2013/01/31 23:48:03 burnett Exp $
 
 """
 import os, sys, types
 import numpy as np
 import skymaps
-from . import dataset, skymodel, diffuse
+from . import dataset, skymodel, diffuse , roi_bands
 from .. utilities import keyword_options, convolution
-from .. like import roi_extended, pypsf, pycaldb, pointspec2, roi_bands
+from .. like import roi_extended, pypsf, pycaldb, pointspec2 #, roi_bands
 from .. data import dataman
 
         
