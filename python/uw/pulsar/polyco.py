@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.3 2012/01/27 19:11:27 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.4 2012/10/01 08:08:11 kerrm Exp $
 
 Mange polycos from tempo2.
 
@@ -17,6 +17,8 @@ class PolycoEntry:
     def __init__(self,tmid,mjdspan,rphase,f0,ncoeff,coeffs,obs):
         self.tmid = tmid
         self.mjdspan = mjdspan
+        self.tstart = tmid - float(mjdspan)/2
+        self.tstop = tmid + float(mjdspan)/2
         self.rphase = rphase
         self.f0 = f0
         self.ncoeff = ncoeff
@@ -24,6 +26,7 @@ class PolycoEntry:
         self.obs = obs
         self.uid = PolycoEntry.STATIC_COUNTER
         PolycoEntry.STATIC_COUNTER += 1
+
     def __str__(self):
         return("PE: "+repr(self.tmid)+" "+repr(self.mjdspan)+" "+repr(self.rphase)+" "+repr(self.ncoeff)+" "+repr(self.coeffs))
         
@@ -55,14 +58,23 @@ class PolycoEntry:
         return(freq)
 
 class Polyco:
-    def __init__(self, fname, psrname=None, recalc_polycos=True,mjd0=51544):
+    def __init__(self, fname, psrname=None, recalc_polycos=True,mjd0=51544,
+                 ndays=None):
+        """ Create an object encapsulating a set of polynomial coefficients for
+            evaluating phase.
+
+            mjd0 -- start of polyco validity; default Jan 1, 2000
+
+            ndays -- number of days to include; default spans 2000 to present
+                     but can be lengthy to compute
+        """
 
         if fname.endswith( ".par" ) or recalc_polycos:
             from uw.pulsar.parfiles import ParFile
             pf = ParFile(fname)
             self.ra = pf.get_ra()
             self.dec = pf.get_dec()
-            fname = self.gen_polycos(fname,recalc_polycos=recalc_polycos,mjd0=mjd0)
+            fname = self.gen_polycos(fname,recalc_polycos=recalc_polycos,mjd0=mjd0,ndays=ndays)
         else:
             self.ra = self.dec = None
         
@@ -115,35 +127,43 @@ class Polyco:
             self.entries.append(pe)
         self.make_keys()
 
-    def gen_polycos(self,polyconame,recalc_polycos=True,mjd0=51544):
+    def gen_polycos(self,polyconame,recalc_polycos=True,mjd0=51544,ndays=None):
         """If par file passed in, generate polyco file on the fly."""
 
         # get MJDs
-        nDays=(datetime.date.today()-datetime.date(2000,1,1)).days+(51544-mjd0)
+        if ndays is None:
+            nDays=(datetime.date.today()-datetime.date(2000,1,1)).days+(51544-mjd0)
+        else:
+            nDays = ndays
         endMJD=mjd0+nDays+2
-        print "MJD limits: %s %s"%(str(mjd0),str(endMJD))
+        if (endMJD-mjd0) < 2:
+            raise ValueError('Unacceptable MJD bounds.')
+        print 'MJD limits: %s %s'%(str(mjd0),str(endMJD))
         if recalc_polycos:
-            os.system( "rm polyco_new.dat newpolyco.dat polyco.tim" )
-            os.system( "tempo2 -f " + polyconame + " -polyco \"54628 "+ str(endMJD) + " 360 12 12 coe 0 0\"" )
+            os.system('rm polyco_new.dat newpolyco.dat polyco.tim')
+            t2cmd = 'tempo2 -f %s -polyco "%s %s 360 12 12 coe 0 0\"'%(
+                polyconame,mjd0,endMJD)
+            print 'Creating polycos with command:\n',t2cmd
+            os.system(t2cmd)
         polyconame="polyco_new.dat"
         return polyconame
 
     def make_keys(self):
-        """Keys for a binary search."""
-        keys = [e.tmid - e.mjdspan/2. for e in self.entries]
+        """Keys for a binary search.  Use the edges."""
+        keys = np.asarray([e.tstop for e in self.entries])
         sorting = np.argsort(keys)
         self.entries = np.asarray(self.entries)[sorting]
-        keys = np.asarray(keys)[sorting]
-        self.keys = np.append(keys,[self.entries[-1].tmid + self.entries[-1].mjdspan/2.])
+        self.keys = np.append(self.entries[0].tstart,keys[sorting])
 
     def getentry(self,t,use_keys=True):
         '''Returns the polyco entry corresponding to time t (in MJD)'''
         if use_keys:
             idx = np.searchsorted(self.keys,t)
-            if np.any(idx == len(self.keys)):
+            if np.any(idx == len(self.keys)) or np.any(idx==0):
                 print 'Could not find a valid entry for MJD(s)...'
                 print t[idx == len(self.keys)] if type(t) is type(np.array([1])) else t
-                raise ValueError
+                print t[idx == 0] if type(t) is type(np.array([1])) else t
+                raise IndexError
             return self.entries[idx-1]
         for pe in self.entries:
             if pe.valid(t):
