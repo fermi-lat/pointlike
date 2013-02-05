@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Feb  5 12:18:50 PST 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	polyco.py 
+Log Message:
+Fix a bug in finding polyco entries; search could be off by one in some cases.
+
+    *
+------------------------------------------------------------
 User: burnett  Fri Feb  1 15:03:30 PST 2013
 pointlike/python/uw/like2
 
