@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/itemplate.py,v 1.6 2012/12/04 23:52:47 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/itemplate.py,v 1.7 2012/12/05 00:12:27 kerrm Exp $
 
 Provide a method for interactively fitting a multi-gaussian template to data.
 
