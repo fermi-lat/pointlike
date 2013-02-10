@@ -1,9 +1,10 @@
 """
 Implementation of various roi printing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/printing.py,v 1.4 2011/11/07 19:44:17 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/printing.py,v 1.5 2012/12/16 17:08:36 burnett Exp $
 """
 import os, math
 import numpy as np
+import pandas as pd
 
 #from . pointspec_helpers import PointSource
 
@@ -171,3 +172,33 @@ def printSpectrum(roi,sources=None):
     print outstring
     for eb in self.energy_bands:
         print eb.spectralString(which=indices)
+
+def gtlike(roi, sources=None, tsmin=25):
+    sourcenames = [s.name for s in roi.sources if s.skydir is not None\
+        and np.any(s.spectral_model.free) and s.ts>tsmin]
+        
+
+    for source in sorted(sourcenames):
+        model = roi.get_model(source)#.model
+        print source
+        print '   Spectrum: %s' %model.name
+        for i in np.arange(model.npar)[model.free]:
+            value = model.get_all_parameters()[i]
+            error = np.sqrt(max(0, model.get_cov_matrix()[i,i]))
+            gtname =model.gtlike_param_names()[i]
+            scale = 10**(int(np.log10(value))-1) if gtname=='norm' else 1.0
+            print '%16s: %7.4f %7.4f ( %.1e)' % (gtname, value/scale, error/scale, scale)
+            
+def band_summary(roi, ct=0):
+    snames = ['data','model','residual', 'normresid']+[s.name for s in roi.sources]
+    d = dict()
+    for index,b in enumerate(roi.selected_bands):
+        if b.band.ct != ct: continue
+        energy = b.band.e
+        data = sum(b.data)
+        resid = data-b.counts
+        models = [data,b.counts, resid, resid/np.sqrt(b.counts) ]+[ s.counts for s in b]
+        d[index/2]= models
+    df = pd.DataFrame(d, index =snames).T
+    return df
+        
