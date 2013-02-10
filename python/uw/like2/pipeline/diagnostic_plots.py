@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.59 2013/01/29 22:30:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.60 2013/01/30 00:07:07 burnett Exp $
 
 """
 
@@ -283,18 +283,24 @@ class CountPlots(Diagnostics):
         return resid
      
     def residual_hists(self):
-        """ histograms of residuals """
+        """ histograms of normalized residuals 
+        subset for ridge (|b|<10, |l|<60) shown
+        """
         fig,axx = plt.subplots(3,4, figsize=(12,12))
+        ridge = ( np.abs(self.rois.glat)<10) * ( np.abs(self.rois.glon)<60 )
+
         for ib,ax in enumerate(axx.flatten()):
             resid = self.residual(ib)
             ax.hist(resid.clip(-5,5), np.linspace(-5,5,21))
+            ax.hist(resid[ridge].clip(-5,5), np.linspace(-5,5,21))
             ax.set_title('%.0f MeV'% self.energy[ib], fontsize=10)
             ax.axvline(0, color='k')
             plt.setp(ax, xlim=(-5,5))
             ax.grid(True)
+        return fig
     
     def residual_plot(self):
-        """ plot of the average residual
+        """ plot of the average normalized residual
         """
         res = [self.residual(ib) for ib in range(len(self.energy))]
         means = [x.mean() for x in res]
@@ -348,7 +354,7 @@ class CountPlots(Diagnostics):
         return fig
         
     def resid_vs_dec(self, ib=0, ax=None, ylim=(-8,8), labels=True):
-        """ residual vs. decllination angle
+        """ residual vs. declination angle
         """
         if ax is None:
             fig,ax = plt.subplots( figsize=(4,4))
@@ -366,6 +372,24 @@ class CountPlots(Diagnostics):
         ax.grid()
         return fig
         
+    def ridge_spectral_residuals(self):
+        """ Spectral residuals along the Galactic ridge
+        
+        Designed to match, except for differnt ROI definitions, the Scalay standard plot.
+        """
+        fig,ax = plt.subplots( figsize=(4,4))
+        ridge = ( np.abs(self.rois.glat)<10) * ( np.abs(self.rois.glon)<60 )
+        data =self.counts['observed'][ridge].sum()
+        model = self.counts['total'][ridge].sum()
+        x = self.energy
+        y = data/model-1
+        yerr = 1/np.sqrt(model)
+        ax.errorbar(x, y, yerr=yerr, fmt='o')
+        plt.setp(ax, xscale='log', xlabel='energy (MeV)', ylabel='(counts-model)/model')
+        ax.axhline(0, color='gray')
+        ax.grid()
+        return fig
+
     def all_plots(self):
         """ Plots generated for any iteration, reflecting quality of counts histogram""" 
         self.runfigures([
@@ -373,6 +397,7 @@ class CountPlots(Diagnostics):
             self.residual_maps, 
             self.residual_plot, 
             self.residual_hists, 
+            self.ridge_spectral_residuals,
             ])
         
 
