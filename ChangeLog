@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Feb 10 15:19:25 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	dataset.py 
+Log Message:
+switch to local roi_bands.py
+    *
+------------------------------------------------------------
 User: burnett  Sun Feb 10 15:18:39 PST 2013
 pointlike/python/uw/like2
 
