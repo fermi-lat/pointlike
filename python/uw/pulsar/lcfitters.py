@@ -9,7 +9,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.38 2012/11/29 00:30:37 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.39 2012/12/04 23:52:47 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -35,18 +35,21 @@ def weighted_light_curve(nbins,phases,weights,normed=False,phase_shift=0):
 
 
 def LCFitter(template,phases,weights=None,log10_ens=None,times=1,
-             binned_bins=100,phase_shift=0):
-    """ Factory class for light curve fitters.
+             binned_bins=100,binned_ebins=8,phase_shift=0):
+    """ Factory class for light curve fitters.  Based on whether weights
+        or energies are supplied in addition to photon phases, the
+        appropriate fitter class is returned.
         Arguments:
         template -- an instance of LCTemplate
         phases   -- list of photon phases
 
         Keyword arguments:
-        weights     [None] optional photon weights
-        log10_ens   [None] optional photon energies (log10(E/MeV))
-        times       [None] optional photon arrival times
-        binned_bins [100]  # of bins to use in binned likelihood
-        phase_shift [0] set this if a phase shift has been applied
+        weights      [None] optional photon weights
+        log10_ens    [None] optional photon energies (log10(E/MeV))
+        times        [None] optional photon arrival times
+        binned_bins  [100]  phase bins to use in binned likelihood
+        binned_ebins [8]    energy bins to use in binned likelihood
+        phase_shift  [0]    set this if a phase shift has been applied
     """
     kwargs = dict(times=np.asarray(times),binned_bins=binned_bins,
                   phase_shift=phase_shift)
@@ -66,6 +69,8 @@ class UnweightedLCFitter(object):
         # default is unbinned likelihood
         self.loglikelihood = self.unbinned_loglikelihood
         self.gradient = self.unbinned_gradient
+        self.phistory = []
+        self.ghistory = []
 
     def _hist_setup(self):
         """ Setup data for chi-squared and binned likelihood."""
@@ -197,6 +202,7 @@ class UnweightedLCFitter(object):
                     self._hist_setup()
                     return self.fit(quick_fit_first=quick_fit_first, unbinned=unbinned, use_gradient=use_gradient, positions_first=positions_first, estimate_errors=estimate_errors,prior=prior)
             self.bad_p = self.template.get_parameters().copy()
+            self.bad_ll = self.ll
             print 'Failed likelihood fit -- resetting parameters.'
             self.template.set_parameters(p0)
             self.ll = ll0; self.fitvals = p0
@@ -236,7 +242,7 @@ class UnweightedLCFitter(object):
         x0 = self.template.get_parameters()
         bounds = self.template.get_bounds()
         fit = fmin_tnc(fit_func,x0,fprime=grad_func,ftol=ftol,pgtol=1e-5,
-                       bounds=bounds,maxfun=2000,messages=8)
+                       bounds=bounds,maxfun=5000,messages=8)
         self.fitval = fit[0]
         self.ll = -fit_func(self.template.get_parameters())
         return fit
@@ -254,23 +260,23 @@ class UnweightedLCFitter(object):
         from numpy.linalg import inv
         nump = len(self.template.get_parameters())
         self.cov_matrix = np.zeros([nump,nump],dtype=float)
-        try: 
-            h1 = hessian(self.template,self.loglikelihood)
-            c1 = inv(h1)
-            d = np.diag(c1)
-            if np.all(d>0):
-                self.cov_matrix = c1
-                # attempt to refine
-                h2 = hessian(self.template,self.loglikelihood,delt=d**0.5)
-                c2 = inv(h2)
-                if np.all(np.diag(c2)>0):
-                    self.cov_matrix = c2
-            else: raise ValueError
-            self.template.set_errors(np.diag(self.cov_matrix)**0.5)
-            return True
-        except:
-            print 'Unable to invert hessian!'
-            return False
+        #try: 
+        h1 = hessian(self.template,self.loglikelihood)
+        c1 = inv(h1)
+        d = np.diag(c1)
+        if np.all(d>0):
+            self.cov_matrix = c1
+            # attempt to refine
+            h2 = hessian(self.template,self.loglikelihood,delt=d**0.5)
+            c2 = inv(h2)
+            if np.all(np.diag(c2)>0):
+                self.cov_matrix = c2
+        else: raise ValueError
+        self.template.set_errors(np.diag(self.cov_matrix)**0.5)
+        return True
+        #except:
+        #    print 'Unable to invert hessian!'
+        #    return False
 
     def bootstrap_errors(self,nsamp=100,fit_kwargs={},set_errors=False):
         p0 = self.phases; w0 = self.weights
@@ -361,7 +367,7 @@ class UnweightedLCFitter(object):
         axes.plot(dom,cod,color='blue',lw=1)
         if plot_components:
             for i in xrange(len(template.primitives)):
-                cod = template.single_component(dom,i)*(1-bg_level)+bg_level
+                cod = template.single_component(i,dom)*(1-bg_level)+bg_level
                 axes.plot(dom,cod,color='blue',lw=1,ls='--')
         pl.axis([0,1,pl.axis()[2],max(pl.axis()[3],cod.max()*1.05)])
         axes.set_ylabel('Normalized Profile')
@@ -588,3 +594,26 @@ def make_err_plot(template,totals=[10,20,50,100,500],n=1000):
     pl.legend()
     pl.axis([-5,5,0,0.5])
 
+def approx_gradient(fitter,eps=1e-6):
+    """ Numerically approximate the gradient of an instance of one of the
+        light curve fitters.
+        
+        TODO -- potentially merge this with the code in lcprimitives"""
+    func = fitter.template
+    orig_p = func.get_parameters(free=True).copy()
+    g = np.zeros([len(orig_p)])
+    weights = np.asarray([-1,8,-8,1])/(12*eps)
+
+    def do_step(which,eps):
+        p0 = orig_p.copy()
+        p0[which] += eps
+        #func.set_parameters(p0,free=False)
+        return fitter.loglikelihood(p0)
+
+    for i in xrange(len(orig_p)):
+        # use a 4th-order central difference scheme
+        for j,w in zip([2,1,-1,-2],weights):
+            g[i] += w*do_step(i,j*eps)
+
+    func.set_parameters(orig_p,free=True)
+    return g
