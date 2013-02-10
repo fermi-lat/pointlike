@@ -2,7 +2,7 @@
 Implements classes encapsulating an energy/conversion type band.  These
 are the building blocks for higher level analyses.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.28 2011/09/03 18:21:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roi_bands.py,v 1.1 2013/02/01 23:03:30 burnett Exp $
 
 author: Matthew Kerr
 extracted from like.roi_bands, v 1.28 for like2 by T Burnett
@@ -11,11 +11,12 @@ extracted from like.roi_bands, v 1.28 for like2 by T Burnett
 import numpy as np
 from skymaps import SkyDir, WeightedSkyDirList 
 from pointlike import DoubleVector
+from uw.like import pypsf
 
 ###======================================================================###
 
 class ROIBand(object):
-    """Wrap a Band object, and provide additional functionality for like2 version of likelihood."""
+    """Wrap a skymaps.Band object, and provide functionality for like2 version of likelihood."""
 
     ADJUST_MEAN = True # provide a "static" interface for functionality below
     
@@ -51,9 +52,11 @@ class ROIBand(object):
 
         mi,ma                  = np.asarray([self.sa.minROI,self.sa.maxROI])*(np.pi/180.)
         # note use of band sigma for consistency in photon selection!
-        self.radius_in_rad = max(min((2*self.umax)**0.5*self.b.sigma(),ma),mi)
-        self.wsdl             = WeightedSkyDirList(self.b,self.sd,self.radius_in_rad,False)
-        self.has_pixels     = self.photons > 0
+        self.radius_in_rad  = max(min((2*self.umax)**0.5*self.b.sigma(),ma),mi)
+        self.wsdl           = WeightedSkyDirList(self.b,self.sd,self.radius_in_rad,False)
+        self.pix_counts     = np.asarray([x.weight() for x in self.wsdl]) if len(self.wsdl)>0 else []
+        self.npix           = self.wsdl.total_pix()
+        self.has_pixels     = self.wsdl.counts()>0
         self.solid_angle    = self.npix*self.b.pixelArea() #ragged edge
                  
 
@@ -61,7 +64,9 @@ class ROIBand(object):
         """Cache factors for quickly evaluating the counts under a given spectral model."""
 
         self.sp_points = sp = np.logspace(np.log10(self.emin),np.log10(self.emax),self.nsp_simps+1)
-        exp_points      = np.asarray(self.exp.vector_value(self.sd,DoubleVector(sp)))
+        exp_points     = map(lambda e: self.exp.value(self.sd, e), sp)
+        # following may be marginally faster, but not implemented for exposure cube
+        #exp_points      = np.asarray(self.exp.vector_value(self.sd,DoubleVector(sp)))
         simps_weights  = (np.log(sp[-1]/sp[0])/(3.*self.nsp_simps)) * \
                               np.asarray([1.] + ([4.,2.]*(self.nsp_simps/2))[:-1] + [1.])
         self.sp_vector = sp * exp_points * simps_weights
@@ -76,11 +81,15 @@ class ROIBand(object):
     def psf_overlap(self, skydir):
         """ return the overlap of the associated PSF at the given position with this ROI
         """
-        return PsfOverlap()(self, self.sd, skydir)  
+        return pypsf.PsfOverlap()(self, self.sd, skydir)  
         
     def exposure(self, skydir, energy=None):
         """ return the exposure at the position and the given energy, or (default) the central energy"""
         return self.exp.value(skydir, energy if energy is not None else self.e)
+        
+    def exposure_integral(self, model_function, axis=None):
+        """ return integral over exposure for function of differential flux """
+        return (model_function(self.sp_points)*self.sp_vector).sum(axis=axis)
 
     def expected(self,model):
         """Integrate the passed spectral model over the exposure and return expected counts."""
