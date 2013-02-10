@@ -11,7 +11,7 @@ classes:
 functions:
     factory -- create a list of BandLike objects from bands and sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.19 2012/12/04 22:00:08 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.20 2013/01/31 23:48:03 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -264,9 +264,9 @@ class BandLike(object):
         
     def __str__(self):
         b = self.bandsources[0].band
-        return 'BandLike: %d models (%d free) applied to band %.0f-%.0f, %s with %d pixels, %d photons'\
+        return 'BandLike: %d models (%d free) applied to band %.0f-%.0f, %s with %d pixels, %d photons; residual %.1f'\
                 % (len(self.bandsources), sum(self.free), b.emin, b.emax, 
-                 ('front back'.split()[b.b.event_class()]), self.pixels, sum(self.data))
+                 ('front back'.split()[b.b.event_class()]), self.pixels, sum(self.data), sum(self.data-self.model_pixels))
                  
     def __getitem__(self, i): return self.bandsources[i]
         
