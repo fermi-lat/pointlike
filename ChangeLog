@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sat Feb  9 21:58:53 PST 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcprimitives.py lctemplate.py lcfitters.py lcnorm.py 
+Log Message:
+Support for energy-dependent fitting.
+
+    *
+------------------------------------------------------------
 User: kerrm  Tue Feb  5 14:47:48 PST 2013
 pointlike/python/uw/pulsar
 
