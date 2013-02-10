@@ -16,6 +16,10 @@ def calc_ratios(roi,edict,which=0):
         Calculate for each photon the ratio of the source to the background.
     """
 
+    print """WARNING: This code doesn't seem to play well with pointlike in
+        it's current state.  In particular, a proper way of interacting
+        with diffuse sources needs to be established.  Recommend using the
+        subset method."""
     en = edict['ENERGY']
     ct = edict['CONVERSION_TYPE']
     psm = roi.psm; bgm = roi.bgm
@@ -33,8 +37,14 @@ def calc_ratios(roi,edict,which=0):
         psfluxes  = np.asarray([m(e) for m in psm.models])
         psdiffs   = np.asarray([d.difference(ps.skydir) for ps in psm.point_sources])
         psrates   = psfluxes * psf(e,c,psdiffs,density=True)
+        if np.any(np.isnan(psrates)):
+            print np.arange(len(psrates))[np.isnan(psrates)]
+            raise ValueError('Sources got problems.')
         # NB preconvolved diffuse models -- something of a kluge
         bgrates   = np.asarray([m.get_dmodel(c).value(d,e)*m.smodel(e) for m in bgm.bgmodels])
+        if np.any(np.isnan(bgrates)):
+            print np.arange(len(bgrates))[np.isnan(bgrates)]
+            raise ValueError('Sources got problems.')
         signals[i] = psrates[which]
         backs[i]   = (psrates.sum() - psrates[which] + bgrates.sum())
 
@@ -45,11 +55,14 @@ def calc_ratios2(roi,edict,which=0):
         Calculate for each photon the ratio of the source to the background.
     """
 
-    ens = [[b.emax for b in roi.bands if b.ct==0],[b.emax for b in roi.bands if b.ct==1]]
-    bands = [[b for b in roi.bands if b.ct==0],[b for b in roi.bands if b.ct==1]]
-    pix_indices = [[np.asarray([b.b.index(x) for x in b.wsdl]) for b in roi.bands if b.ct==0],
-                   [np.asarray([b.b.index(x) for x in b.wsdl]) for b in roi.bands if b.ct==1]]
-    pix_helpers = [[np.arange(len(x)) for x in pix_indices[0]],[np.arange(len(x)) for x in pix_indices[1]]]
+    #ens = [[b.emax for b in roi.bands if b.ct==0],[b.emax for b in roi.bands if b.ct==1]]
+    ens = [[b.emax for b in roi.bands if b.ct==ct] for ct in [0,1]]
+    bands = [[b for b in roi.bands if b.ct==ct] for ct in [0,1]]
+    #pix_indices = [[np.asarray([b.b.index(x) for x in b.wsdl]) for b in roi.bands if b.ct==0],
+                   #[np.asarray([b.b.index(x) for x in b.wsdl]) for b in roi.bands if b.ct==1]]
+    pix_indices = [[np.asarray([b.b.index(x) for x in b.wsdl]) for b in roi.bands if b.ct==ct] for ct in [0,1]]
+    #pix_helpers = [[np.arange(len(x)) for x in pix_indices[0]],[np.arange(len(x)) for x in pix_indices[1]]]
+    pix_helpers = [[np.arange(len(x)) for x in pix_indices[ct]] for ct in [0,1]]
 
     def find(e,c,d):
         idx = np.searchsorted(ens[c],e)
@@ -80,7 +93,7 @@ def calc_ratios2(roi,edict,which=0):
 
     return signals,backs
 
-def write_weights(roi,ft1files,colnames=['WEIGHT','TOTAL'],emin=100,which=0,subset_method=False):
+def write_weights(roi,ft1files,colnames=['WEIGHT','TOTAL'],emin=100,which=0,subset_method=True):
     """ Write the signal and the total rates using the current state."""
     import pyfits
     if not hasattr(ft1files,'__iter__'):  ft1files = [ft1files]
