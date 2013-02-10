@@ -1,7 +1,7 @@
 """
 A module implementing a mixture model of LCPrimitives to form a
 normalized template representing directional data.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.8 2012/11/29 00:30:37 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.9 2012/12/04 23:52:47 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -22,33 +22,31 @@ class LCTemplate(object):
     """
 
     #def __init__(self,primitives=None,template=None,norms=None):
-    def __init__(self,primitives,norms,template=None):
-        """primitives -- a list of LCPrimitive instances."""
+    def __init__(self,primitives,norms):
+        """ primitives -- a list of LCPrimitive instances
+            norms -- either an instance of NormAngles, or a tuple of
+                relative amplitudes for the primitive components."""
         self.primitives = primitives
-        #if template is not None:
-        #    self.primitives = prim_io(template)
-        #if self.primitives is None:
-        #    raise ValueError,'No light curve components or template provided!'
         self.shift_mode = np.any([p.shift_mode for p in self.primitives])
-        # new stuff for normalization
-        #self.free = np.asarray([True]*len(self.primitives)])
-        if norms is None: norms = np.ones(len(primitives))/len(primitives)
-        if len(primitives) != len(norms):
+        if norms is None:
+            norms = np.ones(len(primitives))/len(primitives)
+        self.norms = norms if isinstance(norms,NormAngles) else \
+                     NormAngles(norms)
+        if len(primitives) != len(self.norms):
             raise ValueError('Must provide a normalization for each component.')
-        self.norms = NormAngles(norms)
 
     def __getitem__(self,index): return self.primitives[index]
     def __setitem__(self,index,value): self.primitives[index]=value
     def __len__(self): return len(self.primitives)
 
-    def set_parameters(self,p):
+    def set_parameters(self,p,free=True):
         start = 0
         params_ok = True
         for prim in self.primitives:
-            n = len(prim.get_parameters())
-            params_ok = prim.set_parameters(p[start:start+n]) and params_ok
+            n = len(prim.get_parameters(free=free))
+            params_ok = prim.set_parameters(p[start:start+n],free=free) and params_ok
             start += n
-        self.norms.set_parameters(p[start:start+self.norms.free.sum()])
+        self.norms.set_parameters(p[start:],free)
         return params_ok
 
     def set_errors(self,errs):
@@ -58,9 +56,10 @@ class LCTemplate(object):
             prim.errors = np.zeros_like(prim.p)
             prim.errors[prim.free] = errs[start:start+n]
             start += n
+        self.norms.set_errors(errs[start:])
 
-    def get_parameters(self):
-        return np.append(np.concatenate( [prim.get_parameters() for prim in self.primitives]) , self.norms.get_parameters())
+    def get_parameters(self,free=True):
+        return np.append(np.concatenate( [prim.get_parameters(free) for prim in self.primitives]) , self.norms.get_parameters(free))
 
     def get_gaussian_prior(self):
         locs,widths,mods,enables = [],[],[],[]
@@ -99,10 +98,10 @@ class LCTemplate(object):
     def get_location(self):
         return self.primitives[0].get_location()
 
-    def get_amplitudes(self):
+    def get_amplitudes(self,log10_ens=3):
         """ Return maximum amplitude of a component."""
-        ampls = [p(p.get_location()) for p in self.primitives]
-        return self.norms()*np.asarray(ampls)
+        ampls = [p(p.get_location(),log10_ens) for p in self.primitives]
+        return self.norms(log10_ens)*np.asarray(ampls)
 
     def get_code(self):
         """ Return a short string encoding the components in the template."""
@@ -111,6 +110,20 @@ class LCTemplate(object):
     def norm(self):
         return self.norms.get_total()
 
+    def integrate(self,phi1,phi2,log10_ens,suppress_bg=False):
+        norms = self.norms(log10_ens)
+        t = norms.sum(axis=0)
+        dphi = (phi2-phi1)
+        rvals = np.zeros_like(t)
+        for n,prim in zip(norms,self.primitives):
+            rvals += n*prim.integrate(phi1,phi2,log10_ens)
+        rvals.sum(axis=0)
+        if suppress_bg: 
+            return rvals / t
+        return (1-t)*dphi + rvals
+
+    """
+    # TODO -- sig compat
     def integrate(self,phi1,phi2, suppress_bg=False):
         norms = self.norms()
         t = norms.sum()
@@ -118,14 +131,16 @@ class LCTemplate(object):
         if suppress_bg: return sum( (n*prim.integrate(phi1,phi2) for n,prim in zip(norms,self.primitives)) )/t
 
         return (1-t)*dphi + sum( (n*prim.integrate(phi1,phi2) for n,prim in zip(norms,self.primitives)) )
+    """
 
-    def cdf(self,x):
-        return self.integrate(0,x,suppress_bg=False) 
+    def cdf(self,x,log10_ens=3):
+        return self.integrate(0,x,log10_ens,suppress_bg=False) 
 
     def max(self,resolution=0.01):
         return self(np.arange(0,1,resolution)).max()
 
-    def __call__(self,phases,suppress_bg=False):
+    def __call__(self,phases,log10_ens=3,suppress_bg=False):
+        """
         norms = self.norms()
         if (not hasattr(phases,'shape')):
             phases = np.asarray([phases])
@@ -134,64 +149,43 @@ class LCTemplate(object):
             rval += n*prim(phases)
         if suppress_bg: return rval/norms.sum()
         return (1-norms.sum()) + rval
+        """
+        norms = self.norms(log10_ens)
+        rval = np.zeros_like(phases)
+        for n,prim in zip(norms,self.primitives):
+            rval += n*prim(phases,log10_ens)
+        if suppress_bg: return rval/norms.sum(axis=0)
+        return (1-norms.sum(axis=0)) + rval
 
-    def single_component(self,phases,index):
+    def single_component(self,index,phases,log10_ens=3):
         """ Evaluate a single component of template."""
-        n = self.norms()[index]
-        p = self.primitives[index]
-        return p(phases)*n
+        n = self.norms(log10_ens)[index]
+        return self.primitives[index](phases,log10_ens)*n
 
-    def gradient(self,phases):
-        r = np.empty([len(self.get_parameters()),len(phases)])
+    def gradient(self,phases,log10_ens=3,free=True):
+        r = np.empty([len(self.get_parameters(free=free)),len(phases)])
         c = 0
         norms = self.norms()
         prim_terms = np.empty([len(phases),len(self.primitives)])
         for i,(norm,prim) in enumerate(zip(norms,self.primitives)):
-            n = prim.free.sum()
-            r[c:c+n,:] = norm*prim.get_gradient(phases)
+            n = len(prim.get_parameters(free=free))
+            r[c:c+n,:] = norm*prim.gradient(phases,free=free)
             c += n
             prim_terms[:,i] = prim(phases)-1
-        m = self.norms.get_grads()
-        for j in xrange(len(norms)):
-            if not self.norms.free[j]: continue
+        # handle case where no norm parameters are free
+        if (c == r.shape[0]): return r
+        m = self.norms.gradient(free=free)
+        #r[c:,:] = (prim_terms*m).sum(axis=1)
+        for j in xrange(m.shape[0]):
             r[c,:] = (prim_terms*m[:,j]).sum(axis=1)
             c += 1
         return r
 
-    def approx_gradient(self,phases,eps=1e-5):
-        orig_p = self.get_parameters().copy()
-        g = np.zeros([len(orig_p),len(phases)])
-        weights = np.asarray([-1,8,-8,1])/(12*eps)
+    def approx_gradient(self,phases,log10_ens,eps=1e-5):
+        return approx_gradient(self,phases,log10_ens,eps=eps)
 
-        def do_step(which,eps):
-            p0 = orig_p.copy()
-            p0[which] += eps
-            self.set_parameters(p0)
-            return self(phases)
-
-        for i in xrange(len(orig_p)):
-            # use a 4th-order central difference scheme
-            for j,w in zip([2,1,-1,-2],weights):
-                g[i,:] += w*do_step(i,j*eps)
-
-        self.set_parameters(orig_p)
-        return g
-
-    def check_gradient(self,tol=1e-6,quiet=False):
-        """ Test gradient function with a set of MC photons."""
-        ph = self.random(1000)
-        g1 = self.gradient(ph)
-        g2 = self.approx_gradient(ph)
-        anyfail = False
-        for i in xrange(g1.shape[0]):
-            d1 = np.abs(g1[i]-g2[i])
-            d2 = d1/g1
-            fail = np.any((d1>tol) | (d2>tol))
-            if not quiet:
-                pass_string = 'FAILED' if fail else 'passed'
-                print '%d (%s) %.3g (abs) %.3g (frac)'%(i,pass_string,d1.max(),d2.max())
-            anyfail = anyfail or fail
-        return not anyfail
+    def check_gradient(self,atol=1e-8,rtol=1e-5,quiet=False):
+        return check_gradient(self,atol=atol,rtol=rtol,quiet=quiet)
 
     def delta(self,index=None):
         """ Return radio lag -- reckoned by default as the posittion of the            first peak following phase 0."""
@@ -224,12 +218,7 @@ class LCTemplate(object):
     def __str__(self):
         #prims = self._sorted_prims()
         prims = self.primitives
-        def norm_string(i):
-            fstring = '' if self.norms.free[i] else ' [FIXED]'
-            return 'P%d : %.4f +\- %.4f%s'%(i+1,self.norms()[i],0,fstring)
-        s0 = '\nMixture Amplitudes\n------------------\n'+\
-             '\n'.join([norm_string(i) for i in xrange(len(prims))])+\
-             '\nDC : %.4f +\- %.4f'%(1-self.norms.get_total(),0)
+        s0 = str(self.norms)
         s1 = '\n\n'+'\n\n'.join( ['P%d -- '%(i+1)+str(prim) for i,prim in enumerate(prims)] ) + '\n'
         s1 +=  '\ndelta   : %.4f +\- %.4f'%self.delta()
         s1 +=  '\nDelta   : %.4f +\- %.4f'%self.Delta()
@@ -272,6 +261,10 @@ class LCTemplate(object):
             determine whether to draw the photon from the template or from
             a uniform distribution.
         """
+
+        # compatibility with energy-dependent calls
+        if hasattr(n,'__len__'):
+            n = len(n)
 
         # edge case of uniform template
         if len(self.primitives)==0:
@@ -372,6 +365,20 @@ class LCTemplate(object):
         self.norms = NormAngles(norms) # this may be fragile
         self.norms.free[:] = norms_free
 
+    def get_fixed_energy_version(self,log10_en=3):
+        return self
+
+    def get_eval_string(self):
+        """ Return a string that can be "eval"ed to make a cloned set of
+            primitives and template. """
+        ps = '\n'.join(('p%d = %s'%(i,p.eval_string()) for i,p in enumerate(self.primitives)))
+        prims = '[%s]'%(','.join( ('p%d'%i for i in xrange(len(self.primitives)))))
+        ns = 'norms = %s'%(self.norms.eval_string())
+        s = '%s(%s,norms)'%(self.__class__.__name__,prims)
+        return s
+
+    def closest_to_peak(self,phases):
+        return min((p.closest_to_peak(phases) for p in self.primitives))
 
 def get_gauss2(pulse_frac=1,x1=0.1,x2=0.55,ratio=1.5,width1=0.01,width2=0.02,lorentzian=False,bridge_frac=0,skew=False):
     """Return a two-gaussian template.  Convenience function."""
