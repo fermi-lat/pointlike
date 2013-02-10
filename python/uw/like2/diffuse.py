@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.20 2013/01/11 22:04:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.21 2013/01/31 23:48:03 burnett Exp $
 
 author: Matthew Kerr, Toby Burnett
 """
@@ -239,7 +239,7 @@ class IsotropicModel(DiffuseModel):
         nnan = np.sum(np.isnan(grid.cvals))
         if nnan>0: print 'Grid for %s has %d nan values ' %( dm.name(), nnan)
         assert nnan<5, \
-            'Grid for %s, %.0f Mev< has %d >5 nan values ' %( dm.name(), energy, pnnan)
+            'Grid for %s, %.0f Mev< has %d >5 nan values ' %( dm.name(), energy, nnan)
         return grid
 
 class DiffuseModelFromFits( DiffuseModel):
@@ -518,6 +518,7 @@ def mapper(roi_factory, roiname, skydir, source, **kwargs):
     psf = roi_factory.psf
     exposure = roi_factory.exposure
     try:
+        print '>>>>Loading', source.name, source.dmodel[0].name()
         if source.name.lower().startswith('iso'):
             return IsotropicModel(psf, exposure,skydir, source, **kwargs)
         elif source.name.startswith('limb'):
@@ -528,7 +529,6 @@ def mapper(roi_factory, roiname, skydir, source, **kwargs):
                 source.smodel = models.FrontBackConstant(0.001, 2.0)
             return DiffuseModelFB(psf, exposure,skydir, source, **kwargs)
         elif source.name=='ring':
-            print '>>>>Loading', source.dmodel[0].name()
             for dmodel in source.dmodel:
                 if not getattr(dmodel,'loaded', False): dmodel.load()
             if os.path.splitext(source.dmodel[0].name())[-1]=='.fits':
