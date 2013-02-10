@@ -1,6 +1,6 @@
 """
 Check that the data specification for this stream is valid, perhaps creating the intermediate files
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_data.py,v 1.3 2012/12/23 20:19:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_data.py,v 1.4 2012/12/24 17:25:08 burnett Exp $
 """
 import os, sys, glob, zipfile, logging, datetime
 import numpy as np
@@ -12,8 +12,11 @@ def main(args=None):
 
     if args is not None:
         stage = args.stage[0]
+        nocreate = True
     else:
-        stage = os.environ.get('stage', 'update' )
+        # if called directly, may create
+        stage = os.environ.get('stage', 'create' )
+        nocreate = False
     if stage!='create':
         print 'assume validated'
         return
@@ -24,14 +27,16 @@ def main(args=None):
     stream = os.environ.get('PIPELINE_STREAM', '-1')
     absskymodel = os.path.join(pointlike_dir, skymodel)
 
-    tee = processor.OutputTee(os.path.join(absskymodel, 'summary_log.txt'))
+    if args is not None:
+        tee = processor.OutputTee(os.path.join(absskymodel, 'summary_log.txt'))
 
     current = str(datetime.datetime.today())[:16]
     print '\n%s stage %s stream %s model %s ' % (current, stage, stream,  absskymodel)
 
     rc = dataset.validate(absskymodel, nocreate=True)
     print 'Validated' if rc else 'NOT validated'
-    tee.close()
+    if args is not None:
+        tee.close()
 
     if not rc: raise Exception('Failed to validate data')
  
