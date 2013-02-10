@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Feb 10 15:16:17 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	skymodel.py 
+Log Message:
+move XML stuff to new file
+    *
+------------------------------------------------------------
 User: burnett  Sun Feb 10 06:55:00 PST 2013
 pointlike/python/uw/like2/pipeline
 
