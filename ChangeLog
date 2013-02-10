@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sat Feb  9 21:59:29 PST 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcspeclike.py 
+Log Message:
+Changes to prefer "subset" method in photon weight computation.
+
+    *
+------------------------------------------------------------
 User: kerrm  Sat Feb  9 21:58:53 PST 2013
 pointlike/python/uw/pulsar
 
