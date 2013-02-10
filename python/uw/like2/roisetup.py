@@ -1,7 +1,7 @@
 """
 Set up an ROI factory object
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.23 2013/01/31 23:48:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.24 2013/02/01 23:03:30 burnett Exp $
 
 """
 import os, sys, types
@@ -30,20 +30,28 @@ class ExposureManager(object):
             the correction factors to apply to front, back 
         """
 
-        skymaps.EffectiveArea.set_CALDB(dataset.CALDBManager.CALDB)
-        skymaps.Exposure.set_cutoff(np.cos(np.radians(dataset.thetacut)))
-        inst = ['front', 'back']
-        aeff_files = dataset.CALDBManager.get_aeff()
-        ok = [os.path.exists(file) for file in aeff_files]
-        if not all(ok):
-            raise DataSetError('one of CALDB aeff files not found: %s' %aeff_files)
-        self.ea  = [skymaps.EffectiveArea('', file) for file in aeff_files]
-        if dataset.verbose: print ' -->effective areas at 1 GeV: ', \
-                ['%s: %6.1f'% (inst[i],self.ea[i](1000)) for i in range(len(inst))]
-        if dataset.use_weighted_livetime and hasattr(dataset, 'weighted_lt'):
-            self.exposure = [skymaps.Exposure(dataset.lt,dataset.weighted_lt,ea) for ea in self.ea]
-        else:
-            self.exposure = [skymaps.Exposure(dataset.lt,ea) for ea in self.ea]
+        def make_exposure():
+            if dataset.exposure_cube is not None:
+                ## use pregenerated gtexpcube2 cube; turn off interpolation
+                return [skymaps.DiffuseFunction(f,1000.,False) for f in dataset.exposure_cube]
+                
+            skymaps.EffectiveArea.set_CALDB(dataset.CALDBManager.CALDB)
+            skymaps.Exposure.set_cutoff(np.cos(np.radians(dataset.thetacut)))
+            inst = ['front', 'back']
+            aeff_files = dataset.CALDBManager.get_aeff()
+            ok = [os.path.exists(file) for file in aeff_files]
+            if not all(ok):
+                raise DataSetError('one of CALDB aeff files not found: %s' %aeff_files)
+            self.ea  = [skymaps.EffectiveArea('', file) for file in aeff_files]
+            if dataset.verbose: print ' -->effective areas at 1 GeV: ', \
+                    ['%s: %6.1f'% (inst[i],self.ea[i](1000)) for i in range(len(inst))]
+            
+            if dataset.use_weighted_livetime and hasattr(dataset, 'weighted_lt'):
+                return [skymaps.Exposure(dataset.lt,dataset.weighted_lt,ea) for ea in self.ea]
+            else:
+                return  [skymaps.Exposure(dataset.lt,ea) for ea in self.ea]
+                
+        self.exposure = make_exposure()
 
         correction = datadict.pop('exposure_correction', None)
         if correction is not None:
