@@ -4,8 +4,8 @@ Module implements classes and functions to specify data for use in pointlike ana
 author(s): Matthew Kerr, Eric Wallace
 """
 
-__version__ = '$Revision: 1.21 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.21 2013/01/28 16:53:21 burnett Exp $
+__version__ = '$Revision: 1.22 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.22 2013/01/28 18:35:03 burnett Exp $
 
 import os, sys
 import collections
@@ -65,9 +65,10 @@ def get_default(colname, kw):
     if colname == 'ZENITH_ANGLE':
         return SimpleCut(None,100,'deg','ZENITH_ANGLE')
     if colname == 'THETA':
-        return SimpleCut(None,66.4,'deg','THETA')
+        print 'applying thetacut, kw=', kw
+        return SimpleCut(None,kw.get('thetacut',66.4),'deg','THETA')
     if colname == 'EVENT_CLASS':
-        if kw.get('pass7', False):
+        if kw.get('data_pass')>6:
             d = dict(TYP='BIT_MASK(EVENT_CLASS,%d)'%kw.get('event_class_bit',2),UNI='DIMENSIONLESS',
                      VAL='1:1', REF=None)
             return dssman.DSSBitMask(d)
@@ -150,7 +151,6 @@ class DataSpec(object):
         ('theta_cut',None,'a SimpleCut wrapper giving theta cuts'),
         ('event_class_cut',None,'a SimpleCut wrapper giving event cuts'),
         ('event_class_bit',2, 'an integer specifying the event class, post pass 6'),
-        ('pass7', True,  'Set False to process pass 6'),
         ('gti_mask',None,'a GTI mask to apply to the data (intersection); note this can be used to set tstart/tstop for the data'),
         ('mc_src_id',-1,'select only photons from MC source ID; default is no selection'),
         ('mc_energy',False,'bin on MC_ENERGY instead of ENERGY'),
@@ -159,6 +159,8 @@ class DataSpec(object):
         ('use_weighted_livetime',True,'if True, calculate the weighted livetime for use in livetime-dependent corrections to the effective area'),
         ('livetime_buffer',10,'radius in degrees by which livetime cube cone is larger than ROI cone'),
         ('livetime_pixelsize',1,'pixel size to use for livetime calculation'),
+        ('exposure_cube', None, 'if set, file names of a pair of exposure cubes genertated by gtexpcube2'\
+                                'override use of ltcube'),
         ('data_name', '', 'descriptive name for the data set'),
         ('legacy', False,  'relax DSS requirements for legacy files'),
         ('data_pass',7,'the generation (Pass6, Pass7,...) of the data'),
@@ -177,28 +179,39 @@ class DataSpec(object):
         self.dss = None # initialize
         self.gti = None
 
-        self.ft1files = self._parse_filename(self.ft1)
-        if self.ft1files is not None:
-            # Register FT1 DSS keywords
-            self._get_ft1_dss()
-            self._make_cuts()
-            # Get GTI from FT1 if not already set
-            if self.gti is None:
-                self.gti = self._get_GTI() 
-            if not self._check_binfile():
-                if self.nocreate: raise DataManException('need to create %s' %self.binfile)
-                self._make_binfile()
-        elif not self._check_binfile():
-            raise ValueError('No FT1 files or valid binned data found. (Looking for %s)' % self.binfile)
+        def init_data():
+            self.ft1files = self._parse_filename(self.ft1)
+            if self.ft1files is not None:
+                # Register FT1 DSS keywords
+                self._get_ft1_dss()
+                self._make_cuts()
+                # Get GTI from FT1 if not already set
+                if self.gti is None:
+                    self.gti = self._get_GTI() 
+                if not self._check_binfile():
+                    if self.nocreate: raise DataManException('need to create %s' %self.binfile)
+                    self._make_binfile()
+            elif not self._check_binfile():
+                raise ValueError('No FT1 files or valid binned data found. (Looking for %s)' % self.binfile)
 
-        self.ft2files = self._parse_filename(self.ft2)
-        if self.ft2files is not None:
-            if not self._check_ltcube():
-                if self.nocreate: raise DataManException('need to create %s' %self.ltcube)
-                self._make_ltcube()
-        elif not self._check_ltcube():
-            raise ValueError('No FT2 files or valid livetime found.')
-
+        init_data()
+        
+        def init_exposure():
+            self.ft2files = self._parse_filename(self.ft2)
+            if self.exposure_cube is not None:
+                print 'using exposure cube files: ignore FT2'
+                full = [os.path.join(os.path.expandvars('$FERMI/data'),f) for f in self.exposure_cube]
+                assert np.all(map(os.path.exists, full)), 'Exposure cube file(s) #s not found' %full
+                self.exposure_cube = full #replace with full path
+                return
+            if self.ft2files is not None:
+                if not self._check_ltcube():
+                    if self.nocreate: raise DataManException('need to create %s' %self.ltcube)
+                    self._make_ltcube()
+            elif not self._check_ltcube():
+                raise ValueError('No FT2 files or valid livetime found.')
+                
+        init_exposure()
         # save version to allow custom processing for backwards compat.
         self.version = dataman_version
         if output is not None: self.dump(output)
@@ -285,6 +298,7 @@ class DataSpec(object):
                       ]
         for col,mycut in basic_cuts:
             ft1_cut,index = self.dss.get_simple_dss(col)
+            print 'processing cuts: ', col, mycut
             if self.__dict__[mycut] is not None:
                 print('_make_cuts: working on {0}, cut {1}'.format(col, self.__dict__[mycut] ))
                 if ft1_cut is not None:
@@ -296,6 +310,7 @@ class DataSpec(object):
                     self.__dict__[mycut]['index'] = len(self.dss)+1
                     self.dss.append(self.__dict__[mycut])
             else:
+                print 'ft1_cut', ft1_cut
                 if ft1_cut is not None: self.__dict__[mycut] = ft1_cut
                 else:
                     self.__dict__[mycut] = get_default(col, self.__dict__)
@@ -403,7 +418,9 @@ class DataSpec(object):
             print self.gti
         
     def _check_ltcube(self):
-        """ Verify ltcube exists and is consistent with any existing data cuts."""
+        """ Verify ltcube exists and is consistent with any existing data cuts.
+        
+        """
         #if os.path.exists(self.ltcube) and self.legacy : 
         #    print('Accepting ltcube without dss checks since legacy specified')
         #    return True
