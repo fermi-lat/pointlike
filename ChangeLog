@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Feb 10 17:53:48 PST 2013
+pointlike/python/uw/data
+
+Modified Files:
+	dataman.py 
+Log Message:
+implement exposure_cube
+    *
+------------------------------------------------------------
 User: burnett  Sun Feb 10 15:22:50 PST 2013
 pointlike/python/uw/like2/pipeline
 
