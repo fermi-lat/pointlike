@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.21 2013/01/31 23:48:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.22 2013/02/10 23:20:42 burnett Exp $
 
 author: Matthew Kerr, Toby Burnett
 """
@@ -93,13 +93,20 @@ class ConvolvableGrid(convolution.BackgroundConvolution):
         defaults.update(kwargs)
         super(ConvolvableGrid, self).__init__(*args, **defaults)
         
-    def show(self, fignum=None, **kwargs):
+    def show(self, **kwargs):
         import pylab as plt
         title = kwargs.pop('title', None)
-        if fignum is not None:
-            plt.close(fignum)
-            fig = plt.figure(fignum, figsize=(6,3))
-        super(ConvolvableGrid, self).show(**kwargs)
+        fig, axx = plt.subplots(1,3, figsize=(8,3), sharex=True, sharey=True)
+        plt.subplots_adjust(wspace=0.05)
+        axx[0].imshow(self.psf_vals,interpolation='nearest')
+        axx[0].set_aspect(1.0)
+        norm = plt.normalize(np.log10(self.bg_vals.min()),np.log10(self.bg_vals.max()))
+        marker = float(self.npix)/2
+        for ax,what in zip(axx[1:], (self.bg_vals, self.cvals)  ):
+            ax.imshow(np.log10(what).transpose()[::-1], norm=norm, interpolation='nearest')
+            ax.axvline(marker,color='k')
+            ax.axhline(marker,color='k')
+
         if title is not None:
             plt.suptitle(title,fontsize='small')
             
@@ -158,7 +165,7 @@ class DiffuseModelFromCache(DiffuseModel):
 
         
     def make_grid(self, energy, conversion_type):
-        """ return a convovled grid
+        """ return a convovlved grid
         
         parameters
         ----------
@@ -166,39 +173,31 @@ class DiffuseModelFromCache(DiffuseModel):
             intermediate energy for the band
         conversion_type : int
             0 or 1 for front or back
-        
-        This needs some more care to deal with 8 bands/decade
+      
         """
+        # find the appropriate cached grid
         for index in range(len(self.emins)):
             if energy>self.emins[index] and (index==len(self.emins)-1 or energy<self.emins[index+1])\
                 : break
         emin = self.emins[index]    
         assert energy/emin < 1.8 and energy> emin, 'too large a factor: energy, emin=%.0f,%.0f\nemins=%s' % (energy, emin, self.emins)
-        #try:
-        #    index = self.emins.index(emin)
-        #except:
-        #    raise DiffuseException(
-        #        'Specified emin, %.1f, not in list of cached values'%emin)
         cd = self.cached_diffuse[index]
         
+        # create a convolvable grid from it, with current PSF
         energy = cd['energy']
-        grid = ConvolvableGrid(cd['center'], None, self.psf, 
-            npix=cd['npix'], pixelsize=cd['pixelsize'])
+        grid = ConvolvableGrid(cd['center'], None, self.psf,  npix=cd['npix'], pixelsize=cd['pixelsize'])
             
-        # determine the exposure for this energy and conversion type
+        # determine the current exposure for this energy and conversion type
         exp = self.exposure[conversion_type]
         exp.setEnergy(energy)
-        expgrid = grid.fill(exp) 
-
-        # correction factor
-        #expgrid *= self.exposure_correction[conversion_type](energy)
         
-        # finally to the convolution on the product of exposure and diffuse map, 
-        #  using the appropriate PSF
-        grid.do_convolution(energy, conversion_type, override_vals=expgrid*cd['vals'] )
+        # get values of exposure on the grid, multiply by saved diffuse
+        vals = grid.fill(exp) * cd['vals'] 
+
+        # finally do the convolution on the product of exposure and diffuse map, which is passed in 
+        grid.do_convolution(energy, conversion_type, override_vals=vals)
         return grid
 
-    
     def show(self, iband=0):
         for ct, title in ((0,'front'),(1,'back')):
             grid = self.make_grid(self.emins[iband],ct)
@@ -243,8 +242,16 @@ class IsotropicModel(DiffuseModel):
         return grid
 
 class DiffuseModelFromFits( DiffuseModel):
+
+    defaults =DiffuseModel.defaults+ (
+        ('pixelsize',0.25,'Pixel size for convolution grid'),
+        ('npix_list',    (161,  141,  103,   81,   67,   61,), 'number of pixels: array for bands'),
+        ('ignore_nan', True, 'replace nan values with zero (generates warning)'), 
+        )
+
     """ load pattern from a FITS file """
     def __init__(self, *pars, **kwargs):
+        keyword_options.process(self, kwargs)
         super(DiffuseModelFromFits,self).__init__(*pars, **kwargs)
         
     def setup(self):
@@ -253,24 +260,42 @@ class DiffuseModelFromFits( DiffuseModel):
             for dm in self.diffuse_source.dmodel:
                 print '\t%s'% dm.name()
                 
-    def make_grid(self, energy, conversion_type, npix=61, pixelsize=0.25):
+    def make_grid(self, energy, conversion_type):
+        """ return a convovlved grid
+        
+        parameters
+        ----------
+        energy : float
+            intermediate energy for the band (perhaps derive it here)
+        conversion_type : int
+            0 or 1 for front or back
+       
+        """
+        # get the diffuse map, set energy
         dmodels = self.diffuse_source.dmodel
         dm = dmodels[conversion_type if len(dmodels)>1 else 0]
         dm.setEnergy(energy)
+        
+        # get the exposure
         exp = self.exposure[conversion_type]
         exp.setEnergy(energy)
-
-        grid = ConvolvableGrid(self.roi_dir, None, self.psf, 
-            npix=npix, pixelsize=pixelsize)
         
+        # create a grid with size determine by npix_list, appropriate PSF function
+        iband = min(int(np.log10(energy/100.)*4), len(self.npix_list)-1)
+        npix = self.npix_list[iband] 
+        
+        grid = ConvolvableGrid(self.roi_dir, None, self.psf,  npix=npix, pixelsize=self.pixelsize)
+        # set it up with product of exposure and diffuse map
         grid.cvals = grid.fill(exp) * grid.fill(dm) #product of exposure and map
         # check for nans, replace with zeros if not full ROI
         nans = np.isnan(grid.cvals)
         if np.all(nans):
             raise DiffuseException('Diffuse cube %s has no overlap with ROi' % dm.filename)
-        if np.any(nans):
+        if np.any(nans) and self.ignore_nan:
             grid.cvals[nans]=0
-
+        
+        # finally convolve it
+        grid.do_convolution(energy, conversion_type, override_vals=grid.cvals) 
         return grid
      
     def copy(self):
