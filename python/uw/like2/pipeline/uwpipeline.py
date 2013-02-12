@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.18 2013/01/29 22:31:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.19 2013/01/30 00:07:07 burnett Exp $
 """
 import os, argparse
 import numpy as np
@@ -102,8 +102,8 @@ stagenames = dict(
     tables      =  Stage(pipe.Tables,  sum='hptables', job_list='joblist8.txt', help='create HEALPix tables: ts kde counts', ),
     sedinfo     =  Stage(pipe.Update, dict( processor='processor.full_sed_processor',sedfig_dir='"sedfig"',), sum='fb',
                             help='process SED information' ),
-    diffuse     =  Stage(pipe.Update, dict( processor='processor.roi_refit_processor'), sum='gal', ),
-    isodiffuse  =  Stage(pipe.Update, dict( processor='processor.iso_refit_processor'), sum='iso', ),
+    diffuse     =  Stage(pipe.Update, dict( processor='processor.roi_refit_processor'), sum='galspect', ),
+    isodiffuse  =  Stage(pipe.Update, dict( processor='processor.iso_refit_processor'), sum='isospect', ),
     limb        =  Stage(pipe.Update, dict( processor='processor.limb_processor'),     sum='limb_refit', help='Refit the limb component, usually fixed' ),
     sunmoon     =  Stage(pipe.Update, dict( processor='processor.sunmoon_processor'), sum='sunmoon_refit', help='Refit the SunMoon compoent, usually fixed' ),
     fluxcorr    =  Stage(pipe.Update, dict( processor='processor.flux_correlations'), sum='fluxcorr', ),
