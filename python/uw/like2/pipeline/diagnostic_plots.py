@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.60 2013/01/30 00:07:07 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.61 2013/02/10 23:22:50 burnett Exp $
 
 """
 
@@ -374,8 +374,8 @@ class CountPlots(Diagnostics):
         
     def ridge_spectral_residuals(self):
         """ Spectral residuals along the Galactic ridge
-        
-        Designed to match, except for differnt ROI definitions, the Scalay standard plot.
+       
+        Designed to match, except for different ROI definitions, the Saclay standard plot.
         """
         fig,ax = plt.subplots( figsize=(4,4))
         ridge = ( np.abs(self.rois.glat)<10) * ( np.abs(self.rois.glon)<60 )
