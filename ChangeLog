@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Feb 12 07:20:50 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	diffuse.py 
+Log Message:
+properly implement diffuse from FITS
+    *
+------------------------------------------------------------
 User: burnett  Mon Feb 11 04:13:33 PST 2013
 pointlike/python/uw/like2
 
