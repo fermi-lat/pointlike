@@ -11,7 +11,7 @@ classes:
 functions:
     factory -- create a list of BandLike objects from bands and sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.20 2013/01/31 23:48:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.21 2013/02/10 23:17:19 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -120,11 +120,11 @@ class BandDiffuse(BandSource):
     @property 
     def spectral_model(self):  
         """ access to the spectral model 
-            ***note that this applies the same esposure factor as for the data***
+            ***note that this applies the same exposure factor as for the data***
         """
         return self.source.diffuse_source.smodel 
 
-    def initialize(self):
+    def initialize(self, optimize_energy=True):
         """ establish a state from
             which the model counts can be calculated.  E.g., evaluating
             the model on a series of energy subplanes and storing the
@@ -137,7 +137,14 @@ class BandDiffuse(BandSource):
         band = self.band
         delta_e = band.emax - band.emin
         #print 'making a grid: energy=%s' % band.e
-        self.grid = self.source.make_grid(band.e, band.ct)
+        
+        # estimate the optimum energy to use, not necessarily the geometric mean
+        if optimize_energy:
+            dmodels =self.source.diffuse_source.dmodel 
+            dmodel = dmodels[band.ct if len(dmodels)>1 else 0]
+            self.energy = band.optimum_energy( lambda e: dmodel(band.sd, e) )
+        
+        self.grid = self.source.make_grid(self.energy, band.ct)
         self.ap_evals = self.grid.ap_average(band.radius_in_rad) * band.solid_angle * delta_e
 
         if band.has_pixels:
@@ -238,7 +245,11 @@ class BandDiffuseFB(BandDiffuse):
         t.ct = self.band.ct
         return t
 
- 
+class BandDiffuseCache(BandDiffuse):
+    """ sublcass of BandDiffuse to prevent setting energy
+    """
+    def initialize(self):
+        super(BandDiffuseCache,self).initialize(optimize_energy=False)
 
     
 class BandLike(object):
@@ -362,7 +373,7 @@ def factory(bands, sources, exposure, quiet=False):
         """helper factory that returns a BandModel object appropriate for the source"""
         class_name = source.__class__.__name__
         B = dict(PointSource=BandPoint, 
-                DiffuseModelFromCache=BandDiffuse,
+                DiffuseModelFromCache=BandDiffuseCache,
                 DiffuseModelFromFits=BandDiffuse,
                 DiffuseModelFB=BandDiffuseFB,
                 IsotropicModel=BandDiffuse,

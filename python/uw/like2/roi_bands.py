@@ -2,7 +2,7 @@
 Implements classes encapsulating an energy/conversion type band.  These
 are the building blocks for higher level analyses.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roi_bands.py,v 1.2 2013/02/10 23:17:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roi_bands.py,v 1.3 2013/02/11 12:13:33 burnett Exp $
 
 author: Matthew Kerr
 extracted from like.roi_bands, v 1.28 for like2 by T Burnett
@@ -12,6 +12,7 @@ import numpy as np
 from skymaps import SkyDir, WeightedSkyDirList 
 from pointlike import DoubleVector
 from uw.like import pypsf
+from scipy import optimize # for brentq
 
 ###======================================================================###
 
@@ -61,7 +62,10 @@ class ROIBand(object):
                  
 
     def __setup_sp_simps__(self):
-        """Cache factors for quickly evaluating the counts under a given spectral model."""
+        """Cache factors for quickly evaluating the counts under a given spectral model, 
+            for integrating over the exposure within the energy limits
+            note that exposure is evaluated at the skydir
+        """
 
         self.sp_points = sp = np.logspace(np.log10(self.emin),np.log10(self.emax),self.nsp_simps+1)
         exp_points     = map(lambda e: self.exp.value(self.sd, e), sp)
@@ -92,7 +96,20 @@ class ROIBand(object):
         return (model_function(self.sp_points)*self.sp_vector).sum(axis=axis)
 
     def expected(self,model):
-        """Integrate the passed spectral model over the exposure and return expected counts."""
+        """Integrate the passed spectral model over the exposure, at the given direction and return expected counts."""
         return (model(self.sp_points)*self.sp_vector).sum()
-
+        
+    def optimum_energy(self, f):
+        """return optimum energy to determine integral over exposure as f(e)*exp(e)*(b-a)
+            where exp is the exposure function
+          f: function of energy
+        """
+        a,b = self.emin, self.emax
+        alpha = np.log(f(a)/f(b))/np.log(b/a)
+        fn = lambda x: x**-alpha
+        t = self.expected(fn) / (b-a)
+        ft = lambda e : t / (fn(e) * self.exp.value(self.sd, e) ) -1
+        #print alpha, ft(a), ft(b)
+        if ft(a)*ft(b)>0: return (a+b)/2. # no optimum, flat? use mean
+        return optimize.brentq(ft, a, b)
 
