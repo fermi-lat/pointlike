@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.13 2012/12/12 15:57:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.14 2013/01/11 22:04:06 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -115,7 +115,7 @@ class ExtendedSource(Source):
         return ret
  
 class DiffuseFunction(skymaps.DiffuseFunction):
-    """ wrapper for eventual invokation of skymaps.DiffuseFunction
+    """ wrapper for eventual invocation of skymaps.DiffuseFunction
     load must be called before use
     """
     def __init__(self, filename):
@@ -124,8 +124,8 @@ class DiffuseFunction(skymaps.DiffuseFunction):
     def load(self):
         if  self.loaded: return
         self.loaded=True
-        print 'loading diffuse file %s' %self.filename
-        super(DiffuseFunction,self).__init__(self.filename)
+        print 'loading diffuse file %s: warning, not interpolating' %self.filename
+        super(DiffuseFunction,self).__init__(self.filename, 1000., False) #
     def name(self):
         return self.filename
         
