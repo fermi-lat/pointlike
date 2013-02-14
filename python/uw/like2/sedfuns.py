@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.5 2012/01/27 15:07:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.6 2012/08/17 23:44:22 burnett Exp $
 
 """
 import os
@@ -189,6 +189,7 @@ class DiffuseLikelihood(fitter.Fitted):
         self.energies = np.sort(list(set([ sm.band.e for sm in rstat.all_bands])))
         self.saved_pars = self.get_parameters()
         self.selected_bands = self.rs.selected_bands.copy()
+        self.eopt = [bl[0].energy for bl in self.selected_bands]
         
     def restore(self):
         self.set_parameters(self.saved_pars)
@@ -263,7 +264,9 @@ class DiffuseLikelihood(fitter.Fitted):
             loglike.append(t[0])
             values.append(t[1])
             errors.append(t[2])
-        return dict(energies=energies, loglike=loglike, event_class=event_class, values=values, errors=errors)
+        # get optimized energies for reference NOTE: replace that 0 with source name
+        return dict(energies=energies, loglike=loglike, event_class=event_class, values=values, errors=errors,
+            eopt=self.eopt)
 
 def makesed_all(roi, **kwargs):
     """ add sed information to each free local source
