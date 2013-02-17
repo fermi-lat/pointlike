@@ -3,7 +3,7 @@ components of a pulsar light curve.  Includes primitives (Gaussian,
 Lorentzian), etc.  as well as more sophisticated holistic templates that
 provide single-parameter (location) representations of the light curve.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcprimitives.py,v 1.29 2013/02/10 05:58:53 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcprimitives.py,v 1.30 2013/02/17 00:41:15 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -123,6 +123,11 @@ class LCPrimitive(object):
         'virtual' functions below."""
 
     def is_energy_dependent(self):
+        return False
+
+    def is_two_sided(self):
+        """ True if primitive is asymmetric.  Default is False, two-sided
+            child classes should override."""
         return False
 
     def __call__(self,phases):
@@ -486,6 +491,9 @@ class LCGaussian2(LCWrappedFunction):
         self.name = 'Gaussian2'
         self.shortname = 'G2'
 
+    def is_two_sided(self):
+        return True
+
     def hwhm(self,right=False):
         return (self.p[right])*(2 * np.log(2))**0.5
 
@@ -594,6 +602,9 @@ class LCLorentzian2(LCWrappedFunction):
         self.pnames = ['Width1','Width2','Location']
         self.name = 'Lorentzian2'
         self.shortname = 'L2'
+
+    def is_two_sided(self):
+        return True
 
     def hwhm(self,right=False):
         return self.p[right]
