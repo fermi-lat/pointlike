@@ -1,7 +1,7 @@
 """
 A module implementing a mixture model of LCPrimitives to form a
 normalized template representing directional data.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.9 2012/12/04 23:52:47 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.10 2013/02/10 05:58:53 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -21,8 +21,7 @@ class LCTemplate(object):
        The template is such that 
     """
 
-    #def __init__(self,primitives=None,template=None,norms=None):
-    def __init__(self,primitives,norms):
+    def __init__(self,primitives,norms=None):
         """ primitives -- a list of LCPrimitive instances
             norms -- either an instance of NormAngles, or a tuple of
                 relative amplitudes for the primitive components."""
@@ -35,9 +34,15 @@ class LCTemplate(object):
         if len(primitives) != len(self.norms):
             raise ValueError('Must provide a normalization for each component.')
 
+    def is_energy_dependent(self):
+        return False
+
     def __getitem__(self,index): return self.primitives[index]
     def __setitem__(self,index,value): self.primitives[index]=value
     def __len__(self): return len(self.primitives)
+    def copy(self):
+        prims = [deepcopy(x) for x in self.primitives]
+        return self.__class__(prims,self.norms.copy())
 
     def set_parameters(self,p,free=True):
         start = 0
@@ -379,6 +384,37 @@ class LCTemplate(object):
 
     def closest_to_peak(self,phases):
         return min((p.closest_to_peak(phases) for p in self.primitives))
+
+    def mean_value(self,phases,log10_ens=None,weights=None,bins=20):
+        """ Compute the mean value of the profile over the codomain of 
+            phases.  Mean is taken over energy and is unweighted unless
+            a set of weights are provided."""
+        if (log10_ens is None) or (not self.is_energy_dependent()):
+            return self(phases)
+        if weights is None:
+            weights = np.ones_like(log10_ens)
+        edges = np.linspace(log10_ens.min(),log10_ens.max(),bins+1)
+        w = np.histogram(log10_ens,weights=weights,bins=edges)
+        rvals = np.zeros_like(phases)
+        for weight,en in zip(w[0],(edges[:-1]+edges[1:])/2):
+            rvals += weight*self(phases,en)
+        rvals /= w[0].sum()
+        return rvals
+
+    def mean_single_component(self,index,phases,log10_ens=None,weights=None,bins=20):
+        prim = self.primitives[index]
+        if (log10_ens is None) or (not self.is_energy_dependent() is self):
+            return prim(phases)*self.norms()[index]
+        if weights is None:
+            weights = np.ones_like(log10_ens)
+        edges = np.linspace(log10_ens.min(),log10_ens.max(),bins+1)
+        w = np.histogram(log10_ens,weights=weights,bins=edges)
+        rvals = np.zeros_like(phases)
+        for weight,en in zip(w[0],(edges[:-1]+edges[1:])/2):
+            rvals += weight*prim(phases,en)*self.norms(en)[index]
+        rvals /= w[0].sum()
+        return rvals
+
 
 def get_gauss2(pulse_frac=1,x1=0.1,x2=0.55,ratio=1.5,width1=0.01,width2=0.02,lorentzian=False,bridge_frac=0,skew=False):
     """Return a two-gaussian template.  Convenience function."""
