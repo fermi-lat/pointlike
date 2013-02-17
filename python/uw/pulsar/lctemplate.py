@@ -1,7 +1,7 @@
 """
 A module implementing a mixture model of LCPrimitives to form a
 normalized template representing directional data.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.10 2013/02/10 05:58:53 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.11 2013/02/17 00:41:15 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -403,7 +403,7 @@ class LCTemplate(object):
 
     def mean_single_component(self,index,phases,log10_ens=None,weights=None,bins=20):
         prim = self.primitives[index]
-        if (log10_ens is None) or (not self.is_energy_dependent() is self):
+        if (log10_ens is None) or (not self.is_energy_dependent()):
             return prim(phases)*self.norms()[index]
         if weights is None:
             weights = np.ones_like(log10_ens)
