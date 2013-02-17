@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sun Feb 17 14:20:21 PST 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcprimitives.py 
+Log Message:
+Add convenience method for checking for asymmetry.
+
+    *
+------------------------------------------------------------
 User: kerrm  Sat Feb 16 16:41:15 PST 2013
 pointlike/python/uw/pulsar
 
