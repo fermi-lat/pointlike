@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Feb 20 17:31:54 PST 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py lcprimitives.py lctemplate.py 
+Log Message:
+Add error distributing code and gradient-based hessian calculation.
+
+    *
+------------------------------------------------------------
 User: kerrm  Sun Feb 17 14:20:32 PST 2013
 pointlike/python/uw/pulsar
 
