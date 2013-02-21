@@ -1,6 +1,6 @@
 """
 Code to generate a set of maps for each ROI
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/maps.py,v 1.8 2013/01/14 22:24:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/maps.py,v 1.9 2013/01/15 00:21:06 burnett Exp $
 
 """
 import os, sys,  pickle, types
@@ -72,7 +72,7 @@ class KdeMap(object):
         sd = skydir or SkyDir(Hep3Vector(v[0],v[1],v[2]))
         rval = 0
         for i,band in enumerate(self.bands):
-            if band.photons==0: continue
+            if not band.has_pixels: continue
             rvals = np.empty(len(band.wsdl),dtype=float)
             PythonUtilities.arclength(rvals, band.wsdl, sd)
             mask = rvals < self.r95[i]
