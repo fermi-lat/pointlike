@@ -9,7 +9,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.40 2013/02/10 05:58:53 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.41 2013/02/17 00:41:15 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -69,8 +69,6 @@ class UnweightedLCFitter(object):
         # default is unbinned likelihood
         self.loglikelihood = self.unbinned_loglikelihood
         self.gradient = self.unbinned_gradient
-        self.phistory = []
-        self.ghistory = []
 
     def is_energy_dependent(self):
         return False
@@ -211,7 +209,7 @@ class UnweightedLCFitter(object):
             self.ll = ll0; self.fitvals = p0
             return False
         if estimate_errors:
-            if not self.hess_errors():
+            if not self.hess_errors(use_gradient=use_gradient):
                 #try:
                 self.bootstrap_errors(set_errors=True)
                 #except ValueError:
@@ -259,28 +257,31 @@ class UnweightedLCFitter(object):
                             bounds=bounds,factr=1e-5)
         return fit
 
-    def hess_errors(self):
+    def hess_errors(self,use_gradient=True):
         """ Set errors from hessian.  Fit should be called first...""" 
-        from numpy.linalg import inv
-        nump = len(self.template.get_parameters())
+        p = self.template.get_parameters()
+        nump = len(p)
         self.cov_matrix = np.zeros([nump,nump],dtype=float)
-        #try: 
-        h1 = hessian(self.template,self.loglikelihood)
-        c1 = inv(h1)
-        d = np.diag(c1)
-        if np.all(d>0):
-            self.cov_matrix = c1
-            # attempt to refine
-            h2 = hessian(self.template,self.loglikelihood,delt=d**0.5)
-            c2 = inv(h2)
-            if np.all(np.diag(c2)>0):
-                self.cov_matrix = c2
-        else: raise ValueError
+        if use_gradient:
+            h1 = hess_from_grad(self.gradient,p.copy())
+            c1 = np.linalg.inv(h1)
+            if np.all(np.diag(c1)>0):
+                self.cov_matrix = c1
+            else: raise ValueError('Negative errors result.')
+        else:
+            h1 = hessian(self.template,self.loglikelihood)
+            c1 = np.linalg.inv(h1)
+            d = np.diag(c1)
+            if np.all(d>0):
+                self.cov_matrix = c1
+                # attempt to refine
+                h2 = hessian(self.template,self.loglikelihood,delt=d**0.5)
+                c2 = np.linalg.inv(h2)
+                if np.all(np.diag(c2)>0):
+                    self.cov_matrix = c2
+            else: raise ValueError('Negative errors result.')
         self.template.set_errors(np.diag(self.cov_matrix)**0.5)
         return True
-        #except:
-        #    print 'Unable to invert hessian!'
-        #    return False
 
     def bootstrap_errors(self,nsamp=100,fit_kwargs={},set_errors=False):
         p0 = self.phases; w0 = self.weights
@@ -633,3 +634,27 @@ def approx_gradient(fitter,eps=1e-6):
 
     func.set_parameters(orig_p,free=True)
     return g
+
+def hess_from_grad(grad,par,step=1e-3,iterations=2):
+    """ Use gradient to determine step size and hessian."""
+
+    def make_hess(p0,steps):
+        npar = len(par)
+        hess = np.empty([npar,npar])
+        for i in xrange(npar):
+            par[i] = p0[i] + steps[i]
+            gup = grad(par) 
+            par[i] = p0[i] - steps[i]
+            gdn = grad(par)
+            par[:] = p0
+            hess[i,:] = (gup-gdn)/(2*steps[i])
+        return hess
+
+    p0 = par.copy() # sacrosanct
+    hessians = [make_hess(p0,np.ones_like(p0)*step)]
+    for i in xrange(iterations):
+        steps = np.diag(np.linalg.inv(hessians[-1]))**0.5
+        hessians.append(make_hess(p0,steps))
+
+    g = grad(p0) # reset parameters
+    return hessians[-1]
