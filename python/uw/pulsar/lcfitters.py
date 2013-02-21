@@ -9,7 +9,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.41 2013/02/17 00:41:15 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.42 2013/02/21 01:31:54 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -168,7 +168,7 @@ class UnweightedLCFitter(object):
             self.loglikelihood = self.binned_loglikelihood
             self.gradient = self.binned_gradient
          
-    def fit(self,quick_fit_first=False, unbinned=True, use_gradient=True, positions_first=False, estimate_errors=False,prior=None, unbinned_refit=True):
+    def fit(self,quick_fit_first=False, unbinned=True, use_gradient=True, positions_first=False, estimate_errors=False,prior=None, unbinned_refit=True, try_bootstrap=True):
         # NB use of priors currently not supported by quick_fit, positions first, etc.
         self._set_unbinned(unbinned)
         if (prior is not None) and (len(prior) > 0):
@@ -211,7 +211,8 @@ class UnweightedLCFitter(object):
         if estimate_errors:
             if not self.hess_errors(use_gradient=use_gradient):
                 #try:
-                self.bootstrap_errors(set_errors=True)
+                if try_bootstrap:
+                    self.bootstrap_errors(set_errors=True)
                 #except ValueError:
                 #    print 'Warning, could not estimate errors.'
                 #    self.template.set_errors(np.zeros_like(p0))
@@ -267,7 +268,9 @@ class UnweightedLCFitter(object):
             c1 = np.linalg.inv(h1)
             if np.all(np.diag(c1)>0):
                 self.cov_matrix = c1
-            else: raise ValueError('Negative errors result.')
+            else: 
+                print 'Could not estimate errors from hessian.'
+                return False
         else:
             h1 = hessian(self.template,self.loglikelihood)
             c1 = np.linalg.inv(h1)
@@ -279,7 +282,9 @@ class UnweightedLCFitter(object):
                 c2 = np.linalg.inv(h2)
                 if np.all(np.diag(c2)>0):
                     self.cov_matrix = c2
-            else: raise ValueError('Negative errors result.')
+            else:
+                print 'Could not estimate errors from hessian.'
+                return False
         self.template.set_errors(np.diag(self.cov_matrix)**0.5)
         return True
 
@@ -654,6 +659,7 @@ def hess_from_grad(grad,par,step=1e-3,iterations=2):
     hessians = [make_hess(p0,np.ones_like(p0)*step)]
     for i in xrange(iterations):
         steps = np.diag(np.linalg.inv(hessians[-1]))**0.5
+        #if not np.all(steps > 0):
         hessians.append(make_hess(p0,steps))
 
     g = grad(p0) # reset parameters
