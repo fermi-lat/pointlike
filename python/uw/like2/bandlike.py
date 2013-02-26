@@ -11,11 +11,11 @@ classes:
 functions:
     factory -- create a list of BandLike objects from bands and sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.21 2013/02/10 23:17:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.22 2013/02/13 03:39:09 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
-import sys
+import sys, types
 import numpy as np
 
 class BandSource(object):
@@ -31,6 +31,7 @@ class BandSource(object):
             exposure:  ExposureManager object, access to exposure correction function
                   which may include a phase factor component. A source would not generaly care
                   here for potential use by the diffuse, which was generated without this factor
+                  
         """
         self.source= source
         self.band = band
@@ -75,6 +76,12 @@ class BandSource(object):
         pixterm = (weights*self.pixel_values).sum() if b.has_pixels else 0
         return g * (apterm - pixterm)
 
+    def fill_grid(self, sdirs):
+        """ fill a grid with values, which are counts/sr, so must be multiplied by the pixel size
+        """
+        raise Exception('NotImplemented')
+            
+
 class BandPoint(BandSource):
     """ Compute the expected distribution of pixel counts from a point source in a ROIBand
     """
@@ -92,6 +99,14 @@ class BandPoint(BandSource):
         
         #unnormalized PSF evaluated at each pixel
         self.pixel_values = band.pixels_from_psf(self.source.skydir)
+
+    def fill_grid(self, sdirs):
+        """ fill a grid, defined by sidrs array, with counts/solid angle"""
+        rvals  = np.empty(len(sdirs),dtype=float)
+        self.psf.cpsf.wsdl_val(rvals, self.source.skydir, sdirs) #from C++: sets rvals
+        expected = self.band.exposure_integral(self.spectral_model) * self.exposure_ratio
+        return rvals*expected
+
 
 
 class BandDiffuse(BandSource):
@@ -124,7 +139,7 @@ class BandDiffuse(BandSource):
         """
         return self.source.diffuse_source.smodel 
 
-    def initialize(self, optimize_energy=True):
+    def initialize(self, optimize_energy=True): 
         """ establish a state from
             which the model counts can be calculated.  E.g., evaluating
             the model on a series of energy subplanes and storing the
@@ -142,7 +157,8 @@ class BandDiffuse(BandSource):
         if optimize_energy:
             dmodels =self.source.diffuse_source.dmodel 
             dmodel = dmodels[band.ct if len(dmodels)>1 else 0]
-            self.energy = band.optimum_energy( lambda e: dmodel(band.sd, e) )
+            fn = lambda e: dmodel(band.sd, e)
+            self.energy = band.optimum_energy( fn )
         
         self.grid = self.source.make_grid(self.energy, band.ct)
         self.ap_evals = self.grid.ap_average(band.radius_in_rad) * band.solid_angle * delta_e
@@ -173,6 +189,12 @@ class BandDiffuse(BandSource):
         pixterm = ( self.pixel_values * weights ).sum() if self.band.has_pixels else 0
         ### Note making exposure correction to model ###
         return (apterm - pixterm) * model.gradient(self.energy)[model.free] * self.diffuse_correction
+ 
+    def fill_grid(self, sdirs):
+        """ fill a grid with values"""
+        scale = self.spectral_model(self.energy) * self.diffuse_correction
+        return self.grid(sdirs, self.grid.cvals) * (band.emax - band.emin) * scale
+
  
 class BandExtended(BandPoint):
     """  Apply extended model to an ROIband
@@ -279,7 +301,15 @@ class BandLike(object):
                 % (len(self.bandsources), sum(self.free), b.emin, b.emax, 
                  ('front back'.split()[b.b.event_class()]), self.pixels, sum(self.data), sum(self.data-self.model_pixels))
                  
-    def __getitem__(self, i): return self.bandsources[i]
+    def __getitem__(self, i): 
+        """ return a BandSource object refererence, either by index, or by source name"""
+        if type(i)==types.StringType:
+            t = list(self.bandsources)
+            for bs in t:
+                if i==bs.source.name:
+                    return bs
+            raise Exception('Source "%s" not found in band sources' %i)
+        return self.bandsources[i]
         
     def initialize(self, free):
         """ should only call if free array changes.
@@ -360,7 +390,16 @@ class BandLike(object):
                 self.bandsources = np.array(t)
                 return
         raise Exception('source "%s" not found to delete' % source.name)
- 
+    
+    def fill_grid(self, sdirs):
+        """ fill a grid with values, which are counts/sr, so must be multiplied by the pixel size
+        """
+        t = np.zeros(len(sdirs))
+        for m in self.bandsources:
+            t+= m.fill_grid(sdirs)
+        return t
+   
+  
 def factory(bands, sources, exposure, quiet=False):
     """ return an array, one per band, of BandLike objects 
         bands : list of ROIBand objects
