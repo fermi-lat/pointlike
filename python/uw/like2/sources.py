@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.14 2013/01/11 22:04:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.15 2013/02/13 13:44:15 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -161,10 +161,17 @@ class DiffuseDict(dict):
     def __init__(self, diffuse):
         """ diffuse: a list, where each entry is a file name or a tuple of one or two file names, for front and back
             if the name ends with a ')', assume it is an expression and pass it on to be evaluated by IsotropicSpectralFunction
+        
+        New, alternate format: a dictionary where the source name is the key, instead of parsed from the filename
         """
-        # convert each single entry to a tuple: assume iterables are tuples of strings
-        tuplelist = map( lambda x: (x,) if not hasattr(x,'__iter__') else x, diffuse)
-        keys = map( lambda x: x[0].split('_')[0], tuplelist) # key or name from first one
+        if type(diffuse)==types.DictType:
+            # new format: just a dictionary
+            keys = diffuse.keys()
+            tuplelist = map( lambda x: (x,) if not hasattr(x,'__iter__') else x, diffuse.values())
+        else:    
+            # convert each single entry to a tuple: assume iterables are tuples of strings
+            tuplelist = map( lambda x: (x,) if not hasattr(x,'__iter__') else x, diffuse)
+            keys = map( lambda x: x[0].split('_')[0], tuplelist) # key or name from first one
         for key, files in zip(keys, tuplelist):
             ext = os.path.splitext(files[0])[-1]
             try:
