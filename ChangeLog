@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Fri Mar  1 19:54:51 PST 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py 
+Log Message:
+Add some code to allow initial calculation of step size in numerical hessian.
+
+    *
+------------------------------------------------------------
 User: burnett  Wed Feb 27 10:14:43 PST 2013
 pointlike/python/uw/like2
 
