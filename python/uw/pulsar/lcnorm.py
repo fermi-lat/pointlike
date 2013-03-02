@@ -6,7 +6,7 @@ This is done by treating each primitives' normalization parameter as
 the square of a cartesian variable lying within or on an
 n-dimensional ball of unit radius.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcnorm.py,v 1.5 2013/02/10 05:58:53 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcnorm.py,v 1.6 2013/02/17 00:41:15 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 """
@@ -25,6 +25,9 @@ class NormAngles(object):
         indicated by the position of the vector, while the overall
         normalization is given by the an additional angle, the sine of
         which provides the (squared) normalization."""
+
+    def is_energy_dependent(self):
+        return False
 
     def init(self):
         self.free = np.asarray([True]*self.dim,dtype=bool)
