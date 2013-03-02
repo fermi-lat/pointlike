@@ -9,7 +9,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.42 2013/02/21 01:31:54 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.43 2013/02/21 07:25:59 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -263,8 +263,9 @@ class UnweightedLCFitter(object):
         p = self.template.get_parameters()
         nump = len(p)
         self.cov_matrix = np.zeros([nump,nump],dtype=float)
+        ss = calc_step_size(self.loglikelihood,p.copy())
         if use_gradient:
-            h1 = hess_from_grad(self.gradient,p.copy())
+            h1 = hess_from_grad(self.gradient,p.copy(),step=ss)
             c1 = np.linalg.inv(h1)
             if np.all(np.diag(c1)>0):
                 self.cov_matrix = c1
@@ -272,7 +273,7 @@ class UnweightedLCFitter(object):
                 print 'Could not estimate errors from hessian.'
                 return False
         else:
-            h1 = hessian(self.template,self.loglikelihood)
+            h1 = hessian(self.template,self.loglikelihood,delta=ss)
             c1 = np.linalg.inv(h1)
             d = np.diag(c1)
             if np.all(d>0):
@@ -641,7 +642,13 @@ def approx_gradient(fitter,eps=1e-6):
     return g
 
 def hess_from_grad(grad,par,step=1e-3,iterations=2):
-    """ Use gradient to determine step size and hessian."""
+    """ Use gradient to compute hessian.  Proceed iteratively to take steps
+        roughly equal to the 1-sigma errors.
+    
+        The initial step can be:
+            [scalar] use the same step for the initial iteration
+            [array] specify a step for each parameters.
+        """
 
     def make_hess(p0,steps):
         npar = len(par)
@@ -656,11 +663,36 @@ def hess_from_grad(grad,par,step=1e-3,iterations=2):
         return hess
 
     p0 = par.copy() # sacrosanct
-    hessians = [make_hess(p0,np.ones_like(p0)*step)]
+    if not (hasattr(step,'__len__') and len(step)==len(p0)):
+        step = np.ones_like(p0)*step
+    hessians = [make_hess(p0,step)]
+
     for i in xrange(iterations):
         steps = np.diag(np.linalg.inv(hessians[-1]))**0.5
-        #if not np.all(steps > 0):
+        steps[np.isnan(steps)] = step[i]
         hessians.append(make_hess(p0,steps))
 
     g = grad(p0) # reset parameters
     return hessians[-1]
+
+def calc_step_size(logl,par,minstep=1e-5,maxstep=1e-1):
+    from scipy.optimize import bisect
+    minstep = 1e-5
+    maxstep = 1e-1
+    rvals = np.empty_like(par)
+    p0 = par.copy()
+    ll0 = logl(p0)
+    def f(x,i):
+        p0[i] = par[i] + x
+        delta_ll = logl(p0)-ll0-0.5
+        p0[i] = par[i]
+        if abs(delta_ll) < 0.05:
+            return 0
+        return delta_ll
+    for i in xrange(len(par)):
+        if f(maxstep,i) < 0:
+            rvals[i] = maxstep
+        else:
+            rvals[i] = bisect(f,minstep,maxstep,args=(i))
+    logl(par) # reset parameters
+    return rvals
