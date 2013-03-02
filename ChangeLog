@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sat Mar  2 13:43:55 PST 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcnorm.py 
+Log Message:
+Add method to check for energy dependence.
+
+    *
+------------------------------------------------------------
 User: kerrm  Fri Mar  1 19:54:51 PST 2013
 pointlike/python/uw/pulsar
 
