@@ -9,7 +9,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.43 2013/02/21 07:25:59 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.44 2013/03/02 03:54:51 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -677,8 +677,6 @@ def hess_from_grad(grad,par,step=1e-3,iterations=2):
 
 def calc_step_size(logl,par,minstep=1e-5,maxstep=1e-1):
     from scipy.optimize import bisect
-    minstep = 1e-5
-    maxstep = 1e-1
     rvals = np.empty_like(par)
     p0 = par.copy()
     ll0 = logl(p0)
