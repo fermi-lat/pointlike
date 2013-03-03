@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sat Mar  2 20:27:24 PST 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py 
+Log Message:
+Fix bug with ignored keyword arguments.
+
+    *
+------------------------------------------------------------
 User: kerrm  Sat Mar  2 13:43:55 PST 2013
 pointlike/python/uw/pulsar
 
