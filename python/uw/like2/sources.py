@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.15 2013/02/13 13:44:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.16 2013/02/27 18:14:43 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -150,7 +150,7 @@ class IsotropicSpectralFunction(object):
     
 class DiffuseDict(dict):
     """ create a dictionary of global diffuse objects
-        key:   a string defined by the filename following an underscore
+        key:   a string defined by the filename following an underscore, or key in input to init
         value: (both) or (front,back)  diffuse objects determined by the extension:
             txt: IsotropicSpectrum
             fit or fits: DiffuseFunction

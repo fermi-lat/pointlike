@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.33 2012/12/29 16:28:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.34 2013/01/14 22:24:22 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
@@ -73,7 +73,9 @@ class Pipe(roisetup.ROIfactory):
         try:
             t = super(Pipe, self).roi(*pars, **kwargs)
         except Exception, e:
-            print 'trying again after exception %s' %e
+            #if not e.startswith('Root'): 
+            #    raise
+            print 'trying again after exception "%s"' %e
             t = super(Pipe, self).roi(*pars, **kwargs)
 
         return main.ROI_user(t)
