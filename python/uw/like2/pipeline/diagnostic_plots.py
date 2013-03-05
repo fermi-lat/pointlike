@@ -1,11 +1,11 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.61 2013/02/10 23:22:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.62 2013/02/12 15:24:11 burnett Exp $
 
 """
 
-import os, pickle, glob, zipfile, time, sys, types, argparse
+import os, pickle, glob, zipfile, time, sys, types, argparse, pyfits
 import numpy as np
 import pylab as plt
 import pandas as pd
@@ -16,6 +16,7 @@ from matplotlib.colors import LogNorm
 
 from skymaps import SkyDir, DiffuseFunction, Hep3Vector
 from uw.like2.pub import healpix_map
+from uw.like2 import dataset
 
 class Diagnostics(object):
     """ basic class to handle data for diagnostics, collect code to make plots
@@ -340,17 +341,19 @@ class CountPlots(Diagnostics):
     def residual_maps(self, vmin=-5, vmax=5):
         """ Maps of the residuals 
         """
-        fig, axx = plt.subplots(3,4, figsize=(12,10))
-        plt.subplots_adjust(right=0.9)
+        fig, axx = plt.subplots(3,4, figsize=(12,10), sharex=True, sharey=True)
+        plt.subplots_adjust(right=0.9, hspace=0.15, wspace=0.1)
         for ib,energy in enumerate(self.energy[:12]):
             ax = axx.flatten()[ib]
             scat=self.basic_skyplot(ax, self.rois.glon, self.rois.singlat, self.residual(ib).clip(vmin,vmax),
                  title='%d MeV'%energy,
-                vmin=vmin,vmax=vmax, s=25, edgecolor='none', colorbar=False, labels=False)
+                vmin=vmin,vmax=vmax, s=15, edgecolor='none', colorbar=False, labels=False)
         #put colorbar at right        
         cbax = fig.add_axes((0.92, 0.15, 0.02, 0.7) )
         cb=plt.colorbar(scat, cbax, orientation='vertical')
         cb.set_label('normalized residual')
+        fig.text(0.5,0.05, 'galactic longitude', ha='center')
+        fig.text(0.05, 0.5, 'sin(latitude)', rotation='vertical', va='center')
         return fig
         
     def resid_vs_dec(self, ib=0, ax=None, ylim=(-8,8), labels=True):
@@ -372,20 +375,27 @@ class CountPlots(Diagnostics):
         ax.grid()
         return fig
         
-    def ridge_spectral_residuals(self):
+    def ridge_spectral_residuals(self, ax=None, glat=(-10,10), glon=(-60,60), nolabels=False):
         """ Spectral residuals along the Galactic ridge
        
         Designed to match, except for different ROI definitions, the Saclay standard plot.
         """
-        fig,ax = plt.subplots( figsize=(4,4))
-        ridge = ( np.abs(self.rois.glat)<10) * ( np.abs(self.rois.glon)<60 )
+        if ax is None:
+            fig,ax = plt.subplots( figsize=(4,4))
+        else: fig = ax.figure
+        def cut( x, range):
+            return (x>range[0])*(x<range[1])
+        #ridge = ( np.abs(self.rois.glat)<10) * ( np.abs(self.rois.glon)<60 )
+        ridge = cut(self.rois.glat, glat) * cut(self.rois.glon, glon)
         data =self.counts['observed'][ridge].sum()
         model = self.counts['total'][ridge].sum()
         x = self.energy
         y = data/model-1
-        yerr = 1/np.sqrt(model)
+        yerr = 1/np.sqrt(model) # needs correlation factor
         ax.errorbar(x, y, yerr=yerr, fmt='o')
-        plt.setp(ax, xscale='log', xlabel='energy (MeV)', ylabel='(counts-model)/model')
+        plt.setp(ax, xscale='log')
+        if not nolabels:
+            plt.setp(ax, xlabel='energy (MeV)', ylabel='(counts-model)/model')
         ax.axhline(0, color='gray')
         ax.grid()
         return fig
@@ -683,7 +693,7 @@ class ROIinfo(Diagnostics):
             name: string
                 either 'observed', the name of a diffuse model, or 'sources' for the total
             ib : int or None
-                the energy bin number, of return a sum if None
+                the energy bin number, or return a sum if None
         """
         def select_band(x):
             return x[ib] if ib is not None else x.sum()
@@ -842,7 +852,7 @@ class Exposure(ROIinfo):
         norms = np.array([m.getp(0) if m is not None else np.nan for m in models])
         self.relative_exp = iso/norms/(iso/norms).mean()
         
-    def exposure_plots(self, hsize=(1.0,1.0,1.5,1.0, 2.0, 0.7),):
+    def exposure_plots(self, hsize=(1.0,1.0,2.0,1.0, 2.0, 0.7),):
         """ exposure dependence
         Examine the relative exposure, per ROI. Express in terms of the mean. Note that
         ROIs are distributed uniformly over the sky.
@@ -856,7 +866,7 @@ class Exposure(ROIinfo):
         lim = (0.7, 1.6)
         def left(ax):
             ax.hist(relative_exp, np.linspace(*lim, num=25))
-            plt.setp(ax, xlim=lim, xlabel=label)
+            plt.setp(ax, xlim=lim)# xlabel=label)
             ax.axvline(1.0, color='k')
             ax.grid()
 
@@ -871,6 +881,7 @@ class Exposure(ROIinfo):
         
         for f,ax in zip((left, center, right), axx.flatten()): f(ax)
         return fig
+        
     def all_plots(self, **kw):
         """ Plots associated with the exposure"""
         self.runfigures([self.exposure_plots])
@@ -1078,9 +1089,11 @@ class Isotropic(Galactic):
         self.default_plots()
         self.funcs += [self.isotropic_spectrum]
         self.fnames +=['isotropic_spectrum']
+        # look up filenames used to define the isotorpic spectrum: either new or old diffuse spec; list or dict
         config = eval(open('config.txt').read())
         diffuse=config['diffuse']
-        self.idfiles = [os.path.join(os.environ['FERMI'],'diffuse',diffuse[1][i]) for i in (0,1)]
+        isokey = 'isotrop' if type(diffuse)==types.DictType else 1
+        self.idfiles = [os.path.join(os.environ['FERMI'],'diffuse',diffuse[isokey][i]) for i in (0,1)]
         
     def isotropic_spectrum(self, other=None):
         """ Isotropic Spectrum from template
@@ -1162,7 +1175,9 @@ class SourceInfo(Diagnostics):
                     pars[:n] = model.parameters
                     free[:n] = model.free
                     try:
-                        errs[:n] = np.diag(model.get_cov_matrix())**0.5
+                        d = np.diag(model.get_cov_matrix())
+                        d[d<0] =0
+                        errs[:n] = np.sqrt(d)
                         errs[np.isnan(errs)]=-1
                         badfit = np.any(errs[model.free]<=0)
                     except Exception, msg:
@@ -1177,9 +1192,19 @@ class SourceInfo(Diagnostics):
                         e0 = model.e0,
                         modelname=model.name,
                         )
-            self.df = pd.DataFrame(sdict).transpose()
+            df = pd.DataFrame(sdict).transpose()
+            df.index.name='name'
+            ra = [x.ra() for x in df.skydir]
+            dec = [x.dec() for x in df.skydir]
+            df['ra'] = ra
+            df['dec'] = dec
+            self.df = df.sort_index(by='ra')
             self.df.save(filename)
             print 'saved %s' % filename
+
+            csvfile='sources.csv'
+            self.df.ix[self.df.ts>10][['ra','dec', 'ts', 'roiname']].to_csv(csvfile)
+            print 'saved csv version to %s' %csvfile
         else:
             print 'loading %s' % filename
             self.df = pd.load(filename)
@@ -1277,6 +1302,27 @@ class SourceInfo(Diagnostics):
         ax.grid()
         return fig
 
+    def cumulative_counts(self):
+        #assume rois.pickle available
+        # extract the model counts for each source from it, and add to the DF
+        if not hasattr(self,'roi_df'):
+            self.roi_df = pickle.load(open('rois.pickle'))
+        def counts(src_df,roi_df, name):
+            """return fit counts for source name"""
+            roiname = src_df.ix[name]['roiname']
+            roi=roi_df.ix[roiname]
+            names = list(roi['counts']['names'])
+            i = names.index(name)
+            if i<0: print name, i
+            try: 
+                t =np.sum(roi['counts']['models'][i][1])
+                return t
+            except:
+                print 'fail to get counts for source', name, roiname, i
+                return 0
+        self.df['counts'] = [counts(self.df, self.roi_df, name) for  name in self.df.index]
+        
+    
     def spectral_fit_consistency(self, ib=0, ax=None, minflux=2.,title=None, bcut=10, hist=False):
         """Spectral fit consistency
         
@@ -1376,7 +1422,7 @@ class SourceInfo(Diagnostics):
     def fit_quality(self, xlim=(0,50), ndf=12, tsbandcut=20):
         """ Fit quality
         This is the difference between the TS from the fits in the individual energy bands, and that for the spectral fit.
-        It should be distributed as chi squared of 14-2 =12 degrees of freedom.
+        It should be distributed approximately as chi squared of 14-2 =12 degrees of freedom.
         All sources with TS_bands>%(tsbandcut)d are shown.<br>
         Left: non-pulsar fits, showing the powerlaw subset. This is important since these can be 
         improved by converting to log parabola. Overall average is %(average1).1f
@@ -1490,7 +1536,7 @@ class SourceInfo(Diagnostics):
             plotf(ax)
         return fig
         
-    def source_confusion(self, bmin=10, dtheta=0.1, nbins=50, deficit_angle=1.0):
+    def source_confusion(self, bmin=10, dtheta=0.1, nbins=50, deficit_angle=1.0, tsmin=10):
         """ Source Confusion
         Distribution of the distances to the nearest neighbors of all detected sources with |b|> %(bmin)s degrees.
         <br> Left:The number of entries per angular bin divided by the bin's solid angle. The overlaid curve is the expected
@@ -1498,7 +1544,7 @@ class SourceInfo(Diagnostics):
         <br> Right: ratio of measured to expected. 
         <br> Estimated loss: %(loss)s.
         """
-        sdirs = self.df[np.abs(self.df.glat)>bmin]['skydir'].values
+        sdirs = self.df[ (np.abs(self.df.glat)>bmin) * (self.df.ts>tsmin) ]['skydir'].values
         closest = ([sorted(map(sdirs[i].difference, sdirs))[1] for i in range(len(sdirs))])
         z = np.degrees(closest)
         n = len(z)
@@ -1507,9 +1553,9 @@ class SourceInfo(Diagnostics):
         
         def deficit(theta):
             n1, n1t =n-sum(z>theta), n*(1-np.exp(-np.pi * rho*theta**2))
-            return n1t-n1, 100*(n1t-n1)/n
+            return n1t-n1, n, 100*(n1t-n1)/n
         loss = deficit(deficit_angle)
-        self.loss ='%d, or %.1f percent' % loss
+        self.loss ='%d/%d, or %.1f percent' % loss
         self.bmin = bmin
         print 'lost: ', self.loss
         n += loss[0]
@@ -1523,17 +1569,18 @@ class SourceInfo(Diagnostics):
         x = bins[:-1]+dtheta/2
         
         ax = axx[0]
-        ax.errorbar(x, h/dA ,yerr=np.sqrt(h)/dA,  fmt='.')
+        ax.errorbar(x, h/dA ,yerr=np.sqrt(h)/dA,  fmt='.', label='TS>%d: %d sources above |b|=%d'%(tsmin, len(sdirs),bmin))
         ax.plot(bins,f(bins), '--g')
         plt.setp(ax, yscale='log', ylim=(1,1000), 
             ylabel='Number of sources per square degree', xlabel='closest distance (deg)')
+        ax.legend(prop=dict(size=10))
         ax.grid()
         
         ax=axx[1]
-        ax.errorbar(x, h/dA/f(x), yerr=np.sqrt(h)/dA/f(x),  fmt='o')
+        ax.errorbar(x, h/dA/f(x), yerr=np.sqrt(h)/dA/f(x),  fmt='o', )
         ax.axhline(1.0, color='k')
         ax.grid()
-        plt.setp(ax, xlim=(0,3), ylim=(0,1.4),  xlabel='closest distance (deg)',
+        plt.setp(ax, xlim=(0,3), ylim=(0,1.5),  xlabel='closest distance (deg)',
             ylabel='ratio of detected to expected')
         return fig
     
@@ -1644,6 +1691,57 @@ class Localization(SourceInfo):
         self.ebox_info = self.ebox.describe().to_html()
         return self.runfigures([self.r95, self.localization,self.localization_quality])
 
+class SourceComparison(SourceInfo):
+
+    def setup(self, cat='gll_psc_v06.fit', catname='2FGL', **kw):
+        super(SourceComparison, self).setup(**kw)
+        self.catname=catname
+        self.plotfolder='comparison'
+        lat2 = os.path.expandvars('$FERMI/catalog/'+cat)
+        assert os.path.exists(lat2), 'Did not find file %s' %cat
+        ft = pyfits.open(lat2)[1].data
+        name = ft.Source_Name
+        ra = ft.RAJ2000
+        dec= ft.DEJ2000
+        cat_skydirs = map (lambda x,y: SkyDir(float(x),float(y)), ra,dec)
+        print 'generating closest distance to catalog "%s"' % cat
+        closest = np.degrees(np.array([min(map(sdir.difference, cat_skydirs))for sdir in self.df.skydir.values]))
+        self.df['closest'] = closest
+        self.cat = pd.DataFrame(dict(ra=ft.RAJ2000,dec= ft.DEJ2000, signif=ft.Signif_Avg), 
+            index=ft.Source_Name )
+        closest2 = np.degrees(np.array([min(map(sdir.difference, self.df.skydir.values)) for sdir in cat_skydirs]))
+        self.cat['closest']= closest2
+        self.cat['ts'] = self.cat.signif**2
+            
+    def distance_to_cat(self, maxdist=0.5, tscuts=[10,50,500], nbins=26):
+        fig,ax = plt.subplots( figsize=(4,4))
+        for tscut in tscuts:
+            ax.hist(self.df.closest[self.df.ts>tscut].clip(0,maxdist), np.linspace(0,maxdist,nbins), log=True,
+             label='TS>%d'%tscut)
+        ax.grid()
+        ax.legend(prop=dict(size=10))
+        plt.setp(ax, xlabel='closest distance to %s source'%self.catname)
+        return fig
+    
+    def distance_to_self(self, maxdist=0.5, tscuts=[10,50,500], nbins=26):
+        fig,ax = plt.subplots( figsize=(4,4))
+        for tscut in tscuts:
+            ax.hist(self.df.closest[self.df.ts>tscut].clip(0,maxdist), np.linspace(0,maxdist,nbins), log=True,
+             label='TS>%d'%tscut)
+        ax.grid()
+        ax.legend(prop=dict(size=10))
+        plt.setp(ax, xlabel='closest distance to %s source'%self.catname)
+        return fig
+    
+    def lost_plots(self, maxts=100):
+        fig,ax = plt.subplots( figsize=(4,4))
+        lost = self.cat.closest>0.25
+        print 'lost: %d' % sum(lost)
+        ax.hist(self.cat.ts[lost].clip(0,maxts), np.linspace(0,maxts,26))
+        ax.grid()
+        plt.setp(ax, xlabel='TS of %s source' %self.catname)
+        return fig
+        
 
 class Localization1K(Localization):
     """ load and analyze a special localization-only run"""
@@ -2070,11 +2168,12 @@ class IsotropicSpectra(GalacticSpectra):
 class SeedCheck(SourceInfo):
     require='seedcheck.zip'
     def setup(self, **kw):
-        self.plotfolder = 'seedcheck'
+        self.plotfolder = self.seedname='seedcheck'
         self.spectral_type='power law'
+        self.load()
         
     def load(self):
-        files, sources = self.load_pickles(self.plotfolder)
+        files, sources = self.load_pickles(self.seedname)
         sdict={}
         assoc={}
         for source in sources:
@@ -2119,8 +2218,13 @@ class SeedCheck(SourceInfo):
                 )
         self.df = pd.DataFrame(sdict).transpose()
         self.assoc = pd.DataFrame(assoc).transpose()
-        #associated = (self.df.aprob>0.8)
-        #t = self.assoc.acat
+        # analyze associations, make summary
+        acat=list(self.assoc.ix[self.assoc.aprob>0.8]['acat'].values)
+        sa = list(set(acat))
+        t = np.zeros(len(sa),int)
+        for x in acat:
+            t[sa.index(x)]+=1
+        self.assoc_sum = zip(sa, t)
         #self.psr = [  s is not None and ('pulsar' in s or 'msp' in s ) for s in t] * associated
         #self.agn = [  s is not None and ('agn' in s or 'crates' in s or 'bzcat' in s or 'bllac' in s or 'qso' in s or 'cgrabs' in s) for s in t] * associated
 
@@ -2189,7 +2293,7 @@ class SeedCheck(SourceInfo):
         def skyplot(ax):
             glon = self.df.glon
             glon[glon>180]-=360
-            ax.plot(glon, np.sin(np.radians(list(self.df.glat))))
+            ax.plot(glon, np.sin(np.radians(list(self.df.glat))), 'o')
             plt.setp(ax, xlim=(180,-180), xlabel='glon', ylabel='sin(glat)')
             #self.skyplot(self, self.df.ts, ax=ax)
         def index_vs_cutoff(ax):
@@ -2199,7 +2303,7 @@ class SeedCheck(SourceInfo):
                 ax.plot(cutoff[cut], self.df.pindex[cut],  marker, label='TS>%d'%tsmin)
             plt.setp(ax, ylabel='spectral index', xlabel='cutoff', ylim=(0.5,3.0), xlim=(0, 3000))
             ax.grid(); ax.legend(prop=dict(size=10))
-        for f, a in zip((flux_index, index_vs_cutoff, singlat,), ax.flatten()):
+        for f, a in zip((flux_index, index_vs_cutoff, singlat, skyplot), ax.flatten()):
             f(a)
             
         return fig
@@ -2214,12 +2318,17 @@ class SeedCheck(SourceInfo):
         %(info)s
         """
         self.info = self.df.describe().to_html()
-        self.runfigures([self.seed_cumulative_ts, self.spectral_parameters])
+        self.info += '<h3>Associations:</h3>' #\n<pre>%s\n</pre>' %self.assoc_sum
+        self.info += '<table border="1"><thead><tr><th>Catalog</th><th>Sources</th></tr></thead>\n<tbody>'
+        for (c,n) in  self.assoc_sum:
+            self.info += '<tr><td>%s</td><td>%5d</td></tr>' % (c,n)
+        self.info += '</tbody></table>\n'
+        self.runfigures([self.seed_cumulative_ts, self.spectral_parameters, self.localization,])
         
 class PulsarSeedCheck(SeedCheck):
     require='pseedcheck.zip'
     def setup(self, **kw):
-        self.plotfolder = 'pseedcheck'
+        self.plotfolder = self.seedname= 'pseedcheck'
         self.spectral_type = 'exponential cutoff'
         self.load()
 
@@ -2329,7 +2438,41 @@ class Components(ROIinfo):
         self.funcs = np.hstack([x.funcs for x in self.components])
         self.fnames= np.hstack([x.fnames for x in self.components])
 
-    
+class Data(Diagnostics):
+    """ look at binned data """
+    def setup(self):
+        self.plotfolder = 'data'
+        config = eval(open('config.txt').read())
+        datadict = config['datadict']
+        self.dataset = dataset.DataSet(datadict['dataname'], interval=datadict.get('interval',None),
+            irf=config['irf'],)
+        t =[]
+        for band in self.dataset.dmap:
+            t.append(dict(emin=band.emin(), emax=band.emax(), photons=band.photons(), 
+                ec=band.event_class(), nside=band.nside(), pixels=band.size()))
+        self.df = pd.DataFrame(t)
+        sm= np.sum(self.df.photons[self.df.emin>=100])
+        self.total_counts ='{:,d}'.format(int(sm))
+
+            
+    def plot_spectrum(self):
+        """Spectrum of all data
+        Total above 100 MeV: %(total100)s events.
+        """
+        fig, ax = plt.subplots(figsize=(4,4))
+        photons = self.df.photons.values
+        combine = photons[0::2]+photons[1::2]
+        elow = self.df.emin.values[0::2]
+        ehigh = self.df.emax.values[0::2]
+        ax.plot(ehigh, combine, ls='steps', lw=2)
+        ax.plot([elow[1],elow[1]], (100, combine[1]), '-b', lw=2) # vertical line for first bin
+        plt.setp(ax, xscale='log', xlabel='Energy (MeV)', xlim=(10,1e6), yscale='log', ylabel='events/bin')
+        ax.grid()
+        return fig  
+
+    def all_plots(self):
+        """ plots involving the data """
+        self.runfigures( [self.plot_spectrum,])
     
 class HTMLindex():
     style="""
@@ -2417,8 +2560,8 @@ a:hover { background-color:yellow; }
         models = sorted(glob.glob('../../*/*/plot_index.html'))
         self.last_model = parse_path(models[-1])[0]
         s = HTMLindex.top_nav % self.__dict__
-        s += ' | '.join(map(parse_model, models))
-        s += '</p></body></html>\n'
+        s += '\n | '.join(map(parse_model, models))
+        s += '\n</body></html>\n'
         open(filename, 'w').write(s)
         print 'wrote top menu %s' % os.path.join(os.getcwd(),filename)
     @staticmethod
@@ -2450,6 +2593,7 @@ opts = dict(
         seedcheck=(SeedCheck,),
         pseedcheck=(PulsarSeedCheck,),
         pts=     (PTStable,),
+        data =   (Data,),
         ) 
         
 def main(args, update_top=False , raise_exception=False):

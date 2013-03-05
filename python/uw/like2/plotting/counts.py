@@ -1,6 +1,6 @@
 """
 Code to generate an ROI counts plot 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.3 2011/11/21 14:37:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.4 2011/12/06 22:11:12 burnett Exp $
 
 Authors M. Kerr, T. Burnett
 
@@ -138,7 +138,7 @@ def plot_counts(roi,fignum=1, event_class=None, outfile=None,
         ax.set_xlabel(r'$\mathsf{Energy\ (GeV)}$')
         ax.grid(b=True)
         if show_chisq :
-            ax.text(en[0]*1.1, 0.2,'chisq=%.1f'% count_data['chisq'])
+            ax.text(0.04, 0.80,'chisq=%.1f'% count_data['chisq'], transform = ax.transAxes, fontsize=10)
 
 
     if axes is None:

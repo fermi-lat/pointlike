@@ -1,6 +1,6 @@
 """
 Check that the data specification for this stream is valid, perhaps creating the intermediate files
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_data.py,v 1.4 2012/12/24 17:25:08 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_data.py,v 1.5 2013/02/10 14:55:00 burnett Exp $
 """
 import os, sys, glob, zipfile, logging, datetime
 import numpy as np
@@ -33,7 +33,7 @@ def main(args=None):
     current = str(datetime.datetime.today())[:16]
     print '\n%s stage %s stream %s model %s ' % (current, stage, stream,  absskymodel)
 
-    rc = dataset.validate(absskymodel, nocreate=True)
+    rc = dataset.validate(absskymodel, nocreate=nocreate)
     print 'Validated' if rc else 'NOT validated'
     if args is not None:
         tee.close()

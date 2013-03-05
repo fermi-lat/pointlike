@@ -11,7 +11,7 @@ classes:
 functions:
     factory -- create a list of BandLike objects from bands and sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.22 2013/02/13 03:39:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.23 2013/02/26 13:32:37 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -101,12 +101,9 @@ class BandPoint(BandSource):
         self.pixel_values = band.pixels_from_psf(self.source.skydir)
 
     def fill_grid(self, sdirs):
-        """ fill a grid, defined by sidrs array, with counts/solid angle"""
-        rvals  = np.empty(len(sdirs),dtype=float)
-        self.psf.cpsf.wsdl_val(rvals, self.source.skydir, sdirs) #from C++: sets rvals
-        expected = self.band.exposure_integral(self.spectral_model) * self.exposure_ratio
-        return rvals*expected
-
+        """ fill a grid, defined by sdirs array, with counts/solid angle"""
+        dists = np.array([ self.source.skydir.difference(x) for x in sdirs])
+        return self.band.psf(dists) * self.exposure_ratio
 
 
 class BandDiffuse(BandSource):
@@ -193,7 +190,7 @@ class BandDiffuse(BandSource):
     def fill_grid(self, sdirs):
         """ fill a grid with values"""
         scale = self.spectral_model(self.energy) * self.diffuse_correction
-        return self.grid(sdirs, self.grid.cvals) * (band.emax - band.emin) * scale
+        return self.grid(sdirs, self.grid.cvals) * (self.band.emax - self.band.emin) * scale
 
  
 class BandExtended(BandPoint):
