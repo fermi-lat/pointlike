@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.16 2013/02/27 18:14:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.17 2013/03/05 19:49:24 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -15,6 +15,7 @@ from uw.utilities import parmap
 def LogParabola(*pars):return Models.LogParabola(p=pars)
 def PowerLaw(*pars):   return Models.PowerLaw(p=pars)
 def ExpCutoff(*pars):  return Models.ExpCutoff(p=pars)
+def PLSuperExpCutoff(*pars): return Models.PLSuperExpCutoff(p=pars)
     
 def convert_model(oldmodel):
     """ convert the original version to the new one with parameter mappers

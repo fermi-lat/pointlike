@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.26 2013/01/20 14:07:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.27 2013/01/28 16:56:11 burnett Exp $
 
 """
 import types
@@ -48,6 +48,9 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
     del_source
     zero_source
     unzero_source
+    freeze
+    thaw
+    set_model
     """
     def __init__(self, *pars, **kwargs):
         source_name= kwargs.pop('source_name', None)
@@ -352,13 +355,19 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
             band.del_source(source)
         self.initialize()
         
-    def zero_source(self, source_name, **kwargs):
-        raise Exception('not implemented')
+    def zero_source(self, source_name=None, **kwargs):
+        model = self.get_model(source_name)
+        model.zero()
+        self.initialize()
         
-    def unzero_source(self, source_name, **kwargs):
-        raise Exception('not implemented')
+    def unzero_source(self, source_name=None, **kwargs):
+        model = self.get_model(source_name)
+        model.unzero()
+        self.initialize()
     
     def poisson_likelihood(self, source_name=None, **kwargs):
+        """ return a functor that corresponds to the likelihood function for the given source
+        """
         source = self.sources.find_source(source_name)
 
         with sedfuns.SourceFlux(self, source.name) as sf:
@@ -366,7 +375,50 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
             pf = loglikelihood.PoissonFitter(sf, **kwargs)
             p = pf.poiss
         return p 
-
+        
+    def freeze(self, parname, source_name=None, value=None):
+        """ freeze the parameter, optionally set the value
+        
+        parname : name or index
+        source_name: None or string
+            if None, use currently selected source
+        value : float or None
+            if float, set the value
+        """
+        model = self.get_model(source_name)
+        model.freeze(parname)
+        if value is not None: model.setp(parname, value)
+        self.initialize()
+        
+    def thaw(self, parname, source_name=None):
+        """ thaw the parameter
+        
+        parname : name or index
+        source_name: None or string
+            if None, use currently selected source
+        """
+        model = self.get_model(source_name)
+        model.freeze(parname, freeze=False)
+        self.initialize()
+        
+    def set_model(self, model, source_name=None):
+        """ replace the current model, return reference to previous
+        
+        model : string, or like.Models.Model object
+            if string, evaluate. Note that 'PowerLaw(1e-11,2.0)' will work. Also supported:
+            ExpCutoff, PlSuperExpCutoff, LogParabola, each with all parameters required.
+        source_name: None or string
+            if None, use currently selected source
+        """
+        src = self.get_source(source_name)
+        old_model = src.model
+        if type(model)==types.StringType:
+            model = eval(model) 
+        #assert model.isinstance(Models.Model), 'model must inherit from Model class'
+        sourcelist.set_default_bounds(model)
+        src.model = model
+        self.initialize()
+        return old_model
         
         
 class Factory(roisetup.ROIfactory):
