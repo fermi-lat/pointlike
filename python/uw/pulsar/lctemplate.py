@@ -1,7 +1,7 @@
 """
 A module implementing a mixture model of LCPrimitives to form a
 normalized template representing directional data.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.12 2013/02/17 22:20:32 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.13 2013/02/21 01:31:54 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -17,8 +17,6 @@ class LCTemplate(object):
    
        IMPORTANT: a constant background is assumed in the overall model, 
        so there is no need to furnish this separately.
-
-       The template is such that 
     """
 
     def __init__(self,primitives,norms=None):
@@ -31,10 +29,16 @@ class LCTemplate(object):
             norms = np.ones(len(primitives))/len(primitives)
         self.norms = norms if isinstance(norms,NormAngles) else \
                      NormAngles(norms)
-        if len(primitives) != len(self.norms):
+        self._sanity_checks()
+
+    def _sanity_checks(self):
+        if len(self.primitives) != len(self.norms):
             raise ValueError('Must provide a normalization for each component.')
 
     def is_energy_dependent(self):
+        return False
+
+    def has_bridge(self):
         return False
 
     def __getitem__(self,index): return self.primitives[index]
@@ -67,10 +71,6 @@ class LCTemplate(object):
         locs,widths,mods,enables = [],[],[],[]
         for prim in self.primitives:
             l,w,m,e = prim.get_gauss_prior_parameters()
-            #locs.append(l[prim.free])
-            #widths.append(w[prim.free])
-            #mods.append(m[prim.free])
-            #enables.append(e[prim.free])
             locs.append(l)
             widths.append(w)
             mods.append(m)
@@ -124,40 +124,29 @@ class LCTemplate(object):
             return rvals / t
         return (1-t)*dphi + rvals
 
-    """
-    # TODO -- sig compat
-    def integrate(self,phi1,phi2, suppress_bg=False):
-        norms = self.norms()
-        t = norms.sum()
-        dphi = (phi2-phi1)
-        if suppress_bg: return sum( (n*prim.integrate(phi1,phi2) for n,prim in zip(norms,self.primitives)) )/t
-
-        return (1-t)*dphi + sum( (n*prim.integrate(phi1,phi2) for n,prim in zip(norms,self.primitives)) )
-    """
-
     def cdf(self,x,log10_ens=3):
         return self.integrate(0,x,log10_ens,suppress_bg=False) 
 
     def max(self,resolution=0.01):
         return self(np.arange(0,1,resolution)).max()
 
-    def __call__(self,phases,log10_ens=3,suppress_bg=False):
+    def _get_scales(self,phases,log10_ens=3):
+        """ Method to allow abstraction for setting amplitudes for each
+            peak.  Trivial in typical cases, but important for linked
+            components, e.g. the bridge pedestal.
         """
-        norms = self.norms()
-        if (not hasattr(phases,'shape')):
-            phases = np.asarray([phases])
-        rval = np.zeros_like(phases)
-        for n,prim in zip(norms,self.primitives):
-            rval += n*prim(phases)
-        if suppress_bg: return rval/norms.sum()
-        return (1-norms.sum()) + rval
-        """
+        rvals = np.zeros_like(phases)
         norms = self.norms(log10_ens)
-        rval = np.zeros_like(phases)
+        return rvals,norms,norms.sum(axis=0)
+
+    def __call__(self,phases,log10_ens=3,suppress_bg=False):
+        """ Evaluate template at the provided phases and (if provided)
+            energies.  If "suppress_bg" is set, ignore the DC component."""
+        rvals,norms,norm = self._get_scales(phases,log10_ens)
         for n,prim in zip(norms,self.primitives):
-            rval += n*prim(phases,log10_ens)
-        if suppress_bg: return rval/norms.sum(axis=0)
-        return (1-norms.sum(axis=0)) + rval
+            rvals += n*prim(phases,log10_ens)
+        if suppress_bg: return rvals/norm
+        return (1.-norm) + rvals
 
     def single_component(self,index,phases,log10_ens=3):
         """ Evaluate a single component of template."""
@@ -218,7 +207,6 @@ class LCTemplate(object):
         return sorted(self.primitives,cmp=cmp)
 
     def __str__(self):
-        #prims = self._sorted_prims()
         prims = self.primitives
         s0 = str(self.norms)
         s1 = '\n\n'+'\n\n'.join( ['P%d -- '%(i+1)+str(prim) for i,prim in enumerate(prims)] ) + '\n'
@@ -409,6 +397,109 @@ class LCTemplate(object):
         rvals = np.zeros_like(phases)
         for weight,en in zip(w[0],(edges[:-1]+edges[1:])/2):
             rvals += weight*prim(phases,en)*self.norms(en)[index]
+        rvals /= w[0].sum()
+        return rvals
+
+class LCBridgeTemplate(LCTemplate):
+    """ A light curve template specialized to the "typical" shape of a
+        gamma-ray pulsar, viz. two peaks linked by a bridge.  The bridge
+        is implemented as a pedestal connecting the modes of two specific
+        peaks, and the only free parameter associated with it is its
+        normalization (from which its amplituded is determimned).
+    """
+
+    def has_bridge(self):
+        return True
+    
+    def __init__(self,primitives,norms=None):
+        """ primitives -- a list of LCPrimitive instances of len >= 2; the
+                first two components are interpreted as P1 and P2
+            norms -- either an instance of NormAngles, or a tuple of
+                relative amplitudes for the primitive components; should
+                have one extra parameter for the bridge component
+        """
+        if norms is None:
+            norms = np.ones(len(primitives)+1)/(len(primitives+1))
+        super(LCBridgeTemplate,self).__init__(primitives,norms)
+        self.p1 = self.primitives[0]
+        self.p2 = self.primitives[1]
+
+    def _sanity_checks(self):
+        if len(self.primitives) != len(self.norms)-1:
+            raise ValueError('Require n_primitive+1 norm components.')
+
+    def _get_scales(self,phases,log10_ens=3):
+        """ Return the scale factor for p1, p2, and the pedestal such that
+            the pedestal has the correct normalization and p1, p2, and the
+            pedestal form a smooth, continuous curve.
+        """
+        all_norms = self.norms(log10_ens)
+        nped,norms = all_norms[0],all_norms[1:]
+        n1,n2 = norms[:2]
+        p1,p2 = self.p1,self.p2
+        # NB -- location need to be made "energy aware"
+        l1,l2 = p1.get_location(),p2.get_location()
+        # enforce l2 > l1?
+        delta = (l2-l1) + (l2 < l1)
+        f11,f12,f21,f22 = p1(l1,log10_ens),p1(l2,log10_ens),p2(l1,log10_ens),p2(l2,log10_ens)
+        d = f11*f22-f12*f21
+        i1 = p1.integrate(l1,l2,log10_ens)
+        i2 = p2.integrate(l1,l2,log10_ens)
+        if l2 < l1:
+            i1 = 1-i1
+            i2 = 1-i2
+        # coefficient for pedestal
+        k = nped*(1.-(i1*(f22-f21)+i2*(f11-f12))/(d*delta))**-1
+        # rescaling for peaks over pedestal
+        dn1 = k/(delta*d)*(f21-f22)
+        dn2 = k/(delta*d)*(f12-f11)
+        mask = (phases > l1) & (phases < l2)
+        if l2 < l1:
+            mask = ~mask
+        rvals = k/delta*mask # pedestal
+        norm_list = [n1+dn1*mask,n2+dn2*mask] + [norms[i] for i in xrange(2,len(norms))]
+        return rvals,norm_list,all_norms.sum(axis=0)
+            
+    def random(self,n,weights=None,return_partition=False):
+        # note -- this wouldn't be that hard to do, just do multinomial as
+        # usual, then an additional step to determine which part of the peaks
+        # the photons should come from
+        raise NotImplementedError()
+
+    def __str__(self):
+        s = super(LCBridgeTemplate,self).__str__()
+        return 'TODO: Add pedestal stuff! \n\n'+s
+        #prims = self.primitives
+        #s0 = str(self.norms)
+        #s1 = '\n\n'+'\n\n'.join( ['P%d -- '%(i+1)+str(prim) for i,prim in enumerate(prims)] ) + '\n'
+        #s1 +=  '\ndelta   : %.4f +\- %.4f'%self.delta()
+        #s1 +=  '\nDelta   : %.4f +\- %.4f'%self.Delta()
+        #return s0+s1
+
+    def single_component(self,index,phases,log10_ens=3):
+        """ Evaluate a single component of template."""
+        # this needs to be done in some sane way, not sure if ideal exists
+        # so best guess is to compute the pedestal offset and add that on
+        # to the inner peak, trusting that it will itself be plotted to
+        # give the sense that this component isn't independnet
+        #raise NotImplementedError()
+        rvals,norms,norm = self._get_scales(phases,log10_ens)
+        if index<len(self.primitives):
+            np.add(rvals,norms[index]*self.primitives[index](phases,log10_ens),out=rvals)
+        return rvals
+
+    def mean_single_component(self,index,phases,log10_ens=None,weights=None,bins=20):
+        # this needs to be done in some sane way, not sure if ideal exists
+        #raise NotImplementedError()
+        if (log10_ens is None) or (not self.is_energy_dependent()):
+            return self.single_component(index,phases)
+        if weights is None:
+            weights = np.ones_like(log10_ens)
+        edges = np.linspace(log10_ens.min(),log10_ens.max(),bins+1)
+        w = np.histogram(log10_ens,weights=weights,bins=edges)
+        rvals = np.zeros_like(phases)
+        for weight,en in zip(w[0],(edges[:-1]+edges[1:])/2):
+            rvals += weight*self.single_component(index,phases,en)
         rvals /= w[0].sum()
         return rvals
 
