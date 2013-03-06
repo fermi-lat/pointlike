@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Mar  6 13:33:22 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	main.py sources.py 
+Log Message:
+implement model-setting user commands
+    *
+------------------------------------------------------------
 User: burnett  Tue Mar  5 11:49:26 PST 2013
 pointlike/python/uw/like2/plotting
 
