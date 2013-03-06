@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.62 2013/02/12 15:24:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.63 2013/03/05 19:49:25 burnett Exp $
 
 """
 
@@ -1287,6 +1287,8 @@ class SourceInfo(Diagnostics):
             if len(self.badloc)>0:
                 print 'check self.badloc for %d sources' %len(self.badloc)
                 self.badloc_check = '<h4> Unlocalized above TS=25:</h4>'+self.badloc.to_html()
+            else:
+                self.badloc_check= '<p>No unlocalized sources above TS=25'
         plt.setp(ax,  ylabel='# sources with greater TS', xlabel='TS',
             xscale='log', yscale='log', xlim=(9, 1e4), ylim=(9,8000))
         ax.set_xticklabels([' ', '10', '100', '1000'])
@@ -1322,7 +1324,6 @@ class SourceInfo(Diagnostics):
                 return 0
         self.df['counts'] = [counts(self.df, self.roi_df, name) for  name in self.df.index]
         
-    
     def spectral_fit_consistency(self, ib=0, ax=None, minflux=2.,title=None, bcut=10, hist=False):
         """Spectral fit consistency
         
@@ -1427,6 +1428,8 @@ class SourceInfo(Diagnostics):
         Left: non-pulsar fits, showing the powerlaw subset. This is important since these can be 
         improved by converting to log parabola. Overall average is %(average1).1f
         <br>Right: Fits for the pulsars. Average %(average2).1f
+        %(badfit_check)s
+
         """
         from scipy import stats
         fig, axx = plt.subplots(1,2, figsize=(10,5))
@@ -1462,6 +1465,11 @@ class SourceInfo(Diagnostics):
         left(axx[0])
         right(axx[1])
         print 'fit quality averages: %.1f, %.1f' % (self.average1, self.average2)
+        self.df['badfit2'] =np.array(self.df.badfit.values, bool)
+        t = self.df.ix[(self.df.badfit2)*(self.df.ts>10)].sort_index(by='roiname')
+        self.badfit = t[['ts', 'errs', 'roiname']]
+        self.badfit_check = '<h4>Sources with bad fits:</h4>'+self.badfit.to_html()
+
         return fig
         
     def pivot_vs_e0(self, xylim=(100, 4e4)):
@@ -1481,7 +1489,7 @@ class SourceInfo(Diagnostics):
         """Fit Quality
         
         Left: fit quality histogram; right fit quality vs. TS'
-        
+
         """
         fig, axs = plt.subplots(1,2, figsize=(7,3))
         plt.subplots_adjust(wspace=0.35)
@@ -1502,6 +1510,9 @@ class SourceInfo(Diagnostics):
         plt.setp(ax, xscale='log', xlabel='TS', xlim=(10,1e5),
              ylabel='fit qual',ylim=(1,1e3),yscale='log')
         ax.grid()
+        
+        
+        return fig
 
     def flux_uncertainty(self):
         """ flux uncertainty compared with TS
@@ -1584,7 +1595,6 @@ class SourceInfo(Diagnostics):
             ylabel='ratio of detected to expected')
         return fig
     
-            
     def spectral_fit_consistency_plots(self):
         """ Study spectral fit consistency for the lowest energy bin
         
@@ -1594,7 +1604,6 @@ class SourceInfo(Diagnostics):
                     (False, True, False, True), ax.flatten()):
             f( hist=t, ax=ax)
         return fig
-        
         
     def all_plots(self):
         """ Source associate plots, from analysis of spectral fits
@@ -1689,7 +1698,8 @@ class Localization(SourceInfo):
         %(ebox_info)s
         """
         self.ebox_info = self.ebox.describe().to_html()
-        return self.runfigures([self.r95, self.localization,self.localization_quality])
+        return self.runfigures([self.r95, self.localization,self.localization_quality,])
+
 
 class SourceComparison(SourceInfo):
 
@@ -1709,21 +1719,16 @@ class SourceComparison(SourceInfo):
         self.df['closest'] = closest
         self.cat = pd.DataFrame(dict(ra=ft.RAJ2000,dec= ft.DEJ2000, signif=ft.Signif_Avg), 
             index=ft.Source_Name )
+        self.cat.index.name='name'
         closest2 = np.degrees(np.array([min(map(sdir.difference, self.df.skydir.values)) for sdir in cat_skydirs]))
         self.cat['closest']= closest2
         self.cat['ts'] = self.cat.signif**2
+        
             
     def distance_to_cat(self, maxdist=0.5, tscuts=[10,50,500], nbins=26):
-        fig,ax = plt.subplots( figsize=(4,4))
-        for tscut in tscuts:
-            ax.hist(self.df.closest[self.df.ts>tscut].clip(0,maxdist), np.linspace(0,maxdist,nbins), log=True,
-             label='TS>%d'%tscut)
-        ax.grid()
-        ax.legend(prop=dict(size=10))
-        plt.setp(ax, xlabel='closest distance to %s source'%self.catname)
-        return fig
-    
-    def distance_to_self(self, maxdist=0.5, tscuts=[10,50,500], nbins=26):
+        """Associations of sources with 2FGL
+        
+        """
         fig,ax = plt.subplots( figsize=(4,4))
         for tscut in tscuts:
             ax.hist(self.df.closest[self.df.ts>tscut].clip(0,maxdist), np.linspace(0,maxdist,nbins), log=True,
@@ -1734,15 +1739,60 @@ class SourceComparison(SourceInfo):
         return fig
     
     def lost_plots(self, maxts=100):
-        fig,ax = plt.subplots( figsize=(4,4))
-        lost = self.cat.closest>0.25
+        """2FGL sources lost in new list
+        Total: %(lost)s
+        """
+        fig,axx = plt.subplots( figsize=(4,4))
+        self.lost = self.cat.closest>0.25
         print 'lost: %d' % sum(lost)
-        ax.hist(self.cat.ts[lost].clip(0,maxts), np.linspace(0,maxts,26))
+        self.cat.ix[self.lost].to_csv('2fgl_lost.csv')
+        ax.hist(self.cat.ts[self.lost].clip(0,maxts), np.linspace(0,maxts,26))
         ax.grid()
         plt.setp(ax, xlabel='TS of %s source' %self.catname)
         return fig
-        
+      
+    def all_plots(self):
+        """Results of comparison with 2FGL catalog
+        """
+        self.runfigures([ self.distance_to_cat, self.lost_plots])
 
+    
+class Associations(SourceInfo):
+
+    def setup(self, **kw):
+        super(Associations, self).setup(**kw)
+        self.plotfolder='associations'
+        probfun = lambda x: x['prob'][0] if x is not None else 0
+        self.df['aprob'] = np.array([ probfun(assoc) for  assoc in self.df.associations])
+        self.df['acat']  = np.array([ assoc['cat'][0] if assoc is not None else 'unid' for  assoc in self.df.associations])
+        self.df10 = self.df.ix[self.df.ts>10]
+        print 'associated: %d/%d' % (sum(self.df10.aprob>0.8), len(self.df10))
+        
+    def association_vs_ts(self):
+        """ Association vs. TS
+        """
+        fig, ax = plt.subplots( figsize=(5,5))
+        bins = np.logspace(1,5,41)
+        ax.hist(self.df10.ts, bins, label='all sources')
+        ax.hist(self.df10.ts[self.df.aprob>0.8], bins, label='associated sources')
+        plt.setp(ax, xscale='log', xlabel='TS', xlim=(10,1e5))
+        ax.legend(prop=dict(size=10)); ax.grid()
+        return fig
+        
+    def all_plots(self):
+        """ Analysis of associations
+        %(atable)s
+        """
+        t = dict()
+        for c in self.df10.acat:
+            if c not in t: t[c]=1
+            else: t[c]+=1
+        html_rows = ['<tr><td>%s</td><td>%d</td></tr>' %x for x in t.items() ]
+        self.atable = '<table><tr><th>Catalog</th><th>number</th></tr>'+\
+             '\n'.join(html_rows)+'</table>'
+        
+        self.runfigures([self.association_vs_ts,])
+    
 class Localization1K(Localization):
     """ load and analyze a special localization-only run"""
     require='loccalization.zip'
@@ -2594,6 +2644,8 @@ opts = dict(
         pseedcheck=(PulsarSeedCheck,),
         pts=     (PTStable,),
         data =   (Data,),
+        comparison=(SourceComparison,),
+        association=(Associations,),
         ) 
         
 def main(args, update_top=False , raise_exception=False):
