@@ -1,6 +1,6 @@
 """
 manage publishing 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/publish.py,v 1.6 2012/09/21 16:52:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/publish.py,v 1.7 2012/09/27 14:23:19 burnett Exp $
 """
 import sys, os, pickle, glob, types, time
 #import Image
@@ -11,6 +11,7 @@ sys.modules['Image']=PIL.Image
 import pyfits
 import numpy as np
 import pylab as plt
+import pandas as pd
 from uw.utilities import makefig, makerec, colormaps
 from . import healpix_map, dz_collection 
 from . import source_pivot, roi_pivot, makecat, display_map,  combine_figures
@@ -90,21 +91,28 @@ class Publish(object):
             self.outdir,self.refdir=outdir
         self.mec=mec
         self.get_config()
-        self.skymodel = skymodel.SkyModel(outdir)#, extended_catalog_name=self.config['extended'])
+        # self.skymodel = skymodel.SkyModel(outdir)#, extended_catalog_name=self.config['extended'])
         # get the records, perhaps regenerating
-        self.rois = self.skymodel.roi_rec(overwrite)
-        self.sources = self.skymodel.source_rec()
+        self.rois = pd.load(self.outdir+'/rois.pickle') #self.skymodel.roi_rec(overwrite)
+        self.rois['name'] = self.rois.index
+        self.sources = pd.load(self.outdir+'/sources.pickle') #self.skymodel.source_rec()
+        # temporary fixes: put these into the file
+        self.sources['name'] = self.sources.index
+        self.sources['a'] = [ x[2] if x is not None else np.nan for x in self.sources.ellipse]
+        self.sources['b'] = [ x[3] if x is not None else np.nan for x in self.sources.ellipse]
+        self.sources['pindex'] =[ x[1] for x in self.sources.pars]
+
         if ts_min is not None:
             s = self.sources
             psr = np.array([name.startswith('PSR') for  name in s.name])
             if filter is None:
-                self.filter = lambda s: (s.ts>ts_min)*(-np.isnan(s.a))*(s.pindex<3.5)*(s.a<0.5) + str(s.name).startswith('PSR')+ s.extended
+                self.filter = lambda s: (s.ts>ts_min)*(-np.isnan(s.a))*(s.pindex<3.5)*(s.a<0.5) +  s.isextended
             else: self.filter=filter
             
-            cut = self.filter(s) #(s.ts>ts_min)*(-np.isnan(s.a))*(s.pindex<3.5) + psr + s.extended
+            cut = np.array(self.filter(s),bool) #(s.ts>ts_min)*(-np.isnan(s.a))*(s.pindex<3.5) + psr + s.extended
             self.sources = s[cut]
             print 'select %d/%d sources after applying cuts on TS, localization, pindex; includes all extended, PSR (%d)'\
-                % (sum(cut), len(cut), sum(s.extended+psr))
+                % (sum(cut), len(cut), sum(s.isextended+psr))
            
         self.ts_min = ts_min
         self.name=catalog_name if catalog_name is not None else os.path.split(os.getcwd())[-1]+'_'+self.outdir
