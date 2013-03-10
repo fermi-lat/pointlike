@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.63 2013/03/05 19:49:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.64 2013/03/06 21:34:41 burnett Exp $
 
 """
 
@@ -1185,15 +1185,31 @@ class SourceInfo(Diagnostics):
                         badfit = True
                     ellipse = info.get('ellipse', None)
                     sdict[name] = info
-                    sdict[name].update(glat=info['skydir'].b(), glon=info['skydir'].l(),
+                    pulsar = model.name.endswith('Cutoff')
+                    betavalue = float(pars[2]) if not pulsar and pars[2]>0.002 else np.nan
+                    sdict[name].update(
+                        glat=info['skydir'].b(), glon=info['skydir'].l(),
                         roiname=pkl['name'], 
                         pars= pars, errs=errs, free=free, badfit=badfit,
+                        a = ellipse[2] if ellipse is not None else np.nan,
+                        b = ellipse[3] if ellipse is not None else np.nan,
+                        ang=ellipse[4] if ellipse is not None else np.nan,
                         delta_ts = ellipse[5] if ellipse is not None else np.nan,
+                        pindex = pars[1],
+                        pindex_unc = errs[1],
+                        beta = betavalue,
+                        beta_unc = errs[2] if not pulsar and pars[2]>0.002 else np.nan,
+                        index2 = np.nan,
+                        index2_unc = np.nan,
+                        cutoff = pars[3] if pulsar else np.nan,
+                        cutoff_unc = errs[3] if pulsar else np.nan,
                         e0 = model.e0,
                         modelname=model.name,
+                        psr = pulsar,
                         )
             df = pd.DataFrame(sdict).transpose()
             df.index.name='name'
+            df['name'] = df.index
             ra = [x.ra() for x in df.skydir]
             dec = [x.dec() for x in df.skydir]
             df['ra'] = ra
@@ -1362,6 +1378,33 @@ class SourceInfo(Diagnostics):
         ax.grid()  
         return fig
 
+    def non_psr_spectral_plots(self):
+        """ Plots showing spectral parameters for non-pulsar spectra
+        Left: energy flux in eV/cm**2/s. This is the differential flux at the pivot energy
+        <br> Center: the spectral index.
+        <br> Right: the curvature index for the subset with log parabola fits.
+        %(tail_check)s
+        """
+        fig, axx = plt.subplots( 1,3, figsize=(12,4))
+        t = self.df.ix[(self.df.ts>10)*(self.df.modelname=='LogParabola')]['ts flux pindex beta e0 roiname'.split()]
+        t['eflux'] = t.flux * t.e0**2 * 1e6
+        ax = axx[0]
+        [ax.hist(t.eflux[t.ts>tscut].clip(1e-2,1e2), np.logspace(-2,2,26), label='TS>%d' % tscut) for tscut in [10,25] ]
+        plt.setp(ax, xscale='log', xlabel='energy flux'); ax.grid(); ax.legend()
+        ax = axx[1]
+        [ax.hist(t.pindex[t.ts>tscut].clip(1,4), np.linspace(1,4,26), label='TS>%d' % tscut) for tscut in [10,25] ]
+        plt.setp(ax, xlabel='spectral index'); ax.grid(); ax.legend()
+        ax = axx[2]
+        [ax.hist(t.beta[(t.ts>tscut)*(t.beta>0.01)].clip(0,2), np.linspace(0,2,26), label='TS>%d' % tscut) for tscut in [10,25] ]
+        plt.setp(ax, xlabel='beta'); ax.grid(); ax.legend()
+        non_psr_tails=t[(t.eflux<5e-2)+(t.pindex<1)+(t.pindex>3.5)+(t.beta>2.0)]['ts eflux pindex beta roiname'.split()]
+        if len(non_psr_tails)>0:
+            self.tail_check = '<h4>Sources on tails:</h4>'+non_psr_tails.sort_index(by='roiname').to_html()
+        else:
+            self.tail_check ='<p>No soruces on tails'
+        print '%d sources in tails of flux, index, or beta' % len(non_psr_tails)
+        return fig
+    
     def lowenergyfluxratio(self, ax=None, cut=None, xmax=100., title='low energy fit consistency', energy=133, hist=False, minflux=2.0):
         if cut is None: cut=self.df.ts>25
         if ax is None:
@@ -1434,9 +1477,8 @@ class SourceInfo(Diagnostics):
         from scipy import stats
         fig, axx = plt.subplots(1,2, figsize=(10,5))
         s = self.df
-        s['beta'] = s.pars
         logparabola = s.modelname=='LogParabola'
-        beta = np.array([pars[2] for pars in s.pars])
+        beta = self.df.beta
         self.tsbandcut=tsbandcut
         cut=s.band_ts>tsbandcut
         fitqual = s.band_ts-s.ts
@@ -1448,7 +1490,7 @@ class SourceInfo(Diagnostics):
         def left(ax, label='all non_PSR'):
             mycut=cut*(logparabola)
             ax.hist(fitqual[mycut].clip(*xlim), dom, label=label+' (%d)'%sum(mycut))
-            powerlaw =mycut*(beta<0.01) 
+            powerlaw =mycut*beta.isnull() 
             ax.hist(fitqual[powerlaw].clip(*xlim), dom, label=' powerlaw (%d)'%sum(powerlaw))
             self.average1=fitqual[mycut].mean()
             ax.plot(d, chi2(d)*fitqual[mycut].count()*delta/fudge, 'r', lw=2, label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
@@ -1467,8 +1509,11 @@ class SourceInfo(Diagnostics):
         print 'fit quality averages: %.1f, %.1f' % (self.average1, self.average2)
         self.df['badfit2'] =np.array(self.df.badfit.values, bool)
         t = self.df.ix[(self.df.badfit2)*(self.df.ts>10)].sort_index(by='roiname')
-        self.badfit = t[['ts', 'errs', 'roiname']]
-        self.badfit_check = '<h4>Sources with bad fits:</h4>'+self.badfit.to_html()
+        print '%d sources with bad fits' %len(t)
+        if len(t)>0:
+            self.badfit = t[['ts', 'errs', 'roiname']]
+            self.badfit_check = '<h4>Sources with bad fits:</h4>'+self.badfit.to_html()
+        else: self.badfit_check = '<p>All sources fit ok.'
 
         return fig
         
@@ -1609,7 +1654,7 @@ class SourceInfo(Diagnostics):
         """ Source associate plots, from analysis of spectral fits
         """
        
-        self.runfigures([self.fit_quality, self.pivot_vs_e0, self.cumulative_ts, self.source_confusion,
+        self.runfigures([self.fit_quality, self.non_psr_spectral_plots, self.pivot_vs_e0, self.cumulative_ts, self.source_confusion,
             self.spectral_fit_consistency_plots]
         )
 
@@ -1742,9 +1787,9 @@ class SourceComparison(SourceInfo):
         """2FGL sources lost in new list
         Total: %(lost)s
         """
-        fig,axx = plt.subplots( figsize=(4,4))
+        fig,ax = plt.subplots( figsize=(4,4))
         self.lost = self.cat.closest>0.25
-        print 'lost: %d' % sum(lost)
+        print 'lost: %d' % sum(self.lost)
         self.cat.ix[self.lost].to_csv('2fgl_lost.csv')
         ax.hist(self.cat.ts[self.lost].clip(0,maxts), np.linspace(0,maxts,26))
         ax.grid()
@@ -2489,6 +2534,7 @@ class Components(ROIinfo):
         self.fnames= np.hstack([x.fnames for x in self.components])
 
 class Data(Diagnostics):
+    require='config.txt'
     """ look at binned data """
     def setup(self):
         self.plotfolder = 'data'
