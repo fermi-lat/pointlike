@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.64 2013/03/06 21:34:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.65 2013/03/10 01:14:56 burnett Exp $
 
 """
 
@@ -1397,9 +1397,12 @@ class SourceInfo(Diagnostics):
         ax = axx[2]
         [ax.hist(t.beta[(t.ts>tscut)*(t.beta>0.01)].clip(0,2), np.linspace(0,2,26), label='TS>%d' % tscut) for tscut in [10,25] ]
         plt.setp(ax, xlabel='beta'); ax.grid(); ax.legend()
-        non_psr_tails=t[(t.eflux<5e-2)+(t.pindex<1)+(t.pindex>3.5)+(t.beta>2.0)]['ts eflux pindex beta roiname'.split()]
+        # get tails
+        tail_cut = (t.eflux<5e-2)+((t.pindex<1)+(t.pindex>3.5))*t.beta.isnull()+(t.beta>2.5)
+        non_psr_tails=t[tail_cut]['ts eflux pindex beta roiname'.split()]
         if len(non_psr_tails)>0:
             self.tail_check = '<h4>Sources on tails:</h4>'+non_psr_tails.sort_index(by='roiname').to_html()
+            self.tail_check += '<p>Criteria: index between 1 and 3.5 for powerlaw, beta<2.5 for log parabola'
         else:
             self.tail_check ='<p>No soruces on tails'
         print '%d sources in tails of flux, index, or beta' % len(non_psr_tails)
@@ -1592,54 +1595,6 @@ class SourceInfo(Diagnostics):
             plotf(ax)
         return fig
         
-    def source_confusion(self, bmin=10, dtheta=0.1, nbins=50, deficit_angle=1.0, tsmin=10):
-        """ Source Confusion
-        Distribution of the distances to the nearest neighbors of all detected sources with |b|> %(bmin)s degrees.
-        <br> Left:The number of entries per angular bin divided by the bin's solid angle. The overlaid curve is the expected
-        distribution for a uniform distribution of sources with no confusion.
-        <br> Right: ratio of measured to expected. 
-        <br> Estimated loss: %(loss)s.
-        """
-        sdirs = self.df[ (np.abs(self.df.glat)>bmin) * (self.df.ts>tsmin) ]['skydir'].values
-        closest = ([sorted(map(sdirs[i].difference, sdirs))[1] for i in range(len(sdirs))])
-        z = np.degrees(closest)
-        n = len(z)
-        rho = n /(4*np.pi*np.degrees(1)**2) / (1-np.sin(np.radians(bmin)))
-        f = lambda x : n*rho * np.exp( -np.pi*rho*x**2)
-        
-        def deficit(theta):
-            n1, n1t =n-sum(z>theta), n*(1-np.exp(-np.pi * rho*theta**2))
-            return n1t-n1, n, 100*(n1t-n1)/n
-        loss = deficit(deficit_angle)
-        self.loss ='%d/%d, or %.1f percent' % loss
-        self.bmin = bmin
-        print 'lost: ', self.loss
-        n += loss[0]
-        rho *=(1+loss[0]/n)
-        fig, axx = plt.subplots(1,2, figsize=(12,5))
-        plt.subplots_adjust(wspace=0.3)
-        bins = np.arange(nbins+1)*dtheta
-        cumarea=np.cos(np.radians(bins))*2*np.pi*np.degrees(1)**2
-        dA = cumarea[:-1]-cumarea[1:]
-        h = np.histogram(z,bins)[0]
-        x = bins[:-1]+dtheta/2
-        
-        ax = axx[0]
-        ax.errorbar(x, h/dA ,yerr=np.sqrt(h)/dA,  fmt='.', label='TS>%d: %d sources above |b|=%d'%(tsmin, len(sdirs),bmin))
-        ax.plot(bins,f(bins), '--g')
-        plt.setp(ax, yscale='log', ylim=(1,1000), 
-            ylabel='Number of sources per square degree', xlabel='closest distance (deg)')
-        ax.legend(prop=dict(size=10))
-        ax.grid()
-        
-        ax=axx[1]
-        ax.errorbar(x, h/dA/f(x), yerr=np.sqrt(h)/dA/f(x),  fmt='o', )
-        ax.axhline(1.0, color='k')
-        ax.grid()
-        plt.setp(ax, xlim=(0,3), ylim=(0,1.5),  xlabel='closest distance (deg)',
-            ylabel='ratio of detected to expected')
-        return fig
-    
     def spectral_fit_consistency_plots(self):
         """ Study spectral fit consistency for the lowest energy bin
         
@@ -1651,10 +1606,11 @@ class SourceInfo(Diagnostics):
         return fig
         
     def all_plots(self):
-        """ Source associate plots, from analysis of spectral fits
+        """ Plots of source properties, from analysis of spectral fits. 
+        See <a href="../localization" localization </a> for localization plots.
         """
        
-        self.runfigures([self.fit_quality, self.non_psr_spectral_plots, self.pivot_vs_e0, self.cumulative_ts, self.source_confusion,
+        self.runfigures([self.fit_quality, self.non_psr_spectral_plots, self.pivot_vs_e0, self.cumulative_ts, 
             self.spectral_fit_consistency_plots]
         )
 
@@ -1738,12 +1694,61 @@ class Localization(SourceInfo):
         for f,a in zip((hist,scat), ax): f(a)
         return fig
         
+    def source_confusion(self, bmin=10, dtheta=0.1, nbins=50, deficit_angle=1.0, tsmin=10):
+        """ Source Confusion
+        Distribution of the distances to the nearest neighbors of all detected sources with |b|> %(bmin)s degrees.
+        <br> Left:The number of entries per angular bin divided by the bin's solid angle. The overlaid curve is the expected
+        distribution for a uniform distribution of sources with no confusion.
+        <br> Right: ratio of measured to expected. 
+        <br> Estimated loss: %(loss)s.
+        """
+        sdirs = self.df[ (np.abs(self.df.glat)>bmin) * (self.df.ts>tsmin) ]['skydir'].values
+        closest = ([sorted(map(sdirs[i].difference, sdirs))[1] for i in range(len(sdirs))])
+        z = np.degrees(closest)
+        n = len(z)
+        rho = n /(4*np.pi*np.degrees(1)**2) / (1-np.sin(np.radians(bmin)))
+        f = lambda x : n*rho * np.exp( -np.pi*rho*x**2)
+        
+        def deficit(theta):
+            n1, n1t =n-sum(z>theta), n*(1-np.exp(-np.pi * rho*theta**2))
+            return n1t-n1, n, 100*(n1t-n1)/n
+        loss = deficit(deficit_angle)
+        self.loss ='%d/%d, or %.1f percent' % loss
+        self.bmin = bmin
+        print 'lost: ', self.loss
+        n += loss[0]
+        rho *=(1+loss[0]/n)
+        fig, axx = plt.subplots(1,2, figsize=(12,5))
+        plt.subplots_adjust(wspace=0.3)
+        bins = np.arange(nbins+1)*dtheta
+        cumarea=np.cos(np.radians(bins))*2*np.pi*np.degrees(1)**2
+        dA = cumarea[:-1]-cumarea[1:]
+        h = np.histogram(z,bins)[0]
+        x = bins[:-1]+dtheta/2
+        
+        ax = axx[0]
+        ax.errorbar(x, h/dA ,yerr=np.sqrt(h)/dA,  fmt='.', label='TS>%d: %d sources above |b|=%d'%(tsmin, len(sdirs),bmin))
+        ax.plot(bins,f(bins), '--g')
+        plt.setp(ax, yscale='log', ylim=(1,1000), 
+            ylabel='Number of sources per square degree', xlabel='closest distance (deg)')
+        ax.legend(prop=dict(size=10))
+        ax.grid()
+        
+        ax=axx[1]
+        ax.errorbar(x, h/dA/f(x), yerr=np.sqrt(h)/dA/f(x),  fmt='o', )
+        ax.axhline(1.0, color='k')
+        ax.grid()
+        plt.setp(ax, xlim=(0,3), ylim=(0,1.5),  xlabel='closest distance (deg)',
+            ylabel='ratio of detected to expected')
+        return fig
+    
+
     def all_plots(self):
         """ Localization summary
         %(ebox_info)s
         """
         self.ebox_info = self.ebox.describe().to_html()
-        return self.runfigures([self.r95, self.localization,self.localization_quality,])
+        return self.runfigures([self.r95, self.localization,self.localization_quality,self.source_confusion])
 
 
 class SourceComparison(SourceInfo):
@@ -2289,6 +2294,7 @@ class SeedCheck(SourceInfo):
                 badfit = True
             has_adict = hasattr(source,'adict') and source.adict is not None
             sdict[name] = dict(
+                ra =source.skydir.ra(), dec=source.skydir.dec(),
                 ts=source.ts,
                 delta_ts=source.ellipse[5] if hasattr(source, 'ellipse') else np.nan,
                 r95 = 2.6*source.ellipse[2] if hasattr(source, 'ellipse') else np.nan,
@@ -2312,7 +2318,9 @@ class SeedCheck(SourceInfo):
                 adict = source.adict if has_adict else None,
                 )
         self.df = pd.DataFrame(sdict).transpose()
+        self.df.index.name='name'
         self.assoc = pd.DataFrame(assoc).transpose()
+        self.assoc.index.name = 'name'
         # analyze associations, make summary
         acat=list(self.assoc.ix[self.assoc.aprob>0.8]['acat'].values)
         sa = list(set(acat))
@@ -2412,8 +2420,13 @@ class SeedCheck(SourceInfo):
         """ Results of analysis of seeds
         %(info)s
         """
+        t=self.df[(self.df.ts>6)*(-self.df.r95.isnull())]['ra dec ts pindex r95 aprob index'.split()]#.sort_index(by='ts')
+        t['acat']=self.assoc.acat
+        t['aname']=self.assoc.aname
         self.info = self.df.describe().to_html()
-        self.info += '<h3>Associations:</h3>' #\n<pre>%s\n</pre>' %self.assoc_sum
+        self.info += '<h3> Selected TS>6 and localized</h3>'
+        self.info += t.to_html()
+        self.info += '<h3>Association summary:</h3>' #\n<pre>%s\n</pre>' %self.assoc_sum
         self.info += '<table border="1"><thead><tr><th>Catalog</th><th>Sources</th></tr></thead>\n<tbody>'
         for (c,n) in  self.assoc_sum:
             self.info += '<tr><td>%s</td><td>%5d</td></tr>' % (c,n)
@@ -2583,8 +2596,9 @@ pre { font-size:10pt; margin-left:25pt;
     border-style:solid;
     border-width:thin;}
 h5 {margin-left:25pt;}
-table { margin-left:25pt; margin-top:15pt; font-size:8pt; 
-    border-style: solid; border-width: 1px;  border-collapse: collapse;}
+table { margin-left:25pt; margin-top:15pt; font-size:8pt;
+    border-style: solid; border-width: 1px;  border-collapse: collapse; }
+table td { padding: 3px; }
 a:link { text-decoration: none ; color:green}
 a:hover { background-color:yellow; }
 </style>"""
