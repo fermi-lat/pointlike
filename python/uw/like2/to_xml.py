@@ -1,9 +1,9 @@
 """
 Generate the XML representation of a skymodel
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.1 2013/02/10 23:20:56 burnett Exp $
 
 """
-import os, collections, argparse
+import os, collections, argparse, types
 from xml import sax
 from . import skymodel
 from uw.utilities import keyword_options
@@ -53,7 +53,7 @@ class ToXML(object):
                     f.write(elem)
             f.write('\n</source_library>')
             if not gtlike:
-                f.write('\n'.join(['\n<roi_info nside="{0}">'.format(self.nside),
+                f.write('\n'.join(['\n<roi_info nside="12">',
                                    gs_xml,
                                    '</roi_info>']))
                 f.write('\n</skymodel>')
@@ -208,7 +208,7 @@ class SkyModelHandler(sax.handler.ContentHandler, xml_parsers.Stack):
 
 def main( args ):
     sm = skymodel.SkyModel('.')
-    ToXML(sm, args.filename, ts_min=args.ts_min, strict=args.strict, gtlike=args.gtlike)
+    ToXML(sm, args.filename[0], ts_min=args.ts_min, strict=args.strict, gtlike=args.gtlike)
     
 if __name__=='__main__':
     parser = argparse.ArgumentParser( description=""" Convert the skymodel in the current folder to XML""")
