@@ -1,7 +1,7 @@
 """
 Code to generate a standard Fermi-LAT catalog FITS file
 also, see to_xml, to generate XML for the sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/makecat.py,v 1.2 2012/02/26 23:44:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/makecat.py,v 1.3 2013/01/20 14:07:44 burnett Exp $
 """
 import os
 import pyfits
@@ -187,7 +187,8 @@ class MakeCat(object):
     def __call__(self, outfile):
         self.cols = []
         z = self.z[self.z.ts>self.TScut] # limit for now
-        z.sort(order=('ra'))
+        # assume sorted already
+        #z.sort(order=('ra'))
         #z.ts = z.ts2 #kluge for now
         self.check=False
         self.bad = z.ts<9
@@ -214,8 +215,8 @@ class MakeCat(object):
         self.add('Unc_Spectral_Index',z.pindex_unc)
         self.add('beta',              z.beta)
         self.add('Unc_beta',          z.beta_unc)
-        self.add('Index2',            z.index2)
-        self.add('Unc_Index2',        z.index2_unc)
+        #self.add('Index2',            z.index2)
+        #self.add('Unc_Index2',        z.index2_unc)
         self.add('Cutoff_Energy',     z.cutoff) ## need to get this from info
         self.add('Cutoff_Energy_Unc', z.cutoff_unc) ## need to get this from info
         
@@ -244,7 +245,15 @@ class MakeCat(object):
     def finish(self, outfile):
         pyfits.HDUList(self.hdus).writeto(outfile)
         print '\nwrote FITS file to %s' % outfile
- 
+
+def main(outfile,infile='sources.pickle'):
+    assert os.path.exist(infile), 'File %s not found' % infile
+    sources = dp.load(infile)
+    t = makecat.MakeCat(sources)
+    t(outfile)
+
 if __name__=='__main__':
-    m = MakeCat()
-            
+    parser = argparse.ArgumentParser(description='create a FITS file')
+    parser.add_argument('args', nargs=1, help='output FITS file' )
+    args = parser.parse_args()
+    main(args.args):
