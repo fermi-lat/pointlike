@@ -1,6 +1,6 @@
 """
 Code to generate a set of maps for each ROI
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/maps.py,v 1.9 2013/01/15 00:21:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/maps.py,v 1.10 2013/02/21 17:59:10 burnett Exp $
 
 """
 import os, sys,  pickle, types
@@ -23,6 +23,25 @@ def ExpCutoff(*pars):
     model = Models.ExpCutoff(p=pars)
     sourcelist.set_default_bounds(model)
     return model
+def PLSuperExpCutoff(*pars):  
+    model = Models.PLSuperExpCutoff(p=pars)
+    sourcelist.set_default_bounds(model)
+    return model
+
+def make_index_table(nside, subnside, usefile=True):
+    filename = 'index_table_%02d_%03d.pickle' % (nside, subnside)
+    if os.path.exists(filename) and usefile:
+        return pickle.load(open(filename))
+    print 'generating index table for nside, subnside= %d %d' % (nside, subnside)
+    band, subband = Band(nside), Band(subnside)
+    npix, nsubpix = 12*nside**2, 12*subnside**2
+    t=np.array([band.index(subband.dir(i)) for i in xrange(nsubpix)])
+    a = np.arange(nsubpix)
+    index_table = [a[t==i] for i in xrange(npix)]
+    if usefile:
+        pickle.dump(index_table, open(filename,'w'))
+    return index_table
+    
 
 class CountsMap(dict):
     """ A map with counts per HEALPix bin """
@@ -36,9 +55,10 @@ class CountsMap(dict):
         Note that is is implemented as a dictionary, with the pixel index as key
         """
         self.indexfun = Band(nside).index
-        self._get_photons(roi, emin)
+        self.nside = nside
+        self._fill(roi, emin)
         
-    def _get_photons(self, roi, emin):
+    def _fill(self, roi, emin):
         for bandlike in roi.selected_bands:
             band = bandlike.band
             if band.e < emin: continue
@@ -47,9 +67,30 @@ class CountsMap(dict):
                 index, wt = self.indexfun(wsd), int(wsd.weight())
                 if index in self: self[index]+=wt
                 else: self[index] = wt
+                
     def __call__(self,v):
         return self.get(self.indexfun(v), 0)
   
+class ModelMap(CountsMap):
+    """ A map with model prediction per HEALPix bin
+    """
+        
+    def _fill(self, roi, emin):
+        index_table = make_index_table(12, self.nside)
+        roi_index = Band(12).index(roi.roi_dir)
+        ids = index_table[roi_index]
+        sdirs = [Band(self.nside).dir(int(i)) for i in index_table[roi_index]]
+        grid = np.zeros(len(ids))
+        
+        for bandlike in roi.selected_bands:
+            band = bandlike.band
+            if band.e < emin: continue
+            grid += bandlike.fill_grid(sdirs)
+        solidangle = 4.*np.pi/(12*self.nside**2)
+        grid *= solidangle
+        for i,v in zip(ids, grid):
+            self[i]=v
+    
 
 class KdeMap(object):
     """ Implement a SkyFunction that returns KDE data for a given ROI"""
@@ -229,6 +270,15 @@ def kdemaps(g, outdir=None, nside=256, dom=range(1728)):
     if outdir is None: outdir = g.process_kw['outdir']
     if not os.path.exists(outdir): os.mkdir(outdir)
     table = ROItables(outdir, nside, skyfuns= [[KdeMap, "kde", dict()]])
+    quiet, g.quiet = g.quiet, True
+    map(lambda i: table(g.roi(i)), dom)
+    g.quiet=quiet    
+
+def modelmaps(g, outdir=None, nside=256, dom=range(1728)):
+    """ generate all the roi tables for KdeMap """
+    if outdir is None: outdir = g.process_kw['outdir']
+    if not os.path.exists(outdir): os.mkdir(outdir)
+    table = ROItables(outdir, nside, skyfuns= [[ModelMap, "model", dict()]])
     quiet, g.quiet = g.quiet, True
     map(lambda i: table(g.roi(i)), dom)
     g.quiet=quiet    
