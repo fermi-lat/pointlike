@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.65 2013/03/10 01:14:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.66 2013/03/11 18:23:35 burnett Exp $
 
 """
 
@@ -1271,8 +1271,9 @@ class SourceInfo(Diagnostics):
         udata = np.array([s.ix[i]['sedrec'].uflux[0] for i in range(len(s))])
         ldata = np.array([s.ix[i]['sedrec'].lflux[0] for i in range(len(s))])
         fmodel = np.array([s.ix[i]['model'](energy)*energy**2*1e6 for i in range(len(s))])
-        return pd.DataFrame(dict(fdata=fdata, udata=udata, ldata=ldata, fmodel=fmodel, glat=s.glat, glon=s.glon),
-            index=s.index)
+        return pd.DataFrame(dict(fdata=fdata, udata=udata, ldata=ldata, fmodel=fmodel, 
+                glat=s.glat, glon=s.glon, roiname=s.roiname),
+            index=s.index).sort_index(by='roiname')
 
     def cumulative_ts(self, ts=None, other_ts=None, tscut=(10,25), check_localized=True, label=None, otherlabel=None):
         """ Cumulative test statistic TS
@@ -1355,6 +1356,10 @@ class SourceInfo(Diagnostics):
         y = fxc.fdata
         yerr = (fxc.udata-y)
         q = (y-x)/yerr
+        fxc['quality'] = q
+        fxc.index.name='name'
+        self.lowebad = fxc[np.abs(q)>3]
+        
         if title is None:
             title = 'spectral fit consistency at %d MeV' % self.energy[ib]
         if not hist:
@@ -1598,11 +1603,15 @@ class SourceInfo(Diagnostics):
     def spectral_fit_consistency_plots(self):
         """ Study spectral fit consistency for the lowest energy bin
         
+        %(bad_consistency)s
         """
-        fig,ax = plt.subplots(2,2, figsize=(12,10))
-        for f, t, ax in zip( [self.spectral_fit_consistency]*2+ [self.lowenergyfluxratio]*2,
-                    (False, True, False, True), ax.flatten()):
+        fig,ax = plt.subplots(1,3, figsize=(12,4))
+        for f, t, ax in zip( [self.spectral_fit_consistency]+ [self.lowenergyfluxratio]*2,
+                    (False,  False, True), ax.flatten()):
             f( hist=t, ax=ax)
+            
+        self.bad_consistency = '<h3> Sources not consistent in 133 MeV bin</h3>'
+        self.bad_consistency+= self.lowebad.to_html()
         return fig
         
     def all_plots(self):
@@ -1613,6 +1622,7 @@ class SourceInfo(Diagnostics):
         self.runfigures([self.fit_quality, self.non_psr_spectral_plots, self.pivot_vs_e0, self.cumulative_ts, 
             self.spectral_fit_consistency_plots]
         )
+        
 
         plt.close('all')
         
@@ -2330,7 +2340,12 @@ class SeedCheck(SourceInfo):
         self.assoc_sum = zip(sa, t)
         #self.psr = [  s is not None and ('pulsar' in s or 'msp' in s ) for s in t] * associated
         #self.agn = [  s is not None and ('agn' in s or 'crates' in s or 'bzcat' in s or 'bllac' in s or 'qso' in s or 'cgrabs' in s) for s in t] * associated
-
+    
+    def select_candidates(self, tsmin):
+        t=self.df[(self.df.ts>tsmin)*(-self.df.r95.isnull())]['ra dec ts pindex r95 aprob'.split()]#.sort_index(by='ts')
+        t['acat']=self.assoc.acat
+        t['aname']=self.assoc.aname
+        return t
     
     def seed_cumulative_ts(self, cut=None, label='all seeds'):
         """ Cumulative TS distribution for seeds 
@@ -2420,11 +2435,13 @@ class SeedCheck(SourceInfo):
         """ Results of analysis of seeds
         %(info)s
         """
-        t=self.df[(self.df.ts>6)*(-self.df.r95.isnull())]['ra dec ts pindex r95 aprob index'.split()]#.sort_index(by='ts')
-        t['acat']=self.assoc.acat
-        t['aname']=self.assoc.aname
+        #t=self.df[(self.df.ts>6)*(-self.df.r95.isnull())]['ra dec ts pindex r95 aprob index'.split()]#.sort_index(by='ts')
+        #t['acat']=self.assoc.acat
+        #t['aname']=self.assoc.aname
+        tsmin = 6
+        t = self.select_candidates(tsmin)
         self.info = self.df.describe().to_html()
-        self.info += '<h3> Selected TS>6 and localized</h3>'
+        self.info += '<h3> Selected TS>tsmin and localized</h3>' %tsmin
         self.info += t.to_html()
         self.info += '<h3>Association summary:</h3>' #\n<pre>%s\n</pre>' %self.assoc_sum
         self.info += '<table border="1"><thead><tr><th>Catalog</th><th>Sources</th></tr></thead>\n<tbody>'
@@ -2448,6 +2465,12 @@ class PulsarSeedCheck(SeedCheck):
         self.runfigures([self.seed_cumulative_ts, self.unassoc_seed_cumulative_ts, self.spectral_parameters, self.localization],
                 ('pulsar_cumulative_ts', 'pulsar_unassoc_cumulative_ts', 'pulsar_spectral_pars', 'pulsar_localization'))
 
+class PGWSeedCheck(SeedCheck):
+    require='seedcheck_PGW.zip'
+    def setup(self, **kw):
+        self.plotfolder = self.seedname= 'seedcheck_PGW'
+        self.spectral_type = 'power law'
+        self.load()
 
 class HPtables(Diagnostics):
     """ process Healpix tables, inclucing TS residual map files generated by table, perhaps generating list of new seeds """
