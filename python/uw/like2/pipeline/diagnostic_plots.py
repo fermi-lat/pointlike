@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.66 2013/03/11 18:23:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.67 2013/03/12 11:34:53 burnett Exp $
 
 """
 
@@ -14,7 +14,7 @@ import mpl_toolkits.axes_grid.axes_size as Size
 from mpl_toolkits.axes_grid import axes_grid, axes_size, Divider, make_axes_locatable
 from matplotlib.colors import LogNorm
 
-from skymaps import SkyDir, DiffuseFunction, Hep3Vector
+from skymaps import SkyDir, DiffuseFunction, Hep3Vector, Band
 from uw.like2.pub import healpix_map
 from uw.like2 import dataset
 
@@ -1300,12 +1300,12 @@ class SourceInfo(Diagnostics):
                 ax.hist(ul.ts ,dom, cumulative=-1, lw=2, color='r', histtype='step',
                     label='no localization')
                 ax.text(12, n, 'failed localization (TS>%d) :%d'%(tscut[0],n), fontsize=12, color='r')
-            self.badloc = df[unloc*(df.ts>25)][['ts','roiname']]
+            self.badloc = df[unloc*(df.ts>tscut[0])][['ts','roiname']]
             if len(self.badloc)>0:
                 print 'check self.badloc for %d sources' %len(self.badloc)
-                self.badloc_check = '<h4> Unlocalized above TS=25:</h4>'+self.badloc.to_html()
+                self.badloc_check = '<h4> Unlocalized above TS=%d:</h4>'%tscut[0] + self.badloc.to_html()
             else:
-                self.badloc_check= '<p>No unlocalized sources above TS=25'
+                self.badloc_check= '<p>No unlocalized sources above TS=%d'%tscut[0]
         plt.setp(ax,  ylabel='# sources with greater TS', xlabel='TS',
             xscale='log', yscale='log', xlim=(9, 1e4), ylim=(9,8000))
         ax.set_xticklabels([' ', '10', '100', '1000'])
@@ -1395,19 +1395,20 @@ class SourceInfo(Diagnostics):
         t['eflux'] = t.flux * t.e0**2 * 1e6
         ax = axx[0]
         [ax.hist(t.eflux[t.ts>tscut].clip(1e-2,1e2), np.logspace(-2,2,26), label='TS>%d' % tscut) for tscut in [10,25] ]
-        plt.setp(ax, xscale='log', xlabel='energy flux'); ax.grid(); ax.legend()
+        plt.setp(ax, xscale='log', xlabel='energy flux'); ax.grid(); ax.legend(prop=dict(size=10))
         ax = axx[1]
         [ax.hist(t.pindex[t.ts>tscut].clip(1,4), np.linspace(1,4,26), label='TS>%d' % tscut) for tscut in [10,25] ]
-        plt.setp(ax, xlabel='spectral index'); ax.grid(); ax.legend()
+        plt.setp(ax, xlabel='spectral index'); ax.grid(); ax.legend(prop=dict(size=10))
         ax = axx[2]
-        [ax.hist(t.beta[(t.ts>tscut)*(t.beta>0.01)].clip(0,2), np.linspace(0,2,26), label='TS>%d' % tscut) for tscut in [10,25] ]
-        plt.setp(ax, xlabel='beta'); ax.grid(); ax.legend()
+        [ax.hist(t.beta[(t.ts>tscut)*(t.beta>0.01)].clip(0,3), np.linspace(0,3,26), label='TS>%d' % tscut) for tscut in [10,25] ]
+        plt.setp(ax, xlabel='beta'); ax.grid(); ax.legend(prop=dict(size=10))
         # get tails
-        tail_cut = (t.eflux<5e-2)+((t.pindex<1)+(t.pindex>3.5))*t.beta.isnull()+(t.beta>2.5)
+        tail_cut = (t.eflux<5e-2)+((t.pindex<1)+(t.pindex>3.5))*t.beta.isnull()+(t.beta>3.0)
         non_psr_tails=t[tail_cut]['ts eflux pindex beta roiname'.split()]
         if len(non_psr_tails)>0:
-            self.tail_check = '<h4>Sources on tails:</h4>'+non_psr_tails.sort_index(by='roiname').to_html()
-            self.tail_check += '<p>Criteria: index between 1 and 3.5 for powerlaw, beta<2.5 for log parabola'
+            self.tail_check = '<h4>Sources on tails:</h4>'\
+                +non_psr_tails.sort_index(by='roiname').to_html()
+            self.tail_check += '<p>Criteria: require index between 1 and 3.5 for powerlaw, beta<3.0 for log parabola'
         else:
             self.tail_check ='<p>No soruces on tails'
         print '%d sources in tails of flux, index, or beta' % len(non_psr_tails)
@@ -1616,8 +1617,30 @@ class SourceInfo(Diagnostics):
         
     def all_plots(self):
         """ Plots of source properties, from analysis of spectral fits. 
-        See <a href="../localization" localization </a> for localization plots.
+        See <a href="../localization/index.html"> localization </a> for localization plots.
+        <h3>Rough Census</h3>
+        %(census_html)s
+        The columns are the number of sources with ts> than the header. 
+        The rows labels are the first three characters of the source name, except 'ext' means extended.
         """
+        df = self.df
+        extended = np.asarray(df.isextended.values,bool)
+        pointsource = ~extended
+
+        def count(prefix, tsmin):
+            if prefix=='ext':
+                return sum(extended*(df.ts>tsmin))
+            elif prefix=='total':
+                return sum(df.ts>tsmin)
+            names = df[pointsource*(df.ts>tsmin)]['name'].values    
+            return sum([n.startswith(prefix) for n in names])
+        prefixes = list(set( n[:3] for n in df[pointsource]['name'])) +['ext', 'total']
+
+        census = dict()
+        for x in (0, 10, 25):
+            census[x] = [count(prefix, x) for prefix in prefixes]
+        self.census=pd.DataFrame(census, index=prefixes)
+        self.census_html = self.census.to_html()
        
         self.runfigures([self.fit_quality, self.non_psr_spectral_plots, self.pivot_vs_e0, self.cumulative_ts, 
             self.spectral_fit_consistency_plots]
@@ -1763,7 +1786,8 @@ class Localization(SourceInfo):
 
 class SourceComparison(SourceInfo):
 
-    def setup(self, cat='gll_psc_v06.fit', catname='2FGL', **kw):
+    def setup(self, cat='gll_pscP72Y_v5r2_flags_assoc_v5r11p3.fit', #gll_psc_v06.fit', 
+            catname='2FGL', **kw):
         super(SourceComparison, self).setup(**kw)
         self.catname=catname
         self.plotfolder='comparison'
@@ -1773,16 +1797,16 @@ class SourceComparison(SourceInfo):
         name = ft.Source_Name
         ra = ft.RAJ2000
         dec= ft.DEJ2000
+        id_prob = ft.ID_Probability[:,0]
         cat_skydirs = map (lambda x,y: SkyDir(float(x),float(y)), ra,dec)
         print 'generating closest distance to catalog "%s"' % cat
         closest = np.degrees(np.array([min(map(sdir.difference, cat_skydirs))for sdir in self.df.skydir.values]))
         self.df['closest'] = closest
-        self.cat = pd.DataFrame(dict(ra=ft.RAJ2000,dec= ft.DEJ2000, signif=ft.Signif_Avg), 
+        self.cat = pd.DataFrame(dict(ra=ft.RAJ2000,dec= ft.DEJ2000, ts=ft.Test_Statistic, id_prob=id_prob), 
             index=ft.Source_Name )
         self.cat.index.name='name'
         closest2 = np.degrees(np.array([min(map(sdir.difference, self.df.skydir.values)) for sdir in cat_skydirs]))
         self.cat['closest']= closest2
-        self.cat['ts'] = self.cat.signif**2
         
             
     def distance_to_cat(self, maxdist=0.5, tscuts=[10,50,500], nbins=26):
@@ -1800,13 +1824,18 @@ class SourceComparison(SourceInfo):
     
     def lost_plots(self, maxts=100):
         """2FGL sources lost in new list
-        Total: %(lost)s
+        Histogram of the 2FGL catalog TS for those sources more than 0.25 deg from a skymodel source. 
+        The subset of sources with associations (prob>0.8) is shown.
         """
         fig,ax = plt.subplots( figsize=(4,4))
         self.lost = self.cat.closest>0.25
         print 'lost: %d' % sum(self.lost)
         self.cat.ix[self.lost].to_csv('2fgl_lost.csv')
-        ax.hist(self.cat.ts[self.lost].clip(0,maxts), np.linspace(0,maxts,26))
+        print 'wrote file 2fgl_lost.csv'
+        ax.hist(self.cat.ts[self.lost].clip(0,maxts), np.linspace(0,maxts,26), label='all (%d)'%sum(self.lost))
+        ax.hist(self.cat.ts[self.lost*self.cat.id_prob>0.8].clip(0,maxts), np.linspace(0,maxts,26), 
+                label='associated')
+        ax.legend(prop=dict(size=10))
         ax.grid()
         plt.setp(ax, xlabel='TS of %s source' %self.catname)
         return fig
@@ -1838,7 +1867,8 @@ class Associations(SourceInfo):
         plt.setp(ax, xscale='log', xlabel='TS', xlim=(10,1e5))
         ax.legend(prop=dict(size=10)); ax.grid()
         return fig
-        
+    
+    
     def all_plots(self):
         """ Analysis of associations
         %(atable)s
@@ -1850,6 +1880,22 @@ class Associations(SourceInfo):
         html_rows = ['<tr><td>%s</td><td>%d</td></tr>' %x for x in t.items() ]
         self.atable = '<table><tr><th>Catalog</th><th>number</th></tr>'+\
              '\n'.join(html_rows)+'</table>'
+        # compare with LAT pulsr catalog     
+        tt = set(self.df.name[self.df.psr])
+        t = glob.glob(os.path.expandvars('$FERMI/catalog/srcid/cat/obj-pulsar-lat_*'))[-1]
+        pp = pyfits.open(t)[1].data
+        lat = pd.DataFrame(pp, index=[n.strip() for n in pp.Source_Name])
+        lat['ts'] = self.df[self.df.psr]['ts']
+        lat['ROI_index'] = [Band(12).index(SkyDir(float(ra),float(dec))) for ra,dec in zip(lat.RAJ2000,lat.DEJ2000)]
+        dc2names =set(pp.Source_Name)
+        print 'sources with exp cutoff not in LAT catalog:', list(tt.difference(dc2names))
+        print 'Catalog entries not found or very weak:', list(dc2names.difference(tt))
+        missing = [ np.isnan(x) or x<10. for x in lat.ts]
+        
+        self.atable += '<h3>Compare with LAT catalog %s</h3>' % t
+        self.atable += '<p>Sources with exp cutoff not in catalog %s' %list(tt.difference(dc2names))
+        self.atable += '<p>%d LAT catalog entries not found or weak: \n' % sum(missing)
+        self.atable += lat[missing]['RAJ2000 DEJ2000 ts ROI_index'.split()].to_html()
         
         self.runfigures([self.association_vs_ts,])
     
