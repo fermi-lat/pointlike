@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.68 2013/03/12 22:09:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.69 2013/03/14 00:38:01 burnett Exp $
 
 """
 
@@ -1195,6 +1195,8 @@ class SourceInfo(Diagnostics):
                         b = ellipse[3] if ellipse is not None else np.nan,
                         ang=ellipse[4] if ellipse is not None else np.nan,
                         delta_ts = ellipse[5] if ellipse is not None else np.nan,
+                        flux = pars[0],
+                        flux_unc = errs[0],
                         pindex = pars[1],
                         pindex_unc = errs[1],
                         beta = betavalue,
@@ -1620,7 +1622,9 @@ class SourceInfo(Diagnostics):
         """ Plots of source properties, from analysis of spectral fits. 
         See <a href="../localization/index.html"> localization </a> for localization plots.
         <h3>Rough Census</h3>
+        
         %(census_html)s
+        <p>
         The columns are the number of sources with ts> than the header. 
         The rows labels are the first three characters of the source name, except 'ext' means extended.
         """
