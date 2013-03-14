@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.67 2013/03/12 11:34:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.68 2013/03/12 22:09:37 burnett Exp $
 
 """
 
@@ -1201,8 +1201,8 @@ class SourceInfo(Diagnostics):
                         beta_unc = errs[2] if not pulsar and pars[2]>0.002 else np.nan,
                         index2 = np.nan,
                         index2_unc = np.nan,
-                        cutoff = pars[3] if pulsar else np.nan,
-                        cutoff_unc = errs[3] if pulsar else np.nan,
+                        cutoff = pars[2] if pulsar else np.nan,
+                        cutoff_unc = errs[2] if pulsar else np.nan,
                         e0 = model.e0,
                         modelname=model.name,
                         psr = pulsar,
@@ -1258,7 +1258,7 @@ class SourceInfo(Diagnostics):
         scatter_kw_default.update(scatter_kw)
         
         scat = self.basic_skyplot(ax, glon, singlat, c=c,
-                title=title, ecliptic=ecliptic, **scatter_kw_default)
+                title=title, ecliptic=ecliptic, colorbar=colorbar,cbtext=cbtext, **scatter_kw_default)
         return fig
         
     def fluxinfo(self, ib=0, cut=None):
@@ -1472,10 +1472,11 @@ class SourceInfo(Diagnostics):
         ax.grid(True)
         return fig
         
-    def fit_quality(self, xlim=(0,50), ndf=12, tsbandcut=20):
+    def fit_quality(self, xlim=(0,50), ndf=9, tsbandcut=20):
         """ Fit quality
         This is the difference between the TS from the fits in the individual energy bands, and that for the spectral fit.
-        It should be distributed approximately as chi squared of 14-2 =12 degrees of freedom.
+        It should be distributed approximately as chi squared of at most 14-2 =12 degrees of freedom. 
+        However, high energy bins usually do not contribute, so we compare with ndf=9.
         All sources with TS_bands>%(tsbandcut)d are shown.<br>
         Left: non-pulsar fits, showing the powerlaw subset. This is important since these can be 
         improved by converting to log parabola. Overall average is %(average1).1f
@@ -1503,7 +1504,7 @@ class SourceInfo(Diagnostics):
             ax.hist(fitqual[powerlaw].clip(*xlim), dom, label=' powerlaw (%d)'%sum(powerlaw))
             self.average1=fitqual[mycut].mean()
             ax.plot(d, chi2(d)*fitqual[mycut].count()*delta/fudge, 'r', lw=2, label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
-            ax.grid(); ax.set_ylim(ymax=500); ax.set_xlabel('fit quality')
+            ax.grid(); ax.set_xlabel('fit quality')
             ax.legend(prop=dict(size=10))
         def right(ax, label='PSR'):
             mycut = cut*(~logparabola)
