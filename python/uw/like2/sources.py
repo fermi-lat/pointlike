@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.18 2013/03/06 21:33:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.19 2013/03/11 18:18:54 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -60,9 +60,12 @@ class Source(object):
             par,sig = self.model.statistical()
             self.model = LogParabola(*(list(par)+[1e-3, self.model.e0]))
             self.model.free[2:]=False
-        elif self.model.name=='PLSuperExpCutoff':
-            par,sig=self.model.statistical()
-            self.model = ExpCutoff(*par[:-1])
+        #elif self.model.name=='PLSuperExpCutoff':
+        #    par,sig=self.model.statistical()
+        #    self.model = ExpCutoff(*par[:-1])
+        elif self.model.name=='ExpCutoff':
+            self.model = self.model.create_super_cutoff()
+            print 'converting %s ' %self.name
         elif self.model.name=='PowerLawFlux':
             f, gamma = self.model.get_all_parameters() #10**self.model.p
             emin = self.model.emin
@@ -72,7 +75,7 @@ class Source(object):
                 print 'Failed to create LogParabola for source %s, pars= %s'% (self.name, (f,gamma,emin))
                 raise
             self.model.free[2:]=False
-        if self.model.name not in ['LogParabola','ExpCutoff','Constant']:
+        if self.model.name not in ['LogParabola','PLSuperExpCutoff','Constant']:
             raise Exception('model %s not supported' % self.model.name)
         if not hasattr(self.model, 'npar'):
             raise Exception('model %s for source %s was not converted to new format'\
@@ -274,8 +277,8 @@ def validate( ps, nside, filter):
             #ps.free[1:] = False
             #model.cov_matrix[:] = 0 
         
-    elif model.name=='ExpCutoff':
-        norm, gamma, ec = model.get_all_parameters() #10**model.p
+    elif model.name=='PLSuperExpCutoff':
+        norm, gamma, ec, b = model.get_all_parameters() #10**model.p
         #if np.any(np.diag(model.cov_matrix)<0): model.cov_matrix[:]=0 
         if norm<1e-18: model[0]=1e-18 #quietly prevent too small
         check =  gamma>=-0.5 and gamma<5 and ec>100
