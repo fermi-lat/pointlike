@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Mar 17 11:33:42 PDT 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	pipeline_job.py 
+Log Message:
+implement flexible roi list order
+    *
+------------------------------------------------------------
 User: burnett  Sun Mar 17 07:34:21 PDT 2013
 pointlike/python/uw/like2
 
