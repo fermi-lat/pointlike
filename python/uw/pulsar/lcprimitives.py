@@ -3,7 +3,7 @@ components of a pulsar light curve.  Includes primitives (Gaussian,
 Lorentzian), etc.  as well as more sophisticated holistic templates that
 provide single-parameter (location) representations of the light curve.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcprimitives.py,v 1.31 2013/02/17 22:20:21 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcprimitives.py,v 1.32 2013/02/21 01:31:54 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -14,7 +14,7 @@ author: M. Kerr <matthew.kerr@gmail.com>
 # perhaps this isn't a big deal
 
 import numpy as np
-from scipy.special import erf,i0
+from scipy.special import erf,i0,i1
 from scipy.integrate import simps,quad
 from scipy.interpolate import interp1d
 from scipy.stats import norm,cauchy
@@ -130,15 +130,20 @@ class LCPrimitive(object):
             child classes should override."""
         return False
 
+    def copy(self):
+        from copy import deepcopy
+        return deepcopy(self)
+
     def __call__(self,phases):
         raise NotImplementedError('Virtual function must be implemented by child class.')
 
-    def integrate(self,x1=0,x2=1):
+    def integrate(self,x1=0,x2=1,log10_ens=3):
         """ Base implemention with scipy quad."""
-        return quad(self,x1,x2)[0]
+        f = lambda ph: self(ph,log10_ens)
+        return quad(f,x1,x2)[0]
 
-    def cdf(self,x):
-        return self.integrate(x1=0,x2=x)
+    def cdf(self,x,log10_ens=3):
+        return self.integrate(x1=0,x2=x,log10_ens=3)
 
     def fwhm(self):
         """Return the full-width at half-maximum of the light curve model."""
@@ -589,11 +594,16 @@ class LCLorentzian(LCPrimitive):
         return np.mod(cauchy.rvs(loc=self.p[-1],scale=self.p[0]/TWOPI,size=n),1)
 
     def integrate(self,x1,x2,log10_ens=3):
-        e,gamma,loc = self.p
+        # NB -- due to the use of tans below, must be careful to use an angle
+        # range of -pi/2 to pi/2 rather than 0 to pi as one would want
+        # I haven't carefully tested this solution
+        e,gamma,loc = self._make_p(log10_ens)
         x1 = PI*(x1-loc)
         x2 = PI*(x2-loc)
-        t = np.cosh(gamma/2)/np.sinh(gamma/2)
-        return (np.arctan(t*tan(x1))-np.arctan(t*tan(x0)))/PI
+        t = 1./np.tanh(0.5*gamma) # coth(gamma/2)
+        v2 = np.arctan(t*tan(x2))/PI
+        v1 = np.arctan(t*tan(x1))/PI
+        return (v2<=v1) + v2 - v1 # correction for tan wrapping
 
 class LCLorentzian2(LCWrappedFunction):
     """ Represent a (wrapped) two-sided Lorentzian peak.
@@ -686,10 +696,50 @@ class LCVonMises(LCPrimitive):
     def hwhm(self,right=False):
         return 0.5*np.arccos(self.p[0]*np.log(0.5)+1)/TWOPI
 
-    def __call__(self,phases):
-        width,loc = self.p
+    def __call__(self,phases,log10_ens=3):
+        e,width,loc = self._make_p(log10_ens)
         z = TWOPI*(phases-loc)
         return np.exp(np.cos(z)/width)/i0(1./width)
+
+    def gradient(self,phases,log10_ens=3,free=False):
+        e,width,loc = self._make_p(log10_ens)
+        my_i0 = i0(1./width)
+        my_i1 = i1(1./width)
+        z = TWOPI*(phases-loc)
+        cz = np.cos(z)
+        sz = np.sin(z)
+        f = (np.exp(cz)/width)/my_i0
+        return np.asarray([-cz/width**2*f,TWOPI*(sz/width+my_i1/my_i0)*f])
+
+class LCVonMises2(LCPrimitive):
+    """ Represent a peak from the von Mises distribution.  This function is
+        used in directional statistics and is naturally wrapped.
+   
+        Parameters:
+            Width1     inverse of the 'kappa' parameter in the std. def.
+            Width2     inverse of the 'kappa' parameter in the std. def.
+            Location   the center of the peak in phase
+    """
+
+    def init(self):
+        self.p    = np.asarray([0.05,0.05,0.5])
+        self.pnames = ['Width1','Width2','Location']
+        self.name = 'VonMises2'
+        self.shortname = 'VM2'
+
+    def hwhm(self,right=False):
+        return 0.5*np.arccos(self.p[right]*np.log(0.5)+1)/TWOPI
+
+    def __call__(self,phases,log10_ens=3):
+        e,w1,w2,loc = self._make_p(log10_ens)
+        k1,k2 = 1./w1,1./w2
+        z = TWOPI*(phases-loc)
+        k = np.where(z <= 0,k1,k2)
+        norm = 0.5*(np.exp(-k1)*i0(k1)+np.exp(-k2)*i0(k2))
+        return np.exp(np.cos(z)*k)/np.exp(k)/norm
+
+    def gradient(self,phases,log10_ens=3,free=False):
+        raise NotImplementedError()
 
 class LCTopHat(LCPrimitive):
     """ Represent a top hat function.
@@ -734,13 +784,14 @@ class LCHarmonic(LCPrimitive):
         self.name = 'Harmonic'
         self.shortname = 'H'
 
-    def __call__(self,phases):
-        x0 = self.p
+    def __call__(self,phases,log10_ens=3):
+        e,x0 = self._make_p(log10_ens)
         return 1+np.cos( (TWOPI*self.order) * (phases - x0 ) )
 
-    def integrate(self,x1,x2):
+    def integrate(self,x1,x2,log10_ens=3):
+        e,x0 = self._make_p(log10_ens)
         t = self.order*TWOPI
-        return (x2-x1)+(np.sin(t*x2)-np.sin(t*x1))/t
+        return (x2-x1)+(np.sin(t*(x2-x0))-np.sin(t*(x1-x0)))/t
 
 class LCEmpiricalFourier(LCPrimitive):
     """ Calculate a Fourier representation of the light curve.
