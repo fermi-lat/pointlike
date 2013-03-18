@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Mar 18 14:53:27 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcprimitives.py 
+Log Message:
+Preliminary code on two-sided Von Mises, add edep to LCHarmonic and fix bug in integrate.
+
+    *
+------------------------------------------------------------
 User: burnett  Sun Mar 17 11:33:42 PDT 2013
 pointlike/python/uw/like2/pipeline
 
