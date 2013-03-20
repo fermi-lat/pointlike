@@ -1498,6 +1498,7 @@ class SourceInfo(Diagnostics):
         d = np.linspace(xlim[0],xlim[1],51); delta=dom[1]-dom[0]
         chi2 = lambda x: stats.chi2.pdf(x,ndf)
         fudge = 1.4 # to scale, not sure why
+        hilat = np.abs(self.df.glat)>5
         
         def left(ax, label='all non_PSR'):
             mycut=cut*(logparabola)
@@ -1511,6 +1512,7 @@ class SourceInfo(Diagnostics):
         def right(ax, label='PSR'):
             mycut = cut*(~logparabola)
             ax.hist(fitqual[mycut].clip(*xlim), dom, label=label+' (%d)' %sum(mycut))
+            ax.hist(fitqual[mycut*hilat].clip(*xlim), dom, label=label+' [|b|>5] (%d)' %sum(mycut*hilat))
             self.average2=fitqual[mycut].mean()
             ax.plot(d, chi2(d)*fitqual[mycut].count()*delta/fudge, 'r', lw=2, label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
             ax.grid();ax.set_xlabel('fit quality')
@@ -1662,7 +1664,14 @@ class Localization(SourceInfo):
         # unpack the ellipse info into a new DataFrame
         self.ebox = pd.DataFrame([x if x is not None else [np.nan]*7 for x in self.df.ellipse], index=self.df.index)
         self.ebox.columns = 'fit_ra fit_dec a b ang locqual delta_ts'.split()
+        self.ebox['roiname']=self.df.roiname
+        self.ebox['ts'] = self.df.ts
         self.plotfolder='localization'
+        self.badloc=self.ebox[(self.ebox.locqual>0)*(self.ebox.a>0.25)]['ts a locqual roiname'.split()].sort_index(by='ts',ascending=False)
+        if len(self.badloc)>0:
+            print '%d bad localizations found (%d for ts>25)' %(len(self.badloc), sum(self.badloc.ts>25))
+            print '%d really bad' % sum( (self.badloc.locqual>10) + (self.badloc.a>1) )
+            #badloc.save('badloc.pickle')
 
     def localization(self, maxdelta=9, mints=10):
         """Localization plots
@@ -1689,7 +1698,7 @@ class Localization(SourceInfo):
         plt.setp(ax, xscale='log', xlabel='TS', ylabel='sqrt(delta TS)')
         return fig
         
-    def localization_quality(self, maxqual=10, mints=10):
+    def localization_quality(self, maxqual=10, mints=10, tscut=25):
         """Localization quality plots
             Left: histogram of the fit quality. This is a measure of the difference between the sampled
             TS map points and the prediction of the quadratic model. <br>
@@ -1701,8 +1710,8 @@ class Localization(SourceInfo):
         wp = self.ebox
         cut = self.df.ts>mints
         ax=axx[0]
-        ax.hist(wp.locqual[cut].clip(0,maxqual), bins)
-        ax.hist(wp.locqual[self.df.ts>100].clip(0,maxqual), bins,label='TS>100')
+        for x in (mints, tscut):
+            ax.hist(wp.locqual[self.df.ts>x].clip(0,maxqual), bins,label='TS>%d'%x)
         ax.legend(prop=dict(size=10))
         ax.grid()
         plt.setp(ax, xlabel='localization fit quality')
@@ -1712,17 +1721,20 @@ class Localization(SourceInfo):
         plt.setp(ax, xscale='log', xlim=(10,1e5), xlabel='TS', ylabel='localization fit quality')
         return fig 
         
-    def r95(self):
+    def r95(self, qualmax=10):
         """ Error circle radius
         R95 is the 95 %%%% containment radius. Here I show the semi-major axis.
+        Applying cut quality < %(qualmax)d.
         """
         fig, ax = plt.subplots(1,2, figsize=(12,5))
-        r95 = 60* 2.6 * self.ebox.a
-        ts = self.df.ts
-        def hist(ax):
-            bins = np.linspace(0,30,61)
-            ax.hist(r95, bins, label='all')
-            ax.hist(r95[ts>1000], bins, label='TS>1000')
+        r95 = 60* 2.6 * self.ebox.a[self.ebox.locqual<qualmax]
+        ts = self.df.ts[self.ebox.locqual<qualmax]
+        self.qualmax = qualmax
+        def hist(ax, rmax=30):
+            bins = np.linspace(0,rmax,31)
+            ax.hist(r95.clip(0,rmax), bins, label='all')
+            for tsmin in (25,1000):
+                ax.hist(r95[self.df.ts>tsmin].clip(0,rmax), bins, label='TS>%d' % tsmin)
             plt.setp(ax, xlabel='R95 (arcmin)')
             ax.grid(); ax.legend(prop=dict(size=10))
         def scat(ax):
@@ -1783,9 +1795,11 @@ class Localization(SourceInfo):
 
     def all_plots(self):
         """ Localization summary
-        %(ebox_info)s
+        <h3>Poor localzation summary</h3>
+        %(badloc_check)s
         """
         self.ebox_info = self.ebox.describe().to_html()
+        self.badloc_check = self.badloc.to_html()
         return self.runfigures([self.r95, self.localization,self.localization_quality,self.source_confusion])
 
 
