@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Mar 21 12:35:47 PDT 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	sedfuns.py 
+Log Message:
+add delta_ts, spectral function prediction
+    *
+------------------------------------------------------------
 User: burnett  Thu Mar 21 12:35:02 PDT 2013
 pointlike/python/uw/like2/pub
 
