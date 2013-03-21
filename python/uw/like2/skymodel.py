@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.33 2013/02/10 23:16:17 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.34 2013/03/05 19:49:24 burnett Exp $
 
 """
 import os, pickle, glob, types, collections, zipfile
@@ -571,8 +571,12 @@ class Rename(object):
         """ namefile : string
                 text file with from to pairs
         """
+        def parse_line(line):
+            t = line.split()
+            if len(t)==2: return t
+            return (t[0]+'_'+t[1], t[2])
         with open(namefile) as inp:
-            self.namedict = dict( line.split() for line in inp if len(line)>9)
+            self.namedict = dict( parse_line(line) for line in inp if len(line)>9)
         print 'found %d names to convert' % len(self.namedict)
         
     def __call__(self, s):
