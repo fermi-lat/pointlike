@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.59 2012/09/30 16:57:31 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.60 2012/10/04 21:21:22 lande Exp $
 
     author: Matthew Kerr
     """
@@ -177,7 +177,9 @@ def get_diffuse_source(spatialModel='ConstantValue',
             dmodel = IsotropicConstant()
         elif spectralModel == 'PowerLaw':
             # use Sreekumar-like defaults
-            smodel = PowerLaw(norm=1.5e-5,index=2.1)
+            smodel = PowerLaw(index=2.1)
+            smodel.set_flux(1.5e-5, emin=100, emax=N.inf)
+
             dmodel = IsotropicConstant()
         else:
             raise Exception("Unable to parse input.")
