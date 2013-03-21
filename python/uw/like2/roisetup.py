@@ -1,7 +1,7 @@
 """
 Set up an ROI factory object
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.24 2013/02/01 23:03:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.25 2013/02/10 23:18:39 burnett Exp $
 
 """
 import os, sys, types
@@ -242,7 +242,7 @@ class ROIfactory(object):
         sel = pars[0]
         source_name=None
         if type(sel)==types.IntType:
-            index = sel
+            index = int(sel) # needs to be int if int type
         elif type(sel)==skymaps.SkyDir:
             index = self.skymodel.hpindex(sel)
         elif type(sel)==types.StringType:
