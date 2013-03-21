@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.6 2012/08/17 23:44:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.7 2013/02/14 01:57:20 burnett Exp $
 
 """
 import os
@@ -17,10 +17,11 @@ class SourceFlux(object):
     It can be set for all bands, just the band(s) at given energy, or a single band:
         see select_band
     But beware: it alters the source's spectral_model if so: be sure to call reset when done!
+    Note that it supports the 'with' 
     """
-    def __init__(self, rstat, source_name, quiet=True):
+    def __init__(self, rstat, source_name=None, quiet=True):
         """ rstat : ROIstat object
-            source_name : name of one of the sources in the SourceList
+            source_name : name of one of the sources in the SourceList, or None
         """
         self.rs = rstat
         self.rs.quiet=quiet
@@ -54,6 +55,12 @@ class SourceFlux(object):
         self.rs.update()
         return self.rs.log_like()
         
+    def model_flux(self):
+        """ return the energy flux predicted by the saved model, for the current energy
+        (select_band must have been called)
+        """
+        return self.saved_model(self.selected_energy)/self.factor
+
     def select_band(self, index, event_class=None):
         """ Select an energy band or bands
         parameters:
@@ -100,7 +107,11 @@ class SourceFlux(object):
         
 class SED(object):
     """     
-    generates a recarray (member rec) with fields elow ehigh flux lflux uflux ts
+    generates a recarray (member rec) with fields:
+        elow ehigh : energy range
+        flux lflux uflux : energy flux (eV units) for peak, upper and lower limits
+        ts : Test Statistic value for the band
+        mflux delta_ts : model flux, and 2*(logl(flux)-logl(mflux), where logl is the log likelihood
     """
 
     def __init__(self, source_flux, event_class=None, scale_factor=1.0, merge=False,):
@@ -115,7 +126,7 @@ class SED(object):
         """
         sf = source_flux
         self.scale_factor=scale_factor
-        rec = makerec.RecArray('elow ehigh flux lflux uflux ts'.split())
+        rec = makerec.RecArray('elow ehigh flux lflux uflux ts mflux delta_ts'.split())
         self.loglikes = []
         for i,energy in enumerate(sf.energies):
             sf.select_band(i, event_class)
@@ -123,14 +134,16 @@ class SED(object):
             try:
                 w = tools.LogLikelihood(sf)
                 lf,uf = w.errors()
+                mf = sf.model_flux()
+                delta_ts = 2.*(sf(w.maxl) - sf(mf) )
             except Exception, e:
                 print 'Failed likelihood analysis for source %s energy %.0f: %s' %(sf.source.name, energy, e)
-                rec.append(xlo, xhi, np.nan, np.nan, np.nan, 0)
+                rec.append(xlo, xhi, np.nan, np.nan, np.nan, 0, np.nan, np.nan)
                 continue
             if lf>0 :
-                rec.append(xlo, xhi, w.maxl, lf, uf, w.TS())
+                rec.append(xlo, xhi, w.maxl, lf, uf, w.TS(), mf, delta_ts)
             else:
-                rec.append(xlo, xhi, 0, 0, w.upper_limit(), 0)
+                rec.append(xlo, xhi, 0, 0, w.upper_limit(), 0, mf, delta_ts )
             
         self.rec = rec()
         sf.restore() # restore model normalization
@@ -140,41 +153,6 @@ class SED(object):
         return ((2*'%10s'+n*'%8s'+'\n') % self.rec.dtype.names)\
              +'\n'.join( [(2*'%10.0f'+n*'%8.1f') % tuple(row) for row in self.rec])
 
-
-
-#def makesed_all(roi, **kwargs):
-#    """ add sed information to each free local source
-#    
-#    kwargs:
-#        sedfig_dir : string or None
-#            if string, a folder name in which to put the figures
-#        showts : bool
-#    other kwargs passed to sed.Plot().__call__
-#    """
-#    sedfig_dir = kwargs.pop('sedfig_dir', None)
-#    showts = kwargs.pop('showts', True)
-#    initw = roi.log_like()
-#
-#    sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
-#    for source in sources:
-#        try:
-#            sf = SourceFlux(roi, source.name, )
-#            source.sedrec = SED(sf, merge=False).rec
-#            source.ts = roi.TS(source.name)
-#            if sedfig_dir is not None:
-#                annotation =(0.05,0.9, 'TS=%.0f'% source.ts) if showts else None 
-#                sed.Plot(source, gev_scale=True, energy_flux_unit='eV')\
-#                    ( galmap=source.skydir, outdir=sedfig_dir, 
-#                        annotate=annotation, **kwargs)
-#                    
-#        except Exception,e:
-#            print 'source %s failed flux measurement: %s' % (source.name, e)
-#            raise
-#            source.sedrec=None
-#    #roi.initialize() #restore state?
-#    curw= roi.log_like()
-#    assert abs(initw-curw)<0.1, \
-#        'makesed_all: unexpected change in roi state after localization, from %.1f to %.1f' %(initw, curw)
 
 class DiffuseLikelihood(fitter.Fitted):
     """ implement likelihood function of diffuse normalization
