@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.69 2013/03/14 00:38:01 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.71 2013/03/20 12:52:24 burnett Exp $
 
 """
 
@@ -1481,16 +1481,21 @@ class SourceInfo(Diagnostics):
         However, high energy bins usually do not contribute, so we compare with ndf=9.
         All sources with TS_bands>%(tsbandcut)d are shown.<br>
         Left: non-pulsar fits, showing the powerlaw subset. This is important since these can be 
-        improved by converting to log parabola. Overall average is %(average1).1f
-        <br>Right: Fits for the pulsars. Average %(average2).1f
+        improved by converting to log parabola. 
+        <br>Center: Log parabola fits.
+        <br>Right: Fits for the pulsars.
+        <br> Averages: %(average)s
         %(badfit_check)s
 
         """
         from scipy import stats
-        fig, axx = plt.subplots(1,2, figsize=(10,5))
+        fig, axx = plt.subplots(1,3, figsize=(12,5))
         s = self.df
-        logparabola = s.modelname=='LogParabola'
-        beta = self.df.beta
+        psr = np.asarray(s.psr, bool)
+        beta = s.beta
+        logparabola = (~psr) * (beta>0.01)
+        powerlaw = (~psr) * (beta.isnull() + (beta<0.01) )
+
         self.tsbandcut=tsbandcut
         cut=s.band_ts>tsbandcut
         fitqual = s.band_ts-s.ts
@@ -1499,28 +1504,26 @@ class SourceInfo(Diagnostics):
         chi2 = lambda x: stats.chi2.pdf(x,ndf)
         fudge = 1.4 # to scale, not sure why
         hilat = np.abs(self.df.glat)>5
-        
-        def left(ax, label='all non_PSR'):
-            mycut=cut*(logparabola)
+        self.average = [0]*3; i=0
+        for ax, label in zip(axx[:2], ('powerlaw', 'logparabola',)):
+            mycut=cut*eval(label)
             ax.hist(fitqual[mycut].clip(*xlim), dom, label=label+' (%d)'%sum(mycut))
-            powerlaw =mycut*beta.isnull() 
-            ax.hist(fitqual[powerlaw].clip(*xlim), dom, label=' powerlaw (%d)'%sum(powerlaw))
-            self.average1=fitqual[mycut].mean()
+            self.average[i]=fitqual[mycut].mean(); i+=1
             ax.plot(d, chi2(d)*fitqual[mycut].count()*delta/fudge, 'r', lw=2, label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
             ax.grid(); ax.set_xlabel('fit quality')
             ax.legend(prop=dict(size=10))
+            
         def right(ax, label='PSR'):
-            mycut = cut*(~logparabola)
+            mycut = cut * (psr)
             ax.hist(fitqual[mycut].clip(*xlim), dom, label=label+' (%d)' %sum(mycut))
             ax.hist(fitqual[mycut*hilat].clip(*xlim), dom, label=label+' [|b|>5] (%d)' %sum(mycut*hilat))
-            self.average2=fitqual[mycut].mean()
+            self.average[i]=fitqual[mycut].mean()
             ax.plot(d, chi2(d)*fitqual[mycut].count()*delta/fudge, 'r', lw=2, label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
             ax.grid();ax.set_xlabel('fit quality')
             ax.legend(loc='upper left', prop=dict(size=10))
         
-        left(axx[0])
-        right(axx[1])
-        print 'fit quality averages: %.1f, %.1f' % (self.average1, self.average2)
+        right(axx[2])
+        print 'fit quality averages: %.1f, %.1f %.1f' % tuple(self.average)
         self.df['badfit2'] =np.array(self.df.badfit.values, bool)
         t = self.df.ix[(self.df.badfit2)*(self.df.ts>10)].sort_index(by='roiname')
         print '%d sources with bad fits' %len(t)
