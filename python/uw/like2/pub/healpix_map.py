@@ -1,6 +1,6 @@
 """
 Utilities for managing Healpix arrays
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.7 2012/12/12 15:58:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.8 2013/01/04 14:30:06 burnett Exp $
 """
 import os,glob,pickle, types, copy, zipfile
 import pylab as plt
@@ -595,8 +595,8 @@ def make_maps(outdir, title='all',):
     if all or title=='counts':
         Setup(outdir, 'counts').run()
         
-def main(): 
-    outdir = sorted(glob.glob('uw*'))[-1]
+def main(outdir=None): 
+    if outdir is None: outdir = sorted(glob.glob('uw*'))[-1]
     print 'using outdir %s' % outdir
     make_maps(outdir, 'all')
 
