@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.19 2013/03/11 18:18:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.20 2013/03/17 14:34:21 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -64,8 +64,12 @@ class Source(object):
         #    par,sig=self.model.statistical()
         #    self.model = ExpCutoff(*par[:-1])
         elif self.model.name=='ExpCutoff':
-            self.model = self.model.create_super_cutoff()
-            print 'converting %s ' %self.name
+            try:
+                self.model = self.model.create_super_cutoff()
+            except FloatingPointError:
+                pass
+                
+            print 'converting %s to PLSuperExpCutoff' %self.name
         elif self.model.name=='PowerLawFlux':
             f, gamma = self.model.get_all_parameters() #10**self.model.p
             emin = self.model.emin
