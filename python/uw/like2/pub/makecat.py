@@ -1,7 +1,7 @@
 """
 Code to generate a standard Fermi-LAT catalog FITS file
 also, see to_xml, to generate XML for the sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/makecat.py,v 1.3 2013/01/20 14:07:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/makecat.py,v 1.4 2013/03/11 18:23:00 burnett Exp $
 """
 import os
 import pyfits
@@ -245,6 +245,22 @@ class MakeCat(object):
     def finish(self, outfile):
         pyfits.HDUList(self.hdus).writeto(outfile)
         print '\nwrote FITS file to %s' % outfile
+        
+def to_reg(fitsfile, filename=None, color='green'):
+    """ generate a 'reg' file from a FITS file, write to filename
+    """
+    if filename is None: filename = fitsfile.replace('.fits', '.reg')
+    s = pyfits.open(fitsfile)[1].data
+    out = open(filename, 'w')
+    print >> out, "# Region file format: DS9 version 4.0 global color=%s" % color
+    for t in zip(s.RA,s.DEC,
+                          s.Conf_95_SemiMinor,s.Conf_95_SemiMajor,s.Conf_95_PosAng,
+                          s.NickName):
+        print >>out, "fk5; ellipse(%.4f, %.4f, %.4f, %.4f, %.4f) #text={%s}" % t
+                        
+    out.close()
+    print 'wrote reg file to %s' % filename
+
 
 def main(outfile,infile='sources.pickle'):
     assert os.path.exist(infile), 'File %s not found' % infile
@@ -255,5 +271,5 @@ def main(outfile,infile='sources.pickle'):
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='create a FITS file')
     parser.add_argument('args', nargs=1, help='output FITS file' )
-    args = parser.parse_args()
-    main(args.args):
+    args = parser.parse_args()[0]
+    main(args)
