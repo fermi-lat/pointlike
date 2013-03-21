@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.71 2013/03/20 12:52:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.72 2013/03/21 19:32:52 burnett Exp $
 
 """
 
@@ -1904,19 +1904,21 @@ class Associations(SourceInfo):
              '\n'.join(html_rows)+'</table>'
         # compare with LAT pulsr catalog     
         tt = set(self.df.name[self.df.psr])
-        t = glob.glob(os.path.expandvars('$FERMI/catalog/srcid/cat/obj-pulsar-lat_*'))[-1]
-        pp = pyfits.open(t)[1].data
+        pulsar_lat_catname = sorted(glob.glob(os.path.expandvars('$FERMI/catalog/srcid/cat/obj-pulsar-lat_*')))[-1]
+        print 'opening LAT catalog file %s' %pulsar_lat_catname
+        pp = pyfits.open(pulsar_lat_catname)[1].data
         lat = pd.DataFrame(pp, index=[n.strip() for n in pp.Source_Name])
         lat['ts'] = self.df[self.df.psr]['ts']
         lat['ROI_index'] = [Band(12).index(SkyDir(float(ra),float(dec))) for ra,dec in zip(lat.RAJ2000,lat.DEJ2000)]
         dc2names =set(pp.Source_Name)
         print 'sources with exp cutoff not in LAT catalog:', list(tt.difference(dc2names))
-        print 'Catalog entries not found or very weak:', list(dc2names.difference(tt))
+        print 'Catalog entries not found:', list(dc2names.difference(tt))
         missing = [ np.isnan(x) or x<10. for x in lat.ts]
         
-        self.atable += '<h3>Compare with LAT catalog %s</h3>' % t
+        self.atable += '<h3>Compare with LAT catalog %s</h3>' % pulsar_lat_catname
         self.atable += '<p>Sources with exp cutoff not in catalog %s' %list(tt.difference(dc2names))
-        self.atable += '<p>%d LAT catalog entries not found or weak: \n' % sum(missing)
+        self.atable += '<p>%d LAT catalog entries not found or weak:'\
+                       ' Note that "NaN" for the ts column means that it was not found\n' % sum(missing)
         self.atable += lat[missing]['RAJ2000 DEJ2000 ts ROI_index'.split()].to_html()
         
         self.runfigures([self.association_vs_ts,])
