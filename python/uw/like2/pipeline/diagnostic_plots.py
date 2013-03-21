@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.72 2013/03/21 19:32:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.73 2013/03/21 19:45:35 burnett Exp $
 
 """
 
@@ -1474,7 +1474,7 @@ class SourceInfo(Diagnostics):
         ax.grid(True)
         return fig
         
-    def fit_quality(self, xlim=(0,50), ndf=9, tsbandcut=20):
+    def fit_quality(self, xlim=(0,50), ndf=10, tsbandcut=20):
         """ Fit quality
         This is the difference between the TS from the fits in the individual energy bands, and that for the spectral fit.
         It should be distributed approximately as chi squared of at most 14-2 =12 degrees of freedom. 
@@ -1498,27 +1498,33 @@ class SourceInfo(Diagnostics):
 
         self.tsbandcut=tsbandcut
         cut=s.band_ts>tsbandcut
-        fitqual = s.band_ts-s.ts
+        try: # attempt to use new (since 21 mar 03) fit quality
+            fitqual = np.array([sum(x.delta_ts) for x in s.sedrec])
+        except:
+            fitqual = s.band_ts-s.ts
+        
         dom = np.linspace(xlim[0],xlim[1],26)
         d = np.linspace(xlim[0],xlim[1],51); delta=dom[1]-dom[0]
         chi2 = lambda x: stats.chi2.pdf(x,ndf)
-        fudge = 1.4 # to scale, not sure why
+        fudge = 1.0 # to scale, not sure why
         hilat = np.abs(self.df.glat)>5
         self.average = [0]*3; i=0
         for ax, label in zip(axx[:2], ('powerlaw', 'logparabola',)):
             mycut=cut*eval(label)
-            ax.hist(fitqual[mycut].clip(*xlim), dom, label=label+' (%d)'%sum(mycut))
+            count = sum(mycut)
+            ax.hist(fitqual[mycut].clip(*xlim), dom, label=label+' (%d)'%count)
             self.average[i]=fitqual[mycut].mean(); i+=1
-            ax.plot(d, chi2(d)*fitqual[mycut].count()*delta/fudge, 'r', lw=2, label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
+            ax.plot(d, chi2(d)*count*delta/fudge, 'r', lw=2, label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
             ax.grid(); ax.set_xlabel('fit quality')
             ax.legend(prop=dict(size=10))
             
         def right(ax, label='PSR'):
             mycut = cut * (psr)
-            ax.hist(fitqual[mycut].clip(*xlim), dom, label=label+' (%d)' %sum(mycut))
+            count = sum(mycut)
+            ax.hist(fitqual[mycut].clip(*xlim), dom, label=label+' (%d)' %count)
             ax.hist(fitqual[mycut*hilat].clip(*xlim), dom, label=label+' [|b|>5] (%d)' %sum(mycut*hilat))
             self.average[i]=fitqual[mycut].mean()
-            ax.plot(d, chi2(d)*fitqual[mycut].count()*delta/fudge, 'r', lw=2, label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
+            ax.plot(d, chi2(d)*count*delta/fudge, 'r', lw=2, label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
             ax.grid();ax.set_xlabel('fit quality')
             ax.legend(loc='upper left', prop=dict(size=10))
         
