@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.34 2013/01/14 22:24:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.35 2013/03/05 19:49:25 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
@@ -427,11 +427,12 @@ class Finish(Update):
 class Tables(Update):
     """ create standard Tables """
     skyfuns=[("CountsMap", "counts", {}), ("KdeMap", "kde", {}), ("ResidualTS", "ts", dict(photon_index=2.2))]
+    nside=512
     def defaults(self):
         return dict(dampen=0,
             processor="processor.table_processor",
-            tables="""maps.ROItables("%(outdir)s", nside=512, skyfuns=%(skyfuns)s)""" %\
-                        dict(skyfuns=self.skyfuns, outdir=self.outdir),
+            tables="""maps.ROItables("%(outdir)s", nside=%(nside)s, skyfuns=%(skyfuns)s)""" %\
+                        dict(skyfuns=self.skyfuns, outdir=self.outdir, nside=self.nside),
             setup_cmds= 'from uw.like2.pipeline import maps', quiet=True
             )
             
@@ -443,6 +444,11 @@ class PulsarDetection(Tables):
     """ create TS table with pulsar-like function"""
     skyfuns = [("ResidualTS", "pts", dict(model="Models.ExpCutoff(p=[6e-14, 1.2, 2000])"),)]
             
+class ModelTables(Tables):
+    """ create Model prediction tables """
+    nside=64
+    skyfuns = [("ModelMap", "model", dict(nside=64)),]
+    
 class Create(Update):
     """ create a new model, assuming appropriate config.txt
         model_dir points to the new model, which must have an entry "input_model" in its config.txt
