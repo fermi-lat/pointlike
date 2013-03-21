@@ -5,7 +5,7 @@ Manage a SED plot
             sf an SourceFlux object, 
         Plot(sf)()
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.6 2012/01/29 02:01:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.7 2012/06/24 04:59:43 burnett Exp $
 """
 import os, types
 import numpy as np
@@ -80,7 +80,7 @@ class Plot(object):
         bfun  = lambda e: m.flux_relunc(e)
 
         axes.errorbar([e0], [eflux(e0)], yerr=[eflux(e0)*bfun(e0)], 
-                    fmt='or', elinewidth=2, markersize=8)
+                    fmt='+r', elinewidth=2, markersize=8)
                 
         dom_r = np.array([dom[-i-1] for i in range(len(dom))]) #crude reversal.
         upper = eflux(dom)  * (1 + bfun(dom)  ) 
