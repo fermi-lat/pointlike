@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.27 2013/01/28 16:56:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.28 2013/03/06 21:33:22 burnett Exp $
 
 """
 import types
@@ -222,13 +222,13 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
                 fmt +='%10.1f'; tup += (grad[index],)
             print >>out,  fmt % tup
             
-    def TS(self, source_name=None, quick=True):
+    def TS(self, source_name=None, quick=True, zero=1e-20):
         """ measure the TS for the given source
         """
         source = self.sources.find_source(source_name)
         model = source.spectral_model
         norm =model[0]
-        model[0]=1e-15
+        model[0]=zero
         self.update()
         llzero = self.log_like()
         model[0]=norm; self.update()
@@ -406,7 +406,7 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
         
         model : string, or like.Models.Model object
             if string, evaluate. Note that 'PowerLaw(1e-11,2.0)' will work. Also supported:
-            ExpCutoff, PlSuperExpCutoff, LogParabola, each with all parameters required.
+            ExpCutoff, PLSuperExpCutoff, LogParabola, each with all parameters required.
         source_name: None or string
             if None, use currently selected source
         """
