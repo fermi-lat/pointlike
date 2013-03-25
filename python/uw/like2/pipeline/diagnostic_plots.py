@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.74 2013/03/21 22:30:00 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.75 2013/03/25 20:50:32 burnett Exp $
 
 """
 
@@ -1229,7 +1229,7 @@ class SourceInfo(Diagnostics):
         self.df['flux']    = [v[0] for v in self.df.pars.values]
         self.df['flux_unc']= [v[0] for v in self.df.errs.values]
         try: # attempt to use new (since 21 mar 03) fit quality
-            fitqual = np.array([sum(x.delta_ts) for x in s.sedrec])
+            fitqual = np.array([sum(x.delta_ts) for x in self.df.sedrec])
         except:
             fitqual = self.df.band_ts-self.df.ts
             print 'using approximate fitqual'
@@ -1481,7 +1481,7 @@ class SourceInfo(Diagnostics):
         ax.grid(True)
         return fig
         
-    def fit_quality(self, xlim=(0,50), ndf=9, tsbandcut=20):
+    def fit_quality(self, xlim=(0,50), ndf=10, tsbandcut=20):
         """ Fit quality
         This is the difference between the TS from the fits in the individual energy bands, and that for the spectral fit.
         It should be distributed approximately as chi squared of at most 14-2 =12 degrees of freedom. 
@@ -1548,7 +1548,7 @@ class SourceInfo(Diagnostics):
         # Make tables (csv and html) of the poor fits
 
         t =s.ix[s.fitqual>50]['ra dec fitqual ts modelname roiname'.split()].sort_index(by='roiname')
-        poorfit_csv = 'poor_fits.csv'
+        poorfit_csv = 'poor_spectral_fits.csv'
         t.to_csv(poorfit_csv)
         bs =sorted(list(set(t.roiname)))
         print 'Wrote out list of poor fits to %s, %d with fitqual>50, in %d ROIs' % (poorfit_csv, len(t), len(bs))
@@ -1927,7 +1927,8 @@ class Associations(SourceInfo):
         html_rows = ['<tr><td>%s</td><td>%d</td></tr>' %x for x in t.items() ]
         self.atable = '<table><tr><th>Catalog</th><th>number</th></tr>'+\
              '\n'.join(html_rows)+'</table>'
-        # compare with LAT pulsr catalog     
+             
+        # compare with LAT pulsar catalog     
         tt = set(self.df.name[self.df.psr])
         pulsar_lat_catname = sorted(glob.glob(os.path.expandvars('$FERMI/catalog/srcid/cat/obj-pulsar-lat_*')))[-1]
         print 'opening LAT catalog file %s' %pulsar_lat_catname
@@ -1935,6 +1936,12 @@ class Associations(SourceInfo):
         lat = pd.DataFrame(pp, index=[n.strip() for n in pp.Source_Name])
         lat['ts'] = self.df[self.df.psr]['ts']
         lat['ROI_index'] = [Band(12).index(SkyDir(float(ra),float(dec))) for ra,dec in zip(lat.RAJ2000,lat.DEJ2000)]
+        lat['skydir'] = map(SkyDir, lat.RAJ2000, lat.DEJ2000)
+        lat['sourcedir'] = self.df.skydir[self.df.psr]
+        lat['delta'] = [np.degrees(s.difference(t)) if not type(t)==float else np.nan for s,t in zip(lat.skydir,lat.sourcedir)]
+        if sum(lat.delta>0.25)>0:
+            print 'LAT pulsar catalog entries found more than 0.25 deg from catalog:'
+            print lat[lat.delta>0.25]['ts delta'.split()]
         dc2names =set(pp.Source_Name)
         print 'sources with exp cutoff not in LAT catalog:', list(tt.difference(dc2names))
         print 'Catalog entries not found:', list(dc2names.difference(tt))
@@ -1945,6 +1952,10 @@ class Associations(SourceInfo):
         self.atable += '<p>%d LAT catalog entries not found or weak:'\
                        ' Note that "NaN" for the ts column means that it was not found\n' % sum(missing)
         self.atable += lat[missing]['RAJ2000 DEJ2000 ts ROI_index'.split()].to_html()
+        if sum(lat.delta>0.25)>0:
+            self.atable += '<p>Pulsars located > 0.25 deg from nominal'\
+                    + lat[lat.delta>0.25]['ts delta'.split()].to_html()
+
         
         self.runfigures([self.association_vs_ts,])
     
