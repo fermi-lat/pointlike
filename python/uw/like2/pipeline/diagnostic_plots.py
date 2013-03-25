@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.73 2013/03/21 19:45:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.74 2013/03/21 22:30:00 burnett Exp $
 
 """
 
@@ -1201,8 +1201,8 @@ class SourceInfo(Diagnostics):
                         pindex_unc = errs[1],
                         beta = betavalue,
                         beta_unc = errs[2] if not pulsar and pars[2]>0.002 else np.nan,
-                        index2 = np.nan,
-                        index2_unc = np.nan,
+                        index2 = pars[3] if pulsar else np.nan,
+                        index2_unc = errs[3] if pulsar and not np.isnan(pars[3]) else np.nan,
                         cutoff = pars[2] if pulsar else np.nan,
                         cutoff_unc = errs[2] if pulsar else np.nan,
                         e0 = model.e0,
@@ -1228,6 +1228,13 @@ class SourceInfo(Diagnostics):
             self.df = pd.load(filename)
         self.df['flux']    = [v[0] for v in self.df.pars.values]
         self.df['flux_unc']= [v[0] for v in self.df.errs.values]
+        try: # attempt to use new (since 21 mar 03) fit quality
+            fitqual = np.array([sum(x.delta_ts) for x in s.sedrec])
+        except:
+            fitqual = self.df.band_ts-self.df.ts
+            print 'using approximate fitqual'
+        self.df['fitqual'] = fitqual
+
         self.energy = np.sqrt( self.df.ix[0]['sedrec'].elow * self.df.ix[0]['sedrec'].ehigh )
             
     def skyplot(self, values, proj=None, ax=None, ecliptic=False,
@@ -1474,18 +1481,19 @@ class SourceInfo(Diagnostics):
         ax.grid(True)
         return fig
         
-    def fit_quality(self, xlim=(0,50), ndf=10, tsbandcut=20):
+    def fit_quality(self, xlim=(0,50), ndf=9, tsbandcut=20):
         """ Fit quality
         This is the difference between the TS from the fits in the individual energy bands, and that for the spectral fit.
         It should be distributed approximately as chi squared of at most 14-2 =12 degrees of freedom. 
-        However, high energy bins usually do not contribute, so we compare with ndf=9.
+        However, high energy bins usually do not contribute, so we compare with ndf=%(ndf)d.
         All sources with TS_bands>%(tsbandcut)d are shown.<br>
-        Left: non-pulsar fits, showing the powerlaw subset. This is important since these can be 
+        Left: non-pulsar fits, showing the powerlaw subset. Tails in this distribution perhaps could be 
         improved by converting to log parabola. 
         <br>Center: Log parabola fits.
-        <br>Right: Fits for the pulsars.
-        <br> Averages: %(average)s
+        <br>Right: Fits for the pulsars, showing high latitude subset.
+        <br> Averages: %(fit_quality_average)s
         %(badfit_check)s
+        %(poorfit_table)s
 
         """
         from scipy import stats
@@ -1498,10 +1506,6 @@ class SourceInfo(Diagnostics):
 
         self.tsbandcut=tsbandcut
         cut=s.band_ts>tsbandcut
-        try: # attempt to use new (since 21 mar 03) fit quality
-            fitqual = np.array([sum(x.delta_ts) for x in s.sedrec])
-        except:
-            fitqual = s.band_ts-s.ts
         
         dom = np.linspace(xlim[0],xlim[1],26)
         d = np.linspace(xlim[0],xlim[1],51); delta=dom[1]-dom[0]
@@ -1512,8 +1516,8 @@ class SourceInfo(Diagnostics):
         for ax, label in zip(axx[:2], ('powerlaw', 'logparabola',)):
             mycut=cut*eval(label)
             count = sum(mycut)
-            ax.hist(fitqual[mycut].clip(*xlim), dom, label=label+' (%d)'%count)
-            self.average[i]=fitqual[mycut].mean(); i+=1
+            ax.hist(s.fitqual[mycut].clip(*xlim), dom, label=label+' (%d)'%count)
+            self.average[i]=s.fitqual[mycut].mean(); i+=1
             ax.plot(d, chi2(d)*count*delta/fudge, 'r', lw=2, label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
             ax.grid(); ax.set_xlabel('fit quality')
             ax.legend(prop=dict(size=10))
@@ -1521,23 +1525,38 @@ class SourceInfo(Diagnostics):
         def right(ax, label='PSR'):
             mycut = cut * (psr)
             count = sum(mycut)
-            ax.hist(fitqual[mycut].clip(*xlim), dom, label=label+' (%d)' %count)
-            ax.hist(fitqual[mycut*hilat].clip(*xlim), dom, label=label+' [|b|>5] (%d)' %sum(mycut*hilat))
-            self.average[i]=fitqual[mycut].mean()
+            ax.hist(s.fitqual[mycut].clip(*xlim), dom, label=label+' (%d)' %count)
+            ax.hist(s.fitqual[mycut*hilat].clip(*xlim), dom, label=label+' [|b|>5] (%d)' %sum(mycut*hilat))
+            self.average[i]=s.fitqual[mycut].mean()
             ax.plot(d, chi2(d)*count*delta/fudge, 'r', lw=2, label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
             ax.grid();ax.set_xlabel('fit quality')
             ax.legend(loc='upper left', prop=dict(size=10))
         
         right(axx[2])
-        print 'fit quality averages: %.1f, %.1f %.1f' % tuple(self.average)
         self.df['badfit2'] =np.array(self.df.badfit.values, bool)
         t = self.df.ix[(self.df.badfit2)*(self.df.ts>10)].sort_index(by='roiname')
         print '%d sources with bad fits' %len(t)
         if len(t)>0:
             self.badfit = t[['ts', 'errs', 'roiname']]
-            self.badfit_check = '<h4>Sources with bad fits:</h4>'+self.badfit.to_html()
+            self.badfit_check = '<h4>Sources with no errors:</h4>'+self.badfit.to_html()
         else: self.badfit_check = '<p>All sources fit ok.'
+        self.fit_quality_average =  ', '.join( map(lambda x,n :'%s: %.1f' %(n,x) ,
+                            self.average, 'powerlaw logparabola expcutoff'.split()) )
+        self.ndf=ndf
+        print 'fit quality averages:', self.fit_quality_average
 
+        # Make tables (csv and html) of the poor fits
+
+        t =s.ix[s.fitqual>50]['ra dec fitqual ts modelname roiname'.split()].sort_index(by='roiname')
+        poorfit_csv = 'poor_fits.csv'
+        t.to_csv(poorfit_csv)
+        bs =sorted(list(set(t.roiname)))
+        print 'Wrote out list of poor fits to %s, %d with fitqual>50, in %d ROIs' % (poorfit_csv, len(t), len(bs))
+        # todo: make a function to do this nidcely
+        poorfit_html = self.plotfolder+'/poorfits.html'
+        open(poorfit_html,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+t.to_html()+'\n</body>')
+        self.poorfit_table = '<p> <a href="poorfits.html"> Table of %d poor fits, with fitqual>50 </a>' % (  len(t) )
+        
         return fig
         
     def pivot_vs_e0(self, xylim=(100, 4e4)):
