@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.42 2013/01/29 20:14:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.43 2013/01/29 22:30:10 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -195,7 +195,7 @@ def pickle_dump(roi, fit_sources, pickle_dir, dampen, failed=False, **kwargs):
     print 'saved pickle file to %s' % filename
         
 
-def repivot(roi, fit_sources=None, min_ts = 10, max_beta=3.0, emin=200, emax=10000.):
+def repivot(roi, fit_sources=None, min_ts = 10, max_beta=3.0, emin=200, emax=20000.):
     """ invoked by process() if repivot flag set; can be run separately to test
     
     returns True if had to refit, allowing iteration
@@ -215,7 +215,9 @@ def repivot(roi, fit_sources=None, min_ts = 10, max_beta=3.0, emin=200, emax=100
             print 'source %s:exception %s' %(source.name, e)
             continue
             
-        if pivot is None: continue
+        if pivot is None: 
+            print 'pivot is none'
+            continue
         if model.name=='LogParabola': e0 = model[3]
         elif model.name=='ExpCutoff':
             e0 = model.e0

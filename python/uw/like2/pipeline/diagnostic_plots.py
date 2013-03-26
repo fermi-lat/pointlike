@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.75 2013/03/25 20:50:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.76 2013/03/25 22:38:44 burnett Exp $
 
 """
 
@@ -1298,7 +1298,7 @@ class SourceInfo(Diagnostics):
         ax.hist( usets ,dom, cumulative=-1, lw=2, color='g', histtype='step',label=label)
         if other_ts is not None:
             ax.hist( other_ts ,dom, cumulative=-1, lw=2, color='b', histtype='step',label=otherlabel)
-        
+        print 'check localization info'
         if check_localized:
             localized = ~np.array(pd.isnull(df.delta_ts))
             extended = np.array(df.isextended, bool)
@@ -1312,9 +1312,13 @@ class SourceInfo(Diagnostics):
             self.badloc = df[unloc*(df.ts>tscut[0])][['ts','roiname']]
             if len(self.badloc)>0:
                 print 'check self.badloc for %d sources' %len(self.badloc)
-                self.badloc_check = '<h4> Unlocalized above TS=%d:</h4>'%tscut[0] + self.badloc.to_html()
+                badlocpath = os.path.join(self.plotfolder,'badloc.html')
+                open(os.path.join(badlocpath,'w')).write(self.badloc_to_html())
+                self.badloc_check = '<h4> Unlocalized above TS=%d:</h4>'%tscut[0] +\
+                    '<a href="%s"> Table of badly localized sources</a>' %badlocpath
             else:
                 self.badloc_check= '<p>No unlocalized sources above TS=%d'%tscut[0]
+                print 'no unlocalized sources'
         plt.setp(ax,  ylabel='# sources with greater TS', xlabel='TS',
             xscale='log', yscale='log', xlim=(9, 1e4), ylim=(9,8000))
         ax.set_xticklabels([' ', '10', '100', '1000'])
@@ -1695,10 +1699,19 @@ class Localization(SourceInfo):
         self.ebox['roiname']=self.df.roiname
         self.ebox['ts'] = self.df.ts
         self.plotfolder='localization'
-        self.badloc=self.ebox[(self.ebox.locqual>0)*(self.ebox.a>0.25)]['ts a locqual roiname'.split()].sort_index(by='ts',ascending=False)
+        tscut = kw.get('tscut', 25)
+        acut = kw.get('acut', 0.25)
+        self.badloc=self.ebox[(self.ebox.locqual>0)*(self.ebox.a>acut)]['ts a locqual roiname'.split()].sort_index(by='ts',ascending=False)
         if len(self.badloc)>0:
-            print '%d bad localizations found (%d for ts>25)' %(len(self.badloc), sum(self.badloc.ts>25))
-            print '%d really bad' % sum( (self.badloc.locqual>10) + (self.badloc.a>1) )
+            print '%d bad localizations found (%d for ts>%d, a>%f)' %(len(self.badloc), sum(self.badloc.ts>tscut), tscut, acut)
+            poorlocpath = os.path.join('plots',self.plotfolder,'poorloc.html')
+            open(os.path.join(poorlocpath),'w').write(
+                '<head>\n' + HTMLindex.style + '</head>\n<body>\n<h3>Poorly Localized Source Table</h3>'\
+                            +  self.badloc.to_html()+'\n</body>')
+            print 'saved html doc%s' % os.path.join(poorlocpath)
+            self.poorloc_check = '<p><a href="%s"> Table of %d poorly localized (a>%.2f deg, TS>%d) sources</a>'\
+                                    % ( 'poorloc.html',len(self.badloc),acut,tscut)
+
             #badloc.save('badloc.pickle')
 
     def localization(self, maxdelta=9, mints=10):
@@ -1824,10 +1837,9 @@ class Localization(SourceInfo):
     def all_plots(self):
         """ Localization summary
         <h3>Poor localzation summary</h3>
-        %(badloc_check)s
+        %(poorloc_check)s
         """
         self.ebox_info = self.ebox.describe().to_html()
-        self.badloc_check = self.badloc.to_html()
         return self.runfigures([self.r95, self.localization,self.localization_quality,self.source_confusion])
 
 
