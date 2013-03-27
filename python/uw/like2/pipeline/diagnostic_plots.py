@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.76 2013/03/25 22:38:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.77 2013/03/26 14:43:07 burnett Exp $
 
 """
 
@@ -80,10 +80,11 @@ class Diagnostics(object):
                 the title as the first line, the caption the following lines
         func : executable function, or None
             if not None, run the func, use it to get docs
+            If func creates a figure, it must return it
         Note that the docstring may have %(xxx)s, which will be replaced by attribute xxx.
         """
         if func is not None:
-            func(**kwargs)
+            fig=func(**kwargs)
             fname = func.__name__
         else: fname = name
         if hasattr(self, fname):
@@ -94,17 +95,17 @@ class Diagnostics(object):
                 if title is None:     title = doclines[0]
             except Exception, msg:
                 print 'docstring processing problem: %s' % msg
-        fig= plt.gcf()
-        fig.text(0.02, 0.02, self.skymodel, fontsize=8)
-        savefig_kw=dict(dpi=60, bbox_inches='tight', pad_inches=0.5) 
         localfile = '%s_%s.png'%(name, self.skymodel.replace('/','_'))
         savefile = os.path.join(self.plotfolder,localfile)
-        
-        plt.savefig(savefile, **savefig_kw)
-        print 'saved plot to %s' % savefile
-        # ceate a simple HTML file 
         if title is None: title = name.replace('_', ' ')
-        html = '<h3>%s</h3> <img src="%s" />\n <br> %s '% (title, localfile, caption if caption is not None else '')
+        if fig is not None:
+            fig.text(0.02, 0.02, self.skymodel, fontsize=8)
+            savefig_kw=dict(dpi=60, bbox_inches='tight', pad_inches=0.5) 
+            plt.savefig(savefile, **savefig_kw)
+            print 'saved plot to %s' % savefile
+            html = '<h3>%s</h3> <img src="%s" />\n <br> %s '% (title, localfile, caption if caption is not None else '')
+        else:
+            html = '<h3>%s</h3>\n <br>  %s' % (title, caption if caption is not None else '')
         open(savefile.replace('.png','.html'),'w').write(html )
         print 'saved html doc to %s' % os.path.join(os.getcwd(),savefile.replace('.png','.html'))
         return html
@@ -125,7 +126,8 @@ class Diagnostics(object):
         if docstring is not None: html+=docstring
         for function, name in zip(functions,names):
             fname = name if name is not None else function.__name__
-            html+='\n'+self.savefigure(fname, function, **kwargs)
+            fig = self.savefigure(fname, function, **kwargs)
+            html+='\n'+ fig
         html+='\n</body>'
         t = os.path.split(os.getcwd())
         self.header='/'.join([t[-1], os.path.split(self.plotfolder)[-1]])
@@ -1186,7 +1188,7 @@ class SourceInfo(Diagnostics):
                     ellipse = info.get('ellipse', None)
                     sdict[name] = info
                     pulsar = model.name.endswith('Cutoff')
-                    betavalue = float(pars[2]) if not pulsar and pars[2]>0.002 else np.nan
+                    betavalue = float(pars[2]) if not pulsar else np.nan
                     sdict[name].update(
                         glat=info['skydir'].b(), glon=info['skydir'].l(),
                         roiname=pkl['name'], 
@@ -1234,7 +1236,9 @@ class SourceInfo(Diagnostics):
             fitqual = self.df.band_ts-self.df.ts
             print 'using approximate fitqual'
         self.df['fitqual'] = fitqual
-
+        self.df['flags'] = 0  #used to set bits below
+        self.df['eflux'] = self.df.flux * self.df.e0**2 * 1e6
+ 
         self.energy = np.sqrt( self.df.ix[0]['sedrec'].elow * self.df.ix[0]['sedrec'].ehigh )
             
     def skyplot(self, values, proj=None, ax=None, ecliptic=False,
@@ -1394,7 +1398,7 @@ class SourceInfo(Diagnostics):
         ax.legend(prop=dict(size=10))
         ax.set_title( title, fontsize='medium')
         ax.grid()  
-        return fig
+        
 
     def non_psr_spectral_plots(self):
         """ Plots showing spectral parameters for non-pulsar spectra
@@ -1417,14 +1421,18 @@ class SourceInfo(Diagnostics):
         plt.setp(ax, xlabel='beta'); ax.grid(); ax.legend(prop=dict(size=10))
         # get tails
         tail_cut = (t.eflux<5e-2)+((t.pindex<1)+(t.pindex>3.5))*t.beta.isnull()+(t.beta>3.0)
-        non_psr_tails=t[tail_cut]['ts eflux pindex beta roiname'.split()]
-        if len(non_psr_tails)>0:
+        self.non_psr_tails=t[tail_cut]['ts eflux pindex beta roiname'.split()]
+        if len(self.non_psr_tails)>0:
             self.tail_check = '<h4>Sources on tails:</h4>'\
-                +non_psr_tails.sort_index(by='roiname').to_html()
+                +self.non_psr_tails.sort_index(by='roiname').to_html()
             self.tail_check += '<p>Criteria: require index between 1 and 3.5 for powerlaw, beta<3.0 for log parabola'
         else:
             self.tail_check ='<p>No soruces on tails'
-        print '%d sources in tails of flux, index, or beta' % len(non_psr_tails)
+        print '%d sources in tails of flux, index, or beta' % len(self.non_psr_tails)
+        # flag sources
+        flags = self.df.flags
+        tails = self.non_psr_tails.index
+        flags[tails] += 1 ### bit 1
         return fig
     
     def lowenergyfluxratio(self, ax=None, cut=None, xmax=100., title='low energy fit consistency', energy=133, hist=False, minflux=2.0):
@@ -1457,7 +1465,6 @@ class SourceInfo(Diagnostics):
                 ylabel='data/model', ylim=(0,2.5), xlim=(minflux, 100) )
             ax.set_xticks([2,5,10,20,50,100])
             ax.set_title( title, fontsize='medium')
-
         else:
             dom = np.linspace(-4,4,51)
             hist_kw=dict(lw=2, histtype='step')
@@ -1561,6 +1568,8 @@ class SourceInfo(Diagnostics):
         open(poorfit_html,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+t.to_html()+'\n</body>')
         self.poorfit_table = '<p> <a href="poorfits.html"> Table of %d poor fits, with fitqual>50 </a>' % (  len(t) )
         
+        # flag sources that made it into the list
+        self.df.flags[t.index] += 2
         return fig
         
     def pivot_vs_e0(self, xylim=(100, 4e4)):
@@ -1650,6 +1659,7 @@ class SourceInfo(Diagnostics):
             
         self.bad_consistency = '<h3> Sources not consistent in 133 MeV bin</h3>'
         self.bad_consistency+= self.lowebad.to_html()
+        self.df.flags[self.lowebad.index] += 4
         return fig
         
     def all_plots(self):
@@ -1685,33 +1695,24 @@ class SourceInfo(Diagnostics):
             self.spectral_fit_consistency_plots]
         )
         
-
         plt.close('all')
-        
+        t =self.df[self.df.flags>0]['ra dec ts fitqual eflux pindex beta cutoff index2 flags roiname'.split()]
+        t.to_csv('flagged_sources.csv')
+        print 'wrote %d sources to flagged_sources.csv' % len(t)
  
 class Localization(SourceInfo):
 
     def setup(self, **kw):
         super(Localization, self).setup(**kw)
+        self.plotfolder = 'localization'
         # unpack the ellipse info into a new DataFrame
         self.ebox = pd.DataFrame([x if x is not None else [np.nan]*7 for x in self.df.ellipse], index=self.df.index)
         self.ebox.columns = 'fit_ra fit_dec a b ang locqual delta_ts'.split()
         self.ebox['roiname']=self.df.roiname
         self.ebox['ts'] = self.df.ts
-        self.plotfolder='localization'
         tscut = kw.get('tscut', 25)
         acut = kw.get('acut', 0.25)
         self.badloc=self.ebox[(self.ebox.locqual>0)*(self.ebox.a>acut)]['ts a locqual roiname'.split()].sort_index(by='ts',ascending=False)
-        if len(self.badloc)>0:
-            print '%d bad localizations found (%d for ts>%d, a>%f)' %(len(self.badloc), sum(self.badloc.ts>tscut), tscut, acut)
-            poorlocpath = os.path.join('plots',self.plotfolder,'poorloc.html')
-            open(os.path.join(poorlocpath),'w').write(
-                '<head>\n' + HTMLindex.style + '</head>\n<body>\n<h3>Poorly Localized Source Table</h3>'\
-                            +  self.badloc.to_html()+'\n</body>')
-            print 'saved html doc%s' % os.path.join(poorlocpath)
-            self.poorloc_check = '<p><a href="%s"> Table of %d poorly localized (a>%.2f deg, TS>%d) sources</a>'\
-                                    % ( 'poorloc.html',len(self.badloc),acut,tscut)
-
             #badloc.save('badloc.pickle')
 
     def localization(self, maxdelta=9, mints=10):
@@ -1743,10 +1744,13 @@ class Localization(SourceInfo):
         """Localization quality plots
             Left: histogram of the fit quality. This is a measure of the difference between the sampled
             TS map points and the prediction of the quadratic model. <br>
-            Right: scatter plot of the quality vs. TS.
+            Center: scatter plot of the quality vs. TS. <br>
+            Right: locations of poorly-fit sources, see the <a href="poorloc.html">table</a>.
         """
         bins=np.linspace(0,maxqual,26)
-        fig, axx = plt.subplots(1,2,figsize=(10,5)); 
+        #ig, axx = plt.subplots(1,3,figsize=(13,5));
+        fig, axxx = self.subplot_array( hsize=(1.0, 0.6, 1.0, 0.2, 2.0, 0.5), figsize=(13,5))
+        axx = axxx[0]
         plt.subplots_adjust(wspace=0.4)
         wp = self.ebox
         cut = self.df.ts>mints
@@ -1760,6 +1764,8 @@ class Localization(SourceInfo):
         ax.plot( self.df.ts[cut],wp.locqual[cut].clip(0,maxqual), '.')
         ax.grid()
         plt.setp(ax, xscale='log', xlim=(10,1e5), xlabel='TS', ylabel='localization fit quality')
+        ax=axx[2]
+        self.skyplot(self.badloc.locqual, ax=ax, s=50, vmin=10, vmax=100, cbtext='localization quality')
         return fig 
         
     def r95(self, qualmax=10):
@@ -1785,6 +1791,30 @@ class Localization(SourceInfo):
         for f,a in zip((hist,scat), ax): f(a)
         return fig
         
+    def check_closeness(self, tol=0.15, bmin=0, tsmin=10):
+        """ Closeness check
+            <p>Table of pairs closer than %(close_tol).2f degrees
+            %(close_table)s
+        """
+        cut = (np.abs(self.df.glat)>bmin) * (self.df.ts>tsmin)
+        indeces = self.df.index[cut] 
+        sdirs = self.df[ cut ]['skydir'].values
+        name1=[]; name2=[]; distance=[]
+        for i in range(len(sdirs)-1): 
+            a = sdirs[i]
+            for j in range(i+1, len(sdirs)):
+                dist = np.degrees(a.difference(sdirs[j]))
+                if dist< tol:
+                    name1.append(indeces[i])
+                    name2.append(indeces[j])
+                    distance.append(dist)
+                    print 'Closer than tolerance: sources %s, %s, %.2f deg' \
+                        % (indeces[i], indeces[j], dist)
+        self.close_tol = tol
+        self.close_table = pd.DataFrame(dict(source1=name1, source2=name2, distance=distance)).to_html()
+        return None
+        
+
     def source_confusion(self, bmin=10, dtheta=0.1, nbins=50, deficit_angle=1.0, tsmin=10):
         """ Source Confusion
         Distribution of the distances to the nearest neighbors of all detected sources with |b|> %(bmin)s degrees.
@@ -1796,6 +1826,7 @@ class Localization(SourceInfo):
         sdirs = self.df[ (np.abs(self.df.glat)>bmin) * (self.df.ts>tsmin) ]['skydir'].values
         closest = ([sorted(map(sdirs[i].difference, sdirs))[1] for i in range(len(sdirs))])
         z = np.degrees(closest)
+        self.closest = z
         n = len(z)
         rho = n /(4*np.pi*np.degrees(1)**2) / (1-np.sin(np.radians(bmin)))
         f = lambda x : n*rho * np.exp( -np.pi*rho*x**2)
@@ -1833,14 +1864,32 @@ class Localization(SourceInfo):
             ylabel='ratio of detected to expected')
         return fig
     
+    def bad_loc(self, tscut=10, acut=0.25):
+        """ Bad localizations
+                %(poorloc_check)s
+        """
+        if len(self.badloc)>0:
+        
+            print '%d bad localizations found (%d for ts>%d, a>%f)' %(len(self.badloc), sum(self.badloc.ts>tscut), tscut, acut)
+            poorlocpath = os.path.join(self.plotfolder,'poorloc.html')
+            open('poorloc.html','w').write(self.badloc.to_html())
+            print 'Wrote poorloc.html'
+            open(os.path.join(poorlocpath),'w').write(
+                '<head>\n' + HTMLindex.style + '</head>\n<body>\n<h3>Poorly Localized Source Table</h3>'\
+                            +  self.badloc.to_html()+'\n</body>')
+            print 'saved html doc%s' % os.path.join(poorlocpath)
+            self.poorloc_check = '<p><a href="%s"> Table of %d poorly localized (a>%.2f deg, TS>%d) sources</a>'\
+                                    % ( 'poorloc.html',len(self.badloc),acut,tscut)
+        else:
+            self.poorloc_check ='<p>No poorly localized sources!'
+
 
     def all_plots(self):
-        """ Localization summary
-        <h3>Poor localzation summary</h3>
-        %(poorloc_check)s
+        """Localization summary
+        
+        <p>Analysis of the localization information derived from the 'ellipse' field of the source records.
         """
-        self.ebox_info = self.ebox.describe().to_html()
-        return self.runfigures([self.r95, self.localization,self.localization_quality,self.source_confusion])
+        return self.runfigures([self.r95, self.localization,self.localization_quality,self.bad_loc,self.check_closeness,self.source_confusion])
 
 
 class SourceComparison(SourceInfo):
