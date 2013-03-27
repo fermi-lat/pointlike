@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.43 2013/01/29 22:30:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.44 2013/03/26 14:43:07 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -340,7 +340,8 @@ def process(roi, **kwargs):
         t = os.path.join(outdir, kwargs.get(x))
         if not os.path.exists(t): os.mkdir(t)
         return t
-    sedfuns.makesed_all(roi, sedfig_dir=getdir('sedfig_dir'))
+    skymodel_name = os.path.split(os.getcwd())[-1]
+    sedfuns.makesed_all(roi, sedfig_dir=getdir('sedfig_dir'), suffix='_sed_%s'%skymodel_name, )
     if localize:
         print 'localizing and associating all sources with variable...'
         q, roi.quiet = roi.quiet,False
