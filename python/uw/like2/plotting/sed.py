@@ -5,7 +5,7 @@ Manage a SED plot
             sf an SourceFlux object, 
         Plot(sf)()
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.8 2013/03/21 19:40:27 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.9 2013/03/27 19:33:42 burnett Exp $
 """
 import os, types
 import numpy as np
@@ -30,10 +30,10 @@ class Plot(object):
         self.gev_scale=gev_scale
 
     def plot_data(self, axes, **kwargs):
+        ul_kwargs = kwargs.copy()
+        ul_kwargs['color']='gray'
         if 'color' not in kwargs:
             kwargs['color'] = 'k'
-            ul_kwargs = kwargs.copy()
-            ul_kwargs['color']='gray'
 
         for r in self.rec:
             xl, xh = r.elow, r.ehigh
@@ -113,6 +113,7 @@ class Plot(object):
                 fit_kwargs =dict(lw=2,        color='r',),
                 butterfly = True,
                 outdir = None,
+                suffix = '_sed',
                 galmap=None,
                 annotate=None,
                 ):
@@ -129,6 +130,7 @@ class Plot(object):
         fit_kwargs   a dict to pass to the fit part of the display
         butterfly    [True] plot model with a butterfly outline
         outdir       [None] if set, save sed into <outdir>/<source_name>_sed.png if outdir is a directory, save into filename=<outdir> if noself.
+        suffix       ['_sed'] Add to source name to form filename
         galmap       [None] if set to a SkyDir, create a little galactic map showing this position
         annotate     [None] if set, a tuple of (x, y, text), in axes coords
         ========     ===================================================
@@ -180,8 +182,8 @@ class Plot(object):
             axes.text(annotate[0],annotate[1], annotate[2],transform=axes.transAxes, fontsize='small')
         if outdir is not None: 
             if os.path.isdir(outdir):
-                fname = name.replace(' ','_').replace('+','p')
-                outf = os.path.join(outdir,'%s_sed.png'%fname)
+                fname = name.replace(' ','_').replace('+','p') + suffix
+                outf = os.path.join(outdir,'%s.png'% fname
                 plt.savefig(outf)
                 print 'saved sedfig to %s' %outf
             else :
