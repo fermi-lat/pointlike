@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.44 2013/03/26 14:43:07 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.45 2013/03/27 20:52:38 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -206,7 +206,7 @@ def repivot(roi, fit_sources=None, min_ts = 10, max_beta=3.0, emin=200, emax=200
     need_refit =False
     if fit_sources is None:
         fit_sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
-
+    print 'processing %d sources' % len(fit_sources)
     for source in fit_sources:
         model = source.spectral_model
         try:
@@ -219,9 +219,10 @@ def repivot(roi, fit_sources=None, min_ts = 10, max_beta=3.0, emin=200, emax=200
             print 'pivot is none'
             continue
         if model.name=='LogParabola': e0 = model[3]
-        elif model.name=='ExpCutoff':
+        elif model.name=='ExpCutoff' or model.name=='PLSuperExpCutoff':
             e0 = model.e0
         else:
+            print 'Model %s is not repivoted' % model.name
             continue
         print '%-20s %8.0f %9.0f %9.0f '  % (source.name, ts, e0, pivot),
         if ts < min_ts: 
