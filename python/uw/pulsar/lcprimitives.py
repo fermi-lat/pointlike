@@ -3,7 +3,7 @@ components of a pulsar light curve.  Includes primitives (Gaussian,
 Lorentzian), etc.  as well as more sophisticated holistic templates that
 provide single-parameter (location) representations of the light curve.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcprimitives.py,v 1.32 2013/02/21 01:31:54 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcprimitives.py,v 1.33 2013/03/18 21:53:27 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -453,8 +453,8 @@ class LCGaussian(LCWrappedFunction):
     """ Represent a (wrapped) Gaussian peak.
 
         Parameters
-        Width     :     the standard deviation parameter of the norm dist.
-        Location  :     the mode of the Gaussian distribution
+        Width     the standard deviation parameter of the norm dist.
+        Location  the mode of the Gaussian distribution
     """
 
     def init(self):
@@ -490,10 +490,11 @@ class LCGaussian(LCWrappedFunction):
 
 class LCGaussian2(LCWrappedFunction):
     """ Represent a (wrapped) two-sided Gaussian peak.
+
         Parameters
-        Width1    :  the standard deviation parameter of the norm dist.
-        Width2    :  the standard deviation parameter of the norm dist.
-        Location  :  the mode of the distribution
+        Width1    the standard deviation parameter of the norm dist.
+        Width2    the standard deviation parameter of the norm dist.
+        Location  the mode of the distribution
     """
 
     def init(self):
@@ -554,9 +555,9 @@ class LCLorentzian(LCPrimitive):
     """ Represent a (wrapped) Lorentzian peak.
    
         Parameters
-        Width     :     the width paramater of the wrapped Cauchy distribution,
-                        namely HWHM*2PI for narrow distributions
-        Location  :     the center of the peak in phase
+        Width     the width paramater of the wrapped Cauchy distribution,
+                    namely HWHM*2PI for narrow distributions
+        Location  the center of the peak in phase
     """
     def init(self):
         self.p = np.asarray([0.1,0.5])
@@ -608,9 +609,9 @@ class LCLorentzian(LCPrimitive):
 class LCLorentzian2(LCWrappedFunction):
     """ Represent a (wrapped) two-sided Lorentzian peak.
         Parameters
-        Width1    :  the HWHM of the distribution (left)
-        Width2    :  the HWHM of the distribution (right)
-        Location  :  the mode of the distribution
+        Width1    the HWHM of the distribution (left)
+        Width2    the HWHM of the distribution (right)
+        Location  the mode of the distribution
     """
 
     def init(self):
@@ -683,8 +684,8 @@ class LCVonMises(LCPrimitive):
         used in directional statistics and is naturally wrapped.
    
         Parameters:
-            Width     :     inverse of the 'kappa' parameter in the std. def.
-            Location  :     the center of the peak in phase
+            Width     inverse of the 'kappa' parameter in the std. def.
+            Location  the center of the peak in phase
     """
 
     def init(self):
@@ -711,42 +712,68 @@ class LCVonMises(LCPrimitive):
         f = (np.exp(cz)/width)/my_i0
         return np.asarray([-cz/width**2*f,TWOPI*(sz/width+my_i1/my_i0)*f])
 
-class LCVonMises2(LCPrimitive):
-    """ Represent a peak from the von Mises distribution.  This function is
-        used in directional statistics and is naturally wrapped.
-   
-        Parameters:
-            Width1     inverse of the 'kappa' parameter in the std. def.
-            Width2     inverse of the 'kappa' parameter in the std. def.
-            Location   the center of the peak in phase
+class LCKing(LCWrappedFunction):
+    """ Represent a (wrapped) King function peak.
+
+        Parameters
+        Sigma     the width parameter
+        Gamma     the tail parameter
+        Location  the mode of the distribution
     """
 
+    # NOTES -- because we don't integrate over solid angle, the norm
+    # integral / jacobean for the usual King function isn't trivial;
+    # need to see if this is a show stopper
+
     def init(self):
-        self.p    = np.asarray([0.05,0.05,0.5])
-        self.pnames = ['Width1','Width2','Location']
-        self.name = 'VonMises2'
-        self.shortname = 'VM2'
+        self.p    = np.asarray([0.03,0.5])
+        self.pnames = ['Sigma','Gamma','Location']
+        self.name = 'King'
+        self.shortname = 'K'
 
     def hwhm(self,right=False):
-        return 0.5*np.arccos(self.p[right]*np.log(0.5)+1)/TWOPI
-
-    def __call__(self,phases,log10_ens=3):
-        e,w1,w2,loc = self._make_p(log10_ens)
-        k1,k2 = 1./w1,1./w2
-        z = TWOPI*(phases-loc)
-        k = np.where(z <= 0,k1,k2)
-        norm = 0.5*(np.exp(-k1)*i0(k1)+np.exp(-k2)*i0(k2))
-        return np.exp(np.cos(z)*k)/np.exp(k)/norm
-
-    def gradient(self,phases,log10_ens=3,free=False):
         raise NotImplementedError()
+        return self.p[0]*(2 * np.log(2))**0.5
+
+    def base_func(self,phases,log10_ens=3,index=0):
+        e,s,g,x0 = self._make_p(log10_ens)
+        z = phases+index-x0
+        u = 0.5*(z/s)**2
+        return (g-1)/g*(1.+u/g)**-g
+
+    def base_grad(self,phases,log10_ens=3,index=0):
+        raise NotImplementedError()
+        e,width,x0 = self._make_p(log10_ens)
+        z = (phases + index - x0)/width
+        f = (1./(width*ROOT2PI))*np.exp(-0.5*z**2 )
+        return np.asarray([f/width*(z**2 - 1.),f/width*z])
+
+    def base_int(self,x1,x2,log10_ens=3,index=0):
+        e,s,g,x0 = self._make_p(log10_ens)
+        z1 = x1 + index - x0
+        z2 = x2 + index - x0
+        u1 = 0.5*((x1 + index - x0)/s)**2
+        u2 = 0.5*((x2 + index - x0)/s)**2
+        f1 = 1-(1.+u1/g)**(1-g)
+        f2 = 1-(1.+u2/g)**(1-g)
+        if (z1*z2<0): # span the peak
+            return 0.5*(f1+f2)
+        if z1 < 0:
+            return 0.5*(f1-f2)
+        return 0.5*(f2-f1)
+
+    def random(self,n):
+        raise NotImplementedError()
+        if hasattr(n,'__len__'):
+            n = len(n)
+        return np.mod(norm.rvs(loc=self.p[-1],scale=self.p[0],size=n),1)
 
 class LCTopHat(LCPrimitive):
     """ Represent a top hat function.
    
         Parameters:
-            Width     :     right edge minus left edge
-            Location  :     center of top hat
+            Width     right edge minus left edge
+            Location  center of top hat
     """
 
     def init(self):
@@ -773,7 +800,7 @@ class LCHarmonic(LCPrimitive):
     """Represent a sinusoidal shape corresponding to a harmonic in a Fourier expansion.
    
       Parameters:
-         Location  :     the phase of maximum
+         Location  the phase of maximum
 
     """
 
