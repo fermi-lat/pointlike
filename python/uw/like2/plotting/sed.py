@@ -5,7 +5,7 @@ Manage a SED plot
             sf an SourceFlux object, 
         Plot(sf)()
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.7 2012/06/24 04:59:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.8 2013/03/21 19:40:27 burnett Exp $
 """
 import os, types
 import numpy as np
@@ -32,6 +32,8 @@ class Plot(object):
     def plot_data(self, axes, **kwargs):
         if 'color' not in kwargs:
             kwargs['color'] = 'k'
+            ul_kwargs = kwargs.copy()
+            ul_kwargs['color']='gray'
 
         for r in self.rec:
             xl, xh = r.elow, r.ehigh
@@ -42,10 +44,10 @@ class Plot(object):
                 axes.plot([bc,bc], [r.lflux*fac,r.uflux*fac], **kwargs)
             else:
                 x,y = bc, r.uflux*fac
-                axes.plot([xl,xh], [y,y] , **kwargs) # bar at upper limit
+                axes.plot([xl,xh], [y,y] , **ul_kwargs) # bar at upper limit
                 # plot arrow 0.6 long by 0.4 wide, triangular head (in log coords)
                 axes.plot([x, x,     x*1.2, x,     x/1.2, x],
-                          [y, y*0.6, y*0.6, y*0.4, y*0.6, y*0.6], **kwargs)
+                          [y, y*0.6, y*0.6, y*0.4, y*0.6, y*0.6], **ul_kwargs)
  
                       
     def plot_model(self, axes, m, dom,  butterfly, **kwargs):
