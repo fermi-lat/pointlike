@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.77 2013/03/26 14:43:07 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.78 2013/03/27 02:49:25 burnett Exp $
 
 """
 
@@ -315,7 +315,7 @@ class CountPlots(Diagnostics):
         ax.grid()
         ax.axhline(0, color='k')
         
-    def chisq_plots(self, hsize=(1.0, 0.8, 1.5, 0.5), vmin=0, vmax=100, bcut=10):
+    def chisq_plots(self, hsize=(1.0, 0.8, 1.5, 0.5), vmin=0, vmax=50, bcut=10):
         """ chi squared plots
         chi squared distribution
         """
@@ -329,12 +329,12 @@ class CountPlots(Diagnostics):
                 s=60, vmin=vmin, vmax=vmax,  edgecolor='none', colorbar=True);
                 
         def chihist(ax):
-            bins = np.linspace(0,100, 26)
+            bins = np.linspace(0, vmax, 26)
             lolat = np.abs(self.rois.glat)<bcut
-            ax.hist(chisq.clip(0,100), bins, label='all: mean=%.1f'%chisq.mean())
-            ax.hist(chisq.clip(0,100)[lolat], bins, color='red', label='|b|<%d (%.1f)'%(bcut, chisq[lolat].mean()))
+            ax.hist(chisq.clip(0,vmax), bins, label='all: mean=%.1f'%chisq.mean())
+            ax.hist(chisq.clip(0,vmax)[lolat], bins, color='red', label='|b|<%d (%.1f)'%(bcut, chisq[lolat].mean()))
             ax.legend(loc='upper right', prop=dict(size=10)) 
-            plt.setp(ax, xlabel='chisq')
+            plt.setp(ax, xlabel='chisq', xlim=(0,vmax))
             ax.grid(True)
             
         for f, ax in zip( (chihist, chisky), axs.flatten()): f(ax)
@@ -1400,7 +1400,7 @@ class SourceInfo(Diagnostics):
         ax.grid()  
         
 
-    def non_psr_spectral_plots(self):
+    def non_psr_spectral_plots(self, index_min=1.0, index_max=3.5, beta_max=2.0):
         """ Plots showing spectral parameters for non-pulsar spectra
         Left: energy flux in eV/cm**2/s. This is the differential flux at the pivot energy
         <br> Center: the spectral index.
@@ -1411,16 +1411,16 @@ class SourceInfo(Diagnostics):
         t = self.df.ix[(self.df.ts>10)*(self.df.modelname=='LogParabola')]['ts flux pindex beta e0 roiname'.split()]
         t['eflux'] = t.flux * t.e0**2 * 1e6
         ax = axx[0]
-        [ax.hist(t.eflux[t.ts>tscut].clip(1e-2,1e2), np.logspace(-2,2,26), label='TS>%d' % tscut) for tscut in [10,25] ]
-        plt.setp(ax, xscale='log', xlabel='energy flux'); ax.grid(); ax.legend(prop=dict(size=10))
+        [ax.hist(t.eflux[t.ts>tscut].clip(4e-2,1e2), np.logspace(-2,2,26), label='TS>%d' % tscut) for tscut in [10,25] ]
+        plt.setp(ax, xscale='log', xlabel='energy flux', xlim=(4e-2,1e2)); ax.grid(); ax.legend(prop=dict(size=10))
         ax = axx[1]
-        [ax.hist(t.pindex[t.ts>tscut].clip(1,4), np.linspace(1,4,26), label='TS>%d' % tscut) for tscut in [10,25] ]
+        [ax.hist(t.pindex[t.ts>tscut].clip(index_min,index_max), np.linspace(index_min,index_max,26), label='TS>%d' % tscut) for tscut in [10,25] ]
         plt.setp(ax, xlabel='spectral index'); ax.grid(); ax.legend(prop=dict(size=10))
         ax = axx[2]
-        [ax.hist(t.beta[(t.ts>tscut)*(t.beta>0.01)].clip(0,3), np.linspace(0,3,26), label='TS>%d' % tscut) for tscut in [10,25] ]
+        [ax.hist(t.beta[(t.ts>tscut)*(t.beta>0.01)].clip(0,beta_max), np.linspace(0,beta_max,26), label='TS>%d' % tscut) for tscut in [10,25] ]
         plt.setp(ax, xlabel='beta'); ax.grid(); ax.legend(prop=dict(size=10))
         # get tails
-        tail_cut = (t.eflux<5e-2)+((t.pindex<1)+(t.pindex>3.5))*t.beta.isnull()+(t.beta>3.0)
+        tail_cut = (t.eflux<5e-2)+((t.pindex<index_min)+(t.pindex>index_max))*t.beta.isnull()+(t.beta>beta_max)
         self.non_psr_tails=t[tail_cut]['ts eflux pindex beta roiname'.split()]
         if len(self.non_psr_tails)>0:
             self.tail_check = '<h4>Sources on tails:</h4>'\
@@ -1745,7 +1745,7 @@ class Localization(SourceInfo):
             Left: histogram of the fit quality. This is a measure of the difference between the sampled
             TS map points and the prediction of the quadratic model. <br>
             Center: scatter plot of the quality vs. TS. <br>
-            Right: locations of poorly-fit sources, see the <a href="poorloc.html">table</a>.
+            Right: locations of poorly-fit sources, see the <a href="poorly_localized_table.html">table</a>.
         """
         bins=np.linspace(0,maxqual,26)
         #ig, axx = plt.subplots(1,3,figsize=(13,5));
@@ -1866,22 +1866,22 @@ class Localization(SourceInfo):
     
     def bad_loc(self, tscut=10, acut=0.25):
         """ Bad localizations
-                %(poorloc_check)s
+                %(poorly_localized_table_check)s
         """
         if len(self.badloc)>0:
         
             print '%d bad localizations found (%d for ts>%d, a>%f)' %(len(self.badloc), sum(self.badloc.ts>tscut), tscut, acut)
-            poorlocpath = os.path.join(self.plotfolder,'poorloc.html')
-            open('poorloc.html','w').write(self.badloc.to_html())
-            print 'Wrote poorloc.html'
-            open(os.path.join(poorlocpath),'w').write(
+            poorly_localized_tablepath = os.path.join(self.plotfolder,'poorly_localized_table.html')
+            open('poorly_localized_table.html','w').write(self.badloc.to_html())
+            print 'Wrote poorly_localized_table.html'
+            open(os.path.join(poorly_localized_tablepath),'w').write(
                 '<head>\n' + HTMLindex.style + '</head>\n<body>\n<h3>Poorly Localized Source Table</h3>'\
                             +  self.badloc.to_html()+'\n</body>')
-            print 'saved html doc%s' % os.path.join(poorlocpath)
-            self.poorloc_check = '<p><a href="%s"> Table of %d poorly localized (a>%.2f deg, TS>%d) sources</a>'\
-                                    % ( 'poorloc.html',len(self.badloc),acut,tscut)
+            print 'saved html doc%s' % os.path.join(poorly_localized_tablepath)
+            self.poorly_localized_table_check = '<p><a href="%s"> Table of %d poorly localized (a>%.2f deg, TS>%d) sources</a>'\
+                                    % ( 'poorly_localized_table.html',len(self.badloc),acut,tscut)
         else:
-            self.poorloc_check ='<p>No poorly localized sources!'
+            self.poorly_localized_table_check ='<p>No poorly localized sources!'
 
 
     def all_plots(self):
