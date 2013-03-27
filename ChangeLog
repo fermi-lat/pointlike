@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Mar 27 10:18:14 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lctemplate.py 
+Log Message:
+Change order of P1 and P2 in bridge template lists.
+
+    *
+------------------------------------------------------------
 User: kerrm  Wed Mar 27 10:17:33 PDT 2013
 pointlike/python/uw/pulsar
 
