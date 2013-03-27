@@ -1,7 +1,7 @@
 """
 A module implementing a mixture model of LCPrimitives to form a
 normalized template representing directional data.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.13 2013/02/21 01:31:54 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.14 2013/03/06 21:45:21 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -413,16 +413,17 @@ class LCBridgeTemplate(LCTemplate):
     
     def __init__(self,primitives,norms=None):
         """ primitives -- a list of LCPrimitive instances of len >= 2; the
-                first two components are interpreted as P1 and P2
+                last two components are interpreted as P1 and P2
             norms -- either an instance of NormAngles, or a tuple of
                 relative amplitudes for the primitive components; should
-                have one extra parameter for the bridge component
+                have one extra parameter for the bridge component; the
+                first component is interpreted as the pedestal nor
         """
         if norms is None:
             norms = np.ones(len(primitives)+1)/(len(primitives+1))
         super(LCBridgeTemplate,self).__init__(primitives,norms)
-        self.p1 = self.primitives[0]
-        self.p2 = self.primitives[1]
+        self.p1 = self.primitives[-2]
+        self.p2 = self.primitives[-1]
 
     def _sanity_checks(self):
         if len(self.primitives) != len(self.norms)-1:
@@ -435,7 +436,7 @@ class LCBridgeTemplate(LCTemplate):
         """
         all_norms = self.norms(log10_ens)
         nped,norms = all_norms[0],all_norms[1:]
-        n1,n2 = norms[:2]
+        n1,n2 = norms[-2:]
         p1,p2 = self.p1,self.p2
         # NB -- location need to be made "energy aware"
         l1,l2 = p1.get_location(),p2.get_location()
@@ -457,7 +458,7 @@ class LCBridgeTemplate(LCTemplate):
         if l2 < l1:
             mask = ~mask
         rvals = k/delta*mask # pedestal
-        norm_list = [n1+dn1*mask,n2+dn2*mask] + [norms[i] for i in xrange(2,len(norms))]
+        norm_list = [norms[i] for i in xrange(0,len(norms)-2)] + [n1+dn1*mask,n2+dn2*mask]
         return rvals,norm_list,all_norms.sum(axis=0)
             
     def random(self,n,weights=None,return_partition=False):
@@ -502,7 +503,6 @@ class LCBridgeTemplate(LCTemplate):
             rvals += weight*self.single_component(index,phases,en)
         rvals /= w[0].sum()
         return rvals
-
 
 def get_gauss2(pulse_frac=1,x1=0.1,x2=0.55,ratio=1.5,width1=0.01,width2=0.02,lorentzian=False,bridge_frac=0,skew=False):
     """Return a two-gaussian template.  Convenience function."""
