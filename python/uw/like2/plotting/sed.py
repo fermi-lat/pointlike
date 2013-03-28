@@ -5,7 +5,7 @@ Manage a SED plot
             sf an SourceFlux object, 
         Plot(sf)()
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.9 2013/03/27 19:33:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.10 2013/03/27 20:53:31 burnett Exp $
 """
 import os, types
 import numpy as np
@@ -50,7 +50,7 @@ class Plot(object):
                           [y, y*0.6, y*0.6, y*0.4, y*0.6, y*0.6], **ul_kwargs)
  
                       
-    def plot_model(self, axes, m, dom,  butterfly, **kwargs):
+    def plot_model(self,  m,  butterfly=False, **kwargs):
         """ 
             m: the model, implements Models.Model
             dom: the domain, a set of points
@@ -58,6 +58,8 @@ class Plot(object):
             kwargs: pass to the line to plot
         """
         energy_flux_factor = self.scale_factor*1e6 # from MeV to eV
+        dom = self.dom
+        axes = self.axes
         
         ## plot the curve
         axes.plot( dom, energy_flux_factor*m(dom)*dom**2, **kwargs)
@@ -65,13 +67,14 @@ class Plot(object):
         # show position of e0, possibly the pivot energy
         if butterfly:
             try:
-                self.plot_butterfly(axes, m, dom)
+                self.plot_butterfly(m)
             except:
                 print 'fail to plot butterfly for {}'.format(self.name)
 
-    def plot_butterfly(self, axes, m, dom):
+    def plot_butterfly(self, m, ):
         energy_flux_factor = self.scale_factor*1e6 # from MeV to eV
-
+        axes = self.axes
+        dom = self.dom
         try:
             e0 = m.pivot_energy()
         except:
@@ -146,6 +149,7 @@ class Plot(object):
             fig=plt.figure(fignum, figsize=(4,4)); plt.clf()
             fig.add_axes((0.22,0.15,0.75,0.72))
             axes = plt.gca()
+        self.axes = axes
         axes.set_xscale('log')
         axes.set_yscale('log')
         if axis is None:
@@ -156,8 +160,8 @@ class Plot(object):
        
         self.plot_data(axes, **data_kwargs)
         # and the model, perhaps with a butterfly
-        dom = np.logspace(np.log10(self.rec.elow[0]), np.log10(self.rec.ehigh[-1]), 26)
-        self.plot_model(axes, model, dom, butterfly, **fit_kwargs)
+        self.dom = np.logspace(np.log10(self.rec.elow[0]), np.log10(self.rec.ehigh[-1]), 26)
+        self.plot_model( model, butterfly, **fit_kwargs)
         plt.rcParams['axes.linewidth'] = oldlw
 
         # the axis labels (note reduced labelpad for y) 
@@ -176,15 +180,20 @@ class Plot(object):
         axes.set_title(name)
         # add a galactic map if requested
         if galmap is not None:
-            image.galactic_map(galmap, color='lightblue', marker='s', markercolor='r')
+            image.galactic_map(galmap, color='lightblue', marker='s', markercolor='r', markersize=20)
 
         if annotate is not None:
             axes.text(annotate[0],annotate[1], annotate[2],transform=axes.transAxes, fontsize='small')
         if outdir is not None: 
-            if os.path.isdir(outdir):
-                fname = name.replace(' ','_').replace('+','p') + suffix
-                outf = os.path.join(outdir,'%s.png'% fname
-                plt.savefig(outf)
-                print 'saved sedfig to %s' %outf
-            else :
-                plt.savefig(outdir)
+            self.name=name
+            self.savefig( outdir, suffix)
+            
+    def savefig(self,outdir, suffix=''):
+        if os.path.isdir(outdir):
+            fname = self.name.replace(' ','_').replace('+','p') + suffix
+            outf = os.path.join(outdir,'%s.png'% fname)
+            plt.savefig(outf)
+            print 'saved sedfig to %s' %outf
+        else :
+            plt.savefig(outdir)
+            print 'saved sedfig to %s' %outdir
