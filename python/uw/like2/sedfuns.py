@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.7 2013/02/14 01:57:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.8 2013/03/21 19:35:47 burnett Exp $
 
 """
 import os
@@ -280,4 +280,28 @@ def makesed_all(roi, **kwargs):
     assert abs(initw-curw)<0.1, \
         'makesed_all: unexpected change in roi state after spectral analysis, from %.1f to %.1f' %(initw, curw)
 
+
+def test_model(roi, model, source_name=None, **kwargs): 
+    outdir = kwargs.pop('outdir', None)
+    if outdir is not None:
+        if not os.path.exists(outdir): os.mkdir(outdir)
+    alternate = kwargs.pop('alternate', 'alternate')
+   
+    sedrec = roi.get_sed(source_name)
+    fitqual=sum(sedrec.delta_ts)
+    source = roi.get_source()    
+    plx = plotting.sed.Plot(source, gev_scale=True, energy_flux_unit='eV')
+    plx( galmap=source.skydir, fit_kwargs=dict(color='r', lw=2, label='best fit (%.1f)' % fitqual),
+                    **kwargs)
+    old_model = roi.set_model(model)
+    with SourceFlux(roi, source_name) as sf:
+        tsedrec = SED(sf).rec
+    plx.plot_model(model, color='green', lw=2,  ls='--', label='%s (%.1f)' %(alternate, sum(tsedrec.delta_ts)) )
+    plx.axes.legend(loc='upper left', prop=dict(size=10) )
+    if outdir is not None:
+        plx.savefig(outdir)
+    roi.set_model(old_model)
+    return plx
+    
+    
     
