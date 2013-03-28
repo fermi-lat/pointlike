@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Mar 28 15:13:30 PDT 2013
+pointlike/python/uw/like2/plotting
+
+Modified Files:
+	sed.py 
+Log Message:
+changes to allow for plotting separate model
+    *
+------------------------------------------------------------
 User: burnett  Wed Mar 27 13:54:46 PDT 2013
 pointlike/python/uw/like2/pipeline
 
