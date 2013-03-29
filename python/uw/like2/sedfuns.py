@@ -1,10 +1,10 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.9 2013/03/28 22:14:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.10 2013/03/28 22:38:46 burnett Exp $
 
 """
-import os
+import os,pickle
 import numpy as np
 from uw.utilities import fitter,  makerec, keyword_options
 from . import plotting 
@@ -285,9 +285,11 @@ def test_model(roi, model, source_name=None, **kwargs):
     """
     
     """
-    outdir = kwargs.pop('outdir', None)
-    if outdir is not None:
-        if not os.path.exists(outdir): os.mkdir(outdir)
+    figdir,seddir = [kwargs.pop(x, None) for x in ('figdir', 'seddir')]
+    for x in figdir,seddir:
+        if x is not None and not os.path.exists(x):
+            os.mkdir(x)
+            
     alternate = kwargs.pop('alternate', 'alternate')
    
     sedrec = roi.get_sed(source_name)
@@ -302,8 +304,11 @@ def test_model(roi, model, source_name=None, **kwargs):
     alt_fitqual = sum(tsedrec.delta_ts)
     plx.plot_model(model, color='green', lw=2,  ls='--', label='%s (+%.1f)' %(alternate,alt_fitqual-fitqual) )
     plx.axes.legend(loc='upper left', prop=dict(size=10) )
-    if outdir is not None:
-        plx.savefig(outdir)
+    if figdir is not None:
+        plx.savefig(figdir)
+    if seddir is not None:
+        pickle.dump(tsedrec, open(os.path.join(seddir, 
+            source.name.replace(' ','_').replace('+','p')+'.pickle'), 'w'))
     roi.set_model(old_model)
     return alt_fitqual
     
