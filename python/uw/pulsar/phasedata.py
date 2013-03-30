@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/phasedata.py,v 1.2 2011/07/21 13:48:49 paulr Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/phasedata.py,v 1.3 2012/03/29 22:19:17 kerrm Exp $
 
 Handle loading of FT1 file and phase folding with polycos.
 
@@ -33,7 +33,8 @@ class PhaseData(object):
         ('we_col_name','WEIGHT','name for column with weight data in FT1 file'),
         ('use_weights',False,'load weights if available'),
         ('wmin',0,'minimum weight to use'),
-        ('ft2',None,'an FT2 file that can be used for on-the-fly time correction')
+        ('ft2',None,'an FT2 file that can be used for on-the-fly time correction'),
+        ('bary',False,'use barycenter time instead of geocenter'),
     )
 
     @keyword_options.decorate(defaults)
@@ -44,7 +45,7 @@ class PhaseData(object):
         self.process_ft1()
 
     def process_ft1(self):
-        mc = METConverter(self.ft1file,ft2=self.ft2,ra=self.polyco.ra,dec=self.polyco.dec)
+        mc = self.mc = METConverter(self.ft1file,ft2=self.ft2,ra=self.polyco.ra,dec=self.polyco.dec,bary=self.bary)
         self.mjd_start = mc.MJDSTART; self.mjd_stop = mc.MJDSTOP
         f    = pyfits.open(self.ft1file)
         ens  = np.asarray(f['EVENTS'].data.field('ENERGY'))
@@ -93,5 +94,6 @@ class PhaseData(object):
 
     def toa_data(self,mjd_start,mjd_stop):
         mask = (self.mjds >= mjd_start)&(self.mjds < mjd_stop)
-        if self.weights is None: return self.ph[mask],None
+        if self.weights is None:
+            return self.ph[mask],None
         return self.ph[mask],self.weights[mask]
