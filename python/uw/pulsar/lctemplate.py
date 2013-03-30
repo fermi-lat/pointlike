@@ -1,7 +1,7 @@
 """
 A module implementing a mixture model of LCPrimitives to form a
 normalized template representing directional data.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.14 2013/03/06 21:45:21 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.15 2013/03/27 17:18:14 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -486,7 +486,7 @@ class LCBridgeTemplate(LCTemplate):
         #raise NotImplementedError()
         rvals,norms,norm = self._get_scales(phases,log10_ens)
         if index<len(self.primitives):
-            np.add(rvals,norms[index]*self.primitives[index](phases,log10_ens),out=rvals)
+            np.add(rvals,norms[index]*self.primitives[index](phases,log10_ens),rvals)
         return rvals
 
     def mean_single_component(self,index,phases,log10_ens=None,weights=None,bins=20):
