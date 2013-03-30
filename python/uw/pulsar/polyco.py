@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.4 2012/10/01 08:08:11 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.5 2013/02/05 20:18:50 kerrm Exp $
 
 Mange polycos from tempo2.
 
@@ -58,8 +58,7 @@ class PolycoEntry:
         return(freq)
 
 class Polyco:
-    def __init__(self, fname, psrname=None, recalc_polycos=True,mjd0=51544,
-                 ndays=None):
+    def __init__(self, fname, psrname=None, recalc_polycos=True,mjd0=51544,bary=False, working_dir=None, output=None, ndays=None):
         """ Create an object encapsulating a set of polynomial coefficients for
             evaluating phase.
 
@@ -69,6 +68,9 @@ class Polyco:
                      but can be lengthy to compute
         """
 
+        self.bary = bary
+        self.working_dir = working_dir
+        self.output = output
         if fname.endswith( ".par" ) or recalc_polycos:
             from uw.pulsar.parfiles import ParFile
             pf = ParFile(fname)
@@ -138,14 +140,23 @@ class Polyco:
         endMJD=mjd0+nDays+2
         if (endMJD-mjd0) < 2:
             raise ValueError('Unacceptable MJD bounds.')
-        print 'MJD limits: %s %s'%(str(mjd0),str(endMJD))
+        print "MJD limits: %s %s"%(str(mjd0),str(endMJD))
+        curdir = os.getcwd()
+        if self.working_dir is not None:
+            os.chdir(self.working_dir)
         if recalc_polycos:
-            os.system('rm polyco_new.dat newpolyco.dat polyco.tim')
-            t2cmd = 'tempo2 -f %s -polyco "%s %s 360 12 12 coe 0 0\"'%(
-                polyconame,mjd0,endMJD)
+            os.system( "rm polyco_new.dat newpolyco.dat polyco.tim" )
+            obs_string = '@' if self.bary else 'coe'
+            t2cmd = 'tempo2 -f %s -polyco "%s %s 360 12 12 %s 0 0\"'%(
+                polyconame,mjd0,endMJD,obs_string)
             print 'Creating polycos with command:\n',t2cmd
             os.system(t2cmd)
-        polyconame="polyco_new.dat"
+        polyconame=os.path.abspath("polyco_new.dat")
+        os.system('rm newpolyco.dat polyco.tim')
+        if self.output is not None:
+            os.system('mv polyco_new.dat %s'%self.output)
+            polyconame = self.output
+        os.chdir(curdir)
         return polyconame
 
     def make_keys(self):
