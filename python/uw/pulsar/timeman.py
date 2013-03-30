@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/timeman.py,v 1.3 2012/03/29 22:17:14 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/timeman.py,v 1.4 2012/09/13 23:30:31 kerrm Exp $
 
 Handle MET(TT) to MJD(UTC) conversions.
 
@@ -9,6 +9,7 @@ Author: Paul S. Ray <paul.ray@nrl.navy.mil>
 import os
 import numpy as np
 import pyfits
+import warnings
 
 SECSPERDAY = 86400.0
 
@@ -61,10 +62,23 @@ class GeoConverter(object):
                (self.ra is not None) and \
                (self.dec is not None)
 
-class METConverter(object):
-    """Convert LAT arrival times (in Mission Elapsed Time) to MJD(UTC)."""
+class BaryConverter(GeoConverter):
+    def __call__(self,times):
+        if not self.can_geo():
+            raise Exception('Cannot barycenter!  Must provide FT2 and position.')
+        else:
+            print 'Attempting to barycenter on-the-fly.'
+        from skymaps import PythonUtilities
+        times = times.astype(np.float64)
+        PythonUtilities.met2tdb(times,self.ra,self.dec,self.ft2)
+        return times
 
-    def __init__(self,ft1file,ft2=None,ra=None,dec=None):
+class METConverter(object):
+    """ Convert LAT arrival times (in Mission Elapsed Time) to MJD(UTC)
+        in a geocentric reference frame.  The user may alternatively
+        specify to use a barycentric frame."""
+
+    def __init__(self,ft1file,ft2=None,ra=None,dec=None,bary=False):
 
         self.clockcorr = ClockCorr()
 
@@ -73,20 +87,29 @@ class METConverter(object):
         ft1hdr  = hdulist['EVENTS'].header
         ft1dat  = hdulist['EVENTS'].data
 
-        if ft1hdr['TIMEREF'] != 'GEOCENTRIC':
-            self.geocon = GeoConverter(ft2,ra,dec)
+        if bary:
+            frame = 'SOLARSYSTEM'
+            timesys = 'TDB'
+            geocon = BaryConverter
+        else:
+            frame = 'GEOCENTRIC'
+            timesys = 'TT'
+            geocon = GeoConverter
+        if ft1hdr['TIMEREF'] != frame:
+            self.geocon = geocon(ft2,ra,dec)
             if not self.geocon.can_geo():
+                s = 'BARYCENTERED' if bary else 'GEOCENTERED'
                 print "# !!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-                print "# !!!!!!!!! WARNING !!!!!!!!!! TIMEREF is not GEOCENTRIC! This code is intended for GEOCENTERED times!"
+                print "# !!!!!!!!! WARNING !!!!!!!!!! TIMEREF is not %s! This code is intended for %s times!"%(frame,s)
                 print "# !!!!!!!!!!!!!!!!!!!!!!!!!!!!"
             else:
-                print 'TIMEREF is not GEOCENTRIC! But will attempt to correct times on-the-fly.'
+                print 'TIMEREF is not %s! But will attempt to correct times on-the-fly.'%frame
         else:
             self.geocon = lambda x: x
 
-        if ft1hdr['TIMESYS'] != 'TT':
+        if ft1hdr['TIMESYS'] != timesys:
               print "# !!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-              print "# !!!!!!!!! WARNING !!!!!!!!!! TIMESYS is not TT.  We are expecting TT times!"
+              print "# !!!!!!!!! WARNING !!!!!!!!!! TIMESYS is not %s.  We are expecting %s times!"%(timesys,timesys)
               print "# !!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 
        # Collect TIMEZERO and MJDREF
@@ -105,16 +128,23 @@ class METConverter(object):
             except ValueError:
                 self.MJDREF = ft1hdr['MJDREFI'] + float(ft1hdr['MJDREFF'].replace('D','E'))
 
-        TSTART = float(ft1hdr['TSTART'])
-        TSTOP = float(ft1hdr['TSTOP'])
+        # geocon added Mar 28 2013; correction needs to be applied in
+        # on the fly case; minor for GEO but important for BARY
+        TSTART = self.geocon(float(ft1hdr['TSTART']))
+        TSTOP = self.geocon(float(ft1hdr['TSTOP']))
 
-        # Compute MJDSTART and MJDSTOP in MJD(UTC)
-        self.MJDSTART = self.clockcorr.tt2utc(TSTART/86400.0 + self.MJDREF + self.TIMEZERO)
-        self.MJDSTOP  = self.clockcorr.tt2utc(TSTOP/86400.0 + self.MJDREF + self.TIMEZERO)
+        # Compute MJDSTART and MJDSTOP in MJD(UTC); these are used by the
+        # binning to compute uniform intervals
+        if bary:
+            #raise NotImplementedError('Cannot yet convert this to bary.')
+            warnings.warn('Cannot yet convert this to bary.')
+        self.MJDSTART = self.clockcorr.tt2utc(TSTART/SECSPERDAY + self.MJDREF + self.TIMEZERO)
+        self.MJDSTOP  = self.clockcorr.tt2utc(TSTOP/SECSPERDAY + self.MJDREF + self.TIMEZERO)
 
         hdulist.close()
 
     def __call__(self,times):
+        """ Convert MET to MJD(UTC)/GEO."""
         times = np.asarray([times] if not hasattr(times,'__iter__') else times)
         times = self.geocon(times)
         times = times/SECSPERDAY + self.MJDREF + self.TIMEZERO
