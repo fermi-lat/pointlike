@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sat Mar 30 14:27:54 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	phasedata.py 
+Log Message:
+Support for barycentered data.
+
+    *
+------------------------------------------------------------
 User: kerrm  Sat Mar 30 14:27:02 PDT 2013
 pointlike/python/uw/pulsar
 
