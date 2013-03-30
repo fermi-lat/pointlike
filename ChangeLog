@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sat Mar 30 14:27:02 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	toagen.py 
+Log Message:
+Support for barycenter TOAs.
+
+    *
+------------------------------------------------------------
 User: kerrm  Sat Mar 30 14:26:41 PDT 2013
 pointlike/python/uw/pulsar
 
