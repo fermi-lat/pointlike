@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toabinner.py,v 1.2 2011/06/18 00:17:10 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toabinner.py,v 1.3 2011/07/25 19:43:39 kerrm Exp $
 
 handle binning of data for extraction of TOAs
 
@@ -85,3 +85,9 @@ class UniformLogBinner(TOABinner):
             else:
                 self.stops[i] = (mjds[indices[i+1]] + mjds[indices[i+1]-1])/2
             
+class PrebinnedBinner(TOABinner):
+    def __init__(self,starts,stops):
+        self.counter = 0
+        self.ntoa = len(starts)
+        self.starts = starts
+        self.stops = stops
