@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.11 2013/03/29 03:16:17 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.12 2013/04/01 17:22:24 burnett Exp $
 
 """
 import os,pickle
@@ -314,15 +314,20 @@ def test_model(roi, model, source_name=None, **kwargs):
     
 def sed_table(roi, source_name=None, emax=1e6, **kwargs):
     """
-    Return a pandas DataFrame with spectral information for the given source
+    Return a pandas DataFrame with spectral information for the source
+    Columns, with energy fluxes in eV units, are:
+        flux, lflux, uflux : measured flux, lower and upper uncertainty, or 0,0, 95% limit
+        mflux : predicted flux for this bin
+        TS : Test Statistic for the signal
+        pull : signed square root of the TS difference for the model
+    Index is mean energy in MeV
     """
     import pandas as pd
 
     sedrec = roi.get_sed(source_name, **kwargs)
     si = sedrec[sedrec.elow<emax]
-    return pd.DataFrame(
-        dict(flux=si.flux.round(1), TS=si.ts.round(1), lflux=si.lflux.round(1), 
-            uflux=si.uflux.round(1), deltaTS=si.delta_ts.round(1)), 
-        index=np.array(np.sqrt(si.elow*si.ehigh),int), 
-        columns='flux lflux uflux TS deltaTS'.split())
+        pull = np.sign(si.flux-si.mflux) * np.sqrt(max(si.delta_ts,0)
+        return pd.DataFrame(dict(flux=si.flux.round(1), TS=si.ts.round(1), lflux=si.lflux.round(1), 
+            uflux=si.uflux.round(1), model=si.mflux.round(1), pull=pull.round(2) ),
+                index=array(np.sqrt(si.elow*si.ehigh),int), columns='flux lflux uflux model TS pull'.split())
     
