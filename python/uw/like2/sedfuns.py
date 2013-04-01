@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.12 2013/04/01 17:22:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.13 2013/04/01 17:52:04 burnett Exp $
 
 """
 import os,pickle
@@ -326,8 +326,8 @@ def sed_table(roi, source_name=None, emax=1e6, **kwargs):
 
     sedrec = roi.get_sed(source_name, **kwargs)
     si = sedrec[sedrec.elow<emax]
-        pull = np.sign(si.flux-si.mflux) * np.sqrt(max(si.delta_ts,0)
-        return pd.DataFrame(dict(flux=si.flux.round(1), TS=si.ts.round(1), lflux=si.lflux.round(1), 
-            uflux=si.uflux.round(1), model=si.mflux.round(1), pull=pull.round(2) ),
-                index=array(np.sqrt(si.elow*si.ehigh),int), columns='flux lflux uflux model TS pull'.split())
+    pull = np.sign(si.flux-si.mflux) * np.sqrt(max(si.delta_ts,0)
+    return pd.DataFrame(dict(flux=si.flux.round(1), TS=si.ts.round(1), lflux=si.lflux.round(1), 
+        uflux=si.uflux.round(1), model=si.mflux.round(1), pull=pull.round(2) ),
+            index=array(np.sqrt(si.elow*si.ehigh),int), columns='flux lflux uflux model TS pull'.split())
     
