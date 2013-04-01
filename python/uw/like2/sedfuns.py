@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.10 2013/03/28 22:38:46 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.11 2013/03/29 03:16:17 burnett Exp $
 
 """
 import os,pickle
@@ -303,7 +303,7 @@ def test_model(roi, model, source_name=None, **kwargs):
         tsedrec = SED(sf).rec
     alt_fitqual = sum(tsedrec.delta_ts)
     plx.plot_model(model, color='green', lw=2,  ls='--', label='%s (+%.1f)' %(alternate,alt_fitqual-fitqual) )
-    plx.axes.legend(loc='upper left', prop=dict(size=10) )
+    plx.axes.legend(loc='upper left', prop=dict(size=8) )
     if figdir is not None:
         plx.savefig(figdir)
     if seddir is not None:
@@ -312,5 +312,17 @@ def test_model(roi, model, source_name=None, **kwargs):
     roi.set_model(old_model)
     return alt_fitqual
     
-    
+def sed_table(roi, source_name=None, emax=1e6, **kwargs):
+    """
+    Return a pandas DataFrame with spectral information for the given source
+    """
+    import pandas as pd
+
+    sedrec = roi.get_sed(source_name, **kwargs)
+    si = sedrec[sedrec.elow<emax]
+    return pd.DataFrame(
+        dict(flux=si.flux.round(1), TS=si.ts.round(1), lflux=si.lflux.round(1), 
+            uflux=si.uflux.round(1), deltaTS=si.delta_ts.round(1)), 
+        index=np.array(np.sqrt(si.elow*si.ehigh),int), 
+        columns='flux lflux uflux TS deltaTS'.split())
     
