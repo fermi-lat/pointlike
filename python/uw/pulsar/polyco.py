@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.5 2013/02/05 20:18:50 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.6 2013/03/30 21:26:41 kerrm Exp $
 
 Mange polycos from tempo2.
 
@@ -144,18 +144,18 @@ class Polyco:
         curdir = os.getcwd()
         if self.working_dir is not None:
             os.chdir(self.working_dir)
+        prefix = self.output or ''
         if recalc_polycos:
-            os.system( "rm polyco_new.dat newpolyco.dat polyco.tim" )
+            os.system( "rm %spolyco_new.dat %snewpolyco.dat polyco.tim"%(prefix,prefix) )
             obs_string = '@' if self.bary else 'coe'
-            t2cmd = 'tempo2 -f %s -polyco "%s %s 360 12 12 %s 0 0\"'%(
-                polyconame,mjd0,endMJD,obs_string)
+            out_string = '' if self.output is None else ' -polyco_file %s'%self.output
+            t2cmd = 'tempo2 -f %s%s -polyco "%s %s 360 12 12 %s 0 0\"'%(
+                polyconame,out_string,mjd0,endMJD,obs_string)
             print 'Creating polycos with command:\n',t2cmd
             os.system(t2cmd)
-        polyconame=os.path.abspath("polyco_new.dat")
-        os.system('rm newpolyco.dat polyco.tim')
-        if self.output is not None:
-            os.system('mv polyco_new.dat %s'%self.output)
-            polyconame = self.output
+        fname = '%spolyco_new.dat'%(prefix)
+        polyconame=os.path.abspath(fname)
+        os.system('rm %snewpolyco.dat polyco.tim'%(prefix))
         os.chdir(curdir)
         return polyconame
 
