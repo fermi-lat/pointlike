@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.78 2013/03/27 02:49:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.79 2013/03/27 20:51:43 burnett Exp $
 
 """
 
@@ -664,6 +664,16 @@ class ROIinfo(Diagnostics):
         else:
             print 'loading %s' % filename
             self.df = pd.load(filename)
+        # move this into refresh?
+        rois = self.df
+        rx = rois['ra dec glat glon'.split()] 
+        rx['chisq'] = [r['chisq'] for r in rois['counts']]
+        rx['npar'] = [len(p) for p in rois.parameters]
+        rx['ring'] = [10**p[0] for p in rois.parameters]
+        rx['iso']  = [10**p[1] for p in rois.parameters]
+        rx.to_csv('rois.csv')
+        print 'saved rois.csv'
+        
         self.energy=self.df.ix[0]['counts']['energies']
         self.funcs = []
         self.fnames=[]
@@ -1209,6 +1219,8 @@ class SourceInfo(Diagnostics):
                         cutoff_unc = errs[2] if pulsar else np.nan,
                         e0 = model.e0,
                         modelname=model.name,
+                        fitqual = sum(info['sedrec'].delta_ts),
+                        eflux = pars[0]*model.e0**2*1e6,
                         psr = pulsar,
                         )
             df = pd.DataFrame(sdict).transpose()
@@ -1223,21 +1235,20 @@ class SourceInfo(Diagnostics):
             print 'saved %s' % filename
 
             csvfile='sources.csv'
-            self.df.ix[self.df.ts>10][['ra','dec', 'ts', 'roiname']].to_csv(csvfile)
+            self.df.ix[self.df.ts>10][['ra','dec', 'ts', 'fitqual', 'roiname']].to_csv(csvfile)
             print 'saved csv version to %s' %csvfile
         else:
             print 'loading %s' % filename
             self.df = pd.load(filename)
         self.df['flux']    = [v[0] for v in self.df.pars.values]
         self.df['flux_unc']= [v[0] for v in self.df.errs.values]
-        try: # attempt to use new (since 21 mar 03) fit quality
-            fitqual = np.array([sum(x.delta_ts) for x in self.df.sedrec])
-        except:
-            fitqual = self.df.band_ts-self.df.ts
-            print 'using approximate fitqual'
-        self.df['fitqual'] = fitqual
+        #try: # attempt to use new (since 21 mar 03) fit quality
+        #    fitqual = np.array([sum(x.delta_ts) for x in self.df.sedrec])
+        #except:
+        #    fitqual = self.df.band_ts-self.df.ts
+        #    print 'using approximate fitqual'
+        # self.df['fitqual'] = fitqual
         self.df['flags'] = 0  #used to set bits below
-        self.df['eflux'] = self.df.flux * self.df.e0**2 * 1e6
  
         self.energy = np.sqrt( self.df.ix[0]['sedrec'].elow * self.df.ix[0]['sedrec'].ehigh )
             
@@ -1435,7 +1446,8 @@ class SourceInfo(Diagnostics):
         flags[tails] += 1 ### bit 1
         return fig
     
-    def lowenergyfluxratio(self, ax=None, cut=None, xmax=100., title='low energy fit consistency', energy=133, hist=False, minflux=2.0):
+    def lowenergyfluxratio(self, ax=None, cut=None, xmax=100., 
+                title='low energy fit consistency', energy=133, hist=False, minflux=2.0):
         if cut is None: cut=self.df.ts>25
         if ax is None:
             fig, ax = plt.subplots(figsize=(8,5))
@@ -1445,6 +1457,7 @@ class SourceInfo(Diagnostics):
         fdata = np.array([s.ix[i]['sedrec'].flux[0] for i in range(len(s))])
         udata = np.array([s.ix[i]['sedrec'].uflux[0] for i in range(len(s))])
         ldata = np.array([s.ix[i]['sedrec'].lflux[0] for i in range(len(s))])
+        dts   = np.array([s.ix[i]['sedrec'].delta_ts[0] for i in range(len(s))])
         fmodel = np.array([s.ix[i]['model'](energy)*energy**2*1e6 for i in range(len(s))])
         glat = np.array([x.b() for x in s.skydir])
         
@@ -1466,18 +1479,19 @@ class SourceInfo(Diagnostics):
             ax.set_xticks([2,5,10,20,50,100])
             ax.set_title( title, fontsize='medium')
         else:
-            dom = np.linspace(-4,4,51)
+            dom = np.linspace(-3,3,26)
             hist_kw=dict(lw=2, histtype='step')
-            q = ((y-1)/yupper).clip(-4,4)
-            q[y==0]=-4
+            q=pull = np.sign(fdata-fmodel) * np.sqrt( dts.clip(0,100) ).clip(-3,3)
+            #q = ((y-1)/yupper).clip(-4,4)
+            #q[y==0]=-4
             
             ax.hist(q[hilat], dom, color='g',  label='%d hilat sources'%sum(hilat),  **hist_kw)
             ax.hist(q[lolat], dom, color='r',  label='%d lowlat sources'%sum(lolat), **hist_kw)
-            ax.set_xlabel('residual')
+            ax.set_xlabel('pull')
             ax.axvline(0, color='k')
-            ax.set_xlim((-4,4))
+            ax.set_xlim((-3,3))
         ax.set_title( title, fontsize='medium')
-        ax.legend(prop=dict(size=10))
+        ax.legend(loc='upper left', prop=dict(size=10))
         ax.grid()  
 
         return fig
@@ -1699,6 +1713,20 @@ class SourceInfo(Diagnostics):
         t =self.df[self.df.flags>0]['ra dec ts fitqual eflux pindex beta cutoff index2 flags roiname'.split()]
         t.to_csv('flagged_sources.csv')
         print 'wrote %d sources to flagged_sources.csv' % len(t)
+        
+    def flux_table(self, source_name):
+        """ Return a DataFrame describing the sed info for the given source
+        Columns, with energy fluxes in eV units, are:
+            flux, lflux, uflux : measured flux, lower and upper uncertainty, or 0,0, 95% limit
+            mflux : predicted flux for this bin
+            TS : Test Statistic for the signal
+            pull : signed square root of the 
+        """
+        si = self.df.ix[source_name]['sedrec']
+        pull = np.sign(si.flux-si.mflux) * np.sqrt(si.delta_ts.clip(0,100))
+        return pd.DataFrame(dict(flux=si.flux.round(1), TS=si.ts.round(1), lflux=si.lflux.round(1), 
+            uflux=si.uflux.round(1), model=si.mflux.round(1), pull=pull.round(1) ),
+                index=np.array(np.sqrt(si.elow*si.ehigh),int), columns='flux lflux uflux model TS pull'.split())
  
 class Localization(SourceInfo):
 
