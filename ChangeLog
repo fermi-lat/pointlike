@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Apr  2 06:46:15 PDT 2013
+pointlike/python/uw/like2/plotting
+
+Modified Files:
+	sed.py 
+Log Message:
+change to outdir keyword
+    *
+------------------------------------------------------------
 User: burnett  Mon Apr  1 21:22:50 PDT 2013
 pointlike/python/uw/like2
 
