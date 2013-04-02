@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Tue Apr  2 08:07:44 PDT 2013
+pointlike/python/uw/darkmatter
+
+Modified Files:
+	spectral.py 
+Log Message:
+update location of gammamc_dif.dat and added function for accessing dmfit channels
+    *
+------------------------------------------------------------
 User: burnett  Tue Apr  2 06:47:19 PDT 2013
 pointlike/python/uw/like2/pipeline
 
