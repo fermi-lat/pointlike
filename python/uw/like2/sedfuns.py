@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.15 2013/04/01 17:54:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.16 2013/04/01 17:55:26 burnett Exp $
 
 """
 import os,pickle
@@ -103,7 +103,6 @@ class SourceFlux(object):
     def __exit__(self, type, value, traceback):
         self.restore()
 
-
         
 class SED(object):
     """     
@@ -112,6 +111,7 @@ class SED(object):
         flux lflux uflux : energy flux (eV units) for peak, upper and lower limits
         ts : Test Statistic value for the band
         mflux delta_ts : model flux, and 2*(logl(flux)-logl(mflux), where logl is the log likelihood
+        pull : sign(mflux) * sqrt(delta_ts)
     """
 
     def __init__(self, source_flux, event_class=None, scale_factor=1.0, merge=False,):
@@ -126,7 +126,7 @@ class SED(object):
         """
         sf = source_flux
         self.scale_factor=scale_factor
-        rec = makerec.RecArray('elow ehigh flux lflux uflux ts mflux delta_ts'.split())
+        rec = makerec.RecArray('elow ehigh flux lflux uflux ts mflux delta_ts pull'.split())
         self.loglikes = []
         for i,energy in enumerate(sf.energies):
             sf.select_band(i, event_class)
@@ -141,9 +141,11 @@ class SED(object):
                 rec.append(xlo, xhi, np.nan, np.nan, np.nan, 0, np.nan, np.nan)
                 continue
             if lf>0 :
-                rec.append(xlo, xhi, w.maxl, lf, uf, w.TS(), mf, delta_ts)
+                pull = np.sign(w.maxl-mf) * np.sqrt(max(0, delta_ts))
+                rec.append(xlo, xhi, w.maxl, lf, uf, w.TS(), mf, delta_ts, pull)
             else:
-                rec.append(xlo, xhi, 0, 0, w.upper_limit(), 0, mf, delta_ts )
+                pull = -np.sqrt(max(0, delta_ts))
+                rec.append(xlo, xhi, 0, 0, w.upper_limit(), 0, mf, delta_ts, pull )
             
         self.rec = rec()
         sf.restore() # restore model normalization
