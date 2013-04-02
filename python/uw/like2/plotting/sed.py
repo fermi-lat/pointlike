@@ -5,7 +5,7 @@ Manage a SED plot
             sf an SourceFlux object, 
         Plot(sf)()
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.12 2013/03/29 02:15:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.13 2013/04/02 04:20:27 burnett Exp $
 """
 import os, types
 import numpy as np
@@ -212,13 +212,13 @@ def sed_table(roi, source_name=None):
                 index=np.array(np.sqrt(si.elow*si.ehigh),int), columns='flux lflux uflux mflux TS pull'.split())
                 
 
-def stacked_plots(roi, source_name=None, sedfig_dir=None, fignum=6, **kwargs):
+def stacked_plots(roi, source_name=None, outdir=None, fignum=6, **kwargs):
     """ 
     Make stacked plots
         
         roi : A ROIstat object
             Uses the name as a title unless title specified
-        sedfig_dir : None or the name of a folder
+        outdir : None or the name of a folder
             In the folder case, makes a file name from the ROI name
             
         Creates the two Axes objects, and returns them
@@ -235,6 +235,8 @@ def stacked_plots(roi, source_name=None, sedfig_dir=None, fignum=6, **kwargs):
     axes[0].set_position([left, bottom+(1-fraction)*height, width, fraction*height])
     axes[1].set_position([left, bottom, width, (1-fraction)*height])
     source = roi.get_source(source_name)
+    if not hasattr(source, 'sedrec'):
+        roi.get_sed(source_name)
     
     p = Plot(source)
     p(axes=axes[0], outdir=None, **kwargs)
@@ -251,12 +253,7 @@ def stacked_plots(roi, source_name=None, sedfig_dir=None, fignum=6, **kwargs):
     plt.setp(axes[1], xscale='log', ylabel='pull', ylim=(-3.2,3.2) )
     set_xlabels( axes[1], p.gev_scale )
     
-    if sedfig_dir is not None:
-        if os.path.isdir(sedfig_dir) and hasattr(roi,'name'):
-            fout = os.path.join(sedfig_dir, ('%s_sed.png'%roi.name) )
-        else:
-            fout = sedfig_dir
-        fig.savefig(fout)
-        print 'saved sed figure to %s' % fout
+    if outdir is not None:
+        p.savefig( outdir)
     return axes
 
