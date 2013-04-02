@@ -5,12 +5,24 @@ Manage a SED plot
             sf an SourceFlux object, 
         Plot(sf)()
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.11 2013/03/28 22:13:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.12 2013/03/29 02:15:06 burnett Exp $
 """
 import os, types
 import numpy as np
 import pylab as plt
 from uw.utilities import image
+
+def set_xlabels( axes, gev_scale) :   
+    def gevticklabel(x):
+        if x<100 or x>1e5: return ''
+        elif x==100: return '0.1'
+        return '%d'% (x/1e3)
+    if gev_scale:
+        """ make it look nicer """
+        axes.set_xticklabels(map(gevticklabel, axes.get_xticks()))
+        axes.set_xlabel(r'$\mathsf{Energy\ (GeV)}$')
+    else:
+        axes.set_xlabel(r'$\mathsf{Energy\ (MeV)}$')
 
      
 class Plot(object):
@@ -153,7 +165,7 @@ class Plot(object):
         axes.set_xscale('log')
         axes.set_yscale('log')
         if axis is None:
-            axis = (1e2,1e6,1e-1*self.scale_factor,1e4*self.scale_factor) 
+            axis = (1e2,1e6, 0.3*self.scale_factor, 1e4*self.scale_factor) 
         axes.axis(axis)
         axes.grid(True)
         axes.set_autoscale_on(False)
@@ -167,17 +179,8 @@ class Plot(object):
         # the axis labels (note reduced labelpad for y) 
         axes.set_ylabel(r'$\mathsf{Energy\ Flux\ (%s\ cm^{-2}\ s^{-1})}$' % self.energy_flux_unit, labelpad=0)
         axes.set_xlabel(r'$\mathsf{Energy\ (GeV)}$')
-        def gevticklabel(x):
-            if x<100 or x>1e5: return ''
-            elif x==100: return '0.1'
-            return '%d'% (x/1e3)
-        if self.gev_scale:
-            """ make it look nicer """
-            axes.set_xticklabels(map(gevticklabel, axes.get_xticks()))
-            axes.set_xlabel(r'$\mathsf{Energy\ (GeV)}$')
-        else:
-            axes.set_xlabel(r'$\mathsf{Energy\ (MeV)}$')
         axes.set_title(name, size='small')
+        set_xlabels(axes, self.gev_scale)
         # add a galactic map if requested
         if galmap is not None:
             image.galactic_map(galmap, color='lightblue', marker='s', markercolor='r', markersize=20)
@@ -188,6 +191,7 @@ class Plot(object):
             self.name=name
             self.savefig( outdir, suffix)
             
+
     def savefig(self,outdir, suffix=''):
         if os.path.isdir(outdir):
             fname = self.name.replace(' ','_').replace('+','p') + suffix
@@ -197,3 +201,62 @@ class Plot(object):
         else :
             plt.savefig(outdir)
             print 'saved sedfig to %s' %outdir
+
+def sed_table(roi, source_name=None):
+    """
+    """
+    import pandas as pd
+    si = roi.get_sed(source_name)
+    return pd.DataFrame(dict(flux=si.flux.round(1), TS=si.ts.round(1), lflux=si.lflux.round(1),
+            uflux=si.uflux.round(1), mflux=si.mflux.round(1), pull=si.pull.round(1)), 
+                index=np.array(np.sqrt(si.elow*si.ehigh),int), columns='flux lflux uflux mflux TS pull'.split())
+                
+
+def stacked_plots(roi, source_name=None, sedfig_dir=None, fignum=6, **kwargs):
+    """ 
+    Make stacked plots
+        
+        roi : A ROIstat object
+            Uses the name as a title unless title specified
+        sedfig_dir : None or the name of a folder
+            In the folder case, makes a file name from the ROI name
+            
+        Creates the two Axes objects, and returns them
+    """
+    plt.close(fignum)
+    oldlw = plt.rcParams['axes.linewidth']
+    plt.rcParams['axes.linewidth'] = 2
+    fig, axes = plt.subplots(2,1, sharex=True, num=fignum, figsize=(4,5),dpi=100)
+    fig.subplots_adjust(hspace=0)
+    axes[0].tick_params(labelbottom='off')
+    left, bottom, width, height = (0.15, 0.10, 0.75, 0.85)
+    fraction = 0.8
+
+    axes[0].set_position([left, bottom+(1-fraction)*height, width, fraction*height])
+    axes[1].set_position([left, bottom, width, (1-fraction)*height])
+    source = roi.get_source(source_name)
+    
+    p = Plot(source)
+    p(axes=axes[0], outdir=None, **kwargs)
+    axes[0].set_xlabel('') 
+    axes[0].set_yticklabels(['', '1', '10', '100', r'$\mathdefault{10^{3}}$'])
+
+    energy = np.sqrt(p.rec.elow*p.rec.ehigh)
+
+    axes[1].plot(energy, source.sedrec.pull.clip(-3,3), 'ko')
+    axes[1].axhline(0, color='k')
+    axes[1].grid()
+    
+    plt.rcParams['axes.linewidth'] = oldlw
+    plt.setp(axes[1], xscale='log', ylabel='pull', ylim=(-3.2,3.2) )
+    set_xlabels( axes[1], p.gev_scale )
+    
+    if sedfig_dir is not None:
+        if os.path.isdir(sedfig_dir) and hasattr(roi,'name'):
+            fout = os.path.join(sedfig_dir, ('%s_sed.png'%roi.name) )
+        else:
+            fout = sedfig_dir
+        fig.savefig(fout)
+        print 'saved sed figure to %s' % fout
+    return axes
+
