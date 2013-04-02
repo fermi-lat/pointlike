@@ -1,6 +1,6 @@
 """ Dark Matter spectral models
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/darkmatter/spectral.py,v 1.12 2012/11/09 00:11:46 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/darkmatter/spectral.py,v 1.13 2012/12/23 02:04:08 kadrlica Exp $
 
     author: Alex Drlica-Wagner, Joshua Lande
 """
@@ -8,6 +8,7 @@ import operator
 import copy
 import collections
 from collections import OrderedDict
+import os
 
 import numpy as np
 from scipy.optimize.minpack import check_gradient
@@ -70,7 +71,11 @@ class DMFitFunction(Model):
     default_extra_params=dict(norm=1e18, bratio=1.0, channel0=1, channel1=1)
     param_names=['sigmav','mass']
     default_mappers=[LogMapper,LogMapper]
-    default_extra_attrs=OrderedDict((('file','$(INST_DIR)/Likelihood/src/dmfit/gammamc_dif.dat'),))
+    # ST >= 09-31-00
+    gammamc_dif = '$(INST_DIR)/data/Likelihood/gammamc_dif.dat'
+    if not os.path.exists(path.expand(gammamc_dif)):
+        gammamc_dif = '$(INST_DIR)/Likelihood/src/dmfit/gammamc_dif.dat'
+    default_extra_attrs=OrderedDict((('file',gammamc_dif),))
 
     gtlike = dict(
         name='DMFitFunction',
@@ -182,6 +187,11 @@ class DMFitFunction(Model):
     @staticmethod
     def int2channel(i):
         return DMFitFunction.channel_mapping[i][0]
+
+    @staticmethod
+    def channels():
+        """ Return all available DMFit channel strings """
+        return [s for channel in DMFitFunction.channel_mapping.values() for s in channel]
 
 
 class ComprehensiveModel(CompositeModel):
