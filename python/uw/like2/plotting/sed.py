@@ -5,7 +5,7 @@ Manage a SED plot
             sf an SourceFlux object, 
         Plot(sf)()
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.13 2013/04/02 04:20:27 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.14 2013/04/02 13:46:15 burnett Exp $
 """
 import os, types
 import numpy as np
@@ -131,6 +131,7 @@ class Plot(object):
                 suffix = '_sed',
                 galmap=None,
                 annotate=None,
+                grid=True,
                 ):
         """Plot the SED
         ========     ===================================================
@@ -148,6 +149,7 @@ class Plot(object):
         suffix       ['_sed'] Add to source name to form filename
         galmap       [None] if set to a SkyDir, create a little galactic map showing this position
         annotate     [None] if set, a tuple of (x, y, text), in axes coords
+        grid         [True] Set False to turn off grid
         ========     ===================================================
         
         """
@@ -156,7 +158,9 @@ class Plot(object):
         energy_flux_factor = self.scale_factor
         # conversion 1.602E-19 * 1E6 eV/Mev * 1E7 erg/J * = 1.602E-6 erg/MeV
         oldlw = plt.rcParams['axes.linewidth']
+        oldticksize = plt.rcParams['xtick.labelsize']
         plt.rcParams['axes.linewidth'] = 2
+        plt.rcParams['xtick.labelsize']=plt.rcParams['ytick.labelsize']=10
         if axes is None: 
             fig=plt.figure(fignum, figsize=(4,4)); plt.clf()
             fig.add_axes((0.22,0.15,0.75,0.72))
@@ -165,9 +169,9 @@ class Plot(object):
         axes.set_xscale('log')
         axes.set_yscale('log')
         if axis is None:
-            axis = (1e2,1e6, 0.3*self.scale_factor, 1e4*self.scale_factor) 
+            axis = (1e2,4e5, 0.2*self.scale_factor, 1e4*self.scale_factor) 
         axes.axis(axis)
-        axes.grid(True)
+        axes.grid(grid)
         axes.set_autoscale_on(False)
        
         self.plot_data(axes, **data_kwargs)
@@ -175,18 +179,22 @@ class Plot(object):
         self.dom = np.logspace(np.log10(self.rec.elow[0]), np.log10(self.rec.ehigh[-1]), 26)
         self.plot_model( model, butterfly, **fit_kwargs)
         plt.rcParams['axes.linewidth'] = oldlw
+        plt.rcParams['xtick.labelsize']=plt.rcParams['ytick.labelsize']=oldticksize
 
         # the axis labels (note reduced labelpad for y) 
         axes.set_ylabel(r'$\mathsf{Energy\ Flux\ (%s\ cm^{-2}\ s^{-1})}$' % self.energy_flux_unit, labelpad=0)
         axes.set_xlabel(r'$\mathsf{Energy\ (GeV)}$')
-        axes.set_title(name, size='small')
+        if self.energy_flux_unit=='eV':
+           axes.set_yticklabels(['', '1', '10', '100', r'$\mathdefault{10^{3}}$'])
+
+        axes.set_title(name, size=12)
         set_xlabels(axes, self.gev_scale)
         # add a galactic map if requested
         if galmap is not None:
-            image.galactic_map(galmap, color='lightblue', marker='s', markercolor='r', markersize=20)
+            image.galactic_map(galmap, axes=self.axes, color='lightblue', marker='s', markercolor='r', markersize=20)
 
         if annotate is not None:
-            axes.text(annotate[0],annotate[1], annotate[2],transform=axes.transAxes, fontsize='small')
+            axes.text(annotate[0],annotate[1], annotate[2],transform=axes.transAxes, fontsize=8)
         if outdir is not None: 
             self.name=name
             self.savefig( outdir, suffix)
@@ -239,21 +247,27 @@ def stacked_plots(roi, source_name=None, outdir=None, fignum=6, **kwargs):
         roi.get_sed(source_name)
     
     p = Plot(source)
-    p(axes=axes[0], outdir=None, **kwargs)
+    kwargs.update(outdir=None)
+    suffix = kwargs.pop('suffix', '_sed')
+    p(axes=axes[0],  **kwargs)
     axes[0].set_xlabel('') 
-    axes[0].set_yticklabels(['', '1', '10', '100', r'$\mathdefault{10^{3}}$'])
 
     energy = np.sqrt(p.rec.elow*p.rec.ehigh)
 
-    axes[1].plot(energy, source.sedrec.pull.clip(-3,3), 'ko')
+    pull = source.sedrec.pull
+    axes[1].plot(energy, pull, 'ko')
+    nhigh = sum(pull>3)
+    if nhigh>0:  axes[1].plot(energy[pull>3], [3]*nhigh, '^r', markersize=10) 
+    nlow = sum(pull<-3)
+    if nlow >0:  axes[1].plot(energy[pull<-3], [-3]*nlow, 'vr', markersize=10) 
     axes[1].axhline(0, color='k')
     axes[1].grid()
     
     plt.rcParams['axes.linewidth'] = oldlw
-    plt.setp(axes[1], xscale='log', ylabel='pull', ylim=(-3.2,3.2) )
+    plt.setp(axes[1], xscale='log', ylabel='pull', ylim=(-3.5,3.5) )
     set_xlabels( axes[1], p.gev_scale )
     
     if outdir is not None:
-        p.savefig( outdir)
+        p.savefig( outdir, suffix)
     return axes
 
