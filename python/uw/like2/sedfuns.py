@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.16 2013/04/01 17:55:26 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.17 2013/04/02 04:22:50 burnett Exp $
 
 """
 import os,pickle
@@ -253,11 +253,15 @@ def makesed_all(roi, **kwargs):
     
     kwargs:
         sedfig_dir : string or None
-            if string, a folder name in which to put the figures
+            if string, a folder name in which to put the figuressed
         showts : bool
+        ndf : int
+            default 10, for fit quality
     other kwargs passed to sed.Plot().__call__
     """
+    from scipy import stats # for chi2 
     sedfig_dir = kwargs.pop('sedfig_dir', None)
+    ndf = kwargs.pop('ndf', 10) 
     if sedfig_dir is not None and not os.path.exists(sedfig_dir): os.mkdir(sedfig_dir)
     showts = kwargs.pop('showts', True)
     initw = roi.log_like()
@@ -268,10 +272,12 @@ def makesed_all(roi, **kwargs):
             sf = SourceFlux(roi, source.name, )
             source.sedrec = SED(sf, merge=False).rec
             source.ts = roi.TS(source.name)
+            qual = sum(source.sedrec.pull**2)
+            pval = 1.- stats.chi2.cdf(qual, ndf)
             if sedfig_dir is not None:
-                annotation =(0.05,0.9, 'TS=%.0f'% source.ts) if showts else None 
-                plotting.sed.Plot(source, gev_scale=True, energy_flux_unit='eV')\
-                    ( galmap=source.skydir, outdir=sedfig_dir, 
+                annotation =(0.04,0.88, 'TS=%.0f\npvalue %.1f%%'% (source.ts,pval*100.)) if showts else None 
+                plotting.sed.stacked_plots(roi, source.name, #gev_scale=True, energy_flux_unit='eV',
+                     galmap=source.skydir, outdir=sedfig_dir, 
                         annotate=annotation, **kwargs)
                     
         except Exception,e:
