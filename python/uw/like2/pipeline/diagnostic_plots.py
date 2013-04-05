@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.79 2013/03/27 20:51:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.80 2013/04/02 13:47:19 burnett Exp $
 
 """
 
@@ -1207,6 +1207,7 @@ class SourceInfo(Diagnostics):
                         b = ellipse[3] if ellipse is not None else np.nan,
                         ang=ellipse[4] if ellipse is not None else np.nan,
                         delta_ts = ellipse[5] if ellipse is not None else np.nan,
+                        locqual = ellipse[6] if ellipse is not None else np.nan,
                         flux = pars[0],
                         flux_unc = errs[0],
                         pindex = pars[1],
@@ -1235,7 +1236,7 @@ class SourceInfo(Diagnostics):
             print 'saved %s' % filename
 
             csvfile='sources.csv'
-            self.df.ix[self.df.ts>10][['ra','dec', 'ts', 'fitqual', 'roiname']].to_csv(csvfile)
+            self.df.ix[self.df.ts>10]['ra dec a b ang ts locqual fitqual roiname'.split()].to_csv(csvfile)
             print 'saved csv version to %s' %csvfile
         else:
             print 'loading %s' % filename
@@ -1935,10 +1936,14 @@ class SourceComparison(SourceInfo):
         dec= ft.DEJ2000
         id_prob = ft.ID_Probability[:,0]
         cat_skydirs = map (lambda x,y: SkyDir(float(x),float(y)), ra,dec)
+        glat = [s.b() for s in cat_skydirs]
+        glon = [s.l() for s in cat_skydirs]
         print 'generating closest distance to catalog "%s"' % cat
         closest = np.degrees(np.array([min(map(sdir.difference, cat_skydirs))for sdir in self.df.skydir.values]))
         self.df['closest'] = closest
-        self.cat = pd.DataFrame(dict(ra=ft.RAJ2000,dec= ft.DEJ2000, ts=ft.Test_Statistic, id_prob=id_prob), 
+        self.cat = pd.DataFrame(dict(ra=ft.RAJ2000,dec= ft.DEJ2000, ts=ft.Test_Statistic, 
+                glat=glat, glon=glon, id_prob=id_prob), 
+            columns = 'ra dec glat glon ts id_prob'.split(), # this to order them
             index=ft.Source_Name )
         self.cat.index.name='name'
         closest2 = np.degrees(np.array([min(map(sdir.difference, self.df.skydir.values)) for sdir in cat_skydirs]))
