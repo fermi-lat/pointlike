@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.20 2013/02/12 15:21:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.21 2013/03/26 14:43:07 burnett Exp $
 """
 import os, argparse
 import numpy as np
@@ -113,7 +113,8 @@ stagenames = dict(
     localize    =  Stage(pipe.Update, dict( processor='processor.localize(emin=1000.)'), help='localize with energy cut' ),
     seedcheck   =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="SEED")',auxcat="seeds.txt"), help='refit seeds'),
     pseedcheck  =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="PSEED")',auxcat="pseeds.txt"), help='refit pulsar seeds'),
-    pulsar_detection=Stage(pipe.PulsarDetection, job_list='joblist8.txt', sum='pts', help='Create ts tables for pulsar detection'),
+    fglcheck    =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="2FGL")',auxcat="2fgl_lost.csv"), help='check 2FGL'),
+   pulsar_detection=Stage(pipe.PulsarDetection, job_list='joblist8.txt', sum='pts', help='Create ts tables for pulsar detection'),
 ) 
 keys = stagenames.keys()
 stage_help = '\nstage name, or sequential stages separaged by ":" names are\n\t' \
