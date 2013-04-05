@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.34 2013/03/05 19:49:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.35 2013/03/21 19:47:21 burnett Exp $
 
 """
 import os, pickle, glob, types, collections, zipfile
@@ -109,10 +109,15 @@ class SkyModel(object):
         if not os.path.exists(cat):
             raise Exception('auxilliary source catalog "%s" not found locally (%s) or in $FERMI/catalog'
                     %( self.auxcat, self.folder))
-        if os.path.splitext(cat)[-1]=='.pickle':
+        ext = os.path.splitext(cat)[-1]            
+        if ext =='.pickle':
             ss = pd.load(cat).itertuples()
             dataframe=True
             print 'loading auxcat from DataFrame'
+        elif ext == '.csv':
+            ss = pd.read_csv(cat).itertuples()
+            dataframe=True
+            print 'loading auxcat from csv'
         else:
             ss = makerec.load(cat); dataframe=False
         names = [s.name for s in self.point_sources]
