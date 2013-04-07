@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.80 2013/04/02 13:47:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.81 2013/04/05 18:51:15 burnett Exp $
 
 """
 
@@ -120,7 +120,7 @@ class Diagnostics(object):
         """
         if names is None:
             names=[None]*len(functions)
-        html = '<head>'+ HTMLindex.style + '</head>\n' 
+        html = '<head>'+ HTMLindex.style + '\n<title>%s</title> </head>\n' % self.__class__.__name__
         html+='<body><h2>%(header)s</h2>'
         docstring = self.all_plots.__doc__
         if docstring is not None: html+=docstring
@@ -1206,8 +1206,8 @@ class SourceInfo(Diagnostics):
                         a = ellipse[2] if ellipse is not None else np.nan,
                         b = ellipse[3] if ellipse is not None else np.nan,
                         ang=ellipse[4] if ellipse is not None else np.nan,
-                        delta_ts = ellipse[5] if ellipse is not None else np.nan,
-                        locqual = ellipse[6] if ellipse is not None else np.nan,
+                        locqual = ellipse[5] if ellipse is not None else np.nan,
+                        delta_ts = ellipse[6] if ellipse is not None else np.nan,
                         flux = pars[0],
                         flux_unc = errs[0],
                         pindex = pars[1],
@@ -1243,12 +1243,14 @@ class SourceInfo(Diagnostics):
             self.df = pd.load(filename)
         self.df['flux']    = [v[0] for v in self.df.pars.values]
         self.df['flux_unc']= [v[0] for v in self.df.errs.values]
-        #try: # attempt to use new (since 21 mar 03) fit quality
-        #    fitqual = np.array([sum(x.delta_ts) for x in self.df.sedrec])
-        #except:
-        #    fitqual = self.df.band_ts-self.df.ts
-        #    print 'using approximate fitqual'
-        # self.df['fitqual'] = fitqual
+        localized = ~np.array(pd.isnull(self.df.delta_ts))
+        extended = np.array(self.df.isextended, bool)
+        self.df['unloc'] = ~(localized | extended)
+        unloc = self.df.unloc * (self.df.ts>10)
+        if sum(unloc)>0:
+            print '%d point sources (TS>10) without localization information' % sum(unloc)
+            self.df.ix[unloc]['ra dec ts'.split()].to_csv('unlocalized_sources.csv')
+            print 'Wrote file "unlocalized_sources.csv"'
         self.df['flags'] = 0  #used to set bits below
  
         self.energy = np.sqrt( self.df.ix[0]['sedrec'].elow * self.df.ix[0]['sedrec'].ehigh )
@@ -1304,7 +1306,7 @@ class SourceInfo(Diagnostics):
         """ Cumulative test statistic TS
         
         A logN-logS plot, but using TS. Important thresholds at TS=10 and 25 are shown.
-        %(badloc_check)s.
+        %(poorloc_check)s.
         """
         usets = self.df.ts if ts is None else ts
         df = self.df
@@ -1314,27 +1316,23 @@ class SourceInfo(Diagnostics):
         ax.hist( usets ,dom, cumulative=-1, lw=2, color='g', histtype='step',label=label)
         if other_ts is not None:
             ax.hist( other_ts ,dom, cumulative=-1, lw=2, color='b', histtype='step',label=otherlabel)
-        print 'check localization info'
         if check_localized:
-            localized = ~np.array(pd.isnull(df.delta_ts))
-            extended = np.array(df.isextended, bool)
-            unloc = ~ (localized | extended)
+            unloc = df.unloc
             ul = df[unloc * usets>tscut[0]] 
             n = len(ul)
             if n>10:
                 ax.hist(ul.ts ,dom, cumulative=-1, lw=2, color='r', histtype='step',
                     label='no localization')
                 ax.text(12, n, 'failed localization (TS>%d) :%d'%(tscut[0],n), fontsize=12, color='r')
-            self.badloc = df[unloc*(df.ts>tscut[0])][['ts','roiname']]
-            if len(self.badloc)>0:
-                print 'check self.badloc for %d sources' %len(self.badloc)
+            self.poorloc = df[unloc*(df.ts>tscut[0])][['ts','roiname']]
+            if len(self.poorloc)>0:
+                print 'check self.poorloc for %d sources' %len(self.poorloc)
                 badlocpath = os.path.join(self.plotfolder,'badloc.html')
-                open(os.path.join(badlocpath,'w')).write(self.badloc_to_html())
-                self.badloc_check = '<h4> Unlocalized above TS=%d:</h4>'%tscut[0] +\
-                    '<a href="%s"> Table of badly localized sources</a>' %badlocpath
+                open(badlocpath,'w').write(self.poorloc.to_html())
+                self.poorloc_check = '<h4> Unlocalized above TS=%d:</h4>'%tscut[0] +\
+                    '<a href="%s"> Table of sources that failed to localize</a>' %badlocpath
             else:
-                self.badloc_check= '<p>No unlocalized sources above TS=%d'%tscut[0]
-                print 'no unlocalized sources'
+                self.poorloc_check= '<p>No unlocalized sources above TS=%d'%tscut[0]
         plt.setp(ax,  ylabel='# sources with greater TS', xlabel='TS',
             xscale='log', yscale='log', xlim=(9, 1e4), ylim=(9,8000))
         ax.set_xticklabels([' ', '10', '100', '1000'])
@@ -1370,47 +1368,6 @@ class SourceInfo(Diagnostics):
                 return 0
         self.df['counts'] = [counts(self.df, self.roi_df, name) for  name in self.df.index]
         
-    def spectral_fit_consistency(self, ib=0, ax=None, minflux=2.,title=None, bcut=10, hist=False):
-        """Spectral fit consistency
-        
-        """
-        if ax is None:
-            fig, ax = plt.subplots(figsize=(5,4))
-        else: fig = ax.figure
-        
-        fx = self.fluxinfo(ib)
-        fxc = fx[fx.fmodel>minflux]
-        
-        x = fxc.fmodel
-        y = fxc.fdata
-        yerr = (fxc.udata-y)
-        q = (y-x)/yerr
-        fxc['quality'] = q
-        fxc.index.name='name'
-        self.lowebad = fxc[np.abs(q)>3]
-        
-        if title is None:
-            title = 'spectral fit consistency at %d MeV' % self.energy[ib]
-        if not hist:
-            self.skyplot(q, ax=ax, vmin=-5, vmax=5, title=title, cbtext='discrepancy in sigmas')
-            return fig
-        
-        # make a hist here
-        xlim =(-5,5)
-        qlim = q.clip(*xlim)
-        lowlat = (abs(fxc.glat)<bcut)
-        dom = np.linspace(-5,5,46)
-        hist_kw=dict(lw=2, histtype='stepfilled')
-
-        ax.hist(qlim, dom, color='g',  label='%d all sources'%len(q),  **hist_kw)
-        ax.hist(qlim[lowlat], dom, color='r',  label='%d |b|<%d' %(sum(lowlat), bcut),  **hist_kw)
-        ax.set_xlabel('residual')
-        ax.axvline(0, color='k')
-        ax.set_xlim(xlim)
-        ax.legend(prop=dict(size=10))
-        ax.set_title( title, fontsize='medium')
-        ax.grid()  
-        
 
     def non_psr_spectral_plots(self, index_min=1.0, index_max=3.5, beta_max=2.0):
         """ Plots showing spectral parameters for non-pulsar spectra
@@ -1437,65 +1394,16 @@ class SourceInfo(Diagnostics):
         if len(self.non_psr_tails)>0:
             self.tail_check = '<h4>Sources on tails:</h4>'\
                 +self.non_psr_tails.sort_index(by='roiname').to_html()
-            self.tail_check += '<p>Criteria: require index between 1 and 3.5 for powerlaw, beta<3.0 for log parabola'
+            self.tail_check += '<p>Criteria: require index between 1 and 3.5 for powerlaw, beta<2.0 for log parabola'
         else:
-            self.tail_check ='<p>No soruces on tails'
-        print '%d sources in tails of flux, index, or beta' % len(self.non_psr_tails)
+            self.tail_check ='<p>No sources on tails'
         # flag sources
         flags = self.df.flags
         tails = self.non_psr_tails.index
         flags[tails] += 1 ### bit 1
+        print '%d sources flagged (1) in tails of flux, index, or beta' % len(self.non_psr_tails)
         return fig
     
-    def lowenergyfluxratio(self, ax=None, cut=None, xmax=100., 
-                title='low energy fit consistency', energy=133, hist=False, minflux=2.0):
-        if cut is None: cut=self.df.ts>25
-        if ax is None:
-            fig, ax = plt.subplots(figsize=(8,5))
-        else: fig = ax.figure
-        
-        s = self.df[cut]
-        fdata = np.array([s.ix[i]['sedrec'].flux[0] for i in range(len(s))])
-        udata = np.array([s.ix[i]['sedrec'].uflux[0] for i in range(len(s))])
-        ldata = np.array([s.ix[i]['sedrec'].lflux[0] for i in range(len(s))])
-        dts   = np.array([s.ix[i]['sedrec'].delta_ts[0] for i in range(len(s))])
-        fmodel = np.array([s.ix[i]['model'](energy)*energy**2*1e6 for i in range(len(s))])
-        glat = np.array([x.b() for x in s.skydir])
-        
-        fluxcut = fmodel>minflux
-        latcut  = abs(glat)>5.0
-        hilat = fluxcut*(latcut)
-        lolat = fluxcut*(~latcut)
-
-        y = fdata/fmodel
-        ylower, yupper =[(fdata-ldata)/fmodel,(udata-fdata)/fmodel]
-        xhi,yhi,yerrhi = fmodel[hilat], y[hilat], [ylower[hilat],yupper[hilat]]
-        xlo,ylo,yerrlo = fmodel[lolat], y[lolat], [ylower[lolat],yupper[lolat]]
-        
-        if not hist:
-            ax.errorbar(x=xhi, y=yhi, yerr=yerrhi, fmt='og', label='%d hilat sources'%sum(hilat))
-            ax.errorbar(x=xlo, y=ylo, yerr=yerrlo, fmt='or', label='%d lowlat sources'%sum(lolat))
-            plt.setp(ax, xlabel=r'$\mathsf{model\ flux\ (eV\ cm^{-2} s^{-1}})$', xscale='log', 
-                ylabel='data/model', ylim=(0,2.5), xlim=(minflux, 100) )
-            ax.set_xticks([2,5,10,20,50,100])
-            ax.set_title( title, fontsize='medium')
-        else:
-            dom = np.linspace(-3,3,26)
-            hist_kw=dict(lw=2, histtype='step')
-            q=pull = np.sign(fdata-fmodel) * np.sqrt( dts.clip(0,100) ).clip(-3,3)
-            #q = ((y-1)/yupper).clip(-4,4)
-            #q[y==0]=-4
-            
-            ax.hist(q[hilat], dom, color='g',  label='%d hilat sources'%sum(hilat),  **hist_kw)
-            ax.hist(q[lolat], dom, color='r',  label='%d lowlat sources'%sum(lolat), **hist_kw)
-            ax.set_xlabel('pull')
-            ax.axvline(0, color='k')
-            ax.set_xlim((-3,3))
-        ax.set_title( title, fontsize='medium')
-        ax.legend(loc='upper left', prop=dict(size=10))
-        ax.grid()  
-
-        return fig
     
     def ecliptic_hist(self, ax=None, title=''):
         ea = map(self.ecliptic_angle, self.df.skydir)
@@ -1513,7 +1421,7 @@ class SourceInfo(Diagnostics):
         It should be distributed approximately as chi squared of at most 14-2 =12 degrees of freedom. 
         However, high energy bins usually do not contribute, so we compare with ndf=%(ndf)d.
         All sources with TS_bands>%(tsbandcut)d are shown.<br>
-        Left: non-pulsar fits, showing the powerlaw subset. Tails in this distribution perhaps could be 
+        Left: Power-law fits. Tails in this distribution perhaps could be 
         improved by converting to log parabola. 
         <br>Center: Log parabola fits.
         <br>Right: Fits for the pulsars, showing high latitude subset.
@@ -1585,6 +1493,7 @@ class SourceInfo(Diagnostics):
         
         # flag sources that made it into the list
         self.df.flags[t.index] += 2
+        print '%d sources flagged (2) as poor fits' %len(t)
         return fig
         
     def pivot_vs_e0(self, xylim=(100, 4e4)):
@@ -1662,25 +1571,78 @@ class SourceInfo(Diagnostics):
             plotf(ax)
         return fig
         
-    def spectral_fit_consistency_plots(self):
-        """ Study spectral fit consistency for the lowest energy bin
+    def spectral_fit_consistency_plots(self, energy=133., minflux=2.0, 
+            title = 'low energy fit consistency'
+        ):
+        """ Spectral fit consistency for the lowest energy bin
         
-        %(bad_consistency)s
+        These plot show information the consistency of the lowest energy band with the spectrm
+        defined by the full fit. <br>
+        Left: distribution of the "pull" <br>
+        Center: data/model ratio with errors, vs. the model flux.<br>
+        Right: position in the sky of flagged sources <br>
         """
-        fig,ax = plt.subplots(1,3, figsize=(12,4))
-        for f, t, ax in zip( [self.spectral_fit_consistency]+ [self.lowenergyfluxratio]*2,
-                    (False,  False, True), ax.flatten()):
-            f( hist=t, ax=ax)
+        cut=self.df.ts>25
+        s = self.df[cut]
+        fdata = np.array([s.ix[i]['sedrec'].flux[0] for i in range(len(s))])
+        udata = np.array([s.ix[i]['sedrec'].uflux[0] for i in range(len(s))])
+        ldata = np.array([s.ix[i]['sedrec'].lflux[0] for i in range(len(s))])
+        pull = np.array([s.ix[i]['sedrec'].pull[0] for i in range(len(s))])
+        fmodel = np.array([s.ix[i]['model'](energy)*energy**2*1e6 for i in range(len(s))])
+        glat = np.array([x.b() for x in s.skydir])
+        fluxcut = fmodel>minflux
+        latcut  = abs(glat)>5.0
+        hilat = fluxcut*(latcut)
+        lolat = fluxcut*(~latcut)
+        
+        lowebad = np.abs(pull)>3
+        self.df.flags[lowebad] += 4
+        print 'Tagged %d sources with lowebad bit' % sum(lowebad)
+
+        y = fdata/fmodel
+        ylower, yupper =[(fdata-ldata)/fmodel,(udata-fdata)/fmodel]
+        xhi,yhi,yerrhi = fmodel[hilat], y[hilat], [ylower[hilat],yupper[hilat]]
+        xlo,ylo,yerrlo = fmodel[lolat], y[lolat], [ylower[lolat],yupper[lolat]]
+        
+        def error_bar(ax):
+            ax.errorbar(x=xhi, y=yhi, yerr=yerrhi, fmt='og', label='%d hilat sources'%sum(hilat))
+            ax.errorbar(x=xlo, y=ylo, yerr=yerrlo, fmt='or', label='%d lowlat sources'%sum(lolat))
+            plt.setp(ax, xlabel=r'$\mathsf{model\ flux\ (eV\ cm^{-2} s^{-1}})$', xscale='log', 
+                ylabel='data/model', ylim=(0,2.5), xlim=(minflux, 100) )
+            ax.set_xticks([2,5,10,20,50,100])
+            ax.set_title( title, fontsize='medium')
+            ax.set_title( title, fontsize='medium')
+            ax.legend(loc='upper left', prop=dict(size=10))
+            ax.grid()  
+
+        def hist(ax):
+            dom = np.linspace(-3,3,26)
+            hist_kw=dict(lw=2, histtype='step')
+            q=pull.clip(-3,3) 
             
-        self.bad_consistency = '<h3> Sources not consistent in 133 MeV bin</h3>'
-        self.bad_consistency+= self.lowebad.to_html()
-        self.df.flags[self.lowebad.index] += 4
+            ax.hist(q[hilat], dom, color='g',  label='%d hilat sources'%sum(hilat),  **hist_kw)
+            ax.hist(q[lolat], dom, color='r',  label='%d lowlat sources'%sum(lolat), **hist_kw)
+            ax.set_xlabel('pull')
+            ax.axvline(0, color='k')
+            ax.set_xlim((-3,3))
+            ax.set_title( title, fontsize='medium')
+            ax.legend(loc='upper left', prop=dict(size=10))
+            ax.grid()  
+
+        def skyplot(ax):
+            pdf = pd.DataFrame(dict(pull=pull), index=s.index) # to atatch indx
+            self.skyplot(pdf.pull[lowebad], ax=ax, vmin=-3, vmax=3, title=title, cbtext='pull')
+
+        fig,ax = plt.subplots(1,3, figsize=(12,4))
+        plt.subplots_adjust(wspace=0.3)
+        for f, ax in zip( (hist, error_bar, skyplot), ax.flatten()):
+            f(ax=ax)
         return fig
         
     def all_plots(self):
         """ Plots of source properties, from analysis of spectral fits. 
         See <a href="../localization/index.html"> localization </a> for localization plots.
-        <h3>Rough Census</h3>
+        <h3>Census</h3>
         
         %(census_html)s
         <p>
@@ -1731,6 +1693,7 @@ class SourceInfo(Diagnostics):
  
 class Localization(SourceInfo):
 
+    require='pickles.zip'
     def setup(self, **kw):
         super(Localization, self).setup(**kw)
         self.plotfolder = 'localization'
@@ -1739,10 +1702,15 @@ class Localization(SourceInfo):
         self.ebox.columns = 'fit_ra fit_dec a b ang locqual delta_ts'.split()
         self.ebox['roiname']=self.df.roiname
         self.ebox['ts'] = self.df.ts
-        tscut = kw.get('tscut', 25)
-        acut = kw.get('acut', 0.25)
-        self.badloc=self.ebox[(self.ebox.locqual>0)*(self.ebox.a>acut)]['ts a locqual roiname'.split()].sort_index(by='ts',ascending=False)
-            #badloc.save('badloc.pickle')
+        self.tscut = kw.get('tscut', 10.)
+        self.acut =  kw.get('acut', 0.25)
+        self.qualcut=kw.get('qualcut', 8.0)
+        self.poorloc=self.ebox[ (self.ebox.locqual>self.qualcut) | (self.ebox.a>self.acut)]['ts a locqual roiname'.split()].sort_index(by='ts',ascending=False)
+        if len(self.poorloc)>0:
+            print '%d poorly localized (locqual>%.1f or a>%.2f) '%\
+                (len(self.poorloc), self.qualcut,self.acut)
+            self.poorloc.to_csv('poorly_localized.csv')
+            print 'wrote file "poorly_localized.csv"'
 
     def localization(self, maxdelta=9, mints=10):
         """Localization plots
@@ -1794,7 +1762,7 @@ class Localization(SourceInfo):
         ax.grid()
         plt.setp(ax, xscale='log', xlim=(10,1e5), xlabel='TS', ylabel='localization fit quality')
         ax=axx[2]
-        self.skyplot(self.badloc.locqual, ax=ax, s=50, vmin=10, vmax=100, cbtext='localization quality')
+        self.skyplot(self.poorloc.locqual, ax=ax, s=50, vmin=10, vmax=100, cbtext='localization quality')
         return fig 
         
     def r95(self, qualmax=10):
@@ -1814,8 +1782,10 @@ class Localization(SourceInfo):
             plt.setp(ax, xlabel='R95 (arcmin)')
             ax.grid(); ax.legend(prop=dict(size=10))
         def scat(ax):
-            ax.plot( ts, r95, '.')
-            plt.setp(ax, xscale='log', xlim=(10,1000), ylim=(0,30), xlabel='TS', ylabel='r95')
+            #ax.plot( ts, r95, '.')
+            #plt.setp(ax, xscale='log', xlim=(10,1000), ylim=(0,30), xlabel='TS', ylabel='r95')
+            ax.plot( ts**-0.5, r95.clip(0,30), '.')
+            plt.setp(ax, xlim=(0,0.30),  ylim=(0,30.5), xlabel='1/sqrt(TS)', ylabel='R95 (arcmin)')
             ax.grid()
         for f,a in zip((hist,scat), ax): f(a)
         return fig
@@ -1893,22 +1863,21 @@ class Localization(SourceInfo):
             ylabel='ratio of detected to expected')
         return fig
     
-    def bad_loc(self, tscut=10, acut=0.25):
-        """ Bad localizations
+    def poor_loc(self):
+        """ Poorly localized sources
                 %(poorly_localized_table_check)s
         """
-        if len(self.badloc)>0:
-        
-            print '%d bad localizations found (%d for ts>%d, a>%f)' %(len(self.badloc), sum(self.badloc.ts>tscut), tscut, acut)
+        if len(self.poorloc)>0:
             poorly_localized_tablepath = os.path.join(self.plotfolder,'poorly_localized_table.html')
-            open('poorly_localized_table.html','w').write(self.badloc.to_html())
+            open('poorly_localized_table.html','w').write(self.poorloc.to_html())
             print 'Wrote poorly_localized_table.html'
             open(os.path.join(poorly_localized_tablepath),'w').write(
                 '<head>\n' + HTMLindex.style + '</head>\n<body>\n<h3>Poorly Localized Source Table</h3>'\
-                            +  self.badloc.to_html()+'\n</body>')
+                            +  self.poorloc.to_html()+'\n</body>')
             print 'saved html doc%s' % os.path.join(poorly_localized_tablepath)
-            self.poorly_localized_table_check = '<p><a href="%s"> Table of %d poorly localized (a>%.2f deg, TS>%d) sources</a>'\
-                                    % ( 'poorly_localized_table.html',len(self.badloc),acut,tscut)
+            self.poorly_localized_table_check =\
+                        '<p><a href="%s"> Table of %d poorly localized (a>%.2f deg, or qual>%.1f with TS>%d) sources</a>'\
+                        % ( 'poorly_localized_table.html',len(self.poorloc),self.acut,self.qualcut, self.tscut)
         else:
             self.poorly_localized_table_check ='<p>No poorly localized sources!'
 
@@ -1918,7 +1887,7 @@ class Localization(SourceInfo):
         
         <p>Analysis of the localization information derived from the 'ellipse' field of the source records.
         """
-        return self.runfigures([self.r95, self.localization,self.localization_quality,self.bad_loc,self.check_closeness,self.source_confusion])
+        return self.runfigures([self.r95, self.localization,self.localization_quality,self.poor_loc,self.check_closeness,self.source_confusion])
 
 
 class SourceComparison(SourceInfo):
@@ -1963,24 +1932,44 @@ class SourceComparison(SourceInfo):
         plt.setp(ax, xlabel='closest distance to %s source'%self.catname)
         return fig
     
-    def lost_plots(self, maxts=100):
-        """2FGL sources lost in new list
-        Histogram of the 2FGL catalog TS for those sources more than 0.25 deg from a skymodel source. 
-        The subset of sources with associations (prob>0.8) is shown.
-        """
-        fig,ax = plt.subplots( figsize=(4,4))
-        self.lost = self.cat.closest>0.25
-        print 'lost: %d' % sum(self.lost)
+    def lost_plots(self, close_cut=0.25, minassocprob=0.8, maxts=250):
+        """2FGL sources not present in new list
+        Histogram of the 2FGL catalog TS and Galactic latitude for those sources more than %(close_cut).2f deg from a skymodel source. 
+        The subset of sources with associations (prob>%(minassocprob)s) is shown. <br>
+        Left: Distribution vs. TS.<br>
+        Right: Distribution vs sine of Galactic latitude.
+        """ 
+        self.minassocprob=minassocprob
+        self.close_cut = close_cut
+        fig,axx = plt.subplots(1,2, figsize=(8,4))
+        self.lost = self.cat.closest>close_cut
+        print '%d sources from 2FGL further than %.2f deg: consider lost' % (sum(self.lost) , close_cut )
         self.cat.ix[self.lost].to_csv('2fgl_lost.csv')
-        print 'wrote file 2fgl_lost.csv'
-        ax.hist(self.cat.ts[self.lost].clip(0,maxts), np.linspace(0,maxts,26), label='all (%d)'%sum(self.lost))
-        ax.hist(self.cat.ts[self.lost*self.cat.id_prob>0.8].clip(0,maxts), np.linspace(0,maxts,26), 
-                label='associated')
-        ax.legend(prop=dict(size=10))
-        ax.grid()
-        plt.setp(ax, xlabel='TS of %s source' %self.catname)
+        print '\twrite to file "2fgl_lost.csv"'
+        lost_assoc = self.lost * self.cat.id_prob>0.8
+
+        def left(ax):
+            space = np.linspace(0,maxts,21)
+            ax.hist(self.cat.ts[self.lost].clip(0,maxts), space, label='all (%d)'%sum(self.lost))
+            ax.hist(self.cat.ts[lost_assoc].clip(0,maxts), space, label='associated(%d)' %sum(lost_assoc) )
+            ax.legend(prop=dict(size=10))
+            ax.grid()
+            plt.setp(ax, xlabel='TS of %s source' %self.catname)
+
+        def right(ax):
+            space = np.linspace(-1,1,51)
+            singlat = np.sin(np.radians(self.cat.glat))
+            ax.hist(singlat[self.lost], space, label='all (%d)'%sum(self.lost))
+            lost_assoc = self.lost * self.cat.id_prob>0.8
+            ax.hist(singlat[lost_assoc], space, label='associated(%d)' %sum(lost_assoc) )
+            ax.legend(prop=dict(size=10))
+            ax.grid()
+            plt.setp(ax, xlabel='sin(glat) of %s source' %self.catname, xlim=(-1,1))
+            return fig
+        for f, ax in zip((left,right), axx.flatten()): 
+            f(ax)
         return fig
-      
+        
     def all_plots(self):
         """Results of comparison with 2FGL catalog
         """
@@ -2000,11 +1989,13 @@ class Associations(SourceInfo):
         
     def association_vs_ts(self):
         """ Association vs. TS
+        
+        Histogram of TS, showing the fraction that have associations.
         """
         fig, ax = plt.subplots( figsize=(5,5))
         bins = np.logspace(1,5,41)
         ax.hist(self.df10.ts, bins, label='all sources')
-        ax.hist(self.df10.ts[self.df.aprob>0.8], bins, label='associated sources')
+        ax.hist(self.df10.ts[self.df.aprob>0.8], bins, color='orange', label='associated')
         plt.setp(ax, xscale='log', xlabel='TS', xlim=(10,1e5))
         ax.legend(prop=dict(size=10)); ax.grid()
         return fig
@@ -2041,10 +2032,9 @@ class Associations(SourceInfo):
         print 'Catalog entries not found:', list(dc2names.difference(tt))
         missing = [ np.isnan(x) or x<10. for x in lat.ts]
         
-        self.atable += '<h3>Compare with LAT catalog %s</h3>' % pulsar_lat_catname
-        self.atable += '<p>Sources with exp cutoff not in catalog %s' %list(tt.difference(dc2names))
-        self.atable += '<p>%d LAT catalog entries not found or weak:'\
-                       ' Note that "NaN" for the ts column means that it was not found\n' % sum(missing)
+        self.atable += '<h3>Compare with LAT pulsar catalog: %s</h3>' % os.path.split(pulsar_lat_catname)[-1]
+        self.atable += '<p>Sources fit with exponential cutoff not in catalog %s' %list(tt.difference(dc2names))
+        self.atable += '<p>%d LAT catalog entries not in the model (TS shown as NaN), or too weak.' % sum(missing)
         self.atable += lat[missing]['RAJ2000 DEJ2000 ts ROI_index'.split()].to_html()
         if sum(lat.delta>0.25)>0:
             self.atable += '<p>Pulsars located > 0.25 deg from nominal'\
@@ -2055,7 +2045,7 @@ class Associations(SourceInfo):
     
 class Localization1K(Localization):
     """ load and analyze a special localization-only run"""
-    require='loccalization.zip'
+    require='localization.zip'
     
     def setup(self, zipname='localization', ecut=1000,  **kw):
         super(Localization1K, self).setup(**kw)
@@ -2496,8 +2486,8 @@ class SeedCheck(SourceInfo):
             pars[:n] = model.parameters
             free[:n] = model.free
             try:
-                errs[:n] = np.diag(model.get_cov_matrix())**0.5
-                errs[np.isnan(errs)]=-1
+                diag = np.diag(model.get_cov_matrix())
+                errs[:n] = [np.sqrt(x) if x>0 else -1 for x in diag[:n]]
                 badfit = np.any(errs[model.free]<=0)
             except Exception, msg:
                 print 'fail errors for %s:%s' % (name, msg)
@@ -2527,7 +2517,9 @@ class SeedCheck(SourceInfo):
                 aprob = source.adict['prob'][0] if has_adict else 0.,
                 adict = source.adict if has_adict else None,
                 )
-        self.df = pd.DataFrame(sdict).transpose()
+        self.df = pd.DataFrame(pd.DataFrame(sdict).transpose(), 
+            columns='ra dec glat glon ts delta_ts eflux eflux_unc pindex pindex_unc par2 par2_unc e0 r95 aprob index'.split() 
+            )
         self.df.index.name='name'
         self.assoc = pd.DataFrame(assoc).transpose()
         self.assoc.index.name = 'name'
@@ -2542,7 +2534,7 @@ class SeedCheck(SourceInfo):
         #self.agn = [  s is not None and ('agn' in s or 'crates' in s or 'bzcat' in s or 'bllac' in s or 'qso' in s or 'cgrabs' in s) for s in t] * associated
     
     def select_candidates(self, tsmin):
-        t=self.df[(self.df.ts>tsmin)*(-self.df.r95.isnull())]['ra dec ts pindex r95 aprob'.split()]#.sort_index(by='ts')
+        t=self.df[(self.df.ts>tsmin)*(self.df.r95<0.6)]['ra dec ts pindex r95 aprob'.split()]#.sort_index(by='ts')
         t['acat']=self.assoc.acat
         t['aname']=self.assoc.aname
         return t
@@ -2640,8 +2632,11 @@ class SeedCheck(SourceInfo):
         #t['aname']=self.assoc.aname
         tsmin = 6
         t = self.select_candidates(tsmin)
-        self.info = self.df.describe().to_html()
-        self.info += '<h3> Selected TS>tsmin and localized</h3>' %tsmin
+        good_seeds = 'good_seeds.csv'
+        t.to_csv(good_seeds)
+        print 'wrote list that succeeded to %s' % good_seeds
+        self.info = ' ' #self.df.describe().to_html()
+        self.info += '<h3> Selected TS>%.0f and localized</h3>' %tsmin
         self.info += t.to_html()
         self.info += '<h3>Association summary:</h3>' #\n<pre>%s\n</pre>' %self.assoc_sum
         self.info += '<table border="1"><thead><tr><th>Catalog</th><th>Sources</th></tr></thead>\n<tbody>'
@@ -2807,6 +2802,8 @@ class Data(Diagnostics):
         self.runfigures( [self.plot_spectrum,])
     
 class HTMLindex():
+    """ Manage the web browser pages
+    """
     style="""
 <style type="text/css">
 body {	font-family:verdana,arial,sans-serif;
