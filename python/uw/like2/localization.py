@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.11 2013/01/09 16:10:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.12 2013/01/25 22:10:09 burnett Exp $
 
 """
 import os
@@ -255,8 +255,9 @@ def localize_all(roi, **kwargs):
                 make_association(source, loc.TSmap, associator, quiet=roi.quiet)
             
             if tsmap_dir is not None:
-                tsize = loc.ellipse['a']*15. if hasattr(loc,'ellipse') and loc.ellipse is not None else 1.1
-                pixelsize= tsize/15.;
+                tsize = loc.ellipse['a']*15. if hasattr(loc,'ellipse') and loc.ellipse is not None else 2.0
+                tsize = min(tsize, 2.0)
+                pixelsize= tsize/15.
                 try:
                     tsm=tsmap.plot(loc, source.name, center=source.skydir, 
                         outdir=tsmap_dir, catsig=0, size=tsize, 
