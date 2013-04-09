@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.81 2013/04/05 18:51:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.82 2013/04/07 18:48:22 burnett Exp $
 
 """
 
@@ -128,6 +128,8 @@ class Diagnostics(object):
             fname = name if name is not None else function.__name__
             fig = self.savefigure(fname, function, **kwargs)
             html+='\n'+ fig
+        html+= '\n<hr>\nPage generated %4d-%02d-%02d %02d:%02d:%02d' % tuple(time.localtime()[:6])
+
         html+='\n</body>'
         t = os.path.split(os.getcwd())
         self.header='/'.join([t[-1], os.path.split(self.plotfolder)[-1]])
@@ -1206,7 +1208,7 @@ class SourceInfo(Diagnostics):
                         a = ellipse[2] if ellipse is not None else np.nan,
                         b = ellipse[3] if ellipse is not None else np.nan,
                         ang=ellipse[4] if ellipse is not None else np.nan,
-                        locqual = ellipse[5] if ellipse is not None else np.nan,
+                        locqual = round(ellipse[5],2) if ellipse is not None else np.nan,
                         delta_ts = ellipse[6] if ellipse is not None else np.nan,
                         flux = pars[0],
                         flux_unc = errs[0],
@@ -1214,13 +1216,13 @@ class SourceInfo(Diagnostics):
                         pindex_unc = errs[1],
                         beta = betavalue,
                         beta_unc = errs[2] if not pulsar and pars[2]>0.002 else np.nan,
-                        index2 = pars[3] if pulsar else np.nan,
-                        index2_unc = errs[3] if pulsar and not np.isnan(pars[3]) else np.nan,
+                        index2 = pars[3] if pulsar else pars[2],
+                        index2_unc = errs[3] if pulsar and not np.isnan(pars[3]) else errs[2],
                         cutoff = pars[2] if pulsar else np.nan,
                         cutoff_unc = errs[2] if pulsar else np.nan,
                         e0 = model.e0,
                         modelname=model.name,
-                        fitqual = sum(info['sedrec'].delta_ts),
+                        fitqual = round(sum(info['sedrec'].delta_ts),2),
                         eflux = pars[0]*model.e0**2*1e6,
                         psr = pulsar,
                         )
@@ -1236,8 +1238,10 @@ class SourceInfo(Diagnostics):
             print 'saved %s' % filename
 
             csvfile='sources.csv'
-            self.df.ix[self.df.ts>10]['ra dec a b ang ts locqual fitqual roiname'.split()].to_csv(csvfile)
-            print 'saved csv version to %s' %csvfile
+            colstosave="""ra dec ts modelname fitqual e0 flux flux_unc pindex pindex_unc index2 index2_unc
+                     cutoff cutoff_unc locqual a b ang roiname""".split()
+            self.df.ix[self.df.ts>10][colstosave].to_csv(csvfile)
+            print 'saved truncated csv version to "%s"' %csvfile
         else:
             print 'loading %s' % filename
             self.df = pd.load(filename)
@@ -1404,6 +1408,59 @@ class SourceInfo(Diagnostics):
         print '%d sources flagged (1) in tails of flux, index, or beta' % len(self.non_psr_tails)
         return fig
     
+    def pulsar_spectra(self, index_min=0.5, index_max=2.5, cutoff_max=10000):
+        """ Distributions for the LAT pulsars
+        
+        For each plot, the subset with a bad fit is shown.
+        """
+        fig, axx = plt.subplots( 1,4, figsize=(14,4))
+        plt.subplots_adjust(wspace=0.3)
+        t = self.df.ix[(self.df.ts>10)*(np.array(self.df.psr,bool))]['ts flux pindex cutoff e0 roiname fitqual'.split()]
+        t['eflux'] = t.flux * t.e0**2 * 1e6
+        badfit = t.fitqual>50
+
+        def plot1(ax, efmin=1e-1,efmax=1e3):
+            bins = np.logspace(np.log10(efmin),np.log10(efmax),26)
+            vals = t.eflux.clip(efmin,efmax)
+            ax.hist(vals, bins )
+            ax.hist(vals[badfit], bins, color='red', label='bad fit')
+            plt.setp(ax, xscale='log', xlabel='energy flux', xlim=(efmin,efmax)); ax.grid(); 
+            ax.legend(prop=dict(size=10))
+
+        def plot2(ax):
+            bins = np.linspace(index_min,index_max,26)
+            vals = t.pindex.clip(index_min,index_max)
+            ax.hist(vals, bins)
+            ax.hist(vals[badfit], bins, color='red', label='bad fit')
+            plt.setp(ax, xlabel='spectral index'); ax.grid(); 
+            ax.legend(prop=dict(size=10))
+            
+        def plot3(ax):
+            bins = np.linspace(0,cutoff_max/1e3,26)
+            vals = t.cutoff.clip(0,cutoff_max) /1e3
+            ax.hist(vals, bins)
+            ax.hist(vals[badfit], bins, color='red', label='bad fit')
+            plt.setp(ax, xlabel='cutoff energy (GeV)'); ax.grid()
+            ax.legend(prop=dict(size=10))
+            
+        def plot4(ax):
+            xvals = t.cutoff.clip(0,cutoff_max) / 1e3
+            yvals = t.pindex.clip(index_min,index_max)
+            ax.plot(xvals, yvals, 'o')
+            ax.plot(xvals[badfit], yvals[badfit], 'or', label='bad fit')
+            plt.setp(ax, xlabel='cutoff energy', ylabel='spectral index')
+            ax.grid(); ax.legend(prop=dict(size=10))
+
+            
+        for f,ax in zip((plot1,plot2,plot3,plot4,), axx.flatten()): f(ax)
+        flags = self.df.flags
+        tail_cut = (t.pindex<=index_min) + (t.pindex>index_max) + (t.cutoff>cutoff_max)
+
+        tails = t.ix[tail_cut].index
+        flags[tails] += 1 ### bit 1
+        print '%d pulsar sources flagged (1) in tails of  index or cutoff' % sum(tail_cut)
+
+        return fig
     
     def ecliptic_hist(self, ax=None, title=''):
         ea = map(self.ecliptic_angle, self.df.skydir)
@@ -1534,8 +1591,6 @@ class SourceInfo(Diagnostics):
         plt.setp(ax, xscale='log', xlabel='TS', xlim=(10,1e5),
              ylabel='fit qual',ylim=(1,1e3),yscale='log')
         ax.grid()
-        
-        
         return fig
 
     def flux_uncertainty(self):
@@ -1668,8 +1723,8 @@ class SourceInfo(Diagnostics):
         self.census=pd.DataFrame(census, index=prefixes)
         self.census_html = self.census.to_html()
        
-        self.runfigures([self.fit_quality, self.non_psr_spectral_plots, self.pivot_vs_e0, self.cumulative_ts, 
-            self.spectral_fit_consistency_plots]
+        self.runfigures([self.cumulative_ts, self.fit_quality,self.spectral_fit_consistency_plots,
+            self.non_psr_spectral_plots, self.pulsar_spectra, self.pivot_vs_e0,  ]
         )
         
         plt.close('all')
