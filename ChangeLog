@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Apr  9 12:07:27 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	timeman.py phasedata.py 
+Log Message:
+Allow more flexibility in specifying/processing event times.
+
+    *
+------------------------------------------------------------
 User: burnett  Tue Apr  9 07:29:23 PDT 2013
 pointlike/python/uw/like2
 
