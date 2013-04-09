@@ -1,12 +1,13 @@
 """
 Code to generate a standard Fermi-LAT catalog FITS file
 also, see to_xml, to generate XML for the sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/makecat.py,v 1.4 2013/03/11 18:23:00 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/makecat.py,v 1.5 2013/03/21 19:35:02 burnett Exp $
 """
-import os
+import os, argparse
 import pyfits
 from skymaps import SkyDir
 import numpy as np
+import pandas as pd
 
 #catdir  = config.catalog_path
 #catalog = config.default_catalog
@@ -40,8 +41,8 @@ import numpy as np
 # default column definitions 
 coldata ="""\
     NickName               20A None
-    RA                       E deg
-    DEC                      E deg
+    RAJ2000                  E deg
+    DEJ2000                  E deg
     GLON                     E deg
     GLAT                     E deg
     Conf_95_SemiMajor        E deg
@@ -65,7 +66,13 @@ coldata ="""\
     ID_RA                  26E deg
     ID_DEC                 26E deg
     ID_Angsep              26E deg
-    ID_Catalog             26I None""".split('\n')
+    ID_Catalog             26I None
+    SpectrumType           18A None
+    Extended                 L None
+    beta                     E None
+    Unc_beta                 E None
+    Spectral_Fit_Quality     E None
+    Flags                    I None""".split('\n')
 coldict = {}
 for name,format,unit in [c.split() for c in coldata]:
     coldict[name]= dict(format=format, unit = unit)
@@ -171,7 +178,7 @@ class MakeCat(object):
         self.add_assoc = add_assoc
         
     def add(self, name, array, fill=0):
-        print ' %s ' % name ,
+        #print ' %s ' % name ,
         if name in coldict:
             format = coldict[name]['format']
             unit = coldict[name]['unit']
@@ -193,14 +200,15 @@ class MakeCat(object):
         self.check=False
         self.bad = z.ts<9
         self.add('NickName', z.name)
-        self.add('RA', z.ra)
-        self.add('DEC', z.dec)
+        self.add('RAJ2000', z.ra)
+        self.add('DEJ2000', z.dec)
         sdir = map(SkyDir, z.ra, z.dec)
         self.add('GLON', [s.l() for s in sdir])
         self.add('GLAT', [s.b() for s in sdir])
         
         # localization 
         f95 = 2.45*1.1 # from 
+        self.add('LocalizationQuality', z.locqual)
         self.add('Conf_95_SemiMajor', f95*z.a)
         self.add('Conf_95_SemiMinor', f95*z.b)
         self.add('Conf_95_PosAng',    z.ang)
@@ -208,20 +216,18 @@ class MakeCat(object):
         self.add('Test_Statistic',    z.ts)
         
         # Spectral details
+        self.add('SpectrumType',      z.modelname)
         self.add('Pivot_Energy',      z.e0)  # note that pivot_energy is the measured value
         self.add('Flux_Density',      z.flux)
         self.add('Unc_Flux_Density',  z.flux_unc)
         self.add('Spectral_Index',    z.pindex)
         self.add('Unc_Spectral_Index',z.pindex_unc)
-        self.add('beta',              z.beta)
-        self.add('Unc_beta',          z.beta_unc)
-        #self.add('Index2',            z.index2)
-        #self.add('Unc_Index2',        z.index2_unc)
-        self.add('Cutoff_Energy',     z.cutoff) ## need to get this from info
-        self.add('Cutoff_Energy_Unc', z.cutoff_unc) ## need to get this from info
-        
-        
-        self.add('SpectralFitQuality',    z.band_ts-z.ts)  # sort of an approximation?
+        self.add('Index2',            z.index2)
+        self.add('Unc_Index2',        z.index2_unc)
+        self.add('Cutoff_Energy',     z.cutoff) 
+        self.add('Cutoff_Energy_Unc', z.cutoff_unc) 
+        self.add('SpectralFitQuality',z.fitqual) 
+        self.add('Extended',          pd.isnull(z.locqual))
         #if self.add_assoc:
         #    assoc = Assoc()
         #    for idcol in 'Number Name Probability RA DEC Angsep Catalog'.split():
@@ -231,7 +237,7 @@ class MakeCat(object):
         
         # make the FITS stuff
         table = pyfits.new_table(self.cols)
-        table.name = 'LAT_Point_Source_Catalog' 
+        table.name = '4year_LAT_Source_Catalog' 
         if os.path.exists(outfile):
             os.remove(outfile)
         self.hdus =  [pyfits.PrimaryHDU(header=None),  #primary
@@ -244,7 +250,7 @@ class MakeCat(object):
         
     def finish(self, outfile):
         pyfits.HDUList(self.hdus).writeto(outfile)
-        print '\nwrote FITS file to %s' % outfile
+        print '\nwrote FITS file to %s, with %d columns and %d entries' % (outfile, len(self.cols), len(self.z))
         
 def to_reg(fitsfile, filename=None, color='green'):
     """ generate a 'reg' file from a FITS file, write to filename
@@ -262,14 +268,23 @@ def to_reg(fitsfile, filename=None, color='green'):
     print 'wrote reg file to %s' % filename
 
 
-def main(outfile,infile='sources.pickle'):
-    assert os.path.exist(infile), 'File %s not found' % infile
-    sources = dp.load(infile)
-    t = makecat.MakeCat(sources)
+def main(outfile, infile='sources.pickle', cuts='(sources.ts>10)*(sources.a<0.25)'):
+    assert os.path.exists(infile), 'Input file "%s" not found' % infile
+    sources = pd.load(infile)
+    print 'Loaded DataTable file %s' % infile
+    selected = sources[eval(cuts)]
+    print 'applied cuts %s: %d -> %d sources' % (cuts, len(sources), len(selected))
+    t = MakeCat(selected)
+    if outfile is None:
+        outfile = '_'.join(os.path.abspath('.').split('/')[-2:])+'.fits'
+        # for example, 'P202_uw10.fits'
     t(outfile)
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='create a FITS file')
-    parser.add_argument('args', nargs=1, help='output FITS file' )
-    args = parser.parse_args()[0]
-    main(args)
+    parser.add_argument('filename', nargs='*', help='output FITS file' )
+    parser.add_argument('--cuts', default='(sources.ts>10)*(sources.a<0.25)*(sources.locqual<10)', help='selection cuts')
+    parser.add_argument('--infile', default='sources.pickle')
+    args = parser.parse_args()
+    filename = args.filename[0] if len(args.filename)>0 else None
+    main(filename, infile=args.infile, cuts=args.cuts)
