@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Apr  9 14:35:06 PDT 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	localization.py 
+Log Message:
+fix default if none or bad
+    *
+------------------------------------------------------------
 User: burnett  Tue Apr  9 14:26:27 PDT 2013
 pointlike/python/uw/like2
 
