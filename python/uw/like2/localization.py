@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.12 2013/01/25 22:10:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.13 2013/04/09 21:35:06 burnett Exp $
 
 """
 import os
@@ -29,7 +29,7 @@ class Localization(object):
     
     """
     defaults = (
-        ('tolerance',1e-3),
+        ('tolerance',1e-2),
         ('verbose',False),
         ('update',False,"Update the source position after localization"),
         ('max_iteration',10,"Number of iterations"),
@@ -254,10 +254,18 @@ def localize_all(roi, **kwargs):
             if associator is not None:
                 make_association(source, loc.TSmap, associator, quiet=roi.quiet)
             
-            if tsmap_dir is not None:
-                tsize = loc.ellipse['a']*15. if hasattr(loc,'ellipse') and loc.ellipse is not None else 2.0
-                tsize = min(tsize, 2.0)
-                pixelsize= tsize/15.
+            if tsmap_dir is not None : 
+                if  hasattr(loc,'ellipse'): 
+                    a, qual = loc.ellipse['a'], loc.ellipse['qual']
+                    tsize = min(a*15., 2.0)
+                    bad = a>0.25 or qual>5
+                    print 'a,qual, bad:', a, qual, bad
+                else: 
+                    print 'no localization'
+                    bad = True
+                    tsize= 2.0
+                if tsmap_dir.endswith('fail') and not bad: continue
+                pixelsize= tsize/15.;
                 try:
                     tsm=tsmap.plot(loc, source.name, center=source.skydir, 
                         outdir=tsmap_dir, catsig=0, size=tsize, 
