@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/phasedata.py,v 1.3 2012/03/29 22:19:17 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/phasedata.py,v 1.4 2013/03/30 21:27:54 kerrm Exp $
 
 Handle loading of FT1 file and phase folding with polycos.
 
@@ -35,6 +35,8 @@ class PhaseData(object):
         ('wmin',0,'minimum weight to use'),
         ('ft2',None,'an FT2 file that can be used for on-the-fly time correction'),
         ('bary',False,'use barycenter time instead of geocenter'),
+        ('timecol','TIME','name of the time column in the FT1 file'),
+        ('noprocess',False,'do not geo- or barycenter times in FT1 file'),
     )
 
     @keyword_options.decorate(defaults)
@@ -45,15 +47,16 @@ class PhaseData(object):
         self.process_ft1()
 
     def process_ft1(self):
-        mc = self.mc = METConverter(self.ft1file,ft2=self.ft2,ra=self.polyco.ra,dec=self.polyco.dec,bary=self.bary)
+        mc = self.mc = METConverter(self.ft1file,ft2=self.ft2,ra=self.polyco.ra,dec=self.polyco.dec,bary=self.bary,noprocess=self.noprocess)
         self.mjd_start = mc.MJDSTART; self.mjd_stop = mc.MJDSTOP
         f    = pyfits.open(self.ft1file)
         ens  = np.asarray(f['EVENTS'].data.field('ENERGY'))
         mask = (ens >= self.emin) & (ens < self.emax)
+        tcol = self.timecol
         if self.tmin > 0:
-            mask &= np.asarray(f['EVENTS'].data.field('TIME')) >= self.tmin
+            mask &= np.asarray(f['EVENTS'].data.field(tcol)) >= self.tmin
         if self.tmax > 0:
-            mask &= np.asarray(f['EVENTS'].data.field('TIME')) < self.tmax
+            mask &= np.asarray(f['EVENTS'].data.field(tcol)) < self.tmax
         if self.rmax > 0:
             ra = self.polyco.ra; dec = self.polyco.dec
             if (ra is None) or (dec is None):
@@ -66,17 +69,20 @@ class PhaseData(object):
             mask = mask & (weights > self.wmin)
             self.weights = weights[mask]
         else: self.weights = None
-        mets = np.asarray(f['EVENTS'].data.field('TIME'))[mask]
+        mets = np.asarray(f['EVENTS'].data.field(tcol))[mask]
         self.mjds = mc(mets)
         self.ph = self.polyco.vec_evalphase(self.mjds)
+        try:
+            self.orig_ph = f['EVENTS'].data.field('PULSE_PHASE')[mask]
+        except KeyError:
+            pass
         f.close()
 
         print >>sys.stderr, "PhaseData: Cuts left %d out of %d events." % (mask.sum(), len(mask))
 
     def write_phase(self,col_name='PULSE_PHASE'):
         f = pyfits.open(self.ft1file)
-        mc = METConverter(self.ft1file)
-        mjds = mc(np.asarray(f['EVENTS'].data.field('TIME')))
+        mjds = self.mc(np.asarray(f['EVENTS'].data.field(tcol)))
         ph = self.polyco.vec_evalphase(mjds)
         
         try:

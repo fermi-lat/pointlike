@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/timeman.py,v 1.4 2012/09/13 23:30:31 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/timeman.py,v 1.5 2013/03/30 21:14:56 kerrm Exp $
 
 Handle MET(TT) to MJD(UTC) conversions.
 
@@ -49,7 +49,7 @@ class GeoConverter(object):
         self.ra = ra
         self.dec = dec
     def __call__(self,times):
-        if not self.can_geo():
+        if not self.can_process():
             raise Exception('Cannot geocenter!  Must provide FT2 and position.')
         else:
             print 'Attempting to geocenter on-the-fly.'
@@ -57,14 +57,14 @@ class GeoConverter(object):
         times = times.astype(np.float64)
         PythonUtilities.met2geo(times,self.ra,self.dec,self.ft2)
         return times
-    def can_geo(self):
+    def can_process(self):
         return (self.ft2 is not None) and \
                (self.ra is not None) and \
                (self.dec is not None)
 
 class BaryConverter(GeoConverter):
     def __call__(self,times):
-        if not self.can_geo():
+        if not self.can_process():
             raise Exception('Cannot barycenter!  Must provide FT2 and position.')
         else:
             print 'Attempting to barycenter on-the-fly.'
@@ -73,13 +73,23 @@ class BaryConverter(GeoConverter):
         PythonUtilities.met2tdb(times,self.ra,self.dec,self.ft2)
         return times
 
+class IdentityConverter(GeoConverter):
+    def __init__(self,*args):
+        pass
+    def __call__(self,times):
+        return times
+    def can_process(self):
+        return True
+
 class METConverter(object):
     """ Convert LAT arrival times (in Mission Elapsed Time) to MJD(UTC)
         in a geocentric reference frame.  The user may alternatively
         specify to use a barycentric frame."""
 
-    def __init__(self,ft1file,ft2=None,ra=None,dec=None,bary=False):
+    def __init__(self,ft1file,ft2=None,ra=None,dec=None,bary=False,noprocess=False):
 
+        self.bary = bary
+        self.noprocess = noprocess
         self.clockcorr = ClockCorr()
 
         # Read FT1 file
@@ -90,14 +100,17 @@ class METConverter(object):
         if bary:
             frame = 'SOLARSYSTEM'
             timesys = 'TDB'
-            geocon = BaryConverter
-        else:
+            timecon = BaryConverter
+        elif (not noprocess):
             frame = 'GEOCENTRIC'
             timesys = 'TT'
-            geocon = GeoConverter
+            timecon = GeoConverter
+        else:
+            timecon = IdentityConverter
+            frame = None
         if ft1hdr['TIMEREF'] != frame:
-            self.geocon = geocon(ft2,ra,dec)
-            if not self.geocon.can_geo():
+            self.timecon = timecon(ft2,ra,dec)
+            if not self.timecon.can_process():
                 s = 'BARYCENTERED' if bary else 'GEOCENTERED'
                 print "# !!!!!!!!!!!!!!!!!!!!!!!!!!!!"
                 print "# !!!!!!!!! WARNING !!!!!!!!!! TIMEREF is not %s! This code is intended for %s times!"%(frame,s)
@@ -105,9 +118,9 @@ class METConverter(object):
             else:
                 print 'TIMEREF is not %s! But will attempt to correct times on-the-fly.'%frame
         else:
-            self.geocon = lambda x: x
+            self.timecon = IdentityConverter()
 
-        if ft1hdr['TIMESYS'] != timesys:
+        if (ft1hdr['TIMESYS'] != timesys) and (not noprocess):
               print "# !!!!!!!!!!!!!!!!!!!!!!!!!!!!"
               print "# !!!!!!!!! WARNING !!!!!!!!!! TIMESYS is not %s.  We are expecting %s times!"%(timesys,timesys)
               print "# !!!!!!!!!!!!!!!!!!!!!!!!!!!!"
@@ -128,10 +141,10 @@ class METConverter(object):
             except ValueError:
                 self.MJDREF = ft1hdr['MJDREFI'] + float(ft1hdr['MJDREFF'].replace('D','E'))
 
-        # geocon added Mar 28 2013; correction needs to be applied in
+        # timecon added Mar 28 2013; correction needs to be applied in
         # on the fly case; minor for GEO but important for BARY
-        TSTART = self.geocon(float(ft1hdr['TSTART']))
-        TSTOP = self.geocon(float(ft1hdr['TSTOP']))
+        TSTART = self.timecon(float(ft1hdr['TSTART']))
+        TSTOP = self.timecon(float(ft1hdr['TSTOP']))
 
         # Compute MJDSTART and MJDSTOP in MJD(UTC); these are used by the
         # binning to compute uniform intervals
@@ -146,10 +159,12 @@ class METConverter(object):
     def __call__(self,times):
         """ Convert MET to MJD(UTC)/GEO."""
         times = np.asarray([times] if not hasattr(times,'__iter__') else times)
-        times = self.geocon(times)
+        times = self.timecon(times)
         times = times/SECSPERDAY + self.MJDREF + self.TIMEZERO
-        for i in xrange(len(times)):
-            times[i] = self.clockcorr.tt2utc(times[i])
+        # disable clock corrections for SSB times
+        if (not self.bary) and (not self.noprocess):
+            for i in xrange(len(times)):
+                times[i] = self.clockcorr.tt2utc(times[i])
         if len(times) == 1: return times[0]
         return times
 
