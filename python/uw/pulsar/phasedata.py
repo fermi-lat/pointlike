@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/phasedata.py,v 1.4 2013/03/30 21:27:54 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/phasedata.py,v 1.6 2013/04/10 00:57:40 kerrm Exp $
 
 Handle loading of FT1 file and phase folding with polycos.
 
@@ -68,7 +68,8 @@ class PhaseData(object):
             weights = np.asarray(f['EVENTS'].data.field(self.we_col_name))
             mask = mask & (weights > self.wmin)
             self.weights = weights[mask]
-        else: self.weights = None
+        else:
+            self.weights = None
         mets = np.asarray(f['EVENTS'].data.field(tcol))[mask]
         self.mjds = mc(mets)
         self.ph = self.polyco.vec_evalphase(self.mjds)
