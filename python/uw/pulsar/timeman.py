@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/timeman.py,v 1.5 2013/03/30 21:14:56 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/timeman.py,v 1.6 2013/04/09 19:07:26 kerrm Exp $
 
 Handle MET(TT) to MJD(UTC) conversions.
 
@@ -101,14 +101,12 @@ class METConverter(object):
             frame = 'SOLARSYSTEM'
             timesys = 'TDB'
             timecon = BaryConverter
-        elif (not noprocess):
+        else:
             frame = 'GEOCENTRIC'
             timesys = 'TT'
             timecon = GeoConverter
-        else:
-            timecon = IdentityConverter
-            frame = None
-        if ft1hdr['TIMEREF'] != frame:
+
+        if (not noprocess) and (ft1hdr['TIMEREF'] != frame):
             self.timecon = timecon(ft2,ra,dec)
             if not self.timecon.can_process():
                 s = 'BARYCENTERED' if bary else 'GEOCENTERED'

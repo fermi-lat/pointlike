@@ -82,7 +82,7 @@ class PhaseData(object):
 
     def write_phase(self,col_name='PULSE_PHASE'):
         f = pyfits.open(self.ft1file)
-        mjds = self.mc(np.asarray(f['EVENTS'].data.field(tcol)))
+        mjds = self.mc(np.asarray(f['EVENTS'].data.field(self.timecol)))
         ph = self.polyco.vec_evalphase(mjds)
         
         try:
