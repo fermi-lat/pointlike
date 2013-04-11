@@ -1,7 +1,7 @@
 """
 Code to plot TS maps
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/tsmap.py,v 1.7 2012/12/12 14:57:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/tsmap.py,v 1.8 2013/04/11 20:31:43 burnett Exp $
 
 """
 import math, os
@@ -56,8 +56,11 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
         fig = plt.figure(fignum,figsize=(4,4)); 
         fig.clf()
         axes = fig.gca()
-    
-    size=min(size, 2.0) #protection
+    maxsize = kwargs.pop('maxsize', 2.0)
+    if size >maxsize:
+        print 'setting size from %.2f to %.1f' % (size,maxsize)
+        size = maxsize # prevent too big for reasonable ?
+        pixelsize= size/15.
     tsfits = kwargs.pop('tsfits', False)
     tsp = image.TSplot(localizer.TSmap, sdir, size, 
                 pixelsize=pixelsize if pixelsize is not None else size/20. , 
@@ -98,11 +101,12 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
         # eventually move this to image.TSplot
         last_loc,i=SkyDir(0,90),0
         for aname, loc, prob, catid in zip(assoc['name'],assoc['dir'],assoc['prob'],assoc['cat']):
+            if prob<0.10: continue
             #print 'associate with %s, prob=%.2f' % (aname.strip(),prob)
             if catid in ('ibis',): 
                 print '---skip gamma cat %s' % catid
                 continue
-            if i>8:
+            if i>4:
                 print '---skip because too many for display'
                 continue
             x,y = tsp.zea.pixel(loc)
@@ -118,13 +122,6 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
     if not nolegend: tsp.zea.axes.legend(loc=2, numpoints=1, bbox_to_anchor=(-0.15,1.0))
     plt.rcParams['font.size'] = fs
 
-    #if outdir is not None: 
-    #  if os.path.isdir(outdir):
-    #    plt.savefig(os.path.join(outdir,'%s_tsmap.png'%name.strip()))
-    #  else :
-    #    plt.savefig(outdir)
-    #return tsp
-
     if hasattr(localizer,'qform') and localizer.qform is not None:
         tsp.overplot(localizer.qform)
     tsp.zea.axes.set_title('%s'% name, fontsize=16)  # big title
@@ -135,6 +132,6 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
         print 'saved tsplot to %s' % fout 
         if tsfits: 
             fitsname = os.path.join(outdir, '%s_tsmap.fits' % filename)
-            tsp.zea.skyimage.reimage(tsm.zea.center,fitsname , pixelsize, tsize)
+            tsp.zea.skyimage.reimage(tsp.zea.center,fitsname , pixelsize, size)
             print 'saved fits format to %s' % fitsname
     return tsp
