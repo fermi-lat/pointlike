@@ -1,7 +1,7 @@
 """
 Code to plot TS maps
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/tsmap.py,v 1.6 2012/02/12 20:05:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/tsmap.py,v 1.7 2012/12/12 14:57:03 burnett Exp $
 
 """
 import math, os
@@ -45,6 +45,7 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
       nolegend    [False]
       markersize  [10]   -- set 0 to not plot nearby sources in the model
       markercolor [blue]
+      tsfits      [False] -- set True to also create a FITS-format file with the image
       =========   =======================================================
 
     returns the image.TSplot object for plotting positions, for example
@@ -56,6 +57,8 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
         fig.clf()
         axes = fig.gca()
     
+    size=min(size, 2.0) #protection
+    tsfits = kwargs.pop('tsfits', False)
     tsp = image.TSplot(localizer.TSmap, sdir, size, 
                 pixelsize=pixelsize if pixelsize is not None else size/20. , 
                 axes=axes, galactic=galactic, galmap=galmap, galpos=galpos, **kwargs)
@@ -130,7 +133,7 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
         fout = os.path.join(outdir, ('%s_tsmap.png'%filename) )
         plt.savefig(fout)
         print 'saved tsplot to %s' % fout 
-        if kwargs.get('tsfits', False): 
+        if tsfits: 
             fitsname = os.path.join(outdir, '%s_tsmap.fits' % filename)
             tsp.zea.skyimage.reimage(tsm.zea.center,fitsname , pixelsize, tsize)
             print 'saved fits format to %s' % fitsname
