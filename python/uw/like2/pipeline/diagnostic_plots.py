@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.82 2013/04/07 18:48:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.83 2013/04/09 21:24:09 burnett Exp $
 
 """
 
@@ -1210,6 +1210,7 @@ class SourceInfo(Diagnostics):
                         ang=ellipse[4] if ellipse is not None else np.nan,
                         locqual = round(ellipse[5],2) if ellipse is not None else np.nan,
                         delta_ts = ellipse[6] if ellipse is not None else np.nan,
+                        freebits= np.sum( int(b)*2**i for i,b in enumerate(model.free)),
                         flux = pars[0],
                         flux_unc = errs[0],
                         pindex = pars[1],
@@ -1237,11 +1238,6 @@ class SourceInfo(Diagnostics):
             self.df.save(filename)
             print 'saved %s' % filename
 
-            csvfile='sources.csv'
-            colstosave="""ra dec ts modelname fitqual e0 flux flux_unc pindex pindex_unc index2 index2_unc
-                     cutoff cutoff_unc locqual a b ang roiname""".split()
-            self.df.ix[self.df.ts>10][colstosave].to_csv(csvfile)
-            print 'saved truncated csv version to "%s"' %csvfile
         else:
             print 'loading %s' % filename
             self.df = pd.load(filename)
@@ -1251,11 +1247,16 @@ class SourceInfo(Diagnostics):
         extended = np.array(self.df.isextended, bool)
         self.df['unloc'] = ~(localized | extended)
         unloc = self.df.unloc * (self.df.ts>10)
+        self.df['poorloc'] = (self.df.a>0.2) + (self.df.locqual>8) + (self.df.delta_ts>2)
         if sum(unloc)>0:
             print '%d point sources (TS>10) without localization information' % sum(unloc)
-            self.df.ix[unloc]['ra dec ts'.split()].to_csv('unlocalized_sources.csv')
+            self.df.ix[unloc]['ra dec ts roiname'.split()].to_csv('unlocalized_sources.csv')
             print 'Wrote file "unlocalized_sources.csv"'
         self.df['flags'] = 0  #used to set bits below
+        flags = self.df.flags
+        flags[self.df.poorloc + self.df.unloc] += 4 ### bit 4
+        print '%d sources flagged (4) as poorly or not localized' % sum(self.df.poorloc + self.df.unloc)
+
  
         self.energy = np.sqrt( self.df.ix[0]['sedrec'].elow * self.df.ix[0]['sedrec'].ehigh )
             
@@ -1310,7 +1311,6 @@ class SourceInfo(Diagnostics):
         """ Cumulative test statistic TS
         
         A logN-logS plot, but using TS. Important thresholds at TS=10 and 25 are shown.
-        %(poorloc_check)s.
         """
         usets = self.df.ts if ts is None else ts
         df = self.df
@@ -1322,21 +1322,12 @@ class SourceInfo(Diagnostics):
             ax.hist( other_ts ,dom, cumulative=-1, lw=2, color='b', histtype='step',label=otherlabel)
         if check_localized:
             unloc = df.unloc
-            ul = df[unloc * usets>tscut[0]] 
+            ul = df[(unloc+df.poorloc) * usets>tscut[0]] 
             n = len(ul)
             if n>10:
                 ax.hist(ul.ts ,dom, cumulative=-1, lw=2, color='r', histtype='step',
-                    label='no localization')
-                ax.text(12, n, 'failed localization (TS>%d) :%d'%(tscut[0],n), fontsize=12, color='r')
-            self.poorloc = df[unloc*(df.ts>tscut[0])][['ts','roiname']]
-            if len(self.poorloc)>0:
-                print 'check self.poorloc for %d sources' %len(self.poorloc)
-                badlocpath = os.path.join(self.plotfolder,'badloc.html')
-                open(badlocpath,'w').write(self.poorloc.to_html())
-                self.poorloc_check = '<h4> Unlocalized above TS=%d:</h4>'%tscut[0] +\
-                    '<a href="%s"> Table of sources that failed to localize</a>' %badlocpath
-            else:
-                self.poorloc_check= '<p>No unlocalized sources above TS=%d'%tscut[0]
+                    label='none or poor localization')
+                ax.text(12, n, 'none or poor localization (TS>%d) :%d'%(tscut[0],n), fontsize=12, color='r')
         plt.setp(ax,  ylabel='# sources with greater TS', xlabel='TS',
             xscale='log', yscale='log', xlim=(9, 1e4), ylim=(9,8000))
         ax.set_xticklabels([' ', '10', '100', '1000'])
@@ -1529,7 +1520,7 @@ class SourceInfo(Diagnostics):
         print '%d sources with bad fits' %len(t)
         if len(t)>0:
             self.badfit = t[['ts', 'errs', 'roiname']]
-            self.badfit_check = '<h4>Sources with no errors:</h4>'+self.badfit.to_html()
+            self.badfit_check = '<h4>Sources with missing errors:</h4>'+self.badfit.to_html()
         else: self.badfit_check = '<p>All sources fit ok.'
         self.fit_quality_average =  ', '.join( map(lambda x,n :'%s: %.1f' %(n,x) ,
                             self.average, 'powerlaw logparabola expcutoff'.split()) )
@@ -1728,6 +1719,12 @@ class SourceInfo(Diagnostics):
         )
         
         plt.close('all')
+        csvfile='sources.csv'
+        colstosave="""ra dec ts modelname freebits fitqual e0 flux flux_unc pindex pindex_unc index2 index2_unc
+                 cutoff cutoff_unc locqual a b ang flags roiname""".split()
+        self.df.ix[self.df.ts>10][colstosave].to_csv(csvfile)
+        print 'saved truncated csv version to "%s"' %csvfile
+
         t =self.df[self.df.flags>0]['ra dec ts fitqual eflux pindex beta cutoff index2 flags roiname'.split()]
         t.to_csv('flagged_sources.csv')
         print 'wrote %d sources to flagged_sources.csv' % len(t)
@@ -1760,7 +1757,7 @@ class Localization(SourceInfo):
         self.tscut = kw.get('tscut', 10.)
         self.acut =  kw.get('acut', 0.25)
         self.qualcut=kw.get('qualcut', 8.0)
-        self.poorloc=self.ebox[ (self.ebox.locqual>self.qualcut) | (self.ebox.a>self.acut)]['ts a locqual roiname'.split()].sort_index(by='ts',ascending=False)
+        self.poorloc=self.ebox[ (self.ebox.locqual>self.qualcut) | (self.ebox.a>self.acut)]['ts a locqual delta_ts roiname'.split()].sort_index(by='ts',ascending=False)
         if len(self.poorloc)>0:
             print '%d poorly localized (locqual>%.1f or a>%.2f) '%\
                 (len(self.poorloc), self.qualcut,self.acut)
