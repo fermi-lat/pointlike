@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.45 2013/03/27 20:52:38 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.46 2013/03/27 20:54:45 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -526,7 +526,7 @@ def roi_refit_processor(roi, **kwargs):
     fit_dir : string
         sub folder in outdir to save pickled fits ['galfits_all']
     """
-    outdir= kwargs.get('outdir')
+    outdir= kwargs.get('outdir', '.')
     emax =  kwargs.pop('emax', 10000)
     names = kwargs.get('diffuse_names', ('ring',))
     plot_dir =os.path.join(outdir, kwargs.pop('plot_dir', 'galfit_plots'))
@@ -703,7 +703,8 @@ def gtlike_compare(roi, **kwargs):
     global cat
     if cat is None:
         import pyfits
-        cat = pyfits.open(os.path.expandvars('$FERMI/catalog/gll_psc3yearclean_v1.fit'))[1].data
+        #cat = pyfits.open(os.path.expandvars('$FERMI/catalog/gll_psc3yearclean_v1.fit'))[1].data
+        cat = pyfits.open(os.path.expandvars('$FERMI/catalog/gll_psc4yearclean_v4.fit'))[1].data
     outdir = kwargs.pop('outdir')
     sed_dir = os.path.join(outdir, kwargs.pop('sed_dir', 'gtlike/sed'))
     model_dir=os.path.join(outdir, kwargs.pop('model_dir', 'gtlike/models'))
