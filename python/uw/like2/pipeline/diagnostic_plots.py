@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.83 2013/04/09 21:24:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.84 2013/04/11 20:31:13 burnett Exp $
 
 """
 
@@ -84,8 +84,12 @@ class Diagnostics(object):
         Note that the docstring may have %(xxx)s, which will be replaced by attribute xxx.
         """
         if func is not None:
-            fig=func(**kwargs)
             fname = func.__name__
+            try:
+                fig=func(**kwargs)
+            except Exception, msg:
+                print 'Failed to run function %s: "%s"' % (fname, msg)
+                return None
         else: fname = name
         if hasattr(self, fname):
             try:
@@ -127,7 +131,8 @@ class Diagnostics(object):
         for function, name in zip(functions,names):
             fname = name if name is not None else function.__name__
             fig = self.savefigure(fname, function, **kwargs)
-            html+='\n'+ fig
+            if fig is not None:
+                html+='\n'+ fig
         html+= '\n<hr>\nPage generated %4d-%02d-%02d %02d:%02d:%02d' % tuple(time.localtime()[:6])
 
         html+='\n</body>'
@@ -1254,8 +1259,8 @@ class SourceInfo(Diagnostics):
             print 'Wrote file "unlocalized_sources.csv"'
         self.df['flags'] = 0  #used to set bits below
         flags = self.df.flags
-        flags[self.df.poorloc + self.df.unloc] += 4 ### bit 4
-        print '%d sources flagged (4) as poorly or not localized' % sum(self.df.poorloc + self.df.unloc)
+        flags[self.df.poorloc + self.df.unloc] += 8 ### bit 8
+        print '%d sources flagged (8) as poorly or not localized' % sum(self.df.poorloc + self.df.unloc)
 
  
         self.energy = np.sqrt( self.df.ix[0]['sedrec'].elow * self.df.ix[0]['sedrec'].ehigh )
@@ -1528,8 +1533,8 @@ class SourceInfo(Diagnostics):
         print 'fit quality averages:', self.fit_quality_average
 
         # Make tables (csv and html) of the poor fits
-
-        t =s.ix[s.fitqual>50]['ra dec fitqual ts modelname roiname'.split()].sort_index(by='roiname')
+        s['pull0'] = np.array([x.pull[0] for x in s.sedrec])
+        t =s.ix[(s.fitqual>50) | (np.abs(s.pull0)>3) ]['ra dec fitqual pull0 ts modelname roiname'.split()].sort_index(by='roiname')
         poorfit_csv = 'poor_spectral_fits.csv'
         t.to_csv(poorfit_csv)
         bs =sorted(list(set(t.roiname)))
@@ -1540,7 +1545,7 @@ class SourceInfo(Diagnostics):
         self.poorfit_table = '<p> <a href="poorfits.html"> Table of %d poor fits, with fitqual>50 </a>' % (  len(t) )
         
         # flag sources that made it into the list
-        self.df.flags[t.index] += 2
+        self.df.flags[t.index] |= 2
         print '%d sources flagged (2) as poor fits' %len(t)
         return fig
         
@@ -1643,7 +1648,7 @@ class SourceInfo(Diagnostics):
         
         lowebad = np.abs(pull)>3
         self.df.flags[lowebad] += 4
-        print 'Tagged %d sources with lowebad bit' % sum(lowebad)
+        print 'Tagged %d sources with lowebad bit (4)' % sum(lowebad)
 
         y = fdata/fmodel
         ylower, yupper =[(fdata-ldata)/fmodel,(udata-fdata)/fmodel]
@@ -1725,7 +1730,7 @@ class SourceInfo(Diagnostics):
         self.df.ix[self.df.ts>10][colstosave].to_csv(csvfile)
         print 'saved truncated csv version to "%s"' %csvfile
 
-        t =self.df[self.df.flags>0]['ra dec ts fitqual eflux pindex beta cutoff index2 flags roiname'.split()]
+        t =self.df[(self.df.flags>0)*(self.df.ts>10)]['ra dec ts fitqual pull0 eflux pindex beta cutoff index2 flags roiname'.split()]
         t.to_csv('flagged_sources.csv')
         print 'wrote %d sources to flagged_sources.csv' % len(t)
         
@@ -1948,14 +1953,17 @@ class SourceComparison(SourceInfo):
             catname='2FGL', **kw):
         super(SourceComparison, self).setup(**kw)
         self.catname=catname
-        self.plotfolder='comparison'
+        self.plotfolder='comparison_%s' % catname
         lat2 = os.path.expandvars('$FERMI/catalog/'+cat)
         assert os.path.exists(lat2), 'Did not find file %s' %cat
         ft = pyfits.open(lat2)[1].data
         name = ft.Source_Name
         ra = ft.RAJ2000
         dec= ft.DEJ2000
-        id_prob = ft.ID_Probability[:,0]
+        id_prob = [np.nan]*len(ft)
+        try:
+            id_prob = ft.ID_Probability[:,0]
+        except: pass 
         cat_skydirs = map (lambda x,y: SkyDir(float(x),float(y)), ra,dec)
         glat = [s.b() for s in cat_skydirs]
         glon = [s.l() for s in cat_skydirs]
@@ -1995,7 +2003,7 @@ class SourceComparison(SourceInfo):
         self.close_cut = close_cut
         fig,axx = plt.subplots(1,2, figsize=(8,4))
         self.lost = self.cat.closest>close_cut
-        print '%d sources from 2FGL further than %.2f deg: consider lost' % (sum(self.lost) , close_cut )
+        print '%d sources from %s further than %.2f deg: consider lost' % (sum(self.lost) , self.catname, close_cut )
         self.cat.ix[self.lost].to_csv('2fgl_lost.csv')
         print '\twrite to file "2fgl_lost.csv"'
         lost_assoc = self.lost * self.cat.id_prob>0.8
