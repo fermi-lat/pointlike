@@ -1,7 +1,7 @@
 """
 A module implementing a mixture model of LCPrimitives to form a
 normalized template representing directional data.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.15 2013/03/27 17:18:14 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.16 2013/03/30 21:28:07 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -386,10 +386,11 @@ class LCTemplate(object):
         rvals /= w[0].sum()
         return rvals
 
-    def mean_single_component(self,index,phases,log10_ens=None,weights=None,bins=20):
+    def mean_single_component(self,index,phases,log10_ens=None,weights=None,bins=20,add_pedestal=True):
         prim = self.primitives[index]
         if (log10_ens is None) or (not self.is_energy_dependent()):
-            return prim(phases)*self.norms()[index]
+            n = self.norms()
+            return prim(phases)*n[index] + add_pedestal*(1-n.sum())
         if weights is None:
             weights = np.ones_like(log10_ens)
         edges = np.linspace(log10_ens.min(),log10_ens.max(),bins+1)
@@ -440,23 +441,26 @@ class LCBridgeTemplate(LCTemplate):
         p1,p2 = self.p1,self.p2
         # NB -- location need to be made "energy aware"
         l1,l2 = p1.get_location(),p2.get_location()
-        # enforce l2 > l1?
+        # can't really enforce l1 < l2, so need to allow for wrapping
         delta = (l2-l1) + (l2 < l1)
+        # evaluate each peak at change points
         f11,f12,f21,f22 = p1(l1,log10_ens),p1(l2,log10_ens),p2(l1,log10_ens),p2(l2,log10_ens)
         d = f11*f22-f12*f21
-        i1 = p1.integrate(l1,l2,log10_ens)
-        i2 = p2.integrate(l1,l2,log10_ens)
-        if l2 < l1:
-            i1 = 1-i1
-            i2 = 1-i2
+        if l2 > l1:
+            i1 = p1.integrate(l1,l2,log10_ens)
+            i2 = p2.integrate(l1,l2,log10_ens)
+        else:
+            i1 = 1 - p1.integrate(l2,l1,log10_ens)
+            i2 = 1 - p2.integrate(l2,l1,log10_ens)
         # coefficient for pedestal
         k = nped*(1.-(i1*(f22-f21)+i2*(f11-f12))/(d*delta))**-1
         # rescaling for peaks over pedestal
         dn1 = k/(delta*d)*(f21-f22)
         dn2 = k/(delta*d)*(f12-f11)
-        mask = (phases > l1) & (phases < l2)
-        if l2 < l1:
-            mask = ~mask
+        if l2 > l1:
+            mask = (phases > l1) & (phases < l2)
+        else:
+            mask = (phases > l1) | (phases < l2)
         rvals = k/delta*mask # pedestal
         norm_list = [norms[i] for i in xrange(0,len(norms)-2)] + [n1+dn1*mask,n2+dn2*mask]
         return rvals,norm_list,all_norms.sum(axis=0)
@@ -489,7 +493,9 @@ class LCBridgeTemplate(LCTemplate):
             np.add(rvals,norms[index]*self.primitives[index](phases,log10_ens),rvals)
         return rvals
 
-    def mean_single_component(self,index,phases,log10_ens=None,weights=None,bins=20):
+    def mean_single_component(self,index,phases,log10_ens=None,weights=None,bins=20,add_pedestal=False):
+        #if add_pedestal:
+            #print 'No add pedestal.'
         # this needs to be done in some sane way, not sure if ideal exists
         #raise NotImplementedError()
         if (log10_ens is None) or (not self.is_energy_dependent()):
