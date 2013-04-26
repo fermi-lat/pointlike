@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Fri Apr 26 13:00:59 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lctemplate.py 
+Log Message:
+Fix some issues in bridge template when P1 wraps in phase.
+
+    *
+------------------------------------------------------------
 User: burnett  Tue Apr 23 10:50:53 PDT 2013
 pointlike/python/uw/like2/pipeline
 
