@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.9 2012/03/29 22:18:51 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.10 2013/03/30 21:27:02 kerrm Exp $
 
 Calculate TOAs with a variety of methods.
 
@@ -85,7 +85,8 @@ class TOAGenerator(object):
             frac_err = tau_err/period
             frame_label = 'BAT' if self.data.bary else 'GEO'
             weight_string = '' if (weights is None) else '-nwp %.2f'%(weights.sum())
-            s = " %s 0.0 %.12f %.2f %s -i LAT -np %d %s -chanceprob %.2e -fracerr %.3f" % (frame_label,toa,toa_err,pe.obs,len(phases),weight_string,prob,frac_err)
+            duration_string = '-tstart %s -tstop %s'%(mjdstart,mjdstop)
+            s = " %s 0.0 %.12f %.2f %s -i LAT %s -np %d %s -chanceprob %.2e -fracerr %.3f" % (frame_label,toa,toa_err,pe.obs,duration_string,len(phases),weight_string,prob,frac_err)
             toas[ii] = toa
             err_toas[ii] = toa_err
             tim_strings.append(s)
