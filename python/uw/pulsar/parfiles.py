@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.130 2012/09/13 06:17:37 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.22 2012/11/29 00:38:32 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -444,7 +444,8 @@ class TimFile(object):
 
     def __init__(self,timfile):
         efac = 1
-        toas = []
+        self.toas = toas = []
+        self.toa_lines = toa_lines = []
         for line in file(timfile):
             toks = line.strip().split()
             if toks[0] == 'EFAC':
@@ -459,10 +460,38 @@ class TimFile(object):
                         'ERR':float(toks[3])*efac,
                         }
                 toas += [toa] 
-        self.toas = toas
+                toa_lines += [line]
 
     def get_mjds(self):
-        return np.asarray([toa['MJD'] for toa in self.toas],dtype=float)
+        return np.asarray([toa['MJD'] for toa in self.toas],dtype=np.float128)
 
-    def get_errs(self):
-        return np.asarray([toa['ERR'] for toa in self.toas],dtype=float)
+    def get_errs(self,days=False):
+        if not days:
+            return np.asarray([toa['ERR'] for toa in self.toas],dtype=float)
+        return np.asarray([toa['ERR'] for toa in self.toas],dtype=np.float128)*(1./(86400*1e6))
+
+    def time_order(self,output=None):
+        a = np.argsort(self.get_mjds())
+        toa_lines = np.asarray(self.toa_lines)[a]
+        if output is not None:
+            file(output,'w').write('FORMAT 1\n'+''.join(toa_lines))
+
+def get_bats_etc(par,tim,output=None):
+    """ Use the tempo2 general plugin to compute the bats and absolute
+        phases of a set of TOAs."""
+    import subprocess
+    cmd = """tempo2 -output general2 -s "onerous\t{bat}\t{err}\t{npulse}\t{post_phase}\n" -f %s %s"""%(par,tim)
+    proc = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE)
+    toks = [line.split('\t')[1:] for line in proc.stdout if line[:7]=='onerous']
+    #toks = [x[1:] for x in toks if x[0]=='onerous']
+    #print toks[0],toks[-1]
+    bats = np.array([x[0] for x in toks],dtype=np.float128)
+    errs = np.array([x[1] for x in toks],dtype=np.float128)*(1e-6/86400)
+    phas = np.array([x[2] for x in toks],dtype=np.int64)
+    offs = np.array([x[3] for x in toks],dtype=np.float64)
+    #phas += np.round(offs)
+    if output is not None:
+        outstring = '\n'.join(['%.20f %.20f %d'%(b,e,p) for b,e,p in zip(bats,errs,phas)])
+        file(output,'w').write('# %s %s\n'%(par,tim)+outstring)
+    return bats,errs,phas
+
