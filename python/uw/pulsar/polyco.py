@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.6 2013/03/30 21:26:41 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.7 2013/04/01 06:56:56 kerrm Exp $
 
 Mange polycos from tempo2.
 
@@ -51,11 +51,20 @@ class PolycoEntry:
     def evalfreq(self,t):
         '''Return the freq at time t, computed with this polyco entry'''
         dt = (t-self.tmid)*1440.0
-        sum = 0.0
+        s = 0.0
         for i in range(1,self.ncoeff):
-            sum += float(i) * self.coeffs[i] * dt**(i-1)
-        freq = self.f0 + sum/60.0
+            s += float(i) * self.coeffs[i] * dt**(i-1)
+        freq = self.f0 + s/60.0
         return(freq)
+
+    def evalfreqderiv(self,t):
+        """ Return the frequency derivative at time t."""
+        dt = (t-self.tmid)*1440.0
+        s = 0.0
+        for i in range(2,self.ncoeff):
+            s += float(i) * float(i-1) * self.coeffs[i] * dt**(i-2)
+        freqd = s/(60.0*60.0)
+        return(freqd)
 
 class Polyco:
     def __init__(self, fname, psrname=None, recalc_polycos=True,mjd0=51544,bary=False, working_dir=None, output=None, ndays=None):
@@ -184,16 +193,34 @@ class Polyco:
         sys.exit(9)
         return None
 
+    def _vec_eval(self,times,func):
+        if not hasattr(times,'__len__'):
+            times = [times]
+        pces = self.getentry(times,use_keys=True)
+        self.ids = np.asarray([pc.uid for pc in pces])
+        return np.asarray(map(func,pces,times))
+
     def vec_evalphase(self,times):
         """ Return the phases for a vector of times; NB times should be in
             MJD @ GEO."""
-        pces = self.getentry(times,use_keys=True)
-        self.ids = np.asarray([pc.uid for pc in pces])
-        return np.asarray([pce.evalphase(time) for pce,time in zip(pces,times)])
+        return self._vec_eval(times,PolycoEntry.evalphase)
+
+    def vec_evalfreq(self,times):
+        """ Return the phases for a vector of times; NB times should be in
+            MJD @ GEO."""
+        return self._vec_eval(times,PolycoEntry.evalfreq)
+
+    def vec_evalfreqderiv(self,times):
+        """ Return the phases for a vector of times; NB times should be in
+            MJD @ GEO."""
+        return self._vec_eval(times,PolycoEntry.evalfreqderiv)
 
     def invert_phase_shift(self,t0,phi):
         """ Compute the time lapse (in s) corresponding to phi at t0."""
         pe = self.getentry(t0)
         f = pe.evalfreq(t0)
         return phi/f
+
+    def get_obs(self):
+        return self.entries[0].obs
             
