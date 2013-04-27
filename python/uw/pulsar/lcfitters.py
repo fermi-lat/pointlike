@@ -9,7 +9,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.45 2013/03/03 04:27:24 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.46 2013/04/05 04:31:29 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -274,13 +274,21 @@ class UnweightedLCFitter(object):
                 return False
         else:
             h1 = hessian(self.template,self.loglikelihood,delta=ss)
-            c1 = np.linalg.inv(h1)
+            try:
+                c1 = np.linalg.inv(h1)
+            except np.linalg.LinAlgError:
+                print 'Hessian matrix was singular!  Aborting.'
+                return False
             d = np.diag(c1)
             if np.all(d>0):
                 self.cov_matrix = c1
                 # attempt to refine
                 h2 = hessian(self.template,self.loglikelihood,delt=d**0.5)
-                c2 = np.linalg.inv(h2)
+                try:
+                    c2 = np.linalg.inv(h2)
+                except np.linalg.LinAlgError:
+                    print 'Second try at hessian matrix was singular!  Aborting.'
+                    return False
                 if np.all(np.diag(c2)>0):
                     self.cov_matrix = c2
             else:
@@ -731,9 +739,13 @@ def calc_step_size(logl,par,minstep=1e-5,maxstep=1e-1):
             return 0
         return delta_ll
     for i in xrange(len(par)):
-        if f(maxstep,i) < 0:
+        if f(maxstep,i) <= 0:
             rvals[i] = maxstep
         else:
-            rvals[i] = bisect(f,minstep,maxstep,args=(i))
+            try:
+                rvals[i] = bisect(f,minstep,maxstep,args=(i))
+            except ValueError as e:
+                print 'Unable to compute a step size for parameter %d.'%i
+                rvals[i] = maxstep
     logl(par) # reset parameters
     return rvals
