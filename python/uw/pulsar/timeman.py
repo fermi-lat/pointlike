@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/timeman.py,v 1.6 2013/04/09 19:07:26 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/timeman.py,v 1.7 2013/04/10 00:57:40 kerrm Exp $
 
 Handle MET(TT) to MJD(UTC) conversions.
 
@@ -44,34 +44,43 @@ class ClockCorr(object):
         return(tai)
 
 class GeoConverter(object):
+
     def __init__(self,ft2,ra,dec):
         self.ft2 = ft2
         self.ra = ra
         self.dec = dec
+        self._setup()
+
+    def _setup(self):
+        from skymaps import PythonUtilities
+        self.label = 'geocenter'
+        self.func = PythonUtilities.met2geo
+
     def __call__(self,times):
         if not self.can_process():
-            raise Exception('Cannot geocenter!  Must provide FT2 and position.')
+            raise Exception('Cannot %s!  Must provide FT2 and position.'%self.label)
         else:
-            print 'Attempting to geocenter on-the-fly.'
+            print 'Attempting to %s on-the-fly.'%self.label
+        if not hasattr(times,'__len__'):
+            times = np.array([times])
+        elif not hasattr(times,'dtype'):
+            times = np.asarray(times)
         from skymaps import PythonUtilities
         times = times.astype(np.float64)
-        PythonUtilities.met2geo(times,self.ra,self.dec,self.ft2)
+        self.func(times,self.ra,self.dec,self.ft2)
         return times
+
     def can_process(self):
         return (self.ft2 is not None) and \
                (self.ra is not None) and \
                (self.dec is not None)
 
 class BaryConverter(GeoConverter):
-    def __call__(self,times):
-        if not self.can_process():
-            raise Exception('Cannot barycenter!  Must provide FT2 and position.')
-        else:
-            print 'Attempting to barycenter on-the-fly.'
+
+    def _setup(self):
         from skymaps import PythonUtilities
-        times = times.astype(np.float64)
-        PythonUtilities.met2tdb(times,self.ra,self.dec,self.ft2)
-        return times
+        self.label = 'barycenter'
+        self.func = PythonUtilities.met2tdb
 
 class IdentityConverter(GeoConverter):
     def __init__(self,*args):
