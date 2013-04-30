@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.84 2013/04/11 20:31:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.85 2013/04/23 17:50:33 burnett Exp $
 
 """
 
@@ -1021,6 +1021,7 @@ class Limb(ROIinfo):
         """
         return self.polar_plots(self.fpar)
 
+
 class LimbRefit(Limb):
     def setup(self, **kw):
         self.plotfolder = 'limb_refit'
@@ -1047,6 +1048,7 @@ class LimbRefit(Limb):
         self.table = pd.DataFrame([self.df.front, self.df.back, ], 
                 index=['front', 'back']).T.describe().to_html()
         self.runfigures([self.flux_vs_dec], ['limb_fit_norm_vs_dec'] )
+
         
 class SunMoonRefit(ROIinfo):
     def setup(self, **kw):
@@ -1954,9 +1956,11 @@ class SourceComparison(SourceInfo):
         super(SourceComparison, self).setup(**kw)
         self.catname=catname
         self.plotfolder='comparison_%s' % catname
-        lat2 = os.path.expandvars('$FERMI/catalog/'+cat)
-        assert os.path.exists(lat2), 'Did not find file %s' %cat
-        ft = pyfits.open(lat2)[1].data
+        if cat[0]!='/':
+            cat = os.path.expandvars('$FERMI/catalog/'+cat)
+        assert os.path.exists(cat), 'Did not find file %s' %cat
+        ft = pyfits.open(cat)[1].data
+        print 'loaded FITS catalog file %s with %d entries' % (cat, len(ft))
         name = ft.Source_Name
         ra = ft.RAJ2000
         dec= ft.DEJ2000
@@ -1967,16 +1971,18 @@ class SourceComparison(SourceInfo):
         cat_skydirs = map (lambda x,y: SkyDir(float(x),float(y)), ra,dec)
         glat = [s.b() for s in cat_skydirs]
         glon = [s.l() for s in cat_skydirs]
-        print 'generating closest distance to catalog "%s"' % cat
-        closest = np.degrees(np.array([min(map(sdir.difference, cat_skydirs))for sdir in self.df.skydir.values]))
-        self.df['closest'] = closest
         self.cat = pd.DataFrame(dict(ra=ft.RAJ2000,dec= ft.DEJ2000, ts=ft.Test_Statistic, 
                 glat=glat, glon=glon, id_prob=id_prob), 
             columns = 'ra dec glat glon ts id_prob'.split(), # this to order them
             index=ft.Source_Name )
         self.cat.index.name='name'
-        closest2 = np.degrees(np.array([min(map(sdir.difference, self.df.skydir.values)) for sdir in cat_skydirs]))
-        self.cat['closest']= closest2
+        
+        if catname=='2FGL':
+            print 'generating closest distance to catalog "%s"' % cat
+            closest = np.degrees(np.array([min(map(sdir.difference, cat_skydirs))for sdir in self.df.skydir.values]))
+            self.df['closest'] = closest
+            closest2 = np.degrees(np.array([min(map(sdir.difference, self.df.skydir.values)) for sdir in cat_skydirs]))
+            self.cat['closest']= closest2
         
             
     def distance_to_cat(self, maxdist=0.5, tscuts=[10,50,500], nbins=26):
@@ -2035,6 +2041,72 @@ class SourceComparison(SourceInfo):
         """
         self.runfigures([ self.distance_to_cat, self.lost_plots])
 
+
+class GtlikeComparison( SourceComparison):
+    """ Comparison plots with a gtlike analysis
+    """
+    def setup(self, catpat='gll_psc4year*.fit', **kw):
+        gllcats = sorted(glob.glob(os.path.expandvars(os.path.join('$FERMI','catalog', catpat))))
+        assert len(gllcats)>0, 'No gtlike catalogs found'
+        cat = gllcats[-1]
+        super(GtlikeComparison, self).setup(cat=cat, catname=cat.split('_')[-1].split('.')[0], **kw)
+        self.plotfolder = 'comparison_%s' % self.catname
+        
+        #make a data frame from the analysis
+        ff = glob.glob('gtlike/models/*.pickle')
+        assert len(ff)>0, 'Expected to find pickle files in gtlike/models'
+        tt = [pickle.load(open(f)) for f in ff]
+        
+        gtcat = dict()
+        for t in tt:
+            for s in t:
+                gtcat[s['name']] = s
+        self.gdf = pd.DataFrame(gtcat).T
+        print 'loaded analysis of gtlike fit models, found %d sources' % len(self.gdf)
+        for col in self.gdf.columns:
+            self.df[col] = self.gdf[col]
+        
+    def delta_ts(self, dmax=30, dmin=-10):
+        """ Delta TS
+        Plots of the TS for the gtlike fits, compared with the pointlike value<br>
+        Outliers: %(under_ts)d with gtlike worse than 30; %(over_ts)d with pointlike worse than 10.
+        """
+        df = self.df
+        self.delta = delta = df.ts_pt-df.ts_gt
+        self.under_ts = sum(delta<dmin)
+        self.over_ts  = sum(delta>dmax)
+        print 'under, over delta_ts: %d, %d' % (self.under_ts, self.over_ts)
+        fig, ax = plt.subplots(1,2, figsize=(11,4))
+        def plot1(ax):
+            ax.plot(df.ts_pt, delta.clip(dmin,dmax), '.')
+            plt.setp(ax, ylim=(dmin-1,dmax+1), xscale='log', xlim=(10,1e4), xlabel='pointlike TS', ylabel='TS diff')
+            ax.grid()
+        def plot2(ax):
+            x = np.array(delta, float) # avoid histogram problem
+            ax.hist( x[~np.isnan(x)].clip(dmin,dmax), np.linspace(dmin,dmax,41))
+            plt.setp(ax, xlabel='TS diff', xlim=(dmin, dmax))
+            ax.grid()
+        for f, ax in zip([plot1,plot2,], ax): f(ax)
+        return fig
+    
+    def missing(self):
+        """ Sources in model not fit by gtlike
+        """
+        df = self.df
+        fig, ax = plt.subplots(1,2, figsize=(9,4))
+        def plot1(ax):
+            ax.hist(df.ts[pd.isnull(df.ts_gt)].clip(0,100), np.linspace(1,100,21))
+            plt.setp(ax, xscale='linear', title='missing')
+            
+        for f, ax in zip([plot1,], ax): f(ax)
+        return fig
+
+        
+    def all_plots(self):
+        """Results of comparison with glike version %(catname)s 
+        """
+        self.runfigures([ self.delta_ts, self.missing, ])
+    
     
 class Associations(SourceInfo):
 
@@ -2102,6 +2174,7 @@ class Associations(SourceInfo):
 
         
         self.runfigures([self.association_vs_ts,])
+
     
 class Localization1K(Localization):
     """ load and analyze a special localization-only run"""
