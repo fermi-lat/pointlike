@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.85 2013/04/23 17:50:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.86 2013/04/30 00:37:53 burnett Exp $
 
 """
 
@@ -1971,10 +1971,12 @@ class SourceComparison(SourceInfo):
         cat_skydirs = map (lambda x,y: SkyDir(float(x),float(y)), ra,dec)
         glat = [s.b() for s in cat_skydirs]
         glon = [s.l() for s in cat_skydirs]
+        # insert space to agree with my PSR name
+        index = [n if not n.startswith('PSR') else 'PSR '+n[3:] for n in ft.NickName]
         self.cat = pd.DataFrame(dict(ra=ft.RAJ2000,dec= ft.DEJ2000, ts=ft.Test_Statistic, 
                 glat=glat, glon=glon, id_prob=id_prob), 
             columns = 'ra dec glat glon ts id_prob'.split(), # this to order them
-            index=ft.Source_Name )
+            index=index, ) #Source_Name )
         self.cat.index.name='name'
         
         if catname=='2FGL':
@@ -2051,7 +2053,11 @@ class GtlikeComparison( SourceComparison):
         cat = gllcats[-1]
         super(GtlikeComparison, self).setup(cat=cat, catname=cat.split('_')[-1].split('.')[0], **kw)
         self.plotfolder = 'comparison_%s' % self.catname
-        
+        # make copy of the df with no blanks in names
+        cname = [n.replace(' ','') for n in self.df.index]
+        self.dfx = self.df.copy()
+        self.dfx.index=cname
+ 
         #make a data frame from the analysis
         ff = glob.glob('gtlike/models/*.pickle')
         assert len(ff)>0, 'Expected to find pickle files in gtlike/models'
@@ -2064,48 +2070,89 @@ class GtlikeComparison( SourceComparison):
         self.gdf = pd.DataFrame(gtcat).T
         print 'loaded analysis of gtlike fit models, found %d sources' % len(self.gdf)
         for col in self.gdf.columns:
-            self.df[col] = self.gdf[col]
+            self.dfx[col] = self.gdf[col]
+            
+        df = self.dfx
+        self.delta = df.ts_pt-df.ts_gt
+
+        df['plane']= np.abs(df.glat)<5
+        df['ts_gtlike']= self.cat.ts
+        fixme = df[(self.delta>25)*(df.ts>10)]['ts ts_gtlike glat plane fitqual  ts_pt ts_gt freebits beta roiname'.split()].sort_index(by='roiname')
+        fixme.index.name='name'
+        fixme.to_csv('gtlike_mismatch.csv')
+        print 'wrote %d entries to gtlike_mismatch.csv' % len(fixme)
+
+    def compare(self):
+        """ Compare spectral quantities for sources common to both models
         
-    def delta_ts(self, dmax=30, dmin=-10):
-        """ Delta TS
-        Plots of the TS for the gtlike fits, compared with the pointlike value<br>
-        Outliers: %(under_ts)d with gtlike worse than 30; %(over_ts)d with pointlike worse than 10.
         """
-        df = self.df
-        self.delta = delta = df.ts_pt-df.ts_gt
-        self.under_ts = sum(delta<dmin)
-        self.over_ts  = sum(delta>dmax)
+        df = self.dfx
+        fig, ax = plt.subplots(1,2, figsize=(9,4))
+        plt.subplots_adjust(wspace=0.3)
+        def plot1(ax):
+            ax.hist(self.cat.ts.clip(0,1000), np.logspace(1,3,41))
+            plt.setp(ax, xscale='log', ylim=(0,200), xlabel='gtlike TS')
+            ax.grid()
+            ax.axvline(25, color='g')
+        def plot2(ax, lim=(10,1e4)):
+            df['ts_gtlike'] = self.cat.ts
+            ax.loglog(df.ts_gtlike, df.ts, '.')
+            ax.plot(lim, lim, '--r')
+            plt.setp(ax, xlabel='gtlike TS', ylabel='pointlike TS', xlim=lim,ylim=lim)
+            ax.grid()
+            ax.axvline(25, color='g')
+        for f, ax in zip([plot1,plot2,], ax): f(ax)
+        return fig
+
+    def delta_ts(self, dmax=25, dmin=-1):
+        """ Delta TS
+        Plots of the TS for the gtlike fit spectra detrmined with the pointlike analysis, compared with the pointlike value.<br>
+        Outliers: %(over_ts)d with gtlike worse by 25; %(under_ts)d with pointlike worse by 1.
+        """
+        df = self.dfx
+        delta = self.delta
+        x = np.array(delta, float).clip(dmin,dmax) # avoid histogram problem
+        cut = (~np.isnan(x))*(df.ts>10)
+        hilat = cut*(np.abs(df.glat)<5)
+        self.under_ts = sum((delta<dmin)*cut)
+        self.over_ts  = sum((delta>dmax)*cut)
         print 'under, over delta_ts: %d, %d' % (self.under_ts, self.over_ts)
         fig, ax = plt.subplots(1,2, figsize=(11,4))
         def plot1(ax):
-            ax.plot(df.ts_pt, delta.clip(dmin,dmax), '.')
+            ax.plot(df.ts_pt[cut], delta[cut].clip(dmin,dmax), '.')
+            ax.plot(df.ts_pt[hilat], delta[hilat].clip(dmin,dmax), 'or')
             plt.setp(ax, ylim=(dmin-1,dmax+1), xscale='log', xlim=(10,1e4), xlabel='pointlike TS', ylabel='TS diff')
-            ax.grid()
+            ax.grid(); #ax.legend(prop = dict(size=10))
         def plot2(ax):
-            x = np.array(delta, float) # avoid histogram problem
-            ax.hist( x[~np.isnan(x)].clip(dmin,dmax), np.linspace(dmin,dmax,41))
+            bins = np.linspace(dmin,dmax,1*(dmax-dmin+1))
+            ax.hist( x[cut], bins)
+            ax.hist(x[hilat], bins, color='red', label='|b|<5')
             plt.setp(ax, xlabel='TS diff', xlim=(dmin, dmax))
-            ax.grid()
+            ax.grid(); ax.legend(prop = dict(size=10))
         for f, ax in zip([plot1,plot2,], ax): f(ax)
         return fig
     
     def missing(self):
-        """ Sources in model not fit by gtlike
+        """ Sources in skymodel not fit by gtlike        
+        Examine sources in the model that were rejected by the gtlike analysis, mostly by the (gtlike) TS>25 requirement.
         """
-        df = self.df
-        fig, ax = plt.subplots(1,2, figsize=(9,4))
+        df = self.dfx
+        fig, ax = plt.subplots(1,2, figsize=(10,4))
+        ts = df.ts[pd.isnull(df.ts_gt)*(df.ts>10)]
         def plot1(ax):
-            ax.hist(df.ts[pd.isnull(df.ts_gt)].clip(0,100), np.linspace(1,100,21))
-            plt.setp(ax, xscale='linear', title='missing')
-            
-        for f, ax in zip([plot1,], ax): f(ax)
+            ax.hist(ts.clip(0,100), np.linspace(0,100,51))
+            plt.setp(ax, xscale='linear', xlim=(0,100), xlabel='pointlike TS')
+            ax.axvline(25, color='k')
+            ax.grid()
+        def plot2(ax):
+            self.skyplot( ts, ax=ax, vmin=10, vmax=100, cbtext='pointlike TS')
+        for f, ax in zip([plot1,plot2,], ax): f(ax)
         return fig
 
-        
     def all_plots(self):
         """Results of comparison with glike version %(catname)s 
         """
-        self.runfigures([ self.delta_ts, self.missing, ])
+        self.runfigures([self.compare, self.missing, self.delta_ts,  ])
     
     
 class Associations(SourceInfo):
