@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.86 2013/04/30 00:37:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.87 2013/05/01 22:51:48 burnett Exp $
 
 """
 
@@ -1208,6 +1208,10 @@ class SourceInfo(Diagnostics):
                     sdict[name] = info
                     pulsar = model.name.endswith('Cutoff')
                     betavalue = float(pars[2]) if not pulsar else np.nan
+                    if pulsar: # factor to convert flux to prefactor
+                        bvalue =1.0 if model.npar==3 else model['b']
+                        prefactor = np.exp(-(model.e0/model['cutoff'])**bvalue)
+                    else: prefactor = 1.0
                     sdict[name].update(
                         glat=info['skydir'].b(), glon=info['skydir'].l(),
                         roiname=pkl['name'], 
@@ -1218,8 +1222,8 @@ class SourceInfo(Diagnostics):
                         locqual = round(ellipse[5],2) if ellipse is not None else np.nan,
                         delta_ts = ellipse[6] if ellipse is not None else np.nan,
                         freebits= np.sum( int(b)*2**i for i,b in enumerate(model.free)),
-                        flux = pars[0],
-                        flux_unc = errs[0],
+                        flux = prefactor * pars[0],
+                        flux_unc = prefactor * errs[0],
                         pindex = pars[1],
                         pindex_unc = errs[1],
                         beta = betavalue,
@@ -1231,7 +1235,7 @@ class SourceInfo(Diagnostics):
                         e0 = model.e0,
                         modelname=model.name,
                         fitqual = round(sum(info['sedrec'].delta_ts),2),
-                        eflux = pars[0]*model.e0**2*1e6,
+                        eflux = prefactor*pars[0]*model.e0**2*1e6,
                         psr = pulsar,
                         )
             df = pd.DataFrame(sdict).transpose()
@@ -1972,10 +1976,10 @@ class SourceComparison(SourceInfo):
         glat = [s.b() for s in cat_skydirs]
         glon = [s.l() for s in cat_skydirs]
         # insert space to agree with my PSR name
-        index = [n if not n.startswith('PSR') else 'PSR '+n[3:] for n in ft.NickName]
+        index = ft.NickName # note that need to squeze out blanks for comparison
         self.cat = pd.DataFrame(dict(ra=ft.RAJ2000,dec= ft.DEJ2000, ts=ft.Test_Statistic, 
-                glat=glat, glon=glon, id_prob=id_prob), 
-            columns = 'ra dec glat glon ts id_prob'.split(), # this to order them
+                glat=glat, glon=glon, pivot=ft.Pivot_Energy, flux=ft.Flux_Density, modelname=ft.SpectrumType, id_prob=id_prob), 
+            columns = 'ra dec glat glon ts pivot flux modelname id_prob'.split(), # this to order them
             index=index, ) #Source_Name )
         self.cat.index.name='name'
         
@@ -2053,7 +2057,7 @@ class GtlikeComparison( SourceComparison):
         cat = gllcats[-1]
         super(GtlikeComparison, self).setup(cat=cat, catname=cat.split('_')[-1].split('.')[0], **kw)
         self.plotfolder = 'comparison_%s' % self.catname
-        # make copy of the df with no blanks in names
+        # make copy of the df with no blanks in names, for comparison, combination
         cname = [n.replace(' ','') for n in self.df.index]
         self.dfx = self.df.copy()
         self.dfx.index=cname
@@ -2077,7 +2081,8 @@ class GtlikeComparison( SourceComparison):
 
         df['plane']= np.abs(df.glat)<5
         df['ts_gtlike']= self.cat.ts
-        fixme = df[(self.delta>25)*(df.ts>10)]['ts ts_gtlike glat plane fitqual  ts_pt ts_gt freebits beta roiname'.split()].sort_index(by='roiname')
+        df['ts_delta'] = self.delta
+        fixme = df[(self.delta>25)*(df.ts>10)]['ts ts_gtlike glat plane fitqual  ts_pt ts_gt ts_delta freebits beta roiname'.split()].sort_index(by='roiname')
         fixme.index.name='name'
         fixme.to_csv('gtlike_mismatch.csv')
         print 'wrote %d entries to gtlike_mismatch.csv' % len(fixme)
@@ -2087,7 +2092,7 @@ class GtlikeComparison( SourceComparison):
         
         """
         df = self.dfx
-        fig, ax = plt.subplots(1,2, figsize=(9,4))
+        fig, ax = plt.subplots(1,3, figsize=(14,4))
         plt.subplots_adjust(wspace=0.3)
         def plot1(ax):
             ax.hist(self.cat.ts.clip(0,1000), np.logspace(1,3,41))
@@ -2101,7 +2106,16 @@ class GtlikeComparison( SourceComparison):
             plt.setp(ax, xlabel='gtlike TS', ylabel='pointlike TS', xlim=lim,ylim=lim)
             ax.grid()
             ax.axvline(25, color='g')
-        for f, ax in zip([plot1,plot2,], ax): f(ax)
+        def plot_pivot(ax, xylim = (100,3e4)):
+            psr = self.dfx.modelname=='PLSuperExpCutoff'
+            self.dfx['pivot_gt'] = self.cat['pivot']
+            ax.loglog(self.dfx.pivot_gt, self.dfx.e0, '.')
+            ax.loglog(self.dfx.pivot_gt[psr], self.dfx.pivot_energy[psr], 'or', label='pulsars')
+            plt.setp(ax, xlim=xylim, ylim=xylim, xlabel='gtlike pivot', ylabel='pointlike pivot')
+            ax.plot(xylim, xylim, '--r')
+            ax.grid(); ax.legend(loc='upper left', prop=dict(size=10))
+
+        for f, ax in zip([plot1,plot2,plot_pivot,], ax): f(ax)
         return fig
 
     def delta_ts(self, dmax=25, dmin=-1):
@@ -2477,7 +2491,15 @@ class GalacticSpectra(Diagnostics):
         plt.setp(ax, xlim=(180,-180), ylim=(-1.01, 1.01))
         ax.set_xticks([180,90,0,-90,-180])
         return scat
-        
+    
+    def save_correction(self, filename='galactic_correction.csv', which='both'):
+        """ a bit of code to create a csv file with the fit values, index by roiname
+        """
+        x = self.flux[which]['values']
+        x.index.name='roiname'
+        x.to_csv(filename)
+        print 'wrote file %s' filename
+    
     def like_scats(self, title=None):
         """ Likelihood ratios for individual fits.
         These all-sky plots show, for each ROI and each energy band, the consistency of the %(title)s spectral fit 
