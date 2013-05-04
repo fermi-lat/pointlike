@@ -1,6 +1,6 @@
 """
 Generate the XML representation of a skymodel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.3 2013/04/09 14:29:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.4 2013/04/09 21:25:40 burnett Exp $
 
 """
 import os, collections, argparse, types
@@ -15,21 +15,24 @@ from uw.utilities import xml_parsers
 from collections import OrderedDict
 
 class Element(object):
-    """ This might be usefull for a refactoring
+    """ Manage creation of an  XML document, containing nested elements
     """
     level=0
     stream=None
     def __init__(self, element_name,  **kw):
         """
+        To write to a file, set Element.stream to the open file. Otherwise to standard out
+        
         Example:
         
         with Element('A', Aprop=2, b=3) as t:
             t.text('A string')
             with Element('B', u=99) as s:
                 s.text('test string')
-                with Element('C', ctest=9):
-                    pass
+                SimpleElement('C', ctest=9):
+        
         """
+        # if there is a name in the keywords, put if first for readability
         name = kw.pop('name', None)
         self.kw=OrderedDict( kw.items() if name is None else [('name',name)]+kw.items() )
         self.name =element_name
@@ -38,6 +41,7 @@ class Element(object):
     def text(self, text):
         offset = '  '*Element.level
         for line in text.split('\n'):
+            if line=='': continue
             print >> self.stream , offset + line
     def __enter__(self):
         self.text('<%s %s>'% (self.name, self))
@@ -48,6 +52,7 @@ class Element(object):
         self.text('</%s>'%self.name )
 
 class SimpleElement(Element):
+    """ An element not containing text."""
     def __init__(self, element_name, **kw):
         self.kw=OrderedDict(**kw)
         self.text('<%s %s/>'% (element_name, self))
@@ -130,21 +135,30 @@ class ToXML(object):
 def pmodel(source):
     """ create a pointlike model from a Series object from DataFrame row
     """
-    modelname,e0, norm, pindex,index2,cutoff= [source[x] for x in 'modelname e0 flux pindex index2 cutoff'.split()]
+    expandbits = lambda x : [(x & 2**i)!=0 for i in range(4)]
+    
+    modelname, freebits, e0, norm, norm_unc, pindex, pindex_unc, index2,index2_unc, cutoff, cutoff_unc=\
+        [source[x] for x in 'modelname freebits e0 flux flux_unc pindex pindex_unc index2 index2_unc cutoff cutoff_unc'.split()]
+    free = expandbits(freebits)
+    errors = [norm_unc, pindex_unc]
     if modelname=='LogParabola':
         if np.abs(index2)<2e-3:
             modelname='PowerLaw'
             model = Models.PowerLaw(p=[norm, pindex ], e0=e0)
         else:
             model =Models.LogParabola(p= [norm, pindex, index2, e0])
+            errors.append(index2_unc)
     elif modelname=='PLSuperExpCutoff':
         model = Models.PLSuperExpCutoff(p = [norm, pindex, cutoff, index2], e0=e0)
+        errors += [cutoff_unc, index2_unc]
     else:
-        raise Exception('model name %s not recognized' % modelname)
+            raise Exception('model name %s not recognized' % modelname)
+    map(model.set_error, range(len(errors)), errors)
+    model.free[:]=free[:model.len()]    
     return model
         
 
-def source_library(source_list, title='sources', stream=None, strict=False):
+def source_library(source_list, title='sources', stream=None, strict=False, maxi=None):
     Element.stream = stream
     m2x = xml_parsers.Model_to_XML(strict=True)
     with Element('source_library', title=title) as sl:
@@ -160,6 +174,7 @@ def source_library(source_list, title='sources', stream=None, strict=False):
                     with Element('spatialModel', type='SpatialMap', 
                             file='$LATEXTDIR/Templates/%s.fits'%source['name'].replace(' ','') ) as sm:
                         SimpleElement('parameter', name='Prefactor', value=1.0, free=0, max=1e3,min=1e-3, scale=1.0)
+            if maxi is not None and i>maxi: break
 
 def main( args ):
     sources = pd.read_csv(args.sources)
@@ -178,6 +193,7 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser( description=""" Convert the skymodel in the current folder to XML""")
     parser.add_argument('filename', nargs='*', help='filename to write to (default: make it up)')
     parser.add_argument('--sources', default='sources.csv', help='input table')
-    parser.add_argument('--cuts',  default='(sources.ts>10)*(sources.a<0.25)*(sources.locqual<10)', help='selection cuts')
+    parser.add_argument('--cuts',  default='(sources.ts>10)*(sources.a<0.25)*(sources.locqual<10)+ pd.isnull(sources.locqual)',
+            help='selection cuts')
     args = parser.parse_args()
     main(args)

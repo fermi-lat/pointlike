@@ -1,7 +1,7 @@
 """
 Code to generate a standard Fermi-LAT catalog FITS file
 also, see to_xml, to generate XML for the sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/makecat.py,v 1.6 2013/04/09 23:03:17 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_fits.py,v 1.1 2013/04/09 23:14:05 burnett Exp $
 """
 import os, argparse
 import pyfits
@@ -283,7 +283,9 @@ def main(outfile, infile='sources.pickle', cuts='(sources.ts>10)*(sources.a<0.25
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='create a FITS file')
     parser.add_argument('filename', nargs='*', help='output FITS file' )
-    parser.add_argument('--cuts', default='(sources.ts>10)*(sources.a<0.25)*(sources.locqual<10)', help='selection cuts')
+    parser.add_argument('--cuts', 
+        default='(sources.ts>10)*(sources.a<0.25)*(sources.locqual<10)+ pd.isnull(sources.locqual)', 
+        help='selection cuts')
     parser.add_argument('--infile', default='sources.pickle')
     args = parser.parse_args()
     filename = args.filename[0] if len(args.filename)>0 else None
