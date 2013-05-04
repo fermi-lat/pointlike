@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.30 2013/03/21 19:44:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.31 2013/04/09 21:35:58 burnett Exp $
 
 """
 import types
@@ -420,6 +420,22 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
         src.model = model
         self.initialize()
         return old_model
+        
+    def diffuse_correction(self, corr=None):
+        """ set or return the diffuse correction factors
+        corr : array of float or None
+             if None, return the current correction factors
+             
+        """
+        bands = self.selected_bands
+        bgal = [b[0] for b in bands]
+        dc = [x.diffuse_correction for x in bgal]
+        if corr is None:
+            return np.array(dc)
+        for i,c in enumerate(corr):
+            dc[2*i]=dc[2*i+1] = c
+            for x,y in zip(dc,bgal):
+                y.diffuse_correction = x
         
         
 class Factory(roisetup.ROIfactory):

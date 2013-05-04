@@ -11,7 +11,7 @@ classes:
 functions:
     factory -- create a list of BandLike objects from bands and sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.23 2013/02/26 13:32:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.24 2013/03/05 19:49:24 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -167,7 +167,6 @@ class BandDiffuse(BandSource):
         # a little klugy -- only apply additional correction to Gal diffuse
         self.diffuse_correction = self.band.diffuse_correction if self.source.name=='ring' else 1.0
         
-        
     def update(self, fixed=False):
         """ Update self.counts and self.pix_counts by multiplying by the value of the scaling spectral model
         """
@@ -243,11 +242,14 @@ class BandExtended(BandPoint):
         es_counts =  self.band.expected(sm) * self.exposure_ratio
         bg_counts = self.overlap * es_counts
         bg_pix_counts = self.pixel_values * es_counts
-        
         self.pix_counts = bg_pix_counts
         self.counts = bg_counts
  
- 
+    def fill_grid(self, sdirs):
+        """ fill a grid, defined by sdirs array, with counts/solid angle"""
+        assert False, 'not implemented yet!'
+        
+        
 class BandDiffuseFB(BandDiffuse):
     """ subclass of BandDiffuse that has different spectral models for front and back
     (designed for the limb, which has larger contributions from the back)
@@ -417,13 +419,18 @@ def factory(bands, sources, exposure, quiet=False):
                 ROIExtendedModel=BandExtended)[class_name]
         return B(band, source)
     bandlist = []
-    for band in bands:
+    print 'applying diffuse correction:', exposure.dcorr
+    dcorr = exposure.dcorr
+    for i,band in enumerate(bands):
         ## note: adding attribute to each band for access by BandLike object if needed
         band.exposure_correction = exposure.correction[band.ct](band.e)
-        if len(exposure.correction)>2:
-            band.diffuse_correction = exposure.correction[band.ct+2](band.e)
-        else:
-            band.diffuse_correction =1.
+        #if len(exposure.correction)>2:
+        #    band.diffuse_correction = exposure.correction[band.ct+2](band.e)
+        #else:
+        #    band.diffuse_correction =1.
+        if dcorr is not None and i/2<len(dcorr):
+            band.diffuse_correction = dcorr[i/2] 
+        else: band.diffuse_correction=1.0
         bandlist.append(BandLike(band, 
                     np.array( [bandsource_factory(band, source) for source in sources]),
                     sources.free, exposure)

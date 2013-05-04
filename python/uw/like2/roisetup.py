@@ -1,11 +1,12 @@
 """
 Set up an ROI factory object
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.25 2013/02/10 23:18:39 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.26 2013/03/21 19:36:21 burnett Exp $
 
 """
 import os, sys, types
 import numpy as np
+import pandas as pd
 import skymaps
 from . import dataset, skymodel, diffuse , roi_bands
 from .. utilities import keyword_options, convolution
@@ -62,6 +63,14 @@ class ExposureManager(object):
                 print ('\tfront:','\tback: ','\tdfront:', '\tdback')[i], map( f , energies)
         else:
             self.correction = lambda x: 1.0, lambda x: 1.0
+        iem_correction = datadict.pop('iem_correction', None)
+        if iem_correction is not None:
+            self.correction.append( eval(iem_correction))
+            self.correction.append( eval(iem_correction))
+            energies = [133, 237, 421, 749, 1.333]
+            print 'Diffuse correction: for energies %s ' % energies
+            for i,f in enumerate(self.correction[3:]):
+                print ('\tfront: ','\tback: ',)[i], map( f , energies)
             
     def value(self, sdir, energy, event_class):
         return self.exposure[event_class].value(sdir, energy)*self.correction[event_class](energy)
@@ -82,10 +91,24 @@ class ExposureCorrection(object):
         import pylab as plt
         if ax is None: 
             ax = plt.gca()
-        dom = np.logspace(1.5, 2.5, 51) 
-        ax.plot(dom, map(self, dom), **kwargs)
-        ax.set_xscale('log')
-            
+        dom = np.logspace(1.5, 3.5, 501) 
+        ax.plot(dom, map(self, dom), lw=2, color='r', **kwargs)
+        plt.setp(ax, xscale='log', xlim=(dom[0], dom[-1]))
+ 
+class DiffuseCorrection(ExposureCorrection):
+    """ binned low-energy diffuse correction functor
+    """
+    def __init__(self, vals, binsperdec=4):
+        """ vals: array-type of float
+                values to correct at the energies from 100 MeV defined by binsperdec
+        """
+        self.vals, self.binsperdec=vals, binsperdec
+        
+    def __call__(self, e):
+        loc = np.log10(e/100.)*self.binsperdec
+        if loc<0 or loc>=len(self.vals): return 1.0
+        return self.vals[int(loc)]
+        
 
 class ROIfactory(object):
     """
@@ -105,6 +128,7 @@ class ROIfactory(object):
         ('selector', skymodel.HEALPixSourceSelector,' factory of SourceSelector objects'),
         ('data_interval', 0, 'Data interval (e.g., month) to use'),
         ('nocreate', True, 'Do not allow creation of a binned photon file'),
+        ('diffuse_correction', 'galactic_correction.csv', 'Name of file with diffuse correction factors'), 
         ('quiet', False, 'set to suppress most output'),
         )
 
@@ -188,6 +212,11 @@ class ROIfactory(object):
             os.environ['CUSTOM_IRF_DIR'] = os.path.expandvars('$FERMI/custom_irfs')
         self.psf = pypsf.CALDBPsf(self.dataset.CALDBManager)
  
+        # set up diffuse correction if requested
+        if self.diffuse_correction is not None:
+           assert os.path.exists(self.diffuse_correction), 'Diffuse correction file "%s" not found' % diffuse_correction
+           self.dcorr = pd.read_csv(self.diffuse_correction, index_col=0)
+
         convolution.AnalyticConvolution.set_points(self.convolve_kw['num_points'])
         convolution.ExtendedSourceConvolution.set_pixelsize(self.convolve_kw['pixelsize'])
 
@@ -273,6 +302,10 @@ class ROIfactory(object):
                             emax = self.analysis_kw['emax'])
         else:
             bands = self.dataset(self.psf,self.exposure,skydir)
+        if self.diffuse_correction is not None:
+            # look up the diffuse correction factors for this ROI, by name
+            self.exposure.dcorr = self.dcorr.ix[src_sel.name()].values
+
         return ROIdef( name=src_sel.name() ,
                     roi_dir=skydir, 
                     bands=bands,
