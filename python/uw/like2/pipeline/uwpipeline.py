@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.21 2013/03/26 14:43:07 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.22 2013/04/05 18:51:49 burnett Exp $
 """
 import os, argparse
 import numpy as np
@@ -111,10 +111,14 @@ stagenames = dict(
     fluxcorriso =  Stage(pipe.Update, dict( processor='processor.flux_correlations(diffuse="iso*", fluxcorr="fluxcorriso")'), ),
     pulsar_table=  Stage(pipe.PulsarLimitTables,),
     localize    =  Stage(pipe.Update, dict( processor='processor.localize(emin=1000.)'), help='localize with energy cut' ),
-    seedcheck   =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="SEED")',auxcat="seeds.txt"), help='refit seeds'),
+    seedcheck   =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="SEED")',auxcat="seeds.txt"), 
+                                                                       help='Evaluate a set of seeds: fit, localize with position update, fit again'),
+    seedcheck_MRF =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="MRF")', auxcat="4years_SeedSources-MRF.txt"), help='refit MRF seeds'),
+    seedcheck_PGW =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="PGW")', auxcat="4years_SeedSources-PGW.txt"), help='refit PGW seeds'),
     pseedcheck  =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="PSEED")',auxcat="pseeds.txt"), help='refit pulsar seeds'),
     fglcheck    =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="2FGL")',auxcat="2fgl_lost.csv"), help='check 2FGL'),
-   pulsar_detection=Stage(pipe.PulsarDetection, job_list='joblist8.txt', sum='pts', help='Create ts tables for pulsar detection'),
+    pulsar_detection=Stage(pipe.PulsarDetection, job_list='joblist8.txt', sum='pts', help='Create ts tables for pulsar detection'),
+    gtlike_check=  Stage(pipe.Finish, dict(processor='processor.gtlike_compare()',), sum='gtlike_comparison', help='Compare with gtlike analysis of same sources'),
 ) 
 keys = stagenames.keys()
 stage_help = '\nstage name, or sequential stages separaged by ":" names are\n\t' \
