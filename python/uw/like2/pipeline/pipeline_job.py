@@ -1,7 +1,7 @@
 """
 setup and run pointlike all-sky analysis for subset of ROIs
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.10 2012/12/29 16:28:07 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.11 2013/03/17 18:33:42 burnett Exp $
 """
 import os, sys, logging
 from collections import OrderedDict
@@ -32,7 +32,7 @@ def main( update=None):
 
     print '\npointlike skymodel configuration'
     for key,default_value in defaults.items():
-        item = (key, os.environ.get(key, default_value))
+        item = (key, os.environ.get(key, default_value).strip())
         exec('%s="%s"'%item)
         print '\t%-20s: %s' % item
     if update is not None:
@@ -64,9 +64,9 @@ def main( update=None):
             lines= f.read().split('\n')
             lastline = lines[-1] if len(lines[-1])>0 else lines[-2]
             if 'Start roi' in lastline: 
-               first_roi = lastline.split()[-1]
+               first_roi = int(lastline.split()[-1])
                print 'Resuming execution with roi at %s' %first_roi
-               assert first_roi in roi_list, 'Logic error roi % not found in %' %(first_roi, roi_list)
+               assert first_roi in roi_list, 'Logic error roi %d not found in %d' %(first_roi, roi_list)
     logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO, filename=streamlogfile   )
 
     ### set up object with skymodel and data
