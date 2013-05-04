@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat May  4 07:30:51 PDT 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	bandlike.py 
+Log Message:
+implement application of new galactic diffuse correctin
+    *
+------------------------------------------------------------
 User: burnett  Wed May  1 15:51:48 PDT 2013
 pointlike/python/uw/like2/pipeline
 
