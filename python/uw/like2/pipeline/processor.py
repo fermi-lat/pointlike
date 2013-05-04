@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.46 2013/03/27 20:54:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.47 2013/04/23 17:50:53 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -713,7 +713,7 @@ def gtlike_compare(roi, **kwargs):
     sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
     catmodels=[]
     for source in sources:
-        cselect = np.array([np.any(s.field('NickName').startswith(source.name.replace(' ',''))) for s in cat])
+        cselect = np.array([np.any(s.field('NickName')==(source.name.replace(' ',''))) for s in cat])
         if sum(cselect)!=1:
             print 'did not find source %s' %source.name
             continue
@@ -733,7 +733,7 @@ def gtlike_compare(roi, **kwargs):
             s.spectral_model = catmodel
             gtts = roi.TS(source.name)
             s.spectral_model = t
-            sed.plot_model(axes, catmodel, np.logspace(2, np.log10(3.16e4)), False, label='gtlike: %.0f'%gtts, color='g', lw=2)
+            sed.plot_model( catmodel, butterfly=False, label='gtlike: %.0f'%gtts, color='g', lw=2)
         else:
             gtts=-1
         axes.legend()
