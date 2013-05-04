@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.35 2013/03/05 19:49:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.36 2013/03/21 19:33:46 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
@@ -416,11 +416,12 @@ class Update(NotebookPipe):
 
 class Finish(Update):
     """ finish processing with localization and association
+       Make tsmaps for problem fits
     """
     def defaults(self):
         return dict(dampen=0,
             localize=True, 
-            ####### temporary #####  tsmap_dir='"tsmap"',  
+            tsmap_dir='"tsmap_fail"',  
             setup_cmds = 'from uw.like2.pipeline import associate ',
             associator="associate.SrcId('$FERMI/catalog','all_but_gammas')",quiet=True)
             
