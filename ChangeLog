@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon May  6 21:17:18 PDT 2013
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	mapplots.py 
+Log Message:
+pixelsize_fraction flag + fix override_center command
+    *
+------------------------------------------------------------
 User: burnett  Sat May  4 07:47:48 PDT 2013
 pointlike/python/uw/like2/pipeline
 
