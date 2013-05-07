@@ -319,6 +319,7 @@ class ROISmoothedSources(ROIMapPlotter):
                                              this radius will be the source size or the PSF
                                              size (if which!=None). If which==None, the
                                              default is that colorbar_radius=inf.        """),
+        ('pixelsize_fraction', 5.0, 'The pixelsize is kernel_rad/pizelsize_fraction'),
     )
 
     defaults = keyword_options.change_defaults(defaults,'title','Smoothed Counts Map')
@@ -335,7 +336,7 @@ class ROISmoothedSources(ROIMapPlotter):
     def create_pyfits(self):
 
         # Fit many pixels inside of the summing radius
-        self.pixelsize=self.kernel_rad/5.0
+        self.pixelsize=self.kernel_rad/self.pixelsize_fraction
 
         roi = self.roi
 
@@ -345,6 +346,8 @@ class ROISmoothedSources(ROIMapPlotter):
         else:
             self.source = None
             self.center = roi.roi_dir
+
+        if self.override_center is not None: self.center = self.override_center
 
         self.smoothed_kwargs=dict(size=self.size,
                              pixelsize=self.pixelsize,
