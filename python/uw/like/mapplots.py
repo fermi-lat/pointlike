@@ -40,6 +40,7 @@ class ROIMapPlotter(object):
         ('show_colorbar',            True, 'Show the colorbar'),
         ('extra_overlay',            None, 'Function which can be used to overlay stuff on the plot.'),
         ('overlay_kwargs',         dict(), 'kwargs passed into overlay_region'),
+        ('interpolation',       'nearest', 'passed into imshow'),
     )
 
     @keyword_options.decorate(defaults)
@@ -74,7 +75,7 @@ class ROIMapPlotter(object):
 
         self.axes = ax = axes
 
-        im = ax.imshow(d, interpolation='nearest', origin="lower", **self.imshow_kwargs())
+        im = ax.imshow(d, interpolation=self.interpolation, origin="lower", **self.imshow_kwargs())
 
         ax.axis[:].set_zorder(100)
 
@@ -82,12 +83,13 @@ class ROIMapPlotter(object):
             if cax is None:
                 # add colorbar axes
                 divider = make_axes_locatable(ax)
-                cax = divider.new_horizontal("5%", pad="2%", axes_class=Axes)
+                self.cax = cax = divider.new_horizontal("5%", pad="2%", axes_class=Axes)
                 fig.add_axes(cax)
-                cbar = P.colorbar(im, cax=cax)
+                self.cbar = P.colorbar(im, cax=cax)
             else:
                 # See comment for ROISmoothedSources's colobar code.
-                cbar = cax.colorbar(im)
+                self.cax = cax
+                self.cbar = cax.colorbar(im)
 
         if self.title is not None:
             ax.set_title(self.title)
@@ -458,6 +460,9 @@ class ROISmoothedSources(ROIMapPlotter):
 
             if self.label_psf:
                 axins.add_inner_title("PSF", loc=3)
+
+        self.cax.set_ylabel(r'$\mathrm{counts}/[\mathrm{deg}]^2$')
+
 
 
 class ROISmoothedSource(ROISmoothedSources):
