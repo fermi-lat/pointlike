@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon May  6 21:17:43 PDT 2013
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+allow plot_counts_map to take no filename
+    *
+------------------------------------------------------------
 User: lande  Mon May  6 21:17:18 PDT 2013
 ScienceTools-scons/pointlike/python/uw/like
 
