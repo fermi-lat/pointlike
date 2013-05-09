@@ -1,7 +1,7 @@
 """
 Set up an ROI factory object
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.26 2013/03/21 19:36:21 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.27 2013/05/04 14:32:01 burnett Exp $
 
 """
 import os, sys, types
@@ -71,6 +71,9 @@ class ExposureManager(object):
             print 'Diffuse correction: for energies %s ' % energies
             for i,f in enumerate(self.correction[3:]):
                 print ('\tfront: ','\tback: ',)[i], map( f , energies)
+        self.systematic = datadict.pop('systematic', None)
+        if self.systematic is not None:
+            print 'Galactic diffuse systematic uncertainty: %f' % self.systematic
             
     def value(self, sdir, energy, event_class):
         return self.exposure[event_class].value(sdir, energy)*self.correction[event_class](energy)
@@ -128,7 +131,8 @@ class ROIfactory(object):
         ('selector', skymodel.HEALPixSourceSelector,' factory of SourceSelector objects'),
         ('data_interval', 0, 'Data interval (e.g., month) to use'),
         ('nocreate', True, 'Do not allow creation of a binned photon file'),
-        ('diffuse_correction', 'galactic_correction.csv', 'Name of file with diffuse correction factors'), 
+        ('galactic_correction', 'galactic_correction.csv', 'Name of file with diffuse correction factors'), 
+        ('galactic_systematic', 0.0316, 'Systematic uncertainty for the galactic counts'), 
         ('quiet', False, 'set to suppress most output'),
         )
 
@@ -206,16 +210,17 @@ class ROIfactory(object):
                     nocreate = self.nocreate,
                     **self.analysis_kw)
             print self.dataset
-            self.exposure = ExposureManager(self.dataset, exposure_correction=exposure_correction)
+            self.exposure = ExposureManager(self.dataset, exposure_correction=exposure_correction, systematic=self.galactic_systematic)
         
         if 'CUSTOM_IRF_DIR' not in os.environ and os.path.exists(os.path.expandvars('$FERMI/custom_irfs')):
             os.environ['CUSTOM_IRF_DIR'] = os.path.expandvars('$FERMI/custom_irfs')
         self.psf = pypsf.CALDBPsf(self.dataset.CALDBManager)
  
-        # set up diffuse correction if requested
-        if self.diffuse_correction is not None:
-           assert os.path.exists(self.diffuse_correction), 'Diffuse correction file "%s" not found' % diffuse_correction
-           self.dcorr = pd.read_csv(self.diffuse_correction, index_col=0)
+        # set up glactic correction if requested
+        if self.galactic_correction is not None:
+           assert os.path.exists(self.galactic_correction), 'Galactic correction file "%s" not found' % dself.galactic_correction
+           self.dcorr = pd.read_csv(self.galactic_correction, index_col=0)
+        
 
         convolution.AnalyticConvolution.set_points(self.convolve_kw['num_points'])
         convolution.ExtendedSourceConvolution.set_pixelsize(self.convolve_kw['pixelsize'])
@@ -302,7 +307,9 @@ class ROIfactory(object):
                             emax = self.analysis_kw['emax'])
         else:
             bands = self.dataset(self.psf,self.exposure,skydir)
-        if self.diffuse_correction is not None:
+            
+        # setup galactic diffuse correction and/or counts to pass into ROI generation
+        if self.galactic_correction is not None:
             # look up the diffuse correction factors for this ROI, by name
             self.exposure.dcorr = self.dcorr.ix[src_sel.name()].values
 
