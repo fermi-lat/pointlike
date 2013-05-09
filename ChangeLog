@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu May  9 14:18:58 PDT 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	bandlike.py 
+Log Message:
+implement scheme to unweight likelihood
+    *
+------------------------------------------------------------
 User: lande  Mon May  6 21:18:08 PDT 2013
 ScienceTools-scons/pointlike/python/uw/like
 
