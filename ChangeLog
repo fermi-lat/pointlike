@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu May  9 14:20:38 PDT 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	main.py 
+Log Message:
+have plot_sed use new stacked plot
+    *
+------------------------------------------------------------
 User: burnett  Thu May  9 14:19:36 PDT 2013
 pointlike/python/uw/like2
 
