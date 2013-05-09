@@ -11,7 +11,7 @@ classes:
 functions:
     factory -- create a list of BandLike objects from bands and sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.24 2013/03/05 19:49:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.25 2013/05/04 14:30:51 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -283,7 +283,7 @@ class BandLike(object):
            bandsources : list of BandSource objects associated with this band
            free : array of bool to select models
            exposure : ExposureManager object, access to exposure correction function
-                  which may include a phase factor component
+                  which may include a phase factor component; also may have a systematic 
         """
         self.bandsources = bandsources
         self.band = band # for reference: not used after this 
@@ -293,7 +293,23 @@ class BandLike(object):
         self.pixels=len(self.data)
         self.initialize(free)
         self.update()
+        # special code to unweight if galactic diffuse too large
+        self.unweight = self.make_unweight(exposure.systematic)
         
+    def make_unweight(self, systematic=0.0316):
+        """ return an unweighting factor <=1.0 to use to multiply the log likelihood
+        assume that first BandSource object has the galactic diffuse
+        
+        systematic : float
+            a fraction representing the systematic uncertainty in the galactic diffuse
+        """
+        if systematic is None: return 1.0
+        n = 1/systematic**2
+        # m is the number of counts from the galactic diffuse in the footprint of a point source
+        m = self[0].counts / (self.band.psf(0)[0]*self.band.solid_angle)
+        u = min(1., n/m)
+        return u
+
     def __str__(self):
         b = self.bandsources[0].band
         return 'BandLike: %d models (%d free) applied to band %.0f-%.0f, %s with %d pixels, %d photons; residual %.1f'\
@@ -345,7 +361,7 @@ class BandLike(object):
         try:
             #pix = np.sum( self.data * (np.log(self.model_pixels)+np.log(ec) ) ) if self.pixels>0 else 0
             pix = np.sum( self.data * np.log(self.model_pixels) )  if self.pixels>0 else 0
-            return pix - self.counts*self.exposure_factor 
+            return self.unweight * (pix - self.counts*self.exposure_factor )
         except FloatingPointError, e:
             print 'Floating point error %s evaluating likelihood for band at %s' %(e, self.__str__())
             raise
@@ -358,7 +374,7 @@ class BandLike(object):
         """ gradient of the likelihood with resepect to the free parameters
         """
         weights = self.data / self.model_pixels
-        return np.concatenate([m.grad(weights, self.exposure_factor) for m in self.bandsources])
+        return self.unweight * np.concatenate([m.grad(weights, self.exposure_factor) for m in self.bandsources])
        
     def dump(self, **kwargs):
         map(lambda bm: bm.dump(**kwargs), self.bandsources)
@@ -422,7 +438,7 @@ def factory(bands, sources, exposure, quiet=False):
     print 'applying diffuse correction:', exposure.dcorr
     dcorr = exposure.dcorr
     for i,band in enumerate(bands):
-        ## note: adding attribute to each band for access by BandLike object if needed
+        # note: adding attribute to each band for access by BandLike object if needed
         band.exposure_correction = exposure.correction[band.ct](band.e)
         #if len(exposure.correction)>2:
         #    band.diffuse_correction = exposure.correction[band.ct+2](band.e)
@@ -430,6 +446,7 @@ def factory(bands, sources, exposure, quiet=False):
         #    band.diffuse_correction =1.
         if dcorr is not None and i/2<len(dcorr):
             band.diffuse_correction = dcorr[i/2] 
+            
         else: band.diffuse_correction=1.0
         bandlist.append(BandLike(band, 
                     np.array( [bandsource_factory(band, source) for source in sources]),
