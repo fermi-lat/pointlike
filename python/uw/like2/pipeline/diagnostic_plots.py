@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.88 2013/05/04 14:36:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.89 2013/05/04 14:43:41 burnett Exp $
 
 """
 
@@ -1098,6 +1098,13 @@ class Galactic(ROIinfo):
         self.source_name='ring'
         self.title='Galactic'
         self.default_plots()
+        
+    def write_count_table(self, filename='galactic_counts.csv', modelnumber=0):
+        s = [ x[1]['counts']['models'][modelnumber][1][:16] for x in self.df.iterrows()]
+        u = pd.DataFrame(s, index=self.df.index)
+        u.index.name='roiname'
+        u.to_csv(filename)
+        print 'wrote table of galactic diffuse counts to file %s' % filename
 
 
 class Isotropic(Galactic):
@@ -1540,15 +1547,15 @@ class SourceInfo(Diagnostics):
 
         # Make tables (csv and html) of the poor fits
         s['pull0'] = np.array([x.pull[0] for x in s.sedrec])
-        t =s.ix[(s.fitqual>50) | (np.abs(s.pull0)>3) ]['ra dec fitqual pull0 ts modelname roiname'.split()].sort_index(by='roiname')
+        t =s.ix[((s.fitqual>50) | (np.abs(s.pull0)>3))*(s.ts>10) ]['ra dec fitqual pull0 ts modelname roiname'.split()].sort_index(by='roiname')
         poorfit_csv = 'poor_spectral_fits.csv'
         t.to_csv(poorfit_csv)
         bs =sorted(list(set(t.roiname)))
-        print 'Wrote out list of poor fits to %s, %d with fitqual>50, in %d ROIs' % (poorfit_csv, len(t), len(bs))
+        print 'Wrote out list of poor fits to %s, %d with fitqual>50 or abs(pull0)>3, in %d ROIs' % (poorfit_csv, len(t), len(bs))
         # todo: make a function to do this nidcely
         poorfit_html = self.plotfolder+'/poorfits.html'
         open(poorfit_html,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+t.to_html()+'\n</body>')
-        self.poorfit_table = '<p> <a href="poorfits.html"> Table of %d poor fits, with fitqual>50 </a>' % (  len(t) )
+        self.poorfit_table = '<p> <a href="poorfits.html"> Table of %d poor fits, with fitqual>50 or abs(pull0)>3</a>' % (  len(t) )
         
         # flag sources that made it into the list
         self.df.flags[t.index] |= 2
@@ -2072,6 +2079,7 @@ class GtlikeComparison( SourceComparison):
             for s in t:
                 gtcat[s['name']] = s
         self.gdf = pd.DataFrame(gtcat).T
+        self.gdf.index = [n.replace(' ','') for n in self.gdf.name]
         print 'loaded analysis of gtlike fit models, found %d sources' % len(self.gdf)
         for col in self.gdf.columns:
             self.dfx[col] = self.gdf[col]
@@ -2082,7 +2090,8 @@ class GtlikeComparison( SourceComparison):
         df['plane']= np.abs(df.glat)<5
         df['ts_gtlike']= self.cat.ts
         df['ts_delta'] = self.delta
-        fixme = df[(self.delta>25)*(df.ts>10)]['ts ts_gtlike glat plane fitqual  ts_pt ts_gt ts_delta freebits beta roiname'.split()].sort_index(by='roiname')
+        fixme = df[((self.delta>25)+(self.delta<-1))*(df.ts>10)]['name ts ts_gtlike glat plane fitqual  ts_pt ts_gt ts_delta freebits beta roiname'.split()].sort_index(by='roiname')
+        fixme.index = fixme.name
         fixme.index.name='name'
         fixme.to_csv('gtlike_mismatch.csv')
         print 'wrote %d entries to gtlike_mismatch.csv' % len(fixme)
@@ -2434,7 +2443,7 @@ class FluxCorrIso(FluxCorr):
         self.plotfolder='fluxcorriso'
 
         
-class GalacticSpectra(Diagnostics):
+class GalacticSpectra(ROIinfo): #Diagnostics):
 
     require = 'galfits_all.zip'
     
@@ -2457,7 +2466,7 @@ class GalacticSpectra(Diagnostics):
         glat   = makearray('glat',None); singlat = np.sin(np.radians(glat))
         glon   = makearray('glon',None); glon[glon>180] -= 360
         self.latcut, self.latcut_name = (abs(glat)<10, 'plane') if which=='gal' else (abs(glat)>20, 'high-lat')
-        self.rois = pd.DataFrame(dict(glat=glat, glon=glon, singlat=singlat), 
+        self.rois = self.df = pd.DataFrame(dict(glat=glat, glon=glon, singlat=singlat), 
             index=roinames)
         
         # create dictionary of data frames of flux for front, back, with values, energies, deltalike;
@@ -2498,7 +2507,7 @@ class GalacticSpectra(Diagnostics):
         x = self.flux[which]['values']
         x.index.name='roiname'
         x.to_csv(filename)
-        print 'wrote file %s' filename
+        print 'wrote file %s' % filename
     
     def like_scats(self, title=None):
         """ Likelihood ratios for individual fits.
@@ -2564,11 +2573,11 @@ class GalacticSpectra(Diagnostics):
         ax.axhline(1.0, color='k')
         ax.set_title('%s diffuse spectral fits'%self.which, fontsize='medium')
         
-    def diffuse_fit(self, axin, ind=0,  fignum=2, **kwargs):
+    def diffuse_fit(self, axin, ind=0,  fignum=2, xlim=(0.8,1.2), **kwargs):
     
         plane = abs(self.rois.glat)<10
         cut, cut_name = (plane, 'plane') if self.which=='gal' else (abs(self.rois.glat)>20, 'high-lat')
-        space=np.linspace(0.5,1.5, 41)
+        space=np.linspace(xlim[0],xlim[1], 41)
         vals = self.flux['both']['values'].transpose().ix[ind] #values[:,ind]
         kw = dict( histtype='stepfilled')
         kw.update(kwargs)
@@ -2577,27 +2586,26 @@ class GalacticSpectra(Diagnostics):
         ax.hist(vals[cut], space ,color='r',label=cut_name,**kw);
         ax.grid(True);
         ax.axvline(1.0, color='grey');
-        ax.set_xlim((0.5,1.5))
+        ax.set_xlim(xlim)
         ax.set_title('%.0f MeV'%self.energy[ind],fontsize='medium')
         ax.legend(prop=dict(size=10))
         
-    #def fit_map(self, axin=None, ib=0, fignum=2, vmin=0.75, vmax=1.25, **kwars):
-    #    vals = self.flux['both']['values'].transpose().ix[ib] 
-    #    ax = self.set_plot(axin, fignum)
-    #    ax.scatter(self.rois.glon, self.rois.singlat, 
-    #            c=vals,
-    #            s=15 if axin is not None else 25,
-    #            vmin=vmin, vmax=vmax, edgecolors='none')
-    #    ax.set_title('%.0f MeV'%(self.energy[ib]),fontsize='small')
-    #    plt.setp(ax, xlim=(180,-180), ylim=(-1.01, 1.01))
-    #    ax.set_xticks([180,90,0,-90,-180])
-    #    return ax.figure
+    def fit_map(self, axin=None, ib=0, fignum=2, vmin=0.75, vmax=1.25, **kwars):
+        vals = self.flux['both']['values'].transpose().ix[ib] 
+        ax = self.set_plot(axin, fignum)
+        ax.scatter(self.rois.glon, self.rois.singlat, 
+                c=vals,
+                s=15 if axin is not None else 25,
+                vmin=vmin, vmax=vmax, edgecolors='none')
+        ax.set_title('%.0f MeV'%(self.energy[ib]),fontsize='small')
+        plt.setp(ax, xlim=(180,-180), ylim=(-1.01, 1.01))
+        ax.set_xticks([180,90,0,-90,-180])
+        return ax.figure
     
         
-    def diffuse_fits(self):
+    def diffuse_fits(self, **kw):
         """ %(title)s normalization
         For the eight lowest energy bands, the normalization factors, for both front and back. 
-        
         """
         ax = self.multifig()
         self.multilabels('ratio', 'ROIs', '%s diffuse fit' %self.which)
