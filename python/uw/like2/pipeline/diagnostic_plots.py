@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.89 2013/05/04 14:43:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.90 2013/05/09 21:21:37 burnett Exp $
 
 """
 
@@ -41,6 +41,7 @@ class Diagnostics(object):
         return 'no description'
     def set_plot(self, ax, fignum, figsize=(4,4)):
         if ax is None:
+            plt.close(fignum)
             plt.figure(fignum, figsize=figsize);
             ax = plt.gca()
         else:
@@ -104,7 +105,7 @@ class Diagnostics(object):
         if title is None: title = name.replace('_', ' ')
         if fig is not None:
             fig.text(0.02, 0.02, self.skymodel, fontsize=8)
-            savefig_kw=dict(dpi=60, bbox_inches='tight', pad_inches=0.5) 
+            savefig_kw=dict(dpi=60) #, bbox_inches='tight', pad_inches=0.5) 
             plt.savefig(savefile, **savefig_kw)
             print 'saved plot to %s' % savefile
             html = '<h3>%s</h3> <img src="%s" />\n <br> %s '% (title, localfile, caption if caption is not None else '')
@@ -248,12 +249,16 @@ class CountPlots(Diagnostics):
         glat = np.array([r['skydir'].b() for r in pkls])
         singlat = np.sin(np.radians(glat))
         self.roinames=roinames = [p['name'] for p in pkls]
+        def chisq10(counts):
+            total, observed = counts['total'], counts['observed']
+            return ((observed-total)**2/total)[:8].sum()
         self.rois = pd.DataFrame(
             dict(glon=glon, glat=glat, singlat=singlat, 
                 ra= [d.ra() for d in sdirs],
                 dec = [d.dec() for d in sdirs],
                 chisq=[r['counts']['chisq'] for r in pkls],
                 bandts=[r['counts']['bandts'] for r in pkls],
+                chisq10=[chisq10(r['counts']) for r in pkls],
                 ),
                 index = roinames )
         # dict of dataframes with count info. columns are energies
@@ -322,14 +327,14 @@ class CountPlots(Diagnostics):
         ax.grid()
         ax.axhline(0, color='k')
         
-    def chisq_plots(self, hsize=(1.0, 0.8, 1.5, 0.5), vmin=0, vmax=50, bcut=10):
+    def chisq_plots(self, use10=False, hsize=(1.0, 0.8, 1.5, 0.5), vmin=0, vmax=50, bcut=10):
         """ chi squared plots
         chi squared distribution
         """
         #fig, axs = plt.subplots( 1,2, figsize=(8,3))
         #plt.subplots_adjust(wspace=0.3)
         fig, axs = self.subplot_array( hsize, figsize=(11,5))
-        chisq = self.rois.chisq
+        chisq = self.rois.chisq if not use10 else self.rois.chisq10
 
         def chisky(ax):
             self.basic_skyplot(ax, self.rois.glon, self.rois.singlat, chisq, 
@@ -562,7 +567,8 @@ class FrontBackSedPlots(Diagnostics):
         name = [self.srcnames[ind] for ind in inds]
         try:
             realname = [{'P72Y3678':'3C454.3','P7R43539':'3C454.3', 'PSR_J0835-4510':'Vela', 
-                            'PSR_J0534p2200':'Crab', 'PSR_J0633p1746':'Geminga'}[n] for n in name]
+                            'PSR_J0534p2200':'Crab', 'PSR_J0633p1746':'Geminga',
+                            'CrabIC':'CrabIC',}[n] for n in name]
         except:
             print 'did not find new names: perhaps changed: looking for %s' %name
             realname=name
@@ -577,7 +583,9 @@ class FrontBackSedPlots(Diagnostics):
         ax.errorbar( 1.5, [mean], yerr=[sigma], elinewidth=4, fmt='', marker='x', ms=10,capsize=6, lw=2);
         plt.setp(ax, xlim=(-0.5, 3.5), ylim=(0.85,1.25));
         ax.yaxis.grid(True, linestyle='-', which='major', color='grey',alpha=0.5)
-        ax.set_title('%.0f-%.0f MeV'%(self.elow[ib],self.ehigh[ib]), fontsize='medium')
+        title= '%.0f-%.0f MeV'%(self.elow[ib],self.ehigh[ib])
+        #ax.set_title(title, fontsize='medium')
+        ax.text(0, 1.2, title)
         xticknames = plt.setp(ax, xticklabels=realname, xticks=range(4))
         if axin is None: ax.set_ylabel('front/back flux ratio')
         return (self.elow[ib],self.ehigh[ib],mean,sigma)
@@ -586,9 +594,14 @@ class FrontBackSedPlots(Diagnostics):
         """ Front-Back flux vs energy
         The front/back ratio for each of the four strongest soucces
         """
-        self.vals = map(self.ratio_fit, range(8), self.multifig())
+        fig,axx = plt.subplots(2,4, sharey=True, figsize=(14,8));
+        plt.subplots_adjust( left=0.10, wspace=0., hspace=0.,right=0.95)
+        self.vals = map(self.ratio_fit, range(8), axx.flatten())
         plt.suptitle('Front/back flux ratios for strong sources')
-        return plt.gcf()
+        fig.autofmt_xdate() #rotates text labels
+        axx[0,0].set_yticks((0.9, 1.0, 1.1,1.2))
+        fig.text(0.05, 0.5, 'Front/Back ratio', va='center',  rotation='vertical')
+        return fig
         
     def fb_summary(self):
         """Front/Back flux vs energy summary.
@@ -632,7 +645,7 @@ class FrontBackSedPlots(Diagnostics):
         """ Analysis of a special "sedinfo" run, which records SED information for all sources
         with fits to front and back only, as well as both.
         """
-        self.runfigures([self.asym_plots, self.consistency_plots, self.fb_flux_vs_energy, self.fb_summary])
+        self.runfigures([self.fb_flux_vs_energy, self.fb_summary,self.asym_plots, self.consistency_plots, ])
 
 
 class ROIinfo(Diagnostics):
@@ -1264,12 +1277,7 @@ class SourceInfo(Diagnostics):
         localized = ~np.array(pd.isnull(self.df.delta_ts))
         extended = np.array(self.df.isextended, bool)
         self.df['unloc'] = ~(localized | extended)
-        unloc = self.df.unloc * (self.df.ts>10)
         self.df['poorloc'] = (self.df.a>0.2) + (self.df.locqual>8) + (self.df.delta_ts>2)
-        if sum(unloc)>0:
-            print '%d point sources (TS>10) without localization information' % sum(unloc)
-            self.df.ix[unloc]['ra dec ts roiname'.split()].to_csv('unlocalized_sources.csv')
-            print 'Wrote file "unlocalized_sources.csv"'
         self.df['flags'] = 0  #used to set bits below
         flags = self.df.flags
         flags[self.df.poorloc + self.df.unloc] += 8 ### bit 8
@@ -1781,6 +1789,12 @@ class Localization(SourceInfo):
                 (len(self.poorloc), self.qualcut,self.acut)
             self.poorloc.to_csv('poorly_localized.csv')
             print 'wrote file "poorly_localized.csv"'
+        unloc = self.df.unloc * (self.df.ts>10)
+        if sum(unloc)>0:
+            print '%d point sources (TS>10) without localization information' % sum(unloc)
+            self.df.ix[unloc]['ra dec ts roiname'.split()].to_csv('unlocalized_sources.csv')
+            print 'Wrote file "unlocalized_sources.csv"'
+
 
     def localization(self, maxdelta=9, mints=10):
         """Localization plots
@@ -1961,6 +1975,8 @@ class Localization(SourceInfo):
 
 
 class SourceComparison(SourceInfo):
+    """Comparison with the 2FGL catalog
+    """
 
     def setup(self, cat='gll_pscP72Y_v5r2_flags_assoc_v5r11p3.fit', #gll_psc_v06.fit', 
             catname='2FGL', **kw):
@@ -2177,7 +2193,48 @@ class GtlikeComparison( SourceComparison):
         """
         self.runfigures([self.compare, self.missing, self.delta_ts,  ])
     
-    
+
+class UWsourceComparison(SourceInfo):
+    """Comparision with another UW model
+    """
+    def setup(self, othermodel='uw22c'):
+        super(UWsourceComparison,self).setup()
+        self.plotfolder = 'comparison_%s' % othermodel
+
+        otherfilename = '../%s/sources.pickle' %othermodel
+        self.othermodel=othermodel
+        assert os.path.exists(otherfilename), 'File %s not found' % otherfilename
+        print 'loading %s' % otherfilename
+        self.odf = pd.load(otherfilename)
+
+    def compare(self):
+        """Compare values of various fit parameters
+        """
+        fig, ax = plt.subplots(2,1, figsize=(8,8))
+        self.df['pindex_old']=self.odf.pindex
+        self.df['ts_old'] = self.odf.ts
+        odf, df = self.odf, self.df
+        plane = np.abs(df.glat)<5
+        def plot_pindex(ax):
+            irange = (1.5, 3.0)
+            cut=df.beta<0.01
+            ax.plot(df.pindex[cut], (df.pindex/df.pindex_old)[cut], '.')
+            plt.setp(ax, xlim=irange, ylim=(0.9, 1.1))
+            ax.grid()
+        def plot_ts(ax):
+            rdts = (-50,50)
+            ax.semilogx(df.ts, (df.ts-df.ts_old).clip(*rdts), '.')
+            ax.semilogx(df.ts[plane], (df.ts-df.ts_old)[plane].clip(*rdts), 'dr')
+            plt.setp(ax, ylim=(-50,50), xlim=(10,1e4), ylabel='TS change',xlabel='TS')
+            ax.grid()
+        for f, ax in zip((plot_pindex,plot_ts), ax.flatten()): f(ax)
+        return fig
+        
+    def all_plots(self):
+        """Results of comparison with UW version %(othermodel)s 
+        """
+        self.runfigures([self.compare,  ])
+                
 class Associations(SourceInfo):
 
     def setup(self, **kw):
@@ -2557,14 +2614,16 @@ class GalacticSpectra(ROIinfo): #Diagnostics):
              ''.join(html_rows)+'</table>')
         self.fb_ratio = h.data
         open(os.path.join(self.plotfolder,'%s_fb_ratio.html'%self.which),'w').write(h.data)
+        return plt.gcf()
   
-    def diffuse_ratio_plot(self, fignum=121):
+    def diffuse_ratio_plot(self):
         """ Front/back %(title)s diffuse ratio
         The front to back ratio, measured from the front/back fit ratios.
         
         <br>%(fb_ratio)s
         """
-        ax = self.set_plot( None, fignum)
+        fig, ax = plt.subplots( figsize=(4,4))
+        plt.subplots_adjust(left=0.2, bottom=0.2) #not sure why this is necessary
         vals = self.bfratios # must have generated
         x,y,yerr = [[v[i] for v in vals]  for i in range(3)]
         ax.errorbar(x, y, yerr=yerr, marker='o', ms=12,fmt='', lw=2, linestyle='None')
@@ -2572,6 +2631,7 @@ class GalacticSpectra(ROIinfo): #Diagnostics):
         ax.grid(True)
         ax.axhline(1.0, color='k')
         ax.set_title('%s diffuse spectral fits'%self.which, fontsize='medium')
+        return fig
         
     def diffuse_fit(self, axin, ind=0,  fignum=2, xlim=(0.8,1.2), **kwargs):
     
