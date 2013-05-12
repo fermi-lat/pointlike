@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.47 2013/04/23 17:50:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.48 2013/05/04 14:46:26 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -679,7 +679,41 @@ def check_seeds(roi, **kwargs):
         print 'wrote file %s' %sfile
     outtee.close()
 
-    
+class GtlikeCatalog(object):
+    """ read in a gll catalog FITS file, then make spectral model available
+    """
+    def __init__(self, name='gll_psc4yearclean_v4.fit'):
+        import pyfits
+        self.cat=pyfits.open(os.path.expandvars('$FERMI/catalog/'+name))[1].data
+        
+    def __call__(self, nickname):
+        """ Return a Model corresponding to the nickname field
+        """
+        from uw.like import Models
+        cselect = np.array([np.any(s.field('NickName')==(nickname.replace(' ',''))) for s in self.cat])
+        if sum(cselect)!=1:
+            print 'did not find a source with NickName %s' %nickname
+            return None
+        catsource = self.cat[cselect][0]
+        try:
+            st = catsource.field('SpectrumType')
+            flux,index,cutoff,b,pivot,beta=[catsource.field(f) for f in 'Flux_Density Spectral_Index Cutoff Index2 Pivot_Energy beta'.split()]
+            if st=='PowerLaw':
+                return Models.PowerLaw(p=[flux, index], e0=pivot)
+            elif st=='PLSuperExpCutoff':
+                prefactor = flux*np.exp((pivot/cutoff)**b)
+                return Models.PLSuperExpCutoff(p=[prefactor, index, cutoff,b], e0=pivot)
+            elif st=='LogParabola':
+                return Models.LogParabola(p=[flux, index, beta, pivot])
+            elif st=='PowerLaw2':   ### same as PowerLaw in table
+                return Models.PowerLaw(p=[flux, index], e0=pivot)
+            else:
+                raise Exception('unexpected spectrum type %s'%st)
+                catmodel = cat_model(catsource); 
+        except:
+            print 'Source %s failed' % nickname
+            return None
+   
 cat = None
 def gtlike_compare(roi, **kwargs):
     """
@@ -746,6 +780,55 @@ def gtlike_compare(roi, **kwargs):
     outfile = os.path.join(model_dir, '%s.pickle'%roi.name)
     pickle.dump(catmodels,open(outfile, 'w'))
     print 'wrote file %s' %outfile
+    
+others=None
+def UW_compare(roi, **kwargs):
+    global others
+    other = kwargs.pop('other', 'uw22c') #wire in default for now
+    if others is None:
+        others = pickle.load(open('../%s/sources.pickle' % other))
+    outdir = kwargs.pop('outdir', '.')
+    sed_dir = os.path.join(outdir, kwargs.pop('sed_dir', 'compare_%s/sed'%other))
+    model_dir=os.path.join(outdir, kwargs.pop('model_dir', 'compare_%s/models' %other))
+    for t in (sed_dir,model_dir):
+        if not os.path.exists(t): os.makedirs(t)
+    other_models=[]
+    def check_othersource(source):
+        source_name = source.name
+        ptts = roi.TS(source_name)
+        #    sed = roi.plot_sed(source_name, butterfly=False, annotate=None, fit_kwargs=dict(label='this: %.0f'%ptts, color='orange', lw=2))
+        plot_kw=dict(energy_flux_unit=kwargs.pop('energy_flux_unit','eV'),
+                 gev_scale=kwargs.pop('gev_scale',True))
+        roi.get_sed(update=True)
+        ps = sed.Plot(source, **plot_kw)
+        #annotation =(0.05,0.9, 'TS=%.0f'% self.TS(source.name))
+        plot_kw = dict(label= 'current: %.0f'%ptts )#annotate=annotation)
+        ps(fit_kwargs=plot_kw)
+        saved_model = source.spectral_model
+        axes = plt.gca()
+        if source_name in others.index:
+            othermodel = others.ix[source_name]['model']
+            source.spectral_model = othermodel
+            gtts = roi.TS(source_name)
+            roi.get_sed(update=True)
+            ps.plot_model( othermodel, butterfly=False, label='other: %.0f'%gtts, color='g', lw=2)
+            source.spectral_model = saved_model
+        else:
+            gtts=-1
+            othermodel=None
+        axes.legend(prop=dict(size=10))
+        plt.setp(axes, xlim=(100, 31.6e3), ylim=(0.1,1000))
+        outfile = os.path.join(sed_dir, '%s_sed.png' % (source_name.replace(' ','_').replace('+','p')))
+        plt.savefig(outfile)
+        print 'wrote file %s' % outfile
+        other_models.append(dict(name=source_name, m_other=othermodel, m_pt=saved_model, ts_pt=ptts, ts_other=gtts))
+
+    sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
+    map( check_othersource, sources)
+    outfile = os.path.join(model_dir, '%s.pickle'%roi.name)
+    pickle.dump(other_models,open(outfile, 'w'))
+    print 'wrote file %s' %outfile
+ 
     
     
 def flux_correlations(roi, **kwargs):
