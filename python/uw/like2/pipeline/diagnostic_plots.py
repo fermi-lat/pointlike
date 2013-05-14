@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.91 2013/05/12 22:33:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.92 2013/05/14 21:00:10 burnett Exp $
 
 """
 
@@ -17,6 +17,7 @@ from matplotlib.colors import LogNorm
 from skymaps import SkyDir, DiffuseFunction, Hep3Vector, Band
 from uw.like2.pub import healpix_map
 from uw.like2 import dataset
+from uw.utilities import makepivot
 
 class Diagnostics(object):
     """ basic class to handle data for diagnostics, collect code to make plots
@@ -169,7 +170,7 @@ class Diagnostics(object):
         return files,pkls
         
     def multifig(self):
-        fig,ax = plt.subplots(2,4, figsize=(14,8));
+        fig,ax = plt.subplots(2,4, figsize=(14,8), sharex=True);
         plt.subplots_adjust(left=0.10, wspace=0.25, hspace=0.25,right=0.95)
         return ax.flatten()
     
@@ -1272,8 +1273,8 @@ class SourceInfo(Diagnostics):
         else:
             print 'loading %s' % filename
             self.df = pd.load(filename)
-        self.df['flux']    = [v[0] for v in self.df.pars.values]
-        self.df['flux_unc']= [v[0] for v in self.df.errs.values]
+        #self.df['flux']    = [v[0] for v in self.df.pars.values]
+        #self.df['flux_unc']= [v[0] for v in self.df.errs.values]
         localized = ~np.array(pd.isnull(self.df.delta_ts))
         extended = np.array(self.df.isextended, bool)
         self.df['unloc'] = ~(localized | extended)
@@ -1564,7 +1565,6 @@ class SourceInfo(Diagnostics):
         poorfit_html = self.plotfolder+'/poorfits.html'
         open(poorfit_html,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+t.to_html()+'\n</body>')
         self.poorfit_table = '<p> <a href="poorfits.html"> Table of %d poor fits, with fitqual>50 or abs(pull0)>3</a>' % (  len(t) )
-        
         # flag sources that made it into the list
         self.df.flags[t.index] |= 2
         print '%d sources flagged (2) as poor fits' %len(t)
@@ -1720,6 +1720,8 @@ class SourceInfo(Diagnostics):
         <p>
         The columns are the number of sources with ts> than the header. 
         The rows labels are the first three characters of the source name, except 'ext' means extended.
+        <p>
+        %(flagged_link)s
         """
         df = self.df
         extended = np.asarray(df.isextended.values,bool)
@@ -1740,21 +1742,39 @@ class SourceInfo(Diagnostics):
         self.census=pd.DataFrame(census, index=prefixes)
         self.census_html = self.census.to_html()
        
-        self.runfigures([self.cumulative_ts, self.fit_quality,self.spectral_fit_consistency_plots,
-            self.non_psr_spectral_plots, self.pulsar_spectra, self.pivot_vs_e0,  ]
-        )
-        
+        version = os.path.split(os.getcwd())[-1]
         plt.close('all')
-        csvfile='sources.csv'
+        csvfile='sources_%s.csv' % version
         colstosave="""ra dec ts modelname freebits fitqual e0 flux flux_unc pindex pindex_unc index2 index2_unc
                  cutoff cutoff_unc locqual a b ang flags roiname""".split()
         self.df.ix[self.df.ts>10][colstosave].to_csv(csvfile)
         print 'saved truncated csv version to "%s"' %csvfile
 
+        
+        self.runfigures([self.cumulative_ts, self.fit_quality,self.spectral_fit_consistency_plots,
+            self.non_psr_spectral_plots, self.pulsar_spectra, self.pivot_vs_e0, self.flag_proc, ]
+        )
+
+    def flag_proc(self):
+        """ Generate summary table for flagged sources"""
         t =self.df[(self.df.flags>0)*(self.df.ts>10)]['ra dec ts fitqual pull0 eflux pindex beta cutoff index2 flags roiname'.split()]
         t.to_csv('flagged_sources.csv')
         print 'wrote %d sources to flagged_sources.csv' % len(t)
-        
+        pc =makepivot.MakeCollection('flagged sources %s' % os.path.split(os.getcwd())[-1], 'sedfig', 'flagged_sources.csv')
+        num=[sum(self.df.flags & 2**b > 0) for b in range(4)] 
+        flagtable=pd.DataFrame(dict(number=num, description=('tails','poor fits','low energy bad', 'poor localization') ))
+        flagtable.index.name='bit'
+        self.flagged_link = """\
+        <h3>Flagged Sources</h3>
+        A number of these sources have been flagged to indicate potential issues. 
+        The flag bits and number flagged as such are:<b>
+        %s<br>
+        These can be examined with a Pivot browser, which requires Silverlight.
+        <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>"""\
+        %(flagtable.to_html(), pc.cId)
+        return None
+    
+
     def flux_table(self, source_name):
         """ Return a DataFrame describing the sed info for the given source
         Columns, with energy fluxes in eV units, are:
@@ -1962,6 +1982,11 @@ class Localization(SourceInfo):
             self.poorly_localized_table_check =\
                         '<p><a href="%s"> Table of %d poorly localized (a>%.2f deg, or qual>%.1f with TS>%d) sources</a>'\
                         % ( 'poorly_localized_table.html',len(self.poorloc),self.acut,self.qualcut, self.tscut)
+            version = os.path.split(os.getcwd())[-1]
+            pv = makepivot.MakeCollection('poor localizations %s'%version, 'tsmap_fail', 'poorly_localized.csv')
+            self.poorly_localized_table_check +=\
+                '<br>A pivot collection of TS maps for these sources can be examined <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">here.</a>'%pv.cId
+                        
         else:
             self.poorly_localized_table_check ='<p>No poorly localized sources!'
 
@@ -2210,24 +2235,35 @@ class UWsourceComparison(SourceInfo):
     def compare(self):
         """Compare values of various fit parameters
         """
-        fig, ax = plt.subplots(2,1, figsize=(8,8))
+        fig, ax = plt.subplots(3,1, figsize=(8,12))
         self.df['pindex_old']=self.odf.pindex
         self.df['ts_old'] = self.odf.ts
+        self.df['flux_old']=self.odf.flux
         odf, df = self.odf, self.df
         plane = np.abs(df.glat)<5
-        def plot_pindex(ax):
-            irange = (1.5, 3.0)
+        def plot_pindex(ax, irange=(1.5,3.0), ylim=(0.98,1.02)):
             cut=df.beta<0.01
-            ax.plot(df.pindex[cut], (df.pindex/df.pindex_old)[cut], '.')
-            plt.setp(ax, xlim=irange, ylim=(0.9, 1.1))
+            ax.plot(df.pindex[cut], (df.pindex/df.pindex_old).clip(*ylim)[cut], '.')
+            ax.plot(df.pindex[cut*plane], (df.pindex/df.pindex_old).clip(*ylim)[cut*plane], '+r',
+                label='|b|<5')
+            plt.setp(ax, xlim=irange, ylim=ylim, ylabel='index ratio', xlabel='spectral index')
+            ax.legend(prop=dict(size=10))
+            
             ax.grid()
-        def plot_ts(ax):
-            rdts = (-50,50)
+        def plot_ts(ax, rdts=(-20,20)):
             ax.semilogx(df.ts, (df.ts-df.ts_old).clip(*rdts), '.')
-            ax.semilogx(df.ts[plane], (df.ts-df.ts_old)[plane].clip(*rdts), 'dr')
-            plt.setp(ax, ylim=(-50,50), xlim=(10,1e4), ylabel='TS change',xlabel='TS')
+            ax.semilogx(df.ts[plane], (df.ts-df.ts_old)[plane].clip(*rdts), '+r', label='|b|<5')
+            plt.setp(ax, ylim=rdts, xlim=(10,1e4), ylabel='TS change',xlabel='TS')
             ax.grid()
-        for f, ax in zip((plot_pindex,plot_ts), ax.flatten()): f(ax)
+            ax.legend(prop=dict(size=10))
+        def plot_flux(ax, ylim=(0.95, 1.05)):
+            ax.semilogx(df.ts, (df.flux/df.flux_old).clip(*ylim), '.')
+            ax.semilogx(df.ts[plane], (df.flux/df.flux_old).clip(*ylim)[plane], '+r', label='|b|<5')
+            plt.setp(ax, xlabel='TS', ylabel='Flux ratio', ylim=ylim, xlim=(10,1e4))
+            ax.grid()
+            ax.legend(prop=dict(size=10))
+            
+        for f, ax in zip((plot_ts, plot_flux, plot_pindex,), ax.flatten()): f(ax)
         return fig
         
     def all_plots(self):
@@ -2546,7 +2582,6 @@ class GalacticSpectra(ROIinfo): #Diagnostics):
     def setup(self):
         self.diffuse_setup('gal')
 
-        
     def like_scat(self, ib, axin=None, fb='both', vmin=0, vmax=2):
         fig, ax=self.get_figure(axin); 
         scat=ax.scatter(self.rois.glon, self.rois.singlat, 
@@ -2665,11 +2700,28 @@ class GalacticSpectra(ROIinfo): #Diagnostics):
         
     def diffuse_fits(self, **kw):
         """ %(title)s normalization
-        For the eight lowest energy bands, the normalization factors, for both front and back. 
+        For the eight lowest energy bands, the normalization factors, for combined front and back.
+        %(normalization_table)s
         """
         ax = self.multifig()
         self.multilabels('ratio', 'ROIs', '%s diffuse fit' %self.which)
         map(self.diffuse_fit, ax, range(8))
+        ax[0].set_xticks(np.arange(0.9, 1.2, 0.1))
+        
+        # add a table of the means and RMS values for all ROIS, and those within 5 deg.
+        xx = self.flux['both']['values']
+        plane = np.abs(self.df.glat)<5
+        av = xx[plane].mean()
+        rms=xx[plane].std()
+        av_all=xx.mean()
+        rms_all=xx.std()
+        z=pd.DataFrame(dict([('mean_plane',av.round(3)),('std_plane',rms.round(3)),
+                     ('mean_all',av_all.round(3)),('std_all',rms_all.round(3)),]))
+        z.index.name='band'
+        self.normalization_table="""
+        <p>Normalization statistics: 'plane' means |b|<5.<br> %s """ % z.to_html()
+        open('normalization_stats.html','w').write(z.to_html())
+        print 'wrote HTML file to %s' % 'normalization_stats.html'
         return plt.gcf()
             
     def all_plots(self):
