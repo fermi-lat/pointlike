@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue May 14 08:36:20 PDT 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	uwpipeline.py 
+Log Message:
+kluge fix for bullet issue
+    *
+------------------------------------------------------------
 User: burnett  Tue May 14 08:35:50 PDT 2013
 pointlike/python/uw/like2/pipeline
 
