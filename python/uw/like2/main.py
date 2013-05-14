@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.32 2013/05/04 14:32:27 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.33 2013/05/09 21:20:38 burnett Exp $
 
 """
 import types
@@ -470,7 +470,7 @@ class Factory(roisetup.ROIfactory):
 
 
 @decorate_with(roisetup.ROIfactory, append_init=True)
-def factory(  modeldir, dataspec=None,     **kwargs    ):
+def factory(  modeldir='.', dataspec=None,     **kwargs    ):
     """ will then return a ROI_user object 
     """
     return Factory(modeldir,  dataspec,  **kwargs)
