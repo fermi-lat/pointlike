@@ -1,7 +1,7 @@
 """
 Set up an ROI factory object
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.28 2013/05/09 21:19:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.29 2013/05/14 15:32:06 burnett Exp $
 
 """
 import os, sys, types
@@ -131,8 +131,8 @@ class ROIfactory(object):
         ('selector', skymodel.HEALPixSourceSelector,' factory of SourceSelector objects'),
         ('data_interval', 0, 'Data interval (e.g., month) to use'),
         ('nocreate', True, 'Do not allow creation of a binned photon file'),
-        ('galactic_correction', 'galactic_correction.csv', 'Name of file with diffuse correction factors'), 
-        ('galactic_systematic', 0.0316, 'Systematic uncertainty for the galactic counts'), 
+        ('galactic_correction', None, 'Name of file with diffuse correction factors'), 
+        ('galactic_systematic', None, 'Systematic uncertainty for the galactic counts'), 
         ('quiet', False, 'set to suppress most output'),
         )
 
@@ -152,7 +152,7 @@ class ROIfactory(object):
         print 'ROIfactory setup: \n\tskymodel: ', modeldir
         # extract parameters used by skymodel for defaults
         input_config = eval(open(os.path.expandvars(modeldir+'/config.txt')).read())
-        for key in 'extended diffuse irf'.split():
+        for key in 'extended diffuse irf galactic_correction galactic_systematic'.split():
             if self.__dict__[key] is None or self.__dict__[key]=='None': 
                 #print '%s: %s replace from skymodel: "%s"' %(key, kwargs.get(key,None), input_config[key])
                 self.__dict__[key]=input_config[key]
@@ -216,7 +216,7 @@ class ROIfactory(object):
             os.environ['CUSTOM_IRF_DIR'] = os.path.expandvars('$FERMI/custom_irfs')
         self.psf = pypsf.CALDBPsf(self.dataset.CALDBManager)
  
-        # set up glactic correction if requested
+        # set up glactic correction if requested, and file exists
         if self.galactic_correction is not None:
            if os.path.exists(self.galactic_correction):
                self.dcorr = pd.read_csv(self.galactic_correction, index_col=0)
