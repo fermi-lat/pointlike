@@ -1,7 +1,7 @@
 """
 setup and run pointlike all-sky analysis for subset of ROIs
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.11 2013/03/17 18:33:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.12 2013/05/04 14:47:15 burnett Exp $
 """
 import os, sys, logging
 from collections import OrderedDict
@@ -53,8 +53,8 @@ def main( update=None):
     first_roi, last_roi = roi_list[0], roi_list[-1]
     
 
-
-    streamlogdir = os.path.join(POINTLIKE_DIR,SKYMODEL_SUBDIR,'streamlogs')
+    skymodeldir =SKYMODEL_SUBDIR.replace('/a/wain025/g.glast.u55/','/afs/slac/g/glast/groups/')  
+    streamlogdir = os.path.join(POINTLIKE_DIR,skymodeldir,'streamlogs')
     streamlogfile=os.path.join(streamlogdir,'stream%s.%04d.log' % ( PIPELINE_STREAMPATH.split('.')[0], int(PIPELINE_STREAM)) )
     if not os.path.exists(streamlogdir): os.mkdir(streamlogdir)
     print 'Logging execution progress to %s' % streamlogfile
