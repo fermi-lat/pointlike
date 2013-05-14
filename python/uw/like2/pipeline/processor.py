@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.48 2013/05/04 14:46:26 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.49 2013/05/12 22:34:22 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -250,21 +250,23 @@ def repivot(roi, fit_sources=None, min_ts = 10, max_beta=3.0, emin=200, emax=200
 
 class Damper(object):
     """ manage adjustment of parameters for damping """
-    def __init__(self, roi, dampen, tol=0.5):
+    def __init__(self, roi, dampen, tol=2.0):
         self.dampen=dampen
         self.roi = roi
         self.ipar = roi.get_parameters()[:] # get copy of initial parameters
         self.initial_logl = roi.logl =  -roi(self.ipar)
         self.tol = tol
     def __call__(self):
+        change = abs(self.initial_logl-self.roi.logl)
+        if change< self.tol or self.dampen==1.0 : return False
+        # change more than tol and dampen specified: dampen
         fpar = self.roi.get_parameters()
-        if self.dampen!=1.0 and  len(fpar)==len(self.ipar): 
+        if len(fpar)==len(self.ipar): 
             dpar = self.ipar+self.dampen*(fpar-self.ipar)
             self.roi.set_parameters(dpar)
             self.roi.logl=-self.roi(dpar)
             # check for change, at least 0.5
-            return abs(self.initial_logl-self.roi.logl)>self.tol
-        return False
+        return True
     
 
 def process(roi, **kwargs):
@@ -292,7 +294,7 @@ def process(roi, **kwargs):
         print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (roi.name,))
     else: outtee=None
 
-    if not os.path.exists(counts_dir):
+    if counts_dir is not None and not os.path.exists(counts_dir):
         try: os.makedirs(counts_dir) # in case some other process makes it
         except: pass
     init_log_like = roi.log_like()
@@ -311,8 +313,9 @@ def process(roi, **kwargs):
                     roi.fit(**fit_kw)
                 else:
                     roi.fit(**fit_kw)
-                    if  abs(roi.log_like() - init_log_like)>1.0 :
-                        roi.print_summary(title='after global fit, logL=%0.f'% roi.log_like())
+                    change =roi.log_like() - init_log_like 
+                    if  abs(change)>1.0 :
+                        roi.print_summary(title='after global fit, logL=%0.f, change=%.1f'% (roi.log_like(), change))
                 if repivot_flag:
                     # repivot, iterating a few times
                     n = 3
@@ -323,7 +326,9 @@ def process(roi, **kwargs):
                     if not fix_beta(roi):
                         print 'fixbeta requested, but no refit needed, quitting'
                 if damp():
-                    roi.print_summary(title='after damping with factor=%.2f, logL=%0.f'%(dampen,roi.log_like()))
+                    change =roi.log_like() - init_log_like
+                    roi.print_summary(title='after damping with factor=%.2f, logL=%0.f, change=%.1f'\
+                        %(dampen,roi.log_like(), change))
                 else:
                     print 'No damping requested, or difference in log Likelihood < %f' % damp.tol
             except Exception, msg:
