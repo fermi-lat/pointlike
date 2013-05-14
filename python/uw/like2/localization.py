@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.13 2013/04/09 21:35:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.14 2013/04/09 21:41:52 burnett Exp $
 
 """
 import os
@@ -233,7 +233,7 @@ def localize_all(roi, **kwargs):
             and np.any(s.spectral_model.free) and s.ts>tsmin]
     tsmap_dir = kwargs.pop('tsmap_dir', None)
     associator = kwargs.pop('associator', None)
-    tsfits = kwargs.pop('tsfits', False) #TODO: reimplement this to generate FITS maps
+    tsfits = kwargs.pop('tsfits', True) 
     initw = roi.log_like()
     
     for source in sources:
@@ -256,10 +256,11 @@ def localize_all(roi, **kwargs):
             
             if tsmap_dir is not None : 
                 if  hasattr(loc,'ellipse'): 
-                    a, qual = loc.ellipse['a'], loc.ellipse['qual']
+                    a, qual, delta_ts = loc.ellipse['a'], loc.ellipse['qual'], loc.delta_ts
                     tsize = min(a*15., 2.0)
-                    bad = a>0.25 or qual>5
-                    print 'a,qual, bad:', a, qual, bad
+                    bad = a>0.20 or qual>5 or abs(delta_ts)>4
+                    if bad:
+                        print 'Flagged as possibly bad: a,qual, delta_ts:', a, qual, delta_ts
                 else: 
                     print 'no localization'
                     bad = True
@@ -275,6 +276,7 @@ def localize_all(roi, **kwargs):
                         notitle=True, #don't do title
                         markersize=10,
                         primary_markersize=12,
+                        tsfits=tsfits,
                         )
                 except Exception, msg:
                     print 'Plot of %s failed: %s' % (source.name, msg)
