@@ -11,7 +11,7 @@ classes:
 functions:
     factory -- create a list of BandLike objects from bands and sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.25 2013/05/04 14:30:51 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.26 2013/05/09 21:18:58 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -435,8 +435,8 @@ def factory(bands, sources, exposure, quiet=False):
                 ROIExtendedModel=BandExtended)[class_name]
         return B(band, source)
     bandlist = []
-    print 'applying diffuse correction:', exposure.dcorr
-    dcorr = exposure.dcorr
+    dcorr = getattr(exposure, 'dcorr', None)
+    if dcorr is not None: print 'applying diffuse correction:', exposure.dcorr
     for i,band in enumerate(bands):
         # note: adding attribute to each band for access by BandLike object if needed
         band.exposure_correction = exposure.correction[band.ct](band.e)
