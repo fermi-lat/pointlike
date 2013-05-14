@@ -1,7 +1,7 @@
 """
 Set up an ROI factory object
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.27 2013/05/04 14:32:01 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.28 2013/05/09 21:19:36 burnett Exp $
 
 """
 import os, sys, types
@@ -218,10 +218,11 @@ class ROIfactory(object):
  
         # set up glactic correction if requested
         if self.galactic_correction is not None:
-           assert os.path.exists(self.galactic_correction), 'Galactic correction file "%s" not found' % dself.galactic_correction
-           self.dcorr = pd.read_csv(self.galactic_correction, index_col=0)
-        
-
+           if os.path.exists(self.galactic_correction):
+               self.dcorr = pd.read_csv(self.galactic_correction, index_col=0)
+           else:
+               print 'Galactic correction file "%s" not found, no correction applied' % self.galactic_correction
+               self.galactic_correction=None
         convolution.AnalyticConvolution.set_points(self.convolve_kw['num_points'])
         convolution.ExtendedSourceConvolution.set_pixelsize(self.convolve_kw['pixelsize'])
 
