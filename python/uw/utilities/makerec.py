@@ -1,5 +1,5 @@
 """ Various useful utilities for creating, dumping numpy recarry objects
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/makerec.py,v 1.6 2011/08/25 18:11:03 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/makerec.py,v 1.7 2012/03/04 23:37:22 lande Exp $
 
 
 
@@ -7,6 +7,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/uti
 import os, pyfits, pickle
 from pylab import mlab
 import numpy as np
+import pandas as pd
 
 def makefits(r, filename=None, **kwargs):
     """ convert a recarray to a pyfits object, write to filename if present.
@@ -98,4 +99,6 @@ def load(filename):
         return textrec(filename)
     elif ext=='.pickle' or ext=='.rec':
         return pickle.load(open(filename))
+    elif ext=='.csv':
+        return textrec(filename, delimiter=',')
     raise Exception('extension %s not recognized: expect txt, rec or pickle' %ext)
