@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue May 14 13:56:35 PDT 2013
+pointlike/python/uw/utilities
+
+Modified Files:
+	image.py 
+Log Message:
+use subplots to set figure
+    *
+------------------------------------------------------------
 User: burnett  Tue May 14 10:55:57 PDT 2013
 pointlike/python/uw/like2
 
