@@ -253,7 +253,7 @@ def makesed_all(roi, **kwargs):
     
     kwargs:
         sedfig_dir : string or None
-            if string, a folder name in which to put the figuressed
+            if string, a folder name in which to put the figures
         showts : bool
         ndf : int
             default 10, for fit quality
