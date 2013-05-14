@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.20 2013/03/17 14:34:21 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.21 2013/03/21 19:39:41 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -60,16 +60,14 @@ class Source(object):
             par,sig = self.model.statistical()
             self.model = LogParabola(*(list(par)+[1e-3, self.model.e0]))
             self.model.free[2:]=False
-        #elif self.model.name=='PLSuperExpCutoff':
-        #    par,sig=self.model.statistical()
-        #    self.model = ExpCutoff(*par[:-1])
+ 
         elif self.model.name=='ExpCutoff':
             try:
+                print 'converting %s to PLSuperExpCutoff' %self.name
                 self.model = self.model.create_super_cutoff()
             except FloatingPointError:
-                pass
+                print 'Failed'
                 
-            print 'converting %s to PLSuperExpCutoff' %self.name
         elif self.model.name=='PowerLawFlux':
             f, gamma = self.model.get_all_parameters() #10**self.model.p
             emin = self.model.emin
@@ -79,7 +77,7 @@ class Source(object):
                 print 'Failed to create LogParabola for source %s, pars= %s'% (self.name, (f,gamma,emin))
                 raise
             self.model.free[2:]=False
-        if self.model.name not in ['LogParabola','PLSuperExpCutoff','Constant']:
+        if self.model.name not in ['LogParabola','PLSuperExpCutoff','ExpCutoff', 'Constant']:
             raise Exception('model %s not supported' % self.model.name)
         if not hasattr(self.model, 'npar'):
             raise Exception('model %s for source %s was not converted to new format'\
