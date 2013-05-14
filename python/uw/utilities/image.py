@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.41 2012/01/27 15:19:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.42 2012/06/24 14:12:11 burnett Exp $
 
 """
-version = '$Revision: 1.41 $'.split()[1]
+version = '$Revision: 1.42 $'.split()[1]
 
 import sys, pylab, types
 import math
@@ -436,7 +436,7 @@ class AIT(object):
         imshow_kw =dict(origin='lower', interpolation='nearest', extent=self.extent) 
         imshow_kw.update( kwargs)
         if self.axes is None: 
-            self.figure = pylab.gcf()
+            self.figure, self.axes = pylab.subplots(1,1, figsize=(10,5))
          
         if self.size==180: self.axes.set_axis_off()
         fun_dict = dict(linear=scale_fun, log=ma.log10, sqrt=ma.sqrt, asinh=ma.arcsinh)
