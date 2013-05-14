@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.22 2013/04/05 18:51:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.23 2013/05/04 14:47:48 burnett Exp $
 """
 import os, argparse
 import numpy as np
@@ -119,6 +119,7 @@ stagenames = dict(
     fglcheck    =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="2FGL")',auxcat="2fgl_lost.csv"), help='check 2FGL'),
     pulsar_detection=Stage(pipe.PulsarDetection, job_list='joblist8.txt', sum='pts', help='Create ts tables for pulsar detection'),
     gtlike_check=  Stage(pipe.Finish, dict(processor='processor.gtlike_compare()',), sum='gtlike_comparison', help='Compare with gtlike analysis of same sources'),
+    uw_compare =  Stage(pipe.Finish, dict(processor='processor.UW_compare()',), sum='UW_comparison', help='Compare with another UW model'),
 ) 
 keys = stagenames.keys()
 stage_help = '\nstage name, or sequential stages separaged by ":" names are\n\t' \
@@ -128,7 +129,11 @@ def check_environment(args):
     if 'SKYMODEL_SUBDIR' not in os.environ:
         os.environ['SKYMODEL_SUBDIR'] = os.getcwd()
     else:
-        os.chdir(os.environ['SKYMODEL_SUBDIR'])
+        skymodel = os.environ['SKYMODEL_SUBDIR']
+        print 'skymodel:' , skymodel
+        skymodel = skymodel.replace('/a/wain025/g.glast.u55/', '/afs/slac/g/glast/groups/')
+        assert os.path.exists(skymodel), 'Bad path for skymodel folder: %s' %skymodel
+        os.chdir(skymodel)
     cwd = os.getcwd()
     assert os.path.exists('config.txt'), 'expect this folder (%s) to have a file config.txt'%cwd
     m = cwd.find('skymodels')
