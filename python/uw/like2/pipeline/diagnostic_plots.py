@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.92 2013/05/14 21:00:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.93 2013/05/14 21:15:37 burnett Exp $
 
 """
 
@@ -1767,11 +1767,11 @@ class SourceInfo(Diagnostics):
         self.flagged_link = """\
         <h3>Flagged Sources</h3>
         A number of these sources have been flagged to indicate potential issues. 
-        The flag bits and number flagged as such are:<b>
+        The flag bits and number flagged as such are:
         %s<br>
-        These can be examined with a Pivot browser, which requires Silverlight.
-        <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>"""\
-        %(flagtable.to_html(), pc.cId)
+        These can be examined with a 
+        <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>,
+        which requires Silverlight."""  %(flagtable.to_html(), pc.cId)
         return None
     
 
