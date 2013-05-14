@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.90 2013/05/09 21:21:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.91 2013/05/12 22:33:57 burnett Exp $
 
 """
 
@@ -3197,6 +3197,7 @@ opts = dict(
         comparison=(SourceComparison,),
         association=(Associations,),
         gtlike_comparison=(GtlikeComparison,),
+        uw_comparison=(UWsourceComparison,),
         ) 
         
 def main(args, update_top=False , raise_exception=False):
