@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.94 2013/05/14 22:14:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.95 2013/05/15 03:27:51 burnett Exp $
 
 """
 
@@ -2119,6 +2119,7 @@ class GtlikeComparison( SourceComparison):
         for t in tt:
             for s in t:
                 gtcat[s['name']] = s
+                #gtcat[s[0]]=s[1]
         self.gdf = pd.DataFrame(gtcat).T
         self.gdf.index = [n.replace(' ','') for n in self.gdf.name]
         print 'loaded analysis of gtlike fit models, found %d sources' % len(self.gdf)
@@ -2126,18 +2127,21 @@ class GtlikeComparison( SourceComparison):
             self.dfx[col] = self.gdf[col]
             
         df = self.dfx
-        self.delta = df.ts_pt-df.ts_gt
+        self.delta = df.ts-df.other_ts
 
         df['plane']= np.abs(df.glat)<5
-        df['ts_gtlike']= self.cat.ts
+        df['ts_gtlike']= df.other_ts ## should be the TS from the catalog
         df['ts_delta'] = self.delta
-        fixme = df[((self.delta>25)+(self.delta<-1))*(df.ts>10)]['name ts ts_gtlike glat plane fitqual  ts_pt ts_gt ts_delta freebits beta roiname'.split()].sort_index(by='roiname')
+        df['ts_gt'] = df.other_ts
+        df['ts_pt'] = df.ts
+        fixme = df[((self.delta>25)+(self.delta<-1))*(df.ts>10)]['name ts ts_gtlike glat plane fitqual ts_delta ts_gt ts_pt freebits beta roiname'.split()].sort_index(by='roiname')
         fixme.index = fixme.name
         fixme.index.name='name'
         fixme.to_csv('gtlike_mismatch.csv')
         print 'wrote %d entries to gtlike_mismatch.csv' % len(fixme)
         version = os.path.split(os.getcwd())[-1]
-        makepivot.MakeCollection('gtlike mismatch %s/v4'%version, 'gtlike/sed', 'gtlike_mismatch.csv')
+        pc=makepivot.MakeCollection('gtlike mismatch %s/v4'%version, 'gtlike/sed', 'gtlike_mismatch.csv')
+        self.pivot_id=pc.cId
 
     def compare(self):
         """ Compare spectral quantities for sources common to both models
@@ -2174,7 +2178,10 @@ class GtlikeComparison( SourceComparison):
         """ Delta TS
         Plots of the TS for the gtlike fit spectra detrmined with the pointlike analysis, compared with the pointlike value.<br>
         Outliers: %(over_ts)d with gtlike worse by 25; %(under_ts)d with pointlike worse by 1.
-        """
+        <p> These can be examined with a 
+        <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%(pivot_id)d">Pivot browser</a>,
+        which requires Silverlight.  
+       """
         df = self.dfx
         delta = self.delta
         x = np.array(delta, float).clip(dmin,dmax) # avoid histogram problem
@@ -3130,7 +3137,7 @@ class HTMLindex():
     """
     style="""
 <style type="text/css">
-body {	font-family:verdana,arial,sans-serif;
+body td {	font-family:verdana,arial,sans-serif;
 	font-size:10pt;
 	margin:10px;
 	background-color:white;

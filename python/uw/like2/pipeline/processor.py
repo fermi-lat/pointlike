@@ -759,9 +759,11 @@ class CompareOtherModel(object):
         self.other_models.append(dict(name=source_name, m_other=othermodel, m_pt=saved_model, ts_pt=ptts, ts_other=gtts))
  
 class GtlikeModels(object):
-    def __init__(self, catpath=os.path.expandvars('$FERMI/catalog/gll_psc4yearclean_v4.fit')):
+    def __init__(self, catpath=os.path.expandvars('$FERMI/catalog/gll_psc4yearclean_v4.fit'), otherversion='v4'):
         import pyfits
         self.cat = pyfits.open(catpath)[1].data
+        self.otherversion=otherversion
+        self.uwversion = os.path.split(os.getcwd())[-1]
                  
     def lookup(self, source):
         """ return the corresponding model, or None"""
@@ -773,7 +775,7 @@ class GtlikeModels(object):
         flux,index,cutoff,b,pivot,beta=[cs.field(f) for f in 'Flux_Density Spectral_Index Cutoff Index2 Pivot_Energy beta'.split()]
         try:
             if st=='PowerLaw':
-                return Models.PowerLaw(p=[flux, index], e0=pivot)
+               return Models.PowerLaw(p=[flux, index], e0=pivot)
             elif st=='PLSuperExpCutoff':
                 prefactor = flux*np.exp((pivot/cutoff)**b)
                 return Models.PLSuperExpCutoff(p=[prefactor, index, cutoff,b], e0=pivot)
@@ -784,9 +786,9 @@ class GtlikeModels(object):
             else:
                 raise Exception('unexpected spectrum type %s'%st)
         except Exception, msg:
-            print 'Failed to create model for source %s: "%s"' %(source.name, msg)
+            print 'Failed to create model for %s: "%s"' % (source.name, msg)
             return None
-            
+                
     def sed_plot(self, roi, source, **kwargs):
         source_name = source.name
         othermodel = self.lookup(source)
@@ -799,21 +801,21 @@ class GtlikeModels(object):
         roi.get_sed(update=True)
         ps = sed.Plot(source, **plot_kw)
         #annotation =(0.05,0.9, 'TS=%.0f'% self.TS(source.name))
-        plot_kw = dict(label= 'current: %.0f'%ptts )#annotate=annotation)
+        plot_kw = dict(label= '%s: %.0f'%(self.uwversion,ptts) )#annotate=annotation)
         ps(fit_kwargs=plot_kw)
         saved_model = source.spectral_model
         axes = plt.gca()
         source.spectral_model = othermodel
         gtts = roi.TS(source_name)
         roi.get_sed(update=True)
-        ps.plot_model( othermodel, butterfly=False, label='other: %.0f'%gtts, color='g', lw=2)
+        ps.plot_model( othermodel, butterfly=False, label='%s: %.0f'%(self.otherversion,gtts), color='g', lw=2)
         source.spectral_model = saved_model
         axes.legend(prop=dict(size=10))
         plt.setp(axes, xlim=(100, 31.6e3), ylim=(0.1,1000))
         outfile = os.path.join(self.sed_dir, '%s_sed.png' % (source_name.replace(' ','_').replace('+','p')))
         plt.savefig(outfile)
         print 'wrote file %s' % outfile
-        return othermodel
+        return dict(name=source.name, uwts=ptts, other_ts=gtts, othermodel=othermodel)
    
     def __call__(self, roi, **kwargs):
         outdir = kwargs.pop('outdir', '.')
@@ -826,7 +828,7 @@ class GtlikeModels(object):
         for source in sources:
             catmodel = self.sed_plot(roi, source)
             if catmodel is not None:
-                catmodels.append(catmodel)
+                catmodels.append(  catmodel )
         outfile = os.path.join(model_dir, '%s.pickle'%roi.name)
         pickle.dump(catmodels,open(outfile, 'w'))
         print 'wrote file %s' %outfile
