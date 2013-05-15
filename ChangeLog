@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue May 14 21:39:50 PDT 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	processor.py 
+Log Message:
+check bad data from gtlike
+    *
+------------------------------------------------------------
 User: burnett  Tue May 14 20:27:52 PDT 2013
 pointlike/python/uw/like2/pipeline
 
