@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.49 2013/05/12 22:34:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.50 2013/05/14 15:35:50 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -718,14 +718,57 @@ class GtlikeCatalog(object):
         except:
             print 'Source %s failed' % nickname
             return None
-   
-cat = None
-def gtlike_compare(roi, **kwargs):
-    """
-    compare with gtlike
-    """
-    def cat_model(cs):
+
+
+class CompareOtherModel(object):
+
+    def __init__(self, roi, other='uw22c'):
+        self.others = pickle.load(open('../%s/sources.pickle' % other))
+        self.other_models=[]
+        self.roi=roi
+    
+    def __call__(self, source):
+        roi = self.roi
+        source_name = source.name
+        ptts = roi.TS(source_name)
+        #    sed = roi.plot_sed(source_name, butterfly=False, annotate=None, fit_kwargs=dict(label='this: %.0f'%ptts, color='orange', lw=2))
+        plot_kw=dict(energy_flux_unit=kwargs.pop('energy_flux_unit','eV'),
+                 gev_scale=kwargs.pop('gev_scale',True))
+        roi.get_sed(update=True)
+        ps = sed.Plot(source, **plot_kw)
+        #annotation =(0.05,0.9, 'TS=%.0f'% self.TS(source.name))
+        plot_kw = dict(label= 'current: %.0f'%ptts )#annotate=annotation)
+        ps(fit_kwargs=plot_kw)
+        saved_model = source.spectral_model
+        axes = plt.gca()
+        if source_name in self.others.index:
+            othermodel = self.others.ix[source_name]['model']
+            source.spectral_model = othermodel
+            gtts = roi.TS(source_name)
+            roi.get_sed(update=True)
+            ps.plot_model( othermodel, butterfly=False, label='other: %.0f'%gtts, color='g', lw=2)
+            source.spectral_model = saved_model
+        else:
+            gtts=-1
+            othermodel=None
+        axes.legend(prop=dict(size=10))
+        plt.setp(axes, xlim=(100, 31.6e3), ylim=(0.1,1000))
+        outfile = os.path.join(sed_dir, '%s_sed.png' % (source_name.replace(' ','_').replace('+','p')))
+        plt.savefig(outfile)
+        print 'wrote file %s' % outfile
+        self.other_models.append(dict(name=source_name, m_other=othermodel, m_pt=saved_model, ts_pt=ptts, ts_other=gtts))
+ 
+class GtlikeModels(object):
+    def __init__(self, catpath=os.path.expandvars('$FERMI/catalog/gll_psc4yearclean_v4.fit')):
+        import pyfits
+        self.cat = pyfits.open(catpath)[1].data
+                 
+    def lookup(self, source):
+        """ return the corresponding model, or None"""
         from uw.like import Models
+        cselect = np.array([np.any(s.field('NickName')==(source.name.replace(' ',''))) for s in self.cat])
+        if sum(cselect)!=1: return None
+        cs = self.cat[cselect][0]
         st = cs.field('SpectrumType')
         flux,index,cutoff,b,pivot,beta=[cs.field(f) for f in 'Flux_Density Spectral_Index Cutoff Index2 Pivot_Energy beta'.split()]
         if st=='PowerLaw':
@@ -739,52 +782,63 @@ def gtlike_compare(roi, **kwargs):
             return Models.PowerLaw(p=[flux, index], e0=pivot)
         else:
             raise Exception('unexpected spectrum type %s'%st)
-    global cat
-    if cat is None:
-        import pyfits
-        #cat = pyfits.open(os.path.expandvars('$FERMI/catalog/gll_psc3yearclean_v1.fit'))[1].data
-        cat = pyfits.open(os.path.expandvars('$FERMI/catalog/gll_psc4yearclean_v4.fit'))[1].data
-    outdir = kwargs.pop('outdir')
-    sed_dir = os.path.join(outdir, kwargs.pop('sed_dir', 'gtlike/sed'))
-    model_dir=os.path.join(outdir, kwargs.pop('model_dir', 'gtlike/models'))
-    for t in (sed_dir,model_dir):
-        if not os.path.exists(t): os.makedirs(t)
-    sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
-    catmodels=[]
-    for source in sources:
-        cselect = np.array([np.any(s.field('NickName')==(source.name.replace(' ',''))) for s in cat])
-        if sum(cselect)!=1:
-            print 'did not find source %s' %source.name
-            continue
-        catsource = cat[cselect][0]
-        try:
-            catmodel = cat_model(catsource); 
-        except:
-            print 'Source %s failed' %source.name
-            catmodel = None
-        
-        ptts = roi.TS(source.name)
-        sed = roi.plot_sed(source.name, butterfly=False, annotate=None, fit_kwargs=dict(label='pointlike: %.0f'%ptts, color='orange', lw=2))
+            
+    def sed_plot(self, roi, source, **kwargs):
+        source_name = source.name
+        othermodel = self.lookup(source)
+        if othermodel is None: 
+            print 'Source %s not found' %source_name
+            return None
+        ptts = roi.TS(source_name)
+        plot_kw=dict(energy_flux_unit=kwargs.pop('energy_flux_unit','eV'),
+                 gev_scale=kwargs.pop('gev_scale',True))
+        roi.get_sed(update=True)
+        ps = sed.Plot(source, **plot_kw)
+        #annotation =(0.05,0.9, 'TS=%.0f'% self.TS(source.name))
+        plot_kw = dict(label= 'current: %.0f'%ptts )#annotate=annotation)
+        ps(fit_kwargs=plot_kw)
+        saved_model = source.spectral_model
         axes = plt.gca()
-        if catmodel is not None:
-            s = roi.get_source(source.name)
-            t=s.spectral_model
-            s.spectral_model = catmodel
-            gtts = roi.TS(source.name)
-            s.spectral_model = t
-            sed.plot_model( catmodel, butterfly=False, label='gtlike: %.0f'%gtts, color='g', lw=2)
-        else:
-            gtts=-1
-        axes.legend()
+        source.spectral_model = othermodel
+        gtts = roi.TS(source_name)
+        roi.get_sed(update=True)
+        ps.plot_model( othermodel, butterfly=False, label='other: %.0f'%gtts, color='g', lw=2)
+        source.spectral_model = saved_model
+        axes.legend(prop=dict(size=10))
         plt.setp(axes, xlim=(100, 31.6e3), ylim=(0.1,1000))
-        outfile = os.path.join(sed_dir, '%s_sed.png' % (source.name.replace(' ','_').replace('+','p')))
+        outfile = os.path.join(self.sed_dir, '%s_sed.png' % (source_name.replace(' ','_').replace('+','p')))
         plt.savefig(outfile)
         print 'wrote file %s' % outfile
-        catmodels.append(dict(name=source.name, m_gt=catmodel, m_pt=t, info=np.array(catsource), 
-            catinfo=catsource, ts_pt=ptts, ts_gt=gtts))
-    outfile = os.path.join(model_dir, '%s.pickle'%roi.name)
-    pickle.dump(catmodels,open(outfile, 'w'))
-    print 'wrote file %s' %outfile
+        return othermodel
+   
+    def __call__(self, roi, **kwargs):
+        outdir = kwargs.pop('outdir', '.')
+        self.sed_dir = os.path.join(outdir, kwargs.pop('sed_dir', 'gtlike/sed'))
+        model_dir=os.path.join(outdir, kwargs.pop('model_dir', 'gtlike/models'))
+        for t in (self.sed_dir, model_dir):
+            if not os.path.exists(t): os.makedirs(t)
+        sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
+        catmodels=[]
+        for source in sources:
+            catmodel = self.sed_plot(roi, source)
+            if catmodel is not None:
+                catmodels.append(catmodel)
+        outfile = os.path.join(model_dir, '%s.pickle'%roi.name)
+        pickle.dump(catmodels,open(outfile, 'w'))
+        print 'wrote file %s' %outfile
+        
+
+    
+gtm = None
+def gtlike_compare(roi, **kwargs):
+    """
+    compare with gtlike
+    """
+    global gtm
+    if cat is None:
+        gtm = GtlikeModels()
+    gtm(roi, *kwargs)
+    
     
 others=None
 def UW_compare(roi, **kwargs):

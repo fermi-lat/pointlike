@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.93 2013/05/14 21:15:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.94 2013/05/14 22:14:15 burnett Exp $
 
 """
 
@@ -2136,6 +2136,8 @@ class GtlikeComparison( SourceComparison):
         fixme.index.name='name'
         fixme.to_csv('gtlike_mismatch.csv')
         print 'wrote %d entries to gtlike_mismatch.csv' % len(fixme)
+        version = os.path.split(os.getcwd())[-1]
+        makepivot.MakeCollection('gtlike mismatch %s/v4'%version, 'gtlike/sed', 'gtlike_mismatch.csv')
 
     def compare(self):
         """ Compare spectral quantities for sources common to both models
