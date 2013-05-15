@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.50 2013/05/14 15:35:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.51 2013/05/15 03:27:52 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -771,17 +771,21 @@ class GtlikeModels(object):
         cs = self.cat[cselect][0]
         st = cs.field('SpectrumType')
         flux,index,cutoff,b,pivot,beta=[cs.field(f) for f in 'Flux_Density Spectral_Index Cutoff Index2 Pivot_Energy beta'.split()]
-        if st=='PowerLaw':
-            return Models.PowerLaw(p=[flux, index], e0=pivot)
-        elif st=='PLSuperExpCutoff':
-            prefactor = flux*np.exp((pivot/cutoff)**b)
-            return Models.PLSuperExpCutoff(p=[prefactor, index, cutoff,b], e0=pivot)
-        elif st=='LogParabola':
-            return Models.LogParabola(p=[flux, index, beta, pivot])
-        elif st=='PowerLaw2':   ### same as PowerLaw in table
-            return Models.PowerLaw(p=[flux, index], e0=pivot)
-        else:
-            raise Exception('unexpected spectrum type %s'%st)
+        try:
+            if st=='PowerLaw':
+                return Models.PowerLaw(p=[flux, index], e0=pivot)
+            elif st=='PLSuperExpCutoff':
+                prefactor = flux*np.exp((pivot/cutoff)**b)
+                return Models.PLSuperExpCutoff(p=[prefactor, index, cutoff,b], e0=pivot)
+            elif st=='LogParabola':
+                return Models.LogParabola(p=[flux, index, beta, pivot])
+            elif st=='PowerLaw2':   ### same as PowerLaw in table
+                return Models.PowerLaw(p=[flux, index], e0=pivot)
+            else:
+                raise Exception('unexpected spectrum type %s'%st)
+        except Exception, msg:
+            print 'Failed to create model for source %s: "%s"' %(source.name, msg)
+            return None
             
     def sed_plot(self, roi, source, **kwargs):
         source_name = source.name
@@ -835,9 +839,9 @@ def gtlike_compare(roi, **kwargs):
     compare with gtlike
     """
     global gtm
-    if cat is None:
+    if gtm is None:
         gtm = GtlikeModels()
-    gtm(roi, *kwargs)
+    gtm(roi, **kwargs)
     
     
 others=None
