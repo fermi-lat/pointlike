@@ -1,11 +1,11 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.98 2013/05/16 02:18:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.99 2013/05/16 03:09:32 burnett Exp $
 
 """
 
-import os, pickle, glob, zipfile, time, sys, types, argparse, pyfits
+import os, pickle, glob, zipfile, time, sys, types, argparse, pyfits, collections
 import numpy as np
 import pylab as plt
 import pandas as pd
@@ -141,7 +141,8 @@ class Diagnostics(object):
 
         html+='\n</body>'
         t = os.path.split(os.getcwd())
-        self.header='/'.join([t[-1], os.path.split(self.plotfolder)[-1]])
+        m = '<a href="../">%s</a>' % t[-1] # model name has uplink
+        self.header='/'.join([m, os.path.split(self.plotfolder)[-1]])
         try:
             text = html%self.__dict__
         except:
@@ -1719,7 +1720,7 @@ class SourceInfo(Diagnostics):
         
     def all_plots(self):
         """ Plots of source properties, from analysis of spectral fits. 
-        See <a href="../localization/index.html"> localization </a> for localization plots.
+        See <a href="../localization/"> localization </a> for localization plots.
         <h3>Census</h3>
         
         %(census_html)s
@@ -1916,11 +1917,14 @@ class Localization(SourceInfo):
                 if dist< tol:
                     name1.append(indeces[i])
                     name2.append(indeces[j])
-                    distance.append(dist)
+                    distance.append(dist.round(2))
                     print 'Closer than tolerance: sources %s, %s, %.2f deg' \
                         % (indeces[i], indeces[j], dist)
         self.close_tol = tol
-        self.close_table = pd.DataFrame(dict(source1=name1, source2=name2, distance=distance)).to_html()
+        self.close_table = pd.DataFrame(
+            collections.OrderedDict( [('source1',name1), ('source2',name2), ('distance',distance) ]),
+            columns = 'source1 source2 distance'.split(), # why doesn't OrderedDict do this?
+            ).to_html()
         return None
         
 
@@ -1991,7 +1995,7 @@ class Localization(SourceInfo):
             version = os.path.split(os.getcwd())[-1]
             pv = makepivot.MakeCollection('poor localizations %s'%version, 'tsmap_fail', 'poorly_localized.csv')
             self.poorly_localized_table_check +=\
-                '<br>A pivot collection of TS maps for these sources can be examined <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">here.</a>'%pv.cId
+                '<br>A  <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">pivot collection </a>of TS maps for these sources can be examined.'%pv.cId 
                         
         else:
             self.poorly_localized_table_check ='<p>No poorly localized sources!'
@@ -3143,7 +3147,7 @@ class HTMLindex():
     """
     style="""
 <style type="text/css">
-body td {	font-family:verdana,arial,sans-serif;
+body, th, td {	font-family:verdana,arial,sans-serif;
 	font-size:10pt;
 	margin:10px;
 	background-color:white;
@@ -3155,7 +3159,7 @@ pre { font-size:10pt; margin-left:25pt;
 h5 {margin-left:25pt;}
 table { margin-left:25pt; margin-top:15pt; font-size:8pt;
     border-style: solid; border-width: 1px;  border-collapse: collapse; }
-table td { padding: 3px; }
+table, th, td { padding: 3px; }
 a:link { text-decoration: none ; color:green}
 a:hover { background-color:yellow; }
 </style>"""
@@ -3244,6 +3248,7 @@ a:hover { background-color:yellow; }
 opts = dict(
         counts=  (CountPlots,),
         sources= (SourceInfo, Localization, SourceTotal,),
+        localization=(Localization,),
         diffuse= (Galactic, Isotropic, Limb, SunMoon),
         isotropic=(Isotropic,),
         galactic=(Galactic,),
