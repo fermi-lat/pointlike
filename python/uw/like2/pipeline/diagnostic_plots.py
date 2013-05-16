@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.99 2013/05/16 03:09:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.100 2013/05/16 16:13:32 burnett Exp $
 
 """
 
@@ -2004,7 +2004,7 @@ class Localization(SourceInfo):
     def all_plots(self):
         """Localization summary
         
-        <p>Sumamry of the localization of all sources.
+        <p>Plots summarizing of the localization of all sources: precision, quality, closeness, and confusion.
         """
         return self.runfigures([self.r95, self.localization,self.localization_quality,self.poor_loc,self.check_closeness,self.source_confusion])
 
@@ -3191,7 +3191,8 @@ a:hover { background-color:yellow; }
             head, tail =os.path.split(x)
             name = os.path.splitext(tail)[0]
             n = name.find('_uw')
-            return '<a href="%s" target="content">%s</a><br>' % (x,name[:n])
+            #note the special qualifier for use with the SLAC decorator
+            return '<a href="%s/index.html/?skipDecoration" target="content">%s</a><br>' % (x,name[:n])
 
         for k in sorted(z.keys()):
             v = z[k]
@@ -3199,7 +3200,7 @@ a:hover { background-color:yellow; }
             index = '%s/index.html'%k
             if index in v:
                 v.remove(index)
-                s += '\n<h4><a href="%s" target="content">%s</a></h4>'% (index, k.split('/')[-1])
+                s += '\n<h4><a href="%s?skipDecoration" target="content">%s</a></h4>'% (index, k.split('/')[-1])
             else:
                 s += '\n<h4>%s</h4>'% k.split('/')[-1]
             s += '\n\t<p>' + '\n\t'.join(map(parse_item, v)) 
@@ -3223,7 +3224,7 @@ a:hover { background-color:yellow; }
         open(filename, 'w').write(self.ul)
         print 'wrote menu %s' % os.path.join(os.getcwd(),filename)
         # make separate menu for the Decorator browser
-        t = self.ul.replace('/index.html', '/').replace('plots/', '')
+        t = self.ul.replace('plots/', '')
         open('plots/index.html', 'w').write(t)
         print 'wrote menu %s' %os.path.join(os.getcwd(), 'plots/index.html')
 
