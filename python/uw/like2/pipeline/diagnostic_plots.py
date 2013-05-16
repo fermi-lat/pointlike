@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.96 2013/05/15 16:59:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.97 2013/05/16 00:14:35 burnett Exp $
 
 """
 
@@ -104,15 +104,17 @@ class Diagnostics(object):
         localfile = '%s_%s.png'%(name, self.skymodel.replace('/','_'))
         savefile = os.path.join(self.plotfolder,localfile)
         if title is None: title = name.replace('_', ' ')
+        html=None
         if fig is not None:
             fig.text(0.02, 0.02, self.skymodel, fontsize=8)
             savefig_kw=dict(dpi=60) #, bbox_inches='tight', pad_inches=0.5) 
             plt.savefig(savefile, **savefig_kw)
             print 'saved plot to %s' % savefile
             html = '<h3>%s</h3> <img src="%s" />\n <br> %s '% (title, localfile, caption if caption is not None else '')
-        else:
-            html = '<h3>%s</h3>\n <br>  %s' % (title, caption if caption is not None else '')
-        open(savefile.replace('.png','.html'),'w').write(html )
+        elif caption is not None:
+            html = '<h3>%s</h3>\n <br>  %s' % (title, caption )
+        if html is not None:
+            open(savefile.replace('.png','.html'),'w').write(html )
         print 'saved html doc to %s' % os.path.join(os.getcwd(),savefile.replace('.png','.html'))
         return html
 
@@ -1399,6 +1401,8 @@ class SourceInfo(Diagnostics):
         %(tail_check)s
         """
         fig, axx = plt.subplots( 1,3, figsize=(12,4))
+        plt.subplots_adjust(wspace=0.2, left=0.05,bottom=0.15)
+
         t = self.df.ix[(self.df.ts>10)*(self.df.modelname=='LogParabola')]['ts flux pindex beta e0 roiname'.split()]
         t['eflux'] = t.flux * t.e0**2 * 1e6
         ax = axx[0]
@@ -1431,8 +1435,8 @@ class SourceInfo(Diagnostics):
         
         For each plot, the subset with a bad fit is shown.
         """
-        fig, axx = plt.subplots( 1,4, figsize=(12,4))
-        plt.subplots_adjust(wspace=0.3)
+        fig, axx = plt.subplots( 1,4, figsize=(14,4))
+        plt.subplots_adjust(wspace=0.3, left=0.05,bottom=0.15)
         t = self.df.ix[(self.df.ts>10)*(np.array(self.df.psr,bool))]['ts flux pindex cutoff e0 roiname fitqual'.split()]
         t['eflux'] = t.flux * t.e0**2 * 1e6
         badfit = t.fitqual>30
@@ -1461,19 +1465,19 @@ class SourceInfo(Diagnostics):
             plt.setp(ax, xlabel='cutoff energy (GeV)'); ax.grid()
             ax.legend(prop=dict(size=10))
             
-        def plot4(ax):
-            xvals = t.cutoff.clip(0,cutoff_max) / 1e3
+        def plot4(ax, xlim=(0,cutoff_max)):
+            xvals = t.cutoff.clip(*xlim) / 1e3
             yvals = t.pindex.clip(index_min,index_max)
             ax.plot(xvals, yvals, 'o')
             ax.plot(xvals[badfit], yvals[badfit], 'or', label='bad fit')
-            plt.setp(ax, xlabel='cutoff energy', ylabel='spectral index')
+            plt.setp(ax, xlabel='cutoff energy', ylabel='spectral index',
+                xlim=(xlim[0]-0.1,1.03*xlim[1]/1e3), ylim=(index_min-0.1, index_max+0.1),
+                )
             ax.grid(); ax.legend(loc='lower right', prop=dict(size=10))
 
-            
         for f,ax in zip((plot1,plot2,plot3,plot4,), axx.flatten()): f(ax)
         flags = self.df.flags
         tail_cut = (t.pindex<=index_min) + (t.pindex>index_max) + (t.cutoff>cutoff_max)
-
         tails = t.ix[tail_cut].index
         flags[tails] += 1 ### bit 1
         print '%d pulsar sources flagged (1) in tails of  index or cutoff' % sum(tail_cut)
@@ -1720,8 +1724,8 @@ class SourceInfo(Diagnostics):
         
         %(census_html)s
         <p>
-        The columns are the number of sources with ts> than the header. 
-        The rows labels are the first three characters of the source name, except 'ext' means extended.
+        The columns are the number of sources with TS greater than the header value. 
+        The row labels are the first three characters of the source name, except 'ext' means extended.
         <p>
         %(flagged_link)s
         """
@@ -1996,7 +2000,7 @@ class Localization(SourceInfo):
     def all_plots(self):
         """Localization summary
         
-        <p>Analysis of the localization information derived from the 'ellipse' field of the source records.
+        <p>Sumamry of the localization of all sources.
         """
         return self.runfigures([self.r95, self.localization,self.localization_quality,self.poor_loc,self.check_closeness,self.source_confusion])
 
@@ -2132,7 +2136,7 @@ class GtlikeComparison( SourceComparison):
         self.delta = df.ts-df.other_ts
 
         df['plane']= np.abs(df.glat)<5
-        df['ts_gtlike']= df.other_ts ## should be the TS from the catalog
+        df['ts_gtlike']= self.cat.ts ## should be the TS from the catalog
         df['ts_delta'] = self.delta
         df['ts_gt'] = df.other_ts
         df['ts_pt'] = df.ts
@@ -3207,16 +3211,18 @@ a:hover { background-color:yellow; }
             html += '<h4>%s</h4>\n<pre>%s</pre>' % (filename, open(filename).read())
         html += '\n</body>'
         open('plots/config.html', 'w').write(html)
-        print 'wrote plots/config.html'
+        if not os.path.exists('plots/config'): os.makedirs('plots/config')
+        open('plots/config/index.html','w').write(html)
+        print 'wrote plots/config.html and plots/config/index.html'
+        
     def create_menu(self, filename='plot_index.html'):
         ###summary = open(filename, 'w')
         open(filename, 'w').write(self.ul)
         print 'wrote menu %s' % os.path.join(os.getcwd(),filename)
-        # make separate menu for the Decorate browser
+        # make separate menu for the Decorator browser
         t = self.ul.replace('/index.html', '/').replace('/plots','')
         open('plots/index.html', 'w').write(t)
         print 'wrote menu %s' %os.path.join(os.getcwd(), 'plots/index.html')
-
 
     def update_top(self, filename='../../plot_browser/top_nav.html'):
         def parse_path(x): 
