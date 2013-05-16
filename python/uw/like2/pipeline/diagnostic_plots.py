@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.95 2013/05/15 03:27:51 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.96 2013/05/15 16:59:20 burnett Exp $
 
 """
 
@@ -1391,7 +1391,7 @@ class SourceInfo(Diagnostics):
         self.df['counts'] = [counts(self.df, self.roi_df, name) for  name in self.df.index]
         
 
-    def non_psr_spectral_plots(self, index_min=1.0, index_max=3.5, beta_max=2.0):
+    def non_psr_spectral_plots(self, index_min=1.0, index_max=3.5, beta_max=3.0):
         """ Plots showing spectral parameters for non-pulsar spectra
         Left: energy flux in eV/cm**2/s. This is the differential flux at the pivot energy
         <br> Center: the spectral index.
@@ -1416,7 +1416,7 @@ class SourceInfo(Diagnostics):
         if len(self.non_psr_tails)>0:
             self.tail_check = '<h4>Sources on tails:</h4>'\
                 +self.non_psr_tails.sort_index(by='roiname').to_html()
-            self.tail_check += '<p>Criteria: require index between 1 and 3.5 for powerlaw, beta<2.0 for log parabola'
+            self.tail_check += '<p>Criteria: require index between 1 and 3.5 for powerlaw, beta<3.0 for log parabola'
         else:
             self.tail_check ='<p>No sources on tails'
         # flag sources
@@ -1426,16 +1426,16 @@ class SourceInfo(Diagnostics):
         print '%d sources flagged (1) in tails of flux, index, or beta' % len(self.non_psr_tails)
         return fig
     
-    def pulsar_spectra(self, index_min=0.5, index_max=2.5, cutoff_max=10000):
+    def pulsar_spectra(self, index_min=0.0, index_max=2.5, cutoff_max=8000):
         """ Distributions for the LAT pulsars
         
         For each plot, the subset with a bad fit is shown.
         """
-        fig, axx = plt.subplots( 1,4, figsize=(14,4))
+        fig, axx = plt.subplots( 1,4, figsize=(12,4))
         plt.subplots_adjust(wspace=0.3)
         t = self.df.ix[(self.df.ts>10)*(np.array(self.df.psr,bool))]['ts flux pindex cutoff e0 roiname fitqual'.split()]
         t['eflux'] = t.flux * t.e0**2 * 1e6
-        badfit = t.fitqual>50
+        badfit = t.fitqual>30
 
         def plot1(ax, efmin=1e-1,efmax=1e3):
             bins = np.logspace(np.log10(efmin),np.log10(efmax),26)
@@ -1467,7 +1467,7 @@ class SourceInfo(Diagnostics):
             ax.plot(xvals, yvals, 'o')
             ax.plot(xvals[badfit], yvals[badfit], 'or', label='bad fit')
             plt.setp(ax, xlabel='cutoff energy', ylabel='spectral index')
-            ax.grid(); ax.legend(prop=dict(size=10))
+            ax.grid(); ax.legend(loc='lower right', prop=dict(size=10))
 
             
         for f,ax in zip((plot1,plot2,plot3,plot4,), axx.flatten()): f(ax)
@@ -1556,15 +1556,15 @@ class SourceInfo(Diagnostics):
 
         # Make tables (csv and html) of the poor fits
         s['pull0'] = np.array([x.pull[0] for x in s.sedrec])
-        t =s.ix[((s.fitqual>50) | (np.abs(s.pull0)>3))*(s.ts>10) ]['ra dec fitqual pull0 ts modelname roiname'.split()].sort_index(by='roiname')
+        t =s.ix[((s.fitqual>30) | (np.abs(s.pull0)>3))*(s.ts>10) ]['ra dec fitqual pull0 ts modelname roiname'.split()].sort_index(by='roiname')
         poorfit_csv = 'poor_spectral_fits.csv'
         t.to_csv(poorfit_csv)
         bs =sorted(list(set(t.roiname)))
-        print 'Wrote out list of poor fits to %s, %d with fitqual>50 or abs(pull0)>3, in %d ROIs' % (poorfit_csv, len(t), len(bs))
+        print 'Wrote out list of poor fits to %s, %d with fitqual>30 or abs(pull0)>3, in %d ROIs' % (poorfit_csv, len(t), len(bs))
         # todo: make a function to do this nidcely
         poorfit_html = self.plotfolder+'/poorfits.html'
         open(poorfit_html,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+t.to_html()+'\n</body>')
-        self.poorfit_table = '<p> <a href="poorfits.html"> Table of %d poor fits, with fitqual>50 or abs(pull0)>3</a>' % (  len(t) )
+        self.poorfit_table = '<p> <a href="poorfits.html"> Table of %d poor fits, with fitqual>30 or abs(pull0)>3</a>' % (  len(t) )
         # flag sources that made it into the list
         self.df.flags[t.index] |= 2
         print '%d sources flagged (2) as poor fits' %len(t)
@@ -1572,6 +1572,8 @@ class SourceInfo(Diagnostics):
         
     def pivot_vs_e0(self, xylim=(100, 4e4)):
         """ pivot vs e0
+        The reference energy, e0, is fixed except by a special run that iterates until the measured pivot energy, 
+        which is the energy at which the differential flux uncertainty is minimum is the same. This plot checks that by measuring the pivot energy, and comparing it with the current reference. Note that e0 is required to be in the range 200 MeV to 20 GeV.
         """
         fig, ax = plt.subplots(figsize=(4,4))
         s = self.df
@@ -1648,7 +1650,7 @@ class SourceInfo(Diagnostics):
         ):
         """ Spectral fit consistency for the lowest energy bin
         
-        These plot show information the consistency of the lowest energy band with the spectrm
+        These plots show the consistency of the lowest energy band with the spectrum
         defined by the full fit. <br>
         Left: distribution of the "pull" <br>
         Center: data/model ratio with errors, vs. the model flux.<br>
@@ -1756,7 +1758,7 @@ class SourceInfo(Diagnostics):
         )
 
     def flag_proc(self):
-        """ Generate summary table for flagged sources"""
+        # Generate summary table for flagged sources
         t =self.df[(self.df.flags>0)*(self.df.ts>10)]['ra dec ts fitqual pull0 eflux pindex beta cutoff index2 flags roiname'.split()]
         t.to_csv('flagged_sources.csv')
         print 'wrote %d sources to flagged_sources.csv' % len(t)
@@ -1766,10 +1768,10 @@ class SourceInfo(Diagnostics):
         flagtable.index.name='bit'
         self.flagged_link = """\
         <h3>Flagged Sources</h3>
-        A number of these sources have been flagged to indicate potential issues. 
+        <p>A number of these sources have been flagged to indicate potential issues. 
         The flag bits and number flagged as such are:
         %s<br>
-        These can be examined with a 
+        <p>These can be examined with a 
         <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>,
         which requires Silverlight."""  %(flagtable.to_html(), pc.cId)
         return None
@@ -3210,6 +3212,11 @@ a:hover { background-color:yellow; }
         ###summary = open(filename, 'w')
         open(filename, 'w').write(self.ul)
         print 'wrote menu %s' % os.path.join(os.getcwd(),filename)
+        # make separate menu for the Decorate browser
+        t = self.ul.replace('/index.html', '/').replace('/plots','')
+        open('plots/index.html', 'w').write(t)
+        print 'wrote menu %s' %os.path.join(os.getcwd(), 'plots/index.html')
+
 
     def update_top(self, filename='../../plot_browser/top_nav.html'):
         def parse_path(x): 
