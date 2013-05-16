@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.97 2013/05/16 00:14:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.98 2013/05/16 02:18:16 burnett Exp $
 
 """
 
@@ -3180,7 +3180,7 @@ a:hover { background-color:yellow; }
             print 'Did not find any plot folders under %s' % folder
         z = dict( zip(w, [glob.glob(a+'/*.htm*') for a in w] ) )
         self.model = '/'.join(os.getcwd().split('/')[-2:])
-        self.model_summary='plots/config.html' ## TODO: make a special page
+        self.model_summary='plots/config/index.html'
         s= HTMLindex.menu_header % self.__dict__
         
         def parse_item(x):
@@ -3210,17 +3210,16 @@ a:hover { background-color:yellow; }
             if not os.path.exists(filename): continue
             html += '<h4>%s</h4>\n<pre>%s</pre>' % (filename, open(filename).read())
         html += '\n</body>'
-        open('plots/config.html', 'w').write(html)
         if not os.path.exists('plots/config'): os.makedirs('plots/config')
         open('plots/config/index.html','w').write(html)
-        print 'wrote plots/config.html and plots/config/index.html'
+        print 'wrote plots/config/index.html'
         
     def create_menu(self, filename='plot_index.html'):
         ###summary = open(filename, 'w')
         open(filename, 'w').write(self.ul)
         print 'wrote menu %s' % os.path.join(os.getcwd(),filename)
         # make separate menu for the Decorator browser
-        t = self.ul.replace('/index.html', '/').replace('/plots','')
+        t = self.ul.replace('/index.html', '/').replace('plots/', '')
         open('plots/index.html', 'w').write(t)
         print 'wrote menu %s' %os.path.join(os.getcwd(), 'plots/index.html')
 
