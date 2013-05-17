@@ -107,7 +107,7 @@ class Diagnostics(object):
         html=None
         if fig is not None:
             fig.text(0.02, 0.02, self.skymodel, fontsize=8)
-            savefig_kw=dict(dpi=60) #, bbox_inches='tight', pad_inches=0.5) 
+            savefig_kw=dict(dpi=60, bbox_inches='tight', bbox_extra_artists=fig.texts, pad_inches=0.5) 
             plt.savefig(savefile, **savefig_kw)
             print 'saved plot to %s' % savefile
             html = '<h3>%s</h3> <img src="%s" />\n <br> %s '% (title, localfile, caption if caption is not None else '')
@@ -475,7 +475,10 @@ class FrontBackSedPlots(Diagnostics):
         # derived for convenience
         a = self.flux['front']['flux']
         b = self.flux['back']['flux']
-        self.asymmetry = (a-b)/(a+b) 
+        try:
+            self.asymmetry = (a-b)/(a+b) 
+        except:
+            self.asymmetry= np.nan
 
         # dictionary of diffuse background: galactic and isotropic densities for front and back
         fgal,bgal = [pd.DataFrame(np.array([pkl['bgdensity'][0][i::2] for pkl in pkls]),\
@@ -1580,7 +1583,17 @@ class SourceInfo(Diagnostics):
         self.df.flags[t.index] |= 2
         print '%d sources flagged (2) as poor fits' %len(t)
         return fig
+      
+    def poor_fit_positions(self):
+        """ Positions of poorly-fit sources
+        Selection: fitqual>30 or |pull|>3
+        """
+        s = self.df
+        s['pull0'] = np.array([x.pull[0] for x in s.sedrec])
+        poor = ( (s.fitqual>30) | (np.abs(s.pull0)>3))*(s.ts>10) 
+        return self.skyplot(s.fitqual[poor], vmin=30, vmax=100)
         
+    
     def pivot_vs_e0(self, xylim=(100, 4e4)):
         """ pivot vs e0
         The reference energy, e0, is fixed except by a special run that iterates until the measured pivot energy, 
@@ -1764,7 +1777,7 @@ class SourceInfo(Diagnostics):
         print 'saved truncated csv version to "%s"' %csvfile
 
         
-        self.runfigures([self.cumulative_ts, self.fit_quality,self.spectral_fit_consistency_plots,
+        self.runfigures([self.cumulative_ts, self.fit_quality,self.spectral_fit_consistency_plots, self.poor_fit_positions,
             self.non_psr_spectral_plots, self.pulsar_spectra, self.pivot_vs_e0, self.flag_proc, ]
         )
 
