@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.23 2013/05/04 14:47:48 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.24 2013/05/14 15:36:20 burnett Exp $
 """
 import os, argparse
 import numpy as np
@@ -92,7 +92,7 @@ class Stage(dict):
 stagenames = dict(
     # List of possible stages, with proc to run, parameters for it,  summary string
     # list is partly recognized by check_converge.py, TODO to incoprorate it here, especially the part that may start a new stream
-    create      =  Stage(pipe.Create,  sum='counts menu', help='Create a new skymodel, follow with update_full',),
+    create      =  Stage(pipe.Create,  sum='environment counts menu', help='Create a new skymodel, follow with update_full',),
     update_full =  Stage(pipe.Update, dict( dampen=1.0,),sum='counts',help='perform update' ),
     update      =  Stage(pipe.Update, dict( dampen=0.5,),sum='counts',help='perform update' ),
     update_beta =  Stage(pipe.Update, dict( dampen=1.0, fix_beta=True),sum='counts',help='perform update', ),
