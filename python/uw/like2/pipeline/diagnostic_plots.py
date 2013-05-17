@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.101 2013/05/16 18:50:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.103 2013/05/17 21:40:50 burnett Exp $
 
 """
 
@@ -3284,8 +3284,6 @@ opts = dict(
         fluxcorriso=(FluxCorrIso,),
         loc =    (Localization,),
         loc1K =  (Localization1K,),
-        exp =    (Exposure,),
-        exposure=(Exposure,),
         hptables = (HPtables,),
         tables = (HPtables,),
         sourcetotal=(SourceTotal,),
