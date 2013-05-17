@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.100 2013/05/16 16:13:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.101 2013/05/16 18:50:24 burnett Exp $
 
 """
 
@@ -128,8 +128,10 @@ class Diagnostics(object):
         """
         if names is None:
             names=[None]*len(functions)
-        html = '<head>'+ HTMLindex.style + '\n<title>%s</title> </head>\n' % self.__class__.__name__
-        html+='<body><h2>%(header)s</h2>'
+        title = self.__class__.__name__ # perhaps better?
+        html = '<head>'+ HTMLindex.style + '\n <title>%s</title>\n' % title
+        html +=' <script>document.title="%s"</script>\n</head>\n' % title # this to override SLAC Decorator
+        html +='<body><h2>%(header)s</h2>'
         docstring = self.all_plots.__doc__
         if docstring is not None: html+=docstring
         for function, name in zip(functions,names):
@@ -236,7 +238,6 @@ class Diagnostics(object):
             cb=ax.figure.colorbar(scat, ax=ax, **cb_kw)
             cb.set_label(cbtext)    
         return scat       
-
 
 class CountPlots(Diagnostics):
     require='pickle.zip'
@@ -875,11 +876,11 @@ class ROIinfo(Diagnostics):
         self.runfigures(self.funcs, self.fnames, **self.plots_kw)
 
 
-class Exposure(ROIinfo):
+class Environment(ROIinfo):
     
     def setup(self, **kw):
-        super(Exposure, self).setup(**kw)
-        self.plotfolder='exposure'
+        super(Environment, self).setup(**kw)
+        self.plotfolder='environment'
         # use the fact that the isotopic diffuse compoenent is isotropic, so that
         # the ratio of the computed counts, to the fit normalization, is proportional
         # to the exposure.
@@ -919,7 +920,7 @@ class Exposure(ROIinfo):
         return fig
         
     def all_plots(self, **kw):
-        """ Plots associated with the exposure"""
+        """ Plots associated with the enviornment"""
         self.runfigures([self.exposure_plots])
     
 
@@ -1568,7 +1569,12 @@ class SourceInfo(Diagnostics):
         print 'Wrote out list of poor fits to %s, %d with fitqual>30 or abs(pull0)>3, in %d ROIs' % (poorfit_csv, len(t), len(bs))
         # todo: make a function to do this nidcely
         poorfit_html = self.plotfolder+'/poorfits.html'
-        open(poorfit_html,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+t.to_html()+'\n</body>')
+        class FloatFormat(): #simple formatting functor for to_html!
+            def __init__(self, n): self.fmt = '%%.%df' % n
+            def __call__(self, x): return self.fmt % x
+        t_html = t.to_html(float_format=FloatFormat(1),
+                formatters=dict(ra=FloatFormat(3), dec=FloatFormat(3), ts=FloatFormat(0)))
+        open(poorfit_html,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+t_html+'\n</body>')
         self.poorfit_table = '<p> <a href="poorfits.html"> Table of %d poor fits, with fitqual>30 or abs(pull0)>3</a>' % (  len(t) )
         # flag sources that made it into the list
         self.df.flags[t.index] |= 2
@@ -3192,7 +3198,7 @@ a:hover { background-color:yellow; }
             name = os.path.splitext(tail)[0]
             n = name.find('_uw')
             #note the special qualifier for use with the SLAC decorator
-            return '<a href="%s/index.html/?skipDecoration" target="content">%s</a><br>' % (x,name[:n])
+            return '<a href="%s?skipDecoration" target="content">%s</a><br>' % (x,name[:n])
 
         for k in sorted(z.keys()):
             v = z[k]
@@ -3247,6 +3253,7 @@ a:hover { background-color:yellow; }
         return '<head><title>%s</title>\n'+HTMLindex.style+'</head>\n'
 
 opts = dict(
+        environment=   (Environment,),
         counts=  (CountPlots,),
         sources= (SourceInfo, Localization, SourceTotal,),
         localization=(Localization,),
