@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.103 2013/05/17 21:40:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.104 2013/05/17 21:41:25 burnett Exp $
 
 """
 
@@ -75,7 +75,7 @@ class Diagnostics(object):
             ax.set_axes_locator(divider.new_locator(nx=2*ix, ny=2*iy))
         return fig, axx
         
-    def savefigure(self, name, func=None, title=None, caption=None, **kwargs):
+    def savefigure(self, name, func=None, title=None, caption=None, section='', **kwargs):
         """ save a figure.
         name : string
             If name is the name of a function in the class, optionally define 
@@ -110,7 +110,7 @@ class Diagnostics(object):
             savefig_kw=dict(dpi=60, bbox_inches='tight', bbox_extra_artists=fig.texts, pad_inches=0.5) 
             plt.savefig(savefile, **savefig_kw)
             print 'saved plot to %s' % savefile
-            html = '<h3>%s</h3> <img src="%s" />\n <br> %s '% (title, localfile, caption if caption is not None else '')
+            html = '<h3>%s %s</h3> <img src="%s" />\n <br> %s '% (section, title, localfile, caption if caption is not None else '')
         elif caption is not None:
             html = '<h3>%s</h3>\n <br>  %s' % (title, caption )
         if html is not None:
@@ -130,13 +130,14 @@ class Diagnostics(object):
             names=[None]*len(functions)
         title = self.__class__.__name__ # perhaps better?
         html = '<head>'+ HTMLindex.style + '\n <title>%s</title>\n' % title
-        html +=' <script>document.title="%s"</script>\n</head>\n' % title # this to override SLAC Decorator
         html +='<body><h2>%(header)s</h2>'
         docstring = self.all_plots.__doc__
         if docstring is not None: html+=docstring
+        section = 0
         for function, name in zip(functions,names):
+            section +=1
             fname = name if name is not None else function.__name__
-            fig = self.savefigure(fname, function, **kwargs)
+            fig = self.savefigure(fname, function, section='%d.'%section, **kwargs)
             if fig is not None:
                 html+='\n'+ fig
         html+= '\n<hr>\nPage generated %4d-%02d-%02d %02d:%02d:%02d' % tuple(time.localtime()[:6])
@@ -147,9 +148,9 @@ class Diagnostics(object):
         self.header='/'.join([m, os.path.split(self.plotfolder)[-1]])
         try:
             text = html%self.__dict__
-        except:
-            print 'failed filling %s' % html
-            raise
+        except KeyError, msg:
+            print 'failed filling %s:%s' % (html, msg)
+            text= html
         open(os.path.join(self.plotfolder,'index.html'), 'w').write(text)
         print 'saved html doc to %s' %os.path.join(self.plotfolder,'index.html')
             
