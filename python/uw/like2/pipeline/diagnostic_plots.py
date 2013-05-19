@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.104 2013/05/17 21:41:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.105 2013/05/19 13:47:43 burnett Exp $
 
 """
 
@@ -149,7 +149,7 @@ class Diagnostics(object):
         try:
             text = html%self.__dict__
         except KeyError, msg:
-            print 'failed filling %s:%s' % (html, msg)
+            print 'failed filling %s:%s' % (title, msg)
             text= html
         open(os.path.join(self.plotfolder,'index.html'), 'w').write(text)
         print 'saved html doc to %s' %os.path.join(self.plotfolder,'index.html')
@@ -1747,8 +1747,6 @@ class SourceInfo(Diagnostics):
         <p>
         The columns are the number of sources with TS greater than the header value. 
         The row labels are the first three characters of the source name, except 'ext' means extended.
-        <p>
-        %(flagged_link)s
         """
         df = self.df
         extended = np.asarray(df.isextended.values,bool)
@@ -1776,13 +1774,15 @@ class SourceInfo(Diagnostics):
                  cutoff cutoff_unc locqual a b ang flags roiname""".split()
         self.df.ix[self.df.ts>10][colstosave].to_csv(csvfile)
         print 'saved truncated csv version to "%s"' %csvfile
-
         
         self.runfigures([self.cumulative_ts, self.fit_quality,self.spectral_fit_consistency_plots, self.poor_fit_positions,
             self.non_psr_spectral_plots, self.pulsar_spectra, self.pivot_vs_e0, self.flag_proc, ]
         )
 
     def flag_proc(self):
+        """ Flagged source summary:
+        %(flagged_link)s
+        """
         # Generate summary table for flagged sources
         t =self.df[(self.df.flags>0)*(self.df.ts>10)]['ra dec ts fitqual pull0 eflux pindex beta cutoff index2 flags roiname'.split()]
         t.to_csv('flagged_sources.csv')
@@ -1792,7 +1792,6 @@ class SourceInfo(Diagnostics):
         flagtable=pd.DataFrame(dict(number=num, description=('tails','poor fits','low energy bad', 'poor localization') ))
         flagtable.index.name='bit'
         self.flagged_link = """\
-        <h3>Flagged Sources</h3>
         <p>A number of these sources have been flagged to indicate potential issues. 
         The flag bits and number flagged as such are:
         %s<br>
