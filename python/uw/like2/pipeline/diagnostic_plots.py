@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.107 2013/05/19 14:58:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.108 2013/05/19 15:00:14 burnett Exp $
 
 """
 
@@ -18,6 +18,10 @@ from skymaps import SkyDir, DiffuseFunction, Hep3Vector, Band
 from uw.like2.pub import healpix_map
 from uw.like2 import dataset
 from uw.utilities import makepivot
+
+class FloatFormat(): #simple formatting functor for to_html!
+    def __init__(self, n): self.fmt = '%%.%df' % n
+    def __call__(self, x): return self.fmt % x
 
 class Diagnostics(object):
     """ basic class to handle data for diagnostics, collect code to make plots
@@ -90,7 +94,7 @@ class Diagnostics(object):
             try:
                 fig=func(**kwargs)
             except Exception, msg:
-                print 'Failed to run function %s: "%s"' % (fname, msg)
+                print '*** Failed to run function %s: "%s"' % (fname, msg)
                 return None
         else: fname = name
         if hasattr(self, fname):
@@ -923,9 +927,38 @@ class Environment(ROIinfo):
         for f,ax in zip((left, center, right), axx.flatten()): f(ax)
         return fig
         
+        
+    def isotropic_spectrum(self, other=None):
+        """ Isotropic Spectrum from template
+        
+        The spectrum used to define the isotropic diffuse component.
+        <br>Files for front/back: %(idfiles)s
+        """
+        # look up filenames used to define the isotorpic spectrum: either new or old diffuse spec; list or dict
+        config = eval(open('config.txt').read())
+        diffuse=config['diffuse']
+        isokey = 'isotrop' if type(diffuse)==types.DictType else 1
+        self.idfiles = [os.path.join(os.environ['FERMI'],'diffuse',diffuse[isokey][i]) for i in (0,1)]
+        nf,nb = map(np.loadtxt, self.idfiles)
+        energies = nf[:,0]; front,back = nf[:,1],nb[:,1]
+        fig, axs = plt.subplots(1,2, figsize=(7,3), dpi=50)
+        def right(ax):
+            ax.plot(energies, front/back, '-o');
+            ax.axhline(1.0, color='k')
+            plt.setp(ax, xscale='log', xlabel='Energy');ax.grid(True);
+            ax.set_title('Isotropic flux front/back ratio', fontsize='small');
+        def left(ax):
+            ax.plot(energies, front*energies**2, '-g', label='front')
+            ax.plot(energies, back*energies**2, '-r', label='back')
+            plt.setp(ax, xlabel='Energy', ylabel='flux*e**2', xscale='log')
+            ax.set_title('isotropic diffuse spectra', fontsize='small')
+            ax.grid(True); ax.legend()
+        for f,a in zip((left,right), axs.flatten()): f(a)
+        return fig
+        
     def all_plots(self, **kw):
         """ Plots associated with the enviornment"""
-        self.runfigures([self.exposure_plots])
+        self.runfigures([self.exposure_plots, self.isotropic_spectrum,])
     
 
 class SunMoon(ROIinfo):
@@ -1422,24 +1455,37 @@ class SourceInfo(Diagnostics):
         plt.setp(ax, xlabel='beta'); ax.grid(); ax.legend(prop=dict(size=10))
         # get tails
         tail_cut = (t.eflux<5e-2)+((t.pindex<index_min)+(t.pindex>index_max))*t.beta.isnull()+(t.beta>beta_max)
-        self.non_psr_tails=t[tail_cut]['ts eflux pindex beta roiname'.split()]
-        if len(self.non_psr_tails)>0:
-            self.tail_check = '<h4>Sources on tails:</h4>'\
-                +self.non_psr_tails.sort_index(by='roiname').to_html()
-            self.tail_check += '<p>Criteria: require index between 1 and 3.5 for powerlaw, beta<3.0 for log parabola'
+        #self.non_psr_tails=t[tail_cut]['ts eflux pindex beta roiname'.split()]
+        #if len(self.non_psr_tails)>0:
+        #    self.tail_check = '<h4>Sources on tails:</h4>'\
+        #        +self.non_psr_tails.sort_index(by='roiname').to_html(float_format=FloatFormat(2))
+        #    self.tail_check += '<p>Criteria: require index between 1 and 3.5 for powerlaw, beta<3.0 for log parabola'
+        #else:
+        #    self.tail_check ='<p>No sources on tails'
+        
+        if sum(tail_cut)>0:
+            tails=t[tail_cut]['ts eflux pindex beta roiname'.split()]
+            filename = 'non_pulsar_tails.html'
+            html_file = self.plotfolder+'/%s' % filename
+            html = tails.sort_index(by='roiname').to_html(float_format=FloatFormat(2))
+            open(html_file,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+ html+'\n</body>')
+            self.tail_check = '<p><a href="%s">Table of %d sources on tails</a>: '% (filename, len(tails))
+            self.tail_check += 'Criteria: require index between 1 and 3.5 for powerlaw, beta<3.0 for log parabola'
+            # flag sources
+            flags = self.df.flags
+            tails = tails.index
+            flags[tails] += 1 ### bit 1
+            print '%d sources flagged (1) in tails of flux, index, or beta' % len(tails)
         else:
             self.tail_check ='<p>No sources on tails'
-        # flag sources
-        flags = self.df.flags
-        tails = self.non_psr_tails.index
-        flags[tails] += 1 ### bit 1
-        print '%d sources flagged (1) in tails of flux, index, or beta' % len(self.non_psr_tails)
+
         return fig
     
     def pulsar_spectra(self, index_min=0.0, index_max=2.5, cutoff_max=8000):
         """ Distributions for the LAT pulsars
         
         For each plot, the subset with a bad fit is shown.
+        %(pulsar_tail_check)s
         """
         fig, axx = plt.subplots( 1,4, figsize=(14,4))
         plt.subplots_adjust(wspace=0.3, left=0.05,bottom=0.15)
@@ -1487,7 +1533,17 @@ class SourceInfo(Diagnostics):
         tails = t.ix[tail_cut].index
         flags[tails] += 1 ### bit 1
         print '%d pulsar sources flagged (1) in tails of  index or cutoff' % sum(tail_cut)
-
+        if sum(tail_cut)>0:
+            tails=t[tail_cut]['ts eflux pindex cutoff roiname'.split()]
+            filename = 'pulsar_tails.html'
+            html_file = self.plotfolder+'/%s' % filename
+            html = tails.sort_index(by='roiname').to_html(float_format=FloatFormat(2))
+            open(html_file,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+ html+'\n</body>')
+            self.pulsar_tail_check = '<p><a href="%s">Table of %d sources on tails</a>: '% (filename, len(tails))
+            self.pulsar_tail_check += 'Criteria: require index between 0 and 2.5, cutoff<8 GeV'
+        else:
+            self.pulsar_tail_check ='<p>No sources on tails'
+     
         return fig
     
     def ecliptic_hist(self, ax=None, title=''):
@@ -1557,7 +1613,7 @@ class SourceInfo(Diagnostics):
         print '%d sources with bad fits' %len(t)
         if len(t)>0:
             self.badfit = t[['ts', 'errs', 'roiname']]
-            self.badfit_check = '<h4>Sources with missing errors:</h4>'+self.badfit.to_html()
+            self.badfit_check = '<h4>Sources with missing errors:</h4>'+self.badfit.to_html(float_format=FloatFormat(1))
         else: self.badfit_check = '<p>All sources fit ok.'
         self.fit_quality_average =  ', '.join( map(lambda x,n :'%s: %.1f' %(n,x) ,
                             self.average, 'powerlaw logparabola expcutoff'.split()) )
@@ -1573,9 +1629,6 @@ class SourceInfo(Diagnostics):
         print 'Wrote out list of poor fits to %s, %d with fitqual>30 or abs(pull0)>3, in %d ROIs' % (poorfit_csv, len(t), len(bs))
         # todo: make a function to do this nidcely
         poorfit_html = self.plotfolder+'/poorfits.html'
-        class FloatFormat(): #simple formatting functor for to_html!
-            def __init__(self, n): self.fmt = '%%.%df' % n
-            def __call__(self, x): return self.fmt % x
         t_html = t.to_html(float_format=FloatFormat(1),
                 formatters=dict(ra=FloatFormat(3), dec=FloatFormat(3), ts=FloatFormat(0)))
         open(poorfit_html,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+t_html+'\n</body>')
@@ -1797,12 +1850,12 @@ class SourceInfo(Diagnostics):
         %s<br>  """ %flagtable.to_html()
         try:
             pc =makepivot.MakeCollection('flagged sources %s' % os.path.split(os.getcwd())[-1], 'sedfig', 'flagged_sources.csv')
-            flagged_links+="""\
+            flagged_links = """\
             <p>These can be examined with a 
             <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>,
-            which requires Silverlight."""  %(flagtable.to_html(), pc.cId)
+            which requires Silverlight."""  % pc.cId
         except Exception, msg: 
-            print "Failed to mke pivot table, perhaps need to run sedinfo first: %s" % msg
+            print "**** Failed to mke pivot table, perhaps need to run sedinfo first: %s" % msg
         return None
     
 
