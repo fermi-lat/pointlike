@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.106 2013/05/19 14:46:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.107 2013/05/19 14:58:50 burnett Exp $
 
 """
 
@@ -1788,7 +1788,7 @@ class SourceInfo(Diagnostics):
         t.to_csv('flagged_sources.csv')
         print 'wrote %d sources to flagged_sources.csv' % len(t)
         
-             num=[sum(self.df.flags & 2**b > 0) for b in range(4)] 
+        num=[sum(self.df.flags & 2**b > 0) for b in range(4)] 
         flagtable=pd.DataFrame(dict(number=num, description=('tails','poor fits','low energy bad', 'poor localization') ))
         flagtable.index.name='bit'
         self.flagged_link = """\
