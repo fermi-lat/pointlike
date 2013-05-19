@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.105 2013/05/19 13:47:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.106 2013/05/19 14:46:59 burnett Exp $
 
 """
 
@@ -1787,17 +1787,22 @@ class SourceInfo(Diagnostics):
         t =self.df[(self.df.flags>0)*(self.df.ts>10)]['ra dec ts fitqual pull0 eflux pindex beta cutoff index2 flags roiname'.split()]
         t.to_csv('flagged_sources.csv')
         print 'wrote %d sources to flagged_sources.csv' % len(t)
-        pc =makepivot.MakeCollection('flagged sources %s' % os.path.split(os.getcwd())[-1], 'sedfig', 'flagged_sources.csv')
-        num=[sum(self.df.flags & 2**b > 0) for b in range(4)] 
+        
+             num=[sum(self.df.flags & 2**b > 0) for b in range(4)] 
         flagtable=pd.DataFrame(dict(number=num, description=('tails','poor fits','low energy bad', 'poor localization') ))
         flagtable.index.name='bit'
         self.flagged_link = """\
         <p>A number of these sources have been flagged to indicate potential issues. 
         The flag bits and number flagged as such are:
-        %s<br>
-        <p>These can be examined with a 
-        <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>,
-        which requires Silverlight."""  %(flagtable.to_html(), pc.cId)
+        %s<br>  """ %flagtable.to_html()
+        try:
+            pc =makepivot.MakeCollection('flagged sources %s' % os.path.split(os.getcwd())[-1], 'sedfig', 'flagged_sources.csv')
+            flagged_links+="""\
+            <p>These can be examined with a 
+            <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>,
+            which requires Silverlight."""  %(flagtable.to_html(), pc.cId)
+        except Exception, msg: 
+            print "Failed to mke pivot table, perhaps need to run sedinfo first: %s" % msg
         return None
     
 
