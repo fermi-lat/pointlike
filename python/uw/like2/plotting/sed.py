@@ -5,7 +5,7 @@ Manage a SED plot
             sf an SourceFlux object, 
         Plot(sf)()
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.14 2013/04/02 13:46:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.15 2013/04/03 20:46:07 burnett Exp $
 """
 import os, types
 import numpy as np
@@ -187,7 +187,7 @@ class Plot(object):
         if self.energy_flux_unit=='eV':
            axes.set_yticklabels(['', '1', '10', '100', r'$\mathdefault{10^{3}}$'])
 
-        axes.set_title(name, size=12)
+        axes.set_title(name, size=14)
         set_xlabels(axes, self.gev_scale)
         # add a galactic map if requested
         if galmap is not None:
