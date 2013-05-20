@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.109 2013/05/19 18:31:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.110 2013/05/20 14:06:47 burnett Exp $
 
 """
 
@@ -2676,8 +2676,8 @@ class GalacticSpectra(ROIinfo): #Diagnostics):
             self.flux[fkey]['deltalike'] = pd.DataFrame( np.array([ p[fkey]['loglike'] for p in pkls]), index=roinames)
             print 'deltalike'
                                                     
-        self.plot_functions =[ [self.like_scats, self.diffuse_fits, self.bfratio_hists, self.diffuse_ratio_plot],
-                    map( lambda s: self.which+'_'+s, ['likelihood_diff', 'diffuse_fits', 'bfratio', 'diffuse_ratio']),
+        self.plot_functions =[ [self.like_scats, self.diffuse_fits, self.normalization_factor_scats, self.bfratio_hists, self.diffuse_ratio_plot, ],
+                    map( lambda s: self.which+'_'+s, ['likelihood_diff', 'diffuse_fits', 'diffuse_normalization_factor', 'bfratio', 'diffuse_ratio', ]),
                     ]
 
     def setup(self):
@@ -2718,6 +2718,35 @@ class GalacticSpectra(ROIinfo): #Diagnostics):
         cb=plt.colorbar(scats[0], cbax, orientation='vertical')
         cb.set_label('log10(log likelihood difference)')
         return fig
+    def sky_scat(self, c, axin=None, vmin=0, vmax=2, title=None):
+        fig, ax=self.get_figure(axin); 
+        scat=ax.scatter(self.rois.glon, self.rois.singlat, 
+                c=c, 
+                s=15 if axin is not None else 40, 
+                 marker='D',
+                vmin=vmin, vmax=vmax, edgecolors='none')
+        plt.setp(ax, xlim=(180,-180), ylim=(-1.01, 1.01))
+        ax.set_xticks([120, 60 ,0,-60,-120])
+        if title is not None: ax.set_title(title, size=12)
+        return scat
+        
+    def sky_scats(self, v,  title=None, vmin=None, vmax=None, cb_label=None):
+        fig,axx = plt.subplots(2,4, figsize=(14,8), sharex=True, sharey=True);
+        plt.subplots_adjust(left=0.10, wspace=0.1, hspace=0.15,right=0.90, bottom=0.15)
+        scats =[self.sky_scat( v[ib], axin=ax, vmin=vmin, vmax=vmax, title='%.0f MeV'%self.energy[ib]) for ib,ax in enumerate(axx.flatten())]
+        plt.figtext(0.5,0.07, 'glon', ha='center');
+        plt.figtext(0.05, 0.5, 'sin(glat)', rotation='vertical', va='center')
+        if title is not None: plt.suptitle(title)
+        cbax = fig.add_axes((0.92, 0.15, 0.02, 0.7) )
+        cb=plt.colorbar(scats[0], cbax, orientation='vertical')
+        if cb_label is not None: cb.set_label('fit value')
+        return fig        
+
+    def normalization_factor_scats(self):
+        """Normalization factors
+        The fit normalization factor for each ROI and the first eight energy bands
+        """
+        return self.sky_scats( self.flux['both']['values'], vmin=0.8, vmax=1.2, cb_label='fit value')
     
     def bfratio_hist(self, ib, axin=None,  space = np.linspace(0.5, 1.5,26)):
         fig, ax = self.get_figure( axin)
@@ -2829,6 +2858,7 @@ class GalacticSpectra(ROIinfo): #Diagnostics):
         """Set of plots to check consistency of %(title)s spectra. These result 
         from analysis of a special run that, for each ROI and each energy band, allows this diffuse component to be free.
         This is done three times: using only front, only back, and both.
+        <p>There two sets of plots: using both, how consistent is it with the expected unit normalization; and is the front consistent with the back?
         """
         self.runfigures(*self.plot_functions)
         
