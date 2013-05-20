@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.108 2013/05/19 15:00:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.109 2013/05/19 18:31:24 burnett Exp $
 
 """
 
@@ -132,9 +132,11 @@ class Diagnostics(object):
         """
         if names is None:
             names=[None]*len(functions)
-        title = self.__class__.__name__ # perhaps better?
+        title = self.skymodel +'-'+self.__class__.__name__
         html = '<head>'+ HTMLindex.style + '\n <title>%s</title>\n' % title
+        html +=' <script>document.title="%s"</script>\n</head>\n' % title # this to override SLAC Decorator
         html +='<body><h2>%(header)s</h2>'
+ 
         docstring = self.all_plots.__doc__
         if docstring is not None: html+=docstring
         section = 0
@@ -148,7 +150,7 @@ class Diagnostics(object):
 
         html+='\n</body>'
         t = os.path.split(os.getcwd())
-        m = '<a href="../">%s</a>' % t[-1] # model name has uplink
+        m = '<a href="../index.html?skipDecoration">%s</a>' % t[-1] # model name has uplink
         self.header='/'.join([m, os.path.split(self.plotfolder)[-1]])
         try:
             text = html%self.__dict__
@@ -1793,7 +1795,7 @@ class SourceInfo(Diagnostics):
         
     def all_plots(self):
         """ Plots of source properties, from analysis of spectral fits. 
-        See <a href="../localization/"> localization </a> for localization plots.
+        See <a href="../localization/index.html?skipDecoration"> localization </a> for localization plots.
         <h3>Census</h3>
         
         %(census_html)s
@@ -1850,7 +1852,7 @@ class SourceInfo(Diagnostics):
         %s<br>  """ %flagtable.to_html()
         try:
             pc =makepivot.MakeCollection('flagged sources %s' % os.path.split(os.getcwd())[-1], 'sedfig', 'flagged_sources.csv')
-            flagged_links = """\
+            self.flagged_link += """\
             <p>These can be examined with a 
             <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>,
             which requires Silverlight."""  % pc.cId
@@ -1902,6 +1904,9 @@ class Localization(SourceInfo):
 
     def localization(self, maxdelta=9, mints=10):
         """Localization plots
+        The 'finish' stage of creating a model runs the localization code to check that the current position is 
+        still appropriate. This is measured by the change in the value of the TS at the best fit position. The position is only 
+        updated based on this information at the start of a new series of interations.
             Left: histogram of the square root of the TS difference from current position to
             the fit; corresponds the number of sigmas. <br>
             Right: scatter plot of this vs. TS
@@ -2060,7 +2065,7 @@ class Localization(SourceInfo):
         """
         if len(self.poorloc)>0:
             poorly_localized_tablepath = os.path.join(self.plotfolder,'poorly_localized_table.html')
-            open('poorly_localized_table.html','w').write(self.poorloc.to_html())
+            open('poorly_localized_table.html','w').write(self.poorloc.to_html(float_format=FloatFormat(2)))
             print 'Wrote poorly_localized_table.html'
             open(os.path.join(poorly_localized_tablepath),'w').write(
                 '<head>\n' + HTMLindex.style + '</head>\n<body>\n<h3>Poorly Localized Source Table</h3>'\
