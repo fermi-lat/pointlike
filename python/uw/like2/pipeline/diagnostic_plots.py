@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.110 2013/05/20 14:06:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.111 2013/05/20 18:11:26 burnett Exp $
 
 """
 
@@ -1324,8 +1324,9 @@ class SourceInfo(Diagnostics):
         self.df['poorloc'] = (self.df.a>0.2) + (self.df.locqual>8) + (self.df.delta_ts>2)
         self.df['flags'] = 0  #used to set bits below
         flags = self.df.flags
-        flags[self.df.poorloc + self.df.unloc] += 8 ### bit 8
-        print '%d sources flagged (8) as poorly or not localized' % sum(self.df.poorloc + self.df.unloc)
+        pl = (self.df.poorloc + self.df.unloc)
+        flags[pl] += 8 ### bit 8
+        print '%d sources flagged (8) as poorly or not localized' % sum(pl)
 
  
         self.energy = np.sqrt( self.df.ix[0]['sedrec'].elow * self.df.ix[0]['sedrec'].ehigh )
@@ -1631,7 +1632,7 @@ class SourceInfo(Diagnostics):
         print 'Wrote out list of poor fits to %s, %d with fitqual>30 or abs(pull0)>3, in %d ROIs' % (poorfit_csv, len(t), len(bs))
         # todo: make a function to do this nidcely
         poorfit_html = self.plotfolder+'/poorfits.html'
-        t_html = t.to_html(float_format=FloatFormat(1),
+        t_html = '<h4>Table of poorly-fit sources, model %s</h4>'%self.skymodel + t.to_html(float_format=FloatFormat(1),
                 formatters=dict(ra=FloatFormat(3), dec=FloatFormat(3), ts=FloatFormat(0)))
         open(poorfit_html,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+t_html+'\n</body>')
         self.poorfit_table = '<p> <a href="poorfits.html"> Table of %d poor fits, with fitqual>30 or abs(pull0)>3</a>' % (  len(t) )
@@ -2006,7 +2007,7 @@ class Localization(SourceInfo):
         self.close_table = pd.DataFrame(
             collections.OrderedDict( [('source1',name1), ('source2',name2), ('distance',distance) ]),
             columns = 'source1 source2 distance'.split(), # why doesn't OrderedDict do this?
-            ).to_html()
+            ).to_html(float_format=FloatFormat(2))
         return None
         
 
@@ -2064,12 +2065,13 @@ class Localization(SourceInfo):
                 %(poorly_localized_table_check)s
         """
         if len(self.poorloc)>0:
+            tohtml = self.poorloc.to_html(float_format=FloatFormat(2))
             poorly_localized_tablepath = os.path.join(self.plotfolder,'poorly_localized_table.html')
-            open('poorly_localized_table.html','w').write(self.poorloc.to_html(float_format=FloatFormat(2)))
+            open('poorly_localized_table.html','w').write(tohtml)
             print 'Wrote poorly_localized_table.html'
             open(os.path.join(poorly_localized_tablepath),'w').write(
                 '<head>\n' + HTMLindex.style + '</head>\n<body>\n<h3>Poorly Localized Source Table</h3>'\
-                            +  self.poorloc.to_html()+'\n</body>')
+                            +  tohtml+'\n</body>')
             print 'saved html doc%s' % os.path.join(poorly_localized_tablepath)
             self.poorly_localized_table_check =\
                         '<p><a href="%s"> Table of %d poorly localized (a>%.2f deg, or qual>%.1f with TS>%d) sources</a>'\
@@ -2848,9 +2850,10 @@ class GalacticSpectra(ROIinfo): #Diagnostics):
         z=pd.DataFrame(dict([('mean_plane',av.round(3)),('std_plane',rms.round(3)),
                      ('mean_all',av_all.round(3)),('std_all',rms_all.round(3)),]))
         z.index.name='band'
+        zhtmo = z.to_html(float_format=FloatFormat(2))
         self.normalization_table="""
-        <p>Normalization statistics: 'plane' means |b|<5.<br> %s """ % z.to_html()
-        open('normalization_stats.html','w').write(z.to_html())
+        <p>Normalization statistics: 'plane' means |b|<5.<br> %s """ % zhtml
+        open('normalization_stats.html','w').write(zhtml)
         print 'wrote HTML file to %s' % 'normalization_stats.html'
         return plt.gcf()
             
