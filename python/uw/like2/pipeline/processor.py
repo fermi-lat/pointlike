@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.51 2013/05/15 03:27:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.53 2013/05/15 16:59:32 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -282,6 +282,7 @@ def process(roi, **kwargs):
     tables = kwargs.pop('tables', None)
     localize_kw = kwargs.pop('localize_kw', {}) # could have bandfits=False
     diffuse_only = kwargs.pop('diffuse_only', False)
+    freeze_iem = kwargs.pop('freeze_iem', 1.0)
     countsplot_tsmin = kwargs.pop('countsplot_tsmin', 100) # minimum for counts plot
     damp = Damper(roi, dampen)
     
@@ -297,6 +298,9 @@ def process(roi, **kwargs):
     if counts_dir is not None and not os.path.exists(counts_dir):
         try: os.makedirs(counts_dir) # in case some other process makes it
         except: pass
+    if freeze_iem is not None:
+        print 'Freezeing IEM to %f', %freeze_iem
+        roi.freeze('Norm', 'ring', freeze_iem)
     init_log_like = roi.log_like()
     roi.print_summary(title='before fit, logL=%0.f'% init_log_like)
     fit_sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
