@@ -9,7 +9,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.46 2013/04/05 04:31:29 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.47 2013/04/27 17:39:07 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -359,7 +359,7 @@ class UnweightedLCFitter(object):
     def plot(self,nbins=50,fignum=2, axes=None, plot_components=False, template=None):
         import pylab as pl
         weights = self.weights
-        dom = np.linspace(0,1,200)
+        dom = np.linspace(0,1,1000)
         if template is None: template = self.template
 
         if axes is None:
