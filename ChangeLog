@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed May 22 10:52:46 PDT 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	processor.py 
+Log Message:
+implement freeze_iem flag, default 1.0
+    *
+------------------------------------------------------------
 User: burnett  Tue May 21 05:02:23 PDT 2013
 pointlike/python/uw/like2/pipeline
 
