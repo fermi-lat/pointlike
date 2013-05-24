@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu May 23 19:15:38 PDT 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	diagnostic_plots.py 
+Log Message:
+fix bad loc count
+    *
+------------------------------------------------------------
 User: kerrm  Wed May 22 16:30:06 PDT 2013
 pointlike/python/uw/pulsar
 
