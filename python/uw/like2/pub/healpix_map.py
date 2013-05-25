@@ -1,6 +1,6 @@
 """
 Utilities for managing Healpix arrays
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.8 2013/01/04 14:30:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.9 2013/03/21 19:34:33 burnett Exp $
 """
 import os,glob,pickle, types, copy, zipfile
 import pylab as plt
@@ -22,7 +22,7 @@ class HParray(object):
         self.vec = vec
         self.nside = int(np.sqrt(len(vec)/12))
         assert len(self.vec)==12*self.nside**2, 'length of %s not consistent with HEALPix' % self.name        
-        self.index = Band(self.nside).index
+        self._indexfun = Band(self.nside).index
 
     def __getitem__(self, index):
         return self.vec[index]
@@ -33,7 +33,7 @@ class HParray(object):
         return self[Band(self.nside).index(skydir)]
      
     def __call__(self, skydir):
-        return self[self.index(skydir)]
+        return self[self._indexfun(skydir)]
     
     def plot(self, title='', axes=None, fignum=30, ait_kw={}, **kwargs):
         """ make an AIT skyplot from the array 
@@ -94,20 +94,20 @@ class HPGaussSmooth(HParray):
         self.nside = hparray.nside
         band = Band(self.nside)
         self.dirfun = band.dir
-        self.indexfun = band.index
+        self._indexfun = band.index
         self.sigma = np.radians(sigma_deg)
         # this guy to give access to basic query_disk (should make the Healpix object accessible in Band)
         self.hp = Healpix(self.nside, Healpix.RING, SkyDir.GALACTIC)
         
     def __call__(self, skydir):
-        if self.sigma==0: return self.vec[self.indexfun(skydir)]
+        if self.sigma==0: return self.vec[self._indexfun(skydir)]
         iv = IntVector()
         self.hp.query_disc(skydir, 3*self.sigma, iv)
         sds = map(self.dirfun, iv)
         deltas = np.array(map(skydir.difference, sds))
         values = np.array(self.vec[list(iv)])
         notnan = ~np.isnan(values)
-        weights = np.array(map( lambda x: -0.5*(x/self.sigma)**2, deltas[notnan]))
+        weights = np.array(map( lambda x: np.exp(-0.5*(x/self.sigma)**2), deltas[notnan]))
         ret =np.dot(values[notnan],weights) / sum(weights)
         if np.isnan(ret) or np.isinf(ret):
             raise Exception('Bad value at %s' %skydir)
