@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat May 25 13:53:09 PDT 2013
+pointlike/python/uw/like2/pub
+
+Modified Files:
+	healpix_map.py 
+Log Message:
+fix smoothing bug
+    *
+------------------------------------------------------------
 User: burnett  Sat May 25 10:57:25 PDT 2013
 pointlike/python/uw/like2
 
