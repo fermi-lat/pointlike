@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.14 2013/04/09 21:41:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.15 2013/05/14 15:34:22 burnett Exp $
 
 """
 import os
@@ -228,7 +228,11 @@ def localize_all(roi, **kwargs):
     """
     tsmin = kwargs.pop('tsmin',10)
     prefix = kwargs.pop('prefix', None)
-    sources = [s for s in roi.sources if s.skydir is not None\
+    source_name = kwargs.pop('source_name', None)
+    if source_name is not None:
+        sources=[roi.get_source(source_name)]
+    else:
+        sources = [s for s in roi.sources if s.skydir is not None\
             and s.__dict__.get(  'spatial_model', None) is None \
             and np.any(s.spectral_model.free) and s.ts>tsmin]
     tsmap_dir = kwargs.pop('tsmap_dir', None)
@@ -238,11 +242,17 @@ def localize_all(roi, **kwargs):
     
     for source in sources:
         if prefix is not None and not source.name.startswith(prefix): continue
+        curw= roi.log_like()
+        if abs(initw-curw)>1.0:
+            print 'localize_all: unexpected change in roi state after localization, from %.1f to %.1f (%+.1f)'\
+               %(initw, curw, curw-initw)
+ 
         with Localization(roi, source.name, quiet=True, **kwargs) as loc:
             try:
                 loc.localize()
             except Exception, msg:
                 print 'Localization of %s failed: %s' % (source.name, msg)
+            loc.reset() # make sure restored after fit
             #source.ellipse = loc.qform.par[0:2]+loc.qform.par[3:7] +[loc.delta_ts] if hasattr(loc,'qform') else None
             if not roi.quiet and hasattr(loc, 'niter') and loc.niter>0: 
                 print 'Localized %s: %d iterations, moved %.3f deg, deltaTS: %.1f' % \
