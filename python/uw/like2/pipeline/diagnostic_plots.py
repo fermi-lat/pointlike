@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.112 2013/05/21 12:02:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.113 2013/05/24 02:15:38 burnett Exp $
 
 """
 
@@ -1560,13 +1560,12 @@ class SourceInfo(Diagnostics):
         return fig
         
     def fit_quality(self, xlim=(0,50), ndf=10, tsbandcut=20):
-        """ Fit quality
+        """ Spectral fit quality
         This is the difference between the TS from the fits in the individual energy bands, and that for the spectral fit.
         It should be distributed approximately as chi squared of at most 14-2 =12 degrees of freedom. 
         However, high energy bins usually do not contribute, so we compare with ndf=%(ndf)d.
         All sources with TS_bands>%(tsbandcut)d are shown.<br>
-        Left: Power-law fits. Tails in this distribution perhaps could be 
-        improved by converting to log parabola. 
+        Left: Power-law fits. Tails in this distribution perhaps could be improved by converting to log parabola. 
         <br>Center: Log parabola fits.
         <br>Right: Fits for the pulsars, showing high latitude subset.
         <br> Averages: %(fit_quality_average)s
@@ -1625,15 +1624,15 @@ class SourceInfo(Diagnostics):
 
         # Make tables (csv and html) of the poor fits
         s['pull0'] = np.array([x.pull[0] for x in s.sedrec])
-        t =s.ix[((s.fitqual>30) | (np.abs(s.pull0)>3))*(s.ts>10) ]['ra dec fitqual pull0 ts modelname roiname'.split()].sort_index(by='roiname')
+        t =s.ix[((s.fitqual>30) | (np.abs(s.pull0)>3))*(s.ts>10) ]['ra dec glat fitqual pull0 ts modelname freebits index2 roiname'.split()].sort_index(by='roiname')
         poorfit_csv = 'poor_spectral_fits.csv'
         t.to_csv(poorfit_csv)
         bs =sorted(list(set(t.roiname)))
         print 'Wrote out list of poor fits to %s, %d with fitqual>30 or abs(pull0)>3, in %d ROIs' % (poorfit_csv, len(t), len(bs))
         # todo: make a function to do this nidcely
         poorfit_html = self.plotfolder+'/poorfits.html'
-        t_html = '<h4>Table of poorly-fit sources, model %s</h4>'%self.skymodel + t.to_html(float_format=FloatFormat(1),
-                formatters=dict(ra=FloatFormat(3), dec=FloatFormat(3), ts=FloatFormat(0)))
+        t_html = '<h3>Table of poorly-fit sources, model %s</h3>'%self.skymodel + t.to_html(float_format=FloatFormat(2),
+                formatters=dict(ra=FloatFormat(3), dec=FloatFormat(3), ts=FloatFormat(0),index2=FloatFormat(3)))
         open(poorfit_html,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+t_html+'\n</body>')
         self.poorfit_table = '<p> <a href="poorfits.html"> Table of %d poor fits, with fitqual>30 or abs(pull0)>3</a>' % (  len(t) )
         # flag sources that made it into the list
