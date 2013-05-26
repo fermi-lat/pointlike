@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.113 2013/05/24 02:15:38 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.114 2013/05/26 17:30:43 burnett Exp $
 
 """
 
@@ -3363,7 +3363,8 @@ a:hover { background-color:yellow; }
 opts = dict(
         environment=   (Environment,),
         counts=  (CountPlots,),
-        sources= (SourceInfo, Localization, SourceTotal,),
+        sources= (SourceInfo, Localization, ), #SourceTotal,),
+        sourceinfo=(SourceInfo,),
         localization=(Localization,),
         diffuse= (Galactic, Isotropic, Limb, SunMoon),
         isotropic=(Isotropic,),
