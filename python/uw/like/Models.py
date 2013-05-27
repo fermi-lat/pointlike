@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.140 2012/11/16 18:59:37 kadrlica Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.141 2012/11/22 16:34:43 burnett Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -762,8 +762,8 @@ class Model(object):
             while fluxes[0] < clip_flux: energies,fluxes=energies[1:],fluxes[1:]
             while fluxes[-1] < clip_flux: energies,fluxes=energies[:-1],fluxes[:-1]
 
-        # Paranoid check:
-        if np.any(fluxes==0): raise ModelException("Error: 0s found in differential flux")
+            # Paranoid check:
+            if np.any(fluxes==0): raise ModelException("Error: 0s found in differential flux")
 
         open(path.expand(filename),'w').write('\n'.join(['%g\t%g' % (i,j) for i,j in zip(energies,fluxes)]))
 
