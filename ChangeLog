@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon May 27 11:04:36 PDT 2013
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+better error handing for 0s is saved spectrum
+    *
+------------------------------------------------------------
 User: burnett  Sun May 26 14:06:53 PDT 2013
 pointlike/python/uw/like2/pipeline
 
