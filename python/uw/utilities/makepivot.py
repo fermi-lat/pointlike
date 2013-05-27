@@ -1,7 +1,8 @@
 """
-Code to make a pivot collection, using the PivetWeb service at deeptalk.phys.washington.edu
+Code to make a pivot collection, using the PivotWeb service at deeptalk.phys.washington.edu
 
 author: Toby Burnett <tburnett@uw.edu>
+PivotWeb support: Gordon Watts <gwatts@uw.edu>
 """        
        
 import os, glob, argparse, zipfile, json
@@ -173,7 +174,7 @@ class MakeCollection(object):
             set True to delete the collection if it already exists. 
         """
         self.cname = cname
-        if refresh: delete_collection(cname)
+        if refresh: delete_collection(name=cname)
         self.connection = Connection()
         res = self.connection.put('Collections', dict(cname=self.cname ) )
         self.cId = res['Id']
