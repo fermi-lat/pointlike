@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.114 2013/05/26 17:30:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.115 2013/05/26 21:06:53 burnett Exp $
 
 """
 
@@ -1326,7 +1326,7 @@ class SourceInfo(Diagnostics):
         flags = self.df.flags
         pl = (self.df.poorloc + self.df.unloc) * (self.df.ts>10)
         flags[pl] += 8 ### bit 8
-        print '%d sources flagged (8) as poorly or not localized' % sum(pl)
+        #print '%d sources flagged (8) as poorly or not localized' % sum(pl)
 
  
         self.energy = np.sqrt( self.df.ix[0]['sedrec'].elow * self.df.ix[0]['sedrec'].ehigh )
@@ -1889,16 +1889,19 @@ class Localization(SourceInfo):
         self.tscut = kw.get('tscut', 10.)
         self.acut =  kw.get('acut', 0.25)
         self.qualcut=kw.get('qualcut', 8.0)
-        self.poorloc=self.ebox[ (self.ebox.locqual>self.qualcut) | (self.ebox.a>self.acut)]['ts a locqual delta_ts roiname'.split()].sort_index(by='ts',ascending=False)
+        self.delta_tscut = kw.get('delta_tscut', 2.0)
+        poorcut=((self.ebox.locqual>self.qualcut) | (self.ebox.a>self.acut) | (abs(self.ebox.delta_ts)>self.delta_tscut))*(self.df.ts>self.tscut)
+        self.poorloc=self.ebox[poorcut] ['ts a locqual delta_ts roiname'.split()].sort_index(by='ts',ascending=False)
         if len(self.poorloc)>0:
-            print '%d poorly localized (locqual>%.1f or a>%.2f) '%\
-                (len(self.poorloc), self.qualcut,self.acut)
+            print '%d poorly localized (locqual>%.1f or a>%.2f or delta_ts>%.2f) '%\
+                (len(self.poorloc), self.qualcut,self.acut, self.delta_tscut)
             self.poorloc.to_csv('poorly_localized.csv')
             print 'wrote file "poorly_localized.csv"'
-        unloc = self.df.unloc * (self.df.ts>10)
+        unloc = self.df.unloc * (self.df.ts>self.tscut)
         if sum(unloc)>0:
             print '%d point sources (TS>10) without localization information' % sum(unloc)
             self.df.ix[unloc]['ra dec ts roiname'.split()].to_csv('unlocalized_sources.csv')
+            print self.df.ix[unloc]['ra dec ts roiname'.split()]
             print 'Wrote file "unlocalized_sources.csv"'
 
 
@@ -2071,12 +2074,12 @@ class Localization(SourceInfo):
             open(os.path.join(poorly_localized_tablepath),'w').write(
                 '<head>\n' + HTMLindex.style + '</head>\n<body>\n<h3>Poorly Localized Source Table</h3>'\
                             +  tohtml+'\n</body>')
-            print 'saved html doc%s' % os.path.join(poorly_localized_tablepath)
+            print 'saved html doc to %s' % os.path.join(poorly_localized_tablepath)
             self.poorly_localized_table_check =\
                         '<p><a href="%s"> Table of %d poorly localized (a>%.2f deg, or qual>%.1f with TS>%d) sources</a>'\
                         % ( 'poorly_localized_table.html',len(self.poorloc),self.acut,self.qualcut, self.tscut)
             version = os.path.split(os.getcwd())[-1]
-            pv = makepivot.MakeCollection('poor localizations %s'%version, 'tsmap_fail', 'poorly_localized.csv')
+            pv = makepivot.MakeCollection('poor localizations %s'%version, 'tsmap_fail', 'poorly_localized.csv',refresh=True)
             self.poorly_localized_table_check +=\
                 '<br>A  <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">pivot collection </a>of TS maps for these sources can be examined.'%pv.cId 
                         
