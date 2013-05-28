@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.115 2013/05/26 21:06:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.116 2013/05/27 18:17:12 burnett Exp $
 
 """
 
@@ -128,7 +128,7 @@ class Diagnostics(object):
         functions: list of bound functions 
         names: names to use instad of function names
         
-        Expect to be called from all_plots, get a summary from its docstring
+        Expect to be called from all_plots, get a summary from its docstring if present, or the class docstring
         """
         if names is None:
             names=[None]*len(functions)
@@ -138,6 +138,7 @@ class Diagnostics(object):
         html +='<body><h2>%(header)s</h2>'
  
         docstring = self.all_plots.__doc__
+        if docstring is None: docstring = self.__doc__
         if docstring is not None: html+=docstring
         section = 0
         for function, name in zip(functions,names):
