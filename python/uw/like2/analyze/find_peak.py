@@ -199,4 +199,5 @@ class FindPeak(diagnostic_plots.SourceInfo):
 diagnostic_plots.opts.update(findpeak= (FindPeak,)) # this may not be useful
   
 if __name__=='__main__':
-    FindPeak().all_plots()
+    #FindPeak().all_plots()
+    diagnostic_plots.main('findpeak')
