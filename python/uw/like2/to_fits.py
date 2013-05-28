@@ -1,9 +1,9 @@
 """
 Code to generate a standard Fermi-LAT catalog FITS file
 also, see to_xml, to generate XML for the sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_fits.py,v 1.1 2013/04/09 23:14:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_fits.py,v 1.2 2013/05/04 14:35:16 burnett Exp $
 """
-import os, argparse
+import os, argparse, glob
 import pyfits
 from skymaps import SkyDir
 import numpy as np
@@ -171,10 +171,8 @@ def test(s):
     
 class MakeCat(object):
     
-    def __init__(self, z,  canmove=None, TScut=0, add_assoc=False):
+    def __init__(self, z,   add_assoc=False):
         self.z = z  
-        self.canmove = canmove
-        self.TScut = TScut
         self.add_assoc = add_assoc
         
     def add(self, name, array, fill=0):
@@ -193,13 +191,11 @@ class MakeCat(object):
         
     def __call__(self, outfile):
         self.cols = []
-        z = self.z[self.z.ts>self.TScut] # limit for now
-        # assume sorted already
-        #z.sort(order=('ra'))
-        #z.ts = z.ts2 #kluge for now
+        z = self.z
+        z.sort_index(by='ra')
         self.check=False
         self.bad = z.ts<9
-        self.add('NickName', z.name)
+        self.add('NickName', z.index)
         self.add('RAJ2000', z.ra)
         self.add('DEJ2000', z.dec)
         sdir = map(SkyDir, z.ra, z.dec)
@@ -209,9 +205,13 @@ class MakeCat(object):
         # localization 
         f95 = 2.45*1.1 # from 
         self.add('LocalizationQuality', z.locqual)
-        self.add('Conf_95_SemiMajor', f95*z.a)
-        self.add('Conf_95_SemiMinor', f95*z.b)
-        self.add('Conf_95_PosAng',    z.ang)
+        major, minor, posangle = z.a,z.b, z.ang 
+        if 'ax' in z.columns:
+            print 'applying alternate ellipses to %d sources' % z.ax.count()
+            major, minor, posangle = z.ax, z.bx, z.angx
+        self.add('Conf_95_SemiMajor', f95*major)
+        self.add('Conf_95_SemiMinor', f95*minor)
+        self.add('Conf_95_PosAng',    posangle)
             
         self.add('Test_Statistic',    z.ts)
         
@@ -222,12 +222,17 @@ class MakeCat(object):
         self.add('Unc_Flux_Density',  z.flux_unc)
         self.add('Spectral_Index',    z.pindex)
         self.add('Unc_Spectral_Index',z.pindex_unc)
-        self.add('Index2',            z.index2)
-        self.add('Unc_Index2',        z.index2_unc)
+        psr = z.modelname!='LogParabola'
+        notpsr = z.modelname=='LogParabola'
+        self.add('Index2',            np.where(notpsr, z.index2, np.nan))
+        self.add('Unc_Index2',        np.where(notpsr, z.index2_unc, np.nan))
         self.add('Cutoff_Energy',     z.cutoff) 
         self.add('Cutoff_Energy_Unc', z.cutoff_unc) 
+        self.add('beta',              np.where(psr, z.index2, np.nan))
+        self.add('Unc_beta',          np.where(psr, z.index2_unc, np.nan))
         self.add('SpectralFitQuality',z.fitqual) 
         self.add('Extended',          pd.isnull(z.locqual))
+        self.add('Flags',             z.flags)
         #if self.add_assoc:
         #    assoc = Assoc()
         #    for idcol in 'Number Name Probability RA DEC Angsep Catalog'.split():
@@ -268,10 +273,12 @@ def to_reg(fitsfile, filename=None, color='green'):
     print 'wrote reg file to %s' % filename
 
 
-def main(outfile, infile='sources.pickle', cuts='(sources.ts>10)*(sources.a<0.25)'):
-    assert os.path.exists(infile), 'Input file "%s" not found' % infile
-    sources = pd.load(infile)
-    print 'Loaded DataTable file %s' % infile
+def main(outfile, infile='sources_*.csv', cuts='(sources.ts>10)'):
+    infiles = glob.glob(infile)
+    assert len(infiles)>0, 'Input file "%s" not found' % infile
+    infile = infiles[-1]
+    sources = pd.read_csv(infile, index_col=0)
+    print 'Loaded DataTable from file %s' % infile
     selected = sources[eval(cuts)]
     print 'applied cuts %s: %d -> %d sources' % (cuts, len(sources), len(selected))
     t = MakeCat(selected)
@@ -286,7 +293,7 @@ if __name__=='__main__':
     parser.add_argument('--cuts', 
         default='(sources.ts>10)*(sources.a<0.25)*(sources.locqual<10)+ pd.isnull(sources.locqual)', 
         help='selection cuts')
-    parser.add_argument('--infile', default='sources.pickle')
+    parser.add_argument('--infile', default='sources*.csv')
     args = parser.parse_args()
     filename = args.filename[0] if len(args.filename)>0 else None
     main(filename, infile=args.infile, cuts=args.cuts)
