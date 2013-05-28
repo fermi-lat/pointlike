@@ -212,7 +212,7 @@ class MakeCollection(object):
         self.connection.put('Facets', dict(cId=self.cId, iId=info['Id'], replace=True ),
             data = item)
 
-def set_format(cId, format='F3', facets=None):
+def set_format(cId, format='F3', facets=None, quiet=True):
     """ Set numerical format for all or a subset of the Facets in a collection
     """
     c = Connection()
@@ -221,7 +221,7 @@ def set_format(cId, format='F3', facets=None):
         if facets is None or f['Name'] in facets:
             before = f.get('NumberFormat', 'F1') # default
             f['NumberFormat']=format
-            print 'change format of Facet "%s": %s->%s' % (f['Name'], before, format)
+            if not quiet: print 'change format of Facet "%s": %s->%s' % (f['Name'], before, format)
     c.put('FacetCategories', dict(cId=cId), data=fc)
 
 def list_collections():
