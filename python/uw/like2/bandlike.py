@@ -11,7 +11,7 @@ classes:
 functions:
     factory -- create a list of BandLike objects from bands and sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.27 2013/05/14 15:27:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.28 2013/05/29 22:37:12 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -438,8 +438,9 @@ def factory(bands, sources, exposure, quiet=False):
         return B(band, source)
     bandlist = []
     dcorr = getattr(exposure, 'dcorr', None)
-    if dcorr is not None: print 'applying diffuse correction:', exposure.dcorr
-    average_corr = dcorr.mean()
+    if dcorr is not None: 
+        print 'applying diffuse correction:', exposure.dcorr
+        average_corr = dcorr.mean()
     for i,band in enumerate(bands):
         # note: adding attribute to each band for access by BandLike object if needed
         band.exposure_correction = exposure.correction[band.ct](band.e)
