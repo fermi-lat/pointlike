@@ -1,12 +1,13 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.22 2013/02/10 23:20:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.23 2013/02/12 15:20:50 burnett Exp $
 
 author: Matthew Kerr, Toby Burnett
 """
 import sys, os, types, pickle, glob, copy, zipfile
 import numpy as np
+import pandas as pd
 from . import models
 from uw.utilities import keyword_options, convolution
 import skymaps #from Science Tools
@@ -125,10 +126,11 @@ class DiffuseModelFromCache(DiffuseModel):
         self.efactor = 10**(0.5/self.binsperdec)
     
     def setup(self):
+        dfun = self.diffuse_source.dmodel[0]
         try:
-            filename = self.diffuse_source.dmodel[0].filename
+            filename = dfun.filename
         except AttributeError:
-            filename = self.diffuse_source.dmodel[0].name()
+            filename = dfun.name()
         cache_path = os.path.splitext(filename)[0]+'_%dbpd'%self.binsperdec
         cache_path_alt = os.path.splitext(filename)[0]
         assert os.path.exists(filename), 'oops, %s not found' %filename
@@ -162,6 +164,11 @@ class DiffuseModelFromCache(DiffuseModel):
 
         if not self.quiet: print 'Using cached diffuse in %s'%self.filename
         self.emins = [cd['emin'] for cd in self.cached_diffuse]
+        if hasattr(dfun, 'kw') and dfun.kw is not None: # check for extra keywords
+            self.corr = pd.read_csv(dfun.kw['correction'])
+            self.systematic = dfun.kw['systematic']
+            print '\tusing file "%s" for corrections' % dfun.kw['correction']
+            print '\tsystematic factor:%.3f' % dfun.kw['systematic']
 
         
     def make_grid(self, energy, conversion_type):

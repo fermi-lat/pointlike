@@ -11,7 +11,7 @@ classes:
 functions:
     factory -- create a list of BandLike objects from bands and sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.26 2013/05/09 21:18:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.27 2013/05/14 15:27:42 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -294,16 +294,18 @@ class BandLike(object):
         self.initialize(free)
         self.update()
         # special code to unweight if galactic diffuse too large
-        self.unweight = self.make_unweight(exposure.systematic)
+        self.unweight = self.make_unweight()#exposure.systematic)
         
-    def make_unweight(self, systematic=0.0316):
+    def make_unweight(self):
         """ return an unweighting factor <=1.0 to use to multiply the log likelihood
         assume that first BandSource object has the galactic diffuse
         
         systematic : float
             a fraction representing the systematic uncertainty in the galactic diffuse
         """
-        if systematic is None: return 1.0
+        if hasattr(self[0].source, 'systematic'): 
+            systematic = self[0].source.systematic
+        else:  return 1.0
         n = 1/systematic**2
         # m is the number of counts from the galactic diffuse in the footprint of a point source
         m = self[0].counts / (self.band.psf(0)[0]*self.band.solid_angle)
@@ -437,6 +439,7 @@ def factory(bands, sources, exposure, quiet=False):
     bandlist = []
     dcorr = getattr(exposure, 'dcorr', None)
     if dcorr is not None: print 'applying diffuse correction:', exposure.dcorr
+    average_corr = dcorr.mean()
     for i,band in enumerate(bands):
         # note: adding attribute to each band for access by BandLike object if needed
         band.exposure_correction = exposure.correction[band.ct](band.e)
@@ -444,8 +447,11 @@ def factory(bands, sources, exposure, quiet=False):
         #    band.diffuse_correction = exposure.correction[band.ct+2](band.e)
         #else:
         #    band.diffuse_correction =1.
-        if dcorr is not None and i/2<len(dcorr):
-            band.diffuse_correction = dcorr[i/2] 
+        if dcorr is not None:
+            if  i/2<len(dcorr):
+                band.diffuse_correction = dcorr[i/2] 
+            else: #make average correction the same by adjusting all high bins too (mostly for looks)
+                band.diffuse_correction = average_corr
             
         else: band.diffuse_correction=1.0
         bandlist.append(BandLike(band, 

@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.21 2013/03/21 19:39:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.22 2013/05/14 15:33:47 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -125,7 +125,18 @@ class DiffuseFunction(skymaps.DiffuseFunction):
     load must be called before use
     """
     def __init__(self, filename):
-        self.filename = filename
+        """ filename: string or dict
+                if dict, expect 'filename' key
+        """
+        if type(filename)==types.DictType:
+            self.filename=filename['filename']
+            self.kw=filename
+        else:
+            self.filename = filename
+            self.kw=None
+        if not os.path.exists(self.filename):
+            self.filename = os.path.expandvars(os.path.join('$FERMI','diffuse',self.filename))
+        assert os.path.exists(self.filename), 'DiffuseFunction file %s not found' % self.filename
         self.loaded = False
     def load(self):
         if  self.loaded: return
@@ -169,6 +180,7 @@ class DiffuseDict(dict):
             if the name ends with a ')', assume it is an expression and pass it on to be evaluated by IsotropicSpectralFunction
         
         New, alternate format: a dictionary where the source name is the key, instead of parsed from the filename
+        Newer: each entry can be a dict, with filename key, others ignored here
         """
         if type(diffuse)==types.DictType:
             # new format: just a dictionary
@@ -178,8 +190,16 @@ class DiffuseDict(dict):
             # convert each single entry to a tuple: assume iterables are tuples of strings
             tuplelist = map( lambda x: (x,) if not hasattr(x,'__iter__') else x, diffuse)
             keys = map( lambda x: x[0].split('_')[0], tuplelist) # key or name from first one
+         
         for key, files in zip(keys, tuplelist):
-            ext = os.path.splitext(files[0])[-1]
+        
+            if type(files)==types.DictType:
+                self[key] = [DiffuseFunction(files)]
+                continue
+            # checking only first element, and only upto a comma, if not with '('
+            
+            f = files[0].split(',')[0] if files[0].find('(')<0 else files[0]
+            ext = os.path.splitext(f)[-1]
             try:
                 dfun = {'.txt': IsotropicSpectrum, 
                     '.fit': DiffuseFunction, '.fits': DiffuseFunction, '.zip': DiffuseFunction,
@@ -189,12 +209,14 @@ class DiffuseDict(dict):
                 raise Exception('File type, %s, for diffuse not recognized (from %s)'% (ext, files))
             if dfun==IsotropicSpectralFunction:
                 self[key] = map(dfun,files)
-            else:
+            elif dfun==IsotropicSpectrum:
                 full_files = map( lambda f: os.path.expandvars(os.path.join('$FERMI','diffuse',f)), files)
                 check = map(lambda f: os.path.exists(f) or f[-1]==')', full_files) 
                 assert all(check), 'not all diffuse files %s found' % full_files
                 self[key]= map(dfun, full_files) 
-
+            else:
+                self[key]= map(dfun,files)
+            
 
 class ExtendedCatalog( pointspec_helpers.ExtendedSourceCatalog):
     """ subclass to add this lookup function """
