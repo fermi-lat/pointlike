@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed May 29 15:36:54 PDT 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	diffuse.py 
+Log Message:
+implement scheme to specify other diffuse parameters
+    *
+------------------------------------------------------------
 User: burnett  Wed May 29 15:36:28 PDT 2013
 pointlike/python/uw/like2
 
