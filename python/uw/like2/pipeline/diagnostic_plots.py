@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.116 2013/05/27 18:17:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.117 2013/05/28 14:08:20 burnett Exp $
 
 """
 
@@ -147,7 +147,7 @@ class Diagnostics(object):
             fig = self.savefigure(fname, function, section='%d.'%section, **kwargs)
             if fig is not None:
                 html+='\n'+ fig
-        html+= '\n<hr>\nPage generated %4d-%02d-%02d %02d:%02d:%02d' % tuple(time.localtime()[:6])
+        html+= '\n<hr>\nPage generated %4d-%02d-%02d %02d:%02d:%02d on %s' % (tuple(time.localtime()[:6])+(os.environ['HOSTNAME'],))
 
         html+='\n</body>'
         t = os.path.split(os.getcwd())
@@ -248,6 +248,9 @@ class Diagnostics(object):
         return scat       
 
 class CountPlots(Diagnostics):
+    """ Plots generated after each iteration, checking quality of counts histogram
+    %(iteration_info)s
+    """ 
     require='pickle.zip'
     def setup(self):
         self.plotfolder = 'counts'
@@ -284,6 +287,15 @@ class CountPlots(Diagnostics):
             self.add_model_info()
         except:
             pass
+        iters = np.array([ len(p['prev_logl']) for p  in self.pkls])
+        logl = np.array([p['prev_logl']+[p['logl']] for p  in self.pkls])
+        def logsum(n):
+            return sum([x[n] if n<len(x) else x[-1] for x in logl])
+        k = iters.max()+1
+        t=np.array(map(logsum, range(k)))
+        self.iteration_info = """<p> Minimum, maximum numbers of iterations: %d %d 
+        <p>Iteration history: log likelihood change for each step: %s
+        """ % (iters.min(), iters.max(), str((t[1:]-t[:-1]).round(1)))
     def add_model_info(self):
         for i,key in enumerate(['ring','isotrop', 'SunMoon', 'limb',]): # the expected order
             t = []
@@ -428,7 +440,6 @@ class CountPlots(Diagnostics):
         return fig
 
     def all_plots(self):
-        """ Plots generated for any iteration, reflecting quality of counts histogram""" 
         self.runfigures([
             self.chisq_plots,
             self.residual_maps, 
@@ -705,8 +716,9 @@ class ROIinfo(Diagnostics):
         rx = rois['ra dec glat glon'.split()] 
         rx['chisq'] = [r['chisq'] for r in rois['counts']]
         rx['npar'] = [len(p) for p in rois.parameters]
-        rx['ring'] = [10**p[0] for p in rois.parameters]
-        rx['iso']  = [10**p[1] for p in rois.parameters]
+        ###
+        #rx['ring'] = [10**p[0] for p in rois.parameters]
+        #rx['iso']  = [10**p[1] for p in rois.parameters]
         rx.to_csv('rois.csv')
         print 'saved rois.csv'
         
@@ -2747,11 +2759,11 @@ class GalacticSpectra(ROIinfo): #Diagnostics):
         if cb_label is not None: cb.set_label('fit value')
         return fig        
 
-    def normalization_factor_scats(self):
+    def normalization_factor_scats(self, vmin=0.9, vmax=1.1):
         """Normalization factors
         The fit normalization factor for each ROI and the first eight energy bands
         """
-        return self.sky_scats( self.flux['both']['values'], vmin=0.8, vmax=1.2, cb_label='fit value')
+        return self.sky_scats( self.flux['both']['values'], vmin=vmin, vmax=vmax, cb_label='fit value')
     
     def bfratio_hist(self, ib, axin=None,  space = np.linspace(0.5, 1.5,26)):
         fig, ax = self.get_figure( axin)
