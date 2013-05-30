@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.24 2013/05/29 22:36:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.25 2013/05/29 23:12:16 burnett Exp $
 
 author: Matthew Kerr, Toby Burnett
 """
@@ -156,23 +156,29 @@ class DiffuseModelFromCache(DiffuseModel):
             files = sorted(glob.glob(cache_path+'/*'))
             opener=open
         assert len(files)==1728, 'wrong number of files: expected 1728, found %d' % len(files)
+        roi_index = self.diffuse_source.index
         try:
-            self.filename = files[self.diffuse_source.index]
+            self.filename = files[roi_index]
             self.cached_diffuse = pickle.load(opener(self.filename))
         except:
-            raise DiffuseException( 'Diffuse cache file # %d not found' %self.diffuse_source.index)
+            raise DiffuseException( 'Diffuse cache file # %d not found' %roi_index)
 
-        if not self.quiet: print 'Using cached diffuse in %s'%self.filename
+        if not self.quiet: print '\tcached diffuse: %s'%self.filename
         self.emins = [cd['emin'] for cd in self.cached_diffuse]
         if hasattr(dfun, 'kw') and dfun.kw is not None: # check for extra keywords
-            self.corr = pd.read_csv(dfun.kw['correction']) if dfun.kw['correction'] is not None else None
+            if dfun.kw['correction'] is not None:
+                df = pd.read_csv(dfun.kw['correction'], index_col=0) 
+                self.corr = df.ix['HP12_%04d'%roi_index].values
+                print '\tcorrection file: "%s"' % dfun.kw['correction']
+                print '\tcorrections: %s' %self.corr.round(3)
+            else: self.corr=None
             self.systematic = dfun.kw['systematic']
-            print '\tusing file "%s" for corrections' % dfun.kw['correction']
-            print '\tsystematic factor:%.3f' % dfun.kw['systematic']
+            print '\tsystematic:   %.3f' % dfun.kw['systematic']
 
         
     def make_grid(self, energy, conversion_type):
         """ return a convovlved grid
+        May correct if requested
         
         parameters
         ----------
@@ -200,6 +206,11 @@ class DiffuseModelFromCache(DiffuseModel):
         
         # get values of exposure on the grid, multiply by saved diffuse
         vals = grid.fill(exp) * cd['vals'] 
+        
+        # apply correction factor if any; use last value for all higher (depends only on energy)
+        if hasattr(self, 'corr') and self.corr is not None:
+            c = self.corr[index] if index<len(self.corr) else self.corr[-1]
+            vals *= c
 
         # finally do the convolution on the product of exposure and diffuse map, which is passed in 
         grid.do_convolution(energy, conversion_type, override_vals=vals)
