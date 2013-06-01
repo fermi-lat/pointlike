@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.117 2013/05/28 14:08:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.118 2013/05/30 22:36:58 burnett Exp $
 
 """
 
@@ -259,43 +259,63 @@ class CountPlots(Diagnostics):
         files, pkls = self.load_pickles()
         self.pkls = pkls # for development
         assert len(pkls)==1728, 'expect to find 1728 pickled roi files'
-        sdirs = [r['skydir'] for r in pkls]
-        glon = np.array([r['skydir'].l() for r in pkls]); 
-        glon[glon>180]-=360
-        glat = np.array([r['skydir'].b() for r in pkls])
-        singlat = np.sin(np.radians(glat))
-        self.roinames=roinames = [p['name'] for p in pkls]
+        #sdirs = [r['skydir'] for r in pkls]
+        #glon = np.array([r['skydir'].l() for r in pkls]); 
+        #glon[glon>180]-=360
+        #glat = np.array([r['skydir'].b() for r in pkls])
+        #singlat = np.sin(np.radians(glat))
+        #self.roinames=roinames = [p['name'] for p in pkls]
         def chisq10(counts):
             total, observed = counts['total'], counts['observed']
             return ((observed-total)**2/total)[:8].sum()
-        self.rois = pd.DataFrame(
-            dict(glon=glon, glat=glat, singlat=singlat, 
-                ra= [d.ra() for d in sdirs],
-                dec = [d.dec() for d in sdirs],
-                chisq=[r['counts']['chisq'] for r in pkls],
-                bandts=[r['counts']['bandts'] for r in pkls],
-                chisq10=[chisq10(r['counts']) for r in pkls],
-                ),
-                index = roinames )
+        def lat180(l): return l if l<180 else l-360
+        rdict = dict()
+        for r in pkls:
+            rdict[r['name']]=dict(
+                glon = lat180(r['skydir'].l()),
+                glat = r['skydir'].b(),
+                chisq = r['counts']['chisq'],
+                chisq10= chisq10(r['counts']),
+                last_diff= r['logl']-r['prev_logl'][-1] if 'prev_logl' in r else np.nan,
+                n_iter = int(len(r['prev_logl'])+1 if 'prev_logl' in r else 0),
+                )
+        self.rois = pd.DataFrame(rdict).transpose()
+        self.rois['singlat'] = np.sin(np.radians(self.rois.glat))
         # dict of dataframes with count info. columns are energies
         self.energy = pkls[0]['counts']['energies'] # extract list from first pickle
         counts = [p['counts'] for p in pkls]
         self.counts=dict()
         for key in ['observed', 'total']:
-            self.counts[key]= pd.DataFrame([x[key] for x in counts], index=roinames)
+            self.counts[key]= pd.DataFrame([x[key] for x in counts], index=self.rois.index)
         try:
             self.add_model_info()
-        except:
-            pass
-        iters = np.array([ len(p['prev_logl']) for p  in self.pkls])
-        logl = np.array([p['prev_logl']+[p['logl']] for p  in self.pkls])
+        except Exception, msg:
+            print msg
+        iters = self.rois.n_iter #np.array([ len(p['prev_logl']) for p  in self.pkls])
+        logl = np.array([p['prev_logl']+[p['logl']] if 'prev_logl' in p else 0 for p  in self.pkls])
         def logsum(n):
             return sum([x[n] if n<len(x) else x[-1] for x in logl])
-        k = iters.max()+1
+        k = int(iters.max())
         t=np.array(map(logsum, range(k)))
-        self.iteration_info = """<p> Minimum, maximum numbers of iterations: %d %d 
-        <p>Iteration history: log likelihood change for each step: %s
-        """ % (iters.min(), iters.max(), str((t[1:]-t[:-1]).round(1)))
+        def log_delta(n):
+            return np.array([x[n]-x[n-1] if n<len(x) else 0 for x in logl])
+        rois = np.histogram(self.rois.n_iter, range(k))[0]
+        rois[rois==0]=1728; 
+        config = eval(open('config.txt').read()) 
+        ihist = str((t[1:]-t[:-1]).round(1))
+        ihist = pd.DataFrame(dict( loglike=t,  rois=rois, delta_sum=list(t[1:]-t[:-1]), 
+                                  delta_min= [log_delta(i).min() for i in range(1,k)],
+                                  delta_max= [log_delta(i).max() for i in range(1,k)],
+                    ), 
+                columns='rois delta_min delta_max delta_sum'.split(),
+                index=range(1,k))
+        ihist.index.name='iteration'
+        self.iteration_info = """<p>Input model: <a href="">%s</a>
+        <p>Minimum, maximum numbers of iterations: %d %d 
+        <p>Iteration history: log likelihood change for each step: \n%s
+        """ % (config['input_model']['path'], iters.min(), iters.max(), 
+                ihist.T.to_html(float_format=FloatFormat(1)) )
+    
     def add_model_info(self):
         for i,key in enumerate(['ring','isotrop', 'SunMoon', 'limb',]): # the expected order
             t = []
@@ -306,14 +326,14 @@ class CountPlots(Diagnostics):
                     t.append(y[1])
                 else:
                     t.append(np.zeros(len(self.energy)))
-            self.counts[key]= pd.DataFrame(t, index=roinames)
+            self.counts[key]= pd.DataFrame(t, index=self.rois.index)
 
     def counts_map(self):
         """ Sum, for E>100 Mev
         """
         obs = self.counts['observed']
         total = np.array([sum(x[1]) for x in obs.iterrows()])
-        sy
+
     def residual(self, ib):
         """ residual DF array for energy band ib 
         """
@@ -900,6 +920,8 @@ class ROIinfo(Diagnostics):
 
 
 class Environment(ROIinfo):
+    """ Plots associated with the enviornment"""
+
     
     def setup(self, **kw):
         super(Environment, self).setup(**kw)
@@ -916,6 +938,10 @@ class Environment(ROIinfo):
         """ exposure dependence
         Examine the relative exposure, per ROI. Express in terms of the mean. Note that
         ROIs are distributed uniformly over the sky.
+        <p>Use the fact that the isotopic diffuse compoenent is isotropic, so that
+        the ratio of the computed counts, to the fit normalization, is proportional
+        to the exposure.
+
         <br>Left: histogram, center: scatter plot vs. Declination; right: map on sky, in Galactic coordinates.
         
         """
@@ -972,7 +998,6 @@ class Environment(ROIinfo):
         return fig
         
     def all_plots(self, **kw):
-        """ Plots associated with the enviornment"""
         self.runfigures([self.exposure_plots, self.isotropic_spectrum,])
     
 
