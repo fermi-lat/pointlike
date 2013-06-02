@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.118 2013/05/30 22:36:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.119 2013/06/01 19:52:09 burnett Exp $
 
 """
 
@@ -1525,12 +1525,15 @@ class SourceInfo(Diagnostics):
     def pulsar_spectra(self, index_min=0.0, index_max=2.5, cutoff_max=8000):
         """ Distributions for the LAT pulsars
         
+        (Include also a few sources with exponential cutoff spectra.)
         For each plot, the subset with a bad fit is shown.
         %(pulsar_tail_check)s
+        %(pulsar_b)s
         """
         fig, axx = plt.subplots( 1,4, figsize=(14,4))
         plt.subplots_adjust(wspace=0.3, left=0.05,bottom=0.15)
-        t = self.df.ix[(self.df.ts>10)*(np.array(self.df.psr,bool))]['ts flux pindex cutoff e0 roiname fitqual'.split()]
+        t = self.df.ix[(self.df.ts>10)*(np.array(self.df.psr,bool))]\
+            ['ts flux pindex cutoff e0 index2 index2_unc roiname fitqual'.split()]
         t['eflux'] = t.flux * t.e0**2 * 1e6
         badfit = t.fitqual>30
 
@@ -1584,7 +1587,12 @@ class SourceInfo(Diagnostics):
             self.pulsar_tail_check += 'Criteria: require index between 0 and 2.5, cutoff<8 GeV'
         else:
             self.pulsar_tail_check ='<p>No sources on tails'
-     
+        #psr = np.array([n.startswith('PSR') for n in self.df.index], bool)
+        #t = self.df.ix[(self.df.ts>10)*psr]['ts flux pindex cutoff index2 index2_unc e0 roiname fitqual'.split()]
+        t['significance']=(1-t.index2)/t.index2_unc
+        tt=t[t.index2<1]['ts fitqual pindex cutoff index2 index2_unc significance'.split()].to_html(float_format=FloatFormat(2))
+
+        self.pulsar_b="""<p>Table of pulsar spectra with b<1\n""" +tt
         return fig
     
     def ecliptic_hist(self, ax=None, title=''):
@@ -2784,7 +2792,7 @@ class GalacticSpectra(ROIinfo): #Diagnostics):
         if cb_label is not None: cb.set_label('fit value')
         return fig        
 
-    def normalization_factor_scats(self, vmin=0.9, vmax=1.1):
+    def normalization_factor_scats(self, vmin=0.95, vmax=1.05):
         """Normalization factors
         The fit normalization factor for each ROI and the first eight energy bands
         """
