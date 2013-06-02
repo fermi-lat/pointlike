@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.119 2013/06/01 19:52:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.120 2013/06/02 03:48:42 burnett Exp $
 
 """
 
@@ -2733,7 +2733,7 @@ class GalacticSpectra(ROIinfo): #Diagnostics):
     def setup(self):
         self.diffuse_setup('gal')
 
-    def like_scat(self, ib, axin=None, fb='both', vmin=0, vmax=2):
+    def like_scat(self, ib, axin=None, fb='both', vmin=0, vmax=1):
         fig, ax=self.get_figure(axin); 
         scat=ax.scatter(self.rois.glon, self.rois.singlat, 
                 c=np.log10(self.flux[fb]['deltalike'].transpose().ix[ib]), 
@@ -2768,7 +2768,7 @@ class GalacticSpectra(ROIinfo): #Diagnostics):
         cb=plt.colorbar(scats[0], cbax, orientation='vertical')
         cb.set_label('log10(log likelihood difference)')
         return fig
-    def sky_scat(self, c, axin=None, vmin=0, vmax=2, title=None):
+    def sky_scat(self, c, axin=None, vmin=0, vmax=1, title=None):
         fig, ax=self.get_figure(axin); 
         scat=ax.scatter(self.rois.glon, self.rois.singlat, 
                 c=c, 
@@ -2842,7 +2842,7 @@ class GalacticSpectra(ROIinfo): #Diagnostics):
         vals = self.bfratios # must have generated
         x,y,yerr = [[v[i] for v in vals]  for i in range(3)]
         ax.errorbar(x, y, yerr=yerr, marker='o', ms=12,fmt='', lw=2, linestyle='None')
-        plt.setp(ax, xscale='log',xlabel='Energy (MeV)', ylabel='front/back flux ratio',ylim=(0.55, 1.25))
+        plt.setp(ax, xscale='log',xlabel='Energy (MeV)', ylabel='front/back flux ratio',ylim=(0.75, 1.25))
         ax.grid(True)
         ax.axhline(1.0, color='k')
         ax.set_title('%s diffuse spectral fits'%self.which, fontsize='medium')
@@ -2898,7 +2898,7 @@ class GalacticSpectra(ROIinfo): #Diagnostics):
         z=pd.DataFrame(dict([('mean_plane',av.round(3)),('std_plane',rms.round(3)),
                      ('mean_all',av_all.round(3)),('std_all',rms_all.round(3)),]))
         z.index.name='band'
-        zhtmo = z.to_html(float_format=FloatFormat(2))
+        zhtml = z.to_html(float_format=FloatFormat(3))
         self.normalization_table="""
         <p>Normalization statistics: 'plane' means |b|<5.<br> %s """ % zhtml
         open('normalization_stats.html','w').write(zhtml)
