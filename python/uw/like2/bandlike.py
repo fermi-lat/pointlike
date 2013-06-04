@@ -11,7 +11,7 @@ classes:
 functions:
     factory -- create a list of BandLike objects from bands and sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.28 2013/05/29 22:37:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.29 2013/05/29 23:12:16 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -203,14 +203,15 @@ class BandExtended(BandPoint):
         # klugy way to create new source object for each band
         self.source= source.__class__(source.sa, source.diffuse_source, source.roi_dir, source.name)
         self.band = band
+        self.initialized = False
         self.initialize()
         self.update()
 
-    
     def initialize(self):
+        if self.initialized: return # already initialized never need to do this
         self.source.quiet = True # turn off convolving messages
-        #if hasattr(self.source, 'bands'):
-        #    print 'warning: second initialization:  object id=%d, overlap=%f' % (id(self.source), self.source.bands[0].er)
+        self.initialized=True
+        
         self.source.initialize_counts([self.band])
         #print ' overlap=%f' % self.source.bands[0].er
         
