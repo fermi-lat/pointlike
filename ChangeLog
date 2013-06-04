@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jun  4 11:33:25 PDT 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	diagnostic_plots.py 
+Log Message:
+add localization precision
+    *
+------------------------------------------------------------
 User: burnett  Tue Jun  4 11:30:59 PDT 2013
 pointlike/python/uw/like2
 
