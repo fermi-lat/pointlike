@@ -289,7 +289,8 @@ class PulsarLightCurve:
         return np.asarray(self.pulse_phase[which][:,2][0])
 
     def load_profile(self, profile, ytitle="Radio Flux (au)", comment="", histo=False,phase_shift=0,bin_goal=256):
-        profile = Profile(profile)
+        if not isinstance(profile,Profile):
+            profile = Profile(profile)
         if comment == "":
             comment = '%s %.1f GHz'%(profile.obs,float(profile.freq))
         self.profile_object = profile
