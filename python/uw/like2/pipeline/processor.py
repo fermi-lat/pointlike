@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.53 2013/05/15 16:59:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.54 2013/05/22 17:52:46 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -140,7 +140,7 @@ def pickle_dump(roi, fit_sources, pickle_dir, dampen, failed=False, **kwargs):
     # add extended sources to diffuse for backwards compatibilty: extended alos in the sources dict.
     output['diffuse'] = [s.spectral_model for s in diffuse_sources] #roi.dsm.models
     output['diffuse_names'] = [s.name for s in diffuse_sources]  #roi.dsm.names
-    output['logl'] = roi.logl if not failed else 0
+    output['logl'] = -roi(roi.get_parameters()) if not failed else 0
     output['parameters'] = roi.get_parameters() 
     output['gradient'] = np.asarray(roi.gradient(), np.float32)
     output['time'] = time.asctime()
@@ -254,11 +254,13 @@ class Damper(object):
         self.dampen=dampen
         self.roi = roi
         self.ipar = roi.get_parameters()[:] # get copy of initial parameters
-        self.initial_logl = roi.logl =  -roi(self.ipar)
+        self.initial_logl = -roi(self.ipar)
         self.tol = tol
+        self.change = 0
     def __call__(self):
-        change = abs(self.initial_logl-self.roi.logl)
-        if change< self.tol or self.dampen==1.0 : return False
+        self.roi.logl = -self.roi(self.roi.get_parameters())
+        self.change = abs(self.initial_logl-self.roi.logl)
+        if self.change< self.tol or self.dampen==1.0 : return False
         # change more than tol and dampen specified: dampen
         fpar = self.roi.get_parameters()
         if len(fpar)==len(self.ipar): 
@@ -295,11 +297,11 @@ def process(roi, **kwargs):
         print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (roi.name,))
     else: outtee=None
 
-    if counts_dir is not None and not os.path.exists(counts_dir):
+    if counts_dir is not None and not os.path.exists(counts_dir) :
         try: os.makedirs(counts_dir) # in case some other process makes it
         except: pass
     if freeze_iem is not None:
-        print 'Freezeing IEM to %f', %freeze_iem
+        print 'Freezeing IEM to %f' % freeze_iem
         roi.freeze('Norm', 'ring', freeze_iem)
     init_log_like = roi.log_like()
     roi.print_summary(title='before fit, logL=%0.f'% init_log_like)
@@ -334,7 +336,8 @@ def process(roi, **kwargs):
                     roi.print_summary(title='after damping with factor=%.2f, logL=%0.f, change=%.1f'\
                         %(dampen,roi.log_like(), change))
                 else:
-                    print 'No damping requested, or difference in log Likelihood < %f' % damp.tol
+                    print 'No damping requested (dampen=%.1f), or difference in log Likelihood (%.1f) < tol (%.1f)'\
+                           % (dampen, damp.change,damp.tol )
             except Exception, msg:
                 print '============== fit failed, aborting!! %s'%msg
                 #pickle_dump(roi, fit_sources, os.path.join(outdir, 'pickle'), pass_number, failed=True)
@@ -343,7 +346,7 @@ def process(roi, **kwargs):
             print 'No fit requested'
     
     outdir     = kwargs.pop('outdir', '.')
-    associator= kwargs.pop('associate', None)
+    associator=  kwargs.pop('associate', None) #None #### disable for now ####
     if type(associator)==types.StringType and associator=='None': associator=None
     def getdir(x ):
         if not kwargs.get(x,False): return None
@@ -355,7 +358,8 @@ def process(roi, **kwargs):
     if localize:
         print 'localizing and associating all sources with variable...'
         q, roi.quiet = roi.quiet,False
-        localization.localize_all(roi, tsmap_dir=getdir('tsmap_dir'), associator = associator)
+        tsmap_dir = getdir('tsmap_dir') 
+        localization.localize_all(roi, tsmap_dir=tsmap_dir, associator = associator)
         roi.quiet=q
 
     try:
@@ -364,7 +368,7 @@ def process(roi, **kwargs):
         chisq = cts['chisq']
         print 'chisquared for counts plot: %.1f'% chisq
  
-        if counts_dir is not None:
+        if counts_dir is not None and dampen>0:
             fout = os.path.join(counts_dir, ('%s_counts.png'%roi.name) )
             ax[1].figure.savefig(fout, dpi=60)
             print 'saved counts plot to %s' % fout
@@ -853,7 +857,7 @@ def gtlike_compare(roi, **kwargs):
 others=None
 def UW_compare(roi, **kwargs):
     global others
-    other = kwargs.pop('other', 'uw22c') #wire in default for now
+    other = kwargs.pop('other', 'uw25') #wire in default for now
     if others is None:
         others = pickle.load(open('../%s/sources.pickle' % other))
     outdir = kwargs.pop('outdir', '.')
