@@ -1,14 +1,15 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.24 2013/05/14 15:36:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.25 2013/05/17 02:36:25 burnett Exp $
 """
-import os, argparse
+import os, argparse, logging, datetime, subprocess
 import numpy as np
 from uw.like2.pipeline import check_data
 from uw.like2.pipeline import pipeline_job
 from uw.like2.pipeline import check_converge
 from uw.like2.pipeline import diagnostic_plots, pipe
+from uw.like2.pipeline import processor
 
 class StartStream(object):
     """ setup, start a stream """
@@ -24,6 +25,7 @@ class StartStream(object):
             print '-->' , cmd
             if not args.test:
                 os.system(cmd)
+                #print subprocess.check_output(cmd)
 
 class Summary(object):
     def get_stage(self, args):
@@ -98,7 +100,7 @@ stagenames = dict(
     update_beta =  Stage(pipe.Update, dict( dampen=1.0, fix_beta=True),sum='counts',help='perform update', ),
     update_pivot=  Stage(pipe.Update, dict( dampen=1.0, repivot=True), sum='counts',help='update pivot', ), 
     update_only =  Stage(pipe.Update, dict( dampen=1.0), sum='counts sources', help='update, no additional stage', ), 
-    finish      =  Stage(pipe.Finish,  sum='sources diffuse',help='perform localization', ),
+    finish      =  Stage(pipe.Finish,  sum='sources',help='perform localization', ),
     tables      =  Stage(pipe.Tables,  sum='hptables', job_list='joblist8.txt', help='create HEALPix tables: ts kde counts', ),
     sedinfo     =  Stage(pipe.Update, dict( processor='processor.full_sed_processor',sedfig_dir='"sedfig"',), sum='fb',
                             help='process SED information' ),
@@ -119,7 +121,7 @@ stagenames = dict(
     fglcheck    =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="2FGL")',auxcat="2fgl_lost.csv"), help='check 2FGL'),
     pulsar_detection=Stage(pipe.PulsarDetection, job_list='joblist8.txt', sum='pts', help='Create ts tables for pulsar detection'),
     gtlike_check=  Stage(pipe.Finish, dict(processor='processor.gtlike_compare()',), sum='gtlike_comparison', help='Compare with gtlike analysis of same sources'),
-    uw_compare =  Stage(pipe.Finish, dict(processor='processor.UW_compare()',), sum='UW_comparison', help='Compare with another UW model'),
+    uw_compare =  Stage(pipe.Finish, dict(processor='processor.UW_compare(other="uw25")',), sum='uw_comparison', help='Compare with another UW model'),
 ) 
 keys = stagenames.keys()
 stage_help = '\nstage name, or sequential stages separaged by ":" names are\n\t' \
@@ -164,8 +166,11 @@ def main( args ):
     check_environment(args)
     check_names(args.stage, args.proc)
     proc = args.proc
+    #tee = processor.OutputTee('summary_log.txt')
+    print '\n'+ str(datetime.datetime.today())[:16]
     print '--> %s for %s'%(proc, args.stage)
     procnames[proc](args)
+    #tee.close()
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
