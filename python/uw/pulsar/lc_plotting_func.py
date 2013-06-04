@@ -317,7 +317,7 @@ class PulsarLightCurve:
 
         return template, ytitle, comment, align_shift#, delta_corr
             
-    def fill_phaseogram(self, radius=None, nbins=None, phase_range=[0.,2.], phase_shift=0, weight=False, profile=None, profile_kwargs={}):
+    def fill_phaseogram(self, radius=None, nbins=None, phase_range=[0.,2.], phase_shift=0, weight=False, profile=None, profile_kwargs={},no_shift=False):
         '''Fill phaseograms (pulse profiles)
         ===========    ==================================================
         keyword        description
@@ -327,6 +327,7 @@ class PulsarLightCurve:
         phase_range    min and max phase interval             [0,2]
         phase_shift    add a shift to the pulse phase values  [0]
         weight         Use a weight for each photon           [False]
+        no_shift       Do not adjust photon phases AT ALL.    [False]
         ===========    ================================================== '''
 
         # NB -- PHASE SHIFT FROM RADIO LIGHT CURVE IS APPLIED TO 'RAW'
@@ -371,7 +372,7 @@ class PulsarLightCurve:
         if self.psfcut:
             evtlist = evtlist[evtlist["ANGSEP"]<get_theta(self.__psf_selection, evtlist["ENERGY"])]
 
-        if phase_shift != 0:
+        if (phase_shift != 0) and (not no_shift):
             # kluge to restrict phase to "principal values"
             if phase_shift <= -1: phase_shift += 1
             if phase_shift >=  1: phase_shift -= 1
@@ -998,7 +999,8 @@ class PulsarLightCurve:
         canvas.Print(outfile); canvas.Close()
 
         if outascii is not None:
-            self.toProfile(outascii,background=background)
+            #self.toProfile(outascii,background=background,template=template)
+            self.toProfileFITS(outascii,background=background,template=template)
         
     def plot_phase_time( self, which=0, background=None, zero_sup=True, reg=None, xdim=500, ydim=1000,
                          xtitle='Pulse Phase', ytitle='Counts/bin', color='black', outfile=None ):
@@ -1269,7 +1271,7 @@ class PulsarLightCurve:
         print "INFO:", filename, "has been created." 
         outfile.close()
 
-    def toProfile(self, filename, background=None):
+    def toProfile(self, filename, background=None, template=None):
         """ Write out an ASCII profile with the 2PC light curve bands
             and radio profiles."""
 
@@ -1278,25 +1280,111 @@ class PulsarLightCurve:
             return s + ' '*(n-len(s))
 
         f = file(filename,'w')
+
+        # write out gamma data profile
         for i in xrange(len(self.phaseogram)):
             elo,ehi = self.get_energy_range(i)
             f.write('# Gamma profile\n')
             f.write('ELO=%.2f\n'%elo)
             f.write('EHI=%.2f\n'%ehi)
             if background is not None:
-                f.write('BKG=%s\n'%background[0])
+                f.write('BKG=%s\n'%background[i])
             f.write('# PhaseLO           PhaseHI           Weighted_Counts     Weighted_Err\n')
-            y,yerr = root.get_histo_content(self.phaseogram[0])
+            y,yerr = root.get_histo_content(self.phaseogram[i])
             for i in xrange(self.nbins):
                 # NB -- histogram values are very strange
                 f.write('%s%s%s%s\n'%(right_pad(float(i)/self.nbins),right_pad(float(i+1)/self.nbins),right_pad(y[i+1]),right_pad(yerr[i+1])))
+
+        # write out best-fit light curve
+        if template is not None:
+            nbins = 200
+            dom = np.linspace(0,1,nbins+1)
+            cod = template(dom+self.phase_shift)
+            f.write('# Gamma best-fit pulsar template\n')
+            f.write('# PhaseLO           PhaseHI           Intensity\n')
+            for i in xrange(nbins):
+                f.write('%s%s%s\n'%(right_pad(dom[i]),right_pad(dom[i+1]),right_pad(cod[i])))
+
         # write out radio profile if present
         if self.profile is not None:
             f.write('# Radio profile\n')
+            f.write('# Frequency: %.2f\n'%(float(self.profile_object.freq)))
             f.write('# PhaseLO           PhaseHI           Intensity\n')
             xr,yr = root.get_tgraph_content(self.profile[0][0])
             delta = (xr[1]-xr[0])/2
             for x,y in zip(xr,yr):
                 if x >= 1: break
                 f.write('%s%s%s\n'%(right_pad(x-delta),right_pad(x-delta),right_pad(y)))
+        f.close()
+
+    def toProfileFITS(self, filename, background=None, template=None):
+        """ Write out an ASCII profile with the 2PC light curve bands
+            and radio profiles.
+            
+            Revised format for fits output."""
+
+        def right_pad(s,n=20):
+            s = str(s)
+            return s + ' '*(n-len(s))
+
+        f = file(filename,'w')
+        nbands = sum([self.get_energy_range(i)[0] >= 100 for i in xrange(len(self.phaseogram))])
+        output = np.empty([2*nbands,self.nbins])
+        elos = []
+        ehis = []
+        bkgs = []
+
+        counter = 0
+        for i in xrange(len(self.phaseogram)):
+            elo,ehi = self.get_energy_range(i)
+            if elo < 100:
+                continue
+            elos.append(elo)
+            ehis.append(ehi)
+            if background is not None:
+                bkg = background[counter]
+                if not hasattr(bkg,'__len__'):
+                    bkg = [bkg,bkg,bkg]
+                bkgs.append(bkg) # necessary?
+            y,yerr = root.get_histo_content(self.phaseogram[counter])
+            output[2*counter,:] = y[self.nbins:]
+            output[2*counter+1,:] = yerr[self.nbins:]
+            counter += 1
+        
+        bkg_string = ''
+        label_string = 'Phase_Min   Phase_Max   '
+        for i in xrange(len(elos)):
+            elo,ehi,bkg = elos[i],ehis[i],bkgs[i]
+            print elo,ehi,bkg
+            if ehi > 30000: # infinity
+                prefix = 'GT%d'%(int(round(elo)))
+            else:
+                prefix = '%d_%d'%(int(round(elo)),int(round(ehi)))
+            label = prefix + '_WtCounts'
+            label_string += '%s   %s   '%(label,'unc_'+label)
+            bkg_string += '%s_BKGMID %.4f\n'%(prefix,bkg[0])
+            bkg_string += '%s_BKGMIN %.4f\n'%(prefix,bkg[2])
+            bkg_string += '%s_BKGMAX %.4f\n'%(prefix,bkg[1])
+        f.write(bkg_string)
+        f.write(label_string+'\n')
+
+        def row2str(idx):
+            fmt = r'%.4f '*output.shape[0]
+            return fmt%tuple(output[:,idx])
+
+        for j in xrange(self.nbins):
+            phlo = float(j)/self.nbins
+            phhi = float(j+1)/self.nbins
+            f.write('%.2f %.2f %s\n'%(phlo,phhi,row2str(j)))
+
+        # write out best-fit light curve
+        if template is not None:
+            nbins = 200
+            dom = np.linspace(0,1,nbins+1)
+            cod = template(dom+self.phase_shift)
+            f.write('\n# Gamma best-fit pulsar template\n')
+            f.write('# PhaseLO           PhaseHI           Intensity\n')
+            for i in xrange(nbins):
+                f.write('%s%s%s\n'%(right_pad(dom[i]),right_pad(dom[i+1]),right_pad(cod[i])))
+
         f.close()
