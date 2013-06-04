@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.120 2013/06/02 03:48:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.121 2013/06/02 03:49:41 burnett Exp $
 
 """
 
@@ -611,14 +611,17 @@ class FrontBackSedPlots(Diagnostics):
         fig, ax = self.get_figure( axin)
         inds = self.get_strongest()
         
-        name = [self.srcnames[ind] for ind in inds]
-        try:
-            realname = [{'P72Y3678':'3C454.3','P7R43539':'3C454.3', 'PSR_J0835-4510':'Vela', 
-                            'PSR_J0534p2200':'Crab', 'PSR_J0633p1746':'Geminga',
-                            'CrabIC':'CrabIC',}[n] for n in name]
-        except:
-            print 'did not find new names: perhaps changed: looking for %s' %name
-            realname=name
+        names = [self.srcnames[ind] for ind in inds]
+        realname=[]
+        for n in names:
+            try:
+                name = {'P72Y3678':'3C454.3','P7R43539':'3C454.3', 'PSR_J0835-4510':'Vela', 
+                                'PSR_J0534p2200':'Crab', 'PSR_J0633p1746':'Geminga',
+                                'CrabIC':'CrabIC','Cygnus Cocoon':'Cygnus_Cocoon'}[n] 
+            except:
+                print 'did not find real name: perhaps changed: looking for %s' %n
+                name = n
+            realname.append(name)
         ratio = np.array([checkflux(ind,ib) for ind in inds])
         wts = 1/ratio[:,1]**2; sigma = 1/np.sqrt(np.sum(wts))
         mean  = np.sum( ratio[:,0]*wts)/np.sum(wts)
@@ -1526,7 +1529,7 @@ class SourceInfo(Diagnostics):
         """ Distributions for the LAT pulsars
         
         (Include also a few sources with exponential cutoff spectra.)
-        For each plot, the subset with a bad fit is shown.
+        For each plot, the subset with a poor fit is shown.
         %(pulsar_tail_check)s
         %(pulsar_b)s
         """
@@ -1541,7 +1544,7 @@ class SourceInfo(Diagnostics):
             bins = np.logspace(np.log10(efmin),np.log10(efmax),26)
             vals = t.eflux.clip(efmin,efmax)
             ax.hist(vals, bins )
-            ax.hist(vals[badfit], bins, color='red', label='bad fit')
+            ax.hist(vals[badfit], bins, color='red', label='poor fit')
             plt.setp(ax, xscale='log', xlabel='energy flux', xlim=(efmin,efmax)); ax.grid(); 
             ax.legend(prop=dict(size=10))
 
@@ -1549,7 +1552,7 @@ class SourceInfo(Diagnostics):
             bins = np.linspace(index_min,index_max,26)
             vals = t.pindex.clip(index_min,index_max)
             ax.hist(vals, bins)
-            ax.hist(vals[badfit], bins, color='red', label='bad fit')
+            ax.hist(vals[badfit], bins, color='red', label='poor fit')
             plt.setp(ax, xlabel='spectral index'); ax.grid(); 
             ax.legend(prop=dict(size=10))
             
@@ -1557,7 +1560,7 @@ class SourceInfo(Diagnostics):
             bins = np.linspace(0,cutoff_max/1e3,26)
             vals = t.cutoff.clip(0,cutoff_max) /1e3
             ax.hist(vals, bins)
-            ax.hist(vals[badfit], bins, color='red', label='bad fit')
+            ax.hist(vals[badfit], bins, color='red', label='poor fit')
             plt.setp(ax, xlabel='cutoff energy (GeV)'); ax.grid()
             ax.legend(prop=dict(size=10))
             
@@ -1565,7 +1568,7 @@ class SourceInfo(Diagnostics):
             xvals = t.cutoff.clip(*xlim) / 1e3
             yvals = t.pindex.clip(index_min,index_max)
             ax.plot(xvals, yvals, 'o')
-            ax.plot(xvals[badfit], yvals[badfit], 'or', label='bad fit')
+            ax.plot(xvals[badfit], yvals[badfit], 'or', label='poor fit')
             plt.setp(ax, xlabel='cutoff energy', ylabel='spectral index',
                 xlim=(xlim[0]-0.1,1.03*xlim[1]/1e3), ylim=(index_min-0.1, index_max+0.1),
                 )
@@ -2125,14 +2128,15 @@ class Localization(SourceInfo):
                         '<p><a href="%s"> Table of %d poorly localized (a>%.2f deg, or qual>%.1f with TS>%d) sources</a>'\
                         % ( 'poorly_localized_table.html',len(self.poorloc),self.acut,self.qualcut, self.tscut)
             version = os.path.split(os.getcwd())[-1]
-            pv = makepivot.MakeCollection('poor localizations %s'%version, 'tsmap_fail', 'poorly_localized.csv',refresh=True)
+            pv = makepivot.MakeCollection('poor localizations %s'%version, 'tsmap_fail', 'poorly_localized.csv',refresh=False)
             self.poorly_localized_table_check +=\
                 '<br>A  <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">pivot collection </a>of TS maps for these sources can be examined.'%pv.cId 
                         
         else:
             self.poorly_localized_table_check ='<p>No poorly localized sources!'
 
-
+    
+    
     def all_plots(self):
         """Localization summary
         
@@ -2373,7 +2377,7 @@ class GtlikeComparison( SourceComparison):
 class UWsourceComparison(SourceInfo):
     """Comparision with another UW model
     """
-    def setup(self, othermodel='uw22c'):
+    def setup(self, othermodel='uw25'):
         super(UWsourceComparison,self).setup()
         self.plotfolder = 'comparison_%s' % othermodel
 
@@ -2386,35 +2390,43 @@ class UWsourceComparison(SourceInfo):
     def compare(self):
         """Compare values of various fit parameters
         """
-        fig, ax = plt.subplots(3,1, figsize=(8,12))
+        fig, ax = plt.subplots(4,1, figsize=(12,12), sharex=True)
+        plt.subplots_adjust(hspace=0.05)
         self.df['pindex_old']=self.odf.pindex
         self.df['ts_old'] = self.odf.ts
-        self.df['flux_old']=self.odf.flux
+        self.df['eflux_old']=self.odf.eflux
+        self.df['a_old'] = self.odf.a
         odf, df = self.odf, self.df
         plane = np.abs(df.glat)<5
-        def plot_pindex(ax, irange=(1.5,3.0), ylim=(0.98,1.02)):
+        
+        def plot_ratio(ax, y, cut, ylim, ylabel):
+            ax.semilogx(df.ts[cut], y.clip(*ylim)[cut], '.')
+            ax.semilogx(df.ts[cut*plane], y.clip(*ylim)[cut*plane], '+r',label='|b|<5')
+            plt.setp(ax, xlim=(10,1e4), ylim=ylim, ylabel=ylabel,)
+            ax.axhline(1, color='k')
+            ax.legend(prop=dict(size=10))
+            ax.grid()
+
+        def plot_pindex(ax,  ylim=(0.9,1.1)):
             cut=df.beta<0.01
-            ax.plot(df.pindex[cut], (df.pindex/df.pindex_old).clip(*ylim)[cut], '.')
-            ax.plot(df.pindex[cut*plane], (df.pindex/df.pindex_old).clip(*ylim)[cut*plane], '+r',
-                label='|b|<5')
-            plt.setp(ax, xlim=irange, ylim=ylim, ylabel='index ratio', xlabel='spectral index')
-            ax.legend(prop=dict(size=10))
+            y = df.pindex/df.pindex_old
+            plot_ratio(ax, y, cut, ylim, 'index ratio')
+            ax.set_xlabel('TS')
+        def plot_ts(ax, rdts=(0.5,1.5)):
+            y = df.ts/(df.ts_old +0.1)
+            cut=df.ts>10
+            plot_ratio(ax, y, cut, rdts,  'TS ratio')
+        def plot_flux(ax, ylim=(0.5, 1.5)):
+            y = df.eflux/df.eflux_old
+            cut = df.ts>10
+            plot_ratio(ax, y, cut, ylim, 'Eflux ratio')
             
-            ax.grid()
-        def plot_ts(ax, rdts=(-20,20)):
-            ax.semilogx(df.ts, (df.ts-df.ts_old).clip(*rdts), '.')
-            ax.semilogx(df.ts[plane], (df.ts-df.ts_old)[plane].clip(*rdts), '+r', label='|b|<5')
-            plt.setp(ax, ylim=rdts, xlim=(10,1e4), ylabel='TS change',xlabel='TS')
-            ax.grid()
-            ax.legend(prop=dict(size=10))
-        def plot_flux(ax, ylim=(0.95, 1.05)):
-            ax.semilogx(df.ts, (df.flux/df.flux_old).clip(*ylim), '.')
-            ax.semilogx(df.ts[plane], (df.flux/df.flux_old).clip(*ylim)[plane], '+r', label='|b|<5')
-            plt.setp(ax, xlabel='TS', ylabel='Flux ratio', ylim=ylim, xlim=(10,1e4))
-            ax.grid()
-            ax.legend(prop=dict(size=10))
+        def plot_semimajor(ax, ylim=(0.5,1.5)):
+            y = df.a/df.a_old
+            cut = df.ts>10
+            plot_ratio(ax, y, cut, ylim, 'r95 ratio')
             
-        for f, ax in zip((plot_ts, plot_flux, plot_pindex,), ax.flatten()): f(ax)
+        for f, ax in zip((plot_ts, plot_flux, plot_pindex,plot_semimajor,), ax.flatten()): f(ax)
         return fig
         
     def all_plots(self):
@@ -2423,6 +2435,12 @@ class UWsourceComparison(SourceInfo):
         self.runfigures([self.compare,  ])
                 
 class Associations(SourceInfo):
+    """ Analysis of associations
+    A feature of the UW pipeline is the application of the LAT association algorithm, with the same catalogs as
+    were used for 2FGL, except that the latest LAT pulsar catalog is used. Note that priors are not recalculated,
+    we use the values determined for 2FGL. 
+    %(atable)s
+    """
 
     def setup(self, **kw):
         super(Associations, self).setup(**kw)
@@ -2430,6 +2448,7 @@ class Associations(SourceInfo):
         probfun = lambda x: x['prob'][0] if x is not None else 0
         self.df['aprob'] = np.array([ probfun(assoc) for  assoc in self.df.associations])
         self.df['acat']  = np.array([ assoc['cat'][0] if assoc is not None else 'unid' for  assoc in self.df.associations])
+        self.df['adeltats'] = np.array([assoc['deltats'][0] if assoc is not None else np.nan for assoc in self.df.associations])
         self.df10 = self.df.ix[self.df.ts>10]
         print 'associated: %d/%d' % (sum(self.df10.aprob>0.8), len(self.df10))
         
@@ -2446,11 +2465,7 @@ class Associations(SourceInfo):
         ax.legend(prop=dict(size=10)); ax.grid()
         return fig
     
-    
-    def all_plots(self):
-        """ Analysis of associations
-        %(atable)s
-        """
+    def make_table(self):
         t = dict()
         for c in self.df10.acat:
             if c not in t: t[c]=1
@@ -2486,8 +2501,52 @@ class Associations(SourceInfo):
             self.atable += '<p>Pulsars located > 0.25 deg from nominal'\
                     + lat[lat.delta>0.25]['ts delta'.split()].to_html()
 
-        
-        self.runfigures([self.association_vs_ts,])
+    def localization_check(self, tsmin=10, dtsmax=9):
+        """Localization resolution test
+        The association procedure records the likelihood ratio for consistency of the associated location with the 
+        fit location, expressed as a TS, or the difference in the TS for source at the maximum, and at the associated
+        source. The distribution in this quantity should be an exponential, exp(-TS/2/f**2), where f is a scale factor
+        to be measured from the distribution. If the PSF is a faithful representation of the distribution of photons
+        from a point source, f=1. For 1FGL and 2FGL we assumed 1.1. The plots show the results for AGN, LAT pulsars, and
+        all other associations. They are cut off at 9, corresponding to 95% containment.
+        """
+        c1 = 0.95 # for 3 sigma
+        r = -np.log(1-c1)
+        c2= 1-(1-c1)*(r+1)
+        t = self.df.acat
+        agn = np.array([x in 'crates bzcat agn bllac'.split() for x in t])
+        psr = np.array([x in 'pulsar_lat'.split() for x in t])
+        unid= np.array([x in 'unid'.split() for x in t])
+        otherid=~(agn | psr | unid)
+
+        fig, axx = plt.subplots(1,3, figsize=(14,5))
+        x = np.linspace(0,dtsmax,4*dtsmax+1)
+        plt.subplots_adjust(left=0.1)
+        def all_plots(ax, select, label):
+            cut = select*(self.df.aprob>0.8)*(self.df.ts>tsmin)*(self.df.locqual<5)*(self.df.adeltats<dtsmax)
+            y = self.df[cut].adeltats
+            ax.hist(y, x , log=False)
+            beta = y.mean()*(c1)/c2
+            factor = np.sqrt(beta/2)
+            print label,'total %d, mean: %.2f factor %.2f' % (len(y), beta, factor)
+            alpha = len(y)/beta/c1*(x[1]-x[0])
+            ax.plot(x, alpha*np.exp(-x/beta), '-r', lw=2, label='factor=%.2f'% factor)
+            plt.setp(ax, ylim=(1,1.2*alpha), xlabel=r'$\Delta TS$')
+            ax.grid(); ax.legend(prop=dict(size=10))
+            ax.text(1.5, alpha, '%d %s'%(len(y),label), fontsize=12)
+        def agns(ax):
+            all_plots(ax,agn, 'AGNs')
+
+        def pulsars(ax):
+            all_plots(ax, psr, 'LAT pulsars')
+        def other(ax): all_plots(ax, otherid, 'other associations')
+            
+        for f,ax in zip((agns, pulsars, other,), axx.flatten()): f(ax)
+        return fig
+
+    def all_plots(self):    
+        self.make_table()
+        self.runfigures([self.association_vs_ts, self.localization_check,])
 
     
 class Localization1K(Localization):
@@ -2759,7 +2818,7 @@ class GalacticSpectra(ROIinfo): #Diagnostics):
         the chi squared distribution of one degree of freedom. The lighter colors, especially red, indicate serious discrepancy.
         """
         fig,ax = plt.subplots(2,4, figsize=(14,8));
-        plt.subplots_adjust(left=0.10, wspace=0.25, hspace=0.25,right=0.90, bottom=0.15)
+        plt.subplots_adjust(left=0.10, wspace=0.25, hspace=0.25,right=0.90, bottom=0.15, sharex=True, sharey=True)
         scats =map(self.like_scat, range(8), ax.flatten());
         plt.figtext(0.5,0.07, 'glon', ha='center');
         plt.figtext(0.05, 0.5, 'sin(glat)', rotation='vertical', va='center')
@@ -3373,7 +3432,8 @@ a:hover { background-color:yellow; }
     def _repr_html_(self):    return self.ul
     
     def make_config_link(self):
-        html = '<head>%s</head><body><h3>%s - configuration and analysis history files</h3>' %(self.style,self.model)
+        html = """<head>%s</head><body><h2><a href="../index.html?skipDecoration">%s</a> - configuration and analysis history files</h2>
+        """ %( self.style,self.model)
         for filename in ('config.txt', 'dataset.txt', 'converge.txt', 'summary_log.txt'):
             if not os.path.exists(filename): continue
             html += '<h4>%s</h4>\n<pre>%s</pre>' % (filename, open(filename).read())
