@@ -1,13 +1,14 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.15 2013/05/14 15:34:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.16 2013/05/25 17:57:25 burnett Exp $
 
 """
 import os
 import numpy as np
 from skymaps import SkyDir
 from uw.like import quadform, srcid
+from uw.like2 import sources
 from uw.utilities import keyword_options
 from . plotting import tsmap
 
@@ -98,6 +99,7 @@ class Localization(object):
         """ restore modifications to the ROIstat
         """
         self.source.skydir=self.skydir
+        self.rs.update(True)
         self.rs.select_source(None)
       
     def dir(self):
@@ -230,23 +232,22 @@ def localize_all(roi, **kwargs):
     prefix = kwargs.pop('prefix', None)
     source_name = kwargs.pop('source_name', None)
     if source_name is not None:
-        sources=[roi.get_source(source_name)]
+        vpsources=[roi.get_source(source_name)]
     else:
-        sources = [s for s in roi.sources if s.skydir is not None\
-            and s.__dict__.get(  'spatial_model', None) is None \
+        vpsources = [s for s in roi.sources if s.skydir is not None\
+            and isinstance(s, sources.PointSource) \
             and np.any(s.spectral_model.free) and s.ts>tsmin]
     tsmap_dir = kwargs.pop('tsmap_dir', None)
     associator = kwargs.pop('associator', None)
     tsfits = kwargs.pop('tsfits', True) 
     initw = roi.log_like()
     
-    for source in sources:
+    for source in vpsources:
         if prefix is not None and not source.name.startswith(prefix): continue
         curw= roi.log_like()
         if abs(initw-curw)>1.0:
             print 'localize_all: unexpected change in roi state after localization, from %.1f to %.1f (%+.1f)'\
                %(initw, curw, curw-initw)
- 
         with Localization(roi, source.name, quiet=True, **kwargs) as loc:
             try:
                 loc.localize()
@@ -268,9 +269,9 @@ def localize_all(roi, **kwargs):
                 if  hasattr(loc,'ellipse'): 
                     a, qual, delta_ts = loc.ellipse['a'], loc.ellipse['qual'], loc.delta_ts
                     tsize = min(a*15., 2.0)
-                    bad = a>0.20 or qual>5 or abs(delta_ts)>4
+                    bad = a>0.25 or qual>5 or abs(delta_ts)>2
                     if bad:
-                        print 'Flagged as possibly bad: a,qual, delta_ts:', a, qual, delta_ts
+                        print 'Flagged as possibly bad: a>0.25 or qual>5 or abs(delta_ts)>2:', a, qual, delta_ts
                 else: 
                     print 'no localization'
                     bad = True
