@@ -1,3 +1,5 @@
+### NB -- REALLY NEED TO GENERALIZE THIS FOR POST-2PC WORLD
+### AND MAKE EXPLICIT WHAT IS HAPPENING FOR EACH PROFILE.
 
 import numpy as np
 import os
@@ -5,31 +7,30 @@ import os
 class Profile(object):
     """ Encapsulate the profile with its identifying information."""
 
-    """
-    defaults = (
-        ('ncol',2,'The column containing the Stokes I parameter.'),
-        ('freq',1.4,'The observing frequency in GHz.')
-    )
-    """
-
-    #@keyword_options.decorate(defaults)
-    def __init__(self,profile,jname=None,custom=None,**kwargs):
+    def __init__(self,profile,jname=None,custom=False,**kwargs):
         """ profile -- the (ASCII) radio profile file """
-        #keyword_options.process(self,kwargs)
         self.pfile = profile
         self.jname = jname
         self.obs = None
         self.freq = None
+        self.fharm = False # apply "Princeton" convention
 
         ### default values -- will be updated automatically for profile type
         self.ncol = 2 # the ascii column with the Stokes I parameter (from 1)
         self.fidpt = 0 # fiducial point of TOAs relative to profile
         ###
 
+        # override any defaults with user-specified versions
+        self.__dict__.update(**kwargs)
+
         if not custom:
             self._process()
-        else:
-            self.__dict__.update(custom)
+
+        print 'Loaded profile %s with the following procedure/properties:'%profile
+        print '... OBS = %s'%(self.obs)
+        print '... FRQ = %s'%('%.2f'%self.freq if self.freq is not None else 'None') 
+        print '... Fiducial Point = %.4f'%(self.fidpt)
+        print '... Aligned to First Harmonic? %s'%('YES' if self.fharm else 'NO')
 
     def _process_comments(self):
         """ Look for information encoded (by me) in profile.  This will
@@ -169,6 +170,7 @@ class Profile(object):
     def _first_harmonic(self):
         """ Compute the zero of phase of a radio profile by determining the 
             position of the fundamental peak."""
+        self.fharm = True
         TWOPI = 2*np.pi
         self.fidpt = 0
         vals = self.get_amplitudes(align_to_peak=False)[0]
