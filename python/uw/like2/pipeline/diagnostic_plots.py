@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.121 2013/06/02 03:49:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.122 2013/06/04 18:33:24 burnett Exp $
 
 """
 
@@ -923,7 +923,7 @@ class ROIinfo(Diagnostics):
 
 
 class Environment(ROIinfo):
-    """ Plots associated with the enviornment"""
+    """ Plots associated with the environment"""
 
     
     def setup(self, **kw):
@@ -943,7 +943,7 @@ class Environment(ROIinfo):
         ROIs are distributed uniformly over the sky.
         <p>Use the fact that the isotopic diffuse compoenent is isotropic, so that
         the ratio of the computed counts, to the fit normalization, is proportional
-        to the exposure.
+        to the exposure. This involves all energies, but is weighted according to the isotropic diffuse.
 
         <br>Left: histogram, center: scatter plot vs. Declination; right: map on sky, in Galactic coordinates.
         
@@ -2388,7 +2388,7 @@ class UWsourceComparison(SourceInfo):
         self.odf = pd.load(otherfilename)
 
     def compare(self):
-        """Compare values of various fit parameters
+        """Ratios of values of various fit parameters
         """
         fig, ax = plt.subplots(4,1, figsize=(12,12), sharex=True)
         plt.subplots_adjust(hspace=0.05)
@@ -2406,25 +2406,27 @@ class UWsourceComparison(SourceInfo):
             ax.axhline(1, color='k')
             ax.legend(prop=dict(size=10))
             ax.grid()
+            yhigh = y[cut*(df.ts>200)]
+            print '%-6s %3d %5.3f +/- %5.3f ' % (ylabel, len(yhigh), yhigh.mean(),  np.sqrt(yhigh.std()/len(yhigh)))
 
         def plot_pindex(ax,  ylim=(0.9,1.1)):
             cut=df.beta<0.01
             y = df.pindex/df.pindex_old
-            plot_ratio(ax, y, cut, ylim, 'index ratio')
+            plot_ratio(ax, y, cut, ylim, 'index')
             ax.set_xlabel('TS')
         def plot_ts(ax, rdts=(0.5,1.5)):
             y = df.ts/(df.ts_old +0.1)
             cut=df.ts>10
-            plot_ratio(ax, y, cut, rdts,  'TS ratio')
+            plot_ratio(ax, y, cut, rdts,  'TS')
         def plot_flux(ax, ylim=(0.5, 1.5)):
             y = df.eflux/df.eflux_old
             cut = df.ts>10
-            plot_ratio(ax, y, cut, ylim, 'Eflux ratio')
+            plot_ratio(ax, y, cut, ylim, 'Eflux')
             
         def plot_semimajor(ax, ylim=(0.5,1.5)):
             y = df.a/df.a_old
             cut = df.ts>10
-            plot_ratio(ax, y, cut, ylim, 'r95 ratio')
+            plot_ratio(ax, y, cut, ylim, 'r95')
             
         for f, ax in zip((plot_ts, plot_flux, plot_pindex,plot_semimajor,), ax.flatten()): f(ax)
         return fig
@@ -2449,6 +2451,7 @@ class Associations(SourceInfo):
         self.df['aprob'] = np.array([ probfun(assoc) for  assoc in self.df.associations])
         self.df['acat']  = np.array([ assoc['cat'][0] if assoc is not None else 'unid' for  assoc in self.df.associations])
         self.df['adeltats'] = np.array([assoc['deltats'][0] if assoc is not None else np.nan for assoc in self.df.associations])
+        self.df['aname']  = np.array([ assoc['name'][0] if assoc is not None else 'unid' for  assoc in self.df.associations])
         self.df10 = self.df.ix[self.df.ts>10]
         print 'associated: %d/%d' % (sum(self.df10.aprob>0.8), len(self.df10))
         
@@ -2500,7 +2503,12 @@ class Associations(SourceInfo):
         if sum(lat.delta>0.25)>0:
             self.atable += '<p>Pulsars located > 0.25 deg from nominal'\
                     + lat[lat.delta>0.25]['ts delta'.split()].to_html()
-
+        psrx = np.array([x in 'pulsar_fom pulsar_low msp'.split() for x in self.df.acat])
+        print '%d sources found in other pulsar catalogs' % sum(psrx)
+        if sum(psrx)>0:
+            self.atable+= '<p>%d sources with pulsar association not in LAT pulsar catalog' % sum(psrx)
+            self.atable+= self.df[psrx]['aprob acat aname ts delta_ts locqual'.split()].to_html(float_format=FloatFormat(1))        
+        
     def localization_check(self, tsmin=10, dtsmax=9):
         """Localization resolution test
         The association procedure records the likelihood ratio for consistency of the associated location with the 
@@ -2508,7 +2516,7 @@ class Associations(SourceInfo):
         source. The distribution in this quantity should be an exponential, exp(-TS/2/f**2), where f is a scale factor
         to be measured from the distribution. If the PSF is a faithful representation of the distribution of photons
         from a point source, f=1. For 1FGL and 2FGL we assumed 1.1. The plots show the results for AGN, LAT pulsars, and
-        all other associations. They are cut off at 9, corresponding to 95% containment.
+        all other associations. They are cut off at 9, corresponding to 95 percent containment.
         """
         c1 = 0.95 # for 3 sigma
         r = -np.log(1-c1)
