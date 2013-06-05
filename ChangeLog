@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Jun  4 17:30:19 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	radio_profile.py 
+Log Message:
+First attempt at a clean, generalized profile.
+
+    *
+------------------------------------------------------------
 User: kerrm  Tue Jun  4 15:14:49 PDT 2013
 pointlike/python/uw/pulsar
 
