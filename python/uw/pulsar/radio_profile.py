@@ -273,4 +273,100 @@ class FullStokesProfile(Profile):
         i,q,u,v,pa,pae = self._get_data()
         return self.get_amplitudes(phases=v,**kwargs)
         
+class ASCIIProfile(object):
+    """ Ingest an ASCII profile for which one of the columns is the
+        Stokes I parameter.  Can associate additional information."""
+
+    def __init__(self,profile,ncol=4,fidpt=0,harm_align=False,peak_align=False,jname=None,obs=None,freq=None):
+        """ profile -- the (ASCII) radio profile file
+            ncol -- the column (numbered from 1) with the Stokes I param
+            fidpt -- phase of the left edge of the first bin
+            harm_align -- put fidpt at phase of first harmonic
+            peak_align -- put fidpt at phase of flux peak
+            jname -- pulsar JName
+            obs -- observatory
+            freq -- observation frequency"""
+        self.pfile = profile
+        self.ncol = ncol
+        self.fidpt = fidpt
+        self.harm_align = harm_align
+        self.peak_align = peak_align
+        self.jname = jname
+        self.obs = None
+        self.freq = None
+
+        # read in amplitudes
+        try:
+            self.amps = np.loadtxt(self.pfile,comments='#')[:,self.ncol-1]
+        except IndexError:
+            self.amps = np.loadtxt(self.pfile,comments='#')
+        if len(self.amps.shape) > 1:
+            raise ValueError('Could not read profile values.')
+
+        if harm_align:
+            if peak_align:
+                raise ValueError('Cannot align to both peak and first harmonic!')
+            if fidpt != 0:
+                print 'Warning!  Specified a non-zero fiducial point as well as the first harmonic convention -- this is typically not what you want!'
+            self._align_harm()
+
+        if peak_align:
+            self._align_peak()
+
+        self._print_status()
+
+    def _print_status(self):
+
+        print 'Loaded profile %s with the following procedure/properties:'%(self.pfile)
+        print '... OBS = %s'%(self.obs)
+        print '... FRQ = %s'%('%.2f'%self.freq if self.freq is not None else 'None') 
+        print '... Fiducial Point = %.4f'%(self.fidpt)
+        print '... Aligned to First Harmonic? %s'%('YES' if self.harm_align else 'NO')
+        print '... Aligned to Peak? %s'%('YES' if self.peak_align else 'NO')
+
+    def _align_harm(self):
+        """ Compute the zero of phase of a radio profile by determining the 
+            position of the fundamental peak."""
+        TWOPI = 2*np.pi
+        vals = self.amps
+        ph = np.linspace(0,TWOPI,len(vals)+1)[:-1] # LEFT bin edges
+        a1 = (np.sin(ph)*vals).sum()
+        a2 = (np.cos(ph)*vals).sum()
+        self.fidpt = np.mod( self.fidpt + np.arctan2(a1,a2)/TWOPI, 1)
+
+    def _align_peak(self):
+        self.roll_idx = np.argmax(self.amps)
+        self.fidpt = float(self.roll_idx)/len(self.amps)
+
+    def get_amplitudes(self,bin_goal=None,phase_shift=0):
+        """ Return a list of amplitudes starting at phase=0.  If the
+            fiducial point is not at 0, the amplitudes will be linearly
+            interpolated as required.
+
+            bin_goal [None] -- will attempt to average the light curve to
+                between between bin_goal and 2xbin_goal bins
+
+            phase_shift [0] -- any additional phase shift to be applied
+        """
+        if self.peak_align:
+            amps = np.roll(self.amps,-self.roll_idx).copy()
+            fidpt = 0.
+        else:
+            amps = self.amps.copy()
+            fidpt = self.fidpt
+
+        phase_shift -= fidpt
+
+        x0 = np.linspace(0,1,len(amps)+1)[:-1]
+        x = np.concatenate((x0-1,x0,x0+1,[2]))
+        y = np.concatenate((amps,amps,amps,[amps[0]]))
+        rvals = np.interp(x0-phase_shift,x,y)
+
+        if bin_goal > 0:
+            if len(rvals) % 2 > 0: 
+                rvals = np.append(rvals,rvals[0])
+            while len(rvals) > bin_goal:
+                rvals = (rvals[:-1:2]+rvals[1::2])/2
+            print 'Using %d profile bins with a goal of %d.'%(len(rvals),bin_goal)
+        return rvals
         
