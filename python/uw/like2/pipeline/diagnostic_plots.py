@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.123 2013/06/05 14:03:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.124 2013/06/05 14:17:21 burnett Exp $
 
 """
 
@@ -22,6 +22,30 @@ from uw.utilities import makepivot
 class FloatFormat(): #simple formatting functor for to_html!
     def __init__(self, n): self.fmt = '%%.%df' % n
     def __call__(self, x): return self.fmt % x
+
+def html_table( df, heading, href=True, **kw):
+    """ utility to reformat a pandas-generated html table
+    df : a DataFrame
+    heading : dict
+        keys are column names
+        items - comma-delimited string, first field the title to use instead of the column name, rest an explanation
+    href : bool
+         if True, replace index names with link to sedrec
+    """
+    t = df.to_html(**kw)
+    for h, item in heading.items():
+        try:
+            newhead,title=item.split(',',1)
+        except: 
+            print '***fail to parse html_table data:',item
+            continue
+        t = t.replace('>'+h+'<', ' title="%s">%s<'% (title, newhead if newhead!='' else h))
+    if href:
+       for n in df.index:
+           fn = 'sedfig/' + n.replace(' ','_').replace('+','p') + '_sed.png'
+           if not os.path.exists(fn): continue
+           t = t.replace('>'+n+'<', '><a href="../../%s">%s<' %(fn,n))
+    return t
 
 class Diagnostics(object):
     """ basic class to handle data for diagnostics, collect code to make plots
@@ -2437,7 +2461,8 @@ class UWsourceComparison(SourceInfo):
         self.runfigures([self.compare,  ])
                 
 class Associations(SourceInfo):
-    """ Analysis of associations
+    """<h2> Analysis of associations</h2>
+    <p>
     A feature of the UW pipeline is the application of the LAT association algorithm, with the same catalogs as
     were used for 2FGL, except that the latest LAT pulsar catalog is used. Note that priors are not recalculated,
     we use the values determined for 2FGL. 
@@ -2500,18 +2525,32 @@ class Associations(SourceInfo):
         self.atable += '<h3>Compare with LAT pulsar catalog: %s</h3>' % os.path.split(pulsar_lat_catname)[-1]
         self.atable += '<p>Sources fit with exponential cutoff not in catalog %s' %list(tt.difference(dc2names))
         self.atable += '<p>%d LAT catalog entries not in the model (TS shown as NaN), or too weak.' % sum(missing)
-        self.atable += lat[missing]['RAJ2000 DEJ2000 ts ROI_index'.split()].to_html()
+        self.atable += html_table(lat[missing]['RAJ2000 DEJ2000 ts ROI_index'.split()],
+                    dict(ts='TS,Test Statistic', ROI_index='ROI Index,Index of the ROI, a HEALPix ring index'),
+                    float_format=(FloatFormat(2)))
         if sum(lat.delta>0.25)>0:
             self.atable += '<p>Pulsars located > 0.25 deg from nominal'\
-                    + lat[lat.delta>0.25]['ts delta'.split()].to_html()
+                    + lat[lat.delta>0.25]['ts delta'.split()].to_html(float_format=FloatForamt(2))
         psrx = np.array([x in 'pulsar_fom pulsar_low msp'.split() for x in self.df.acat])
         print '%d sources found in other pulsar catalogs' % sum(psrx)
         if sum(psrx)>0:
             self.atable+= '<p>%d sources with pulsar association not in LAT pulsar catalog' % sum(psrx)
-            self.atable+= self.df[psrx]['aprob acat aname aang ts delta_ts locqual'.split()].to_html(float_format=FloatFormat(2))        
+            self.atable+= html_table(self.df[psrx]['aprob acat aname aang ts delta_ts locqual'.split()],
+                          dict(name='Source Name,click for link to SED',
+                          ts='TS,Test Statistic for the source', 
+                          acat='catalog,Catalog nickname',
+                          aprob='Probability,Association probability',
+                          aname='Source Name,Catlog name for the source',
+                          aang='Angle,distance to the catalog source (deg)',
+                          delta_ts='Delta TS,change in TS to the catalog source\n'
+                                          'should be positive negative means peak of TS map was not at source',
+                          locqual='Localization quality,measure of the goodness of the localization fit\n greater than 5 is questionable',
+                          ),
+                          float_format=FloatFormat(2))        
         
     def localization_check(self, tsmin=10, dtsmax=9):
         """Localization resolution test
+        
         The association procedure records the likelihood ratio for consistency of the associated location with the 
         fit location, expressed as a TS, or the difference in the TS for source at the maximum, and at the associated
         source. The distribution in this quantity should be an exponential, exp(-TS/2/f**2), where f is a scale factor
