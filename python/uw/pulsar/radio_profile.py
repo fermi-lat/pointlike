@@ -4,6 +4,14 @@
 import numpy as np
 import os
 
+def profile_shift(amps,shift):
+    """ Shifts profile left (earlier in phase) if shift > 0.
+        NB shift is not in # of bins, but in phase [0,1)."""
+    f = np.fft.fft(amps)
+    n = len(amps)
+    freq = (np.pi*2.j*shift*n)*np.fft.fftfreq(n)
+    return np.real(np.fft.ifft(f*np.exp(freq)))
+
 class Profile(object):
     """ Encapsulate the profile with its identifying information."""
 
@@ -348,19 +356,8 @@ class ASCIIProfile(object):
 
             phase_shift [0] -- any additional phase shift to be applied
         """
-        if self.peak_align:
-            amps = np.roll(self.amps,-self.roll_idx).copy()
-            fidpt = 0.
-        else:
-            amps = self.amps.copy()
-            fidpt = self.fidpt
-
-        phase_shift -= fidpt
-
-        x0 = np.linspace(0,1,len(amps)+1)[:-1]
-        x = np.concatenate((x0-1,x0,x0+1,[2]))
-        y = np.concatenate((amps,amps,amps,[amps[0]]))
-        rvals = np.interp(x0-phase_shift,x,y)
+        amps = self.amps.copy()
+        rvals = profile_shift(amps,self.fidpt+phase_shift)
 
         if bin_goal > 0:
             if len(rvals) % 2 > 0: 
