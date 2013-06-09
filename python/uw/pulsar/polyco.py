@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.7 2013/04/01 06:56:56 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.8 2013/04/27 17:39:33 kerrm Exp $
 
 Mange polycos from tempo2.
 
@@ -46,6 +46,17 @@ class PolycoEntry:
         phase -= math.floor(phase)
         if phase < 0.0 or phase >= 1.0:
             print "BAD PHASE ",phase
+        return(phase)
+
+    def evalabsphase(self,t):
+        '''Return the phase at time t, computed with this polyco entry'''
+        dt = (t-self.tmid)*1440.0
+        # Compute polynomial by factoring out the dt's
+        phase = self.coeffs[self.ncoeff-1]
+        for i in range(self.ncoeff-2,-1,-1):
+            phase = self.coeffs[i] + dt*phase
+        # Add DC term
+        phase += self.rphase + dt*60.0*self.f0
         return(phase)
 
     def evalfreq(self,t):
@@ -204,6 +215,11 @@ class Polyco:
         """ Return the phases for a vector of times; NB times should be in
             MJD @ GEO."""
         return self._vec_eval(times,PolycoEntry.evalphase)
+
+    def vec_evalabsphase(self,times):
+        """ Return the phases for a vector of times; NB times should be in
+            MJD @ GEO."""
+        return self._vec_eval(times,PolycoEntry.evalabsphase)
 
     def vec_evalfreq(self,times):
         """ Return the phases for a vector of times; NB times should be in
