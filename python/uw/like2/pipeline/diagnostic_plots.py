@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.125 2013/06/05 18:29:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.128 2013/06/09 14:47:52 burnett Exp $
 
 """
 
@@ -2401,7 +2401,7 @@ class GtlikeComparison( SourceComparison):
     
 
 class UWsourceComparison(SourceInfo):
-    """Comparision with another UW model
+    """Comparision with another UW model: %(othermodel)s
     """
     def setup(self, othermodel='uw25'):
         super(UWsourceComparison,self).setup()
@@ -2456,11 +2456,50 @@ class UWsourceComparison(SourceInfo):
             
         for f, ax in zip((plot_ts, plot_flux, plot_pindex,plot_semimajor,), ax.flatten()): f(ax)
         return fig
+    
+    def band_comparison(self):
+        """Band flux ratios
+        For each of the 12 energy bands from 100 MeV to 100 GeV, plot ratio of fits for each source in common
+        """
+        fnow=self.df.sedrec[0].flux
+        fold=self.odf.sedrec[0].flux
+        self.df['sedrec_old'] = self.odf.sedrec
+        fnew = np.array([s.flux for s in self.df.sedrec])
+        fold = np.array([s.flux if type(s)!=float else [np.nan]*14 for s in self.df.sedrec_old])
+        energy = np.logspace(2.125, 5.125, 13) # 4/decade
+        
+        fig, axx = plt.subplots(3,4, figsize=(12,9), sharex=True, sharey=True)
+        plt.subplots_adjust(wspace=0.05, hspace=0.05)
+        def plotone(ib, ax):
+            ok = fold[:,ib]>1
+            r =fnew[:,ib][ok]/fold[:,ib][ok]
+            ax.plot(fold[:,ib][ok].clip(1,1e3), r, '.');
+            plt.setp(ax, xscale='log', ylim=(0.5,1.5))
+            ax.axhline(1.0, color='k')
+            ax.text( 100, 1.4 ,'%d'% energy[ib], fontsize=10)
+
+        for ib,ax in enumerate(axx.flatten()): plotone(ib, ax)
+        axx[0,0].set_xlim(1,1e3)
+        fig.text(0.5, 0.05, 'Energy flux (eV/cm**2/s)', ha='center')
+        
+        return fig
+        
+    def quality_comparison(self):
+        """FIt quality comparison
+        Compare the spectral fit quality of the reference model with this one. All sources in common with TS>50, are shown.
+        """
+        fig, ax = plt.subplots(figsize=(5,5))
+        lim=(0,30)
+        cut = self.df.ts>50
+        self.df['fitqual_old'] = self.odf.fitqual
+        new, old = self.df.fitqual.clip(*lim)[cut], self.df.fitqual_old.clip(*lim)[cut]
+        ax.plot(old, new ,  '.')
+        ax.plot(lim, lim, color='r')
+        plt.setp(ax, xlim=lim, ylim=lim, xlabel='old fit quality', ylabel='new fit quality')
+        return fig
         
     def all_plots(self):
-        """Results of comparison with UW version %(othermodel)s 
-        """
-        self.runfigures([self.compare,  ])
+        self.runfigures([self.compare, self.band_compare, self.quality_comparison ])
                 
 class Associations(SourceInfo):
     """<h2> Analysis of associations</h2>
@@ -2483,19 +2522,34 @@ class Associations(SourceInfo):
         self.df10 = self.df.ix[self.df.ts>10]
         print 'associated: %d/%d' % (sum(self.df10.aprob>0.8), len(self.df10))
         
-    def association_vs_ts(self):
-        """ Association vs. TS
+    def association_vs_ts(self, aprob_min=0.5):
+        """ Associations vs. TS
         
-        Histogram of TS, showing the fraction that have associations.
+        <br>Left: histogram of TS, showing the fraction that have associations.
+        <br>Right: The fractions themselves.
         """
-        fig, ax = plt.subplots( figsize=(5,5))
-        bins = np.logspace(1,5,41)
-        ax.hist(self.df10.ts, bins, label='all sources')
-        ax.hist(self.df10.ts[self.df.aprob>0.8], bins, color='orange', label='associated')
-        plt.setp(ax, xscale='log', xlabel='TS', xlim=(10,1e5))
-        ax.legend(prop=dict(size=10)); ax.grid()
+        ts = self.df10.ts
+        assoc = self.df.aprob>aprob_min
+        def plota(ax, bins=np.logspace(1,5,41) ):
+            ax.hist(ts, bins, label='all sources')
+            ax.hist(ts[assoc], bins, color='orange', label='associated')
+            plt.setp(ax, xscale='log', xlabel='TS', xlim=(10,1e5))
+            ax.legend(prop=dict(size=10)); ax.grid()
+        def plotb(ax, bins=np.logspace(1,4.5,8)):
+            all = np.array(np.histogram(ts, bins)[0],float)
+            subset = np.histogram(ts[assoc], bins)[0]
+            fraction = (subset/all)
+            x = np.sqrt(bins[:-1]*bins[1:])
+            yerr = np.sqrt(subset*(all-subset)/all )/all
+            xerr = [x-bins[:-1], bins[1:]-x]
+            ax.errorbar(x=x, y=fraction,xerr=xerr, yerr=yerr, fmt= 'o', color='blue')
+            plt.setp(ax, xscale='log', xlim=(bins[0],bins[-1]), ylim=(0,1), xlabel='TS', ylabel='associated fraction')
+            ax.grid()
+        fig, axx = plt.subplots(1,2, figsize=(12,5))
+        plt.subplots_adjust(left=0.1)
+        for f,ax in zip((plota,plotb), axx.flatten()): f(ax) 
         return fig
-    
+            
     def make_table(self):
         t = dict()
         for c in self.df10.acat:
@@ -3440,7 +3494,7 @@ a:link { text-decoration: none ; color:green}
 a:hover { background-color:yellow; }
 </style>"""
 
-    menu_header="""<html> <head> <title>Plot index for model %(model)s </title> %(style)s 
+    menu_header="""<html> <head> <title>%(model)s index</title> %(style)s 
     <script> function load(){ parent.content.location.href = '%(model_summary)s';} </script>
     </head>
 <body onload="load()">
