@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.126 2013/06/08 16:14:38 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.125 2013/06/05 18:29:35 burnett Exp $
 
 """
 
@@ -30,7 +30,7 @@ def html_table( df, heading, href=True, **kw):
         keys are column names
         items - comma-delimited string, first field the title to use instead of the column name, rest an explanation
     href : bool
-         if True, replace index names with link to sedfig
+         if True, replace index names with link to sedrec
     """
     t = df.to_html(**kw)
     for h, item in heading.items():
@@ -334,11 +334,11 @@ class CountPlots(Diagnostics):
                 columns='rois delta_min delta_max delta_sum'.split(),
                 index=range(1,k))
         ihist.index.name='iteration'
-        im = config['input_model']['path']
-        self.iteration_info = """<p>Input model: <a href="%s/plots.index.html?skipDecoration">%s</a>
+        input_model=config['input_model']['path']
+        self.iteration_info = """<p>Input model: <a href="../../%s/plots/index.html?skipDecoration">%s</a>
         <p>Minimum, maximum numbers of iterations: %d %d 
         <p>Iteration history: log likelihood change for each step: \n%s
-        """ % (im,im, iters.min(), iters.max(), 
+        """ % (input_model,input_model, iters.min(), iters.max(), 
                 ihist.T.to_html(float_format=FloatFormat(1)) )
     
     def add_model_info(self):
@@ -1609,26 +1609,18 @@ class SourceInfo(Diagnostics):
             tails=t[tail_cut]['ts eflux pindex cutoff roiname'.split()]
             filename = 'pulsar_tails.html'
             html_file = self.plotfolder+'/%s' % filename
-            html = html_table(tails.sort_index(by='roiname'), 
-                dict(ts='TS,test statistic', eflux=',differential energy flux at pivot (eV/cm**2/s)',
-                    pindex='spectral index, photon spectral index', cutoff=',cutoff energy (MeV)',),
-                    float_format=FloatFormat(2))
+            html = tails.sort_index(by='roiname').to_html(float_format=FloatFormat(2))
             open(html_file,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+ html+'\n</body>')
-            self.pulsar_tail_check = '<p><a href="%s?skipDecoration">Table of %d sources on tails</a>: '% (filename, len(tails))
+            self.pulsar_tail_check = '<p><a href="%s">Table of %d sources on tails</a>: '% (filename, len(tails))
             self.pulsar_tail_check += 'Criteria: require index between 0 and 2.5, cutoff<8 GeV'
         else:
             self.pulsar_tail_check ='<p>No sources on tails'
         #psr = np.array([n.startswith('PSR') for n in self.df.index], bool)
         #t = self.df.ix[(self.df.ts>10)*psr]['ts flux pindex cutoff index2 index2_unc e0 roiname fitqual'.split()]
-        t2= t[t.index2<1]['ts fitqual pindex cutoff index2 index2_unc '.split()]
-        t2['significance']= (1-t2.index2)/t2.index2_unc
-        tt=html_table(t2,  dict(ts='TS,test statistic', fitqual='Fit quality,chisq-like value',
-                        pindex='photon index,', index2='b,the b parameter', 
-                        index2_unc='sigma b,statistical uncertainty', 
-                        significance=',(1-b)/sigma(b)\nsignificance of difference from 1'),
-            float_format=FloatFormat(2))
+        t['significance']=(1-t.index2)/t.index2_unc
+        tt=t[t.index2<1]['ts fitqual pindex cutoff index2 index2_unc significance'.split()].to_html(float_format=FloatFormat(2))
+
         self.pulsar_b="""<p>Table of pulsar spectra with b<1\n""" +tt
-        
         return fig
     
     def ecliptic_hist(self, ax=None, title=''):
@@ -1884,7 +1876,7 @@ class SourceInfo(Diagnostics):
         %(census_html)s
         <p>
         The columns are the number of sources with TS greater than the header value. 
-        The row labels are the first three characters of the source name, except 'ext' means extended.
+        The row labels are the first four characters of the source name, except 'ext' means extended.
         """
         df = self.df
         extended = np.asarray(df.isextended.values,bool)
@@ -1897,7 +1889,7 @@ class SourceInfo(Diagnostics):
                 return sum(df.ts>tsmin)
             names = df[pointsource*(df.ts>tsmin)]['name'].values    
             return sum([n.startswith(prefix) for n in names])
-        prefixes = list(set( n[:3] for n in df[pointsource]['name'])) +['ext', 'total']
+        prefixes = list(set( n[:4] for n in df[pointsource]['name'])) +['ext', 'total']
 
         census = dict()
         for x in (0, 10, 25):
@@ -2544,10 +2536,6 @@ class Associations(SourceInfo):
         psrx = np.array([x in 'pulsar_fom pulsar_low msp'.split() for x in self.df.acat])
         print '%d sources found in other pulsar catalogs' % sum(psrx)
         if sum(psrx)>0:
-            def sedref(name):
-                fn = name.replace(' ','_').replace('+', 'p')
-                return '<a href="../../%s_sed.png">%s</a>' % (fn,name)
-            self.df['sedref'] =map (sedref, self.df.index)
             self.atable+= '<p>%d sources with pulsar association not in LAT pulsar catalog' % sum(psrx)
             self.atable+= html_table(self.df[psrx]['aprob acat aname aang ts delta_ts locqual'.split()],
                           dict(name='Source Name,click for link to SED',
@@ -3091,10 +3079,6 @@ class IsotropicSpectra(GalacticSpectra):
         
 
 class SeedCheck(SourceInfo):
-    """ Results of analysis of seeds
-    %(info)s
-    """
-
     require='seedcheck.zip'
     def setup(self, **kw):
         self.plotfolder = self.seedname='seedcheck'
@@ -3123,11 +3107,10 @@ class SeedCheck(SourceInfo):
                 badfit = True
             has_adict = hasattr(source,'adict') and source.adict is not None
             sdict[name] = dict(
-                ra =source.skydir.ra(), dec=source.skydir.dec(), 
+                ra =source.skydir.ra(), dec=source.skydir.dec(),
                 ts=source.ts,
-                delta_ts=source.ellipse[6] if hasattr(source, 'ellipse') else np.nan,
+                delta_ts=source.ellipse[5] if hasattr(source, 'ellipse') else np.nan,
                 r95 = 2.6*source.ellipse[2] if hasattr(source, 'ellipse') else np.nan,
-                locqual= source.ellipse[5] if hasattr(source, 'ellipse') else np.nan,
                 glat=source.skydir.b(), glon=source.skydir.l(),
                 eflux=pars[0] * model.e0**2 *1e6,
                 eflux_unc=errs[0] * model.e0**2 *1e6 if errs[0]>0 else np.nan,
@@ -3148,7 +3131,7 @@ class SeedCheck(SourceInfo):
                 adict = source.adict if has_adict else None,
                 )
         self.df = pd.DataFrame(pd.DataFrame(sdict).transpose(), 
-            columns='ra dec glat glon ts delta_ts locqual eflux eflux_unc pindex pindex_unc par2 par2_unc e0 r95 aprob index'.split() 
+            columns='ra dec glat glon ts delta_ts eflux eflux_unc pindex pindex_unc par2 par2_unc e0 r95 aprob index'.split() 
             )
         self.df.index.name='name'
         self.assoc = pd.DataFrame(assoc).transpose()
@@ -3163,24 +3146,11 @@ class SeedCheck(SourceInfo):
         #self.psr = [  s is not None and ('pulsar' in s or 'msp' in s ) for s in t] * associated
         #self.agn = [  s is not None and ('agn' in s or 'crates' in s or 'bzcat' in s or 'bllac' in s or 'qso' in s or 'cgrabs' in s) for s in t] * associated
     
-    def select_candidates(self, tsmin=6, locqual_max=8, r95_max=0.6):
-        selection = (self.df.ts>tsmin)*(self.df.r95<r95_max)*(self.df.locqual<locqual_max)
-        t=self.df[selection]['ra dec ts pindex locqual r95 aprob'.split()]
+    def select_candidates(self, tsmin):
+        t=self.df[(self.df.ts>tsmin)*(self.df.r95<0.6)]['ra dec ts pindex r95 aprob'.split()]#.sort_index(by='ts')
         t['acat']=self.assoc.acat
         t['aname']=self.assoc.aname
-        good_seeds = 'good_seeds.csv'
-        t.to_csv(good_seeds)
-        print 'wrote list that satisfied selection cuts (%d/%d) to %s' % (len(t), len(self.df), good_seeds)
-        self.info = ' ' 
-        self.info += '<h3> Selected TS>%.0f and localized</h3>' %tsmin
-        self.info += html_table(t, dict(ts='TS,', pindex='photon index,', r95='R95 (deg),',acat='Assoc. cat,'),
-            float_format=FloatFormat(2))
-        self.info += '<h3>Association summary:</h3>' #\n<pre>%s\n</pre>' %self.assoc_sum
-        self.info += '<table border="1"><thead><tr><th>Catalog</th><th>Sources</th></tr></thead>\n<tbody>'
-        for (c,n) in  self.assoc_sum:
-            self.info += '<tr><td>%s</td><td>%5d</td></tr>' % (c,n)
-        self.info += '</tbody></table>\n'
-        return self.info
+        return t
     
     def seed_cumulative_ts(self, cut=None, label='all seeds'):
         """ Cumulative TS distribution for seeds 
@@ -3216,7 +3186,7 @@ class SeedCheck(SourceInfo):
             self.histo(ax, v[~pd.isnull(v)], bins)
             plt.setp(ax, xlabel='r95 (arcmin)')
         def delta_ts(ax):
-            v = np.sqrt(np.abs(self.df.delta_ts.values)); bins = np.linspace(0,10,26)
+            v = np.sqrt(list(self.df.delta_ts)); bins = np.linspace(0,10,26)
             self.histo(ax, v, bins)
             plt.setp(ax, xlabel='sqrt(delta_ts)', xlim=(0,10))
 
@@ -3232,13 +3202,12 @@ class SeedCheck(SourceInfo):
         fig, ax = plt.subplots(2,2, figsize=(12,12))
         good = self.df.ts>10
         super = self.df.ts>25
-        def flux_index(ax, xlim=(0.1,10), ylim=(0.5, 3.5)):
+        def flux_index(ax):
             for cut, c,label in zip((good, super), ('.b', 'or'), ('TS>10', 'TS>25')):
-                ax.plot(self.df.eflux.clip(*xlim)[cut], self.df.pindex.clip(*ylim)[cut], c, label=label)
+                ax.plot(self.df.eflux[cut], self.df.pindex[cut], c, label=label)
             ax.grid()
-            ax.legend(loc='lower left', prop=dict(size=10))
-            plt.setp(ax, ylim=ylim, xlim=xlim, xscale='log', 
-                ylabel='spectral index', xlabel='enegy flux (eV)')
+            ax.legend(prop=dict(size=10))
+            plt.setp(ax, ylim=(0.5,3.0), xlim=(0.1,10), xscale='log', ylabel='spectral index', xlabel='enegy flux (eV)')
         def singlat(ax):
             v = np.sin(np.radians(list(self.df.glat))); bins=np.linspace(-1,1,26)
             self.histo(ax, v, bins)
@@ -3265,9 +3234,27 @@ class SeedCheck(SourceInfo):
         """ Positions
         """
         return self.skyplot(self.df.ts)
-  
+        
     def all_plots(self):
-        self.select_candidates()
+        """ Results of analysis of seeds
+        %(info)s
+        """
+        #t=self.df[(self.df.ts>6)*(-self.df.r95.isnull())]['ra dec ts pindex r95 aprob index'.split()]#.sort_index(by='ts')
+        #t['acat']=self.assoc.acat
+        #t['aname']=self.assoc.aname
+        tsmin = 6
+        t = self.select_candidates(tsmin)
+        good_seeds = 'good_seeds.csv'
+        t.to_csv(good_seeds)
+        print 'wrote list that succeeded to %s' % good_seeds
+        self.info = ' ' #self.df.describe().to_html()
+        self.info += '<h3> Selected TS>%.0f and localized</h3>' %tsmin
+        self.info += t.to_html()
+        self.info += '<h3>Association summary:</h3>' #\n<pre>%s\n</pre>' %self.assoc_sum
+        self.info += '<table border="1"><thead><tr><th>Catalog</th><th>Sources</th></tr></thead>\n<tbody>'
+        for (c,n) in  self.assoc_sum:
+            self.info += '<tr><td>%s</td><td>%5d</td></tr>' % (c,n)
+        self.info += '</tbody></table>\n'
         self.runfigures([self.seed_cumulative_ts, self.spectral_parameters, self.localization,])
         
 class PulsarSeedCheck(SeedCheck):
