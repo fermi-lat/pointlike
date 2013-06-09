@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.128 2013/06/09 14:47:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.129 2013/06/09 14:49:24 burnett Exp $
 
 """
 
@@ -2416,8 +2416,6 @@ class UWsourceComparison(SourceInfo):
     def compare(self):
         """Ratios of values of various fit parameters
         """
-        fig, ax = plt.subplots(4,1, figsize=(12,12), sharex=True)
-        plt.subplots_adjust(hspace=0.05)
         self.df['pindex_old']=self.odf.pindex
         self.df['ts_old'] = self.odf.ts
         self.df['eflux_old']=self.odf.eflux
@@ -2454,35 +2452,54 @@ class UWsourceComparison(SourceInfo):
             cut = df.ts>10
             plot_ratio(ax, y, cut, ylim, 'r95')
             
+        fig, ax = plt.subplots(4,1, figsize=(12,12), sharex=True)
+        plt.subplots_adjust(hspace=0.05, left=0.1, bottom=0.1)
         for f, ax in zip((plot_ts, plot_flux, plot_pindex,plot_semimajor,), ax.flatten()): f(ax)
         return fig
     
-    def band_comparison(self):
+    def band_comparison(self, hist=False):
         """Band flux ratios
-        For each of the 12 energy bands from 100 MeV to 100 GeV, plot ratio of fits for each source in common
+        For each of the 12 energy bands from 100 MeV to 100 GeV, plot ratio of fits for each source in common. 
         """
+        
         fnow=self.df.sedrec[0].flux
         fold=self.odf.sedrec[0].flux
+        hilat = np.abs(self.df.glat>10)
         self.df['sedrec_old'] = self.odf.sedrec
         fnew = np.array([s.flux for s in self.df.sedrec])
         fold = np.array([s.flux if type(s)!=float else [np.nan]*14 for s in self.df.sedrec_old])
         energy = np.logspace(2.125, 5.125, 13) # 4/decade
         
-        fig, axx = plt.subplots(3,4, figsize=(12,9), sharex=True, sharey=True)
-        plt.subplots_adjust(wspace=0.05, hspace=0.05)
-        def plotone(ib, ax):
+        def plotone(ib, ax, ylim=(0.5,1.5)):
             ok = fold[:,ib]>1
-            r =fnew[:,ib][ok]/fold[:,ib][ok]
-            ax.plot(fold[:,ib][ok].clip(1,1e3), r, '.');
-            plt.setp(ax, xscale='log', ylim=(0.5,1.5))
-            ax.axhline(1.0, color='k')
-            ax.text( 100, 1.4 ,'%d'% energy[ib], fontsize=10)
+            strong= fold[:,ib]>10
+            ratio = lambda q: fnew[:,ib][q]/fold[:,ib][q]
+            if hist:
+                bins = np.linspace(0.5,1.5,41)
+                ax.hist(ratio(ok).clip(*ylim), bins)
+                ax.hist(ratio(strong).clip(*ylim), bins, color='orange')
+                plt.setp(ax, xscale='linear', xlim=ylim)
+                ax.axvline(1.0, color='k')
+            else:
+                ax.plot(fold[:,ib][ok].clip(1,1e3), ratio(ok), '.');
+                plt.setp(ax, xscale='log', ylim=(ylim))
+                ax.axhline(1.0, color='k')
+            ax.text(0.95, 0.9,'%d MeV'% energy[ib], ha='right', fontsize=10, transform = ax.transAxes)
 
+        fig, axx = plt.subplots(3,4, figsize=(14,12), sharex=True, sharey=not hist)
+        plt.subplots_adjust(wspace=0.2 if hist else 0.05, hspace=0.05, left=0.1, bottom=0.1)
         for ib,ax in enumerate(axx.flatten()): plotone(ib, ax)
-        axx[0,0].set_xlim(1,1e3)
-        fig.text(0.5, 0.05, 'Energy flux (eV/cm**2/s)', ha='center')
-        
+        if not hist: axx[0,0].set_xlim(1,1e3)
+        fig.text(0.5, 0.05, 'Flux ratio' if hist else 'Energy flux (eV/cm**2/s)', ha='center')
         return fig
+        
+    def band_comparison_hist(self):
+        """Band flux ratios: histograms
+        For each of the 12 energy bands from 100 MeV to 100 GeV, plot ratio of fits for each source in common. 
+        These histograms of the ratios show a strong subset.
+        """
+        return self.band_comparison(True)
+    
         
     def quality_comparison(self):
         """FIt quality comparison
@@ -2499,7 +2516,7 @@ class UWsourceComparison(SourceInfo):
         return fig
         
     def all_plots(self):
-        self.runfigures([self.compare, self.band_compare, self.quality_comparison ])
+        self.runfigures([self.compare, self.band_comparison, self.band_comparison_hist, self.quality_comparison ])
                 
 class Associations(SourceInfo):
     """<h2> Analysis of associations</h2>
