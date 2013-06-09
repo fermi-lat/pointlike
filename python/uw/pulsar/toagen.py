@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.10 2013/03/30 21:27:02 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.11 2013/04/27 17:39:58 kerrm Exp $
 
 Calculate TOAs with a variety of methods.
 
@@ -78,6 +78,14 @@ class TOAGenerator(object):
             
             tau,tau_err,prob = self.get_phase_shift(phases,weights,polyco_phase0)
             self.mean_err = (self.mean_err*ii + tau_err)/(ii+1)
+
+            # compute RMS between linear assumption and actual polyco
+            # over the integration period
+            dom = np.linspace(mjdstart,mjdstop,100)
+            ph = self.polyco.vec_evalabsphase(dom)
+            ph -= ph.min()
+            p = np.polyfit(dom-tmid,ph,1)
+            rms = (ph-np.polyval(p,dom-tmid)).std()*(1e6/freq) # mus
             
             # Prepare a string to write to a .tim file or to send to STDOUT
             toa = phase_time + (tau*period)/SECSPERDAY
@@ -86,7 +94,8 @@ class TOAGenerator(object):
             frame_label = 'BAT' if self.data.bary else 'GEO'
             weight_string = '' if (weights is None) else '-nwp %.2f'%(weights.sum())
             duration_string = '-tstart %s -tstop %s'%(mjdstart,mjdstop)
-            s = " %s 0.0 %.12f %.2f %s -i LAT %s -np %d %s -chanceprob %.2e -fracerr %.3f" % (frame_label,toa,toa_err,pe.obs,duration_string,len(phases),weight_string,prob,frac_err)
+            rms_string = '-drms %.2f'%(rms)
+            s = " %s 0.0 %.12f %.2f %s -i LAT %s -np %d %s -chanceprob %.2e -fracerr %.3f %s" % (frame_label,toa,toa_err,pe.obs,duration_string,len(phases),weight_string,prob,frac_err,rms_string)
             toas[ii] = toa
             err_toas[ii] = toa_err
             tim_strings.append(s)
