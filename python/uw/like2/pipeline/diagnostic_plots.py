@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.129 2013/06/09 14:49:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.130 2013/06/09 23:03:56 burnett Exp $
 
 """
 
@@ -2402,6 +2402,7 @@ class GtlikeComparison( SourceComparison):
 
 class UWsourceComparison(SourceInfo):
     """Comparision with another UW model: %(othermodel)s
+    All ratios are %(skymodel)s/%(othermodel)s
     """
     def setup(self, othermodel='uw25'):
         super(UWsourceComparison,self).setup()
@@ -2455,9 +2456,10 @@ class UWsourceComparison(SourceInfo):
         fig, ax = plt.subplots(4,1, figsize=(12,12), sharex=True)
         plt.subplots_adjust(hspace=0.05, left=0.1, bottom=0.1)
         for f, ax in zip((plot_ts, plot_flux, plot_pindex,plot_semimajor,), ax.flatten()): f(ax)
+        fig.text(0.5, 0.05, 'TS', ha='center')
         return fig
     
-    def band_comparison(self, hist=False):
+    def band_comparison(self, hist=False, flux_cut=10):
         """Band flux ratios
         For each of the 12 energy bands from 100 MeV to 100 GeV, plot ratio of fits for each source in common. 
         """
@@ -2472,7 +2474,7 @@ class UWsourceComparison(SourceInfo):
         
         def plotone(ib, ax, ylim=(0.5,1.5)):
             ok = fold[:,ib]>1
-            strong= fold[:,ib]>10
+            strong= fold[:,ib]>flux_cut
             ratio = lambda q: fnew[:,ib][q]/fold[:,ib][q]
             if hist:
                 bins = np.linspace(0.5,1.5,41)
@@ -2496,15 +2498,18 @@ class UWsourceComparison(SourceInfo):
     def band_comparison_hist(self):
         """Band flux ratios: histograms
         For each of the 12 energy bands from 100 MeV to 100 GeV, plot ratio of fits for each source in common. 
-        These histograms of the ratios show a strong subset.
+        These histograms of the ratios show the subset with energy flux>%(flux_cut)s
         """
-        return self.band_comparison(True)
+        self.flux_cut = 10.
+        return self.band_comparison(True, self.flux_cut)
     
         
     def quality_comparison(self):
         """FIt quality comparison
-        Compare the spectral fit quality of the reference model with this one. All sources in common with TS>50, are shown.
+        Compare the spectral fit quality of the reference model with this one. 
+        All sources in common with TS>50, are shown.
         """
+        
         fig, ax = plt.subplots(figsize=(5,5))
         lim=(0,30)
         cut = self.df.ts>50
