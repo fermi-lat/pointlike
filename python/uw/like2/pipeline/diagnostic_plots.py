@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.129 2013/06/09 14:49:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.132 2013/06/11 14:37:44 burnett Exp $
 
 """
 
@@ -961,6 +961,7 @@ class Environment(ROIinfo):
         models = self.diffuse_models('isotrop')
         norms = np.array([m.getp(0) if m is not None else np.nan for m in models])
         self.relative_exp = iso/norms/(iso/norms).mean()
+        self.config = eval(open('config.txt').read())
         
     def exposure_plots(self, hsize=(1.0,1.0,2.0,1.0, 2.0, 0.7),):
         """ exposure dependence
@@ -995,7 +996,29 @@ class Environment(ROIinfo):
         
         for f,ax in zip((left, center, right), axx.flatten()): f(ax)
         return fig
+     
+    def psf_plot(self):
+        """PSF plot
+        PSF files: %(psf_files)s
+        <br>This is an effecive PSF size, derived from the value of the normalized function at the peak.
+        """
+        from uw.like import pypsf, pycaldb
+        irfname=self.config['irf']
+        cdm = pycaldb.CALDBManager(irf=irfname)
+        psf = pypsf.CALDBPsf(cdm)
+        self.psf_files=cdm.get_psf()
+        egev = np.logspace(-1,2.5,121)
+        front, back = [[np.degrees(1./np.sqrt(psf(e*1e3,ct,0))) for e in egev] for ct in range(2)]
+        fig,ax = plt.subplots(figsize=(5,5))
+        ax.loglog(egev, front, '-g', lw=2, label='front')
+        ax.plot(egev,  back, '-r', lw=2, label='back')
+        plt.setp(ax, xlabel='Energy (GeV)', ylabel='PSF size (deg)',
+            xlim=(0.1, 400), ylim=(0.05, 10), title='Effective PSF size')
+        ax.legend(prop=dict(size=10)); ax.grid()
+        return fig
         
+        
+    
         
     def isotropic_spectrum(self, other=None):
         """ Isotropic Spectrum from template
@@ -1004,8 +1027,7 @@ class Environment(ROIinfo):
         <br>Files for front/back: %(idfiles)s
         """
         # look up filenames used to define the isotorpic spectrum: either new or old diffuse spec; list or dict
-        config = eval(open('config.txt').read())
-        diffuse=config['diffuse']
+        diffuse=self.config['diffuse']
         isokey = 'isotrop' if type(diffuse)==types.DictType else 1
         self.idfiles = [os.path.join(os.environ['FERMI'],'diffuse',diffuse[isokey][i]) for i in (0,1)]
         nf,nb = map(np.loadtxt, self.idfiles)
@@ -1026,7 +1048,7 @@ class Environment(ROIinfo):
         return fig
         
     def all_plots(self, **kw):
-        self.runfigures([self.exposure_plots, self.isotropic_spectrum,])
+        self.runfigures([self.exposure_plots, self.psf_plot, self.isotropic_spectrum,])
     
 
 class SunMoon(ROIinfo):
@@ -1949,9 +1971,14 @@ class SourceInfo(Diagnostics):
         return pd.DataFrame(dict(flux=si.flux.round(1), TS=si.ts.round(1), lflux=si.lflux.round(1), 
             uflux=si.uflux.round(1), model=si.mflux.round(1), pull=pull.round(1) ),
                 index=np.array(np.sqrt(si.elow*si.ehigh),int), columns='flux lflux uflux model TS pull'.split())
+
  
 class Localization(SourceInfo):
-
+    """<h2>Localization summary</h2>
+    
+    <p>Plots summarizing the localization of all sources: precision, quality, closeness, and confusion.
+    <br><a href="../sources/index.html?skipDecoration">Back to sources</a>
+    """
     require='pickles.zip'
     def setup(self, **kw):
         super(Localization, self).setup(**kw)
@@ -1979,7 +2006,6 @@ class Localization(SourceInfo):
             print self.df.ix[unloc]['ra dec ts roiname'.split()]
             print 'Wrote file "unlocalized_sources.csv"'
 
-
     def localization(self, maxdelta=9, mints=10):
         """Localization plots
         The 'finish' stage of creating a model runs the localization code to check that the current position is 
@@ -1990,8 +2016,8 @@ class Localization(SourceInfo):
             Right: scatter plot of this vs. TS
             """
         bins=np.linspace(0,np.sqrt(maxdelta),26)
-        fig, axx = plt.subplots(1,2,figsize=(10,5)); 
-        plt.subplots_adjust(wspace=0.4)
+        fig, axx = plt.subplots(1,2,figsize=(13,5)); 
+        plt.subplots_adjust(wspace=0.4, left=0.1)
         wp = self.ebox
         cut = self.df.ts>mints
         ax=axx[0]
@@ -2016,7 +2042,6 @@ class Localization(SourceInfo):
             Right: locations of poorly-fit sources, see the <a href="poorly_localized_table.html">table</a>.
         """
         bins=np.linspace(0,maxqual,26)
-        #ig, axx = plt.subplots(1,3,figsize=(13,5));
         fig, axxx = self.subplot_array( hsize=(1.0, 0.6, 1.0, 0.2, 2.0, 0.5), figsize=(13,5))
         axx = axxx[0]
         plt.subplots_adjust(wspace=0.4)
@@ -2041,7 +2066,8 @@ class Localization(SourceInfo):
         R95 is the 95 %%%% containment radius. Here I show the semi-major axis.
         Applying cut quality < %(qualmax)d.
         """
-        fig, ax = plt.subplots(1,2, figsize=(12,5))
+        fig, ax = plt.subplots(1,2, figsize=(13,5))
+        plt.subplots_adjust(left=0.1)
         r95 = 60* 2.6 * self.ebox.a[self.ebox.locqual<qualmax]
         ts = self.df.ts[self.ebox.locqual<qualmax]
         self.qualmax = qualmax
@@ -2087,7 +2113,6 @@ class Localization(SourceInfo):
             ).to_html(float_format=FloatFormat(2))
         return None
         
-
     def source_confusion(self, bmin=10, dtheta=0.1, nbins=50, deficit_angle=1.0, tsmin=10):
         """ Source Confusion
         Distribution of the distances to the nearest neighbors of all detected sources with |b|> %(bmin)s degrees.
@@ -2161,13 +2186,7 @@ class Localization(SourceInfo):
         else:
             self.poorly_localized_table_check ='<p>No poorly localized sources!'
 
-    
-    
     def all_plots(self):
-        """Localization summary
-        
-        <p>Plots summarizing of the localization of all sources: precision, quality, closeness, and confusion.
-        """
         return self.runfigures([self.r95, self.localization,self.localization_quality,self.poor_loc,self.check_closeness,self.source_confusion])
 
 
