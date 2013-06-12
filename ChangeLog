@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Jun 12 11:58:08 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	polyco.py 
+Log Message:
+Suppress some redundant output.
+
+    *
+------------------------------------------------------------
 User: kerrm  Wed Jun 12 11:57:38 PDT 2013
 pointlike/python/uw/pulsar
 
