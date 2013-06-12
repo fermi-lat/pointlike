@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.22 2012/11/29 00:38:32 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.23 2013/04/27 17:41:17 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -317,7 +317,7 @@ class ParFile(dict):
             if key[0] == '#': # handle comments
                 key = key.split('COMMENT')[0]
             else:
-                key = key + ' '*(15-len(key))
+                key = key + ' '*(20-len(key))
             if hasattr(val,'__iter__'):
                 if hasattr(val[0],'__iter__'):
                     # multiple vals are mapped to same key
@@ -329,6 +329,9 @@ class ParFile(dict):
                         val = '  '.join(val)
                     except TypeError:
                         print key,val
+            # ensure a space for long keys
+            if key[-1] != ' ':
+                key += ' '
             f.write('%s%s\n'%(key,val))
         f.close()
 
@@ -440,6 +443,24 @@ class ParFile(dict):
     def is_binary(self):
         return 'BINARY' in self.keys()
 
+    def add_key(self,key,val):
+        """ Insert a key, placed at bottom of file.  If key already
+            present, update its entry."""
+        if key not in self.ordered_keys:
+            self.ordered_keys.append(key)
+        self[key] = val
+
+    def zero_glitches(self):
+        no_glitches = True
+        for key in self.keys():
+            if key[:2]=='GL':
+                no_glitches = False
+                lab = key[2:4]
+                if (lab=='PH') or (lab=='F0') or (lab=='F1') or (lab=='F2'): 
+                    self.set(key,0)
+        return no_glitches
+                    
+
 class TimFile(object):
 
     def __init__(self,timfile):
@@ -476,22 +497,27 @@ class TimFile(object):
         if output is not None:
             file(output,'w').write('FORMAT 1\n'+''.join(toa_lines))
 
-def get_bats_etc(par,tim,output=None):
+def get_bats_etc(par,tim,output=None,full_output=False):
     """ Use the tempo2 general plugin to compute the bats and absolute
         phases of a set of TOAs."""
     import subprocess
-    cmd = """tempo2 -output general2 -s "onerous\t{bat}\t{err}\t{npulse}\t{post_phase}\n" -f %s %s"""%(par,tim)
+    cmd = """tempo2 -output general2 -s "onerous\t{bat}\t{err}\t{npulse}\t{pre_phase}\t{sat}\n" -f %s %s"""%(par,tim)
     proc = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE)
     toks = [line.split('\t')[1:] for line in proc.stdout if line[:7]=='onerous']
     #toks = [x[1:] for x in toks if x[0]=='onerous']
     #print toks[0],toks[-1]
     bats = np.array([x[0] for x in toks],dtype=np.float128)
     errs = np.array([x[1] for x in toks],dtype=np.float128)*(1e-6/86400)
-    phas = np.array([x[2] for x in toks],dtype=np.int64)
-    offs = np.array([x[3] for x in toks],dtype=np.float64)
+    phas = np.array([x[2] for x in toks],dtype=np.float128)
+    offs = np.array([x[3] for x in toks],dtype=np.float128)
+    sats = np.array([x[4] for x in toks],dtype=np.float128)
     #phas += np.round(offs)
     if output is not None:
         outstring = '\n'.join(['%.20f %.20f %d'%(b,e,p) for b,e,p in zip(bats,errs,phas)])
         file(output,'w').write('# %s %s\n'%(par,tim)+outstring)
-    return bats,errs,phas
+    #phas += offs # total phase
+    if full_output:
+        return bats,errs,phas,offs,sats
+    else:
+        return bats,errs,phas
 
