@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.132 2013/06/11 14:37:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.133 2013/06/11 14:38:32 burnett Exp $
 
 """
 
@@ -1032,7 +1032,7 @@ class Environment(ROIinfo):
         self.idfiles = [os.path.join(os.environ['FERMI'],'diffuse',diffuse[isokey][i]) for i in (0,1)]
         nf,nb = map(np.loadtxt, self.idfiles)
         energies = nf[:,0]; front,back = nf[:,1],nb[:,1]
-        fig, axs = plt.subplots(1,2, figsize=(7,3), dpi=50)
+        fig, axs = plt.subplots(1,2, figsize=(10,5), dpi=50)
         def right(ax):
             ax.plot(energies, front/back, '-o');
             ax.axhline(1.0, color='k')
@@ -2421,6 +2421,8 @@ class GtlikeComparison( SourceComparison):
 
 class UWsourceComparison(SourceInfo):
     """Comparision with another UW model: %(othermodel)s
+    <br>Ratios are %(skymodel)s/%(othermodel)s.
+    
     """
     def setup(self, othermodel='uw25'):
         super(UWsourceComparison,self).setup()
@@ -2432,7 +2434,7 @@ class UWsourceComparison(SourceInfo):
         print 'loading %s' % otherfilename
         self.odf = pd.load(otherfilename)
 
-    def compare(self):
+    def compare(self, scat=True):
         """Ratios of values of various fit parameters
         """
         self.df['pindex_old']=self.odf.pindex
@@ -2443,11 +2445,24 @@ class UWsourceComparison(SourceInfo):
         plane = np.abs(df.glat)<5
         
         def plot_ratio(ax, y, cut, ylim, ylabel):
-            ax.semilogx(df.ts[cut], y.clip(*ylim)[cut], '.')
-            ax.semilogx(df.ts[cut*plane], y.clip(*ylim)[cut*plane], '+r',label='|b|<5')
-            plt.setp(ax, xlim=(10,1e4), ylim=ylim, ylabel=ylabel,)
+            ts = df.ts
+            if scat:
+                ax.semilogx(ts[cut], y.clip(*ylim)[cut], '.')
+                ax.semilogx(ts[cut*plane], y.clip(*ylim)[cut*plane], '+r',label='|b|<5')
+                plt.setp(ax, xlim=(10,1e4), ylim=ylim, ylabel=ylabel,)
+            else:
+                bins = np.logspace(1,4,13)
+                x = np.sqrt(bins[:-1]*bins[1:])
+                t = ts[cut]
+                u = y.clip(*ylim)[cut]
+                ybinned = np.array([ u[ (t >= bins[i])*(t < bins[i+1])] for i in range(len(bins)-1)])
+                ymean = [t.mean() for t in ybinned]
+                yerr = [t.std()/np.sqrt(len(t)) if len(t)>1 else 0 for t in ybinned] 
+                ax.errorbar(x, ymean, yerr=yerr, fmt='o')
+                sy = lambda y: 1+(y-1)/4.
+                plt.setp(ax, xlim=(10,1e4), ylim=(sy(ylim[0]),sy(ylim[1])), ylabel=ylabel, xscale='log')
             ax.axhline(1, color='k')
-            ax.legend(prop=dict(size=10))
+            if scat: ax.legend(prop=dict(size=10))
             ax.grid()
             yhigh = y[cut*(df.ts>200)]
             print '%-6s %3d %5.3f +/- %5.3f ' % (ylabel, len(yhigh), yhigh.mean(),  np.sqrt(yhigh.std()/len(yhigh)))
@@ -2471,11 +2486,19 @@ class UWsourceComparison(SourceInfo):
             cut = df.ts>10
             plot_ratio(ax, y, cut, ylim, 'r95')
             
-        fig, ax = plt.subplots(4,1, figsize=(12,12), sharex=True)
+        fig, ax = plt.subplots(4,1, figsize=(12 if scat else 8,12), sharex=True)
         plt.subplots_adjust(hspace=0.05, left=0.1, bottom=0.1)
         for f, ax in zip((plot_ts, plot_flux, plot_pindex,plot_semimajor,), ax.flatten()): f(ax)
         fig.text(0.5, 0.05, 'TS', ha='center')
         return fig
+    
+    def compare_profile(self):
+        """Ratios of values of various fit parameters: profile plots
+        Same as the first plot, but showing means and errors for bins in TS.
+        <br>Changes below TS=25 are due to a threshold selection effect, a bias towared higher TS for the Clean, as can be seen
+        in the TS scatter plot above.
+        """
+        return self.compare(False)
     
     def band_compare(self):
         """Band flux ratios
@@ -2519,7 +2542,7 @@ class UWsourceComparison(SourceInfo):
         return fig
         
     def all_plots(self):
-        self.runfigures([self.compare, self.band_compare, self.quality_comparison ])
+        self.runfigures([self.compare, self.compare_profile, self.band_compare, self.quality_comparison ])
                 
 class Associations(SourceInfo):
     """<h2> Analysis of associations</h2>
