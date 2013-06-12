@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Jun 12 11:57:38 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+Add some capability for phase prediction.
+
+    *
+------------------------------------------------------------
 User: burnett  Wed Jun 12 10:47:26 PDT 2013
 pointlike/python/uw/like2/pipeline
 
