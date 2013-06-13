@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.9 2013/06/09 01:13:23 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.10 2013/06/12 18:58:07 kerrm Exp $
 
 Mange polycos from tempo2.
 
@@ -166,9 +166,9 @@ class Polyco:
             os.chdir(self.working_dir)
         prefix = self.output or ''
         if recalc_polycos:
-            for f in filter(os.path.isfile,
-                ['polyco.tim','%spolyco_new.dat'%prefix,'%snewpolyco.dat'%prefix]):
-                os.remove(f)
+            fnames = ['%s%s'%(prefix,x) for x in 
+                ['polyco.tim','polyco_new.dat','newpolyco.dat']]
+            map(os.remove,filter(os.path.isfile,fnames))
             obs_string = '@' if self.bary else 'coe'
             out_string = '' if self.output is None else ' -polyco_file %s'%self.output
             t2cmd = 'tempo2 -f %s%s -polyco "%s %s 360 12 12 %s 0 0\"'%(
