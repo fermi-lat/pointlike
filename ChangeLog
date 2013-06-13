@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Thu Jun 13 14:39:17 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	polyco.py 
+Log Message:
+Adjust tempo2 polyco output to help with concurrency issues.
+
+    *
+------------------------------------------------------------
 User: kerrm  Wed Jun 12 11:58:08 PDT 2013
 pointlike/python/uw/pulsar
 
