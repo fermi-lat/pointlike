@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.133 2013/06/11 14:38:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.134 2013/06/12 17:47:26 burnett Exp $
 
 """
 
@@ -119,7 +119,7 @@ class Diagnostics(object):
                 fig=func(**kwargs)
             except Exception, msg:
                 print '*** Failed to run function %s: "%s"' % (fname, msg)
-                return None
+                return '<h3>%s %s</h3> Failed to run function %s: "%s"' % (section, title, fname, mag)
         else: fname = name
         if hasattr(self, fname):
             try:
@@ -128,7 +128,7 @@ class Diagnostics(object):
                 if caption is None:   caption = '\n<p>'+'\n'.join(doclines[1:])+'</p>\n'
                 if title is None:     title = doclines[0]
             except Exception, msg:
-                print 'docstring processing problem: %s' % msg
+                print '*** docstring processing problem: %s' % msg
         localfile = '%s_%s.png'%(name, self.skymodel.replace('/','_'))
         savefile = os.path.join(self.plotfolder,localfile)
         if title is None: title = name.replace('_', ' ')
@@ -171,7 +171,8 @@ class Diagnostics(object):
             fig = self.savefigure(fname, function, section='%d.'%section, **kwargs)
             if fig is not None:
                 html+='\n'+ fig
-        html+= '\n<hr>\nPage generated %4d-%02d-%02d %02d:%02d:%02d on %s' % (tuple(time.localtime()[:6])+(os.environ['HOSTNAME'],))
+        html+= '\n<hr>\nPage generated %4d-%02d-%02d %02d:%02d:%02d on %s by %s'\
+                % (tuple(time.localtime()[:6])+(os.environ['HOSTNAME'],os.environ.get('USER','?')))
 
         html+='\n</body>'
         t = os.path.split(os.getcwd())
@@ -1523,7 +1524,7 @@ class SourceInfo(Diagnostics):
         self.df['counts'] = [counts(self.df, self.roi_df, name) for  name in self.df.index]
         
 
-    def non_psr_spectral_plots(self, index_min=1.0, index_max=3.5, beta_max=3.0):
+    def non_psr_spectral_plots(self, index_min=1.0, index_max=3.5, beta_max=2.0):
         """ Plots showing spectral parameters for non-pulsar spectra
         Left: energy flux in eV/cm**2/s. This is the differential flux at the pivot energy
         <br> Center: the spectral index.
@@ -1533,7 +1534,7 @@ class SourceInfo(Diagnostics):
         fig, axx = plt.subplots( 1,3, figsize=(12,4))
         plt.subplots_adjust(wspace=0.2, left=0.05,bottom=0.15)
 
-        t = self.df.ix[(self.df.ts>10)*(self.df.modelname=='LogParabola')]['ts flux pindex beta e0 roiname'.split()]
+        t = self.df.ix[(self.df.ts>10)*(self.df.modelname=='LogParabola')]['ts flux pindex beta e0 freebits roiname'.split()]
         t['eflux'] = t.flux * t.e0**2 * 1e6
         ax = axx[0]
         [ax.hist(t.eflux[t.ts>tscut].clip(4e-2,1e2), np.logspace(-2,2,26), label='TS>%d' % tscut) for tscut in [10,25] ]
@@ -1555,13 +1556,13 @@ class SourceInfo(Diagnostics):
         #    self.tail_check ='<p>No sources on tails'
         
         if sum(tail_cut)>0:
-            tails=t[tail_cut]['ts eflux pindex beta roiname'.split()]
+            tails=t[tail_cut]['ts eflux pindex beta freebits roiname'.split()]
             filename = 'non_pulsar_tails.html'
             html_file = self.plotfolder+'/%s' % filename
             html = tails.sort_index(by='roiname').to_html(float_format=FloatFormat(2))
             open(html_file,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+ html+'\n</body>')
-            self.tail_check = '<p><a href="%s">Table of %d sources on tails</a>: '% (filename, len(tails))
-            self.tail_check += 'Criteria: require index between 1 and 3.5 for powerlaw, beta<3.0 for log parabola'
+            self.tail_check = '<p><a href="%s?skipDecoration">Table of %d sources on tails</a>: '% (filename, len(tails))
+            self.tail_check += 'Criteria: require index between 1 and 3.5 for powerlaw, beta<2.0 for log parabola'
             # flag sources
             flags = self.df.flags
             tails = tails.index
@@ -1583,7 +1584,7 @@ class SourceInfo(Diagnostics):
         fig, axx = plt.subplots( 1,4, figsize=(14,4))
         plt.subplots_adjust(wspace=0.3, left=0.05,bottom=0.15)
         t = self.df.ix[(self.df.ts>10)*(np.array(self.df.psr,bool))]\
-            ['ts flux pindex cutoff e0 index2 index2_unc roiname fitqual'.split()]
+            ['ts flux pindex cutoff e0 index2 index2_unc roiname freebits fitqual'.split()]
         t['eflux'] = t.flux * t.e0**2 * 1e6
         badfit = t.fitqual>30
 
@@ -1628,21 +1629,28 @@ class SourceInfo(Diagnostics):
         flags[tails] += 1 ### bit 1
         print '%d pulsar sources flagged (1) in tails of  index or cutoff' % sum(tail_cut)
         if sum(tail_cut)>0:
-            tails=t[tail_cut]['ts eflux pindex cutoff roiname'.split()]
+            tails=t[tail_cut]['ts eflux pindex cutoff freebits roiname'.split()]
             filename = 'pulsar_tails.html'
             html_file = self.plotfolder+'/%s' % filename
             html = tails.sort_index(by='roiname').to_html(float_format=FloatFormat(2))
             open(html_file,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+ html+'\n</body>')
-            self.pulsar_tail_check = '<p><a href="%s">Table of %d sources on tails</a>: '% (filename, len(tails))
+            self.pulsar_tail_check = '<p><a href="%s?skipDecoration">Table of %d sources on tails</a>: '% (filename, len(tails))
             self.pulsar_tail_check += 'Criteria: require index between 0 and 2.5, cutoff<8 GeV'
         else:
             self.pulsar_tail_check ='<p>No sources on tails'
-        #psr = np.array([n.startswith('PSR') for n in self.df.index], bool)
-        #t = self.df.ix[(self.df.ts>10)*psr]['ts flux pindex cutoff index2 index2_unc e0 roiname fitqual'.split()]
-        t['significance']=(1-t.index2)/t.index2_unc
-        tt=t[t.index2<1]['ts fitqual pindex cutoff index2 index2_unc significance'.split()].to_html(float_format=FloatFormat(2))
 
-        self.pulsar_b="""<p>Table of pulsar spectra with b<1\n""" +tt
+        # table of pulsars with b<1
+
+        filename='pulsar_b.html'
+        #t['significance']=np.where(t.index2_unc>0, (1-t.index2)/t.index2_unc, [np.nan]*len(t) )
+        tt=t[t.index2<1]['ts fitqual pindex cutoff index2 index2_unc'.split()]
+        tt['significance'] = (1-tt.index2)/tt.index2_unc
+        html_file = self.plotfolder+'/%s' % filename
+        html = tt.to_html(float_format=FloatFormat(2))
+        open(html_file,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+ html+'\n</body>')
+        self.pulsar_b = '<p><a href="%s?skipDecoration">Table of %d sources with b&lt;1</a> '% (filename, len(tt))
+        print '%d pulsar sources with b<1' %len(tt)
+
         return fig
     
     def ecliptic_hist(self, ax=None, title=''):
@@ -1670,7 +1678,8 @@ class SourceInfo(Diagnostics):
 
         """
         from scipy import stats
-        fig, axx = plt.subplots(1,3, figsize=(12,5))
+        fig, axx = plt.subplots(1,3, figsize=(12,6))
+        plt.subplots_adjust(left=0.1)
         s = self.df
         psr = np.asarray(s.psr, bool)
         beta = s.beta
@@ -1731,7 +1740,7 @@ class SourceInfo(Diagnostics):
         t_html = '<h3>Table of poorly-fit sources, model %s</h3>'%self.skymodel + t.to_html(float_format=FloatFormat(2),
                 formatters=dict(ra=FloatFormat(3), dec=FloatFormat(3), ts=FloatFormat(0),index2=FloatFormat(3)))
         open(poorfit_html,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+t_html+'\n</body>')
-        self.poorfit_table = '<p> <a href="poorfits.html"> Table of %d poor fits, with fitqual>30 or abs(pull0)>3</a>' % (  len(t) )
+        self.poorfit_table = '<p> <a href="poorfits.html?skipDecoration"> Table of %d poor fits, with fitqual>30 or abs(pull0)>3</a>' % (  len(t) )
         # flag sources that made it into the list
         self.df.flags[t.index] |= 2
         print '%d sources flagged (2) as poor fits' %len(t)
@@ -2039,7 +2048,7 @@ class Localization(SourceInfo):
             Left: histogram of the fit quality. This is a measure of the difference between the sampled
             TS map points and the prediction of the quadratic model. <br>
             Center: scatter plot of the quality vs. TS. <br>
-            Right: locations of poorly-fit sources, see the <a href="poorly_localized_table.html">table</a>.
+            Right: locations of poorly-fit sources, see the <a href="poorly_localized_table.html?skipDecoration">table</a>.
         """
         bins=np.linspace(0,maxqual,26)
         fig, axxx = self.subplot_array( hsize=(1.0, 0.6, 1.0, 0.2, 2.0, 0.5), figsize=(13,5))
@@ -2176,7 +2185,7 @@ class Localization(SourceInfo):
                             +  tohtml+'\n</body>')
             print 'saved html doc to %s' % os.path.join(poorly_localized_tablepath)
             self.poorly_localized_table_check =\
-                        '<p><a href="%s"> Table of %d poorly localized (a>%.2f deg, or qual>%.1f with TS>%d) sources</a>'\
+                        '<p><a href="%s?skipDecoration"> Table of %d poorly localized (a>%.2f deg, or qual>%.1f with TS>%d) sources</a>'\
                         % ( 'poorly_localized_table.html',len(self.poorloc),self.acut,self.qualcut, self.tscut)
             version = os.path.split(os.getcwd())[-1]
             pv = makepivot.MakeCollection('poor localizations %s'%version, 'tsmap_fail', 'poorly_localized.csv',refresh=True)
@@ -3391,7 +3400,7 @@ class HPtables(Diagnostics):
         self.tsname='ts'
         self.seedfile, self.seedroot, self.title, self.bmin = 'seeds.txt', 'SEED' ,'power-law', 0
         self.make_seeds(refresh=kw.pop('refresh', False))
-        self.tsmap_analysis="""<p>Seed analysis parameters: <br>seedfile:<a href="../../%s">%s</a> 
+        self.tsmap_analysis="""<p>Seed analysis parameters: <br>seedfile:<a href="../../%s?skipDecoration">%s</a> 
               <br>seedroot: %s, <br>bmin:%s """ % (self.seedfile, self.seedfile, self.seedroot,  self.bmin)
 
      
@@ -3602,17 +3611,18 @@ a:hover { background-color:yellow; }
         open('plots/index.html', 'w').write(t)
         print 'wrote menu %s' %os.path.join(os.getcwd(), 'plots/index.html')
 
-    def update_top(self, filename='../../plot_browser/top_nav.html'):
+    def update_top(self, filename='../plot_index.html'):
         def parse_path(x): 
             'return relative path, model name'
             t = x.split('/')
-            return  '/'.join(t[1:]) , '/'.join(t[2:4])
+            return  '/'.join(t[1:]) , t[1]
         def parse_model(x):
-            return '<a href="%s" target="menu"> %s </a>' %(parse_path(x) )
-        models = sorted(glob.glob('../../*/*/plot_index.html'))
+            return '<a href="%s?skipDecoration" target="menu"> %s </a>' %(parse_path(x) )
+        models = sorted(glob.glob('../*/plots/index.html'))
+        assert len(models)>0, 'No models found?'
         self.last_model = parse_path(models[-1])[0]
         s = HTMLindex.top_nav % self.__dict__
-        s += '\n | '.join(map(parse_model, models))
+        s += '\n<br>'.join(map(parse_model, models))
         s += '\n</body></html>\n'
         open(filename, 'w').write(s)
         print 'wrote top menu %s' % os.path.join(os.getcwd(),filename)
