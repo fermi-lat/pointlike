@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.135 2013/06/14 22:15:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.136 2013/06/15 13:00:35 burnett Exp $
 
 """
 
@@ -1525,7 +1525,7 @@ class SourceInfo(Diagnostics):
         
 
     def non_psr_spectral_plots(self, index_min=1.0, index_max=3.5, beta_max=2.0):
-        """ Plots showing spectral parameters for non-pulsar spectra
+        """ Plots showing spectral parameters for PowerLaw and ExpCutoff spectra
         Left: energy flux in eV/cm**2/s. This is the differential flux at the pivot energy
         <br> Center: the spectral index.
         <br> Right: the curvature index for the subset with log parabola fits.
@@ -1577,16 +1577,17 @@ class SourceInfo(Diagnostics):
         
     
     def pulsar_spectra(self, index_min=0.0, index_max=2.5, cutoff_max=8000):
-        """ Distributions for the LAT pulsars
+        """ Distributions for sources fit with PLSuperExpCutoff spectral model, mostly LAT pulsars
         
-        (Include also a few sources with exponential cutoff spectra.)
         For each plot, the subset with a poor fit is shown.
         %(pulsar_tail_check)s
+        %(pulsar_fixed)s
         %(pulsar_b)s
         """
         fig, axx = plt.subplots( 1,4, figsize=(14,4))
         plt.subplots_adjust(wspace=0.3, left=0.05,bottom=0.15)
-        t = self.df.ix[(self.df.ts>10)*(np.array(self.df.psr,bool))]\
+        psrmodel = (self.df.ts>10)*(self.df.modelname=='PLSuperExpCutoff')
+        t = self.df.ix[psrmodel]\
             ['ts flux pindex cutoff e0 index2 index2_unc roiname freebits fitqual'.split()]
         t['eflux'] = t.flux * t.e0**2 * 1e6
         badfit = t.fitqual>30
@@ -1654,6 +1655,12 @@ class SourceInfo(Diagnostics):
         self.pulsar_b = '<p><a href="%s?skipDecoration">Table of %d sources with b&lt;1</a> '% (filename, len(tt))
         print '%d pulsar sources with b<1' %len(tt)
 
+        # table of fits with fixed parameters
+        tt = t[t.freebits<7]['ts fitqual pindex cutoff freebits roiname'.split()].sort_index(by='roiname')
+        if len(tt)>0:
+            print '%d pulsar-like sources with fixed parameters' %len(tt)
+            self.pulsar_fixed='<p>Sources with fixed parameters %s' % tt.to_html(float_format=FloatFormat(2))
+        else: self.pulsar_fixed=''
         return fig
     
     def ecliptic_hist(self, ax=None, title=''):
