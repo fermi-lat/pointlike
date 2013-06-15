@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.134 2013/06/12 17:47:26 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.135 2013/06/14 22:15:14 burnett Exp $
 
 """
 
@@ -1530,11 +1530,12 @@ class SourceInfo(Diagnostics):
         <br> Center: the spectral index.
         <br> Right: the curvature index for the subset with log parabola fits.
         %(tail_check)s
+        %(beta_check)s
         """
         fig, axx = plt.subplots( 1,3, figsize=(12,4))
         plt.subplots_adjust(wspace=0.2, left=0.05,bottom=0.15)
 
-        t = self.df.ix[(self.df.ts>10)*(self.df.modelname=='LogParabola')]['ts flux pindex beta e0 freebits roiname'.split()]
+        t = self.df.ix[(self.df.ts>10)*(self.df.modelname=='LogParabola')]['ts flux pindex beta beta_unc freebits e0 roiname'.split()]
         t['eflux'] = t.flux * t.e0**2 * 1e6
         ax = axx[0]
         [ax.hist(t.eflux[t.ts>tscut].clip(4e-2,1e2), np.logspace(-2,2,26), label='TS>%d' % tscut) for tscut in [10,25] ]
@@ -1547,13 +1548,6 @@ class SourceInfo(Diagnostics):
         plt.setp(ax, xlabel='beta'); ax.grid(); ax.legend(prop=dict(size=10))
         # get tails
         tail_cut = (t.eflux<5e-2)+((t.pindex<index_min)+(t.pindex>index_max))*t.beta.isnull()+(t.beta>beta_max)
-        #self.non_psr_tails=t[tail_cut]['ts eflux pindex beta roiname'.split()]
-        #if len(self.non_psr_tails)>0:
-        #    self.tail_check = '<h4>Sources on tails:</h4>'\
-        #        +self.non_psr_tails.sort_index(by='roiname').to_html(float_format=FloatFormat(2))
-        #    self.tail_check += '<p>Criteria: require index between 1 and 3.5 for powerlaw, beta<3.0 for log parabola'
-        #else:
-        #    self.tail_check ='<p>No sources on tails'
         
         if sum(tail_cut)>0:
             tails=t[tail_cut]['ts eflux pindex beta freebits roiname'.split()]
@@ -1571,7 +1565,16 @@ class SourceInfo(Diagnostics):
         else:
             self.tail_check ='<p>No sources on tails'
 
+        # check errors, especially that beta is at least 2 sigma
+        self.beta_check=''
+        beta_bad = (t.beta>0.001) * ((t.beta_unc==0) + (t.beta/t.beta_unc<2) + (t.freebits!=7))
+        if sum(beta_bad)>0:
+            print '%d sources fail beta check' % sum(beta_bad)
+            self.beta_check ='<br>Sources failing beta (curvature) check' +\
+            t[beta_bad]['ts beta beta_unc freebits roiname'.split()].to_html(float_format=FloatFormat(2))
+            
         return fig
+        
     
     def pulsar_spectra(self, index_min=0.0, index_max=2.5, cutoff_max=8000):
         """ Distributions for the LAT pulsars
@@ -3541,22 +3544,23 @@ pre { font-size:10pt; margin-left:25pt;
 h5 {margin-left:25pt;}
 table { margin-left:25pt; margin-top:15pt; font-size:8pt;
     border-style: solid; border-width: 1px;  border-collapse: collapse; }
+table.topmenu {border-style:solid; border-width:0px}
 table, th, td { padding: 3px; }
 a:link { text-decoration: none ; color:green}
 a:hover { background-color:yellow; }
 </style>"""
 
     menu_header="""<html> <head> <title>%(model)s index</title> %(style)s 
-    <script> function load(){ parent.content.location.href = '%(model_summary)s';} </script>
+    <script> function load(){ parent.content.location.href='%(model_summary)s';} </script>
     </head>
 <body onload="load()">
-<h2><a href="%(model_summary)s", target="content">%(model)s</a></h2>"""
+<h2><a href="%(upper_link)s?skipDecoration">%(upper)s</a>/%(model)s</h2>"""
 
     top_nav="""<html> <head> <title>Top Nav</title> %(style)s 
     <script> function load(){ parent.menu.location.href = '%(last_model)s';} </script>
     </head>
 <body onload="load()">
-<h3>Skymodels</h3>""" 
+<h3>%(upper)s Skymodels</h3>""" 
 
     def __init__(self, folder='plots/*'):
         self.style = HTMLindex.style
@@ -3565,7 +3569,10 @@ a:hover { background-color:yellow; }
         if len(w)==0: 
             print 'Did not find any plot folders under %s' % folder
         z = dict( zip(w, [glob.glob(a+'/*.htm*') for a in w] ) )
-        self.model = '/'.join(os.getcwd().split('/')[-2:])
+        w = os.getcwd().split('/')
+        self.upper = w[-2]+'/'
+        self.upper_link = '../../plot_index.html'
+        self.model = w[-1] #'/'.join(w[-2:])
         self.model_summary='plots/config/index.html'
         s= HTMLindex.menu_header % self.__dict__
         
@@ -3617,13 +3624,20 @@ a:hover { background-color:yellow; }
             t = x.split('/')
             return  '/'.join(t[1:]) , t[1]
         def parse_model(x):
-            return '<a href="%s?skipDecoration" target="menu"> %s </a>' %(parse_path(x) )
-        models = sorted(glob.glob('../*/plots/index.html'))
+            return '<a href="%s?skipDecoration"> %s </a>' %(parse_path(x) )
+        def model_comment(x):
+            a,b=parse_path(x)
+            return eval(open('../'+b+'/config.txt').read()).get('comment', 'no comment')
+        
+        models = sorted(glob.glob('../*/plots/index.html'), reverse=True)
         assert len(models)>0, 'No models found?'
-        self.last_model = parse_path(models[-1])[0]
+        self.last_model = parse_path(models[0])[0]
         s = HTMLindex.top_nav % self.__dict__
-        s += '\n<br>'.join(map(parse_model, models))
-        s += '\n</body></html>\n'
+        s += '\n<table class="topmenu">'
+        for m in models:
+            s += '\n  <tr><td valign="top">%s</td>'% parse_model(m)
+            s += '\n      <td> %s </td></tr>' % model_comment(m)
+        s += '\n</table>\n</body></html>\n'
         open(filename, 'w').write(s)
         print 'wrote top menu %s' % os.path.join(os.getcwd(),filename)
     @staticmethod
