@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.136 2013/06/15 13:00:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.137 2013/06/15 20:50:42 burnett Exp $
 
 """
 
@@ -23,7 +23,7 @@ class FloatFormat(): #simple formatting functor for to_html!
     def __init__(self, n): self.fmt = '%%.%df' % n
     def __call__(self, x): return self.fmt % x
 
-def html_table( df, heading, href=True, **kw):
+def html_table( df, heading={}, href=True, **kw):
     """ utility to reformat a pandas-generated html table
     df : a DataFrame
     heading : dict
@@ -1550,10 +1550,11 @@ class SourceInfo(Diagnostics):
         tail_cut = (t.eflux<5e-2)+((t.pindex<index_min)+(t.pindex>index_max))*t.beta.isnull()+(t.beta>beta_max)
         
         if sum(tail_cut)>0:
-            tails=t[tail_cut]['ts eflux pindex beta freebits roiname'.split()]
+            tails=t[tail_cut]['ts eflux pindex beta freebits roiname'.split()].sort_index(by='roiname')
             filename = 'non_pulsar_tails.html'
             html_file = self.plotfolder+'/%s' % filename
-            html = tails.sort_index(by='roiname').to_html(float_format=FloatFormat(2))
+            #html = tails.sort_index(by='roiname').to_html(float_format=FloatFormat(2))
+            html = html_table(tails, float_format=FloatFormat(2))
             open(html_file,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+ html+'\n</body>')
             self.tail_check = '<p><a href="%s?skipDecoration">Table of %d sources on tails</a>: '% (filename, len(tails))
             self.tail_check += 'Criteria: require index between 1 and 3.5 for powerlaw, beta<2.0 for log parabola'
@@ -1636,7 +1637,8 @@ class SourceInfo(Diagnostics):
             tails=t[tail_cut]['ts eflux pindex cutoff freebits roiname'.split()]
             filename = 'pulsar_tails.html'
             html_file = self.plotfolder+'/%s' % filename
-            html = tails.sort_index(by='roiname').to_html(float_format=FloatFormat(2))
+            #html = tails.sort_index(by='roiname').to_html(float_format=FloatFormat(2))
+            html = html_table(tails.sort_index(by='roiname'), float_format=FloatFormat(2))
             open(html_file,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+ html+'\n</body>')
             self.pulsar_tail_check = '<p><a href="%s?skipDecoration">Table of %d sources on tails</a>: '% (filename, len(tails))
             self.pulsar_tail_check += 'Criteria: require index between 0 and 2.5, cutoff<8 GeV'
@@ -1655,11 +1657,11 @@ class SourceInfo(Diagnostics):
         self.pulsar_b = '<p><a href="%s?skipDecoration">Table of %d sources with b&lt;1</a> '% (filename, len(tt))
         print '%d pulsar sources with b<1' %len(tt)
 
-        # table of fits with fixed parameters
-        tt = t[t.freebits<7]['ts fitqual pindex cutoff freebits roiname'.split()].sort_index(by='roiname')
+        # table of fits with any fixed parameter other than b
+        tt = t[(t.freebits&7!=7)]['ts fitqual pindex cutoff freebits roiname'.split()].sort_index(by='roiname')
         if len(tt)>0:
             print '%d pulsar-like sources with fixed parameters' %len(tt)
-            self.pulsar_fixed='<p>Sources with fixed parameters %s' % tt.to_html(float_format=FloatFormat(2))
+            self.pulsar_fixed='<p>Sources with any fixed parameter other than b %s' % tt.to_html(float_format=FloatFormat(2))
         else: self.pulsar_fixed=''
         return fig
     
@@ -1731,7 +1733,8 @@ class SourceInfo(Diagnostics):
         print '%d sources with bad fits' %len(t)
         if len(t)>0:
             self.badfit = t[['ts', 'errs', 'roiname']]
-            self.badfit_check = '<h4>Sources with missing errors:</h4>'+self.badfit.to_html(float_format=FloatFormat(1))
+            #self.badfit_check = '<h4>Sources with missing errors:</h4>'+self.badfit.to_html(float_format=FloatFormat(1))
+            self.badfit_check = '<h4>Sources with missing errors:</h4>'+html_table(self.badfit, float_format=FloatFormat(1))
         else: self.badfit_check = '<p>All sources fit ok.'
         self.fit_quality_average =  ', '.join( map(lambda x,n :'%s: %.1f' %(n,x) ,
                             self.average, 'powerlaw logparabola expcutoff(hilat) expcutoff(lolat)'.split()) )
@@ -1747,8 +1750,11 @@ class SourceInfo(Diagnostics):
         print 'Wrote out list of poor fits to %s, %d with fitqual>30 or abs(pull0)>3, in %d ROIs' % (poorfit_csv, len(t), len(bs))
         # todo: make a function to do this nidcely
         poorfit_html = self.plotfolder+'/poorfits.html'
-        t_html = '<h3>Table of poorly-fit sources, model %s</h3>'%self.skymodel + t.to_html(float_format=FloatFormat(2),
+        #t_html = '<h3>Table of poorly-fit sources, model %s</h3>'%self.skymodel + t.to_html(float_format=FloatFormat(2),
+        #        formatters=dict(ra=FloatFormat(3), dec=FloatFormat(3), ts=FloatFormat(0),index2=FloatFormat(3)))
+        t_html = '<h3>Table of poorly-fit sources, model %s</h3>'%self.skymodel + html_table(t,float_format=FloatFormat(2),
                 formatters=dict(ra=FloatFormat(3), dec=FloatFormat(3), ts=FloatFormat(0),index2=FloatFormat(3)))
+
         open(poorfit_html,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+t_html+'\n</body>')
         self.poorfit_table = '<p> <a href="poorfits.html?skipDecoration"> Table of %d poor fits, with fitqual>30 or abs(pull0)>3</a>' % (  len(t) )
         # flag sources that made it into the list
