@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.137 2013/06/15 20:50:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.138 2013/06/16 17:47:58 burnett Exp $
 
 """
 
@@ -33,6 +33,7 @@ def html_table( df, heading={}, href=True, **kw):
          if True, replace index names with link to sedrec
     """
     t = df.to_html(**kw)
+    t = t.replace('<td><strong>', '<td class="index"><strong>') #what pandas generates for index column
     for h, item in heading.items():
         try:
             newhead,title=item.split(',',1)
@@ -1942,7 +1943,7 @@ class SourceInfo(Diagnostics):
         for x in (0, 10, 25):
             census[x] = [count(prefix, x) for prefix in prefixes]
         self.census=pd.DataFrame(census, index=prefixes)
-        self.census_html = self.census.to_html()
+        self.census_html = html_table(self.census)
        
         version = os.path.split(os.getcwd())[-1]
         plt.close('all')
@@ -3559,6 +3560,8 @@ table { margin-left:25pt; margin-top:15pt; font-size:8pt;
     border-style: solid; border-width: 1px;  border-collapse: collapse; }
 table.topmenu {border-style:solid; border-width:0px}
 table, th, td { padding: 3px; }
+td {text-align:center;}
+td.index {text-align:left;}
 a:link { text-decoration: none ; color:green}
 a:hover { background-color:yellow; }
 </style>"""
