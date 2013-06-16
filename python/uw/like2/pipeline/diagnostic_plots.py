@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.138 2013/06/16 17:47:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.139 2013/06/16 18:29:52 burnett Exp $
 
 """
 
@@ -120,7 +120,7 @@ class Diagnostics(object):
                 fig=func(**kwargs)
             except Exception, msg:
                 print '*** Failed to run function %s: "%s"' % (fname, msg)
-                return '<h3>%s %s</h3> Failed to run function %s: "%s"' % (section, title, fname, mag)
+                return '<h3>%s %s</h3> Failed to run function %s: "%s"' % (section, title, fname, msg)
         else: fname = name
         if hasattr(self, fname):
             try:
@@ -1572,8 +1572,8 @@ class SourceInfo(Diagnostics):
         beta_bad = (t.beta>0.001) * ((t.beta_unc==0) + (t.beta/t.beta_unc<2) + (t.freebits!=7))
         if sum(beta_bad)>0:
             print '%d sources fail beta check' % sum(beta_bad)
-            self.beta_check ='<br>Sources failing beta (curvature) check' +\
-            t[beta_bad]['ts beta beta_unc freebits roiname'.split()].to_html(float_format=FloatFormat(2))
+            self.beta_check ='<br>Sources failing beta 2-sigma significance check' +\
+            html_table(t[beta_bad]['ts beta beta_unc freebits roiname'.split()], float_format=FloatFormat(2))
             
         return fig
         
@@ -1662,7 +1662,7 @@ class SourceInfo(Diagnostics):
         tt = t[(t.freebits&7!=7)]['ts fitqual pindex cutoff freebits roiname'.split()].sort_index(by='roiname')
         if len(tt)>0:
             print '%d pulsar-like sources with fixed parameters' %len(tt)
-            self.pulsar_fixed='<p>Sources with any fixed parameter other than b %s' % tt.to_html(float_format=FloatFormat(2))
+            self.pulsar_fixed='<p>Sources with any fixed parameter other than b: %s' % html_table(tt, float_format=FloatFormat(2))
         else: self.pulsar_fixed=''
         return fig
     
@@ -1972,7 +1972,7 @@ class SourceInfo(Diagnostics):
         self.flagged_link = """\
         <p>A number of these sources have been flagged to indicate potential issues. 
         The flag bits and number flagged as such are:
-        %s<br>  """ %flagtable.to_html()
+        %s<br>  """ % html_table(flagtable, href=False)
         try:
             pc =makepivot.MakeCollection('flagged sources %s' % os.path.split(os.getcwd())[-1], 'sedfig', 'flagged_sources.csv')
             self.flagged_link += """\
@@ -1980,7 +1980,7 @@ class SourceInfo(Diagnostics):
             <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>,
             which requires Silverlight."""  % pc.cId
         except Exception, msg: 
-            print "**** Failed to mke pivot table, perhaps need to run sedinfo first: %s" % msg
+            print "**** Failed to make pivot table, perhaps need to run sedinfo first: %s" % msg
         return None
     
 
