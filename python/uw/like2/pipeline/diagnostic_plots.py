@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.139 2013/06/16 18:29:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.140 2013/06/16 18:46:23 burnett Exp $
 
 """
 
@@ -141,7 +141,7 @@ class Diagnostics(object):
             print 'saved plot to %s' % savefile
             html = '<h3>%s %s</h3> <img src="%s" />\n <br> %s '% (section, title, localfile, caption if caption is not None else '')
         elif caption is not None:
-            html = '<h3>%s</h3>\n <br>  %s' % (title, caption )
+            html = '<h3>%s %s</h3>\n <br>  %s' % (section, title, caption )
         if html is not None:
             open(savefile.replace('.png','.html'),'w').write(html )
         print 'saved html doc to %s' % os.path.join(os.getcwd(),savefile.replace('.png','.html'))
@@ -176,9 +176,10 @@ class Diagnostics(object):
                 % (tuple(time.localtime()[:6])+(os.environ['HOSTNAME'],os.environ.get('USER','?')))
 
         html+='\n</body>'
-        t = os.path.split(os.getcwd())
+        t = os.getcwd().split('/')[-3:]
         m = '<a href="../index.html?skipDecoration">%s</a>' % t[-1] # model name has uplink
-        self.header='/'.join([m, os.path.split(self.plotfolder)[-1]])
+        r = '<a href="../../../plot_index.html?skipDecoration">%s</a>' % t[-2] # to group of models 
+        self.header='/'.join([r, m, os.path.split(self.plotfolder)[-1]])
         try:
             text = html%self.__dict__
         except KeyError, msg:
@@ -1009,18 +1010,20 @@ class Environment(ROIinfo):
         cdm = pycaldb.CALDBManager(irf=irfname)
         psf = pypsf.CALDBPsf(cdm)
         self.psf_files=cdm.get_psf()
-        egev = np.logspace(-1,2.5,121)
-        front, back = [[np.degrees(1./np.sqrt(psf(e*1e3,ct,0))) for e in egev] for ct in range(2)]
+        #egev = np.logspace(-1,2.5,121)
+        egev = np.logspace(-1.+1/8., 2.5+1/8., 3.5*4+1)
+        front, back = [[np.degrees(1./np.sqrt(psf(e*1e3,ct,0)))[0] for e in egev] for ct in range(2)]
         fig,ax = plt.subplots(figsize=(5,5))
         ax.loglog(egev, front, '-g', lw=2, label='front')
         ax.plot(egev,  back, '-r', lw=2, label='back')
         plt.setp(ax, xlabel='Energy (GeV)', ylabel='PSF size (deg)',
             xlim=(0.1, 400), ylim=(0.05, 10), title='Effective PSF size')
         ax.legend(prop=dict(size=10)); ax.grid()
+        self.psf_df = pd.DataFrame(dict(front=front, back=back), index=egev.round(3))
+        self.psf_df.index.name='energy'
+        self.psf_df.to_csv(os.path.join(self.plotfolder, 'psf.csv'))
+        print 'wrote file %s' % os.path.join(self.plotfolder, 'psf.csv')
         return fig
-        
-        
-    
         
     def isotropic_spectrum(self, other=None):
         """ Isotropic Spectrum from template
@@ -1047,6 +1050,11 @@ class Environment(ROIinfo):
             ax.set_title('isotropic diffuse spectra', fontsize='small')
             ax.grid(True); ax.legend()
         for f,a in zip((left,right), axs.flatten()): f(a)
+        self.iso_df = pd.DataFrame(dict(front=front*energies**2, back=back*energies**2), index=(energies/1e3).round(3))
+        self.iso_df.index.name='energy'
+        self.iso_df.to_csv(os.path.join(self.plotfolder, 'isotropic.csv'))
+        print 'wrote file %s' % os.path.join(self.plotfolder, 'isotropic.csv')
+
         return fig
         
     def all_plots(self, **kw):
@@ -1358,6 +1366,10 @@ class SourceInfo(Diagnostics):
                     except Exception, msg:
                         print 'fail errors for %s:%s' % (name, msg)
                         badfit = True
+                    try:
+                        fitqual = round(sum(info['sedrec'].delta_ts),2)
+                    except:
+                        fitqual = np.nan
                     ellipse = info.get('ellipse', None)
                     sdict[name] = info
                     pulsar = model.name.endswith('Cutoff')
@@ -1388,7 +1400,7 @@ class SourceInfo(Diagnostics):
                         cutoff_unc = errs[2] if pulsar else np.nan,
                         e0 = model.e0,
                         modelname=model.name,
-                        fitqual = round(sum(info['sedrec'].delta_ts),2),
+                        fitqual = fitqual,
                         eflux = prefactor*pars[0]*model.e0**2*1e6,
                         psr = pulsar,
                         )
@@ -3570,13 +3582,13 @@ a:hover { background-color:yellow; }
     <script> function load(){ parent.content.location.href='%(model_summary)s';} </script>
     </head>
 <body onload="load()">
-<h2><a href="%(upper_link)s?skipDecoration">%(upper)s</a>/%(model)s</h2>"""
+<h2><a href="%(upper_link)s?skipDecoration">%(upper)s</a>%(model)s</h2>"""
 
     top_nav="""<html> <head> <title>Top Nav</title> %(style)s 
     <script> function load(){ parent.menu.location.href = '%(last_model)s';} </script>
     </head>
 <body onload="load()">
-<h3>%(upper)s Skymodels</h3>""" 
+<h3>skymodels/%(upper)s</h3>""" 
 
     def __init__(self, folder='plots/*'):
         self.style = HTMLindex.style
