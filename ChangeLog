@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Mon Jun 17 14:48:46 PDT 2013
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	find_peak.py 
+Added Files:
+	app.py 
+Log Message:
+new module that is an app
+    *
+------------------------------------------------------------
 User: burnett  Mon Jun 17 11:41:58 PDT 2013
 pointlike/python/uw/like2/pipeline
 
