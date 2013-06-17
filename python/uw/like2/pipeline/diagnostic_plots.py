@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.140 2013/06/16 18:46:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.141 2013/06/17 18:41:25 burnett Exp $
 
 """
 
@@ -1665,7 +1665,7 @@ class SourceInfo(Diagnostics):
         tt=t[t.index2<1]['ts fitqual pindex cutoff index2 index2_unc'.split()]
         tt['significance'] = (1-tt.index2)/tt.index2_unc
         html_file = self.plotfolder+'/%s' % filename
-        html = tt.to_html(float_format=FloatFormat(2))
+        html = html_table(tt,float_format=FloatFormat(2))
         open(html_file,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+ html+'\n</body>')
         self.pulsar_b = '<p><a href="%s?skipDecoration">Table of %d sources with b&lt;1</a> '% (filename, len(tt))
         print '%d pulsar sources with b<1' %len(tt)
@@ -2205,7 +2205,7 @@ class Localization(SourceInfo):
                 %(poorly_localized_table_check)s
         """
         if len(self.poorloc)>0:
-            tohtml = self.poorloc.to_html(float_format=FloatFormat(2))
+            tohtml = html_table(self.poorloc, float_format=FloatFormat(2))
             poorly_localized_tablepath = os.path.join(self.plotfolder,'poorly_localized_table.html')
             open('poorly_localized_table.html','w').write(tohtml)
             print 'Wrote poorly_localized_table.html'
@@ -2216,10 +2216,14 @@ class Localization(SourceInfo):
             self.poorly_localized_table_check =\
                         '<p><a href="%s?skipDecoration"> Table of %d poorly localized (a>%.2f deg, or qual>%.1f with TS>%d) sources</a>'\
                         % ( 'poorly_localized_table.html',len(self.poorloc),self.acut,self.qualcut, self.tscut)
-            version = os.path.split(os.getcwd())[-1]
-            pv = makepivot.MakeCollection('poor localizations %s'%version, 'tsmap_fail', 'poorly_localized.csv',refresh=True)
-            self.poorly_localized_table_check +=\
-                '<br>A  <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">pivot collection </a>of TS maps for these sources can be examined.'%pv.cId 
+            try:
+                version = os.path.split(os.getcwd())[-1]
+                pv = makepivot.MakeCollection('poor localizations %s'%version, 'tsmap_fail', 'poorly_localized.csv',refresh=True)
+                self.poorly_localized_table_check +=\
+                 '<br>A  <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">pivot collection </a>of TS maps for these sources can be examined.'%pv.cId 
+            except Exception, msg:
+                self.poorly_localized_table_check += '<br>(No pivot table: %s)' %msg
+                print '**** Failed to create pivot: %s' % msg
                         
         else:
             self.poorly_localized_table_check ='<p>No poorly localized sources!'
