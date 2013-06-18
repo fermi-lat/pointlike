@@ -1,6 +1,6 @@
 """
 Export processing
-$Header#
+$Header$
 
 """
 import os, glob
@@ -52,9 +52,11 @@ class Export(dp.SourceInfo):
         """FITS file summary
         Read back the FITS file, display column information
         %(fits_summary_table)s
+        * flux13 is not in the FITS file, but set to Flux_Density * 1e13 for numerical display.
         """
         t = pyfits.open(self.fits_file)[1].data
         df = pd.DataFrame(t)
+        df['flux13*'] = df['Flux_Density']*1e13
         summary = dp.html_table(df.describe().T, float_format=dp.FloatFormat(3), href=False)
         self.fits_summary_table = summary.replace('%', '%%')
         
