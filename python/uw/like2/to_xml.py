@@ -1,6 +1,6 @@
 """
 Generate the XML representation of a skymodel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.5 2013/05/04 14:35:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.6 2013/06/18 17:20:34 burnett Exp $
 
 """
 import os, collections, argparse, types, glob
@@ -122,7 +122,7 @@ class ToXML(object):
                 diffuse_xml = xml_parsers.unparse_diffuse_sources(globals,filename=filename)
             except:
                 bad +=1
-                continue
+                raise #continue
             for x in diffuse_xml:
                 x = '\t'+x
             diffuse_xml.appendleft(s1)
@@ -161,6 +161,10 @@ def pmodel(source):
         
 
 def source_library(source_list, title='sources', stream=None, strict=False, maxi=None):
+    """ Generate sources in XML format 
+    source_list : pandas.DataFrame
+    
+    """
     Element.stream = stream
     m2x = xml_parsers.Model_to_XML(strict=True)
     with Element('source_library', title=title) as sl:
@@ -195,6 +199,7 @@ def main( filename=[], sources='sources*.csv', cuts='(sources.ts>10)' ):
 if __name__=='__main__':
     parser = argparse.ArgumentParser( description=""" Convert the skymodel in the current folder to XML""")
     parser.add_argument('filename', nargs='*', help='filename to write to (default: make it up)')
+
     parser.add_argument('--sources', default='sources*.csv', help='input table')
     parser.add_argument('--cuts',  default='(sources.ts>10)',
             help='selection cuts')
