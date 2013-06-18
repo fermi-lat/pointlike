@@ -1,7 +1,7 @@
 """
 Make various diagnostic plots to include with a skymodel folder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.141 2013/06/17 18:41:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/diagnostic_plots.py,v 1.142 2013/06/17 18:41:58 burnett Exp $
 
 """
 
@@ -48,6 +48,23 @@ def html_table( df, heading={}, href=True, **kw):
            t = t.replace('>'+n+'<', '><a href="../../%s">%s<' %(fn,n))
     return t
 
+class OutputTee(object):
+    """ capture a copy of stdout to a local string
+    """
+    def __init__(self):
+        self.logstream = '' 
+        self.stdout = sys.stdout
+        sys.stdout = self
+    def write(self, stuff):
+        self.logstream += stuff
+        self.stdout.write(stuff)
+    def close(self):
+        sys.stdout =self.stdout
+    def flush(self):
+        pass
+    def set_parent(self, parent):
+        self.stdout.set_parent(parent) #needed??
+
 class Diagnostics(object):
     """ basic class to handle data for diagnostics, collect code to make plots
     """
@@ -67,6 +84,18 @@ class Diagnostics(object):
 
     def setup(self, **kwargs):
         assert False, 'Base class not implemented'
+        
+    def startlog(self):
+        self.outtee= OutputTee()
+        
+    def stoplog(self): 
+        try:   
+            self.outtee.close()
+            return self.outtee.logstream
+        except:
+            print 'Did not start the log?'
+            return 'No log stream'
+
     def describe(self):
         return 'no description'
     def set_plot(self, ax, fignum, figsize=(4,4)):
@@ -180,11 +209,13 @@ class Diagnostics(object):
         m = '<a href="../index.html?skipDecoration">%s</a>' % t[-1] # model name has uplink
         r = '<a href="../../../plot_index.html?skipDecoration">%s</a>' % t[-2] # to group of models 
         self.header='/'.join([r, m, os.path.split(self.plotfolder)[-1]])
+        text= html
         try:
             text = html%self.__dict__
         except KeyError, msg:
-            print 'failed filling %s:%s' % (title, msg)
-            text= html
+            print '*** failed filling %s:%s' % (title, msg)
+        except TypeError:
+            pass # ignore if % in text
         open(os.path.join(self.plotfolder,'index.html'), 'w').write(text)
         print 'saved html doc to %s' %os.path.join(self.plotfolder,'index.html')
             
