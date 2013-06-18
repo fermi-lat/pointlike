@@ -1,7 +1,7 @@
 """
 Code to generate a standard Fermi-LAT catalog FITS file
 also, see to_xml, to generate XML for the sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_fits.py,v 1.3 2013/05/28 14:11:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_fits.py,v 1.4 2013/06/18 17:20:27 burnett Exp $
 """
 import os, argparse, glob
 import pyfits
@@ -203,14 +203,14 @@ class MakeCat(object):
         self.add('GLAT', [s.b() for s in sdir])
         
         # localization 
-        f95 = 2.45*1.1 # from 
+        f95, quad = 2.45*1.1, 5e-3 # factor from raw sigma, including systematic factor, to r95, quadrature
         self.add('LocalizationQuality', z.locqual)
         major, minor, posangle = z.a,z.b, z.ang 
         if 'ax' in z.columns:
             print 'applying alternate ellipses to %d sources' % z.ax.count()
             major, minor, posangle = z.ax, z.bx, z.angx
-        self.add('Conf_95_SemiMajor', f95*major)
-        self.add('Conf_95_SemiMinor', f95*minor)
+        self.add('Conf_95_SemiMajor', np.sqrt((f95*major)**2+quad**2) )
+        self.add('Conf_95_SemiMinor', np.sqrt((f95*minor)**2+quad**2) )
         self.add('Conf_95_PosAng',    posangle)
             
         self.add('Test_Statistic',    z.ts)
@@ -228,8 +228,8 @@ class MakeCat(object):
         self.add('Unc_Index2',        np.where(notpsr, z.index2_unc, np.nan))
         self.add('Cutoff_Energy',     z.cutoff) 
         self.add('Cutoff_Energy_Unc', z.cutoff_unc) 
-        self.add('beta',              np.where(psr, z.index2, np.nan))
-        self.add('Unc_beta',          np.where(psr, z.index2_unc, np.nan))
+        self.add('Beta',              np.where(psr, z.index2, np.nan))
+        self.add('Beta_Unc',          np.where(psr, z.index2_unc, np.nan))
         self.add('SpectralFitQuality',z.fitqual) 
         self.add('Extended',          pd.isnull(z.locqual))
         self.add('Flags',             z.flags)
