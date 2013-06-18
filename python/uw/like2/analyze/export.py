@@ -1,6 +1,6 @@
 """
 Export processing
-$Header$
+$Header#
 
 """
 import os, glob
@@ -14,8 +14,9 @@ import pylab as plt
 
 class Export(dp.SourceInfo):
     """Manage, and document an export step
-    <p>Expect that findpeak has been run to update the sources file
+    <p>Expect that <a href="../peak_finder/index.html?skipDecoration">findpeak</a> has been run to update the sources file
     <br>Source files found: %(sourcecsv)s
+    <p>Generates XML and FITS files from csv source list.
     """
     def setup(self, **kw):
         super(Export, self).setup(**kw)
@@ -23,15 +24,29 @@ class Export(dp.SourceInfo):
         self.sourcecsv = sorted(glob.glob('source*.csv'))
         self.sourcelist=pd.read_csv(self.sourcecsv[-1], index_col=0)
     
-    def log(self):
+    def analysis(self):
         """Log of analysis stream
         <pre>%(logstream)s</pre>"""
         self.startlog()
+        print 'Running to_xml...'
         to_xml.main()
+        
+        print 'Running to_fits...'
         t = to_fits.MakeCat(self.sourcelist)
         outfile = '_'.join(os.path.abspath('.').split('/')[-2:])+'.fits'
         t(outfile)
         self.logstream=self.stoplog()
          
+    def files(self):
+        """Links to output files
+        <ul>
+         <li>FITS <a href="../../%(fits)s">%(fits)s</a></li>
+         <li>XML  <a href="../../%(xml)s">%(xml)s</ax></li>
+        </ul>
+        
+        """
+        self.fits=glob.glob('*fits')[0]
+        self.xml = glob.glob('*.xml')[0]
+        
     def all_plots(self):
-        self.runfigures([self.log,])
+        self.runfigures([self.analysis,self.files,])
