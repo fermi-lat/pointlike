@@ -1,9 +1,9 @@
 """
 Generate the XML representation of a skymodel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.4 2013/04/09 21:25:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.5 2013/05/04 14:35:37 burnett Exp $
 
 """
-import os, collections, argparse, types
+import os, collections, argparse, types, glob
 import numpy as np
 import pandas as pd
 from uw.like2 import skymodel
@@ -146,7 +146,9 @@ def pmodel(source):
             modelname='PowerLaw'
             model = Models.PowerLaw(p=[norm, pindex ], e0=e0)
         else:
+            assert index2>=0, 'Source %s has beta (%.2f) <0' % (  source, index2, )
             model =Models.LogParabola(p= [norm, pindex, index2, e0])
+            model.free[-1]=False
             errors.append(index2_unc)
     elif modelname=='PLSuperExpCutoff':
         model = Models.PLSuperExpCutoff(p = [norm, pindex, cutoff, index2], e0=e0)
@@ -176,13 +178,14 @@ def source_library(source_list, title='sources', stream=None, strict=False, maxi
                         SimpleElement('parameter', name='Prefactor', value=1.0, free=0, max=1e3,min=1e-3, scale=1.0)
             if maxi is not None and i>maxi: break
 
-def main( args ):
-    sources = pd.read_csv(args.sources)
-    print 'read %d sources from %s' %(len(sources), args.sources)
-    cut_sources = sources[eval(args.cuts)]
-    print 'applied cut "%s", %d remain' % (args.cuts, len(cut_sources))
+def main( filename=[], sources='sources*.csv', cuts='(sources.ts>10)' ):
+    t = sorted(glob.glob(sources))[-1] #shold get the one we want
+    sources = pd.read_csv(t)
+    print 'read %d sources from %s' %(len(sources), t)
+    cut_sources = sources[eval(cuts)]
+    print 'applied cut "%s", %d remain' % (cuts, len(cut_sources))
     modelname = '_'.join(os.path.abspath('.').split('/')[-2:])
-    filename = args.filename[0] if len(args.filename)>0 else None
+    filename = filename[0] if len(filename)>0 else None
     if filename is None:
         filename = modelname+'.xml'
         # for example, 'P202_uw10.xml'
@@ -192,8 +195,8 @@ def main( args ):
 if __name__=='__main__':
     parser = argparse.ArgumentParser( description=""" Convert the skymodel in the current folder to XML""")
     parser.add_argument('filename', nargs='*', help='filename to write to (default: make it up)')
-    parser.add_argument('--sources', default='sources.csv', help='input table')
-    parser.add_argument('--cuts',  default='(sources.ts>10)*(sources.a<0.25)*(sources.locqual<10)+ pd.isnull(sources.locqual)',
+    parser.add_argument('--sources', default='sources*.csv', help='input table')
+    parser.add_argument('--cuts',  default='(sources.ts>10)',
             help='selection cuts')
     args = parser.parse_args()
-    main(args)
+    main(args.filename, args.sources, args.cuts)

@@ -1,7 +1,7 @@
 """
 Code to generate a standard Fermi-LAT catalog FITS file
 also, see to_xml, to generate XML for the sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_fits.py,v 1.2 2013/05/04 14:35:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_fits.py,v 1.3 2013/05/28 14:11:57 burnett Exp $
 """
 import os, argparse, glob
 import pyfits
@@ -291,7 +291,7 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser(description='create a FITS file')
     parser.add_argument('filename', nargs='*', help='output FITS file' )
     parser.add_argument('--cuts', 
-        default='(sources.ts>10)*(sources.a<0.25)*(sources.locqual<10)+ pd.isnull(sources.locqual)', 
+        default='(sources.ts>10)', 
         help='selection cuts')
     parser.add_argument('--infile', default='sources*.csv')
     args = parser.parse_args()
