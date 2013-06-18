@@ -1,11 +1,11 @@
 """
 Analysis code to use grids of TSmap values to locate peaks, an alternative
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/find_peak.py,v 1.6 2013/06/17 21:48:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/find_peak.py,v 1.7 2013/06/17 22:55:28 burnett Exp $
 
 """
 from uw.like2.pipeline import diagnostic_plots 
 from uw.utilities import makepivot 
-import os, glob
+import os, glob, sys
 import numpy as np
 import pandas as pd
 import pylab as plt
@@ -45,7 +45,7 @@ class PeakFinder(object):
         return t[0],t[1],ang
 
 
-class SourceList(list):
+class SourceListXX(list):
 
     def __init__(self, path='tsmap_fail/*.fits'):
         ff = sorted(glob.glob(path))
@@ -81,19 +81,28 @@ class FindPeak(diagnostic_plots.SourceInfo):
     TS, relative to the peak, for a the source to be located there. The associated weight for the moment analysis is the associated probablitly, exp(-TS/2). 
     """
     
-    def setup(self, path='tsmap_fail/*.fits', **kw):
+    def setup(self, path='tsmap_fail/%s_tsmap.fits', poorly_localized='poorly_localized.csv', **kw):
         super(FindPeak, self).setup(**kw)
 
         self.plotfolder='peak_finder'
+        self.startlog() # will capture a copy of printout
         
-        ff = sorted(glob.glob(path))
-        print 'found %d files using glob pattern "%s"'  % (len(ff), path)
+        ff = sorted(glob.glob(path % '*'))
+        print 'found %d files using glob pattern "%s"'  % (len(ff), path%'*')
+        gg =  pd.read_csv(poorly_localized, index_col=0)
+        print 'will analyze the %d entries in the file %s' % (len(gg), poorly_localized)
         slist = []
-        for f in ff:
+        for sourcename in gg.index:
+            fname = sourcename.replace(' ', '_').replace('+','p')
+            f = glob.glob(path % sourcename )
+        
+            if len(f)==0:
+                print '*** file for %s not found' %sourcename
+                continue
             try:
-                q = PeakFinder(f)
+                q = PeakFinder(f[0])
             except Exception, msg:
-                print 'Failed to load image %s: "%s"' % (f,msg)
+                print '*** Failed to load image %s: "%s"' % (f,msg)
                 continue
             e1,e2, ang = q.ellipse()
             a2 = max(e1,e2)
@@ -117,6 +126,7 @@ class FindPeak(diagnostic_plots.SourceInfo):
         self.dfs[self.dfs.flags>7].to_csv('flagged_localizations.csv')
         print 'wrote file %s with TSmap moment analysis' % 'flagged_localizations.csv'
         self.write_updated_sourcelist()
+        self.logstream = self.stoplog()
     
     def write_updated_sourcelist(self):
         df = pd.read_csv('sources_%s.csv'%self.skymodel, index_col=0) 
@@ -206,9 +216,13 @@ class FindPeak(diagnostic_plots.SourceInfo):
             def all_plots(self):
                 self.runfigures([ self.peakfit_comparison,])
         return fig
-        
+    
+    def log(self):
+        """Log of analysis stream
+        <pre>%(logstream)s</pre>
+        """    
     def all_plots(self):
-        self.runfigures([self.plots, self.peakfit_comparison,])
+        self.runfigures([self.log, self.plots, self.peakfit_comparison,])
   
 diagnostic_plots.opts.update(findpeak= (FindPeak,)) # this may not be useful
   
