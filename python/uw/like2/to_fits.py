@@ -1,7 +1,7 @@
 """
 Code to generate a standard Fermi-LAT catalog FITS file
 also, see to_xml, to generate XML for the sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_fits.py,v 1.5 2013/06/18 22:04:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_fits.py,v 1.6 2013/06/19 03:17:47 burnett Exp $
 """
 import os, argparse, glob
 import pyfits
@@ -207,8 +207,9 @@ class MakeCat(object):
         self.add('LocalizationQuality', z.locqual)
         major, minor, posangle = z.a,z.b, z.ang 
         if 'ax' in z.columns:
-            print 'applying alternate ellipses to %d sources' % z.ax.count()
-            major, minor, posangle = z.ax, z.bx, z.angx
+            refit = ~pd.isnull(z.ax)
+            print 'applying alternate ellipses to %d sources' % sum(refit) #z.ax.count()
+            major, minor, posangle = z[refit].ax, z[refit].bx, z[refit].angx
         self.add('Conf_95_SemiMajor', np.sqrt((f95*major)**2+quad**2) )
         self.add('Conf_95_SemiMinor', np.sqrt((f95*minor)**2+quad**2) )
         self.add('Conf_95_PosAng',    posangle)
@@ -223,13 +224,13 @@ class MakeCat(object):
         self.add('Spectral_Index',    z.pindex)
         self.add('Unc_Spectral_Index',z.pindex_unc)
         psr = z.modelname!='LogParabola'
-        notpsr = z.modelname=='LogParabola'
-        self.add('Index2',            np.where(notpsr, z.index2, np.nan))
-        self.add('Unc_Index2',        np.where(notpsr, z.index2_unc, np.nan))
+        logpar = (z.modelname=='LogParabola')* (z.index2>0)
+        self.add('Exp_Index',         np.where(psr, z.index2, np.nan))
+        self.add('Unc_Exp_Index',     np.where(psr, z.index2_unc, np.nan))
         self.add('Cutoff_Energy',     z.cutoff) 
         self.add('Unc_Cutoff_Energy', z.cutoff_unc) 
-        self.add('Beta',              np.where(psr, z.index2, np.nan))
-        self.add('Unc_Beta',          np.where(psr, z.index2_unc, np.nan))
+        self.add('Beta',              np.where(logpar, z.index2, np.nan))
+        self.add('Unc_Beta',          np.where(logpar, z.index2_unc, np.nan))
         self.add('SpectralFitQuality',z.fitqual) 
         self.add('Extended',          pd.isnull(z.locqual))
         self.add('Flags',             z.flags)
