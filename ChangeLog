@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Jun 19 11:29:20 PDT 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	to_fits.py 
+Log Message:
+fix beta, Exp_Index, ellipse
+    *
+------------------------------------------------------------
 User: burnett  Tue Jun 18 20:18:23 PDT 2013
 pointlike/python/uw/like2
 
