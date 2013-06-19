@@ -1,6 +1,6 @@
 """
 Generate the XML representation of a skymodel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.6 2013/06/18 17:20:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.7 2013/06/18 22:06:35 burnett Exp $
 
 """
 import os, collections, argparse, types, glob
@@ -146,13 +146,18 @@ def pmodel(source):
             modelname='PowerLaw'
             model = Models.PowerLaw(p=[norm, pindex ], e0=e0)
         else:
-            assert index2>=0, 'Source %s has beta (%.2f) <0' % (  source, index2, )
+            if index2<0: print  'Source %s has beta (%.2f) <0: setting to 0.' % (  source.name, index2, )
+            index2=0
             model =Models.LogParabola(p= [norm, pindex, index2, e0])
             model.free[-1]=False
             errors.append(index2_unc)
     elif modelname=='PLSuperExpCutoff':
         model = Models.PLSuperExpCutoff(p = [norm, pindex, cutoff, index2], e0=e0)
         errors += [cutoff_unc, index2_unc]
+    elif modelname=='ExpCutoff':
+        model = Models.PLSuperExpCutoff(p = [norm, pindex, cutoff, 0.], e0=e0)
+        model.free[3]==False
+        errors += [cutoff_unc]
     else:
             raise Exception('model name %s not recognized' % modelname)
     map(model.set_error, range(len(errors)), errors)
