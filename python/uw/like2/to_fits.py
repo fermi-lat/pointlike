@@ -1,7 +1,7 @@
 """
 Code to generate a standard Fermi-LAT catalog FITS file
 also, see to_xml, to generate XML for the sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_fits.py,v 1.4 2013/06/18 17:20:27 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_fits.py,v 1.5 2013/06/18 22:04:53 burnett Exp $
 """
 import os, argparse, glob
 import pyfits
@@ -227,9 +227,9 @@ class MakeCat(object):
         self.add('Index2',            np.where(notpsr, z.index2, np.nan))
         self.add('Unc_Index2',        np.where(notpsr, z.index2_unc, np.nan))
         self.add('Cutoff_Energy',     z.cutoff) 
-        self.add('Cutoff_Energy_Unc', z.cutoff_unc) 
+        self.add('Unc_Cutoff_Energy', z.cutoff_unc) 
         self.add('Beta',              np.where(psr, z.index2, np.nan))
-        self.add('Beta_Unc',          np.where(psr, z.index2_unc, np.nan))
+        self.add('Unc_Beta',          np.where(psr, z.index2_unc, np.nan))
         self.add('SpectralFitQuality',z.fitqual) 
         self.add('Extended',          pd.isnull(z.locqual))
         self.add('Flags',             z.flags)
