@@ -1,7 +1,7 @@
 """
 Basic analyis of source spectra
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.1 2013/06/20 04:17:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.2 2013/06/20 16:27:45 burnett Exp $
 
 """
 
@@ -12,6 +12,8 @@ import pandas as pd
 
 from uw.utilities import makepivot
 from . import diagnostics
+from . diagnostics import FloatFormat
+from . html import HTMLindex
 
 
 class SourceInfo(diagnostics.Diagnostics):
