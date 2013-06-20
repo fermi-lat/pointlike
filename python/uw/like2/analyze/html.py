@@ -1,6 +1,6 @@
 """
 Manage the Web page generation
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/html.py,v 1.1 2013/06/20 04:17:49 burnett Exp $
 """
 import os, glob
 import pandas as pd
@@ -19,6 +19,8 @@ p   { font-size:10pt; margin-left:25pt; }
 pre { font-size:10pt; margin-left:25pt; 
     border-style:solid;
     border-width:thin;}
+h3 { -webkit-margin-after: 0px; -webkit-margin-before: 2em; }
+
 h5 {margin-left:25pt;}
 table { margin-left:25pt; margin-top:15pt; font-size:8pt;
     border-style: solid; border-width: 1px;  border-collapse: collapse; }
@@ -115,8 +117,8 @@ a:hover { background-color:yellow; }
         s = HTMLindex.top_nav % self.__dict__
         s += '\n<table class="topmenu">'
         for m in models:
-            s += '\n  <tr><td valign="top">%s</td>'% parse_model(m)
-            s += '\n      <td> %s </td></tr>' % model_comment(m)
+            s += '\n  <tr><td valign="top" class="index">%s</td>'% parse_model(m)
+            s += '\n      <td class="index"> %s </td></tr>' % model_comment(m)
         s += '\n</table>\n</body></html>\n'
         open(filename, 'w').write(s)
         print 'wrote top menu %s' % os.path.join(os.getcwd(),filename)

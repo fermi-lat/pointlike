@@ -1,7 +1,7 @@
 """
 Description here
 
-$Header: /phys/users/glast/python/uw/like2/analyze/seedcheck.py,v 1.144 2013/06/18 12:35:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/seedcheck.py,v 1.1 2013/06/20 03:58:18 burnett Exp $
 
 """
 
@@ -9,9 +9,13 @@ import numpy as np
 import pylab as plt
 import pandas as pd
 
-from . import sourceinfo
+from . import sourceinfo, diagnostics, html
 
 class SeedCheck(sourceinfo.SourceInfo):
+    """Analysis of a set of seeds
+    
+    %(cut_summary)s
+    """
     require='seedcheck.zip'
     def setup(self, **kw):
         self.plotfolder = self.seedname='seedcheck'
@@ -39,11 +43,13 @@ class SeedCheck(sourceinfo.SourceInfo):
                 print 'fail errors for %s:%s' % (name, msg)
                 badfit = True
             has_adict = hasattr(source,'adict') and source.adict is not None
+            has_ellipse = hasattr(source, 'ellipse')
             sdict[name] = dict(
                 ra =source.skydir.ra(), dec=source.skydir.dec(),
                 ts=source.ts,
-                delta_ts=source.ellipse[5] if hasattr(source, 'ellipse') else np.nan,
-                r95 = 2.6*source.ellipse[2] if hasattr(source, 'ellipse') else np.nan,
+                delta_ts=source.ellipse[6] if has_ellipse else np.nan,
+                r95 = 2.6*source.ellipse[2] if has_ellipse else np.nan,
+                locqual=source.ellipse[5] if has_ellipse else np.nan,
                 glat=source.skydir.b(), glon=source.skydir.l(),
                 eflux=pars[0] * model.e0**2 *1e6,
                 eflux_unc=errs[0] * model.e0**2 *1e6 if errs[0]>0 else np.nan,
@@ -64,7 +70,7 @@ class SeedCheck(sourceinfo.SourceInfo):
                 adict = source.adict if has_adict else None,
                 )
         self.df = pd.DataFrame(pd.DataFrame(sdict).transpose(), 
-            columns='ra dec glat glon ts delta_ts eflux eflux_unc pindex pindex_unc par2 par2_unc e0 r95 aprob index'.split() 
+            columns='ra dec glat glon ts delta_ts eflux eflux_unc pindex pindex_unc par2 par2_unc e0 r95 locqual aprob index'.split() 
             )
         self.df.index.name='name'
         self.assoc = pd.DataFrame(assoc).transpose()
@@ -76,19 +82,17 @@ class SeedCheck(sourceinfo.SourceInfo):
         for x in acat:
             t[sa.index(x)]+=1
         self.assoc_sum = zip(sa, t)
-        #self.psr = [  s is not None and ('pulsar' in s or 'msp' in s ) for s in t] * associated
-        #self.agn = [  s is not None and ('agn' in s or 'crates' in s or 'bzcat' in s or 'bllac' in s or 'qso' in s or 'cgrabs' in s) for s in t] * associated
+        self.good = (self.df.ts>6)*(self.df.r95<0.6)*(self.df.locqual<8)
+        self.df_good= self.df[self.good]
+        self.cut_summary= '<p>Read in %d sources from file %s: <br>selection cut: (self.df.ts>6)*(self.df.r95<0.6)*(self.df.locqual<8) : %d remain'\
+            % (len(sources), self.require, sum(self.good))
+        print self.cut_summary
     
-    def select_candidates(self, tsmin):
-        t=self.df[(self.df.ts>tsmin)*(self.df.r95<0.6)]['ra dec ts pindex r95 aprob'.split()]#.sort_index(by='ts')
-        t['acat']=self.assoc.acat
-        t['aname']=self.assoc.aname
-        return t
     
     def seed_cumulative_ts(self, cut=None, label='all seeds'):
         """ Cumulative TS distribution for seeds 
         """
-        v = self.df.ts
+        v = self.df_good.ts
         if cut is not None: v=v[cut]
         fig = self.cumulative_ts(v, check_localized=False, label=label)
         ax = plt.gca()
@@ -104,8 +108,8 @@ class SeedCheck(sourceinfo.SourceInfo):
         
     def histo(self, ax, v, bins):
         ax.hist(v, bins)
-        ax.hist(v[self.df.ts>10], bins, label='TS>10')
-        ax.hist(v[self.df.ts>25], bins, label='TS>25')
+        ax.hist(v[self.df_good.ts>10], bins, label='TS>10')
+        ax.hist(v[self.df_good.ts>25], bins, label='TS>25')
         ax.legend(prop=dict(size=10))
         ax.grid()
     
@@ -113,17 +117,21 @@ class SeedCheck(sourceinfo.SourceInfo):
         """ Localization results
         <br>Left: r95; right; delta TS
         """
-        fig, ax = plt.subplots(1,2, figsize=(12,5))
+        fig, ax = plt.subplots(1,3, figsize=(12,5))
+        plt.subplots_adjust(left=0.1)
+        df = self.df_good
         def r95(ax):
-            v = 60.*self.df.r95; bins = np.linspace(0, 25,26)
+            v = 60.*df.r95; bins = np.linspace(0, 25,26)
             self.histo(ax, v[~pd.isnull(v)], bins)
             plt.setp(ax, xlabel='r95 (arcmin)')
         def delta_ts(ax):
-            v = np.sqrt(list(self.df.delta_ts)); bins = np.linspace(0,10,26)
+            v = np.sqrt(list(df.delta_ts)); bins = np.linspace(0,10,26)
             self.histo(ax, v, bins)
-            plt.setp(ax, xlabel='sqrt(delta_ts)', xlim=(0,10))
-
-        for f, a in zip((r95, delta_ts), ax.flatten()):
+            plt.setp(ax, xlabel='sqrt(delta_ts)', xlim=(0,3))
+        def locqual(ax):
+            self.histo(ax, df.locqual.clip(0,8), np.linspace(0,8,26))
+            plt.setp(ax, xlabel='localization quality', xlim=(0,8))
+        for f, a in zip((r95, delta_ts,locqual), ax.flatten()):
             f(a)
         return fig
 
@@ -132,60 +140,63 @@ class SeedCheck(sourceinfo.SourceInfo):
         Flux vs. spectral index for %(spectral_type)s fit
         <br>histograms of sin(glat) and sqrt(delta_ts) for all, TS>10, and TS>25
         """
-        fig, ax = plt.subplots(2,2, figsize=(12,12))
-        good = self.df.ts>10
-        super = self.df.ts>25
+        fig, ax = plt.subplots(1,2, figsize=(10,5))
+        df = self.df_good
+        good = df.ts>10
+        super = df.ts>25
         def flux_index(ax):
             for cut, c,label in zip((good, super), ('.b', 'or'), ('TS>10', 'TS>25')):
-                ax.plot(self.df.eflux[cut], self.df.pindex[cut], c, label=label)
+                ax.plot(df.eflux[cut], df.pindex[cut], c, label=label)
             ax.grid()
             ax.legend(prop=dict(size=10))
             plt.setp(ax, ylim=(0.5,3.0), xlim=(0.1,10), xscale='log', ylabel='spectral index', xlabel='enegy flux (eV)')
         def singlat(ax):
-            v = np.sin(np.radians(list(self.df.glat))); bins=np.linspace(-1,1,26)
+            v = np.sin(np.radians(list(df.glat))); bins=np.linspace(-1,1,26)
             self.histo(ax, v, bins)
             plt.setp(ax, xlabel='sin(glat)')
         def skyplot(ax):
-            glon = self.df.glon
+            glon = df.glon
             glon[glon>180]-=360
-            ax.plot(glon, np.sin(np.radians(list(self.df.glat))), 'o')
+            ax.plot(glon, np.sin(np.radians(list(df.glat))), 'o')
             plt.setp(ax, xlim=(180,-180), xlabel='glon', ylabel='sin(glat)')
-            #self.skyplot(self, self.df.ts, ax=ax)
         def index_vs_cutoff(ax):
-            cutoff = self.df.par2
+            cutoff = df.par2
             for tsmin, marker in zip((10,25), ('.b', 'or')):
-                cut = self.df.ts>tsmin
-                ax.plot(cutoff[cut], self.df.pindex[cut],  marker, label='TS>%d'%tsmin)
+                cut = df.ts>tsmin
+                ax.plot(cutoff[cut], df.pindex[cut],  marker, label='TS>%d'%tsmin)
             plt.setp(ax, ylabel='spectral index', xlabel='cutoff', ylim=(0.5,3.0), xlim=(0, 3000))
             ax.grid(); ax.legend(prop=dict(size=10))
-        for f, a in zip((flux_index, index_vs_cutoff, singlat, skyplot), ax.flatten()):
+        for f, a in zip((flux_index,  singlat,), ax.flatten()):
             f(a)
             
         return fig
 
-    def locations(self):
+    def locations(self, vmin=10, vmax=50):
         """ Positions
+        Locations of the good candidates
         """
-        return self.skyplot(self.df.ts)
-        
-    def all_plots(self):
+        return self.skyplot(self.df_good.ts, vmin=vmin, vmax=vmax, cbtext='TS')
+    
+    def seed_list(self):
         """ Results of analysis of seeds
         %(info)s
         """
-        #t=self.df[(self.df.ts>6)*(-self.df.r95.isnull())]['ra dec ts pindex r95 aprob index'.split()]#.sort_index(by='ts')
-        #t['acat']=self.assoc.acat
-        #t['aname']=self.assoc.aname
-        tsmin = 6
-        t = self.select_candidates(tsmin)
+        t = self.df_good
         good_seeds = 'good_seeds.csv'
         t.to_csv(good_seeds)
         print 'wrote list that succeeded to %s' % good_seeds
-        self.info = ' ' #self.df.describe().to_html()
-        self.info += '<h3> Selected TS>%.0f and localized</h3>' %tsmin
-        self.info += t.to_html()
-        self.info += '<h3>Association summary:</h3>' #\n<pre>%s\n</pre>' %self.assoc_sum
+        filename = 'good_seeds.html'
+        html_file = self.plotfolder+'/%s' % filename
+        htmldoc = diagnostics.html_table(t, float_format=diagnostics.FloatFormat(2))
+        open(html_file,'w').write('<head>\n'+ html.HTMLindex.style + '</head>\n<body>'+ htmldoc+'\n</body>')
+
+        self.info = ' ' 
+        self.info += '<br><a href="%s?skipDecoration">Table of %d seeds</a>: '% (filename, len(t))
+        self.info += '<p>Association summary:' #\n<pre>%s\n</pre>' %self.assoc_sum
         self.info += '<table border="1"><thead><tr><th>Catalog</th><th>Sources</th></tr></thead>\n<tbody>'
         for (c,n) in  self.assoc_sum:
-            self.info += '<tr><td>%s</td><td>%5d</td></tr>' % (c,n)
+            self.info += '<tr><td class="index">%s</td><td>%5d</td></tr>' % (c,n)
         self.info += '</tbody></table>\n'
-        self.runfigures([self.seed_cumulative_ts, self.spectral_parameters, self.localization,])
+
+    def all_plots(self):
+        self.runfigures([self.seed_list, self.seed_cumulative_ts, self.locations, self.spectral_parameters, self.localization,])
