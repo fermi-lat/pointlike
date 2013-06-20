@@ -1,7 +1,6 @@
-"""
-Description here
+"""    Description here
 
-$Header: /phys/users/glast/python/uw/like2/analyze/localization.py,v 1.144 2013/06/18 12:35:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.1 2013/06/20 20:57:39 burnett Exp $
 
 """
 
@@ -141,22 +140,35 @@ class Localization(sourceinfo.SourceInfo):
         cut = (np.abs(self.df.glat)>bmin) * (self.df.ts>tsmin)
         indeces = self.df.index[cut] 
         sdirs = self.df[ cut ]['skydir'].values
-        name1=[]; name2=[]; distance=[]
+        r95 = 2.5 * self.df[cut]['a'].values
+        r95[r95>0.5]=0.5
+        name1=[]; name2=[]; distance=[]; tolerance=[];
         for i in range(len(sdirs)-1): 
             a = sdirs[i]
+            a95 = r95[i]
             for j in range(i+1, len(sdirs)):
                 dist = np.degrees(a.difference(sdirs[j]))
-                if dist< tol:
+                t = max(a95+r95[j], tol)
+                if dist< t:
                     name1.append(indeces[i])
                     name2.append(indeces[j])
+                    tolerance.append(t)
                     distance.append(dist.round(2))
-                    print 'Closer than tolerance: sources %s, %s, %.2f deg' \
-                        % (indeces[i], indeces[j], dist)
+                    print 'Closer than tolerance: sources %s, %s, %.2f deg < %.2f' \
+                        % (indeces[i], indeces[j], dist,t )
         self.close_tol = tol
-        self.close_table = pd.DataFrame(
-            collections.OrderedDict( [('source1',name1), ('source2',name2), ('distance',distance) ]),
-            columns = 'source1 source2 distance'.split(), # why doesn't OrderedDict do this?
-            ).to_html(float_format=FloatFormat(2))
+        def hreftag(name):
+           fn = 'sedfig/' + name.replace(' ','_').replace('+','p') + '_sed.png'
+           if not os.path.exists(fn): return name
+           return '<a href="../../%s">%s</a>' %(fn,name)
+
+        name1href = map(hreftag, name1)
+        name2href = map(hreftag, name2)
+        
+        self.close_table = html_table(pd.DataFrame(
+            collections.OrderedDict( [('source1',name1href), ('source2',name2href), ('distance',distance), ('tolerance', tolerance) ]),
+            columns = 'source1 source2 distance tolerance'.split(), # why doesn't OrderedDict do this?
+            ), float_format=FloatFormat(2), href=False) 
         return None
         
     def source_confusion(self, bmin=10, dtheta=0.1, nbins=50, deficit_angle=1.0, tsmin=10):

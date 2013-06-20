@@ -1,7 +1,7 @@
 """
 Application module, allowing command-line access to analysis/plotting tasks
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/app.py,v 1.3 2013/06/20 03:56:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/app.py,v 1.4 2013/06/20 20:00:00 burnett Exp $
 
 """
 import os, argparse, types
@@ -9,10 +9,10 @@ import numpy as np
 import pylab as plt
 import pandas as pd
 
-from uw.like2.analyze import ( html, seedcheck, export, sourceinfo, )
+from uw.like2.analyze import ( html, seedcheck, export, sourceinfo, localization,)
 #    associations,components, countplots, data, environment, 
 #    flux_corr_iso, fluxcorr, frontbacksedplots,galactic, galacticspectra, gtlikecomparison,
-#    hptables, isotropic, isotropicspectra, limb,limbrefit, localization, pgwseedcheck,
+#    hptables, isotropic, isotropicspectra, limb,limbrefit,  pgwseedcheck,
 #    ptstable, pulsarseedcheck, roi_info, seedcheck,sourcecomparison, sourceinfo, sourcetotal, 
 #    sunmoon, sunmoonrefit, uwsourcecomparison, diagnostics, find_peak, export)
 
@@ -34,7 +34,7 @@ opts = dict(
 #        isospect =  (isotropicspectra.IsotropicSpectra,),
 #        limb=       (limb.Limb,),
 #        limb_refit= (limbrefit.LimbRefit,),
-#        localization=(localization.Localization,),
+        localization=(localization.Localization,),
 #        pgwseedcheck=(pgwseedcheck.PGWSeedCheck,),
 #        pts=        (ptstable.PTStable,),
 #        pseedcheck= (pulsarseedcheck.PulsarSeedCheck,),
