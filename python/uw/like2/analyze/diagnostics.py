@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/diagnostics.py,v 1.1 2013/06/20 04:16:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/diagnostics.py,v 1.2 2013/06/20 04:38:36 burnett Exp $
 
 """
 
@@ -12,6 +12,7 @@ from . import html
 from mpl_toolkits.axes_grid import axes_grid, axes_size, Divider, make_axes_locatable
 from skymaps import SkyDir, Hep3Vector
 
+from . html import HTMLindex
 
 class FloatFormat(): #simple formatting functor for to_html!
     def __init__(self, n): self.fmt = '%%.%df' % n
