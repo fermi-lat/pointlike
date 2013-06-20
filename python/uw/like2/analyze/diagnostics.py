@@ -1,14 +1,14 @@
 """
 Base class for skymodel analysis
 
-$Header: /phys/users/glast/python/uw/like2/analyze/diagnostics.py,v 1.144 2013/06/18 12:35:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/diagnostics.py,v 1.1 2013/06/20 04:16:13 burnett Exp $
 
 """
 
 import os, sys, pickle, glob, zipfile, time
 import numpy as np
 import pylab as plt
-
+from . import html
 from mpl_toolkits.axes_grid import axes_grid, axes_size, Divider, make_axes_locatable
 from skymaps import SkyDir, Hep3Vector
 
@@ -159,19 +159,19 @@ class Diagnostics(object):
         localfile = '%s_%s.png'%(name, self.skymodel.replace('/','_'))
         savefile = os.path.join(self.plotfolder,localfile)
         if title is None: title = name.replace('_', ' ')
-        html=None
+        htmldoc=None
         if fig is not None:
             fig.text(0.02, 0.02, self.skymodel, fontsize=8)
             savefig_kw=dict(dpi=60, bbox_inches='tight', bbox_extra_artists=fig.texts, pad_inches=0.5) 
             plt.savefig(savefile, **savefig_kw)
             print 'saved plot to %s' % savefile
-            html = '<h3>%s %s</h3> <img src="%s" />\n <br> %s '% (section, title, localfile, caption if caption is not None else '')
+            htmldoc = '<h3>%s %s</h3> <img src="%s" />\n <br> %s '% (section, title, localfile, caption if caption is not None else '')
         elif caption is not None:
-            html = '<h3>%s %s</h3>\n <br>  %s' % (section, title, caption )
-        if html is not None:
-            open(savefile.replace('.png','.html'),'w').write(html )
+            htmldoc = '<h3>%s %s</h3>\n <br>  %s' % (section, title, caption )
+        if htmldoc is not None:
+            open(savefile.replace('.png','.html'),'w').write(htmldoc )
         print 'saved html doc to %s' % os.path.join(os.getcwd(),savefile.replace('.png','.html'))
-        return html
+        return htmldoc
 
     def runfigures(self, functions, names=None,  **kwargs):
         """ 
@@ -184,31 +184,31 @@ class Diagnostics(object):
         if names is None:
             names=[None]*len(functions)
         title = self.skymodel +'-'+self.__class__.__name__
-        html = '<head>'+ HTMLindex.style + '\n <title>%s</title>\n' % title
-        html +=' <script>document.title="%s"</script>\n</head>\n' % title # this to override SLAC Decorator
-        html +='<body><h2>%(header)s</h2>'
+        htmldoc = '<head>'+ html.HTMLindex.style + '\n <title>%s</title>\n' % title
+        htmldoc +=' <script>document.title="%s"</script>\n</head>\n' % title # this to override SLAC Decorator
+        htmldoc +='<body><h2>%(header)s</h2>'
  
         docstring = self.all_plots.__doc__
         if docstring is None: docstring = self.__doc__
-        if docstring is not None: html+=docstring
+        if docstring is not None: htmldoc+=docstring
         section = 0
         for function, name in zip(functions,names):
             section +=1
             fname = name if name is not None else function.__name__
             fig = self.savefigure(fname, function, section='%d.'%section, **kwargs)
             if fig is not None:
-                html+='\n'+ fig
-        html+= '\n<hr>\nPage generated %4d-%02d-%02d %02d:%02d:%02d on %s by %s'\
+                htmldoc+='\n'+ fig
+        htmldoc+= '\n<hr>\nPage generated %4d-%02d-%02d %02d:%02d:%02d on %s by %s'\
                 % (tuple(time.localtime()[:6])+(os.environ['HOSTNAME'],os.environ.get('USER','?')))
 
-        html+='\n</body>'
+        htmldoc+='\n</body>'
         t = os.getcwd().split('/')[-3:]
         m = '<a href="../index.html?skipDecoration">%s</a>' % t[-1] # model name has uplink
         r = '<a href="../../../plot_index.html?skipDecoration">%s</a>' % t[-2] # to group of models 
         self.header='/'.join([r, m, os.path.split(self.plotfolder)[-1]])
-        text= html
+        text= htmldoc
         try:
-            text = html%self.__dict__
+            text = htmldoc%self.__dict__
         except KeyError, msg:
             print '*** failed filling %s:%s' % (title, msg)
         except TypeError:
