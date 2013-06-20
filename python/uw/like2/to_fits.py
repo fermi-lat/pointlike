@@ -1,7 +1,7 @@
 """
 Code to generate a standard Fermi-LAT catalog FITS file
 also, see to_xml, to generate XML for the sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_fits.py,v 1.6 2013/06/19 03:17:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_fits.py,v 1.7 2013/06/19 18:29:20 burnett Exp $
 """
 import os, argparse, glob
 import pyfits
@@ -189,7 +189,7 @@ class MakeCat(object):
         self.cols.append(pyfits.Column(name=name, format=format, unit=unit, array=t))
         
         
-    def __call__(self, outfile):
+    def __call__(self, outfile, localization_systematic=(1.1, 5e-3) ):
         self.cols = []
         z = self.z
         z.sort_index(by='ra')
@@ -203,43 +203,51 @@ class MakeCat(object):
         self.add('GLAT', [s.b() for s in sdir])
         
         # localization 
-        f95, quad = 2.45*1.1, 5e-3 # factor from raw sigma, including systematic factor, to r95, quadrature
+        f95, quad = 2.45*localization_systematic[0], localization_systematic[1] # 
+        print 'Applying factor of %.2f to localization errors, and adding %.3g deg in quadrature' % localization_systematic
         self.add('LocalizationQuality', z.locqual)
-        major, minor, posangle = z.a,z.b, z.ang 
+        major, minor, posangle = z.a, z.b, z.ang 
+        flags = z.flags
         if 'ax' in z.columns:
             refit = ~pd.isnull(z.ax)
-            print 'applying alternate ellipses to %d sources' % sum(refit) #z.ax.count()
-            major, minor, posangle = z[refit].ax, z[refit].bx, z[refit].angx
+            print 'applying alternate ellipses to %d sources, setting 16 flag bit' % sum(refit) 
+            major[refit] = z[refit].ax
+            minor[refit] = z[refit].bx
+            posangle[refit] =  z[refit].angx
+            flags[refit] += 16
         self.add('Conf_95_SemiMajor', np.sqrt((f95*major)**2+quad**2) )
         self.add('Conf_95_SemiMinor', np.sqrt((f95*minor)**2+quad**2) )
         self.add('Conf_95_PosAng',    posangle)
-            
+        
+        # determine which modelname to use, how to interpret index2
+        notpsr = z.modelname=='LogParabola'
+        psr = z.modelname=='PLSuperExpCutoff'
+        logpar = notpsr * (z.index2>0)
+        powerlaw = notpsr * (z.index2==0)
+        has_exp_index = psr*(z.index2<1)
+        exp_cutoff = psr*(z.index2==1)
+        extended = pd.isnull(z.locqual)
+        print 'found %d logparabola, %d exp cutoff, %d super cutoff, %d extended'\
+               % (sum(logpar), sum(exp_cutoff), sum(has_exp_index), sum(extended))
+
         self.add('Test_Statistic',    z.ts)
         
         # Spectral details
-        self.add('SpectrumType',      z.modelname)
+        self.add('SpectrumType',      np.where(powerlaw, 'PowerLaw', np.where(exp_cutoff, 'ExpCutoff', z.modelname)))
         self.add('Pivot_Energy',      z.e0)  # note that pivot_energy is the measured value
         self.add('Flux_Density',      z.flux)
         self.add('Unc_Flux_Density',  z.flux_unc)
         self.add('Spectral_Index',    z.pindex)
         self.add('Unc_Spectral_Index',z.pindex_unc)
-        psr = z.modelname!='LogParabola'
-        logpar = (z.modelname=='LogParabola')* (z.index2>0)
-        self.add('Exp_Index',         np.where(psr, z.index2, np.nan))
-        self.add('Unc_Exp_Index',     np.where(psr, z.index2_unc, np.nan))
+        self.add('Exp_Index',         np.where(has_exp_index, z.index2, np.nan))
+        self.add('Unc_Exp_Index',     np.where(has_exp_index, z.index2_unc, np.nan))
         self.add('Cutoff_Energy',     z.cutoff) 
         self.add('Unc_Cutoff_Energy', z.cutoff_unc) 
         self.add('Beta',              np.where(logpar, z.index2, np.nan))
         self.add('Unc_Beta',          np.where(logpar, z.index2_unc, np.nan))
         self.add('SpectralFitQuality',z.fitqual) 
-        self.add('Extended',          pd.isnull(z.locqual))
-        self.add('Flags',             z.flags)
-        #if self.add_assoc:
-        #    assoc = Assoc()
-        #    for idcol in 'Number Name Probability RA DEC Angsep Catalog'.split():
-        #        h = 'ID_'+idcol
-        #        adata = np.array([assoc(name).field(h)[0] for name in z.name])
-        #        self.add(h, adata)
+        self.add('Extended',          extended)
+        self.add('Flags',             flags)
         
         # make the FITS stuff
         table = pyfits.new_table(self.cols)
@@ -274,7 +282,7 @@ def to_reg(fitsfile, filename=None, color='green'):
     print 'wrote reg file to %s' % filename
 
 
-def main(outfile, infile='sources_*.csv', cuts='(sources.ts>10)'):
+def main(outfile, infile='sources_*.csv', cuts='(sources.ts>10)', localization_systematic=(1,0)):
     infiles = glob.glob(infile)
     assert len(infiles)>0, 'Input file "%s" not found' % infile
     infile = infiles[-1]
@@ -286,7 +294,7 @@ def main(outfile, infile='sources_*.csv', cuts='(sources.ts>10)'):
     if outfile is None:
         outfile = '_'.join(os.path.abspath('.').split('/')[-2:])+'.fits'
         # for example, 'P202_uw10.fits'
-    t(outfile)
+    t(outfile, localization_systematic=localization_systematic)
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='create a FITS file')
