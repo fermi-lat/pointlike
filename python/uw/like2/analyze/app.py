@@ -1,51 +1,54 @@
 """
 Application module, allowing command-line access to analysis/plotting tasks
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/app.py,v 1.1 2013/06/17 21:48:45 burnett Exp $
+$Header: /phys/users/glast/python/uw/like2/analyze/app.py,v 1.2 2013/06/18 02:59:26 burnett Exp $
 
 """
-
-from uw.like2.pipeline import diagnostic_plots as dp 
-from uw.like2.analyze import (find_peak, export )
 import os, argparse, types
 import numpy as np
 import pylab as plt
 import pandas as pd
 
+from uw.like2.analyze import (associations,components, countplots, data, environment, 
+    flux_corr_iso, fluxcorr, frontbacksedplots,galactic, galacticspectra, gtlikecomparison,
+    hptables, isotropic, isotropicspectra, limb,limbrefit, localization, pgwseedcheck,
+    ptstable, pulsarseedcheck, roi_info, seedcheck,sourcecomparison, sourceinfo, sourcetotal, 
+    sunmoon, sunmoonrefit, uwsourcecomparison, diagnostics, find_peak, export)
+
+
 opts = dict(
-        environment=   (dp.Environment,),
-        counts=  (dp.CountPlots,),
-        sources= (dp.SourceInfo, dp.Localization, ), #SourceTotal,),
-        sourceinfo=(dp.SourceInfo,),
-        localization=(dp.Localization,),
-        diffuse= (dp.Galactic, dp.Isotropic, dp.Limb, dp.SunMoon),
-        isotropic=(dp.Isotropic,),
-        galactic=(dp.Galactic,),
-        limb=    (dp.Limb,),
-        limb_refit=(dp.LimbRefit,),
-        sunmoon= (dp.SunMoon,),
-        sunmoon_refit = (dp.SunMoonRefit,),
-        isospect =  (dp.IsotropicSpectra,),
-        galspect =  (dp.GalacticSpectra,),
-        fb=      (dp.FrontBackSedPlots,),
-        fluxcorr=(dp.FluxCorr,),
-        fluxcorriso=(dp.FluxCorrIso,),
-        loc =    (dp.Localization,),
-        loc1K =  (dp.Localization1K,),
-        hptables = (dp.HPtables,),
-        tables = (dp.HPtables,),
-        sourcetotal=(dp.SourceTotal,),
-        seedcheck=(dp.SeedCheck,),
-        pseedcheck=(dp.PulsarSeedCheck,),
-        pts=     (dp.PTStable,),
-        data =   (dp.Data,),
-        comparison=(dp.SourceComparison,),
-        association=(dp.Associations,),
-        gtlike_comparison=(dp.GtlikeComparison,),
-        uw_comparison=(dp.UWsourceComparison,),
-        findpeak= (find_peak.FindPeak,),
-        export= (export.Export,),
+        associations=  (associations.Associations,),
+        components= (components.Components,),
+        counts=     (countplots.CountPlots,),
+        data =      (data.Data,),
+        environment=   (environment.Environment,),
+        fluxcorriso=(flux_corr_iso.FluxCorrIso,),
+        fluxcorr=   (fluxcorr.FluxCorr,),
+        fb=         (frontbacksedplots.FrontBackSedPlots,),
+        galactic=   (galactic.Galactic,),
+        galspect =  (galacticspectra.GalacticSpectra,),
+        gtlike_comparison=(gtlikecomparison.GtlikeComparison,),
+        hptables =  (hptables.HPtables,),
+        isotropic=  (isotropic.Isotropic,),
+        isospect =  (isotropicspectra.IsotropicSpectra,),
+        limb=       (limb.Limb,),
+        limb_refit= (limbrefit.LimbRefit,),
+        localization=(localization.Localization,),
+        pgwseedcheck=(pgwseedcheck.PGWSeedCheck,),
+        pts=        (ptstable.PTStable,),
+        pseedcheck= (pulsarseedcheck.PulsarSeedCheck,),
+        roi=        (roi_info.ROIinfo,),
+        seedcheck=  (seedcheck.SeedCheck,),
+        comparison= (sourcecomparison.SourceComparison,),
+        info      = (sourceinfo.SourceInfo,),
+        sourcetotal=(sourcetotal.SourceTotal,),
+        sunmoon=    (sunmoon.SunMoon,),
+        sunmoon_refit = (sunmoonrefit.SunMoonRefit,),
+        uw_comparison=(uwsourcecomparison.UWsourceComparison,),
+        findpeak=   (find_peak.FindPeak,),
+        export=     (export.Export,),
         ) 
+        
         
 def main(args, update_top=False , raise_exception=False):
     np.seterr(invalid='warn', divide='warn')
@@ -86,8 +89,8 @@ def main(args, update_top=False , raise_exception=False):
             if raise_exception: raise
             success = False
     if success: 
-        dp.HTMLindex().create_menu()
-        if update_top: dp.HTMLindex().update_top()
+        diagnostics.HTMLindex().create_menu()
+        if update_top: diagnostics.HTMLindex().update_top()
         
     return success  
       
@@ -98,4 +101,3 @@ if __name__=='__main__':
     args = parser.parse_args()
     if not main(args.args, update_top=args.update_top):
         raise Exception
-    
