@@ -1,7 +1,7 @@
 """
 Code to generate a standard Fermi-LAT catalog FITS file
 also, see to_xml, to generate XML for the sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_fits.py,v 1.7 2013/06/19 18:29:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_fits.py,v 1.8 2013/06/20 16:08:18 burnett Exp $
 """
 import os, argparse, glob
 import pyfits
@@ -239,7 +239,7 @@ class MakeCat(object):
         self.add('Unc_Flux_Density',  z.flux_unc)
         self.add('Spectral_Index',    z.pindex)
         self.add('Unc_Spectral_Index',z.pindex_unc)
-        self.add('Exp_Index',         np.where(has_exp_index, z.index2, np.nan))
+        self.add('Exp_Index',         np.where(psr, z.index2, np.nan))
         self.add('Unc_Exp_Index',     np.where(has_exp_index, z.index2_unc, np.nan))
         self.add('Cutoff_Energy',     z.cutoff) 
         self.add('Unc_Cutoff_Energy', z.cutoff_unc) 
