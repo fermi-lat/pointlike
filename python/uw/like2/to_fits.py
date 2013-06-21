@@ -233,7 +233,7 @@ class MakeCat(object):
         self.add('Test_Statistic',    z.ts)
         
         # Spectral details
-        self.add('SpectrumType',      np.where(powerlaw, 'PowerLaw', np.where(exp_cutoff, 'ExpCutoff', z.modelname)))
+        self.add('SpectrumType',      np.where(powerlaw, 'PowerLaw', np.where(exp_cutoff, 'PLExpCutoff', z.modelname)))
         self.add('Pivot_Energy',      z.e0)  # note that pivot_energy is the measured value
         self.add('Flux_Density',      z.flux)
         self.add('Unc_Flux_Density',  z.flux_unc)
