@@ -1,7 +1,7 @@
 """
-Description here
+Limb plots
 
-$Header: /phys/users/glast/python/uw/like2/analyze/limb.py,v 1.144 2013/06/18 12:35:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/limb.py,v 1.1 2013/06/21 20:15:30 burnett Exp $
 
 """
 
@@ -113,3 +113,6 @@ class Limb(roi_info.ROIinfo):
         """ front normalization
         """
         return self.polar_plots(self.fpar)
+        
+    def all_plots(self):
+        super(Limb, self).all_plots()

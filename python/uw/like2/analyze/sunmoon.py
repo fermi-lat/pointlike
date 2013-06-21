@@ -1,7 +1,7 @@
 """
-Description here
+Plots of the SunMoon diffuse component
 
-$Header: /phys/users/glast/python/uw/like2/analyze/sunmoon.py,v 1.144 2013/06/18 12:35:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sunmoon.py,v 1.1 2013/06/21 20:15:31 burnett Exp $
 
 """
 
@@ -10,6 +10,8 @@ import numpy as np
 from . import roi_info
 
 class SunMoon(roi_info.ROIinfo):
+    """SunMoon plots
+    """
     def setup(self, **kwargs):
         super(SunMoon, self).setup(**kwargs)
         self.plotfolder='sunmoon'
@@ -19,3 +21,6 @@ class SunMoon(roi_info.ROIinfo):
         assert t, 'No sun-moon component in this sky model'
         self.default_plots()
         self.plots_kw=dict(ecliptic=True)
+        
+    def all_plots(self):
+        super(SunMoon, self).all_plots()

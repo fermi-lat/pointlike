@@ -1,6 +1,7 @@
 """
-Analysis code to use grids of TSmap values to locate peaks, an alternative
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/find_peak.py,v 1.7 2013/06/17 22:55:28 burnett Exp $
+Run the moment analysis for finding peaks
+
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/find_peak.py,v 1.8 2013/06/18 14:27:23 burnett Exp $
 
 """
 from uw.like2.pipeline import diagnostic_plots 

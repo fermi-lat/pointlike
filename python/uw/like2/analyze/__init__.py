@@ -1,13 +1,12 @@
 
 """
 Package containing source analysis code
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/__init__.py,v 1.2 2013/06/21 20:33:15 burnett Exp $
 
 """
 __all__=[
  'associations',
 # 'components',
- 'config',
  'countplots',
  'data',
  'environment',
@@ -16,13 +15,13 @@ __all__=[
  'fluxcorr',
 # 'fluxcorriso',
  'frontbacksedplots',
-# 'galactic',
+ 'galactic',
  'galacticspectra',
  'gtlikecomparison',
  'hptables',
-# 'isotropic',
+ 'isotropic',
 # 'isotropicspectra',
-# 'limb',
+ 'limb',
  'limbrefit',
  'localization',
  'localization1k',
@@ -34,7 +33,7 @@ __all__=[
  'sourcecomparison',
  'sourceinfo',
  'sourcetotal',
-# 'sunmoon',
+ 'sunmoon',
  'sunmoonrefit',
  'uwsourcecomparison',
  ]
