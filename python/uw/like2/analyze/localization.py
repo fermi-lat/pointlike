@@ -1,6 +1,6 @@
 """    Description here
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.1 2013/06/20 20:57:39 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.2 2013/06/20 23:53:47 burnett Exp $
 
 """
 
@@ -134,7 +134,7 @@ class Localization(sourceinfo.SourceInfo):
         
     def check_closeness(self, tol=0.15, bmin=0, tsmin=10):
         """ Closeness check
-            <p>Table of pairs closer than %(close_tol).2f degrees
+            <p>Table of pairs closer than %(close_tol).2f degrees or the sum of the r95 values for each source, but no more than 0.5 deg.
             %(close_table)s
         """
         cut = (np.abs(self.df.glat)>bmin) * (self.df.ts>tsmin)
@@ -166,8 +166,9 @@ class Localization(sourceinfo.SourceInfo):
         name2href = map(hreftag, name2)
         
         self.close_table = html_table(pd.DataFrame(
-            collections.OrderedDict( [('source1',name1href), ('source2',name2href), ('distance',distance), ('tolerance', tolerance) ]),
-            columns = 'source1 source2 distance tolerance'.split(), # why doesn't OrderedDict do this?
+            dict(source1=name1href, source2=name2href, distance=distance, 
+                    tolerance=tolerance),
+                columns = 'source1 source2 distance tolerance'.split(),
             ), float_format=FloatFormat(2), href=False) 
         return None
         
