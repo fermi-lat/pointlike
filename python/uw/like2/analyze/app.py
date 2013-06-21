@@ -1,7 +1,7 @@
 """
 Application module, allowing command-line access to analysis/plotting tasks
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/app.py,v 1.4 2013/06/20 20:00:00 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/app.py,v 1.5 2013/06/20 23:53:47 burnett Exp $
 
 """
 import os, argparse, types
@@ -9,45 +9,45 @@ import numpy as np
 import pylab as plt
 import pandas as pd
 
-from uw.like2.analyze import ( html, seedcheck, export, sourceinfo, localization,)
-#    associations,components, countplots, data, environment, 
-#    flux_corr_iso, fluxcorr, frontbacksedplots,galactic, galacticspectra, gtlikecomparison,
-#    hptables, isotropic, isotropicspectra, limb,limbrefit,  pgwseedcheck,
-#    ptstable, pulsarseedcheck, roi_info, seedcheck,sourcecomparison, sourceinfo, sourcetotal, 
-#    sunmoon, sunmoonrefit, uwsourcecomparison, diagnostics, find_peak, export)
+from uw.like2.analyze import (
+     html, seedcheck, export, sourceinfo, localization, associations,components, countplots, 
+     data, environment, fluxcorriso, fluxcorr, frontbacksedplots, galactic, galacticspectra, 
+     gtlikecomparison, hptables, isotropic, isotropicspectra, limb, limbrefit, pgwseedcheck, 
+     ptstable, pulsarseedcheck, roi_info, sourcecomparison, sourcetotal, sunmoon, sunmoonrefit, 
+     uwsourcecomparison, find_peak
+ )
 
 
 opts = dict(
-#        associations=  (associations.Associations,),
-#        components= (components.Components,),
-#        counts=     (countplots.CountPlots,),
-#        data =      (data.Data,),
-#        environment=   (environment.Environment,),
-#        fluxcorriso=(flux_corr_iso.FluxCorrIso,),
-#        fluxcorr=   (fluxcorr.FluxCorr,),
-#        fb=         (frontbacksedplots.FrontBackSedPlots,),
-#        galactic=   (galactic.Galactic,),
-#        galspect =  (galacticspectra.GalacticSpectra,),
-#        gtlike_comparison=(gtlikecomparison.GtlikeComparison,),
-#        hptables =  (hptables.HPtables,),
-#        isotropic=  (isotropic.Isotropic,),
-#        isospect =  (isotropicspectra.IsotropicSpectra,),
-#        limb=       (limb.Limb,),
-#        limb_refit= (limbrefit.LimbRefit,),
-        localization=(localization.Localization,),
-#        pgwseedcheck=(pgwseedcheck.PGWSeedCheck,),
-#        pts=        (ptstable.PTStable,),
-#        pseedcheck= (pulsarseedcheck.PulsarSeedCheck,),
-#        roi=        (roi_info.ROIinfo,),
-        seedcheck=  (seedcheck.SeedCheck,),
-#        comparison= (sourcecomparison.SourceComparison,),
-        sourceinfo= (sourceinfo.SourceInfo,),
-#        sourcetotal=(sourcetotal.SourceTotal,),
-#        sunmoon=    (sunmoon.SunMoon,),
-#        sunmoon_refit = (sunmoonrefit.SunMoonRefit,),
-#        uw_comparison=(uwsourcecomparison.UWsourceComparison,),
-#        findpeak=   (find_peak.FindPeak,),
+        associations=  (associations.Associations,),
+        comparison= (sourcecomparison.SourceComparison,),
+        components= (components.Components,),
+        counts=     (countplots.CountPlots,),
+        data =      (data.Data,),
+        environment=   (environment.Environment,),
         export=     (export.Export,),
+        fb=         (frontbacksedplots.FrontBackSedPlots,),
+        findpeak=   (find_peak.FindPeak,),
+        fluxcorr=   (fluxcorr.FluxCorr,),
+        fluxcorriso=(fluxcorriso.FluxCorrIso,),
+        galactic=   (galactic.Galactic,),
+        galspect =  (galacticspectra.GalacticSpectra,),
+        gtlikecomparison=(gtlikecomparison.GtlikeComparison,),
+        hptables =  (hptables.HPtables,),
+        isospect =  (isotropicspectra.IsotropicSpectra,),
+        isotropic=  (isotropic.Isotropic,),
+        limb=       (limb.Limb,),
+        limb_refit= (limbrefit.LimbRefit,),
+        localization=(localization.Localization,),
+        pgwseedcheck=(pgwseedcheck.PGWSeedCheck,),
+        pseedcheck= (pulsarseedcheck.PulsarSeedCheck,),
+        pts=        (ptstable.PTStable,),
+        roi=        (roi_info.ROIinfo,),
+        sourceinfo= (sourceinfo.SourceInfo,),
+        sourcetotal=(sourcetotal.SourceTotal,),
+        sunmoon=    (sunmoon.SunMoon,),
+        sunmoon_refit = (sunmoonrefit.SunMoonRefit,),
+        uw_comparison=(uwsourcecomparison.UWsourceComparison,),
         ) 
 
         
