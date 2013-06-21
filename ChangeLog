@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Fri Jun 21 13:51:41 PDT 2013
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	__init__.py config.py find_peak.py galactic.py isotropic.py 
+	limb.py sunmoon.py 
+Log Message:
+fix comment
+    *
+------------------------------------------------------------
 User: burnett  Fri Jun 21 13:33:15 PDT 2013
 pointlike/python/uw/like2/analyze
 
