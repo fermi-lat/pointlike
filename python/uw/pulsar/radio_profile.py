@@ -12,6 +12,14 @@ def profile_shift(amps,shift):
     freq = (np.pi*2.j*shift*n)*np.fft.fftfreq(n)
     return np.real(np.fft.ifft(f*np.exp(freq)))
 
+def first_harm_phase(vals,fidpt=0):
+    TWOPI = 2*np.pi
+    ph = np.linspace(0,TWOPI,len(vals)+1)[:-1] # LEFT bin edges
+    a1 = (np.sin(ph)*vals).sum()
+    a2 = (np.cos(ph)*vals).sum()
+    fidpt = np.mod( fidpt + np.arctan2(a1,a2)/TWOPI, 1)
+    return fidpt
+
 class Profile(object):
     """ Encapsulate the profile with its identifying information."""
 
@@ -335,12 +343,7 @@ class ASCIIProfile(object):
     def _align_harm(self):
         """ Compute the zero of phase of a radio profile by determining the 
             position of the fundamental peak."""
-        TWOPI = 2*np.pi
-        vals = self.amps
-        ph = np.linspace(0,TWOPI,len(vals)+1)[:-1] # LEFT bin edges
-        a1 = (np.sin(ph)*vals).sum()
-        a2 = (np.cos(ph)*vals).sum()
-        self.fidpt = np.mod( self.fidpt + np.arctan2(a1,a2)/TWOPI, 1)
+        self.fidpt = first_harm_phase(self.amps,fidpt=self.fidpt)
 
     def _align_peak(self):
         self.roll_idx = np.argmax(self.amps)
