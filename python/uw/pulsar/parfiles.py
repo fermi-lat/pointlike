@@ -1,13 +1,14 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.23 2013/04/27 17:41:17 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.24 2013/06/12 18:57:38 kerrm Exp $
 
 author: Matthew Kerr
 """
 
 import numpy as np
 import os
+import subprocess
 from uw.utilities.coords import ec2eq
 
 C = 29979245800.
@@ -459,6 +460,19 @@ class ParFile(dict):
                 if (lab=='PH') or (lab=='F0') or (lab=='F1') or (lab=='F2'): 
                     self.set(key,0)
         return no_glitches
+
+    def get_wave_string(self,epoch=None):
+        """ Return a sting suitable for appending to an ephemeris giving
+            a zeroed wave contribution with the same number of terms as
+            the current ephemeris."""
+        keys = []
+        for key in self.ordered_keys:
+            if 'WAVE' in key:
+                if 'EPOCH' not in key:
+                    keys.append(key)
+        epoch = epoch or self['WAVEEPOCH']
+        return 'WAVEEPOCH %s\n'%(epoch) + \
+            '\n'.join(map(lambda s: '%s 0 0'%s,keys))
                     
 
 class TimFile(object):
@@ -500,7 +514,10 @@ class TimFile(object):
 def get_bats_etc(par,tim,output=None,full_output=False):
     """ Use the tempo2 general plugin to compute the bats and absolute
         phases of a set of TOAs."""
-    import subprocess
+    if not os.path.isfile(par):
+        raise IOError('Ephemeris %s is not a valid file!'%par)
+    if not os.path.isfile(tim):
+        raise IOError('TOA collection %s is not a valid file!'%tim)
     cmd = """tempo2 -output general2 -s "onerous\t{bat}\t{err}\t{npulse}\t{pre_phase}\t{sat}\n" -f %s %s"""%(par,tim)
     proc = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE)
     toks = [line.split('\t')[1:] for line in proc.stdout if line[:7]=='onerous']
@@ -521,3 +538,14 @@ def get_bats_etc(par,tim,output=None,full_output=False):
     else:
         return bats,errs,phas
 
+def get_resids(par,tim):
+    if not os.path.isfile(par):
+        raise IOError('Ephemeris %s is not a valid file!'%par)
+    if not os.path.isfile(tim):
+        raise IOError('TOA collection %s is not a valid file!'%tim)
+    cmd = """tempo2 -output general2 -s "onerous\t{err}\t{post}\n" -f %s %s"""%(par,tim)
+    proc = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE)
+    toks = [line.split('\t')[1:] for line in proc.stdout if line[:7]=='onerous']
+    errs = np.array([x[0] for x in toks],dtype=np.float128)
+    resi = np.array([x[1] for x in toks],dtype=np.float128)*1e6
+    return resi,errs
