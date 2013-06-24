@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sun Jun 23 17:49:24 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+Add some support for handling WAVEs.
+
+    *
+------------------------------------------------------------
 User: kerrm  Sun Jun 23 17:49:08 PDT 2013
 pointlike/python/uw/pulsar
 
