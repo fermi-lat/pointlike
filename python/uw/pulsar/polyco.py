@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.11 2013/06/13 21:39:17 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.12 2013/06/26 19:41:00 kerrm Exp $
 
 Mange polycos from tempo2.
 
@@ -182,8 +182,9 @@ class Polyco:
                 print o
         fname = '%spolyco_new.dat'%(prefix)
         polyconame=os.path.abspath(fname)
-        o = subprocess.check_output(
-            'rm %snewpolyco.dat polyco.tim'%(prefix),shell=True)
+        DEVNULL = open(os.devnull,'wb')
+        subprocess.call('rm %snewpolyco.dat polyco.tim'%(prefix),
+            shell=True,stderr=DEVNULL)
         os.chdir(curdir)
         return polyconame
 
