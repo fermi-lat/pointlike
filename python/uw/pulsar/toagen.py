@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.11 2013/04/27 17:39:58 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.12 2013/06/09 01:13:00 kerrm Exp $
 
 Calculate TOAs with a variety of methods.
 
@@ -156,32 +156,6 @@ class UnbinnedTOAGenerator(TOAGenerator):
                 tau_err = self.__toa_error__(fit[0][0],phases,weights)
                 if self.display: print 'Peak Shift: %.5f +/- %.5f'%(peak_shift,tau_err)
                 self.phases.append(peak_shift)
-            """
-            if (self.plot_stem is not None) and (not jump):
-                # NB -- this is kludgey -- need to make plots for jump case, too
-                dom1 = np.linspace(0,1,100)
-                cod1 = np.asarray([f([x],phases,weights) for x in dom1])
-                dom2 = np.linspace(fit[0][0]-0.04,fit[0][0]+0.04,30)
-                cod2 = np.asarray([f([x],phases,weights) for x in dom2])
-                pl.figure(10); pl.clf();
-                ax1 = pl.gca()
-                # calculate coordinates for inset - could be more sophisticated with transAxes
-                ax2 = pl.axes([0.1+0.5*(fit[0][0]<0.5),0.15,0.25,0.25])
-                for i,(dom,cod,ax) in enumerate(zip([dom1,dom2],[cod1,cod2],[ax1,ax2])):
-                    ax.plot(dom,cod)
-                    ax.axvline(fit[0][0],color='red')
-                    ax.axvline(self.phi0,color='k',ls='-')
-                    ax.axvline(fit[0][0]-tau_err,color='red',ls='--')
-                    ax.axvline(fit[0][0]+tau_err,color='red',ls='--')
-                    if i==1:
-                        ax.xaxis.set_major_locator(pl.matplotlib.ticker.MaxNLocator(4))
-                        ax.axis([dom[0],dom[-1],cod.min(),cod.min()+5])
-                        ax.axhline(cod.min()+0.5,color='blue',ls='--')
-                name = ('%3d'%(self.counter+1)).replace(' ','0')
-                ax1.set_xlabel('(Relative) Phase')
-                ax1.set_ylabel('Negative Log Likelihood')
-                pl.savefig('%s%s.png'%(self.plot_stem,name))
-            """
             
         if (not self.good_ephemeris) or self.phase_drift or jump:
             # look for the absolute best fit without any prior information
