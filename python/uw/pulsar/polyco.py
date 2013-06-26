@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.10 2013/06/12 18:58:07 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.11 2013/06/13 21:39:17 kerrm Exp $
 
 Mange polycos from tempo2.
 
@@ -11,6 +11,7 @@ import math
 import numpy as np
 import datetime
 import os
+import subprocess
 
 class PolycoEntry:
     STATIC_COUNTER = 0
@@ -78,7 +79,9 @@ class PolycoEntry:
         return(freqd)
 
 class Polyco:
-    def __init__(self, fname, psrname=None, recalc_polycos=True,mjd0=51544,bary=False, working_dir=None, output=None, ndays=None):
+    def __init__(self, fname, psrname=None, recalc_polycos=True,
+        mjd0=51544,bary=False, working_dir=None, output=None, ndays=None,
+        verbose=False):
         """ Create an object encapsulating a set of polynomial coefficients for
             evaluating phase.
 
@@ -91,6 +94,7 @@ class Polyco:
         self.bary = bary
         self.working_dir = working_dir
         self.output = output
+        self.verbose = verbose
         if fname.endswith( ".par" ) or recalc_polycos:
             from uw.pulsar.parfiles import ParFile
             pf = ParFile(fname)
@@ -100,7 +104,6 @@ class Polyco:
         else:
             self.ra = self.dec = None
         
-        VERBOSE= False
         self.entries = []
         f = open(fname,"r")
         set = 0
@@ -116,7 +119,7 @@ class Polyco:
             dm = float(sp[4])
             #doppler = float(sp[5])
             logrms = float(sp[6])
-            if VERBOSE:
+            if verbose:
                 print "- - - - - - -"
                 print "psrname %s date %s utc %s tmid %s dm %f doppler %f logrms %f" % (psrname,date,utc,tmid,dm,doppler,logrms)
             line2 = f.readline()
@@ -131,7 +134,7 @@ class Polyco:
                 binphase = float(line2[75:80])
             else:
                 binphase = 0.0
-            if VERBOSE:
+            if verbose:
                 print "rphase %s f0 %s obs %s ncoeff %d nspan %d obsfreq %f binphase %f" % (repr(rphase),repr(f0),obs,ncoeff,nspan,obsfreq,binphase)
             nlines = ncoeff//3
             nlast = ncoeff%3
@@ -143,7 +146,7 @@ class Polyco:
                 for c in line.split():
                     coeffs.append(float(c))
             coeffs = np.array(coeffs)
-            if VERBOSE:
+            if verbose:
                 print "COEFFS: ",coeffs
             pe = PolycoEntry(tmid,mjdspan,rphase,f0,ncoeff,coeffs,obs)
             self.entries.append(pe)
@@ -173,11 +176,14 @@ class Polyco:
             out_string = '' if self.output is None else ' -polyco_file %s'%self.output
             t2cmd = 'tempo2 -f %s%s -polyco "%s %s 360 12 12 %s 0 0\"'%(
                 polyconame,out_string,mjd0,endMJD,obs_string)
-            print 'Creating polycos with command:\n',t2cmd
-            os.system(t2cmd)
+            o = subprocess.check_output(t2cmd,shell=True)
+            if self.verbose:
+                print 'Creating polycos with command:\n',t2cmd
+                print o
         fname = '%spolyco_new.dat'%(prefix)
         polyconame=os.path.abspath(fname)
-        os.system('rm %snewpolyco.dat polyco.tim'%(prefix))
+        o = subprocess.check_output(
+            'rm %snewpolyco.dat polyco.tim'%(prefix),shell=True)
         os.chdir(curdir)
         return polyconame
 
