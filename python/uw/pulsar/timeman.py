@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/timeman.py,v 1.7 2013/04/10 00:57:40 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/timeman.py,v 1.8 2013/04/27 17:40:39 kerrm Exp $
 
 Handle MET(TT) to MJD(UTC) conversions.
 
@@ -60,7 +60,8 @@ class GeoConverter(object):
         if not self.can_process():
             raise Exception('Cannot %s!  Must provide FT2 and position.'%self.label)
         else:
-            print 'Attempting to %s on-the-fly.'%self.label
+            #print 'Attempting to %s on-the-fly.'%self.label
+            pass
         if not hasattr(times,'__len__'):
             times = np.array([times])
         elif not hasattr(times,'dtype'):
