@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Jun 26 12:40:08 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	timeman.py 
+Log Message:
+Remove some verbose output.
+
+    *
+------------------------------------------------------------
 User: kerrm  Wed Jun 26 12:39:55 PDT 2013
 pointlike/python/uw/pulsar
 
