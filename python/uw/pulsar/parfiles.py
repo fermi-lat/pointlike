@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.25 2013/06/24 00:49:24 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.26 2013/06/26 19:41:14 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -453,7 +453,7 @@ class ParFile(dict):
 
     def has_glitches(self):
         for key in self.keys():
-            if 'GLEPOCH' in key:
+            if 'GLEP' in key:
                 return True
         return False
 
@@ -463,7 +463,8 @@ class ParFile(dict):
             if key[:2]=='GL':
                 no_glitches = False
                 lab = key[2:4]
-                if (lab=='PH') or (lab=='F0') or (lab=='F1') or (lab=='F2'): 
+                if ((lab=='PH') or (lab=='F0') or (lab=='F1') or
+                    (lab=='F2') or (lab=='TD')): 
                     self.set(key,0)
         return no_glitches
 
