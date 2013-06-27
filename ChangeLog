@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Jun 26 17:49:58 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+Fix really dumb bug in "has_glitches".
+
+    *
+------------------------------------------------------------
 User: kerrm  Wed Jun 26 12:52:04 PDT 2013
 pointlike/python/uw/pulsar
 
