@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.12 2013/06/26 19:41:00 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.13 2013/06/26 19:52:03 kerrm Exp $
 
 Mange polycos from tempo2.
 
@@ -163,7 +163,8 @@ class Polyco:
         endMJD=mjd0+nDays+2
         if (endMJD-mjd0) < 2:
             raise ValueError('Unacceptable MJD bounds.')
-        print "MJD limits: %s %s"%(str(mjd0),str(endMJD))
+        if self.verbose:
+            print "MJD limits: %s %s"%(str(mjd0),str(endMJD))
         curdir = os.getcwd()
         if self.working_dir is not None:
             os.chdir(self.working_dir)
