@@ -1,6 +1,6 @@
 """
 Generate the XML representation of a skymodel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.7 2013/06/18 22:06:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.8 2013/06/19 03:18:23 burnett Exp $
 
 """
 import os, collections, argparse, types, glob
@@ -146,8 +146,9 @@ def pmodel(source):
             modelname='PowerLaw'
             model = Models.PowerLaw(p=[norm, pindex ], e0=e0)
         else:
-            if index2<0: print  'Source %s has beta (%.2f) <0: setting to 0.' % (  source.name, index2, )
-            index2=0
+            if index2<0: 
+                print  'Source %s has beta (%.2f) <0: setting to 0.' % (  source.name, index2, )
+                index2=0
             model =Models.LogParabola(p= [norm, pindex, index2, e0])
             model.free[-1]=False
             errors.append(index2_unc)
