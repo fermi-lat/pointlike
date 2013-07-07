@@ -1,7 +1,7 @@
 """
 Description here
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.1 2013/06/21 20:15:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.2 2013/07/07 17:12:33 burnett Exp $
 
 """
 
@@ -67,12 +67,12 @@ class Environment(roi_info.ROIinfo):
     def psf_plot(self):
         r"""PSF size
         
-        <br>This is the <en>effective</en> PSF size, the measure of the shape that is relevant 
-        for discrimination of a signal in the presence of a uniform backgroud.
+        <br>This is the <em>effective</em> PSF size, the measure of the shape that is relevant 
+        for discrimination of a signal in the presence of a uniform background.
         Specifically, if $f(\theta)$ is the normalized PSF, then the size is 
         $1 / \sqrt{\int_0^\infty f(\theta)^2 2\pi \theta \ \mathrm{d}\theta}$. For comparison, 
         the corresponding 68 percent curves are shown as dashed lines.
-        <br>PSF files: %(psf_files)s
+        <br>PSF filenames: %(psf_files)s
         """
         from uw.like import pypsf, pycaldb
         irfname=self.config['irf']
@@ -133,5 +133,5 @@ class Environment(roi_info.ROIinfo):
         return fig
         
     def all_plots(self, **kw):
-        self.runfigures([self.exposure_plots, self.psf_plot, self.isotropic_spectrum,])
+        self.runfigures([self.psf_plot, self.exposure_plots, self.isotropic_spectrum,])
     
