@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/diagnostics.py,v 1.3 2013/06/20 16:41:17 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/diagnostics.py,v 1.4 2013/06/20 20:00:00 burnett Exp $
 
 """
 
@@ -11,8 +11,8 @@ import pylab as plt
 from mpl_toolkits.axes_grid import axes_grid, axes_size, Divider, make_axes_locatable
 from skymaps import SkyDir, Hep3Vector
 
-from . import html
-from . html import HTMLindex
+from . import _html
+from . _html import HTMLindex
 
 class FloatFormat(): #simple formatting functor for to_html!
     def __init__(self, n): self.fmt = '%%.%df' % n
@@ -185,7 +185,8 @@ class Diagnostics(object):
         if names is None:
             names=[None]*len(functions)
         title = self.skymodel +'-'+self.__class__.__name__
-        htmldoc = '<head>'+ html.HTMLindex.style + '\n <title>%s</title>\n' % title
+        htmldoc = _html.header(title)
+        #htmldoc = '<head>'+ html.HTMLindex.style + '\n <title>%s</title>\n' % title
         htmldoc +=' <script>document.title="%s"</script>\n</head>\n' % title # this to override SLAC Decorator
         htmldoc +='<body><h2>%(header)s</h2>'
  
@@ -212,7 +213,8 @@ class Diagnostics(object):
             text = htmldoc%self.__dict__
         except KeyError, msg:
             print '*** failed filling %s:%s' % (title, msg)
-        except TypeError:
+        except TypeError, msg:
+            print '*** TYpeError %s' %msg
             pass # ignore if % in text
         open(os.path.join(self.plotfolder,'index.html'), 'w').write(text)
         print 'saved html doc to %s' %os.path.join(self.plotfolder,'index.html')
