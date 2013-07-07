@@ -1,7 +1,7 @@
 """
 Description here
 
-$Header: /phys/users/glast/python/uw/like2/analyze/environment.py,v 1.144 2013/06/18 12:35:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.1 2013/06/21 20:15:30 burnett Exp $
 
 """
 
@@ -9,6 +9,7 @@ import os, pickle, types
 import numpy as np
 import pylab as plt
 import pandas as pd
+from scipy import integrate
 from skymaps import SkyDir #?
 
 from . import roi_info
@@ -30,7 +31,7 @@ class Environment(roi_info.ROIinfo):
         self.config = eval(open('config.txt').read())
         
     def exposure_plots(self, hsize=(1.0,1.0,2.0,1.0, 2.0, 0.7),):
-        """ exposure dependence
+        """ Exposure dependence
         Examine the relative exposure, per ROI. Express in terms of the mean. Note that
         ROIs are distributed uniformly over the sky.
         <p>Use the fact that the isotopic diffuse compoenent is isotropic, so that
@@ -64,21 +65,32 @@ class Environment(roi_info.ROIinfo):
         return fig
      
     def psf_plot(self):
-        """PSF plot
-        PSF files: %(psf_files)s
-        <br>This is an effecive PSF size, derived from the value of the normalized function at the peak.
+        r"""PSF size
+        
+        <br>This is the <en>effective</en> PSF size, the measure of the shape that is relevant 
+        for discrimination of a signal in the presence of a uniform backgroud.
+        Specifically, if $f(\theta)$ is the normalized PSF, then the size is 
+        $1 / \sqrt{\int_0^\infty f(\theta)^2 2\pi \theta \ \mathrm{d}\theta}$. For comparison, 
+        the corresponding 68 percent curves are shown as dashed lines.
+        <br>PSF files: %(psf_files)s
         """
         from uw.like import pypsf, pycaldb
         irfname=self.config['irf']
         cdm = pycaldb.CALDBManager(irf=irfname)
         psf = pypsf.CALDBPsf(cdm)
+        def effective_size(e, ct):
+            f2 = lambda delta: psf(e,ct, delta)**2 * 2*np.pi*delta
+            return np.degrees(1./np.sqrt(integrate.quad(f2, 0, np.inf)[0]))
         self.psf_files=cdm.get_psf()
-        #egev = np.logspace(-1,2.5,121)
         egev = np.logspace(-1.+1/8., 2.5+1/8., 3.5*4+1)
-        front, back = [[np.degrees(1./np.sqrt(psf(e*1e3,ct,0)))[0] for e in egev] for ct in range(2)]
-        fig,ax = plt.subplots(figsize=(5,5))
+        front, back = [[effective_size(e*1e3,ct) for e in egev] for ct in range(2)]
+        f68,b68  = [[psf.inverse_integral(e*1e3, ct) for e in egev] for ct in range(2)]
+        fig,ax = plt.subplots(figsize=(6,6))
         ax.loglog(egev, front, '-g', lw=2, label='front')
         ax.plot(egev,  back, '-r', lw=2, label='back')
+        ax.plot(egev, f68, '--g', lw=1, label='f68')
+        ax.plot(egev, b68, '--r', lw=1, label='b68')
+        
         plt.setp(ax, xlabel='Energy (GeV)', ylabel='PSF size (deg)',
             xlim=(0.1, 400), ylim=(0.05, 10), title='Effective PSF size')
         ax.legend(prop=dict(size=10)); ax.grid()
