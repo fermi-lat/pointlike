@@ -1,7 +1,7 @@
 """
 Description here
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.2 2013/07/07 17:12:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.3 2013/07/07 17:41:04 burnett Exp $
 
 """
 
@@ -64,23 +64,23 @@ class Environment(roi_info.ROIinfo):
         for f,ax in zip((left, center, right), axx.flatten()): f(ax)
         return fig
      
-    def psf_plot(self):
+    def psf_plot(self, irfname=None, outfile='psf.csv'):
         r"""PSF size
         
         <br>This is the <em>effective</em> PSF size, the measure of the shape that is relevant 
         for discrimination of a signal in the presence of a uniform background.
         Specifically, if $f(\theta)$ is the normalized PSF, then the size is 
-        $1 / \sqrt{\int_0^\infty f(\theta)^2 2\pi \theta \ \mathrm{d}\theta}$. For comparison, 
+        $1 / \sqrt{\pi \int_0^\infty f(\theta)^2 2\pi \theta \ \mathrm{d}\theta}$. For comparison, 
         the corresponding 68 percent curves are shown as dashed lines.
         <br>PSF filenames: %(psf_files)s
         """
         from uw.like import pypsf, pycaldb
-        irfname=self.config['irf']
+        if irfname is None: irfname=self.config['irf']
         cdm = pycaldb.CALDBManager(irf=irfname)
         psf = pypsf.CALDBPsf(cdm)
         def effective_size(e, ct):
             f2 = lambda delta: psf(e,ct, delta)**2 * 2*np.pi*delta
-            return np.degrees(1./np.sqrt(integrate.quad(f2, 0, np.inf)[0]))
+            return np.degrees(1./np.sqrt(np.pi*integrate.quad(f2, 0, np.inf)[0]))
         self.psf_files=cdm.get_psf()
         egev = np.logspace(-1.+1/8., 2.5+1/8., 3.5*4+1)
         front, back = [[effective_size(e*1e3,ct) for e in egev] for ct in range(2)]
@@ -94,10 +94,11 @@ class Environment(roi_info.ROIinfo):
         plt.setp(ax, xlabel='Energy (GeV)', ylabel='PSF size (deg)',
             xlim=(0.1, 400), ylim=(0.05, 10), title='Effective PSF size')
         ax.legend(prop=dict(size=10)); ax.grid()
+        if outfile is None: return fig
         self.psf_df = pd.DataFrame(dict(front=front, back=back), index=egev.round(3))
         self.psf_df.index.name='energy'
-        self.psf_df.to_csv(os.path.join(self.plotfolder, 'psf.csv'))
-        print 'wrote file %s' % os.path.join(self.plotfolder, 'psf.csv')
+        self.psf_df.to_csv(os.path.join(self.plotfolder, outfile))
+        print 'wrote file %s' % os.path.join(self.plotfolder, outfile)
         return fig
         
     def isotropic_spectrum(self, other=None):
