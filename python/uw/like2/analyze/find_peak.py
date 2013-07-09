@@ -1,7 +1,7 @@
 """
 Run the moment analysis for finding peaks
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/find_peak.py,v 1.8 2013/06/18 14:27:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/find_peak.py,v 1.9 2013/06/21 20:51:41 burnett Exp $
 
 """
 from uw.like2.pipeline import diagnostic_plots 
@@ -14,6 +14,9 @@ import pylab as plt
 from skymaps import SkyImage, SkyDir
 
 class PeakFinder(object):
+    """Log of analysis stream
+    <pre>%(logstream)s</pre>
+    """    
 
     def __init__(self, filename):
         t =os.path.split(os.path.splitext(filename)[0])[-1].split('_')
