@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/diagnostics.py,v 1.4 2013/06/20 20:00:00 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/diagnostics.py,v 1.5 2013/07/07 17:12:16 burnett Exp $
 
 """
 
@@ -218,6 +218,7 @@ class Diagnostics(object):
             pass # ignore if % in text
         open(os.path.join(self.plotfolder,'index.html'), 'w').write(text)
         print 'saved html doc to %s' %os.path.join(self.plotfolder,'index.html')
+        _html.HTMLindex().create_menu() # always update the menu to include this guy if necessary
             
     def load_pickles(self,folder='pickle'):
         """
