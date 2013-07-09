@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jul  9 09:05:45 PDT 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	to_xml.py 
+Log Message:
+convert flux back to prefactor pulsars
+    *
+------------------------------------------------------------
 User: burnett  Mon Jul  8 20:15:14 PDT 2013
 pointlike/python/uw/like2/analyze
 
