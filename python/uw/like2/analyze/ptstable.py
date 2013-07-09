@@ -1,7 +1,7 @@
 """
-Description here
+Generaate pulsar seed plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/ptstable.py,v 1.1 2013/06/21 20:15:31 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/ptstable.py,v 1.2 2013/07/07 17:15:59 burnett Exp $
 
 """
 
@@ -24,7 +24,7 @@ class PTStable(hptables.HPtables):
         self.tsname = 'pts'
         self.plotfolder = 'pulsar_ts'
         self.seedfile, self.seedroot, self.title = 'pseeds.txt', 'PSEED' ,'pulsar'
-        self.bmin=0
+        self.bmin=0 ##
         self.make_seeds(kw.pop('refresh', False))
         
     def all_plots(self):

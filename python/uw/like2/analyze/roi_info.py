@@ -1,7 +1,7 @@
 """
-Description here
+Plots involving the 1728 ROIs
 
-$Header: /phys/users/glast/python/uw/like2/analyze/roi_info.py,v 1.144 2013/06/18 12:35:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/roi_info.py,v 1.1 2013/06/21 20:15:31 burnett Exp $
 
 """
 
