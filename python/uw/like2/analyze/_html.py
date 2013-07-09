@@ -1,6 +1,6 @@
 """
 Manage the Web page generation
-$Header:$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/_html.py,v 1.1 2013/07/07 17:11:59 burnett Exp $
 """
 import os, glob
 import pandas as pd
@@ -25,7 +25,7 @@ pre { font-size:10pt; margin-left:25pt;
     border-width:thin;}
 h3 { -webkit-margin-after: 0px; -webkit-margin-before: 2em; }
 
-h5 {margin-left:25pt;}
+h4, h5 {margin-left:25pt;}
 table { margin-left:25pt; margin-top:15pt; font-size:8pt;
     border-style: solid; border-width: 1px;  border-collapse: collapse; }
 table.topmenu {border-style:solid; border-width:0px}
@@ -48,8 +48,11 @@ a:hover { background-color:yellow; }
 <body onload="load()">
 <h3>skymodels/%(upper)s</h3>""" 
 
-    mathjax="""<script type="text/x-mathjax-config">
-     MathJax.Hub.Config({tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]}});
+    mathjax=r"""<script type="text/x-mathjax-config">
+     MathJax.Hub.Config({tex2jax: {
+      inlineMath: [['$','$'], ["\\(","\\)"]], 
+      displayMath: [ ['$$','$$'],["\\[", "\\]"]],
+      processEscapes: true}});
     </script>
     <script type="text/javascript"
        src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
