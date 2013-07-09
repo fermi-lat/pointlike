@@ -1,7 +1,7 @@
 """
-Description here
+Comparison with another UW model
 
-$Header: /phys/users/glast/python/uw/like2/analyze/uwsourcecomparison.py,v 1.144 2013/06/18 12:35:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/uwsourcecomparison.py,v 1.1 2013/06/21 20:15:31 burnett Exp $
 
 """
 
@@ -11,6 +11,7 @@ import pylab as plt
 import pandas as pd
 
 from . import sourceinfo
+from . diagnostics import FloatFormat
 
 class UWsourceComparison(sourceinfo.SourceInfo):
     """Comparision with another UW model: %(othermodel)s
@@ -26,14 +27,52 @@ class UWsourceComparison(sourceinfo.SourceInfo):
         assert os.path.exists(otherfilename), 'File %s not found' % otherfilename
         print 'loading %s' % otherfilename
         self.odf = pd.load(otherfilename)
-
-    def compare(self, scat=True):
-        """Ratios of values of various fit parameters
-        """
         self.df['pindex_old']=self.odf.pindex
         self.df['ts_old'] = self.odf.ts
         self.df['eflux_old']=self.odf.eflux
         self.df['a_old'] = self.odf.a
+        self.df['skydir_old'] = self.odf.skydir
+
+
+    def check_missing(self):
+        """Missing sources, and possible replacements
+        The following table has source names from %(othermodel)s that do not appear in %(skymodel)s,
+        with closest %(skymodel)s source name and distance to it.
+        %(missing_html)s
+        """
+        oldindex = set(self.odf.index)
+        newindex = set(self.df.index)
+        missed = oldindex.difference(newindex)
+        if len(missed)==0:
+            self.missing_html='<br>No missing sources!'
+            print 'no missing sources'
+            return
+        print '%d missing sources' %len(missed)
+        self.missing = self.odf.ix[missed]
+        t = map(self.find_nearest_to, self.missing['skydir'].values)
+        self.missing['nearest']=[x[0] for x in t]
+        self.missing['distance']=[x[1] for x in t]
+        self.missing['nearest_ts']=self.df.ix[self.missing.nearest.values]['ts'].values
+        
+        self.missing_html=self.missing[self.missing.ts>10]['ts ra dec nearest nearest_ts distance roiname'.split()]\
+            .sort_index(by='distance').to_html(float_format=FloatFormat(2))
+        
+    def check_moved(self, tol=2):
+        """Sources in old and new lists, which apparently moved
+        Criterion: moved by more than %(move_tolerance).1f sigma
+        %(moved_html)s
+        """
+        self.move_tolerance=tol
+        skydir = self.df.skydir.values
+        skydir_old = self.df.skydir_old.values
+        self.df['moved']=[np.degrees(a.difference(b)) if b is not np.nan else np.nan for a,b in zip(skydir, skydir_old)]
+        self.moved_html = self.df[self.df.moved>tol*self.df.a]['ts_old ts ra dec a moved roiname'.split()]\
+            .sort_index(by='moved').to_html(float_format=FloatFormat(2))
+
+    
+    def compare(self, scat=True):
+        """Ratios of values of various fit parameters
+        """
         odf, df = self.odf, self.df
         plane = np.abs(df.glat)<5
         
@@ -46,19 +85,20 @@ class UWsourceComparison(sourceinfo.SourceInfo):
             else:
                 bins = np.logspace(1,4,13)
                 x = np.sqrt(bins[:-1]*bins[1:])
-                t = ts[cut]
-                u = y.clip(*ylim)[cut]
-                ybinned = np.array([ u[ (t >= bins[i])*(t < bins[i+1])] for i in range(len(bins)-1)])
-                ymean = [t.mean() for t in ybinned]
-                yerr = [t.std()/np.sqrt(len(t)) if len(t)>1 else 0 for t in ybinned] 
-                ax.errorbar(x, ymean, yerr=yerr, fmt='o')
+                for c, fmt,label,offset in zip([cut*(~plane), cut*plane], ('ob', 'Dr'), ('|b|>5', '|b|<5'),(0.95,1.05)):
+                    t = ts[c]
+                    u = y.clip(*ylim)[c]
+                    ybinned = np.array([ u[ (t >= bins[i])*(t < bins[i+1])] for i in range(len(bins)-1)])
+                    ymean = [t.mean() for t in ybinned]
+                    yerr = [t.std()/np.sqrt(len(t)) if len(t)>1 else 0 for t in ybinned] 
+                    ax.errorbar(x*offset, ymean, yerr=yerr, fmt=fmt, label=label)
                 sy = lambda y: 1+(y-1)/4.
                 plt.setp(ax, xlim=(10,1e4), ylim=(sy(ylim[0]),sy(ylim[1])), ylabel=ylabel, xscale='log')
             ax.axhline(1, color='k')
-            if scat: ax.legend(prop=dict(size=10))
+            ax.legend(prop=dict(size=10))
             ax.grid()
             yhigh = y[cut*(df.ts>200)]
-            print '%-6s %3d %5.3f +/- %5.3f ' % (ylabel, len(yhigh), yhigh.mean(),  np.sqrt(yhigh.std()/len(yhigh)))
+            #print '%-6s %3d %5.3f +/- %5.3f ' % (ylabel, len(yhigh), yhigh.mean(),  np.sqrt(yhigh.std()/len(yhigh)))
 
         def plot_pindex(ax,  ylim=(0.9,1.1)):
             cut=df.beta<0.01
@@ -79,7 +119,7 @@ class UWsourceComparison(sourceinfo.SourceInfo):
             cut = df.ts>10
             plot_ratio(ax, y, cut, ylim, 'r95')
             
-        fig, ax = plt.subplots(4,1, figsize=(12 if scat else 8,12), sharex=True)
+        fig, ax = plt.subplots(4,1, figsize=(10,12), sharex=True)
         plt.subplots_adjust(hspace=0.05, left=0.1, bottom=0.1)
         for f, ax in zip((plot_ts, plot_flux, plot_pindex,plot_semimajor,), ax.flatten()): f(ax)
         fig.text(0.5, 0.05, 'TS', ha='center')
@@ -135,4 +175,4 @@ class UWsourceComparison(sourceinfo.SourceInfo):
         return fig
         
     def all_plots(self):
-        self.runfigures([self.compare, self.compare_profile, self.band_compare, self.quality_comparison ])
+        self.runfigures([self.check_missing, self.check_moved, self.compare, self.compare_profile, self.band_compare, self.quality_comparison ])
