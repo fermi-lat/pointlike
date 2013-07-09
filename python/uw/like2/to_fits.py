@@ -1,7 +1,7 @@
 """
 Code to generate a standard Fermi-LAT catalog FITS file
 also, see to_xml, to generate XML for the sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_fits.py,v 1.8 2013/06/20 16:08:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_fits.py,v 1.10 2013/06/21 18:37:30 burnett Exp $
 """
 import os, argparse, glob
 import pyfits
@@ -251,6 +251,8 @@ class MakeCat(object):
         
         # make the FITS stuff
         table = pyfits.new_table(self.cols)
+        table.header.update('ERPOSFAC','%.3f'% localization_systematic[0], 'Systematic factor applied to conf95')
+        table.header.update('ERPOSABS','%.4f'% localization_systematic[1], 'systematic value (deg) added in quadratrue conf95')
         table.name = '4year_LAT_Source_Catalog' 
         if os.path.exists(outfile):
             os.remove(outfile)
