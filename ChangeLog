@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Mon Jul  8 19:05:43 PDT 2013
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	__init__.py 
+Added Files:
+	background.py 
+Log Message:
+add background processor
+    *
+------------------------------------------------------------
 User: burnett  Sun Jul  7 17:35:49 PDT 2013
 pointlike/python/uw/like2/analyze
 
