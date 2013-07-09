@@ -1,6 +1,6 @@
 """
 Export processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/export.py,v 1.5 2013/06/18 22:08:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/export.py,v 1.6 2013/06/20 16:07:49 burnett Exp $
 
 """
 import os, glob
@@ -16,9 +16,13 @@ import pyfits
 class Export(dp.SourceInfo):
     """Manage, and document an export step
     <p>Generates XML and FITS files from the file %(sourcecsv)s.
-    <p>Expect that <a href="../peak_finder/index.html?skipDecoration">findpeak</a> has been run to update the sources file. In this case, there are a set of sources for which the standard localization analyis failed, and have had a localization moments analysis. For these sources, bit 4 of flags is set to indicate that the error ellipse parameters were replaced. The LocaliationQuality is not changed, however. 
-    The error ellipse for any of these sources is thus only an approximate representation of the uncertainty, and the user is urged to examine the corresponding TS maps: png and FITS versions can be found in <a href="../../tsmap_fail/">this folder</a>.
-    
+    <p>Expect that <a href="../peak_finder/index.html?skipDecoration">findpeak</a> has been run to update 
+    the sources file. In this case, there are a set of sources for which the standard localization analyis failed, 
+    and have had a localization moments analysis. For these sources, bit 4 of flags is set to indicate that the 
+    error ellipse parameters were replaced. The LocaliationQuality is not changed, however. 
+    The error ellipse for any of these sources is thus only an approximate representation of the uncertainty, 
+    and the user is urged to examine the corresponding TS maps: png and FITS versions can be found in 
+    <a href="../../tsmap_fail/">this folder</a>.
     
     <p>A final selection on the error ellipse size, and systematic corrections are made here:
     <table border="1">
@@ -38,17 +42,19 @@ class Export(dp.SourceInfo):
         self.error_box_cut = 0.25
         self.cuts = '(sources.ts>10)*(sources.a<%.2f)+pd.isnull(sources.locqual)' %self.error_box_cut
     
-    def analysis(self):
+    def analysis(self, fits_only=False):
         """Analysis log
         <pre>%(logstream)s</pre>"""
         self.startlog()
-        print 'Running "to_xml"...'
-        to_xml.main(cuts=self.cuts)
+        if not fits_only:
+            print 'Running "to_xml"...'
+            to_xml.main(cuts=self.cuts)
         
         print '\nRunning "to_fits"...'
         self.fits_file = '_'.join(os.path.abspath('.').split('/')[-2:])+'.fits'
         to_fits.main(self.fits_file,  cuts=self.cuts,
-                     localization_systematic = (self.error_box_factor, self.error_box_add))
+                     localization_systematic = (self.error_box_factor, self.error_box_add)
+                     )
 
         self.logstream=self.stoplog()
          
