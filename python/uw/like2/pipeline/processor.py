@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.54 2013/05/22 17:52:46 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.55 2013/06/04 18:28:55 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -55,13 +55,22 @@ def fix_beta(roi, bts_min=20, qual_min=15,):
         except:
             beta_unc=0
         band_ts, ts = roi.band_ts(which), roi.TS(which)
-        sbeta = '%5.2f+/-%5.2f' % (beta, beta_unc) if beta_unc>0 else '%5.2f        '%beta
+        sbeta = '%5.3f+/-%5.3f' % (beta, beta_unc) if beta_unc>0 else '%5.3f        '%beta
         print '%-20s %s %10.1f %10.1f ' %(which, sbeta, band_ts, band_ts-ts),
         # beta is free: is it a good fit? check value, error if any
-        if model.free[2]:
+        if model.free[3]: # shouldn't be free
+           model.free[3]=False
+           model.internal_cov_matrix[3,:]=0
+           model.internal_cov_matrix[:,3]=0
+           print 'freezing E_break' ,
+           refit=True
+        if model.free[2] or beta>0.001:
             # free: is the fit ok?
-            if beta>0.01 and beta_unc>0.001 and beta_unc< 2*beta:
+            if beta>0.001 and beta_unc>0.001 and beta > 2*beta_unc:
                 print ' fit is ok'
+                if not model.free[2]:
+                    model.free[2]=True # make sure free, since was once.
+                    refit=True
                 continue
             else:
                 print '<--- reseting to PowerLaw' 
@@ -73,6 +82,12 @@ def fix_beta(roi, bts_min=20, qual_min=15,):
                 models_to_fit.append(model)
                 refit=True
                 continue
+        if beta>0 and beta<=0.001:
+            print '<--- freezing at zero'
+            model[2]=0
+            model.internal_cov_matrix[2,:]=0
+            model.internal_cov_matrix[:,2]=0
+            continue
 
         if beta>=3.0: print 'beta>1 too large'; continue
         if beta==0: print 'frozen previously'; continue
@@ -162,7 +177,19 @@ def pickle_dump(roi, fit_sources, pickle_dir, dampen, failed=False, **kwargs):
             if t is not None:
                 print 'ROI pickle: keeping previous calculation of %s for %s' % (key, s.name)
         return t
-        
+    def getit(s, key, savekey=None):
+        """ key: current key
+            savekey: key to save, expect to find in saved pickle
+        """
+        if savekey is None: savekey=key
+        t = s.__dict__.get(key, None)
+        if t is not None: return t #use a new version
+        if s.name in oldsrc: #was it measured before?
+            t = oldsrc[s.name].get(savekey, None)
+            if t is not None: #yes, make a note and return it
+                print 'ROI pickle: keeping previous calculation of %s for %s' % (key, s.name)
+        return t
+    
     for s in fit_sources:
         try:
             pivot_energy = s.spectral_model.pivot_energy()
@@ -186,7 +213,7 @@ def pickle_dump(roi, fit_sources, pickle_dir, dampen, failed=False, **kwargs):
             pivot_energy = pivot_energy,
             # if ellipse or adict not done, but already in pickle, keep them
             ellipse= getit(s, 'ellipse'), #s.__dict__.get('ellipse', None), 
-            associations = getit(s, 'adict'), #s.__dict__.get('adict',None),
+            associations = getit(s, 'adict', 'associations'), #s.__dict__.get('adict',None),
             )
     output.update(kwargs) # add additional entries from kwargs
     f = open(filename,'wb') #perhaps overwrite
@@ -232,9 +259,6 @@ def repivot(roi, fit_sources=None, min_ts = 10, max_beta=3.0, emin=200, emax=200
             if model[2]>max_beta: 
                 print 'beta= %.2f too large' %(model[2])
                 continue #very 
-            else:
-                model.free[2]=False # make sure beta fixed?
-
         if pivot < emin or pivot > emax:
             print 'pivot energy, not in range (%.0f, %.0f): setting to limit' % (emin, emax)
             pivot = min(emax, max(pivot,emin))
@@ -284,6 +308,7 @@ def process(roi, **kwargs):
     tables = kwargs.pop('tables', None)
     localize_kw = kwargs.pop('localize_kw', {}) # could have bandfits=False
     diffuse_only = kwargs.pop('diffuse_only', False)
+    norms_first = kwargs.pop('norms_first', True)
     freeze_iem = kwargs.pop('freeze_iem', 1.0)
     countsplot_tsmin = kwargs.pop('countsplot_tsmin', 100) # minimum for counts plot
     damp = Damper(roi, dampen)
@@ -312,6 +337,12 @@ def process(roi, **kwargs):
         if dampen>0:
             fit_kw = kwargs.get('fit_kw', {})
             try:
+                if norms_first:
+                    t = np.array([n.endswith('Norm') for n in roi.parameter_names])
+                    if sum(t)>0:
+                        print 'Fitting parameter names ending in "Norm"'
+                        roi.fit(np.arange(len(t))[t], **fit_kw)
+
                 if diffuse_only:
                     ndiff = len([n for n in roi.parameter_names if n.split('_')[0] in ('ring','isotrop', 'limb')])
                     roi.summary(range(ndiff), title='Before fit to diffuse components')
@@ -358,7 +389,7 @@ def process(roi, **kwargs):
     if localize:
         print 'localizing and associating all sources with variable...'
         q, roi.quiet = roi.quiet,False
-        tsmap_dir = getdir('tsmap_dir') 
+        tsmap_dir = getdir('tsmap_dir') #None ######## turn off for now  
         localization.localize_all(roi, tsmap_dir=tsmap_dir, associator = associator)
         roi.quiet=q
 
