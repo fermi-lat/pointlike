@@ -1,7 +1,7 @@
 """
 Comparison with another UW model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/uwsourcecomparison.py,v 1.1 2013/06/21 20:15:31 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/uwsourcecomparison.py,v 1.2 2013/07/09 23:30:17 burnett Exp $
 
 """
 
@@ -26,7 +26,9 @@ class UWsourceComparison(sourceinfo.SourceInfo):
         self.othermodel=othermodel
         assert os.path.exists(otherfilename), 'File %s not found' % otherfilename
         print 'loading %s' % otherfilename
-        self.odf = pd.load(otherfilename)
+        odf = pd.load(otherfilename)
+        self.odf = odf[odf.ts>10]
+        self.df = self.df[self.df.ts>10]
         self.df['pindex_old']=self.odf.pindex
         self.df['ts_old'] = self.odf.ts
         self.df['eflux_old']=self.odf.eflux
