@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jul  9 21:08:59 PDT 2013
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	uwsourcecomparison.py 
+Log Message:
+make TS>10 cut before comparing lists
+    *
+------------------------------------------------------------
 User: burnett  Tue Jul  9 16:30:17 PDT 2013
 pointlike/python/uw/like2/analyze
 
