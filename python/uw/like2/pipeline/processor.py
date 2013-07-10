@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.55 2013/06/04 18:28:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.56 2013/07/10 18:46:28 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -24,7 +24,7 @@ class OutputTee(object):
         self.stdout = sys.stdout
         sys.stdout = self
     def write(self, stuff):
-        self.logstream.write(stuff)
+        self.logstream.write(stuff)
         self.stdout.write(stuff)
     def close(self):
         sys.stdout =self.stdout
@@ -170,12 +170,16 @@ def pickle_dump(roi, fit_sources, pickle_dir, dampen, failed=False, **kwargs):
         
     sources=dict()
     output['sources']= sources
-    def getit(s, key):
+    def getit(s, key, savekey=None):
+        """ key: current key
+            savekey: key to save, expect to find in saved pickle
+        """
+        if savekey is None: savekey=key
         t = s.__dict__.get(key, None)
         if t is None and s.name in oldsrc:
-            t = oldsrc[s.name].get(key, None)
+            t = oldsrc[s.name].get(savekey, None)
             if t is not None:
-                print 'ROI pickle: keeping previous calculation of %s for %s' % (key, s.name)
+                print 'ROI pickle: keeping previous calculation of %s for %s' % (savekey, s.name)
         return t
     def getit(s, key, savekey=None):
         """ key: current key
@@ -311,6 +315,7 @@ def process(roi, **kwargs):
     norms_first = kwargs.pop('norms_first', True)
     freeze_iem = kwargs.pop('freeze_iem', 1.0)
     countsplot_tsmin = kwargs.pop('countsplot_tsmin', 100) # minimum for counts plot
+    source_name = kwargs.pop('source_name', None) # for localize perhaps
     damp = Damper(roi, dampen)
     
     if outdir is not None: 
@@ -389,8 +394,8 @@ def process(roi, **kwargs):
     if localize:
         print 'localizing and associating all sources with variable...'
         q, roi.quiet = roi.quiet,False
-        tsmap_dir = getdir('tsmap_dir') #None ######## turn off for now  
-        localization.localize_all(roi, tsmap_dir=tsmap_dir, associator = associator)
+        tsmap_dir = getdir('tsmap_dir') 
+        localization.localize_all(roi, tsmap_dir=tsmap_dir, associator = associator, source_name=source_name)
         roi.quiet=q
 
     try:
@@ -622,7 +627,7 @@ def iso_refit_processor(roi, **kwargs):
             plot_dir='isofit_plots', fit_dir='isofits', ylim=(0,2))
     return roi_refit_processor(roi, **kwargs)
 
-def limb_processor(roi, **kwargs):
+def limb_processor(roi, **kwarg):
     """ report on limb fit, perhaps refit"""
     outdir= kwargs.get('outdir')
     logpath = os.path.join(outdir, 'log')
@@ -696,6 +701,7 @@ def check_seeds(roi, **kwargs):
     prefix = kwargs.get('prefix')
     tsmap_dir=kwargs.get('tsmap', None)
     tsmin = kwargs.pop('tsmin', 10)
+    repivot = kwargs.pop('repivot', True)
     seedcheck_dir = kwargs.get('seedcheck_dir', 'seedcheck')
     if not os.path.exists(seedcheck_dir): os.mkdir(seedcheck_dir)
     associator= kwargs.pop('associate', None)
@@ -703,6 +709,7 @@ def check_seeds(roi, **kwargs):
     outtee = OutputTee(os.path.join(logpath, roi.name+'.txt'))
     print  '='*80
     print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (roi.name,))
+    print 'Checking seeds, if any'
     fit_sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
     seed_sources = [ s for s in fit_sources if s.name.startswith(prefix)]
     if len(seed_sources)==0: 
@@ -716,6 +723,8 @@ def check_seeds(roi, **kwargs):
         s.ts=ts = roi.TS(s.name)
     localization.localize_all(roi, prefix=prefix, tsmap_dir=tsmap_dir, associator = associator, update=True, tsmin=tsmin)
     roi.fit() 
+    if repivot: 
+        repivot(roi) # one iteration
     for s in seed_sources: 
         s.ts=ts = roi.TS(s.name)
         sfile = os.path.join(seedcheck_dir, s.name.replace(' ', '_').replace('+','p')+'.pickle')
