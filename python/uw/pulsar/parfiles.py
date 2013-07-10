@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.26 2013/06/26 19:41:14 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.27 2013/06/27 00:49:58 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -10,6 +10,7 @@ import numpy as np
 import os
 import subprocess
 from uw.utilities.coords import ec2eq
+from collections import deque
 
 C = 29979245800.
 
@@ -518,14 +519,17 @@ class TimFile(object):
         if output is not None:
             file(output,'w').write('FORMAT 1\n'+''.join(toa_lines))
 
-def get_bats_etc(par,tim,output=None,full_output=False):
+def get_bats_etc(par,tim,output=None,full_output=False,binary=False):
     """ Use the tempo2 general plugin to compute the bats and absolute
         phases of a set of TOAs."""
     if not os.path.isfile(par):
         raise IOError('Ephemeris %s is not a valid file!'%par)
     if not os.path.isfile(tim):
         raise IOError('TOA collection %s is not a valid file!'%tim)
+    binary = binary and ParFile(par).is_binary()
     cmd = """tempo2 -output general2 -s "onerous\t{bat}\t{err}\t{npulse}\t{pre_phase}\t{sat}\n" -f %s %s"""%(par,tim)
+    if binary:
+        cmd = cmd.replace('bat','bbat')
     proc = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE)
     toks = [line.split('\t')[1:] for line in proc.stdout if line[:7]=='onerous']
     #toks = [x[1:] for x in toks if x[0]=='onerous']
@@ -556,3 +560,107 @@ def get_resids(par,tim):
     errs = np.array([x[0] for x in toks],dtype=np.float128)
     resi = np.array([x[1] for x in toks],dtype=np.float128)*1e6
     return resi,errs
+
+def tim_filter(tim,thresh=5,output=None):
+    """ Parse a likelihood file and attempt to comment out TOAs that do
+        not pass a likelihood (detection) threshold.
+    """
+    output = output or tim
+    lines = file(tim).readlines()
+    new_lines = deque()
+    for iline,line in enumerate(lines):
+        new_lines.append(line)
+        if line[0] != ' ':
+            continue
+        toks = line.split()
+        try:
+            idx = toks.index('-logl')
+            logl = -float(toks[idx+1])
+            # if doesn't meet threshold, comment out old value and replace
+            # with one with a very large error; this allows us to keep
+            # "uniform" TOAs if necessary but deweight them in fits
+            if logl < thresh:
+                new_lines.pop()
+                new_lines.append('C ' + line[1:])
+                toks[3] = '1e7'
+                nl = ' '+' '.join(toks)+'\n'
+                new_lines.append(nl)
+        except ValueError:
+            continue
+    file(output,'w').write(''.join(new_lines))
+
+def tim_faker(tim,tim_shifts,thresh=5,output=None):
+    """ Parse a likelihood file and attempt to comment out TOAs that do
+        not pass a likelihood (detection) threshold.
+    """
+    output = output or tim
+    lines = file(tim).readlines()
+    new_lines = deque()
+    toa_counter = -1
+    for iline,line in enumerate(lines):
+        new_lines.append(line)
+        if line[0] != ' ':
+            continue
+        toa_counter += 1
+        toks = line.split()
+        try:
+            idx = toks.index('-logl')
+            logl = -float(toks[idx+1])
+            # if doesn't meet threshold, comment out old value and replace
+            # with one with a very large error; this allows us to keep
+            # "uniform" TOAs if necessary but deweight them in fits
+            if logl < thresh:
+                new_lines.pop()
+                new_lines.append('C ' + line[1:])
+                toks[2] = '%.15f'%(np.array(toks[2],dtype=np.float128) + tim_shifts[toa_counter])
+                toks[3] = '1e7'
+                nl = ' '+' '.join(toks)+' -fake \n'
+                new_lines.append(nl)
+        except ValueError:
+            continue
+    file(output,'w').write(''.join(new_lines))
+
+def add_phase(tim,abs_phase,output=None):
+    """ Add an absolute phase flag to a .tim file."""
+    output = output or tim
+    lines = file(tim).readlines()
+    new_lines = deque()
+    counter = 0
+    for iline,line in enumerate(lines):
+        new_lines.append(line)
+        if line[0] != ' ':
+            continue
+        new_lines.pop()
+        ph = str(int(abs_phase[counter]))
+        toks = line.split()
+        try:
+            idx = toks.index('-pn')
+            toks[idx+1] = ph
+            new_lines.append(' '+' '.join(toks)+'\n')
+        except ValueError:
+            new_lines.append(line.strip('\n')+' -pn %s\n'%ph)
+        counter += 1
+    if counter != len(abs_phase):
+        raise ValueError('Found %d phases for %d TOAs!'%(
+            len(abs_phase),counter))
+    file(output,'w').write(''.join(new_lines))
+
+def mask_tim(tim,mask,output=None):
+    output = output or tim
+    lines = file(tim).readlines()
+    new_lines = deque()
+    counter = 0
+    for iline,line in enumerate(lines):
+        new_lines.append(line)
+        if line[0] != ' ':
+            continue
+        if mask[counter]:
+            print 'Masking line:'
+            print line
+            new_lines.pop()
+            toks = line.split()
+            toks[3] = '1e7'
+            nl = ' '+' '.join(toks)+'\n'
+            new_lines.append(nl)
+        counter += 1
+    file(output,'w').write(''.join(new_lines))
