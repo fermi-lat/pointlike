@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Jul 10 18:04:25 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	toagen.py 
+Log Message:
+More sophisticated TOA generation.
+
+    *
+------------------------------------------------------------
 User: burnett  Wed Jul 10 12:05:18 PDT 2013
 pointlike/python/uw/like2/pipeline
 
