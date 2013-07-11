@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.12 2013/06/09 01:13:00 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.13 2013/06/26 19:39:55 kerrm Exp $
 
 Calculate TOAs with a variety of methods.
 
@@ -12,7 +12,7 @@ import sys
 import numpy as np
 import pylab as pl
 import scipy.stats
-from scipy.optimize import fmin
+from scipy.optimize import fmin,golden,brentq
 from stats import hm,hmw,sf_hm
 from edf import EDF,find_alignment
 from collections import deque
@@ -76,7 +76,8 @@ class TOAGenerator(object):
             phases,weights = self.data.toa_data(mjdstart,mjdstop)
             if len(phases) == 0: continue
             
-            tau,tau_err,prob = self.get_phase_shift(phases,weights,polyco_phase0)
+            tau,tau_err,prob,logl = \
+                self.get_phase_shift(phases,weights,polyco_phase0)
             self.mean_err = (self.mean_err*ii + tau_err)/(ii+1)
 
             # compute RMS between linear assumption and actual polyco
@@ -90,12 +91,13 @@ class TOAGenerator(object):
             # Prepare a string to write to a .tim file or to send to STDOUT
             toa = phase_time + (tau*period)/SECSPERDAY
             toa_err = tau_err*period*1.0e6
-            frac_err = tau_err/period
+            frac_err = tau_err
             frame_label = 'BAT' if self.data.bary else 'GEO'
             weight_string = '' if (weights is None) else '-nwp %.2f'%(weights.sum())
             duration_string = '-tstart %s -tstop %s'%(mjdstart,mjdstop)
             rms_string = '-drms %.2f'%(rms)
-            s = " %s 0.0 %.12f %.2f %s -i LAT %s -np %d %s -chanceprob %.2e -fracerr %.3f %s" % (frame_label,toa,toa_err,pe.obs,duration_string,len(phases),weight_string,prob,frac_err,rms_string)
+            logl_string = '-logl %.2f'%(logl)
+            s = " %s 0.0 %.12f %.2f %s -i LAT %s -np %d %s -chanceprob %.2e -pherr %.3f %s %s" % (frame_label,toa,toa_err,pe.obs,duration_string,len(phases),weight_string,prob,frac_err,rms_string,logl_string)
             toas[ii] = toa
             err_toas[ii] = toa_err
             tim_strings.append(s)
@@ -107,7 +109,8 @@ class TOAGenerator(object):
 class UnbinnedTOAGenerator(TOAGenerator):
 
     def init(self):
-        self.seeds = np.arange(0.01,0.991,0.01)
+        #self.seeds = np.arange(0.01,0.991,0.01)
+        self.seeds = np.arange(0.00,0.991,0.01)
         self.good_ephemeris = True
         self.phi0 = self.template.get_location()
         self.prev_peak = self.phi0
@@ -132,16 +135,16 @@ class UnbinnedTOAGenerator(TOAGenerator):
         #return -np.log(1+args[1]*(self.template(args[0],suppress_bg=True)-1)).sum()
         return -np.log(1+args[1]*(self.template(args[0])-1)).sum()
 
-    def get_phase_shift(self,phases,weights,polyco_phase0):
+    def get_phase_shift_old(self,phases,weights,polyco_phase0):
 
         f   = self.__toa_loglikelihood__
         jump = False
+        # if the ephemeris is deemed good, we use it to track the 
+        # solution such that we don't adopt a fluctuation for the TOA 
         if (self.good_ephemeris):
-            # the ephemeris should be good enough that the TOAs don't drift by more than ~0.1 period
-            # this allows a good guess at the TOA to prevent a fit to the wrong peak
-            
             seed = [self.prev_peak]
             fit  = fmin(f,seed,args=(phases,weights),disp=0,ftol=1e-9,full_output=True)
+            best_ll = fit[1]
             jump = abs(self.prev_peak - fit[0][0])/self.mean_err
             if jump > 10:
                 print 'Found a jump, doing a blind search now.'
@@ -164,15 +167,18 @@ class UnbinnedTOAGenerator(TOAGenerator):
             seed_vals = [f([x],phases,weights) for x in self.seeds]
             top10     = self.seeds[np.argsort(seed_vals)][:2] #NB change
             for seed in top10:
-                fit   = fmin(f,[seed],args=(phases,weights),disp=0,ftol=1e-9,full_output=True)
-                if fit[1] < best_ll:
+                seedfit   = fmin(f,[seed],args=(phases,weights),disp=0,ftol=1e-9,full_output=True)
+                if seedfit[1] < best_ll:
+                    fit = seedfit
                     best_ll = fit[1]
                     tau = fit[0][0]
                     if jump: self.prev_peak = tau
 
             tau_err = self.__toa_error__(tau,phases,weights)         
             tau -= (self.phi0 + polyco_phase0)
-            if self.display: print '(Blind) Peak Shift: %.5f +/- %.5f'%(tau+polyco_phase0,tau_err)
+            if self.display: 
+                print '(Blind) Peak Shift: %.5f +/- %.5f'%(
+                    tau+polyco_phase0,tau_err)
             self.phases.append(tau+polyco_phase0)        
 
         if (self.plot_stem is not None):
@@ -182,25 +188,61 @@ class UnbinnedTOAGenerator(TOAGenerator):
             cod2 = np.asarray([f([x],phases,weights) for x in dom2])
             pl.figure(10); pl.clf();
             ax1 = pl.gca()
-            # calculate coordinates for inset - could be more sophisticated with transAxes
-            ax2 = pl.axes([0.1+0.5*(fit[0][0]<0.5),0.15,0.25,0.25])
+            ax1.axhline(0,color='k')
+            # calculate coordinates for inset; should use transAxes?
+            ax2 = pl.axes([0.2+0.4*(fit[0][0]<0.5),0.60,0.25,0.25])
             for i,(dom,cod,ax) in enumerate(zip([dom1,dom2],[cod1,cod2],[ax1,ax2])):
                 ax.plot(dom,cod)
                 ax.axvline(fit[0][0],color='red')
                 ax.axvline(self.phi0,color='k',ls='-')
-                ax.axvline(fit[0][0]-tau_err,color='red',ls='--')
-                ax.axvline(fit[0][0]+tau_err,color='red',ls='--')
                 if i==1:
                     ax.xaxis.set_major_locator(pl.matplotlib.ticker.MaxNLocator(4))
                     ax.axis([dom[0],dom[-1],cod.min(),cod.min()+5])
                     ax.axhline(cod.min()+0.5,color='blue',ls='--')
+                    ax.axhline(cod.min()+2.0,color='blue',ls='-.')
+                    ax.axvline(fit[0][0]-tau_err,color='red',ls='--')
+                    ax.axvline(fit[0][0]+tau_err,color='red',ls='--')
+                    ax.axvline(fit[0][0]-2*tau_err,color='red',ls='-.')
+                    ax.axvline(fit[0][0]+2*tau_err,color='red',ls='-.')
             name = ('%3d'%(self.counter+1)).replace(' ','0')
             ax1.set_xlabel('(Relative) Phase')
             ax1.set_ylabel('Negative Log Likelihood')
             pl.savefig('%s%s.png'%(self.plot_stem,name))
 
         self.phase_errs.append(tau_err)
-        return tau,tau_err,sf_hm(hm(phases) if (weights is None) else hmw(phases,weights))
+        h = hm(phases) if (weights is None) else hmw(phases,weights)
+        return tau,tau_err,sf_hm(h),best_ll
+
+    def get_phase_shift(self,phases,weights,polyco_phase0):
+
+        f   = self.__toa_loglikelihood__
+        jump = False
+        if self.plot_stem is not None:
+            name = ('%3d'%(self.counter+1)).replace(' ','0')
+            plot_output = '%s%s.png'%(self.plot_stem,name)
+        else:
+            plot_output = None
+        # if the ephemeris is deemed good, we use it to track the 
+        # solution such that we don't adopt a fluctuation for the TOA 
+        if (self.good_ephemeris):
+            seed = [self.prev_peak]
+        else:
+            seed = None
+        x0,x0_err,best_ll = profile_analysis(
+            f,(phases,weights),pred_phase=seed,plot_output=plot_output)
+        if x0_err < 1e2:
+            self.prev_peak = x0
+        else:
+            x0 = self.prev_peak # track solution with "fake" TOA
+        peak_shift = (x0 - self.phi0)
+        tau     = (peak_shift - polyco_phase0)
+        tau_err = x0_err
+        if self.display: 
+            print 'Peak Shift: %.5f +/- %.5f'%(peak_shift,tau_err)
+        self.phases.append(peak_shift)
+        self.phase_errs.append(tau_err)
+        h = hm(phases) if (weights is None) else hmw(phases,weights)
+        return tau,tau_err,sf_hm(h),best_ll
 
 
 class BinnedTOAGenerator(TOAGenerator):
@@ -301,7 +343,7 @@ class BinnedTOAGenerator(TOAGenerator):
             
             #tau = np.random.rand(1)[0];tau_err = np.random.rand(1)[0]*0.01 # testing
             redchi,prob = self._prof_chisq(profile)
-            return tau,tau_err,prob
+            return tau,tau_err,prob,0
 
 
         else:
@@ -324,7 +366,7 @@ class BinnedTOAGenerator(TOAGenerator):
                 print >>of,"%d %d" % (i,np)
             of.close()
 
-            return 0,0,0
+            return 0,0,0,0
 
 class EDFTOAGenerator(TOAGenerator):
 
@@ -338,4 +380,92 @@ class EDFTOAGenerator(TOAGenerator):
 
         tau_err = float(raw_input('Estimate error width in delta_phi:'))
         #tau_err = 0.02
-        return peak_shift-polyco_phase0,tau_err,sf_hm(hm(phases))
+        return peak_shift-polyco_phase0,tau_err,sf_hm(hm(phases)),0
+
+def profile_analysis(logl,logl_args,pred_phase=None,nsamp=100,thresh=5,
+    plot_output=None):
+
+    # TODO -- plot for bad TOAs too
+
+    # (0) establish profile
+    f = lambda x: logl([x],*logl_args)
+    dom = np.linspace(0,1,nsamp+1)[:-1]
+    cod = np.asarray(map(f,dom))
+
+    # (1) find all local minima
+    mask = (cod < np.roll(cod,1)) & (cod < np.roll(cod,-1))
+
+    # (2) require that all local minima surpass a likelihood threshold
+    m2 = mask & (cod < -abs(thresh))
+
+    # (3) if no peaks satisfy conditions, allow global minimum
+    if m2.sum() > 0:
+        mask = m2
+
+    # (4) if given a predicted phase, choose the peak closest to it as
+    # TOA; otherwise, the global minimum
+    if (mask.sum() > 1) and (pred_phase is not None):
+        d1 = np.abs(dom-pre_phase)
+        d2 = np.abs(pre_phase+(1-dom))
+        d3 = np.abs(dom-(pre_phase-1))
+        diffs = np.minimum(np.minimum(d1,d2),d3)
+        idx = np.argmin(diffs[mask])
+    else:
+        idx = np.argmin(cod[mask])
+    idx = np.arange(nsamp)[mask][idx] # index into main array
+
+    # (5) find the minimum
+    # define a shifted likelihood function to avoid phase wraps
+    phi0 = dom[idx]
+    g = lambda x: f(x+phi0)
+    xmin = golden(g,brack=[-1./nsamp,0,1./nsamp])
+    fmin = g(xmin)
+
+    # (6) find the error bounds, slowly but surely
+    ldiffs = cod-cod[idx] - 2
+    rt_diff = np.arange(nsamp)[np.roll(ldiffs,-idx) > 0][0]
+    lt_diff = np.arange(nsamp)[np.roll(ldiffs,nsamp-idx-1)[::-1] > 0][0]
+    h = lambda x: f(x+phi0) - fmin - 2
+    rt = brentq(h,0,float(rt_diff)/nsamp)
+    lt = brentq(h,-float(lt_diff)/nsamp,0)
+
+    # (7) construct TOA
+    tau = (rt+lt)/2 + phi0
+    tau_err = (rt-lt)/4 # by 2 for average, by 2 again for 2->1 sigma
+
+    if plot_output is not None:
+        xmin += phi0
+        dom1 = dom
+        cod1 = cod
+        dom2 = np.linspace(xmin-0.04,xmin+0.04,30)
+        cod2 = np.asarray(map(f,dom2))
+        pl.figure(10); pl.clf();
+        ax1 = pl.gca()
+        ax1.axhline(0,color='k')
+        # calculate coordinates for inset; should use transAxes?
+        ax2 = pl.axes([0.2+0.4*(xmin<0.5),0.60,0.25,0.25])
+        for i,(dom,cod,ax) in enumerate(zip([dom1,dom2],[cod1,cod2],[ax1,ax2])):
+            ax.plot(dom,cod)
+            ax.axvline(xmin,color='red',ls='--')
+            ax.axvline(tau,color='red')
+            if pred_phase is not None:
+                ax.axvline(pred_phase,color='k',ls='-')
+            if i==1:
+                ax.xaxis.set_major_locator(pl.matplotlib.ticker.MaxNLocator(4))
+                ax.axis([dom[0],dom[-1],cod.min(),cod.min()+5])
+                ax.axhline(fmin+0.5,color='blue',ls='--')
+                ax.axhline(fmin+2.0,color='blue',ls='-.')
+                ax.axvline(tau-tau_err,color='green',ls='--')
+                ax.axvline(tau+tau_err,color='green',ls='--')
+                #ax.axvline(xmin-2*tau_err,color='green',ls='-.')
+                #ax.axvline(xmin+2*tau_err,color='green',ls='-.')
+                pl.axvline(np.mod(rt+phi0,1),color='purple',ls='-')
+                pl.axvline(np.mod(lt+phi0,1),color='purple',ls='-')
+        ax1.set_xlabel('(Relative) Phase')
+        ax1.set_ylabel('Negative Log Likelihood')
+        pl.savefig(plot_output)
+
+    if m2.sum() == 0:
+        tau_err = 100
+    return tau,tau_err,fmin
+
