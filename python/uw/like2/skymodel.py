@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.36 2013/04/05 18:53:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.37 2013/07/11 14:21:31 burnett Exp $
 
 """
 import os, pickle, glob, types, collections, zipfile
@@ -279,10 +279,11 @@ class SkyModel(object):
                     
                     if es.model.name!=model.name:
                         if name not in self.changed:
-                            print 'SkyModel warning: catalog model  %s changed from %s for source %s'% (es.model.name, model.name, name)
+                            print 'SkyModel warning: catalog model  %s changed from %s for source %s: keeping change'%\
+                                   (es.model.name, model.name, name)
                         self.changed.add(name)
-                    else:
-                        es.smodel=es.model=model #update with current fit values
+                    #else:
+                    es.smodel=es.model=model #update with current fit values always
                     if sources.validate(es,self.nside, self.filter): #lambda x: True): 
                         self.extended_sources.append(es)
             self.global_sources.append(t)
