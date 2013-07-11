@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.35 2013/03/21 19:47:21 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.36 2013/04/05 18:53:09 burnett Exp $
 
 """
 import os, pickle, glob, types, collections, zipfile
@@ -115,7 +115,12 @@ class SkyModel(object):
             dataframe=True
             print 'loading auxcat from DataFrame'
         elif ext == '.csv':
-            ss = pd.read_csv(cat).itertuples()
+            cc = pd.read_csv(cat)
+            cols =list(cc.columns) 
+            ss = cc.itertuples()
+            i_eflux = cols.index('eflux')+1
+            i_pindex= cols.index('pindex')+1
+            i_e0 = cols.index('e0')+1
             dataframe=True
             print 'loading auxcat from csv'
         else:
@@ -129,24 +134,28 @@ class SkyModel(object):
         print 'process auxcat %s' %cat
         for s in ss:
             if dataframe:
+                # from csv: construct full model from parameters
                 sname,sra,sdec = s[1:4]
-            else:
+                n0 = s[i_eflux] / (s[i_e0]**2*1e6)
+                model = Models.LogParabola(p=[n0, s[i_pindex], 0., s[i_e0]])
+                model.free[2:]=False
+            else: # for comatibility: default from pater
                 sname,sra,sdec = s.name, s.ra, s.dec
-            if not sname.startswith('SEED'): # allow underscores
-                sname = sname.replace('_',' ') 
-            if sname  not in names: 
-                skydir=SkyDir(float(sra), float(sdec))
-                close = check_near(skydir)
-                if close < tol:
-                    print '\ssource %s close to another source, reject' % sname
-                    continue
-                index=self.hpindex(skydir)
                 model = self.newmodel
                 if type(self.newmodel)==types.StringType: 
                     model = eval(self.newmodel)
                 elif model is None: pass
                 else:
                     model=self.newmodel.copy() # make sure to get a new object
+            if not sname.startswith('SEED'): # allow underscores
+                sname = sname.replace('_',' ') 
+            if sname  not in names: 
+                skydir=SkyDir(float(sra), float(sdec))
+                close = check_near(skydir)
+                if close < tol:
+                    print '\tsource %s close to another source, reject' % sname
+                    continue
+                index=self.hpindex(skydir)
                 if model is not None:
                     model.free[0] = True # must have at least one free parameter to be set up properly in an ROI
                 self.point_sources.append(sources.PointSource(name=sname, skydir=skydir, index=index,  model=model))
