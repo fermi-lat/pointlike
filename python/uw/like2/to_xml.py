@@ -1,9 +1,9 @@
 """
 Generate the XML representation of a skymodel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.9 2013/07/05 17:33:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.10 2013/07/09 16:05:45 burnett Exp $
 
 """
-import os, collections, argparse, types, glob
+import os, collections, argparse, types, glob, pyfits
 import numpy as np
 import pandas as pd
 from uw.like2 import skymodel
@@ -57,80 +57,6 @@ class SimpleElement(Element):
         self.kw=OrderedDict(**kw)
         self.text('<%s %s/>'% (element_name, self))
 
-class ToXML(object):
-
-    def __init__(self, skymodel, filename, ts_min=10, a_max=0.25, title=None, source_filter=lambda x:True, strict=False, gtlike = False):
-        """ generate a file with the XML version of the sources in the model
-        parameters
-        ----------
-        skymodel : SkyModel object to convert
-        filename : string or None
-            name of file to write to; if None make it up from local folder
-        ts_min : None or float
-            if set, only select sources with ts>ts_min
-        title : string
-            set title property of the source_library
-        source_filter : function
-            if set, function of a source that returns bool
-        strict : bool
-            set to True to apply strict rules
-        gtlike : bool
-            set to True to generate only a list of sources, no ROI information
-        """
-        self.skymodel = skymodel
-        point_sources = self.skymodel.point_sources if ts_min is None\
-            else filter(lambda s: s.ts>ts_min, self.skymodel.point_sources)
-        print 'Writing XML representations of %d point sources %s and %d extended sources to %s' \
-            %(len(point_sources), ('' if ts_min is None else '(with TS>%.f)'%ts_min), len(self.skymodel.extended_sources), filename)
-        def pointsource_properties(s):
-            return 'Pivot_Energy="%.1f" TS="%.1f"' % (s.model.e0, s.ts)
-        stacks= [
-            xml_parsers.unparse_diffuse_sources(self.skymodel.extended_sources, convert_extended=True, filename=filename),
-            xml_parsers.unparse_point_sources(point_sources,strict=strict, properties=pointsource_properties),
-        ]
-        if filename is None:
-            filename = '_'.join(os.path.abspath('.').split('/')[-2:])+'.xml'
-            # for example, 'P202_uw10.xml'
-        gs_xml = self._global_sources_to_xml(filename)
-        with open(filename,'wb') as f:
-            if not gtlike:
-                f.write('<skymodel>\n')
-            f.write('<source_library title="%s">'% title)
-            for stack in stacks:
-                for elem in stack:
-                    f.write(elem)
-            f.write('\n</source_library>')
-            if not gtlike:
-                f.write('\n'.join(['\n<roi_info nside="12">',
-                                   gs_xml,
-                                   '</roi_info>']))
-                f.write('\n</skymodel>')
-
-    def _global_sources_to_xml(self,filename):
-        stacks = []
-        bad =0
-        for i in xrange(1728):
-            stack = xml_parsers.Stack()
-            s1 = '<roi index="{0}">'.format(i)
-            s2 = '</roi>'
-            globals = self.skymodel.global_sources[i]
-            for s in globals:
-                prefix = s.name.split('_')[0]
-                s.name, s.dmodel = prefix, self.skymodel.diffuse_dict[prefix]
-                s.smodel = s.model
-            try:
-                diffuse_xml = xml_parsers.unparse_diffuse_sources(globals,filename=filename)
-            except:
-                bad +=1
-                raise #continue
-            for x in diffuse_xml:
-                x = '\t'+x
-            diffuse_xml.appendleft(s1)
-            diffuse_xml.append(s2)
-            stacks+=['\n'.join(diffuse_xml)]
-        if bad>0:
-            print 'Failed to convert %d ROIs' % bad
-        return '\n'.join(stacks)
 
 def pmodel(source):
     """ create a pointlike model from a Series object from DataFrame row
@@ -177,6 +103,15 @@ def source_library(source_list, title='sources', stream=None, strict=False, maxi
     """
     Element.stream = stream
     m2x = xml_parsers.Model_to_XML(strict=True)
+    ns=ne=0
+    try:
+        extended = pd.DataFrame(pyfits.open(glob.glob(
+            os.path.expandvars('$FERMI/catalog/Extended_archive*/LAT_extended_sources*.fit'))[-1]
+            )[1].data)
+        extended.index= [x.strip() for x in extended['Source_Name']]
+    except Exception, msg:
+        raise Exception('Failed to find the Extended archive: %s' %msg)
+
     with Element('source_library', title=title) as sl:
         for i,source in source_list.iterrows():
             stype = 'DiffuseSource' if np.isnan(source['locqual']) else 'PointSource'
@@ -186,11 +121,14 @@ def source_library(source_list, title='sources', stream=None, strict=False, maxi
                 src.text(m2x.getXML(tablevel=0))
                 if stype=='PointSource':
                     src.text(xml_parsers.makePSSpatialModel(SkyDir(source['ra'],source['dec']),tablevel=0))
+                    ns +=1
                 else:
                     with Element('spatialModel', type='SpatialMap', 
-                            file='$LATEXTDIR/Templates/%s.fits'%source['name'].replace(' ','') ) as sm:
+                            file=extended.ix[source['name']]['Spatial_Filename'].strip() ) as sm:
                         SimpleElement('parameter', name='Prefactor', value=1.0, free=0, max=1e3,min=1e-3, scale=1.0)
+                    ne += 1
             if maxi is not None and i>maxi: break
+    return ns,ne
 
 def main( filename=[], sources='sources*.csv', cuts='(sources.ts>10)' ):
     t = sorted(glob.glob(sources))[-1] #shold get the one we want
@@ -204,7 +142,8 @@ def main( filename=[], sources='sources*.csv', cuts='(sources.ts>10)' ):
         filename = modelname+'.xml'
         # for example, 'P202_uw10.xml'
     with open(filename,'w') as stream:
-        source_library(cut_sources, title=modelname, stream=stream)
+        ns,ne= source_library(cut_sources, title=modelname, stream=stream)
+    print 'wrote file %d point sources, and %d extended sources to file %s' % (ns,ne,filename)
     
 if __name__=='__main__':
     parser = argparse.ArgumentParser( description=""" Convert the skymodel in the current folder to XML""")
