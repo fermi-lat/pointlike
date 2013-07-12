@@ -1,6 +1,6 @@
 """    Description here
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.2 2013/06/20 23:53:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.3 2013/06/21 03:14:23 burnett Exp $
 
 """
 
@@ -14,7 +14,7 @@ from . import (sourceinfo,diagnostics)
 
 from . diagnostics import FloatFormat
 from . diagnostics import html_table
-from . html import HTMLindex
+from . _html import HTMLindex
 
 
 

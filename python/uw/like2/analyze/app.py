@@ -1,14 +1,14 @@
 """
 Application module, allowing command-line access to analysis/plotting tasks
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/app.py,v 1.7 2013/06/21 20:33:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/app.py,v 1.8 2013/07/07 17:40:38 burnett Exp $
 
 """
 _locs = locals().keys()
 from uw.like2.analyze import *
 newlocs = locals().keys()
 module_names = filter(lambda x:not x[0]=='_',set(newlocs).difference(_locs))
-from uw.like2.analyze import html
+from uw.like2.analyze import _html
 import numpy as np
 import sys, types
 
