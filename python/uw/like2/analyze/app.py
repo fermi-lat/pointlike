@@ -82,8 +82,8 @@ def main(args, update_top=False , raise_exception=False):
             if raise_exception: raise
             success = False
     if success: 
-        html.HTMLindex().create_menu()
-        if update_top: html.HTMLindex().update_top()
+        _html.HTMLindex().create_menu()
+        if update_top: _html.HTMLindex().update_top()
         
     return success  
       
