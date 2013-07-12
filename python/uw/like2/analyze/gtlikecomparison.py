@@ -1,7 +1,7 @@
 """
 Comparison with a gtlike model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gtlikecomparison.py,v 1.2 2013/07/12 03:50:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gtlikecomparison.py,v 1.3 2013/07/12 17:32:39 burnett Exp $
 
 """
 
@@ -136,7 +136,7 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         fixme.to_csv('gtlike_mismatch.csv')
         print 'wrote %d entries to gtlike_mismatch.csv' % len(fixme)
         version = os.path.split(os.getcwd())[-1]
-        pc=makepivot.MakeCollection('gtlike mismatch %s/v4'%version, 'gtlike/sed', 'gtlike_mismatch.csv')
+        pc=makepivot.MakeCollection('gtlike mismatch %s/%s'% (version, self.catname), 'gtlike/sed', 'gtlike_mismatch.csv')
         self.pivot_id=pc.cId
         delta = self.delta
         x = np.array(delta, float).clip(dmin,dmax) # avoid histogram problem
