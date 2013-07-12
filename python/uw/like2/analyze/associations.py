@@ -1,7 +1,7 @@
 """
-Description here
+Association analysis
 
-$Header: /phys/users/glast/python/uw/like2/analyze/associations.py,v 1.144 2013/06/18 12:35:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.1 2013/06/21 20:15:30 burnett Exp $
 
 """
 
@@ -24,7 +24,6 @@ class Associations(sourceinfo.SourceInfo):
     A feature of the UW pipeline is the application of the LAT association algorithm, with the same catalogs as
     were used for 2FGL, except that the latest LAT pulsar catalog is used. Note that priors are not recalculated,
     we use the values determined for 2FGL. 
-    %(atable)s
     """
     
     
@@ -68,15 +67,23 @@ class Associations(sourceinfo.SourceInfo):
         for f,ax in zip((plota,plotb), axx.flatten()): f(ax) 
         return fig
             
-    def make_table(self):
+    def summary(self):
+        """Summary
+        %(summary_html)s
+        """
         t = dict()
         for c in self.df10.acat:
             if c not in t: t[c]=1
             else: t[c]+=1
-        html_rows = ['<tr><td>%s</td><td>%d</td></tr>' %x for x in t.items() ]
-        self.atable = '<table><tr><th>Catalog</th><th>number</th></tr>'+\
+        html_rows = ['<tr><td class="index">%s</td><td class="integer">%d</td></tr>' %x for x in t.items() ]
+        self.summary_html = '<table border="1"><tr><th title="catalog nickname">Catalog</th><th>number</th></tr>'+\
              '\n'.join(html_rows)+'</table>'
              
+    def pulsar_check(self):
+        """LAT pulsar check
+        %(atable)s
+        """
+        self.atable=''      
         # compare with LAT pulsar catalog     
         tt = set(self.df.name[self.df.psr])
         pulsar_lat_catname = sorted(glob.glob(os.path.expandvars('$FERMI/catalog/srcid/cat/obj-pulsar-lat_*')))[-1]
@@ -96,7 +103,7 @@ class Associations(sourceinfo.SourceInfo):
         print 'Catalog entries not found:', list(dc2names.difference(tt))
         missing = [ np.isnan(x) or x<10. for x in lat.ts]
         
-        self.atable += '<h3>Compare with LAT pulsar catalog: %s</h3>' % os.path.split(pulsar_lat_catname)[-1]
+        self.atable += '<h4>Compare with LAT pulsar catalog: %s</h4>' % os.path.split(pulsar_lat_catname)[-1]
         self.atable += '<p>Sources fit with exponential cutoff not in catalog %s' %list(tt.difference(dc2names))
         self.atable += '<p>%d LAT catalog entries not in the model (TS shown as NaN), or too weak.' % sum(missing)
         self.atable += html_table(lat[missing]['RAJ2000 DEJ2000 ts ROI_index'.split()],
@@ -108,7 +115,8 @@ class Associations(sourceinfo.SourceInfo):
         psrx = np.array([x in 'pulsar_fom pulsar_low msp'.split() for x in self.df.acat])
         print '%d sources found in other pulsar catalogs' % sum(psrx)
         if sum(psrx)>0:
-            self.atable+= '<p>%d sources with pulsar association not in LAT pulsar catalog' % sum(psrx)
+            self.atable+= """<p>%d sources with pulsar association not in LAT pulsar catalog. Note, no cut on 
+                          association probability.""" % sum(psrx)
             self.atable+= html_table(self.df[psrx]['aprob acat aname aang ts delta_ts locqual'.split()],
                           dict(name='Source Name,click for link to SED',
                           ts='TS,Test Statistic for the source', 
@@ -123,13 +131,13 @@ class Associations(sourceinfo.SourceInfo):
                           float_format=FloatFormat(2))        
         
     def localization_check(self, tsmin=10, dtsmax=9):
-        """Localization resolution test
+        r"""Localization resolution test
         
         The association procedure records the likelihood ratio for consistency of the associated location with the 
         fit location, expressed as a TS, or the difference in the TS for source at the maximum, and at the associated
-        source. The distribution in this quantity should be an exponential, exp(-TS/2/f**2), where f is a scale factor
+        source. The distribution in this quantity should be an exponential, $\exp(-TS/2/f^2)$, where $f$ is a scale factor
         to be measured from the distribution. If the PSF is a faithful representation of the distribution of photons
-        from a point source, f=1. For 1FGL and 2FGL we assumed 1.1. The plots show the results for AGN, LAT pulsars, and
+        from a point source, $f=1$. For 1FGL and 2FGL we assumed 1.1. The plots show the results for AGN, LAT pulsars, and
         all other associations. They are cut off at 9, corresponding to 95 percent containment.
         """
         c1 = 0.95 # for 3 sigma
@@ -167,5 +175,4 @@ class Associations(sourceinfo.SourceInfo):
         return fig
 
     def all_plots(self):    
-        self.make_table()
-        self.runfigures([self.association_vs_ts, self.localization_check,])
+        self.runfigures([self.summary, self.pulsar_check, self.association_vs_ts, self.localization_check,])
