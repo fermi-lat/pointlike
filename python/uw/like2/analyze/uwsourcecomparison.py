@@ -1,7 +1,7 @@
 """
 Comparison with another UW model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/uwsourcecomparison.py,v 1.2 2013/07/09 23:30:17 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/uwsourcecomparison.py,v 1.3 2013/07/10 04:08:59 burnett Exp $
 
 """
 
@@ -14,7 +14,7 @@ from . import sourceinfo
 from . diagnostics import FloatFormat
 
 class UWsourceComparison(sourceinfo.SourceInfo):
-    """Comparision with another UW model: %(othermodel)s
+    r"""Comparision with another UW model: %(othermodel)s
     <br>Ratios are %(skymodel)s/%(othermodel)s.
     
     """
@@ -59,17 +59,21 @@ class UWsourceComparison(sourceinfo.SourceInfo):
         self.missing_html=self.missing[self.missing.ts>10]['ts ra dec nearest nearest_ts distance roiname'.split()]\
             .sort_index(by='distance').to_html(float_format=FloatFormat(2))
         
-    def check_moved(self, tol=2):
-        """Sources in old and new lists, which apparently moved
-        Criterion: moved by more than %(move_tolerance).1f sigma
+    def check_moved(self, tol=(2, 0.02)):
+        r"""Sources in old and new lists, which apparently moved
+        Criterion: moved by more than %(move_tolerance).1f $\sigma$, where $a$, 
+        the semi-major axis, is used as $\sigma$, but at least 0.02 deg.
         %(moved_html)s
         """
-        self.move_tolerance=tol
+        self.move_tolerance=tol[0]
         skydir = self.df.skydir.values
         skydir_old = self.df.skydir_old.values
         self.df['moved']=[np.degrees(a.difference(b)) if b is not np.nan else np.nan for a,b in zip(skydir, skydir_old)]
-        self.moved_html = self.df[self.df.moved>tol*self.df.a]['ts_old ts ra dec a moved roiname'.split()]\
-            .sort_index(by='moved').to_html(float_format=FloatFormat(2))
+        moved_cut=(self.df.moved>tol[0]*self.df.a) *(self.df.moved>tol[1])
+        if sum(moved_cut)>0:
+            self.moved_html = self.df[moved_cut]['ts_old ts ra dec a locqual moved roiname'.split()]\
+                .sort_index(by='moved').to_html(float_format=FloatFormat(2))
+        else: self.moved_html = '<br>No sources satisfy move criteron'
 
     
     def compare(self, scat=True):
