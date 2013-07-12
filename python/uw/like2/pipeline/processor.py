@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.56 2013/07/10 18:46:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.57 2013/07/10 19:05:18 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -24,7 +24,7 @@ class OutputTee(object):
         self.stdout = sys.stdout
         sys.stdout = self
     def write(self, stuff):
-        self.logstream.write(stuff)
+        self.logstream.write(stuff)
         self.stdout.write(stuff)
     def close(self):
         sys.stdout =self.stdout

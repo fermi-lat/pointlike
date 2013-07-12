@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.25 2013/05/17 02:36:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.26 2013/06/04 18:29:24 burnett Exp $
 """
 import os, argparse, logging, datetime, subprocess
 import numpy as np
@@ -100,12 +100,12 @@ stagenames = dict(
     update_beta =  Stage(pipe.Update, dict( dampen=1.0, fix_beta=True),sum='counts',help='perform update', ),
     update_pivot=  Stage(pipe.Update, dict( dampen=1.0, repivot=True), sum='counts',help='update pivot', ), 
     update_only =  Stage(pipe.Update, dict( dampen=1.0), sum='counts sources', help='update, no additional stage', ), 
-    finish      =  Stage(pipe.Finish,  sum='sources',help='perform localization', ),
+    finish      =  Stage(pipe.Finish,  sum='sourceinfo localization',help='perform localization', ),
     tables      =  Stage(pipe.Tables,  sum='hptables', job_list='joblist8.txt', help='create HEALPix tables: ts kde counts', ),
     sedinfo     =  Stage(pipe.Update, dict( processor='processor.full_sed_processor',sedfig_dir='"sedfig"',), sum='fb',
                             help='process SED information' ),
-    diffuse     =  Stage(pipe.Update, dict( processor='processor.roi_refit_processor'), sum='galspect', ),
-    isodiffuse  =  Stage(pipe.Update, dict( processor='processor.iso_refit_processor'), sum='isospect', ),
+    diffuse     =  Stage(pipe.Update, dict( processor='processor.roi_refit_processor'), sum='galspect', help='Refit the galactic component' ),
+    isodiffuse  =  Stage(pipe.Update, dict( processor='processor.iso_refit_processor'), sum='isospect', help='Refit the isotropic component'),
     limb        =  Stage(pipe.Update, dict( processor='processor.limb_processor'),     sum='limb_refit', help='Refit the limb component, usually fixed' ),
     sunmoon     =  Stage(pipe.Update, dict( processor='processor.sunmoon_processor'), sum='sunmoon_refit', help='Refit the SunMoon component, usually fixed' ),
     fluxcorr    =  Stage(pipe.Update, dict( processor='processor.flux_correlations'), sum='fluxcorr', ),
@@ -113,14 +113,14 @@ stagenames = dict(
     fluxcorriso =  Stage(pipe.Update, dict( processor='processor.flux_correlations(diffuse="iso*", fluxcorr="fluxcorriso")'), ),
     pulsar_table=  Stage(pipe.PulsarLimitTables,),
     localize    =  Stage(pipe.Update, dict( processor='processor.localize(emin=1000.)'), help='localize with energy cut' ),
-    seedcheck   =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="SEED")',auxcat="seeds.txt"), 
+    seedcheck   =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="SEED",repivot=True,)',auxcat="seeds.txt"), 
                                                                        help='Evaluate a set of seeds: fit, localize with position update, fit again'),
     seedcheck_MRF =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="MRF")', auxcat="4years_SeedSources-MRF.txt"), help='refit MRF seeds'),
     seedcheck_PGW =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="PGW")', auxcat="4years_SeedSources-PGW.txt"), help='refit PGW seeds'),
     pseedcheck  =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="PSEED")',auxcat="pseeds.txt"), help='refit pulsar seeds'),
     fglcheck    =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="2FGL")',auxcat="2fgl_lost.csv"), help='check 2FGL'),
     pulsar_detection=Stage(pipe.PulsarDetection, job_list='joblist8.txt', sum='pts', help='Create ts tables for pulsar detection'),
-    gtlike_check=  Stage(pipe.Finish, dict(processor='processor.gtlike_compare()',), sum='gtlike_comparison', help='Compare with gtlike analysis of same sources'),
+    gtlike_check=  Stage(pipe.Finish, dict(processor='processor.gtlike_compare()',), sum='gtlikecomparison', help='Compare with gtlike analysis of same sources'),
     uw_compare =  Stage(pipe.Finish, dict(processor='processor.UW_compare(other="uw25")',), sum='uw_comparison', help='Compare with another UW model'),
 ) 
 keys = stagenames.keys()
