@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.27 2013/06/27 00:49:58 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.28 2013/07/10 04:15:35 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -549,7 +549,7 @@ def get_bats_etc(par,tim,output=None,full_output=False,binary=False):
     else:
         return bats,errs,phas
 
-def get_resids(par,tim):
+def get_resids(par,tim,emax=None):
     if not os.path.isfile(par):
         raise IOError('Ephemeris %s is not a valid file!'%par)
     if not os.path.isfile(tim):
@@ -557,9 +557,20 @@ def get_resids(par,tim):
     cmd = """tempo2 -output general2 -s "onerous\t{err}\t{post}\n" -f %s %s"""%(par,tim)
     proc = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE)
     toks = [line.split('\t')[1:] for line in proc.stdout if line[:7]=='onerous']
+    # NB -- both residuals and errors in microseconds
     errs = np.array([x[0] for x in toks],dtype=np.float128)
     resi = np.array([x[1] for x in toks],dtype=np.float128)*1e6
-    return resi,errs
+    # if we are restricting large error bars, remove their contribution
+    # to the RMS
+    if emax is not None:
+        mask = errs < emax
+        resi -= resi[mask].mean()
+        dof = mask.sum()
+    else:
+        dof = len(resi)
+        mask = np.asarray([True]*dof)
+    chi2 = ((resi[mask]/errs[mask])**2).sum()
+    return resi,errs,chi2,dof
 
 def tim_filter(tim,thresh=5,output=None):
     """ Parse a likelihood file and attempt to comment out TOAs that do
