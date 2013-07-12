@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Fri Jul 12 14:57:56 PDT 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	pipe.py processor.py uwpipeline.py 
+Removed Files:
+	diagnostic_plots.py 
+Log Message:
+moved to analyze
+    *
+------------------------------------------------------------
 User: burnett  Fri Jul 12 10:56:53 PDT 2013
 pointlike/python/uw/like2/analyze
 
