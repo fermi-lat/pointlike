@@ -1,7 +1,7 @@
 """
 Description here
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/seedcheck.py,v 1.1 2013/06/20 03:58:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/seedcheck.py,v 1.2 2013/06/20 19:59:34 burnett Exp $
 
 """
 
@@ -9,7 +9,7 @@ import numpy as np
 import pylab as plt
 import pandas as pd
 
-from . import sourceinfo, diagnostics, html
+from . import sourceinfo, diagnostics, _html
 
 class SeedCheck(sourceinfo.SourceInfo):
     """Analysis of a set of seeds

@@ -1,7 +1,7 @@
 """
 Comparison with another UW model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/uwsourcecomparison.py,v 1.3 2013/07/10 04:08:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/uwsourcecomparison.py,v 1.4 2013/07/12 03:49:59 burnett Exp $
 
 """
 
@@ -18,7 +18,7 @@ class UWsourceComparison(sourceinfo.SourceInfo):
     <br>Ratios are %(skymodel)s/%(othermodel)s.
     
     """
-    def setup(self, othermodel='uw25'):
+    def setup(self, othermodel='uw26'):
         super(UWsourceComparison,self).setup()
         self.plotfolder = 'comparison_%s' % othermodel
 
