@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jul 12 15:37:19 PDT 2013
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	export.py find_peak.py 
+Log Message:
+fix for sourcinfo change
+    *
+------------------------------------------------------------
 User: burnett  Fri Jul 12 15:36:28 PDT 2013
 pointlike/python/uw/like2/analyze
 
