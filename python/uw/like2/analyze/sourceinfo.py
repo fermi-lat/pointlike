@@ -1,11 +1,12 @@
 """
 Basic analyis of source spectra
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.3 2013/06/20 16:41:17 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.4 2013/07/09 23:29:53 burnett Exp $
 
 """
 
 import os, pickle
+from collections import Counter
 import numpy as np
 import pylab as plt
 import pandas as pd
@@ -609,15 +610,16 @@ class SourceInfo(diagnostics.Diagnostics):
             f(ax=ax)
         return fig
         
-    def all_plots(self):
-        """ Plots of source properties, from analysis of spectral fits. 
-        See <a href="../localization/index.html?skipDecoration"> localization </a> for localization plots.
-        <h3>Census</h3>
+    def census(self, primary_prefix='P7R4'):
+        """Census
         
         %(census_html)s
         <p>
-        The columns are the number of sources with TS greater than the header value. 
+        In the first table of prefixes, the columns are the number of sources with TS greater than the header value. 
         The row labels are the first four characters of the source name, except 'ext' means extended.
+        <br>The second table has the suffixes; for sources with the "%(primary_prefix)s" prefix. Each group, except 'X-Z', 
+        represents a set of seeds added to the original
+        list of sources. The last row, 'X-Z', were added by hand.
         """
         df = self.df
         extended = np.asarray(df.isextended.values,bool)
@@ -631,13 +633,25 @@ class SourceInfo(diagnostics.Diagnostics):
             names = df[pointsource*(df.ts>tsmin)]['name'].values    
             return sum([n.startswith(prefix) for n in names])
         prefixes = list(set( n[:4] for n in df[pointsource]['name'])) +['ext', 'total']
-
         census = dict()
         for x in (0, 10, 25):
             census[x] = [count(prefix, x) for prefix in prefixes]
-        self.census=pd.DataFrame(census, index=prefixes)
-        self.census_html = diagnostics.html_table(self.census)
-       
+        self.census_data=pd.DataFrame(census, index=prefixes)
+        self.census_html = '\n<h4>Prefixes</h4>\n'+diagnostics.html_table(self.census_data)
+        
+        # now check suffixes
+        self.primary_prefix=primary_prefix
+        suffixes=[s[-1] for s in self.df.index.values if s.startswith(primary_prefix) and s[-1]>'9']
+        c=Counter(suffixes)
+        scounts = lambda  r : int(sum([c[x] for x in r if x in c.keys()]))
+        suffixranges = ('ABCDEF', 'GHIJKL', 'MNOPQR', 'XYZ')
+        sdict = dict([(r[0]+'-'+r[-1], [scounts(r)]) for r in suffixranges])
+        self.census_html += '\n<h4>Suffixes</h4>\n'+diagnostics.html_table(pd.DataFrame(sdict, index=['freq']).T)
+
+    def all_plots(self):
+        """ Plots of source properties, from analysis of spectral fits. 
+        See <a href="../localization/index.html?skipDecoration"> localization </a> for localization plots.
+        """
         version = os.path.split(os.getcwd())[-1]
         plt.close('all')
         csvfile='sources_%s.csv' % version
@@ -646,7 +660,7 @@ class SourceInfo(diagnostics.Diagnostics):
         self.df.ix[self.df.ts>10][colstosave].to_csv(csvfile)
         print 'saved truncated csv version to "%s"' %csvfile
         
-        self.runfigures([self.cumulative_ts, self.fit_quality,self.spectral_fit_consistency_plots, self.poor_fit_positions,
+        self.runfigures([self.census, self.cumulative_ts, self.fit_quality,self.spectral_fit_consistency_plots, self.poor_fit_positions,
             self.non_psr_spectral_plots, self.pulsar_spectra, self.pivot_vs_e0, self.flag_proc, ]
         )
 
