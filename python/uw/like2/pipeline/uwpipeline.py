@@ -1,15 +1,16 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.26 2013/06/04 18:29:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.27 2013/07/12 21:57:56 burnett Exp $
 """
 import os, argparse, logging, datetime, subprocess
 import numpy as np
 from uw.like2.pipeline import check_data
 from uw.like2.pipeline import pipeline_job
 from uw.like2.pipeline import check_converge
-from uw.like2.pipeline import diagnostic_plots, pipe
+from uw.like2.pipeline import pipe
 from uw.like2.pipeline import processor
+from uw.like2.analyze import app
 
 class StartStream(object):
     """ setup, start a stream """
@@ -39,7 +40,7 @@ class Summary(object):
         stage = self.get_stage(args)
         kw = stagenames[stage].get('sum', None)
         if kw is not None:
-            diagnostic_plots.main(kw.split())
+            app.main(kw.split())
             
 class JobProc(Summary):
     """ process args for running pipeline jobs"""
@@ -113,15 +114,15 @@ stagenames = dict(
     fluxcorriso =  Stage(pipe.Update, dict( processor='processor.flux_correlations(diffuse="iso*", fluxcorr="fluxcorriso")'), ),
     pulsar_table=  Stage(pipe.PulsarLimitTables,),
     localize    =  Stage(pipe.Update, dict( processor='processor.localize(emin=1000.)'), help='localize with energy cut' ),
-    seedcheck   =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="SEED",repivot=True,)',auxcat="seeds.txt"), 
+    seedcheck   =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="SEED")',auxcat="seeds.txt"), sum='seedcheck',
                                                                        help='Evaluate a set of seeds: fit, localize with position update, fit again'),
     seedcheck_MRF =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="MRF")', auxcat="4years_SeedSources-MRF.txt"), help='refit MRF seeds'),
     seedcheck_PGW =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="PGW")', auxcat="4years_SeedSources-PGW.txt"), help='refit PGW seeds'),
     pseedcheck  =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="PSEED")',auxcat="pseeds.txt"), help='refit pulsar seeds'),
     fglcheck    =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="2FGL")',auxcat="2fgl_lost.csv"), help='check 2FGL'),
     pulsar_detection=Stage(pipe.PulsarDetection, job_list='joblist8.txt', sum='pts', help='Create ts tables for pulsar detection'),
-    gtlike_check=  Stage(pipe.Finish, dict(processor='processor.gtlike_compare()',), sum='gtlikecomparison', help='Compare with gtlike analysis of same sources'),
-    uw_compare =  Stage(pipe.Finish, dict(processor='processor.UW_compare(other="uw25")',), sum='uw_comparison', help='Compare with another UW model'),
+    gtlike_check=  Stage(pipe.Finish, dict(processor='processor.gtlike_compare()',), sum='gtlike_comparison', help='Compare with gtlike analysis of same sources'),
+    uw_compare =  Stage(pipe.Finish, dict(processor='processor.UW_compare(other="uw26")',), sum='uw_comparison', help='Compare with another UW model'),
 ) 
 keys = stagenames.keys()
 stage_help = '\nstage name, or sequential stages separaged by ":" names are\n\t' \
