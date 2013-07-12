@@ -1,7 +1,7 @@
 """
 Description here
 
-$Header: /phys/users/glast/python/uw/like2/analyze/gtlikecomparison.py,v 1.144 2013/06/18 12:35:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gtlikecomparison.py,v 1.1 2013/06/21 20:15:30 burnett Exp $
 
 """
 
@@ -12,9 +12,12 @@ import pandas as pd
 
 from uw.utilities import makepivot
 from . import sourcecomparison
+from . diagnostics import html_table, FloatFormat
 
 class GtlikeComparison(sourcecomparison.SourceComparison):
-    """ Comparison plots with a gtlike analysis
+    """Results of comparison with glike version %(catname)s 
+    Compare the two lists of sources and spectral parameters, assuming that the skymodel names 
+    correspond to the "NickName" field in the gtlike-generated FITS file.
     """
     def setup(self, catpat='gll_psc4year*.fit', **kw):
         gllcats = sorted(glob.glob(os.path.expandvars(os.path.join('$FERMI','catalog', catpat))))
@@ -40,27 +43,40 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         self.gdf = pd.DataFrame(gtcat).T
         self.gdf.index = [n.replace(' ','') for n in self.gdf.name]
         print 'loaded analysis of gtlike fit models, found %d sources' % len(self.gdf)
+        # copy info from gtlike to columns of corresponding skymodel entries
         for col in self.gdf.columns:
             self.dfx[col] = self.gdf[col]
-            
         df = self.dfx
         self.delta = df.ts-df.other_ts
-
         df['plane']= np.abs(df.glat)<5
         df['ts_gtlike']= self.cat.ts ## should be the TS from the catalog
         df['ts_delta'] = self.delta
         df['ts_gt'] = df.other_ts
         df['ts_pt'] = df.ts
-        fixme = df[((self.delta>25)+(self.delta<-1))*(df.ts>10)]['name ts ts_gtlike glat plane fitqual ts_delta ts_gt ts_pt freebits beta roiname'.split()].sort_index(by='roiname')
-        fixme.index = fixme.name
-        fixme.index.name='name'
-        fixme.to_csv('gtlike_mismatch.csv')
-        print 'wrote %d entries to gtlike_mismatch.csv' % len(fixme)
-        version = os.path.split(os.getcwd())[-1]
-        pc=makepivot.MakeCollection('gtlike mismatch %s/v4'%version, 'gtlike/sed', 'gtlike_mismatch.csv')
-        self.pivot_id=pc.cId
+        
+    def check_contents(self):
+        """Contents of the two lists
+        %(content_differences)s
+        """
+        df = self.dfx
+        gtnames = set(self.cat.index.values)
+        ptnames = set(df.index.values)
+        added, lost = list(gtnames.difference(ptnames)), sorted(list(ptnames.difference(gtnames)))
 
-    def compare(self):
+        s = '\n<h4>Sources added to gtlike</h4>'
+        s += html_table(self.cat.ix[added]['ra dec ts'.split()], 
+            dict(ts='TS, gtlike TS', ra='RA,', dec='Dec,'), float_format=FloatFormat(2))
+        cut50=pd.isnull(df.ts_gt)*((df.ts>50)+df.psr) 
+        missing50 = df.ix[np.array(cut50,bool)]['ra dec ts fitqual locqual roiname'.split()]
+        s += '\n<h4>Sources with pointlike TS>50 or LAT pulsars, not in gtlike</h4>'
+        s += html_table(missing50, 
+            dict(ts='TS, pointlike TS', ra='RA,', dec='Dec,', fitqual=',Fit quality,', 
+                locqual=',Localization quality; this is NaN for extended sources'),
+            float_format=FloatFormat(2))
+        
+        self.content_differences = s
+        
+    def compare_fits(self):
         """ Compare spectral quantities for sources common to both models
         
         """
@@ -93,13 +109,21 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
 
     def delta_ts(self, dmax=25, dmin=-1):
         """ Delta TS
-        Plots of the TS for the gtlike fit spectra detrmined with the pointlike analysis, compared with the pointlike value.<br>
+        Plots of the TS for the gtlike fit spectra determined with the pointlike analysis, compared with the pointlike value.<br>
         Outliers: %(over_ts)d with gtlike worse by 25; %(under_ts)d with pointlike worse by 1.
         <p> These can be examined with a 
         <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%(pivot_id)d">Pivot browser</a>,
         which requires Silverlight.  
        """
         df = self.dfx
+        fixme = df[((self.delta>25)+(self.delta<-1))*(df.ts>10)]['name ts ts_gtlike glat plane fitqual ts_delta ts_gt ts_pt freebits beta roiname'.split()].sort_index(by='roiname')
+        fixme.index = fixme.name
+        fixme.index.name='name'
+        fixme.to_csv('gtlike_mismatch.csv')
+        print 'wrote %d entries to gtlike_mismatch.csv' % len(fixme)
+        version = os.path.split(os.getcwd())[-1]
+        pc=makepivot.MakeCollection('gtlike mismatch %s/v4'%version, 'gtlike/sed', 'gtlike_mismatch.csv')
+        self.pivot_id=pc.cId
         delta = self.delta
         x = np.array(delta, float).clip(dmin,dmax) # avoid histogram problem
         cut = (~np.isnan(x))*(df.ts>10)
@@ -129,17 +153,16 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         df = self.dfx
         fig, ax = plt.subplots(1,2, figsize=(10,4))
         ts = df.ts[pd.isnull(df.ts_gt)*(df.ts>10)]
+        ts25=df.ts[pd.isnull(df.ts_gt)*(df.ts>25)]
         def plot1(ax):
             ax.hist(ts.clip(0,100), np.linspace(0,100,51))
             plt.setp(ax, xscale='linear', xlim=(0,100), xlabel='pointlike TS')
             ax.axvline(25, color='k')
             ax.grid()
         def plot2(ax):
-            self.skyplot( ts, ax=ax, vmin=10, vmax=100, cbtext='pointlike TS')
+            self.skyplot( ts25, ax=ax, vmin=25, vmax=50, cbtext='pointlike TS')
         for f, ax in zip([plot1,plot2,], ax): f(ax)
         return fig
 
     def all_plots(self):
-        """Results of comparison with glike version %(catname)s 
-        """
-        self.runfigures([self.compare, self.missing, self.delta_ts,  ])
+        self.runfigures([self.check_contents, self.missing, self.compare_fits,  self.delta_ts,  ])
