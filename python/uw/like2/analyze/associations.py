@@ -1,7 +1,7 @@
 """
 Association analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.1 2013/06/21 20:15:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.2 2013/07/12 17:31:05 burnett Exp $
 
 """
 
@@ -26,7 +26,6 @@ class Associations(sourceinfo.SourceInfo):
     we use the values determined for 2FGL. 
     """
     
-    
     def setup(self, **kw):
         super(Associations, self).setup(**kw)
         self.plotfolder='associations'
@@ -46,6 +45,7 @@ class Associations(sourceinfo.SourceInfo):
         <br>Right: The fractions themselves.
         """
         ts = self.df10.ts
+        lowlat = np.abs(self.df10.glat)<5
         assoc = self.df.aprob>aprob_min
         def plota(ax, bins=np.logspace(1,5,41) ):
             ax.hist(ts, bins, label='all sources')
@@ -53,15 +53,19 @@ class Associations(sourceinfo.SourceInfo):
             plt.setp(ax, xscale='log', xlabel='TS', xlim=(10,1e5))
             ax.legend(prop=dict(size=10)); ax.grid()
         def plotb(ax, bins=np.logspace(1,4.5,8)):
-            all = np.array(np.histogram(ts, bins)[0],float)
-            subset = np.histogram(ts[assoc], bins)[0]
-            fraction = (subset/all)
-            x = np.sqrt(bins[:-1]*bins[1:])
-            yerr = np.sqrt(subset*(all-subset)/all )/all
-            xerr = [x-bins[:-1], bins[1:]-x]
-            ax.errorbar(x=x, y=fraction,xerr=xerr, yerr=yerr, fmt= 'o', color='blue')
+            for tsvals, label,color in zip( (self.df10[~lowlat].ts, self.df10[lowlat].ts), 
+                    ('|b|>5', '|b|<5'), ('blue','red')):
+                all = np.array(np.histogram(tsvals, bins)[0],float)
+                subset = np.histogram(tsvals[assoc], bins)[0]
+                fraction = (subset/all)
+                x = np.sqrt(bins[:-1]*bins[1:])
+                yerr = np.sqrt(subset*(all-subset)/all )/all
+                xerr = [x-bins[:-1], bins[1:]-x]
+                ax.errorbar(x=x, y=fraction,xerr=xerr, yerr=yerr, fmt= 'o', color=color, label=label)
             plt.setp(ax, xscale='log', xlim=(bins[0],bins[-1]), ylim=(0,1), xlabel='TS', ylabel='associated fraction')
             ax.grid()
+            ax.legend(loc='upper left', prop=dict(size=10))
+            
         fig, axx = plt.subplots(1,2, figsize=(12,5))
         plt.subplots_adjust(left=0.1)
         for f,ax in zip((plota,plotb), axx.flatten()): f(ax) 
