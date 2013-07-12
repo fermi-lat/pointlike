@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.13 2013/06/26 19:39:55 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.14 2013/07/11 01:04:25 kerrm Exp $
 
 Calculate TOAs with a variety of methods.
 
@@ -225,7 +225,7 @@ class UnbinnedTOAGenerator(TOAGenerator):
         # if the ephemeris is deemed good, we use it to track the 
         # solution such that we don't adopt a fluctuation for the TOA 
         if (self.good_ephemeris):
-            seed = [self.prev_peak]
+            seed = self.prev_peak
         else:
             seed = None
         x0,x0_err,best_ll = profile_analysis(
@@ -405,9 +405,9 @@ def profile_analysis(logl,logl_args,pred_phase=None,nsamp=100,thresh=5,
     # (4) if given a predicted phase, choose the peak closest to it as
     # TOA; otherwise, the global minimum
     if (mask.sum() > 1) and (pred_phase is not None):
-        d1 = np.abs(dom-pre_phase)
-        d2 = np.abs(pre_phase+(1-dom))
-        d3 = np.abs(dom-(pre_phase-1))
+        d1 = np.abs(dom-pred_phase)
+        d2 = np.abs(pred_phase+(1-dom))
+        d3 = np.abs(dom-(pred_phase-1))
         diffs = np.minimum(np.minimum(d1,d2),d3)
         idx = np.argmin(diffs[mask])
     else:
@@ -423,11 +423,21 @@ def profile_analysis(logl,logl_args,pred_phase=None,nsamp=100,thresh=5,
 
     # (6) find the error bounds, slowly but surely
     ldiffs = cod-cod[idx] - 2
-    rt_diff = np.arange(nsamp)[np.roll(ldiffs,-idx) > 0][0]
-    lt_diff = np.arange(nsamp)[np.roll(ldiffs,nsamp-idx-1)[::-1] > 0][0]
     h = lambda x: f(x+phi0) - fmin - 2
-    rt = brentq(h,0,float(rt_diff)/nsamp)
-    lt = brentq(h,-float(lt_diff)/nsamp,0)
+
+    rt_mask = np.roll(ldiffs,-idx) > 0
+    if not np.any(rt_mask):
+        rt = float(nsamp-1)/2
+    else:
+        rt_diff = np.arange(nsamp)[rt_mask][0]
+        rt = brentq(h,0,float(rt_diff)/nsamp)
+
+    lt_mask = np.roll(ldiffs,nsamp-idx-1)[::-1] > 0
+    if not np.any(lt_mask):
+        lt = float(nsamp-1)/2
+    else:
+        lt_diff = np.arange(nsamp)[lt_mask][0]
+        lt = brentq(h,-float(lt_diff)/nsamp,0)
 
     # (7) construct TOA
     tau = (rt+lt)/2 + phi0
@@ -437,17 +447,20 @@ def profile_analysis(logl,logl_args,pred_phase=None,nsamp=100,thresh=5,
         xmin += phi0
         dom1 = dom
         cod1 = cod
-        dom2 = np.linspace(xmin-0.04,xmin+0.04,30)
+        inset_delta = max(abs(rt),abs(lt))+0.01
+        dom2 = np.linspace(tau-inset_delta,tau+inset_delta,30)
         cod2 = np.asarray(map(f,dom2))
         pl.figure(10); pl.clf();
         ax1 = pl.gca()
         ax1.axhline(0,color='k')
         # calculate coordinates for inset; should use transAxes?
-        ax2 = pl.axes([0.2+0.4*(xmin<0.5),0.60,0.25,0.25])
+        ax2 = pl.axes([0.2+0.4*(tau<0.5),0.60,0.25,0.25])
         for i,(dom,cod,ax) in enumerate(zip([dom1,dom2],[cod1,cod2],[ax1,ax2])):
             ax.plot(dom,cod)
             ax.axvline(xmin,color='red',ls='--')
             ax.axvline(tau,color='red')
+            ax.axvline(tau-tau_err,color='green',ls='-')
+            ax.axvline(tau+tau_err,color='green',ls='-')
             if pred_phase is not None:
                 ax.axvline(pred_phase,color='k',ls='-')
             if i==1:
