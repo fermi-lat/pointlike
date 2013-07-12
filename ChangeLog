@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jul 12 15:36:28 PDT 2013
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	associations.py 
+Log Message:
+check high and low-latitude association fraction
+    *
+------------------------------------------------------------
 User: burnett  Fri Jul 12 14:57:56 PDT 2013
 pointlike/python/uw/like2/pipeline
 
