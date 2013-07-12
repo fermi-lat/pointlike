@@ -1,11 +1,11 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.36 2013/03/21 19:33:46 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.37 2013/05/04 14:44:22 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
 import numpy as np
-from . import processor,  engines, associate
+from . import processor, associate
 from .. import main, roisetup, skymodel
 from uw.like import Models 
 from uw.utilities import makerec
