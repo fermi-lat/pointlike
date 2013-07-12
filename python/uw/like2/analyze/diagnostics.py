@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/diagnostics.py,v 1.5 2013/07/07 17:12:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/diagnostics.py,v 1.6 2013/07/09 23:29:24 burnett Exp $
 
 """
 
@@ -160,15 +160,15 @@ class Diagnostics(object):
         localfile = '%s_%s.png'%(name, self.skymodel.replace('/','_'))
         savefile = os.path.join(self.plotfolder,localfile)
         if title is None: title = name.replace('_', ' ')
-        htmldoc=None
+        htmldoc = '<a id="%.0f"/><h3>%s %s</h3> ' % (float(section), section, title)
         if fig is not None:
             fig.text(0.02, 0.02, self.skymodel, fontsize=8)
             savefig_kw=dict(dpi=60, bbox_inches='tight', bbox_extra_artists=fig.texts, pad_inches=0.5) 
             plt.savefig(savefile, **savefig_kw)
             print 'saved plot to %s' % savefile
-            htmldoc = '<h3>%s %s</h3> <img src="%s" />\n <br> %s '% (section, title, localfile, caption if caption is not None else '')
+            htmldoc += '\n<img src="%s" />\n <br> %s '% (localfile, caption if caption is not None else '')
         elif caption is not None:
-            htmldoc = '<h3>%s %s</h3>\n <br>  %s' % (section, title, caption )
+            htmldoc += '\n <br>  %s' % ( caption )
         if htmldoc is not None:
             open(savefile.replace('.png','.html'),'w').write(htmldoc )
         print 'saved html doc to %s' % os.path.join(os.getcwd(),savefile.replace('.png','.html'))
