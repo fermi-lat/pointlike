@@ -1,11 +1,11 @@
 """
 Export processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/export.py,v 1.6 2013/06/20 16:07:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/export.py,v 1.7 2013/07/09 02:06:21 burnett Exp $
 
 """
 import os, glob
 
-from uw.like2.pipeline import diagnostic_plots as dp
+from . import sourceinfo 
 from .. import to_xml
 from .. import to_fits
 import numpy as np
@@ -13,7 +13,7 @@ import pandas as pd
 import pylab as plt
 import pyfits
 
-class Export(dp.SourceInfo):
+class Export(sourceinfo.SourceInfo):
     """Manage, and document an export step
     <p>Generates XML and FITS files from the file %(sourcecsv)s.
     <p>Expect that <a href="../peak_finder/index.html?skipDecoration">findpeak</a> has been run to update 
