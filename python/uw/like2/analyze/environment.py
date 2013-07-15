@@ -1,7 +1,7 @@
 """
 Description here
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.3 2013/07/07 17:41:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.4 2013/07/08 00:35:49 burnett Exp $
 
 """
 
@@ -10,7 +10,7 @@ import numpy as np
 import pylab as plt
 import pandas as pd
 from scipy import integrate
-from skymaps import SkyDir #?
+#from skymaps import SkyDir #?
 
 from . import roi_info
 
@@ -64,38 +64,58 @@ class Environment(roi_info.ROIinfo):
         for f,ax in zip((left, center, right), axx.flatten()): f(ax)
         return fig
      
-    def psf_plot(self, irfname=None, outfile='psf.csv'):
-        r"""PSF size
-        
-        <br>This is the <em>effective</em> PSF size, the measure of the shape that is relevant 
-        for discrimination of a signal in the presence of a uniform background.
-        Specifically, if $f(\theta)$ is the normalized PSF, then the size is 
-        $1 / \sqrt{\pi \int_0^\infty f(\theta)^2 2\pi \theta \ \mathrm{d}\theta}$. For comparison, 
-        the corresponding 68 percent curves are shown as dashed lines.
-        <br>PSF filenames: %(psf_files)s
-        """
+    def get_psf(self, irfname=None, ):
         from uw.like import pypsf, pycaldb
         if irfname is None: irfname=self.config['irf']
         cdm = pycaldb.CALDBManager(irf=irfname)
-        psf = pypsf.CALDBPsf(cdm)
-        def effective_size(e, ct):
+        self.psf_files=cdm.get_psf()
+        return pypsf.CALDBPsf(cdm)
+
+    def psf_plot(self, irfname=None, outfile='psf.csv', title=''):
+        r"""PSF size
+        
+        <br>Plots of two science-driven measures of the size of the PSF, compared with the standard 68 percent containment.
+        If  $f(\theta)$ is the normalized PSF for a given energy and conversion type, then
+        <ol>
+        <li>Discrimination of a point source 
+        signal in the presence of a uniform background; the <em>average</em> PSF is the inverse of the solid angle, with radius
+        $$1 / \sqrt{\pi \int_0^\infty f(\theta)^2 2\pi \theta \ \mathrm{d}\theta}$$
+        <li> Measurement of the position of a source. In this case the measure is the RMS of the deviation, or
+        $$\sqrt{ \int_0^\infty f(\theta) 2\pi \theta^3 \ \mathrm{d}\theta}$$
+        </li>
+        
+        <br>PSF filenames: %(psf_files)s
+        """
+        psf = self.get_psf(irfname)
+ 
+        def bkg_size(e, ct):
             f2 = lambda delta: psf(e,ct, delta)**2 * 2*np.pi*delta
             return np.degrees(1./np.sqrt(np.pi*integrate.quad(f2, 0, np.inf)[0]))
-        self.psf_files=cdm.get_psf()
+        
+        def loc_size(e,ct):
+            f3 = lambda theta: psf(e,ct, theta) * theta**3 * 2.*np.pi
+            return np.degrees(np.sqrt(integrate.quad(f3, 0, np.pi/6) [0]))
+
+        
         egev = np.logspace(-1.+1/8., 2.5+1/8., 3.5*4+1)
-        front, back = [[effective_size(e*1e3,ct) for e in egev] for ct in range(2)]
+        #egev = np.logspace(-1, 2, 100)
+        front, back = [[bkg_size(e*1e3,ct) for e in egev] for ct in range(2)]
+        floc, bloc = [[loc_size(e*1e3,ct) for e in egev] for ct in range(2)]
+        
         f68,b68  = [[psf.inverse_integral(e*1e3, ct) for e in egev] for ct in range(2)]
         fig,ax = plt.subplots(figsize=(6,6))
-        ax.loglog(egev, front, '-g', lw=2, label='front')
-        ax.plot(egev,  back, '-r', lw=2, label='back')
-        ax.plot(egev, f68, '--g', lw=1, label='f68')
-        ax.plot(egev, b68, '--r', lw=1, label='b68')
+        ax.loglog(egev, front, '-g', lw=2, label='front bkg')
+        ax.plot(egev,  back, '-r', lw=2, label='back bkg')
+        ax.plot(egev, floc, '--g', lw=2, label='front loc')
+        ax.plot(egev,  bloc, '--r', lw=2, label='back loc')
+        ax.plot(egev, f68, ':g', lw=2, label='front 68')
+        ax.plot(egev, b68, ':r', lw=2, label='back 68')
         
         plt.setp(ax, xlabel='Energy (GeV)', ylabel='PSF size (deg)',
-            xlim=(0.1, 400), ylim=(0.05, 10), title='Effective PSF size')
+            xlim=(0.1, 100), ylim=(0.05, 10), title=title)
         ax.legend(prop=dict(size=10)); ax.grid()
         if outfile is None: return fig
-        self.psf_df = pd.DataFrame(dict(front=front, back=back), index=egev.round(3))
+        self.psf_df = pd.DataFrame(dict(front=front, floc=floc, back=back, bloc=bloc,),  index=egev.round(3))
         self.psf_df.index.name='energy'
         self.psf_df.to_csv(os.path.join(self.plotfolder, outfile))
         print 'wrote file %s' % os.path.join(self.plotfolder, outfile)
