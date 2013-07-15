@@ -1,7 +1,7 @@
 """
 Description here
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.4 2013/07/08 00:35:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.5 2013/07/15 13:40:22 burnett Exp $
 
 """
 
@@ -75,13 +75,14 @@ class Environment(roi_info.ROIinfo):
         r"""PSF size
         
         <br>Plots of two science-driven measures of the size of the PSF, compared with the standard 68 percent containment.
-        If  $f(\theta)$ is the normalized PSF for a given energy and conversion type, then
+        If  $f(\delta)$ is the normalized PSF as a function of deviation $\delta$ for a given energy and conversion type, 
+        averaged over incidence angle, then the two cases are:
         <ol>
         <li>Discrimination of a point source 
         signal in the presence of a uniform background; the <em>average</em> PSF is the inverse of the solid angle, with radius
-        $$1 / \sqrt{\pi \int_0^\infty f(\theta)^2 2\pi \theta \ \mathrm{d}\theta}$$
+        $$1 / \sqrt{\pi \int_0^\infty f(\delta)^2 2\pi \delta \ \mathrm{d}\delta}$$
         <li> Measurement of the position of a source. In this case the measure is the RMS of the deviation, or
-        $$\sqrt{ \int_0^\infty f(\theta) 2\pi \theta^3 \ \mathrm{d}\theta}$$
+        $$\sqrt{ \int_0^\infty f(\delta) 2\pi \delta^3 \ \mathrm{d}\delta}$$
         </li>
         
         <br>PSF filenames: %(psf_files)s
