@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.14 2013/07/11 01:04:25 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.15 2013/07/12 06:13:51 kerrm Exp $
 
 Calculate TOAs with a variety of methods.
 
@@ -420,9 +420,10 @@ def profile_analysis(logl,logl_args,pred_phase=None,nsamp=100,thresh=5,
     g = lambda x: f(x+phi0)
     xmin = golden(g,brack=[-1./nsamp,0,1./nsamp])
     fmin = g(xmin)
+    phi0 += xmin
 
     # (6) find the error bounds, slowly but surely
-    ldiffs = cod-cod[idx] - 2
+    ldiffs = cod - cod[idx] - 2 # cod[idx] vs. fmin is conservative
     h = lambda x: f(x+phi0) - fmin - 2
 
     rt_mask = np.roll(ldiffs,-idx) > 0
@@ -430,21 +431,26 @@ def profile_analysis(logl,logl_args,pred_phase=None,nsamp=100,thresh=5,
         rt = float(nsamp-1)/2
     else:
         rt_diff = np.arange(nsamp)[rt_mask][0]
-        rt = brentq(h,0,float(rt_diff)/nsamp)
+        rt_brack = float(rt_diff)/nsamp-xmin
+        if h(rt_brack) < 0:
+            rt_brack *= 1.1 # hopefully deal with numerical slop
+        rt = brentq(h,0,rt_brack)
 
     lt_mask = np.roll(ldiffs,nsamp-idx-1)[::-1] > 0
     if not np.any(lt_mask):
         lt = float(nsamp-1)/2
     else:
         lt_diff = np.arange(nsamp)[lt_mask][0]
-        lt = brentq(h,-float(lt_diff)/nsamp,0)
+        lt_brack = -float(lt_diff)/nsamp-xmin
+        if h(lt_brack) < 0:
+            lt_brack *= 1.1 # hopefully deal with numerical slop
+        lt = brentq(h,lt_brack,0)
 
-    # (7) construct TOA
+    # (7) construct TOA as the mean of the error positions
     tau = (rt+lt)/2 + phi0
     tau_err = (rt-lt)/4 # by 2 for average, by 2 again for 2->1 sigma
 
     if plot_output is not None:
-        xmin += phi0
         dom1 = dom
         cod1 = cod
         inset_delta = max(abs(rt),abs(lt))+0.01
@@ -457,7 +463,7 @@ def profile_analysis(logl,logl_args,pred_phase=None,nsamp=100,thresh=5,
         ax2 = pl.axes([0.2+0.4*(tau<0.5),0.60,0.25,0.25])
         for i,(dom,cod,ax) in enumerate(zip([dom1,dom2],[cod1,cod2],[ax1,ax2])):
             ax.plot(dom,cod)
-            ax.axvline(xmin,color='red',ls='--')
+            ax.axvline(phi0,color='red',ls='--')
             ax.axvline(tau,color='red')
             ax.axvline(tau-tau_err,color='green',ls='-')
             ax.axvline(tau+tau_err,color='green',ls='-')
