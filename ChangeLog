@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Jul 15 20:01:08 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+Modify zero_glitches to optionally only remove "local" glitches.
+
+    *
+------------------------------------------------------------
 User: kerrm  Mon Jul 15 20:00:22 PDT 2013
 pointlike/python/uw/pulsar
 
