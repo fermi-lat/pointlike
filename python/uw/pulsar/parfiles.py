@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.28 2013/07/10 04:15:35 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.29 2013/07/12 06:14:17 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -458,14 +458,21 @@ class ParFile(dict):
                 return True
         return False
 
-    def zero_glitches(self):
+    def zero_glitches(self,glepoch=None):
+        """ If glepoch is provided, only zero glitches near (within 1d) of
+            that epoch.  Otherwise, remove all glitches."""
         no_glitches = True
+        indices = []
         for key in self.keys():
-            if key[:2]=='GL':
+            if key[:4]=='GLEP':
+                if ((glepoch is None) or 
+                    (abs(glepoch-self.get(key,type=float)) < 1)):
+                    indices.append(int(key[-1]))
+        for key in self.keys():
+            if (key[:2]=='GL') and (int(key[-1]) in indices):
                 no_glitches = False
                 lab = key[2:4]
-                if ((lab=='PH') or (lab=='F0') or (lab=='F1') or
-                    (lab=='F2') or (lab=='TD')): 
+                if key[2:4] != 'EP':
                     self.set(key,0)
         return no_glitches
 
