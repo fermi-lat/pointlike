@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Jul 15 20:00:22 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	toagen.py 
+Log Message:
+Fix some bugs with error computation.
+
+    *
+------------------------------------------------------------
 User: burnett  Mon Jul 15 07:11:55 PDT 2013
 pointlike/python/uw/like2/analyze
 
