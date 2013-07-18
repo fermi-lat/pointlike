@@ -1,8 +1,9 @@
 """
 background analysis
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/background.py,v 1.1 2013/07/09 02:05:43 burnett Exp $
 
 """
+import os
 import pandas as pd
 import numpy as np
 import pylab as plt
@@ -58,26 +59,28 @@ class Background(roi_info.ROIinfo):
         on the source and assume azimuthal symmetry and that the PSF is contained in the ROI. 
         Thus ignore the $j$ and $k$ indeces. For simplicity, fold the exposure, a constant, into 
         the $\alpha$ definitions and let $\alpha_0\equiv\alpha, \alpha_1\equiv\beta$. 
-        Then, the likelihood for a single photon at an angle $\theta$ with 
-        respect to the point source, 
+        Then, the log likelihood for a single photon at an angle $\theta$ with 
+        respect to the point source is 
         
         $$ w(\alpha; \theta) = \ln(\alpha P(\theta) + \beta ) -(\alpha + \beta \Delta \Omega) $$
 
         Now $\alpha$ and $\beta$ are respectively the number of photons from the source and the background photon density.
 
-        This form can be used to determine the expected resolution for the parameters. 
-        Assuming that the background dominates, or $ \beta \Delta\Omega >> \alpha $, the expected variance matrix 
-        for $N$ photons is:
+        This form can be used to determine the expected resolution for the parameters. In the following,
+        let $\bar{P}=\int \mathrm{d}\Omega P(\theta)^2$, the average value of the PSF, corresponding to the inverse of the
+        solid angle extent. The inverse of this is a solid angle that can be interpreted as the effective size of the PSF, or
+        "footprint".
+        Assuming that the background dominates, the case of interest for weak sources,  $ \beta >> \alpha  \bar{P} $, 
+        the expected variance matrix for $N=\beta \Delta \Omega$ photons is:
 
-        $$ V = \frac{1}{N (\Delta \Omega \bar{P} -1)} \begin{pmatrix}
+        $$ V = \frac{1}{\beta(\bar{P} \Delta \Omega -1)} \begin{pmatrix}
         \Delta\Omega & -1  \\
         -1 & \bar{P}  
         \end{pmatrix} $$
-        where $\bar{P}=\int \mathrm{d}\Omega P(\theta)^2$, the average value of the PSF, corresponding to the inverse of the
-        solid angle extent.
-         
-        <p> This simplifies further if the point source extent is small compared with the ROI, $\Delta\Omega \bar{P} >> 1$, 
-        which is the case for all but the lowest energy.
+        
+        <p> This simplifies further if the point source extent is small compared with the ROI, 
+        $\bar{P} \Delta\Omega  >> 1$,  which is the case for all but the lowest energy. In particular, 
+        $\sigma_\alpha^2=\beta / \bar{P}$, which is the number of background photons in the PSF footprint.
         """
         return None
     
@@ -111,7 +114,7 @@ class Background(roi_info.ROIinfo):
         ax.legend(prop=dict(size=10)); ax.grid()
         return fig
 
-    def psf_background(self, rois=None):
+    def psf_background(self, rois=None, outfile='psf_bkg.csv',):
         """Background counts in PSF
         For galactic and isotropic backgrounds, and front and back, determine the number of counts 
         in the effective "footprint" of the PSF.
@@ -129,11 +132,16 @@ class Background(roi_info.ROIinfo):
         energy = self.energy 
         
         if rois is None: rois = self.rois
+        flist = []
+        blist = []
+        
         for k,roi in enumerate(rois):
             gal, iso = self.get_background(roi)
             for ax, diffuse, what in zip(axx[k,:], (gal, iso), 'galactic isotropic'.split()):
                 
                 front, back = [ diffuse*psa[i]/solid_angle for i in range(2)]
+                flist.append(front.values)
+                blist.append(back.values)
                 
                 ax.plot(energy, front, '-o', label='front')
                 ax.plot(energy, back, '-Dr', label='back')
@@ -145,7 +153,18 @@ class Background(roi_info.ROIinfo):
             
         axx[0,1].set_xticklabels(['0.1', '1', '10'])
         fig.text(0.4, 0.05, 'Energy (GeV)')
-            
+        #make a DataFrame with the 8 plots
+        self.psf_back_df = pd.DataFrame(dict(
+            hgf=flist[0],  hgb=blist[0], 
+            hif=flist[1],  hib=blist[1], 
+            lgf=flist[2],  lgb=blist[2], 
+            lif=flist[3],  lib=blist[3], 
+             ), 
+        index=(np.array(energy)*1e-3).round(3))
+        self.psf_back_df.index.name='energy'
+        self.psf_back_df.to_csv(os.path.join(self.plotfolder, outfile))
+        print 'wrote file %s' % os.path.join(self.plotfolder, outfile)
+    
         return fig
             
     def all_plots(self):

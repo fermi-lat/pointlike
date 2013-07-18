@@ -1,7 +1,7 @@
 """
 Description here
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.5 2013/07/15 13:40:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.6 2013/07/15 14:11:55 burnett Exp $
 
 """
 
@@ -82,9 +82,11 @@ class Environment(roi_info.ROIinfo):
         signal in the presence of a uniform background; the <em>average</em> PSF is the inverse of the solid angle, with radius
         $$1 / \sqrt{\pi \int_0^\infty f(\delta)^2 2\pi \delta \ \mathrm{d}\delta}$$
         <li> Measurement of the position of a source. In this case the measure is the RMS of the deviation, or
-        $$\sqrt{ \int_0^\infty f(\delta) 2\pi \delta^3 \ \mathrm{d}\delta}$$
+        $$\sqrt{ \int_0^\infty \delta^2 f(\delta) 2\pi \delta \ \mathrm{d}\delta}$$
         </li>
-        
+        <p>
+        For a Gaussian PSF, $f(\delta)=\fract{1}{2\pi \sigma} \exp(-\frac{\delta^2}{2\sigma^2})$, these values are
+        respectively $2\sigma$ and $\sqrt{2}\sigma$.
         <br>PSF filenames: %(psf_files)s
         """
         psf = self.get_psf(irfname)
@@ -97,26 +99,29 @@ class Environment(roi_info.ROIinfo):
             f3 = lambda theta: psf(e,ct, theta) * theta**3 * 2.*np.pi
             return np.degrees(np.sqrt(integrate.quad(f3, 0, np.pi/6) [0]))
 
-        
         egev = np.logspace(-1.+1/8., 2.5+1/8., 3.5*4+1)
         #egev = np.logspace(-1, 2, 100)
         front, back = [[bkg_size(e*1e3,ct) for e in egev] for ct in range(2)]
         floc, bloc = [[loc_size(e*1e3,ct) for e in egev] for ct in range(2)]
-        
         f68,b68  = [[psf.inverse_integral(e*1e3, ct) for e in egev] for ct in range(2)]
         fig,ax = plt.subplots(figsize=(6,6))
-        ax.loglog(egev, front, '-g', lw=2, label='front bkg')
-        ax.plot(egev,  back, '-r', lw=2, label='back bkg')
-        ax.plot(egev, floc, '--g', lw=2, label='front loc')
-        ax.plot(egev,  bloc, '--r', lw=2, label='back loc')
-        ax.plot(egev, f68, ':g', lw=2, label='front 68')
-        ax.plot(egev, b68, ':r', lw=2, label='back 68')
+        for x, s, label in zip((front, back, floc, bloc, f68, b68),
+                            ('-g', 'r', '--g', '--r', ':g', ':r'),
+                            ('front bkg', 'back bkg','front loc', 'back loc', 'front 68', 'back 68')):
+            ax.plot(egev, x, s, lw=2, label=label)
+        #ax.loglog(egev, front, '-g', lw=2, label='front bkg')
+        #ax.plot(egev, back, '-r',  lw=2, label='back bkg')
+        #ax.plot(egev, floc, '--g', lw=2, label='front loc')
+        #ax.plot(egev, bloc, '--r', lw=2, label='back loc')
+        #ax.plot(egev, f68,  ':g',  lw=2, label='front 68')
+        #ax.plot(egev, b68,  ':r',  lw=2, label='back 68')
         
-        plt.setp(ax, xlabel='Energy (GeV)', ylabel='PSF size (deg)',
+        plt.setp(ax, xlabel='Energy (GeV)', ylabel='PSF size (deg)', xscale='log', yscale='log',
             xlim=(0.1, 100), ylim=(0.05, 10), title=title)
         ax.legend(prop=dict(size=10)); ax.grid()
         if outfile is None: return fig
-        self.psf_df = pd.DataFrame(dict(front=front, floc=floc, back=back, bloc=bloc,),  index=egev.round(3))
+        self.psf_df = pd.DataFrame(dict(front=front, floc=floc, back=back, bloc=bloc,f68=f68,b68=b68), 
+                index=egev.round(3))
         self.psf_df.index.name='energy'
         self.psf_df.to_csv(os.path.join(self.plotfolder, outfile))
         print 'wrote file %s' % os.path.join(self.plotfolder, outfile)
