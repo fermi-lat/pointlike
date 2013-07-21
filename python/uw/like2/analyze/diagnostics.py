@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/diagnostics.py,v 1.7 2013/07/12 03:48:29 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/diagnostics.py,v 1.8 2013/07/15 13:40:49 burnett Exp $
 
 """
 
@@ -305,3 +305,7 @@ class Diagnostics(object):
             cb=ax.figure.colorbar(scat, ax=ax, **cb_kw)
             cb.set_label(cbtext)    
         return scat
+        
+    def __call__(self, **kw):
+        """ invoke all_plots """
+        return self.all_plots(**kw)
