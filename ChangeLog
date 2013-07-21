@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Jul 21 08:16:17 PDT 2013
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	diagnostics.py 
+Log Message:
+cut out html output for each section
+    *
+------------------------------------------------------------
 User: burnett  Sun Jul 21 08:15:08 PDT 2013
 pointlike/python/uw/like2/analyze
 
