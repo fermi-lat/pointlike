@@ -1,6 +1,6 @@
 """
 Manage the Web page generation
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/_html.py,v 1.2 2013/07/09 03:12:31 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/_html.py,v 1.3 2013/07/12 17:29:38 burnett Exp $
 """
 import os, glob
 import pandas as pd
@@ -17,15 +17,12 @@ class HTMLindex():
 body, th, td {	font-family:verdana,arial,sans-serif;
 	font-size:10pt;
 	margin:10px;
-	background-color:white;
-	}
+	background-color:white;	}
 p   { font-size:10pt; margin-left:25pt; }
 pre { font-size:10pt; margin-left:25pt; 
-    border-style:solid;
-    border-width:thin;}
+    border-style:solid;    border-width:thin;}
 h3 { -webkit-margin-after: 0px; -webkit-margin-before: 2em; }
-
-h4, h5 {margin-left:25pt;}
+h4, h5, ol, ul {margin-left:25pt;}
 table { margin-left:25pt; margin-top:15pt; font-size:8pt;
     border-style: solid; border-width: 1px;  border-collapse: collapse; }
 table.topmenu {border-style:solid; border-width:0px}
@@ -35,6 +32,7 @@ td.index {text-align:left;}
 td.integer {text-align:right;}
 a:link { text-decoration: none ; color:green}
 a:hover { background-color:yellow; }
+img {display: block; margin-left: 50pt;}
 </style>"""
 
     menu_header="""<!DOCTYPE html>\n<html> <head> <title>%(model)s index</title> %(style)s 
@@ -53,7 +51,8 @@ a:hover { background-color:yellow; }
      MathJax.Hub.Config({tex2jax: {
       inlineMath: [['$','$'], ["\\(","\\)"]], 
       displayMath: [ ['$$','$$'],["\\[", "\\]"]],
-      processEscapes: true}});
+      processEscapes: true},
+      TeX: { equationNumbers: {autoNumber: "AMS"}},});
     </script>
     <script type="text/javascript"
        src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
