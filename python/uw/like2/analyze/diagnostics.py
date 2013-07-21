@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/diagnostics.py,v 1.8 2013/07/15 13:40:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/diagnostics.py,v 1.9 2013/07/21 15:13:52 burnett Exp $
 
 """
 
@@ -169,9 +169,9 @@ class Diagnostics(object):
             htmldoc += '\n<img src="%s" />\n <br> %s '% (localfile, caption if caption is not None else '')
         elif caption is not None:
             htmldoc += '\n <br>  %s' % ( caption )
-        if htmldoc is not None:
-            open(savefile.replace('.png','.html'),'w').write(htmldoc )
-        print 'saved html doc to %s' % os.path.join(os.getcwd(),savefile.replace('.png','.html'))
+        #if htmldoc is not None:
+        #    open(savefile.replace('.png','.html'),'w').write(htmldoc )
+        #print 'saved html doc to %s' % os.path.join(os.getcwd(),savefile.replace('.png','.html'))
         return htmldoc
 
     def runfigures(self, functions, names=None,  **kwargs):
