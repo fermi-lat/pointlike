@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Jul 22 19:49:35 PDT 2013
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	environment.py 
+Log Message:
+fix PSF for source position
+    *
+------------------------------------------------------------
 User: burnett  Sun Jul 21 08:18:45 PDT 2013
 pointlike/python/uw/like2/analyze
 
