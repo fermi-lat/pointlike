@@ -1,7 +1,7 @@
 """
 Description here
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.6 2013/07/15 14:11:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.7 2013/07/18 12:24:32 burnett Exp $
 
 """
 
@@ -21,13 +21,6 @@ class Environment(roi_info.ROIinfo):
     def setup(self, **kw):
         super(Environment, self).setup(**kw)
         self.plotfolder='environment'
-        # use the fact that the isotopic diffuse compoenent is isotropic, so that
-        # the ratio of the computed counts, to the fit normalization, is proportional
-        # to the exposure.
-        iso = self.model_counts('isotrop')
-        models = self.diffuse_models('isotrop')
-        norms = np.array([m.getp(0) if m is not None else np.nan for m in models])
-        self.relative_exp = iso/norms/(iso/norms).mean()
         self.config = eval(open('config.txt').read())
         
     def exposure_plots(self, hsize=(1.0,1.0,2.0,1.0, 2.0, 0.7),):
@@ -41,9 +34,15 @@ class Environment(roi_info.ROIinfo):
         <br>Left: histogram, center: scatter plot vs. Declination; right: map on sky, in Galactic coordinates.
         
         """
+        # use the fact that the isotopic diffuse compoenent is isotropic, so that
+        # the ratio of the computed counts, to the fit normalization, is proportional
+        # to the exposure.
+        iso = self.model_counts('isotrop')
+        models = self.diffuse_models('isotrop')
+        norms = np.array([m.getp(0) if m is not None else np.nan for m in models])
+        relative_exp = iso/norms/(iso/norms).mean()
         #fig, axx = plt.subplots(1,3, figsize=(15,4))
         fig, axx = self.subplot_array(hsize, figsize=(12,4))
-        relative_exp = self.relative_exp
         label = 'exposure relative to mean'
         lim = (0.7, 1.6)
         def left(ax):
@@ -81,11 +80,19 @@ class Environment(roi_info.ROIinfo):
         <li>Discrimination of a point source 
         signal in the presence of a uniform background; the <em>average</em> PSF is the inverse of the solid angle, with radius
         $$1 / \sqrt{\pi \int_0^\infty f(\delta)^2 2\pi \delta \ \mathrm{d}\delta}$$
-        <li> Measurement of the position of a source. In this case the measure is the RMS of the deviation, or
-        $$\sqrt{ \int_0^\infty \delta^2 f(\delta) 2\pi \delta \ \mathrm{d}\delta}$$
-        </li>
-        <p>
-        For a Gaussian PSF, $f(\delta)=\fract{1}{2\pi \sigma} \exp(-\frac{\delta^2}{2\sigma^2})$, these values are
+ <li> Measurement of the position of a source. This case involves the expected likelihood. The expected value for the value of the log likelihood, as a function of $\delta$
+$$ w(\delta) = \int_0^\infty  \theta\ \mathrm{d} \theta\ P(\theta) \int_0^{2\pi} \mathrm{d}\phi \ln P(\sqrt{\delta^2 -2\delta\  \theta \cos(\phi)+\theta^2})
+$$
+The resolution is the curvature, or second derivative of this function evaluated at $\delta=0$. A simple way to evaluate this is the expression
+$$ \delta \sqrt{\frac{1}{2(w(0)-w(\delta))}}
+$$
+for $\delta \rightarrow 0$. Note that this is represents the large $N$ limit, for which the resolution for $N$ photons is 
+this value divided by $\sqrt{N}$. For small $N$, less than 10, the more appropriate measure is the RMS, typically twice 
+as large.
+</li>
+</ol>        
+<p>
+        For a Gaussian PSF, $f(\delta)=\frac{1}{2\pi \sigma} \exp(-\frac{\delta^2}{2\sigma^2})$, these values are
         respectively $2\sigma$ and $\sqrt{2}\sigma$.
         <br>PSF filenames: %(psf_files)s
         """
@@ -95,9 +102,18 @@ class Environment(roi_info.ROIinfo):
             f2 = lambda delta: psf(e,ct, delta)**2 * 2*np.pi*delta
             return np.degrees(1./np.sqrt(np.pi*integrate.quad(f2, 0, np.inf)[0]))
         
-        def loc_size(e,ct):
-            f3 = lambda theta: psf(e,ct, theta) * theta**3 * 2.*np.pi
-            return np.degrees(np.sqrt(integrate.quad(f3, 0, np.pi/6) [0]))
+        def loc_size(e,ct, eps=1e-4):
+            def wphi(r,x):
+                fun = lambda phi: np.log(psf(e,ct,np.sqrt(r**2 -2*r*x*np.cos(phi) + x**2)))
+                return 2*integrate.quad(fun, 0, np.pi)[0]
+ 
+            def we(r):
+                fun = lambda rp : psf(e,ct,rp) * rp * wphi(r,rp)
+                return integrate.quad(fun, 0, np.radians(3.0))[0]
+
+            #f3 = lambda theta: psf(e,ct, theta) * theta**3 * 2.*np.pi
+            #return np.degrees(np.sqrt(integrate.quad(f3, 0, np.pi/6) [0]))
+            return eps * np.sqrt(1/(2*(we(0)- we(np.radians(eps)))))
 
         egev = np.logspace(-1.+1/8., 2.5+1/8., 3.5*4+1)
         #egev = np.logspace(-1, 2, 100)
@@ -109,12 +125,6 @@ class Environment(roi_info.ROIinfo):
                             ('-g', 'r', '--g', '--r', ':g', ':r'),
                             ('front bkg', 'back bkg','front loc', 'back loc', 'front 68', 'back 68')):
             ax.plot(egev, x, s, lw=2, label=label)
-        #ax.loglog(egev, front, '-g', lw=2, label='front bkg')
-        #ax.plot(egev, back, '-r',  lw=2, label='back bkg')
-        #ax.plot(egev, floc, '--g', lw=2, label='front loc')
-        #ax.plot(egev, bloc, '--r', lw=2, label='back loc')
-        #ax.plot(egev, f68,  ':g',  lw=2, label='front 68')
-        #ax.plot(egev, b68,  ':r',  lw=2, label='back 68')
         
         plt.setp(ax, xlabel='Energy (GeV)', ylabel='PSF size (deg)', xscale='log', yscale='log',
             xlim=(0.1, 100), ylim=(0.05, 10), title=title)
