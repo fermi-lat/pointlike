@@ -1,6 +1,6 @@
 """
 background analysis
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/background.py,v 1.2 2013/07/18 12:24:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/background.py,v 1.3 2013/07/21 15:15:08 burnett Exp $
 
 """
 import os, glob
@@ -22,26 +22,27 @@ class Background(roi_info.ROIinfo):
     def introduction(self):
         r"""Introduction: Resolution for a point source
         The following is from a derivation of the relative resolution for a fit to the flux from a point source, 
-        with spectral parameters fixed
+        with fixed spectral parameters:
         $$\begin{equation}  \frac{1}{{\sigma_s}^2} = \sum\limits_k    
-          \int \mathrm{d}\Omega  \frac{P_k(\theta)^2}{\beta_k +  \alpha_k P_k(\theta)}
+          \int \mathrm{d}\Omega  \frac{P_k(\theta)^2}{ \alpha_k P_k(\theta)+\beta_k }
         \end{equation}$$
         where:
         <ul>
         <li>$\sigma_s$: Statistical uncertainty for the relative source flux; $s=1$ represents a multiplicative factor applied 
             to each $\alpha$ in the derivation 
         <li>$k$: Band index, including front or back
-        <li>$\alpha_k$: predicted counts for source in band $k$
-        <li>$\beta_k$: diffuse background count density at the source location, assumed constant within the PSF extent
-        <li>$P_k(\theta)$: the normalized PSF, as a function of angle $\theta$ from the source position
+        <li>$\alpha_k$: predicted counts for the point source in band $k$, up to a common scale factor $s$
+        <li>$\beta_k$: diffuse background count density at the source location, assumed constant within the PSF extent, 
+        and known precisely <em>ab initio</em> or from a fit to the rest of the ROI
+        <li>$P_k(\theta)$: the normalized ($\int\mathrm{d}\Omega P_k(\theta)=1$) PSF, as a function of angle $\theta$ from the source position
         <li>$\int\mathrm{d}\Omega$: Integral over solid angle of an ROI, typically a cone about the source position: 
             $\mathrm{d}\Omega=\sin(\theta)\mathrm{d}\theta \mathrm{d}\phi$. The derivation assumes that the PSF
             is contained within the ROI.
         </ul>
         <p>Consider a single band. For the background-dominated case, $\beta >> \alpha P(0)$, $\sigma_s^2=\beta/ \int\mathrm{d}\Omega P(\theta)^2$. 
-        The integral is the average value of the PSF, representing the inverse of a solid angle, referred to as the 
+        The integral is the average value of the PSF, equal to the inverse of a solid angle. This solid angle is referred to as the 
         PSF "footprint" below. The value for $\sigma_s^2$ is then the number of background counts in the footprint.
-        If there is no background, $\sigma_s^2=\alpha$, the number of source events, independent of the PSF.
+        If there is no background, then $\sigma_s^2=\alpha$, the number of source events, independent of the PSF.
         """
         return None
     
@@ -87,7 +88,7 @@ class Background(roi_info.ROIinfo):
     
     def diffuse_flux(self, rois=None):
         """Diffuse flux
-        Predicted counts for the low latitude and high latitude ROIs.
+        Predicted counts per ROI, for low and high-latitude, front and back combined.
         """
         fig, ax = plt.subplots(1,1, figsize=(6,6), dpi=150, sharey=True)
         egev = np.array(self.energy)/1e3
@@ -110,11 +111,12 @@ class Background(roi_info.ROIinfo):
         return pypsf.CALDBPsf(cdm)
 
     def psf_background(self, bgsource_names=None, rois=None, outfile='psf_bkg.csv',):
-        """Background counts in PSF
+        """Background counts in the PSF
         For galactic and isotropic backgrounds, and front and back, determine the number of counts 
-        in the effective "footprint" of the PSF, see equation (1) in the introduction. This number is significant for two reasons:
-        <ol><li>It defines the limiting resolution for the number of source counts
-        <li>It sets a scale for a scheme to limit the resolution if systematic uncertainties are an issue
+        in the effective "footprint" of the PSF, see equation (1) in the introduction. These values are
+        significant for two reasons:
+        <ol><li>They define the limiting resolution for the number of source counts
+        <li>The set a scale for a scheme to limit the resolution if background systematic uncertainties are an issue
         </ol>
         """
         # get effective PSF size, and area from environment analysis
@@ -125,10 +127,9 @@ class Background(roi_info.ROIinfo):
         solid_angle = 2*np.pi*(1-np.cos(np.radians(self.roi_size)))
         
         fig, axx = plt.subplots(2,2, figsize=(12,12), sharex=True, sharey=True)
-        plt.subplots_adjust(wspace=0.,top=0.9)
+        plt.subplots_adjust(wspace=0.,top=0.9, left=0.1)
         energy = self.energy 
         
-        #if rois is None: rois = self.rois
         if bgsource_names is None: bgsource_names = self.bgsources
         flist = []
         blist = []
@@ -148,7 +149,6 @@ class Background(roi_info.ROIinfo):
                 ax.text(150,2e5, what+['-high lat','-low lat'][k], fontsize=12)
                 plt.setp(ax, xscale='log', xlim=(100, 12000),
                     yscale='log', ylim=(1.0, 1e6), ylabel='counts in PSF' if what=='galactic' else '',)
-            #plt.suptitle('ROI %04d' % roi)
             
         axx[0,1].set_xticklabels(['0.1', '1', '10'])
         fig.text(0.4, 0.05, 'Energy (GeV)')
