@@ -1,6 +1,6 @@
 """
 Export processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/export.py,v 1.8 2013/07/12 22:37:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/export.py,v 1.9 2013/07/21 15:17:23 burnett Exp $
 
 """
 import os, glob
@@ -29,7 +29,7 @@ class Export(sourceinfo.SourceInfo):
     <table border="1">
       <tr><td class="index">Cut on initial semi-major axis (deg)</td><td>%(error_box_cut)s</td> </tr>
       <tr><td class="index">Multiplicative systematic factor</td><td>%(error_box_factor)s</td> </tr>
-      <tr><td class="index">Fixed systematic, added in quadrature (deg)</td><td>%(error_box_add)g</td> </tr>
+      <tr><td class="index">Fixed systematic, added in quadrature to r95 (deg)</td><td>%(error_box_add)g</td> </tr>
     </table>
     The multiplicative factor is examined <a href="../associations/index.html?skipDecoration">here.</a>
     """
@@ -62,8 +62,8 @@ class Export(sourceinfo.SourceInfo):
     def files(self):
         """Links to output files
         <ul>
-         <li>FITS <a href="../../%(fits_file)s">%(fits_file)s</a></li>
-         <li>XML  <a href="../../%(xml)s">%(xml)s</a></li>
+         <li>FITS <a href="../../%(fits_file)s?download=true">%(fits_file)s</a></li>
+         <li>XML  <a href="../../%(xml)s?download=true">%(xml)s</a></li>
         </ul>
         
         """
