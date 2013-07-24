@@ -1,7 +1,7 @@
 """
 Description here
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.9 2013/07/24 00:27:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.10 2013/07/24 12:57:10 burnett Exp $
 
 """
 
@@ -88,7 +88,7 @@ class Environment(roi_info.ROIinfo):
  <li> Measurement of the position of a source. Assuming no background, this requires the expected value for the log of the
  PSF, which is the likelihood, as a function of $\delta$
 $$\begin{equation} 
-w(\delta) = \int_0^\pi  \sin\theta\ \mathrm{d} \theta\ P(\theta) \int_0^{2\pi} \mathrm{d}\phi \ln P\left(\sqrt{\delta^2 -2\delta\  \theta \cos(\phi)+\theta^2}\right)
+w(\delta) = \int_0^\pi  \sin\theta\ \mathrm{d} \theta\ P(\theta) \int_0^{2\pi} \mathrm{d}\phi \ln P\left(\sqrt{\delta^2 -2\delta\  \theta \cos\phi+\theta^2}\right)
 \end{equation}$$
 The resolution is the curvature, or second derivative of this function evaluated at $\delta=0$. The curvature at $\delta=0$ is
 $$\begin{equation} 
@@ -97,10 +97,12 @@ $$\begin{equation}
 where $P'(\theta) = \frac{\partial P(\theta)}{\partial \theta}$. This is consistent with equation (A2) in the 2FGL paper, 
 for the case with no background.
 </li>
-</ol>        
+</ol>  
+<p>Of course the first measure is relevant in the background-dominated case, below a GeV or so, 
+the second when there is small background, above a few GeV.    
 <p>
-        For a Gaussian PSF, $P(\delta)=\frac{1}{\pi \sigma^2} \exp(-\frac{\delta^2}{2\sigma^2})$, these values are
-        respectively $2\sigma$ and $\sigma$.
+        For a Gaussian PSF, $P(\delta)=\frac{1}{2\pi \sigma^2} \exp(-\frac{\delta^2}{2\sigma^2})$, these values are
+        respectively $2\sigma$ and $\sigma$. (The 68 percent is in between, at 1.5 $\sigma$.)
         <br><br>PSF filenames: %(psf_files)s
         """
         psf = self.get_psf(irfname)
