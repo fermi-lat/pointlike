@@ -1,7 +1,7 @@
 """
 Description here
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.8 2013/07/23 02:49:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.9 2013/07/24 00:27:22 burnett Exp $
 
 """
 
@@ -82,15 +82,18 @@ class Environment(roi_info.ROIinfo):
         <ol>
         <li>Discrimination of a point source 
         signal in the presence of a uniform background; the <em>average</em> PSF is the inverse of the solid angle, with radius
-        $$1 / \sqrt{\pi \int_0^\pi P(\delta)^2 2\pi \sin\delta \ \mathrm{d}\delta}$$
+        $$\begin{equation}
+        1 / \sqrt{\pi \int_0^\pi P(\delta)^2 2\pi \sin\delta \ \mathrm{d}\delta}
+        \end{equation}$$
  <li> Measurement of the position of a source. Assuming no background, this requires the expected value for the log of the
  PSF, which is the likelihood, as a function of $\delta$
-$$ w(\delta) = \int_0^\pi  \sin\theta\ \mathrm{d} \theta\ P(\theta) \int_0^{2\pi} \mathrm{d}\phi \ln P\left(\sqrt{\delta^2 -2\delta\  \theta \cos(\phi)+\theta^2}\right)
-$$
+$$\begin{equation} 
+w(\delta) = \int_0^\pi  \sin\theta\ \mathrm{d} \theta\ P(\theta) \int_0^{2\pi} \mathrm{d}\phi \ln P\left(\sqrt{\delta^2 -2\delta\  \theta \cos(\phi)+\theta^2}\right)
+\end{equation}$$
 The resolution is the curvature, or second derivative of this function evaluated at $\delta=0$. The curvature at $\delta=0$ is
-$$
+$$\begin{equation} 
 \frac{\partial^2 w(\delta)}{\partial \delta^2} = \pi \int_0^\pi \sin\theta \ \mathrm{d}\theta \frac{P'(\theta)^2}{P(\theta)}
-$$
+\end{equation}$$
 where $P'(\theta) = \frac{\partial P(\theta)}{\partial \theta}$. This is consistent with equation (A2) in the 2FGL paper, 
 for the case with no background.
 </li>
