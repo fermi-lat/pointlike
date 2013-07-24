@@ -1,7 +1,7 @@
 """
 Description here
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.7 2013/07/18 12:24:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.8 2013/07/23 02:49:35 burnett Exp $
 
 """
 
@@ -9,7 +9,7 @@ import os, pickle, types
 import numpy as np
 import pylab as plt
 import pandas as pd
-from scipy import integrate
+from scipy import integrate, misc
 #from skymaps import SkyDir #?
 
 from . import roi_info
@@ -22,6 +22,9 @@ class Environment(roi_info.ROIinfo):
         super(Environment, self).setup(**kw)
         self.plotfolder='environment'
         self.config = eval(open('config.txt').read())
+        s = [[ x[1]['counts']['models'][modelnumber][1][:16] for x in self.df.iterrows()] for modelnumber in range(2)]
+        self.bdf = [pd.DataFrame(y, index=self.df.index) for y in s]
+
         
     def exposure_plots(self, hsize=(1.0,1.0,2.0,1.0, 2.0, 0.7),):
         """ Exposure dependence
@@ -74,27 +77,28 @@ class Environment(roi_info.ROIinfo):
         r"""PSF size
         
         <br>Plots of two science-driven measures of the size of the PSF, compared with the standard 68 percent containment.
-        If  $f(\delta)$ is the normalized PSF as a function of deviation $\delta$ for a given energy and conversion type, 
-        averaged over incidence angle, then the two cases are:
+        If  $P(\delta)$ is the normalized PSF as a function of deviation $\delta$ for a given energy and conversion type, 
+        in principle averaged over incidence angle, but here for normal incidence, the two cases are:
         <ol>
         <li>Discrimination of a point source 
         signal in the presence of a uniform background; the <em>average</em> PSF is the inverse of the solid angle, with radius
-        $$1 / \sqrt{\pi \int_0^\infty f(\delta)^2 2\pi \delta \ \mathrm{d}\delta}$$
- <li> Measurement of the position of a source. This case involves the expected likelihood. The expected value for the value of the log likelihood, as a function of $\delta$
-$$ w(\delta) = \int_0^\infty  \theta\ \mathrm{d} \theta\ P(\theta) \int_0^{2\pi} \mathrm{d}\phi \ln P(\sqrt{\delta^2 -2\delta\  \theta \cos(\phi)+\theta^2})
+        $$1 / \sqrt{\pi \int_0^\pi P(\delta)^2 2\pi \sin\delta \ \mathrm{d}\delta}$$
+ <li> Measurement of the position of a source. Assuming no background, this requires the expected value for the log of the
+ PSF, which is the likelihood, as a function of $\delta$
+$$ w(\delta) = \int_0^\pi  \sin\theta\ \mathrm{d} \theta\ P(\theta) \int_0^{2\pi} \mathrm{d}\phi \ln P\left(\sqrt{\delta^2 -2\delta\  \theta \cos(\phi)+\theta^2}\right)
 $$
-The resolution is the curvature, or second derivative of this function evaluated at $\delta=0$. A simple way to evaluate this is the expression
-$$ \delta \sqrt{\frac{1}{2(w(0)-w(\delta))}}
+The resolution is the curvature, or second derivative of this function evaluated at $\delta=0$. The curvature at $\delta=0$ is
 $$
-for $\delta \rightarrow 0$. Note that this is represents the large $N$ limit, for which the resolution for $N$ photons is 
-this value divided by $\sqrt{N}$. For small $N$, less than 10, the more appropriate measure is the RMS, typically twice 
-as large.
+\frac{\partial^2 w(\delta)}{\partial \delta^2} = \pi \int_0^\pi \sin\theta \ \mathrm{d}\theta \frac{P'(\theta)^2}{P(\theta)}
+$$
+where $P'(\theta) = \frac{\partial P(\theta)}{\partial \theta}$. This is consistent with equation (A2) in the 2FGL paper, 
+for the case with no background.
 </li>
 </ol>        
 <p>
-        For a Gaussian PSF, $f(\delta)=\frac{1}{2\pi \sigma} \exp(-\frac{\delta^2}{2\sigma^2})$, these values are
-        respectively $2\sigma$ and $\sqrt{2}\sigma$.
-        <br>PSF filenames: %(psf_files)s
+        For a Gaussian PSF, $P(\delta)=\frac{1}{\pi \sigma^2} \exp(-\frac{\delta^2}{2\sigma^2})$, these values are
+        respectively $2\sigma$ and $\sigma$.
+        <br><br>PSF filenames: %(psf_files)s
         """
         psf = self.get_psf(irfname)
  
@@ -102,21 +106,26 @@ as large.
             f2 = lambda delta: psf(e,ct, delta)**2 * 2*np.pi*delta
             return np.degrees(1./np.sqrt(np.pi*integrate.quad(f2, 0, np.inf)[0]))
         
-        def loc_size(e,ct, eps=1e-4):
-            def wphi(r,x):
-                fun = lambda phi: np.log(psf(e,ct,np.sqrt(r**2 -2*r*x*np.cos(phi) + x**2)))
-                return 2*integrate.quad(fun, 0, np.pi)[0]
- 
-            def we(r):
-                fun = lambda rp : psf(e,ct,rp) * rp * wphi(r,rp)
-                return integrate.quad(fun, 0, np.radians(3.0))[0]
-
-            #f3 = lambda theta: psf(e,ct, theta) * theta**3 * 2.*np.pi
-            #return np.degrees(np.sqrt(integrate.quad(f3, 0, np.pi/6) [0]))
-            return eps * np.sqrt(1/(2*(we(0)- we(np.radians(eps)))))
-
+#        def loc_size(e,ct, eps=1e-4):
+#            def wphi(r,x):
+#                fun = lambda phi: np.log(psf(e,ct,np.sqrt(r**2 -2*r*x*np.cos(phi) + x**2)))
+#                return 2*integrate.quad(fun, 0, np.pi)[0]
+# 
+#            def we(r):
+#                fun = lambda rp : psf(e,ct,rp) * rp * wphi(r,rp)
+#                return integrate.quad(fun, 0, np.radians(3.0))[0]
+#
+#            #f3 = lambda theta: psf(e,ct, theta) * theta**3 * 2.*np.pi
+#            #return np.degrees(np.sqrt(integrate.quad(f3, 0, np.pi/6) [0]))
+#            return eps * np.sqrt(1/(2*(we(0)- we(np.radians(eps)))))
+        def loc_size(e, ct):
+            func = lambda x : psf(e,ct, x)
+            fprime = lambda x : misc.derivative(func, x, dx=0.0001, order=5)
+            integrand = lambda rp : rp * fprime(rp)**2/func(rp) * np.pi
+            return np.degrees(1/np.sqrt(integrate.quad(integrand, 0, np.radians(5))[0]))
+            
+        
         egev = np.logspace(-1.+1/8., 2.5+1/8., 3.5*4+1)
-        #egev = np.logspace(-1, 2, 100)
         front, back = [[bkg_size(e*1e3,ct) for e in egev] for ct in range(2)]
         floc, bloc = [[loc_size(e*1e3,ct) for e in egev] for ct in range(2)]
         f68,b68  = [[psf.inverse_integral(e*1e3, ct) for e in egev] for ct in range(2)]
@@ -127,8 +136,10 @@ as large.
             ax.plot(egev, x, s, lw=2, label=label)
         
         plt.setp(ax, xlabel='Energy (GeV)', ylabel='PSF size (deg)', xscale='log', yscale='log',
-            xlim=(0.1, 100), ylim=(0.05, 10), title=title)
+            xlim=(0.1, 100), ylim=(0.02, 8), title=title)
         ax.legend(prop=dict(size=10)); ax.grid()
+        ax.set_xticklabels('0.1 1 10 100'.split())
+        ax.set_yticklabels('0.01 0.1 1'.split())
         if outfile is None: return fig
         self.psf_df = pd.DataFrame(dict(front=front, floc=floc, back=back, bloc=bloc,f68=f68,b68=b68), 
                 index=egev.round(3))
@@ -143,7 +154,7 @@ as large.
         The spectrum used to define the isotropic diffuse component.
         <br>Files for front/back: %(idfiles)s
         """
-        # look up filenames used to define the isotorpic spectrum: either new or old diffuse spec; list or dict
+        # look up filenames used to define the isotropic spectrum: either new or old diffuse spec; list or dict
         diffuse=self.config['diffuse']
         isokey = 'isotrop' if type(diffuse)==types.DictType else 1
         self.idfiles = [os.path.join(os.environ['FERMI'],'diffuse',diffuse[isokey][i]) for i in (0,1)]
@@ -166,9 +177,30 @@ as large.
         self.iso_df.index.name='energy'
         self.iso_df.to_csv(os.path.join(self.plotfolder, 'isotropic.csv'))
         print 'wrote file %s' % os.path.join(self.plotfolder, 'isotropic.csv')
+        return fig
 
+    def get_background(self, roi):
+        roiname='HP12_%04d' % roi
+        return [t.ix[roiname] for t in self.bdf]
+    
+    def diffuse_flux(self, rois=[0,888]):
+        """Diffuse flux
+        Predicted counts for the low latitude and high latitude ROIs.
+        """
+        fig, ax = plt.subplots(1,1, figsize=(6,6), dpi=150, sharey=True)
+        egev = np.array(self.energy)/1e3
+        if rois is None: rois = self.rois
+
+        for r in rois:
+            gal, iso = self.get_background(r)
+            ax.plot(egev, gal, '-d', label='gal %d'%r)
+            ax.plot(egev, iso, '--o', label='iso %d'%r)
+        plt.setp(ax, xscale='log', xlim=(0.1,300), xlabel='Energy (GeV)',
+            yscale='log',  ylabel='Diffuse counts/ROI')
+        ax.legend(prop=dict(size=10)); ax.grid()
+        return fig
         return fig
         
     def all_plots(self, **kw):
-        self.runfigures([self.psf_plot, self.exposure_plots, self.isotropic_spectrum,])
+        self.runfigures([self.psf_plot, self.exposure_plots, self.isotropic_spectrum,self.diffuse_flux])
     
