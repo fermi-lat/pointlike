@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Jul 24 21:33:24 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+Options for residuals in phase.
+
+    *
+------------------------------------------------------------
 User: burnett  Wed Jul 24 06:05:19 PDT 2013
 pointlike/python/uw/like2/analyze
 
