@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.29 2013/07/12 06:14:17 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.30 2013/07/16 03:01:08 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -556,7 +556,7 @@ def get_bats_etc(par,tim,output=None,full_output=False,binary=False):
     else:
         return bats,errs,phas
 
-def get_resids(par,tim,emax=None):
+def get_resids(par,tim,emax=None,phase=False):
     if not os.path.isfile(par):
         raise IOError('Ephemeris %s is not a valid file!'%par)
     if not os.path.isfile(tim):
@@ -576,6 +576,11 @@ def get_resids(par,tim,emax=None):
     else:
         dof = len(resi)
         mask = np.asarray([True]*dof)
+    if phase:
+        # convert to phase
+        p = ParFile(par).p()*1e6 # period in mus
+        errs /= p
+        resi /= p
     chi2 = ((resi[mask]/errs[mask])**2).sum()
     return resi,errs,chi2,dof
 
