@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.15 2013/07/12 06:13:51 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.16 2013/07/16 03:00:22 kerrm Exp $
 
 Calculate TOAs with a variety of methods.
 
@@ -383,9 +383,7 @@ class EDFTOAGenerator(TOAGenerator):
         return peak_shift-polyco_phase0,tau_err,sf_hm(hm(phases)),0
 
 def profile_analysis(logl,logl_args,pred_phase=None,nsamp=100,thresh=5,
-    plot_output=None):
-
-    # TODO -- plot for bad TOAs too
+    plot_output=None,max_jump=0.25):
 
     # (0) establish profile
     f = lambda x: logl([x],*logl_args)
@@ -413,6 +411,10 @@ def profile_analysis(logl,logl_args,pred_phase=None,nsamp=100,thresh=5,
     else:
         idx = np.argmin(cod[mask])
     idx = np.arange(nsamp)[mask][idx] # index into main array
+
+    # TODO -- something more sophisticated for 0.5 aliasing -- perhaps
+    # allow less significant peaks... or possibly "search" at half the
+    # frequency...
 
     # (5) find the minimum
     # define a shifted likelihood function to avoid phase wraps
@@ -484,7 +486,12 @@ def profile_analysis(logl,logl_args,pred_phase=None,nsamp=100,thresh=5,
         ax1.set_ylabel('Negative Log Likelihood')
         pl.savefig(plot_output)
 
-    if m2.sum() == 0:
+    if (m2.sum() == 0):
         tau_err = 100
+    # this is to catch aliases and prevent following TOAs from having
+    # incorrect seed phase
+    if (abs(tau-pred_phase)>max_jump):
+        tau_err = 100
+        tau = pred_phase
     return tau,tau_err,fmin
 
