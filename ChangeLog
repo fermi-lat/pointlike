@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Fri Jul 26 17:54:54 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lctemplate.py 
+Log Message:
+Add missing energy default.
+
+    *
+------------------------------------------------------------
 User: kerrm  Fri Jul 26 17:54:42 PDT 2013
 pointlike/python/uw/pulsar
 
