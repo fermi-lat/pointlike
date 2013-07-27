@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.30 2013/07/16 03:01:08 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.31 2013/07/25 04:33:19 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -89,9 +89,13 @@ class ParFile(dict):
                 comment_counter += 1
             known_key = False
             for key in self.ordered_keys:
-                if tok[0] == key: known_key = True
+                if tok[0] == key:
+                    known_key = True
             if known_key:
-                if len(self[tok[0]][-1]) == 1: self[tok[0]] = [self[tok[0]]]
+                # TODO -- figure out why I put this in! clearly breaks
+                # pathological cases like two identical PEPOCHs specified
+                if len(self[tok[0]][-1]) == 1:
+                    self[tok[0]] = [self[tok[0]]]
                 self[tok[0]] += [tok[1:]]
             else:
                 self.ordered_keys.append(tok[0])               
