@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.32 2013/07/27 00:54:42 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.33 2013/07/27 18:51:57 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -574,6 +574,12 @@ def get_resids(par,tim,emax=None,phase=False,get_mjds=False):
     mjds = np.array([x[2] for x in toks],dtype=np.float128)
     # if we are restricting large error bars, remove their contribution
     # to the RMS
+    if phase:
+        # convert to phase
+        p = ParFile(par).p()*1e6 # period in mus
+        errs /= p
+        resi /= p
+    # apply emax *after* phase correction to be consistent
     if emax is not None:
         mask = errs < emax
         resi -= resi[mask].mean()
@@ -581,11 +587,6 @@ def get_resids(par,tim,emax=None,phase=False,get_mjds=False):
     else:
         dof = len(resi)
         mask = np.asarray([True]*dof)
-    if phase:
-        # convert to phase
-        p = ParFile(par).p()*1e6 # period in mus
-        errs /= p
-        resi /= p
     chi2 = ((resi[mask]/errs[mask])**2).sum()
     if get_mjds:
         return resi,errs,chi2,dof,mjds
