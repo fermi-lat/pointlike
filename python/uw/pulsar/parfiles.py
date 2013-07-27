@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.31 2013/07/25 04:33:19 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.32 2013/07/27 00:54:42 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -560,17 +560,18 @@ def get_bats_etc(par,tim,output=None,full_output=False,binary=False):
     else:
         return bats,errs,phas
 
-def get_resids(par,tim,emax=None,phase=False):
+def get_resids(par,tim,emax=None,phase=False,get_mjds=False):
     if not os.path.isfile(par):
         raise IOError('Ephemeris %s is not a valid file!'%par)
     if not os.path.isfile(tim):
         raise IOError('TOA collection %s is not a valid file!'%tim)
-    cmd = """tempo2 -output general2 -s "onerous\t{err}\t{post}\n" -f %s %s"""%(par,tim)
+    cmd = """tempo2 -output general2 -s "onerous\t{err}\t{post}\t{bat}\n" -f %s %s"""%(par,tim)
     proc = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE)
     toks = [line.split('\t')[1:] for line in proc.stdout if line[:7]=='onerous']
     # NB -- both residuals and errors in microseconds
     errs = np.array([x[0] for x in toks],dtype=np.float128)
     resi = np.array([x[1] for x in toks],dtype=np.float128)*1e6
+    mjds = np.array([x[2] for x in toks],dtype=np.float128)
     # if we are restricting large error bars, remove their contribution
     # to the RMS
     if emax is not None:
@@ -586,6 +587,8 @@ def get_resids(par,tim,emax=None,phase=False):
         errs /= p
         resi /= p
     chi2 = ((resi[mask]/errs[mask])**2).sum()
+    if get_mjds:
+        return resi,errs,chi2,dof,mjds
     return resi,errs,chi2,dof
 
 def tim_filter(tim,thresh=5,output=None):
