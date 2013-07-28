@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.33 2013/05/09 21:20:38 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.34 2013/05/14 15:39:43 burnett Exp $
 
 """
 import types
@@ -105,7 +105,7 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
             if not None, it defines a subset of the parameter numbers to select
                 to define a projected function to fit
             int:  select the corresponding parameter number
-            string: select parameters according to maching rules
+            string: select parameters according to matching rules
                 The name of a source (with possible wild cards) to select for fitting
                 If initial character is '_', match the rest with parameter names
                 if initial character is '_' and last character is '*', treat as wild card
@@ -145,12 +145,13 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
                 print '%d calls, function value, improvement: %.0f, %.1f'\
                     % (self.calls, w, w - initial_value)
             if fit_kw['estimate_errors'] :
-                self.sources.set_covariance_matrix(mm.cov_matrix, select)
+                self.sources.set_covariance_matrix(mm.cov_matrix, selected)
             if summarize: self.summary(selected)
             return mm
         except FloatingPointError, e:
             print 'Fit error: restoring parameters since  "%s"' %e 
             self.set_parameters(saved_pars)
+            if not ignore_exception: raise
             return mm
         
         except Exception:
@@ -182,7 +183,7 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
     def get_source(self, source_name=None):
         return self.sources.find_source(source_name)
         
-    def summary(self, select=None, out=None, title=None, gradient=True):
+    def summary(self, select=None, exclude=None, out=None, title=None, gradient=True):
         """ summary table of free parameters, values uncertainties gradient
         
         Parameters:
@@ -204,20 +205,19 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
             fmt +='%10s'; tup += ('gradient',)
         print >>out, fmt %tup
         prev=''
-        if type(select)==types.StringType:
-            src = self.get_source(select)
-            select = [i for i in range(len(self.get_parameters())) if self.parameter_names[i].startswith(src.name)]
+        selected = self._selector(select, exclude)
 
         for index, (name, value, rsig) in enumerate(zip(self.parameter_names, self.model_parameters, self.sources.uncertainties)):
-            if select is not None and index not in select: continue
+            if selected is not None and index not in selected: continue
             t = name.split('_')
             pname = t[-1]
             sname = '_'.join(t[:-1])
             #sname,pname = name.split('_',1)
             if sname==prev: name = len(sname)*' '+'_'+pname
             prev = sname
-            fmt = '%-21s%6d%10.4g%10.1f'
-            tup = (name,index, value,rsig*100)
+            fmt = '%-21s%6d%10.4g%10s'
+            psig = '%.1f'%(rsig*100) if rsig>0 and not np.isnan(rsig) else '***'
+            tup = (name,index, value,psig)
             if gradient:
                 fmt +='%10.1f'; tup += (grad[index],)
             print >>out,  fmt % tup
