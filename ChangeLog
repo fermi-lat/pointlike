@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sat Jul 27 18:00:20 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	toagen.py 
+Log Message:
+Fix profile method for TOAs with fiducial point near 0.
+
+    *
+------------------------------------------------------------
 User: kerrm  Sat Jul 27 12:33:58 PDT 2013
 pointlike/python/uw/pulsar
 
