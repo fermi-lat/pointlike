@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Jul 28 08:27:44 PDT 2013
+pointlike/python/uw/utilities
+
+Modified Files:
+	fitter.py 
+Log Message:
+heed warning on change to diagonal()
+    *
+------------------------------------------------------------
 User: kerrm  Sat Jul 27 18:00:20 PDT 2013
 pointlike/python/uw/pulsar
 
