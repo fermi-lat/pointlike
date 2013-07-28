@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.16 2013/07/16 03:00:22 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.17 2013/07/25 04:33:50 kerrm Exp $
 
 Calculate TOAs with a variety of methods.
 
@@ -234,8 +234,17 @@ class UnbinnedTOAGenerator(TOAGenerator):
             self.prev_peak = x0
         else:
             x0 = self.prev_peak # track solution with "fake" TOA
-        peak_shift = (x0 - self.phi0)
-        tau     = (peak_shift - polyco_phase0)
+        peak_shift = x0-self.phi0
+        # check for phase wraps
+        if peak_shift < 0:
+            # check for TOA wrapped higher
+            if abs(peak_shift+1) < abs(peak_shift):
+                peak_shift += 1
+        elif peak_shift > 0:
+            # check for predicted phase wrapped higher
+            if abs(peak_shift-1) < abs(peak_shift):
+                peak_shift -= 1
+        tau = peak_shift - polyco_phase0
         tau_err = x0_err
         if self.display: 
             print 'Peak Shift: %.5f +/- %.5f'%(peak_shift,tau_err)
@@ -403,10 +412,12 @@ def profile_analysis(logl,logl_args,pred_phase=None,nsamp=100,thresh=5,
     # (4) if given a predicted phase, choose the peak closest to it as
     # TOA; otherwise, the global minimum
     if (mask.sum() > 1) and (pred_phase is not None):
-        d1 = np.abs(dom-pred_phase)
-        d2 = np.abs(pred_phase+(1-dom))
-        d3 = np.abs(dom-(pred_phase-1))
-        diffs = np.minimum(np.minimum(d1,d2),d3)
+        diffs = np.abs(dom-pred_phase)
+        diffs = np.minimum(diffs,1-diffs)
+        #d1 = np.abs(dom-pred_phase)
+        #d2 = np.abs(pred_phase+(1-dom))
+        #d3 = np.abs(dom-(pred_phase-1))
+        #diffs = np.minimum(np.minimum(d1,d2),d3)
         idx = np.argmin(diffs[mask])
     else:
         idx = np.argmin(cod[mask])
@@ -490,7 +501,9 @@ def profile_analysis(logl,logl_args,pred_phase=None,nsamp=100,thresh=5,
         tau_err = 100
     # this is to catch aliases and prevent following TOAs from having
     # incorrect seed phase
-    if (abs(tau-pred_phase)>max_jump):
+    diff = abs(tau-pred_phase)
+    diff = min(diff,1.-diff)
+    if diff > max_jump:
         tau_err = 100
         tau = pred_phase
     return tau,tau_err,fmin
