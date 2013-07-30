@@ -1,7 +1,7 @@
 """
 Description here
 
-$Header: /phys/users/glast/python/uw/like2/analyze/pulsarseedcheck.py,v 1.144 2013/06/18 12:35:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/pulsarseedcheck.py,v 1.1 2013/06/21 20:15:31 burnett Exp $
 
 """
 
@@ -15,9 +15,5 @@ class PulsarSeedCheck(seedcheck.SeedCheck):
         self.load()
 
     def all_plots(self):
-        """ Results of analysis of pulsar seeds
-        %(info)s
-        """
-        self.info = self.df.describe().to_html()
-        self.runfigures([self.seed_cumulative_ts, self.unassoc_seed_cumulative_ts, self.spectral_parameters, self.localization],
-                ('pulsar_cumulative_ts', 'pulsar_unassoc_cumulative_ts', 'pulsar_spectral_pars', 'pulsar_localization'))
+        self.runfigures([self.seed_list, self.seed_cumulative_ts, self.unassoc_seed_cumulative_ts, self.spectral_parameters, self.localization],
+                ('pulsar_seed_table', 'pulsar_cumulative_ts', 'pulsar_unassoc_cumulative_ts', 'pulsar_spectral_pars', 'pulsar_localization'))
