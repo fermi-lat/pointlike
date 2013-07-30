@@ -1,21 +1,24 @@
 """
 Description here
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/seedcheck.py,v 1.2 2013/06/20 19:59:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/seedcheck.py,v 1.3 2013/07/12 13:37:17 burnett Exp $
 
 """
-
+import os
 import numpy as np
 import pylab as plt
 import pandas as pd
 
 from . import sourceinfo, diagnostics, _html
+from ._html import HTMLindex
+from .diagnostics import FloatFormat
+
 
 class SeedCheck(sourceinfo.SourceInfo):
     """Analysis of a set of seeds
-    
-    %(cut_summary)s
     """
+    #Cut summary: %(cut_summary)s
+    #"""
     require='seedcheck.zip'
     def setup(self, **kw):
         self.plotfolder = self.seedname='seedcheck'
@@ -180,17 +183,19 @@ class SeedCheck(sourceinfo.SourceInfo):
     def seed_list(self):
         """ Results of analysis of seeds
         %(info)s
+        <p>A <a href="../../%(csv_file)s?download=true">csv file</a> is also available.
         """
         t = self.df_good
         good_seeds = 'good_seeds.csv'
-        t.to_csv(good_seeds)
-        print 'wrote list that succeeded to %s' % good_seeds
+        self.csv_file = os.path.join(self.plotfolder,good_seeds)
+        t.to_csv(self.csv_file)
+        print 'wrote list that succeeded to %s' % self.csv_file
         filename = 'good_seeds.html'
         html_file = self.plotfolder+'/%s' % filename
         htmldoc = diagnostics.html_table(t, float_format=diagnostics.FloatFormat(2))
-        open(html_file,'w').write('<head>\n'+ html.HTMLindex.style + '</head>\n<body>'+ htmldoc+'\n</body>')
+        open(html_file,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+ htmldoc+'\n</body>')
 
-        self.info = ' ' 
+        self.info = self.df['ts eflux pindex r95 locqual aprob'.split()].describe().to_html().replace('%', '%%')
         self.info += '<br><a href="%s?skipDecoration">Table of %d seeds</a>: '% (filename, len(t))
         self.info += '<p>Association summary:' #\n<pre>%s\n</pre>' %self.assoc_sum
         self.info += '<table border="1"><thead><tr><th>Catalog</th><th>Sources</th></tr></thead>\n<tbody>'
