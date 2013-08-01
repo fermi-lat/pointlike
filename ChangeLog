@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Jul 31 18:54:35 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lctemplate.py 
+Log Message:
+Fix potential bug in behavior of random phase method.
+
+    *
+------------------------------------------------------------
 User: burnett  Tue Jul 30 15:59:30 PDT 2013
 pointlike/python/uw/like2/analyze
 
