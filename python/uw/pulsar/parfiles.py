@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.34 2013/07/27 19:33:58 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.35 2013/08/01 01:54:52 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -187,9 +187,10 @@ class ParFile(dict):
 
     def is_msp(self,maxp=0.03,maxpdot=1e-18):
         # hard cut on period to catch energetic msps
-        if self.p() < 0.018: return True
+        if self.p() < 0.018:
+            return True
         # otherwise, restrict to lower rectangle of P/Pdot space
-        return (self.p() < maxp) and (self.pdot() < maxpdot) and (not self.has_waves())
+        return (self.p() < maxp) and (self.pdot() < maxpdot)
 
     def get_time_cuts(self):
         import datetime
