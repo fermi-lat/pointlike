@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.33 2013/07/27 18:51:57 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.34 2013/07/27 19:33:58 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -479,6 +479,13 @@ class ParFile(dict):
                 if key[2:4] != 'EP':
                     self.set(key,0)
         return no_glitches
+
+    def get_glepochs(self):
+        glepochs = []
+        for key in self.keys():
+            if key[:4] == 'GLEP':
+                glepochs.append(self.get(key,type=np.float128))
+        return glepochs
 
     def get_wave_string(self,epoch=None):
         """ Return a sting suitable for appending to an ephemeris giving
