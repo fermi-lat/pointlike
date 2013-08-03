@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.141 2012/11/22 16:34:43 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.142 2013/05/27 18:04:36 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -574,11 +574,12 @@ class Model(object):
             return (p,z,z) if two_sided else (p,z) 
         elif not two_sided:
             vars = np.diag(self.get_cov_matrix())
-            vars[vars<0]=0
+            vars[(vars<0)]=0
+            p[p==0]=1e-6
             errs = vars**0.5 
             return p,errs/(1 if absolute else p)
         else:
-            vars = np.diag(self.internal_cov_matrix)
+            vars = np.diag(self.internal_cov_matrix).copy()
             vars[vars<0]=0
             errs = vars**0.5
             lo_rat = p - np.asarray([self.mappers[i].toexternal(self.getp(i,internal=True) - errs[i]) 
@@ -602,7 +603,8 @@ class Model(object):
     def error(self,i):
         """ Get the EXTERNAL error for parameter i """
         i=self.name_mapper(i)
-        return (np.diag(self.get_cov_matrix())**0.5)[i]
+        variance = self.get_cov_matrix()[i,i]
+        return np.sqrt(variance) if variance>0 else 0.
 
     def set_error(self,i,error):
         """ Set the INTERNAL error for parameter i 
@@ -2238,6 +2240,7 @@ class CompositeModel(Model):
             array([ 3.,  4.,  5.,  6.])
 
         """
+        assert np.all(self.free), 'This version of set_parameters does not handle non-free parameters'
         counter=0
         for n,model in zip(self.npars,self.models):
             model.set_parameters(new_vals[counter:counter+n])
@@ -2293,7 +2296,7 @@ class FrontBackConstant(CompositeModel):
     
     def set_parameters(self,new_vals):
         """ Set FREE internal parameters; new_vals should have length equal to number of free parameters.
-        Special version overriding CompositeModel, which does not seem to work for this class
+        Special version overriding CompositeModel, which does not allow non-free parameters
         """
         assert(len(new_vals)==(self.free).sum()), 'problem with FrontBackConstant: %s'%new_vals
         if len(new_vals)==1: # only setting one
