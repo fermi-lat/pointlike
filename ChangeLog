@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Aug  3 11:21:13 PDT 2013
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+small fixes, especially to avoid warnings from numpy change
+    *
+------------------------------------------------------------
 User: burnett  Sat Aug  3 11:09:36 PDT 2013
 pointlike/python/uw/like2/analyze
 
