@@ -1,7 +1,7 @@
 """
 Galactic diffuse plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/galactic.py,v 1.1 2013/06/21 20:15:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/galactic.py,v 1.2 2013/06/21 20:51:41 burnett Exp $
 
 """
 
@@ -10,6 +10,7 @@ import pandas as pd
 from . import roi_info
 
 class Galactic(roi_info.ROIinfo):
+    """Galactic diffuse plots"""
     def setup(self, **kw):
         super(Galactic, self).setup(**kw)
         self.plotfolder='gal'

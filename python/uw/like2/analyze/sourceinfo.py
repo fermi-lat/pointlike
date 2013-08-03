@@ -1,7 +1,7 @@
 """
 Basic analyis of source spectra
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.6 2013/07/12 13:37:17 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.7 2013/07/21 15:17:52 burnett Exp $
 
 """
 
@@ -12,15 +12,13 @@ import pylab as plt
 import pandas as pd
 
 from uw.utilities import makepivot
-from . import diagnostics
-from . diagnostics import FloatFormat
-from . _html import HTMLindex
+from . import analysis_base, _html
+from analysis_base import html_table, FloatFormat
 
-
-class SourceInfo(diagnostics.Diagnostics):
-    """ To be superclass for specific source plot stuff, creates or loads
-        a DataFrame with all sources 
-        """
+class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
+    """Source spectral properties 
+    <br>See <a href="../localization/index.html?skipDecoration"> localization </a> for localization plots.
+    """
     require='pickle.zip'
     def setup(self, **kwargs):
         self.plotfolder='sources' #needed by superclass
@@ -249,8 +247,8 @@ class SourceInfo(diagnostics.Diagnostics):
             filename = 'non_pulsar_tails.html'
             html_file = self.plotfolder+'/%s' % filename
             #html = tails.sort_index(by='roiname').to_html(float_format=FloatFormat(2))
-            html = diagnostics.html_table(tails, float_format=FloatFormat(2))
-            open(html_file,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+ html+'\n</body>')
+            html = html_table(tails, float_format=FloatFormat(2))
+            open(html_file,'w').write('<head>\n'+ _html.style + '</head>\n<body>'+ html+'\n</body>')
             self.tail_check = '<p><a href="%s?skipDecoration">Table of %d sources on tails</a>: '% (filename, len(tails))
             self.tail_check += 'Criteria: require index between 1 and 3.5 for powerlaw, beta<2.0 for log parabola'
             # flag sources
@@ -267,7 +265,7 @@ class SourceInfo(diagnostics.Diagnostics):
         if sum(beta_bad)>0:
             print '%d sources fail beta check' % sum(beta_bad)
             self.beta_check ='<br>Sources failing beta 2-sigma significance check' +\
-            diagnostics.html_table(t[beta_bad]['ts beta beta_unc freebits roiname'.split()], float_format=FloatFormat(2))
+            html_table(t[beta_bad]['ts beta beta_unc freebits roiname'.split()], float_format=FloatFormat(2))
             
         return fig
         
@@ -333,8 +331,8 @@ class SourceInfo(diagnostics.Diagnostics):
             filename = 'pulsar_tails.html'
             html_file = self.plotfolder+'/%s' % filename
             #html = tails.sort_index(by='roiname').to_html(float_format=FloatFormat(2))
-            html = diagnostics.html_table(tails.sort_index(by='roiname'), float_format=FloatFormat(2))
-            open(html_file,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+ html+'\n</body>')
+            html = html_table(tails.sort_index(by='roiname'), float_format=FloatFormat(2))
+            open(html_file,'w').write('<head>\n'+ _html.style + '</head>\n<body>'+ html+'\n</body>')
             self.pulsar_tail_check = '<p><a href="%s?skipDecoration">Table of %d sources on tails</a>: '% (filename, len(tails))
             self.pulsar_tail_check += 'Criteria: require index between 0 and 2.5, cutoff<8 GeV'
         else:
@@ -347,8 +345,8 @@ class SourceInfo(diagnostics.Diagnostics):
         tt=t[t.index2<1]['ts fitqual pindex cutoff index2 index2_unc'.split()]
         tt['significance'] = (1-tt.index2)/tt.index2_unc
         html_file = self.plotfolder+'/%s' % filename
-        html = diagnostics.html_table(tt,float_format=FloatFormat(2))
-        open(html_file,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+ html+'\n</body>')
+        html = html_table(tt,float_format=FloatFormat(2))
+        open(html_file,'w').write('<head>\n'+ _html.style + '</head>\n<body>'+ html+'\n</body>')
         self.pulsar_b = '<p><a href="%s?skipDecoration">Table of %d sources with b&lt;1</a> '% (filename, len(tt))
         print '%d pulsar sources with b<1' %len(tt)
 
@@ -356,7 +354,7 @@ class SourceInfo(diagnostics.Diagnostics):
         tt = t[(t.freebits&7!=7)]['ts fitqual pindex cutoff freebits roiname'.split()].sort_index(by='roiname')
         if len(tt)>0:
             print '%d pulsar-like sources with fixed parameters' %len(tt)
-            self.pulsar_fixed='<p>Sources with any fixed parameter other than b: %s' % diagnostics.html_table(tt, float_format=FloatFormat(2))
+            self.pulsar_fixed='<p>Sources with any fixed parameter other than b: %s' % html_table(tt, float_format=FloatFormat(2))
         else: self.pulsar_fixed=''
         return fig
     
@@ -429,7 +427,7 @@ class SourceInfo(diagnostics.Diagnostics):
         if len(t)>0:
             self.badfit = t[['ts', 'errs', 'roiname']]
             #self.badfit_check = '<h4>Sources with missing errors:</h4>'+self.badfit.to_html(float_format=FloatFormat(1))
-            self.badfit_check = '<h4>Sources with missing errors:</h4>'+diagnostics.html_table(self.badfit, float_format=FloatFormat(1))
+            self.badfit_check = '<h4>Sources with missing errors:</h4>'+html_table(self.badfit, float_format=FloatFormat(1))
         else: self.badfit_check = '<p>All sources fit ok.'
         self.fit_quality_average =  ', '.join( map(lambda x,n :'%s: %.1f' %(n,x) ,
                             self.average, 'powerlaw logparabola expcutoff(hilat) expcutoff(lolat)'.split()) )
@@ -447,10 +445,10 @@ class SourceInfo(diagnostics.Diagnostics):
         poorfit_html = self.plotfolder+'/poorfits.html'
         #t_html = '<h3>Table of poorly-fit sources, model %s</h3>'%self.skymodel + t.to_html(float_format=FloatFormat(2),
         #        formatters=dict(ra=FloatFormat(3), dec=FloatFormat(3), ts=FloatFormat(0),index2=FloatFormat(3)))
-        t_html = '<h3>Table of poorly-fit sources, model %s</h3>'%self.skymodel + diagnostics.html_table(t,float_format=FloatFormat(2),
+        t_html = '<h3>Table of poorly-fit sources, model %s</h3>'%self.skymodel + html_table(t,float_format=FloatFormat(2),
                 formatters=dict(ra=FloatFormat(3), dec=FloatFormat(3), ts=FloatFormat(0),index2=FloatFormat(3)))
 
-        open(poorfit_html,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+t_html+'\n</body>')
+        open(poorfit_html,'w').write('<head>\n'+ _html.style + '</head>\n<body>'+t_html+'\n</body>')
         self.poorfit_table = '<p> <a href="poorfits.html?skipDecoration"> Table of %d poor fits, with fitqual>30 or abs(pull0)>3</a>' % (  len(t) )
         # flag sources that made it into the list
         self.df.flags[t.index] |= 2
@@ -567,7 +565,7 @@ class SourceInfo(diagnostics.Diagnostics):
         lolat = fluxcut*(~latcut)
         
         lowebad = np.abs(pull)>3
-        self.df.flags[lowebad] += 4
+        s.flags[lowebad] += 4
         print 'Tagged %d sources with lowebad bit (4)' % sum(lowebad)
 
         y = fdata/fmodel
@@ -637,7 +635,7 @@ class SourceInfo(diagnostics.Diagnostics):
         for x in (0, 10, 25):
             census[x] = [count(prefix, x) for prefix in prefixes]
         self.census_data=pd.DataFrame(census, index=prefixes)
-        self.census_html = '\n<h4>Prefixes</h4>\n'+diagnostics.html_table(self.census_data)
+        self.census_html = '\n<h4>Prefixes</h4>\n'+html_table(self.census_data)
         
         # now check suffixes
         self.primary_prefix=primary_prefix
@@ -646,12 +644,9 @@ class SourceInfo(diagnostics.Diagnostics):
         scounts = lambda  r : int(sum([c[x] for x in r if x in c.keys()]))
         suffixranges = ('ABCDEF', 'GHIJKL', 'MNO', 'PQRSTUVW', 'XYZ')
         sdict = dict([(r[0]+'-'+r[-1], [scounts(r)]) for r in suffixranges])
-        self.census_html += '\n<h4>Suffixes</h4>\n'+diagnostics.html_table(pd.DataFrame(sdict, index=['freq']).T)
+        self.census_html += '\n<h4>Suffixes</h4>\n'+html_table(pd.DataFrame(sdict, index=['freq']).T)
 
     def all_plots(self):
-        """ Plots of source properties, from analysis of spectral fits. 
-        See <a href="../localization/index.html?skipDecoration"> localization </a> for localization plots.
-        """
         version = os.path.split(os.getcwd())[-1]
         plt.close('all')
         csvfile='sources_%s.csv' % version
@@ -679,7 +674,7 @@ class SourceInfo(diagnostics.Diagnostics):
         self.flagged_link = """\
         <p>A number of these sources have been flagged to indicate potential issues. 
         The flag bits and number flagged as such are:
-        %s<br>  """ % diagnostics.html_table(flagtable, href=False)
+        %s<br>  """ % html_table(flagtable, href=False)
         try:
             pc =makepivot.MakeCollection('flagged sources %s' % os.path.split(os.getcwd())[-1], 'sedfig', 'flagged_sources.csv')
             self.flagged_link += """\

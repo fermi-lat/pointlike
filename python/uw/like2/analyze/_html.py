@@ -1,23 +1,17 @@
 """
 Manage the Web page generation
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/_html.py,v 1.3 2013/07/12 17:29:38 burnett Exp $
+$Header:$
 """
 import os, glob
 import pandas as pd
 
-def header(title=''):
-        """ return HTML for start of a document """
-        return '<!DOCTYPE html>\n<head><title>%s</title>\n' %title + HTMLindex.style + HTMLindex.mathjax +'</head>\n'
- 
-class HTMLindex():
-    """ Manage the web browser pages
-    """
-    style="""
+style="""
 <style type="text/css">
 body, th, td {	font-family:verdana,arial,sans-serif;
 	font-size:10pt;
 	margin:10px;
-	background-color:white;	}
+	background-color:white;
+	}
 p   { font-size:10pt; margin-left:25pt; }
 pre { font-size:10pt; margin-left:25pt; 
     border-style:solid;    border-width:thin;}
@@ -29,95 +23,157 @@ table.topmenu {border-style:solid; border-width:0px}
 table, th, td { padding: 3px; }
 td {text-align:center;}
 td.index {text-align:left;}
-td.integer {text-align:right;}
 a:link { text-decoration: none ; color:green}
 a:hover { background-color:yellow; }
-img {display: block; margin-left: 50pt;}
-</style>"""
+</style>
+"""
 
-    menu_header="""<!DOCTYPE html>\n<html> <head> <title>%(model)s index</title> %(style)s 
-    <script> function load(){ parent.content.location.href='%(model_summary)s';} </script>
-    </head>
-<body onload="load()">
+menu_header="""<!DOCTYPE html>
+<html> 
+<head> <title>%(name)s</title>
+<style type="text/css">
+body{	font-family:verdana,arial,sans-serif; font-size:10pt;	margin:10px;
+	background-color:white;	}
+a:link { text-decoration: none ; color:green}
+a:hover { background-color:yellow; }
+</style>
+</head>
+""" 
+   
+dd_menu_header="""<!DOCTYPE html>
+<html> 
+<head> <title>%(name)s</title>
+<link rel="stylesheet" type="text/css" href="%(include)s/flexdropdown.css" />
+<style type="text/css">
+body{	font-family:verdana,arial,sans-serif; font-size:10pt;	margin:10px;
+	background-color:white;	}
+h4 {margin-left:15pt;}
+a:link { text-decoration: none ; color:green}
+a:hover { background-color:yellow; }
+</style>
+
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js"></script>
+
+<script type="text/javascript" src="%(include)s/flexdropdown.js">
+
+/***********************************************
+* Flex Level Drop Down Menu- (c) Dynamic Drive DHTML code library (www.dynamicdrive.com)
+* This notice MUST stay intact for legal use
+* Visit Dynamic Drive at http://www.dynamicdrive.com/ for this script and 100s more
+***********************************************/
+
+</script>
+</head>
+"""
+
+model_menu_header="""<!DOCTYPE html>\n<html> 
+<head> <title>%(model)s index</title>
+<style type="text/css">
+body{	font-family:verdana,arial,sans-serif;
+	font-size:10pt;	margin:10px;
+	background-color:white;
+	}
+a:link { text-decoration: none ; color:green}
+a:hover { background-color:yellow; }
+</style>
+</head>
+<body>
 <h2><a href="%(upper_link)s?skipDecoration">%(upper)s</a>%(model)s</h2>"""
 
-    top_nav="""<html> <head> <title>Top Nav</title> %(style)s 
-    <script> function load(){ parent.menu.location.href = '%(last_model)s';} </script>
+top_nav= """<html> <head> <title>Top Nav</title> %(style)s 
     </head>
-<body onload="load()">
+<body>
 <h3>skymodels/%(upper)s</h3>""" 
 
-    mathjax=r"""<script type="text/x-mathjax-config">
+mathjax=r"""<script type="text/x-mathjax-config">
      MathJax.Hub.Config({tex2jax: {
       inlineMath: [['$','$'], ["\\(","\\)"]], 
       displayMath: [ ['$$','$$'],["\\[", "\\]"]],
       processEscapes: true},
       TeX: { equationNumbers: {autoNumber: "AMS"}},});
-    </script>
-    <script type="text/javascript"
+</script>
+<script type="text/javascript"
        src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
-    </script>"""
+</script>
+"""
 
-    def __init__(self, folder='plots/*'):
-        self.style = HTMLindex.style
-    
-        w= glob.glob(folder)
-        if len(w)==0: 
-            print 'Did not find any plot folders under %s' % folder
-        z = dict( zip(w, [glob.glob(a+'/*.htm*') for a in w] ) )
-        w = os.getcwd().split('/')
-        self.upper = w[-2]+'/'
-        self.upper_link = '../../plot_index.html'
+def header(title=''):
+    """ return HTML for start of a document """
+    return '<!DOCTYPE html>\n<head><title>%s</title>\n' %title + style + mathjax +'</head>\n'
+
+class DDmenu():
+    """ manage a menu document using the Dynamic Drive DHTML code library (www.dynamicdrive.com)
+    """
+    def __init__(self, name, depth=2):
+        self.menuname = name
+        self.doc = dd_menu_header%dict(name=name, include='../'*depth+'plot_browser/includes')\
+            + '\n<body>'
+
+    def folder(self, name=None, **kw):
+        """ must set id, href, text in kw
+        """
+        self.doc += '\n<h4> <a href="%(href)s" data-flexmenu="%(id)s"> %(text)s</a> </h4>' % kw
+        self.doc += '\n <ul id="%(id)s" class="flexdropdownmenu">' % kw
+
+    def item(self, name):
+        """ name is full anchor """
+        self.doc += '\n  <li>%s</li>' % name
+        
+    def add_menu(self, menu_html, folder):
+        """ add a menu from a file created by this class """
+        t1 = open(menu_html).read()
+        n,m = t1.find('<body'), t1.find('</body>')
+        assert n>0 and m>0, 'Parsing problem: n,m=%d %d\n %s' % (n,m, t1)
+        t2 = t1[n:m].split('\n')
+        t3='\n'.join(t2[1:-1] ) #
+        self.doc += '\n'+t3.replace('index.html', os.path.join(folder, 'index.html'))
+
+    def save(self, filename):
+        self.doc += '\n </ul>\n</body>'
+        open(filename,'w').write(self.doc)
+
+class HTMLindex():
+    """ Manage the web browser pages
+    """
+    def __init__(self):
+        w = os.getcwd().split(os.path.sep)
         self.model = w[-1] #'/'.join(w[-2:])
-        self.model_summary='plots/config/index.html'
-        s= HTMLindex.menu_header % self.__dict__
-        
-        def parse_item(x):
-            head, tail =os.path.split(x)
-            name = os.path.splitext(tail)[0]
-            n = name.find('_uw')
-            #note the special qualifier for use with the SLAC decorator
-            return '<a href="%s?skipDecoration" target="content">%s</a><br>' % (x,name[:n])
 
-        for k in sorted(z.keys()):
-            v = z[k]
-            if len(v)==0: continue
-            index = '%s/index.html'%k
-            if index in v:
-                v.remove(index)
-                s += '\n<h4><a href="%s?skipDecoration" target="content">%s</a></h4>'% (index, k.split('/')[-1])
+        menu = DDmenu('%s index'%self.model, depth=3)
+        menu.doc +='\n<h2><a href="%(upper_link)s?skipDecoration">%(upper)s</a>%(model)s</h2>'%\
+            dict(upper = w[-2]+'/', upper_link = '../', model=self.model)
+
+        plot_folders = [x.split('/')[1] for x in sorted(glob.glob('plots/*/index.html'))]
+        for folder in plot_folders:
+            menu_html = os.path.join('plots',folder, 'menu.html')
+            if os.path.exists(menu_html):
+                menu.add_menu(menu_html, folder)
             else:
-                s += '\n<h4>%s</h4>'% k.split('/')[-1]
-            s += '\n\t<p>' + '\n\t'.join(map(parse_item, v)) 
-        self.ul = s + '</p>\n</body>'
-        self.make_config_link()
-        
-    def _repr_html_(self):    return self.ul
+                menu.doc += '\n <li><a href="%s">%s</a></li>' % (os.path.join(folder,'index.html'), folder)
+        self.menu = menu
+   
+    def _repr_html_(self):    
+        return self.menu.doc
     
     def make_config_link(self):
-        html = """<head>%s</head><body><h2><a href="../index.html?skipDecoration">%s</a> - configuration and analysis history files</h2>
-        """ %( self.style,self.model)
+        html = """<head>%s</head><body><h2><a href="../../plot_index.html">%s</a> - configuration and analysis history files!!</h2>
+        """ %( self.style,self.model) 
         for filename in ('config.txt', 'dataset.txt', 'converge.txt', 'summary_log.txt'):
             if not os.path.exists(filename): continue
             html += '<h4>%s</h4>\n<pre>%s</pre>' % (filename, open(filename).read())
         html += '\n</body>'
-        if not os.path.exists('plots/config'): os.makedirs('plots/config')
+        if not os.path.exists('plots/config'): os.makedirs('plots/config') #plots/config
         open('plots/config/index.html','w').write(html)
         print 'wrote plots/config/index.html'
         
-    def create_menu(self, filename='plot_index.html'):
-        ###summary = open(filename, 'w')
-        open(filename, 'w').write(self.ul)
-        print 'wrote menu %s' % os.path.join(os.getcwd(),filename)
-        # make separate menu for the Decorator browser
-        t = self.ul.replace('plots/', '')
-        open('plots/index.html', 'w').write(t)
+    def create_menu(self):
+        self.menu.save(os.path.join(os.getcwd(), 'plots/index.html'))
         print 'wrote menu %s' %os.path.join(os.getcwd(), 'plots/index.html')
-
+        
     def update_top(self, filename='../plot_index.html'):
         def parse_path(x): 
             'return relative path, model name'
-            t = x.split('/')
+            t = x.split(os.path.sep)
             return  '/'.join(t[1:]) , t[1]
         def parse_model(x):
             return '<a href="%s?skipDecoration"> %s </a>' %(parse_path(x) )
@@ -136,4 +192,7 @@ img {display: block; margin-left: 50pt;}
         s += '\n</table>\n</body></html>\n'
         open(filename, 'w').write(s)
         print 'wrote top menu %s' % os.path.join(os.getcwd(),filename)
-        
+    
+    @staticmethod
+    def head(title=''):
+        return '<head><title>%s</title>\n'+style+'</head>\n'

@@ -1,7 +1,7 @@
 """
 Plots involving the 1728 ROIs
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/roi_info.py,v 1.1 2013/06/21 20:15:31 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/roi_info.py,v 1.2 2013/07/09 03:13:00 burnett Exp $
 
 """
 
@@ -10,13 +10,15 @@ import numpy as np
 import pylab as plt
 import pandas as pd
 
-from . import diagnostics
+from . import analysis_base #diagnostics
 
-class ROIinfo(diagnostics.Diagnostics):
-    """ setup pickled DataFrame for ROI info.
-    roi name is index
-    columns as the individual ROI, except exclude name itself, and enter only list of source names for sources
-    """
+class ROIinfo(analysis_base.AnalysisBase):
+    """ROI-based plots
+    <br> %(title)s diffuse component. These are based on the 
+            individual ROI fits and examine only the normalization factor. See the spectral information, if present, for more
+            information about the consistency of the model for this component.
+        """
+ 
     require=  'pickle.zip'
     def setup(self, **kwargs):
         self.plotfolder='rois'
@@ -132,7 +134,7 @@ class ROIinfo(diagnostics.Diagnostics):
         """
         ib = kwargs.pop('ib', None)
         if 'cb_kw' not in kwargs:
-            kwargs['cb_kw'] = dict(shrink=0.70, anchor=(-1.0,0.5)) #ugly tweaking
+            kwargs['cb_kw'] = dict(shrink=0.70,) #### something changed? anchor=(-1.0,0.5)) #ugly tweaking
         self.energy_selection= 'E=%.0f' %self.energy[ib] if ib is not None else 'E>100'
         sm = self.model_counts(self.source_name, ib)
         tot = self.model_counts('observed', ib)
@@ -229,8 +231,4 @@ class ROIinfo(diagnostics.Diagnostics):
         return fig
         
     def all_plots(self): #, other_html=None):
-        """ ROI-based plots, for %(title)s diffuse component. These are based on the 
-            individual ROI fits and examine only the normalization factor. See the spectral information, if present, for more
-            information about the consistency of the model for this component.
-        """
         self.runfigures(self.funcs, self.fnames, **self.plots_kw)

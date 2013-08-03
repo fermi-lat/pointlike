@@ -1,7 +1,7 @@
 """
-Description here
+Environment plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.10 2013/07/24 12:57:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.11 2013/07/24 13:05:19 burnett Exp $
 
 """
 
@@ -15,7 +15,7 @@ from scipy import integrate, misc
 from . import roi_info
 
 class Environment(roi_info.ROIinfo):
-    """ Plots associated with the environment"""
+    """ Environment plots"""
 
     
     def setup(self, **kw):

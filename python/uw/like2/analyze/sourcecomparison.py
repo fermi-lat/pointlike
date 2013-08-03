@@ -1,7 +1,7 @@
 """
-Description here
+Comparison with the 2FGL catalog
 
-$Header: /phys/users/glast/python/uw/like2/analyze/sourcecomparison.py,v 1.144 2013/06/18 12:35:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourcecomparison.py,v 1.1 2013/06/21 20:15:31 burnett Exp $
 
 """
 
@@ -14,7 +14,7 @@ from skymaps import SkyDir
 from . import sourceinfo
 
 class SourceComparison(sourceinfo.SourceInfo):
-    """Comparison with the 2FGL catalog
+    """2FGL Comparison
     """
 
     def setup(self, cat='gll_pscP72Y_v5r2_flags_assoc_v5r11p3.fit', #gll_psc_v06.fit', 
@@ -28,27 +28,42 @@ class SourceComparison(sourceinfo.SourceInfo):
         ft = pyfits.open(cat)[1].data
         print 'loaded FITS catalog file %s with %d entries' % (cat, len(ft))
         name = ft.Source_Name
-        ra = ft.RAJ2000
-        dec= ft.DEJ2000
         id_prob = [np.nan]*len(ft)
         try:
             id_prob = ft.ID_Probability[:,0]
         except: pass 
-        cat_skydirs = map (lambda x,y: SkyDir(float(x),float(y)), ra,dec)
+        cat_skydirs = map (lambda x,y: SkyDir(float(x),float(y)), ft.RAJ2000, ft.DEJ2000)
+        
         glat = [s.b() for s in cat_skydirs]
         glon = [s.l() for s in cat_skydirs]
-        # insert space to agree with my PSR name
-        index = ft.NickName # note that need to squeze out blanks for comparison
-        self.cat = pd.DataFrame(dict(ra=ft.RAJ2000,dec= ft.DEJ2000, ts=ft.Test_Statistic, 
+        index = ft.Source_Name 
+        self.cat = pd.DataFrame(dict(nickname=ft.NickName, ra=ft.RAJ2000,dec= ft.DEJ2000, ts=ft.Test_Statistic, 
+                skydir=cat_skydirs,
                 glat=glat, glon=glon, pivot=ft.Pivot_Energy, flux=ft.Flux_Density, modelname=ft.SpectrumType, id_prob=id_prob), 
-            columns = 'ra dec glat glon ts pivot flux modelname id_prob'.split(), # this to order them
-            index=index, ) #Source_Name )
+            columns = 'ra dec glat glon skydir ts pivot flux modelname id_prob'.split(), # this to order them
+            index=index, )
         self.cat.index.name='name'
         
+        def find_close(A,B):
+            """ helper function: make a DataFrame with A index containg columns of the
+            name of the closest entry in B, and its distance
+            A, B : DataFrame objects each with a skydir column
+            """
+            def mindist(a):
+                d = map(a.difference, B.skydir.values)
+                n = np.argmin(d)
+                return (B.index[n], np.degrees(d[n]))
+            return pd.DataFrame( map(mindist,  A.skydir.values),
+                index=A.index, columns=('otherid','distance'))
+                
         if catname=='2FGL':
             print 'generating closest distance to catalog "%s"' % cat
-            closest = np.degrees(np.array([min(map(sdir.difference, cat_skydirs))for sdir in self.df.skydir.values]))
-            self.df['closest'] = closest
+            closedf= find_close(self.df, self.cat)
+            self.df['closest']= closedf['distance']
+            self.df['close_name']=closedf.otherid
+            #closest = np.degrees(np.array([min(map(sdir.difference, cat_skydirs))for sdir in self.df.skydir.values]))
+            #self.df['closest'] = closest
+            closedf.to_csv(os.path.join('plots', self.plotfolder, 'comparison_2FGL.csv'))
             closest2 = np.degrees(np.array([min(map(sdir.difference, self.df.skydir.values)) for sdir in cat_skydirs]))
             self.cat['closest']= closest2
         
@@ -78,8 +93,8 @@ class SourceComparison(sourceinfo.SourceInfo):
         fig,axx = plt.subplots(1,2, figsize=(8,4))
         self.lost = self.cat.closest>close_cut
         print '%d sources from %s further than %.2f deg: consider lost' % (sum(self.lost) , self.catname, close_cut )
-        self.cat.ix[self.lost].to_csv('2fgl_lost.csv')
-        print '\twrite to file "2fgl_lost.csv"'
+        self.cat.ix[self.lost].to_csv(os.path.join(self.plotfolder,'2fgl_lost.csv'))
+        print '\twrite to file "%s"' % os.path.join(self.plotfolder,'2fgl_lost.csv')
         lost_assoc = self.lost * self.cat.id_prob>0.8
 
         def left(ax):

@@ -1,6 +1,6 @@
 """    Description here
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.4 2013/07/12 13:37:17 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.5 2013/07/21 15:18:45 burnett Exp $
 
 """
 
@@ -10,18 +10,17 @@ import pylab as plt
 import pandas as pd
 
 from uw.utilities import makepivot
-from . import (sourceinfo,diagnostics)
+from . import (sourceinfo, _html)
 
-from . diagnostics import FloatFormat
-from . diagnostics import html_table
+from . analysis_base import FloatFormat, html_table
 from . _html import HTMLindex
 
 
 
 class Localization(sourceinfo.SourceInfo):
-    """<h2>Localization summary</h2>
+    """Localization summary
     
-    <p>Plots summarizing the localization of all sources: precision, quality, closeness, and confusion.
+    <br>Plots summarizing the localization of all sources: precision, quality, closeness, and confusion.
     <br><a href="../sources/index.html?skipDecoration">Back to sources</a>
     """
     require='pickles.zip'
@@ -231,7 +230,7 @@ class Localization(sourceinfo.SourceInfo):
             open('poorly_localized_table.html','w').write(tohtml)
             print 'Wrote poorly_localized_table.html'
             open(os.path.join(poorly_localized_tablepath),'w').write(
-                '<head>\n' + HTMLindex.style + '</head>\n<body>\n<h3>Poorly Localized Source Table</h3>'\
+                '<head>\n'  + _html.style + '</head>\n<body>\n<h3>Poorly Localized Source Table</h3>'\
                             +  tohtml+'\n</body>')
             print 'saved html doc to %s' % os.path.join(poorly_localized_tablepath)
             self.poorly_localized_table_check =\
