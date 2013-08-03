@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Aug  3 12:40:19 PDT 2013
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	sourceinfo.py 
+Log Message:
+fix for new numpy
+    *
+------------------------------------------------------------
 User: burnett  Sat Aug  3 12:39:48 PDT 2013
 pointlike/python/uw/like2/analyze
 
