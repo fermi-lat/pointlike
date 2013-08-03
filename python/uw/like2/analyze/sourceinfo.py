@@ -1,7 +1,7 @@
 """
 Basic analyis of source spectra
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.7 2013/07/21 15:17:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.8 2013/08/03 18:09:36 burnett Exp $
 
 """
 
@@ -38,7 +38,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                     pars[:n] = model.parameters
                     free[:n] = model.free
                     try:
-                        d = np.diag(model.get_cov_matrix())
+                        d = np.diag(model.get_cov_matrix()).copy()
                         d[d<0] =0
                         errs[:n] = np.sqrt(d)
                         errs[np.isnan(errs)]=-1
