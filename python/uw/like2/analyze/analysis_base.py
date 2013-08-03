@@ -117,7 +117,7 @@ class AnalysisBase(object):
         divider = Divider(fig, (0.1, 0.1, 0.8, 0.8), horiz, vert, aspect=False)
         for i,ax in enumerate(axx.flatten()):
             iy = i//nx; ix = i%nx
-            ax.set_axes_locator(divider.new_locator(nx=2*ix, ny=2*iy)
+            ax.set_axes_locator(divider.new_locator(nx=2*ix, ny=2*iy))
         return fig, axx
         
     def savefigure(self, name, func=None, title=None, caption=None, section='', **kwargs):
