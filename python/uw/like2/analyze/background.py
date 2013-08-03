@@ -1,6 +1,6 @@
 """
 background analysis
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/background.py,v 1.3 2013/07/21 15:15:08 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/background.py,v 1.4 2013/07/24 00:27:22 burnett Exp $
 
 """
 import os, glob
@@ -10,10 +10,11 @@ import pylab as plt
 from scipy import integrate
 from skymaps import SkyDir
 from . import roi_info
-from . diagnostics import FloatFormat, html_table
+from . analysis_base import FloatFormat, html_table
 
 class Background(roi_info.ROIinfo):
-    r"""This is an analysis of the sensitivity of point source analysis to the presence of 
+    r"""Background sensitivity analysis
+    <br>This is an analysis of the sensitivity of point source analysis to the presence of 
     diffuse background. The ingredients are the PSF and the galactic and isotropic background fluxes.
     <br>
     Detailed results are presented for weak and strong high- and low-latitude sources.

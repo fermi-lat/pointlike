@@ -1,7 +1,7 @@
 """
 Application module, allowing command-line access to analysis/plotting tasks
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/app.py,v 1.10 2013/07/12 13:38:27 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/app.py,v 1.11 2013/07/18 12:24:32 burnett Exp $
 
 """
 _locs = locals().keys()
@@ -15,6 +15,7 @@ import sys, types
 class AppMenu(dict):
     
     def __init__(self, names):
+        assert len(names)>0, 'AppMenu failed: no module names available'
         super(AppMenu,self).__init__(zip(names, map(self._create_entry, names)))
         
     def _create_entry(self, name):
@@ -38,10 +39,15 @@ class AppMenu(dict):
 
     def __call__(self, name, reloadit=False):
         """ return an object for the class in this module, optionally reloading it"""
+        try:
+            pk = self[name]
+        except:
+            print 'KeyError: "%s" not in %s' % (name, sorted(self.keys()))
+            raise
         if reloadit:
-            print reload(self[name]['module'])
-            self[name]= self._create_entry(name)
-        return self[name]['classobj']()
+            print reload(pk['module'])
+            pk = self[name]= self._create_entry(name)
+        return pk['classobj']()
 
         
     def __str__(self):
