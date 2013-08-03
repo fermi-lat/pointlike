@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Sat Aug  3 12:39:48 PDT 2013
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	__init__.py _html.py 
+Added Files:
+	config.py 
+Log Message:
+added config
+    *
+------------------------------------------------------------
 User: burnett  Sat Aug  3 11:21:13 PDT 2013
 pointlike/python/uw/like
 
