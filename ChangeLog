@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: burnett  Sat Aug  3 11:09:36 PDT 2013
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	_html.py app.py background.py collection.py data.py 
+	diagnostics.py environment.py export.py find_peak.py 
+	galactic.py localization.py roi_info.py sourcecomparison.py 
+	sourceinfo.py 
+Log Message:
+reorganize with renamed base class analysis_base.AnalysisBase
+    *
+------------------------------------------------------------
 User: burnett  Fri Aug  2 16:34:44 PDT 2013
 pointlike/python/uw/like2/analyze
 
