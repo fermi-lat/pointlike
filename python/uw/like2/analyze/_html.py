@@ -1,6 +1,6 @@
 """
 Manage the Web page generation
-$Header:$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/_html.py,v 1.5 2013/08/03 18:09:36 burnett Exp $
 """
 import os, glob
 import pandas as pd
@@ -80,8 +80,16 @@ a:hover { background-color:yellow; }
 <body>
 <h2><a href="%(upper_link)s?skipDecoration">%(upper)s</a>%(model)s</h2>"""
 
-top_nav= """<html> <head> <title>Top Nav</title> %(style)s 
-    </head>
+top_nav= """<html> 
+<head> <title>Top Nav</title>
+<style type="text/css">
+body{	font-family:verdana,arial,sans-serif; font-size:10pt;	margin:10px;
+	background-color:white;	}
+h4 {margin-left:15pt;}
+a:link { text-decoration: none ; color:green}
+a:hover { background-color:yellow; }
+</style> 
+</head>
 <body>
 <h3>skymodels/%(upper)s</h3>""" 
 
@@ -138,10 +146,10 @@ class HTMLindex():
     def __init__(self):
         w = os.getcwd().split(os.path.sep)
         self.model = w[-1] #'/'.join(w[-2:])
-
+        self.upper = w[-2]+'/'
         menu = DDmenu('%s index'%self.model, depth=3)
         menu.doc +='\n<h2><a href="%(upper_link)s?skipDecoration">%(upper)s</a>%(model)s</h2>'%\
-            dict(upper = w[-2]+'/', upper_link = '../', model=self.model)
+            dict(upper=self.upper , upper_link = '../', model=self.model)
 
         plot_folders = [x.split('/')[1] for x in sorted(glob.glob('plots/*/index.html'))]
         for folder in plot_folders:
@@ -156,15 +164,7 @@ class HTMLindex():
         return self.menu.doc
     
     def make_config_link(self):
-        html = """<head>%s</head><body><h2><a href="../../plot_index.html">%s</a> - configuration and analysis history files!!</h2>
-        """ %( self.style,self.model) 
-        for filename in ('config.txt', 'dataset.txt', 'converge.txt', 'summary_log.txt'):
-            if not os.path.exists(filename): continue
-            html += '<h4>%s</h4>\n<pre>%s</pre>' % (filename, open(filename).read())
-        html += '\n</body>'
-        if not os.path.exists('plots/config'): os.makedirs('plots/config') #plots/config
-        open('plots/config/index.html','w').write(html)
-        print 'wrote plots/config/index.html'
+        print '***Warning: make_config_link should not be called: use config analysis module'
         
     def create_menu(self):
         self.menu.save(os.path.join(os.getcwd(), 'plots/index.html'))
@@ -184,7 +184,7 @@ class HTMLindex():
         models = sorted(glob.glob('../*/plots/index.html'), reverse=True)
         assert len(models)>0, 'No models found?'
         self.last_model = parse_path(models[0])[0]
-        s = HTMLindex.top_nav % self.__dict__
+        s = top_nav % self.__dict__
         s += '\n<table class="topmenu">'
         for m in models:
             s += '\n  <tr><td valign="top" class="index">%s</td>'% parse_model(m)
