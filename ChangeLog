@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sat Aug  3 17:49:28 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+Prettify output and add method for replacing astrometry block.
+
+    *
+------------------------------------------------------------
 User: burnett  Sat Aug  3 12:40:31 PDT 2013
 pointlike/python/uw/like2/analyze
 
