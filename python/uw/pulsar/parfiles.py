@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.37 2013/08/04 00:49:28 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.38 2013/08/04 03:28:54 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -22,9 +22,11 @@ def sex2dec(s,mode='ra'):
 def ra2dec(s): return sex2dec(s,mode='ra')
 def decl2dec(s): return sex2dec(s,mode='decl')
 def pad(s,n): return s + ' '*(n-len(s))
-def pad20(s): return pad(s,20)
-def pad30(s): return pad(s,30)
-def pad28(s): return pad(s,28)
+def pad26(s): 
+    """ Specialized version to handle single bit (free/fixed) flags."""
+    if len(s)==1:
+        return s+'  '
+    return pad(s,26)
 
 class StringFloat(object):
     """ Use strings and python longs to handle float strings with arbitrary
@@ -340,7 +342,7 @@ class ParFile(dict):
                     val = s.join([v for v in substrings])
                 else:
                     try:
-                        val = ''.join(map(pad28,val))
+                        val = ''.join(map(pad26,val))
                     except TypeError:
                         print key,val
             # ensure a space for long keys
