@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Aug  4 10:31:28 PDT 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	check_converge.py 
+Log Message:
+add total CPU info
+    *
+------------------------------------------------------------
 User: burnett  Sun Aug  4 07:55:23 PDT 2013
 pointlike/python/uw/like2/analyze
 
