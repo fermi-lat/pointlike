@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.35 2013/08/01 01:54:52 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.36 2013/08/01 23:14:44 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -21,6 +21,9 @@ def sex2dec(s,mode='ra'):
 
 def ra2dec(s): return sex2dec(s,mode='ra')
 def decl2dec(s): return sex2dec(s,mode='decl')
+def pad(s,n): return s + ' '*(n-len(s))
+def pad20(s): return pad(s,20)
+def pad30(s): return pad(s,30)
 
 class StringFloat(object):
     """ Use strings and python longs to handle float strings with arbitrary
@@ -79,9 +82,12 @@ class ParFile(dict):
         if not os.path.exists(parfile):
             raise IOError('Indicated file %s does not exist.'%parfile)
         self.parfile = parfile
+        self.init()
+
+    def init(self):
         self.ordered_keys = []
         comment_counter = 0
-        for line in file(parfile):
+        for line in file(self.parfile):
             tok = line.strip().split()
             if len(tok)==0: continue
             if line.strip()[0] == '#': # handle comments
@@ -324,7 +330,7 @@ class ParFile(dict):
             if key[0] == '#': # handle comments
                 key = key.split('COMMENT')[0]
             else:
-                key = key + ' '*(20-len(key))
+                key = pad20(key)
             if hasattr(val,'__iter__'):
                 if hasattr(val[0],'__iter__'):
                     # multiple vals are mapped to same key
@@ -333,7 +339,7 @@ class ParFile(dict):
                     val = s.join([v for v in substrings])
                 else:
                     try:
-                        val = '  '.join(val)
+                        val = ''.join(map(pad30,val))
                     except TypeError:
                         print key,val
             # ensure a space for long keys
@@ -457,6 +463,24 @@ class ParFile(dict):
             self.ordered_keys.append(key)
         self[key] = val
 
+    def delete_key(self,key):
+        try:
+            idx = self.ordered_keys.index(key)
+            self.ordered_keys.pop(idx)
+            self.pop(key)
+        except ValueError:
+            pass
+
+    def delete_val(self,val):
+        """ Attempt to remove an entry by value."""
+        vals = [self[k] for k in self.ordered_keys]
+        try:
+            idx = vals.index(val) 
+            key = self.ordered_keys.pop(idx)
+            self.pop(key)
+        except ValueError:
+            pass
+
     def has_glitches(self):
         for key in self.keys():
             if 'GLEP' in key:
@@ -500,6 +524,32 @@ class ParFile(dict):
         epoch = epoch or self['WAVEEPOCH']
         return 'WAVEEPOCH %s\n'%(epoch) + \
             '\n'.join(map(lambda s: '%s 0 0'%s,keys))
+
+    def replace_astrometry(self,block,output=None):
+        """ Replace the astrometry in the ephemeris with the string
+            indicated in block.  Note that we wish to preserve it verbatim
+            since it may include comments and errors.  Therefore, delete
+            any existing conflicting entries, then prepend this to the
+            file and reload it.
+        """
+        # remove all duplicate keys
+        keys = [l.split()[0] for l in block.split('\n') if l[0] != '#']
+        map(self.delete_key,keys)
+        # remove duplicate comments (e.g. if this has been done before)
+        comm = [l[1:] for l in block.split('\n') if l[0] == '#']
+        map(self.delete_val,comm)
+
+        output = output or self.parfile
+        self.write(output)
+        lines = map(str.strip,file(output).readlines())
+        idx = 0
+        for line in lines:
+            if 'PSRJ' in line:
+                break
+            idx += 1
+        file(output,'w').write('\n'.join(
+            lines[:idx+1]+block.split('\n')+lines[idx+1:]))
+        self.init()
                     
 
 class TimFile(object):
