@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.39 2013/08/04 23:34:20 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.40 2013/08/05 05:44:57 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -651,7 +651,10 @@ def get_resids(par,tim,emax=None,phase=False,get_mjds=False):
     else:
         dof = len(resi)
         mask = np.asarray([True]*dof)
-    chi2 = ((resi[mask]/errs[mask])**2).sum()
+    if not np.any(mask):
+        chi2 = 0
+    else:
+        chi2 = ((resi[mask]/errs[mask])**2).sum()
     if get_mjds:
         return resi,errs,chi2,dof,mjds
     return resi,errs,chi2,dof
