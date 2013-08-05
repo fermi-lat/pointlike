@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Aug  4 20:26:54 PDT 2013
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	background.py environment.py 
+Log Message:
+add diffuse correction analysis
+    *
+------------------------------------------------------------
 User: kerrm  Sun Aug  4 16:34:20 PDT 2013
 pointlike/python/uw/pulsar
 
