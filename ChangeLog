@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sun Aug  4 22:44:58 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+Ensure fields in par file always have a trailing space!
+
+    *
+------------------------------------------------------------
 User: burnett  Sun Aug  4 20:26:54 PDT 2013
 pointlike/python/uw/like2/analyze
 
