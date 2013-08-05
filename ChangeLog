@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sun Aug  4 23:43:33 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+Handle degenerate case for chi2 in get_resids.
+
+    *
+------------------------------------------------------------
 User: kerrm  Sun Aug  4 22:44:58 PDT 2013
 pointlike/python/uw/pulsar
 
