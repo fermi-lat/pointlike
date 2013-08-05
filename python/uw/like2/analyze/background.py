@@ -1,19 +1,19 @@
 """
 background analysis
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/background.py,v 1.4 2013/07/24 00:27:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/background.py,v 1.5 2013/08/03 18:09:36 burnett Exp $
 
 """
 import os, glob
 import pandas as pd
 import numpy as np
 import pylab as plt
-from scipy import integrate
+from scipy import integrate, optimize
 from skymaps import SkyDir
 from . import roi_info
 from . analysis_base import FloatFormat, html_table
 
 class Background(roi_info.ROIinfo):
-    r"""Background sensitivity analysis
+    r"""Background analysis, including corrections and sensitivity
     <br>This is an analysis of the sensitivity of point source analysis to the presence of 
     diffuse background. The ingredients are the PSF and the galactic and isotropic background fluxes.
     <br>
@@ -233,6 +233,55 @@ class Background(roi_info.ROIinfo):
             meas_sig=',measured relative flux error',pred_sig=',predicted relative flux error'),float_format= FloatFormat(2))
         return fig
     
-    
+    def gal_corrections(self, bands=8):
+        """Galactic diffuse corrections
+        Analysis of the correction factors used for this model.<p>  %(correction_info)s
+            <p>The diffuse correction factors were obtained by optimizing the IEM component separately
+            for every ROI and the 8 bands below 10 GeV. Here we examine how well each of three alternate 
+            strategies can account for these corrections:
+            <ol><li>No correction
+            <li>Adjust total flux only
+            <li>Adjust the flux and spectral slope
+            </ol> 
+            <p>The histograms show the results, comparing the corrected values the prediction of each fit.
+            The scale is percent, and the caption shows the RMS for each case.
+        """
+        try:
+            corr_csv = self.config['diffuse']['ring']['correction']
+            self.correction_info='Correction info file: "%s"' % corr_csv
+        except Exception, msg:
+            print '*** no correction file found %s' % msg
+            self.correction_info='No correction file foound'
+            return
+        t = self.get_background(888)[0].values[:bands]
+        weights = t/t.sum()
+        galcor = pd.read_csv(corr_csv, index_col=0)
+        resid =  []
+        pars1 = []
+        pars2 = []
+        for r, y in galcor.iterrows():
+            ydata = y.values[:bands] # just to 1 GeV, even weighting
+            func1 = lambda params: (ydata - params[0])*weights
+            par1, code = optimize.leastsq(func1, (0,))
+            func2 = lambda params: (ydata - params[0] - params[1]*np.arange(bands))*weights
+            par2, code = optimize.leastsq(func2, (0,0))
+            pars1.append( par1)
+            pars2.append( par2 )
+            resid.append([ 100.*u for u in (ydata-1, func1(par1), func2(par2))])
+        resid = np.array(resid)
+
+        fig, axx = plt.subplots(2,2, figsize=(10,10), sharex=True)
+        plt.subplots_adjust(wspace=0.1)
+        for j,ax in enumerate(axx.flatten()):
+            for i,label in enumerate(('no corr', 'average', 'linear')):
+                d = resid[:,i,j]
+                ax.hist(d, np.linspace(-5,5,51), lw=2, histtype='step', 
+                    label=label+' %.2f'%d.std())
+            ax.grid()
+            ax.legend(prop = dict(size=10))
+            plt.setp(ax, xlabel='residual band %d'%j, xlim=(-5,5))
+            
+        return fig 
+   
     def all_plots(self):
-        self.runfigures([self.introduction, self.plot_resolution,  self.psf_background,self.diffuse_flux,])
+        self.runfigures([self.introduction, self.plot_resolution,  self.psf_background,self.diffuse_flux, self.gal_corrections,])
