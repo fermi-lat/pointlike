@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Fri Aug  9 15:24:29 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+Add a method for converting decimal to column-separated sexagesimal.
+
+    *
+------------------------------------------------------------
 User: kerrm  Tue Aug  6 15:24:14 PDT 2013
 pointlike/python/uw/pulsar
 
