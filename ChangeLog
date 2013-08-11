@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sun Aug 11 14:09:44 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	toagen.py 
+Log Message:
+Fix bug to skip check when no predicted phase given.
+
+    *
+------------------------------------------------------------
 User: kerrm  Fri Aug  9 15:24:29 PDT 2013
 pointlike/python/uw/pulsar
 
