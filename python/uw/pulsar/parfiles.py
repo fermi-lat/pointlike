@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.42 2013/08/06 22:24:13 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.43 2013/08/09 22:24:28 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -23,14 +23,13 @@ def ra2dec(s): return sex2dec(s,mode='ra')
 def decl2dec(s): return sex2dec(s,mode='decl')
 def dec2sex(d,mode='ra'):
     """ Convert decimal degree to column separated format."""
-    scale = 15. if mode=='ra' else 1. # scale to convert largest unit
-    sign = 1 if mode=='ra' else (-1 if d < 0 else 1)
+    scale = 15. if mode=='ra' else 1. # scale to deg to hour (ra) or deg
+    sign = '' if mode=='ra' else ('-' if d < 0 else '+')
     d = float(abs(d))
     dg = int(d/scale)
     mi = int((d/scale-dg)*60.)
     ss = ((d/scale-dg)*60-mi)*60
-    pref='' if mode=='ra' else ('+' if sign>0 else '-')
-    return '%s%02d:%02d:%.6f'%(pref,dg,mi,ss)
+    return '%s%02d:%02d:%.6f'%(sign,dg,mi,ss)
 def pad(s,n):
     if len(s) >= n:
         return s + ' ' # always have a trailing space!
