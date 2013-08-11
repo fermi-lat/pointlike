@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.17 2013/07/25 04:33:50 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.18 2013/07/28 01:00:20 kerrm Exp $
 
 Calculate TOAs with a variety of methods.
 
@@ -501,10 +501,11 @@ def profile_analysis(logl,logl_args,pred_phase=None,nsamp=100,thresh=5,
         tau_err = 100
     # this is to catch aliases and prevent following TOAs from having
     # incorrect seed phase
-    diff = abs(tau-pred_phase)
-    diff = min(diff,1.-diff)
-    if diff > max_jump:
-        tau_err = 100
-        tau = pred_phase
+    if pred_phase is not None:
+        diff = abs(tau-pred_phase)
+        diff = min(diff,1.-diff)
+        if diff > max_jump:
+            tau_err = 100
+            tau = pred_phase
     return tau,tau_err,fmin
 
