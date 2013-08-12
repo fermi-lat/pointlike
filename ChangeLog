@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Mon Aug 12 12:16:45 PDT 2013
+pointlike/python/uw/darkmatter
+
+Modified Files:
+	spatial.py 
+Log Message:
+Added some hardcoded values for effective edges of various models. Revamped the location of the pkl table.
+    *
+------------------------------------------------------------
 User: kadrlica  Mon Aug 12 12:15:00 PDT 2013
 pointlike/python/uw/darkmatter
 
