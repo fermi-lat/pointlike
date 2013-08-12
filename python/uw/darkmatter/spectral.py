@@ -1,6 +1,6 @@
 """ Dark Matter spectral models
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/darkmatter/spectral.py,v 1.13 2012/12/23 02:04:08 kadrlica Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/darkmatter/spectral.py,v 1.14 2013/04/02 15:07:44 kadrlica Exp $
 
     author: Alex Drlica-Wagner, Joshua Lande
 """
@@ -66,6 +66,10 @@ class DMFitFunction(Model):
             >>> dnde = [ 9.55801576e-18, 2.04105211e-16,  4.43719263e-16, 1.00123992e-16, 1.44911940e-18, 0.0, 0.0 ]
             >>> print np.allclose(model(e), dnde)
             True
+
+         TODO: The limits of integration when calculating the flux should be
+         limited by the DM particle mass. Otherwise, this can lead to numerical
+         instability in the fit.
     """
     default_p=[1e-25, 100.]
     default_extra_params=dict(norm=1e18, bratio=1.0, channel0=1, channel1=1)
@@ -95,7 +99,7 @@ class DMFitFunction(Model):
         3  :  ["tau+tau-","tautau","tausrc"] ,
         4  :  ["bb-bar","bb","bbbar","bbsrc"],
         5  :  ["tt-bar","tt"]                ,
-        6  :  ["gluons"]                     ,
+        6  :  ["gluons","gg"]                ,
         7  :  ["W+W-","w+w-","ww","wwsrc"]   ,
         8  :  ["ZZ","zz"]                    ,
         9  :  ["cc-bar","cc"]                ,
@@ -104,9 +108,46 @@ class DMFitFunction(Model):
         12 :  ["ss-bar","ss"]                ,
         }
 
+    channel_tex = {
+        1  :  r'$e^{+}e^{-}$'                ,
+        2  :  r'$\mu^{+}\mu^{-}$'            ,
+        3  :  r'$\tau^{+}\tau^{-}$'          ,
+        4  :  r'$b \bar b$'                  ,
+        5  :  r'$t \bar t$'                  ,
+        6  :  r'$gg$'                        ,
+        7  :  r'$W^{+}W^{-}$'                ,
+        8  :  r'$ZZ$'                        ,
+        9  :  r'$c \bar c$'                  ,
+        10 :  r'$u \bar u$'                  ,
+        11 :  r'$d \bar d$'                  ,
+        12 :  r'$s \bar s$'                  ,
+    }
+
+    @staticmethod
+    def channel2int(s):
+        for k,v in DMFitFunction.channel_mapping.items():
+            if s in v: return k
+        else:  raise ValueError("Can't find value %s"%s)
+
+    @staticmethod
+    def channel2tex(ch):
+        if ch in DMFitFunction.channel_tex.keys():
+            return DMFitFunction.channel_tex[ch]
+        elif ch in DMFitFunction.channels():
+            return DMFitFunction.channel_tex[DMFitFunction.channel2int(ch)]
+        else:  raise ValueError("Can't find channel %s"%ch)
+
+    @staticmethod
+    def int2channel(i):
+        return DMFitFunction.channel_mapping[i][0]
+
+    @staticmethod
+    def channels():
+        """ Return all available DMFit channel strings """
+        return [s for channel in DMFitFunction.channel_mapping.values() for s in channel]
 
     def full_name(self):
-        return '%s, norm=%.1f, bratio=%.1f channel0=%d, channel1=%d' % (self.pretty_name,
+        return '%s, norm=%.2g, bratio=%.1f channel0=%d, channel1=%d' % (self.pretty_name,
                                                                         self.norm, self.bratio, 
                                                                         self.channel0, self.channel1)
 
@@ -137,6 +178,9 @@ class DMFitFunction(Model):
         self.dmf.setParam('channel0',self.channel0)
         self.dmf.setParam('channel1', self.channel1)
 
+        # Set flux integration energy cut to slightly higher than the mass
+        self.ecut = 1.1 * self['mass'] * 1e3 # Energy cutoff (MeV)
+
     def __init__(self,  *args, **kwargs):
         import pyLikelihood
 
@@ -148,6 +192,9 @@ class DMFitFunction(Model):
         # unbound all parameters in gtlike
         for n in np.append(self.param_names,['norm','bratio','channel0','channel1']):
             self.dmf.getParam(n).setBounds(-float('inf'),float('inf'))
+
+        # Integrated flux calculation energy cutoff
+        self.ecut = None
 
         self.dmf.readFunction(path.expand(self.file))
         self._update() # update all parameters in DMFitFunction
@@ -177,22 +224,6 @@ class DMFitFunction(Model):
     def __call__(self,e):
         """ Return energy in MeV. This could be vectorized. """
         return DMFitFunction.call_pylike_spectrum(self.dmf, e)
-
-    @staticmethod
-    def channel2int(s):
-        for k,v in DMFitFunction.channel_mapping.items():
-            if s in v: return k
-        else:  raise ValueError("Can't find value %s"%s)
-
-    @staticmethod
-    def int2channel(i):
-        return DMFitFunction.channel_mapping[i][0]
-
-    @staticmethod
-    def channels():
-        """ Return all available DMFit channel strings """
-        return [s for channel in DMFitFunction.channel_mapping.values() for s in channel]
-
 
 class ComprehensiveModel(CompositeModel):
     """ Implements a "Comprehensive Model" needed for comparing non-nested
