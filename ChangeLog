@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Mon Aug 12 12:15:00 PDT 2013
+pointlike/python/uw/darkmatter
+
+Modified Files:
+	spectral.py 
+Log Message:
+Added some channel parsing and added an energy cut for spectral integration (will only work with update to Models.py)
+    *
+------------------------------------------------------------
 User: kerrm  Sun Aug 11 14:10:00 PDT 2013
 pointlike/python/uw/pulsar
 
