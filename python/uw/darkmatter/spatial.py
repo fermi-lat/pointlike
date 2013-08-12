@@ -1,25 +1,33 @@
 """A set dark matter spatial models for pointlike analyses
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spatial.py,v 1.7 2012/08/10 00:14:05 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/darkmatter/spatial.py,v 1.8 2012/09/27 21:36:51 lande Exp $
 
     author: Joshua Lande, Alex Drlica-Wagner
 """
 import numpy as np
-import pickle
+import os, pickle
 from uw.utilities import path
 from uw.like.SpatialModels import RadiallySymmetricModel, SMALL_ANALYTIC_EXTENSION, PseudoSpatialModel
 from uw.like.SpatialModels import InterpProfile2D, smart_log
 
 # Degrees, should come from the file...
+#relpath=os.path.dirname(os.path.relpath(__file__))
+#abspath=os.path.dirname(os.path.abspath(__file__))
+#realpath=os.path.dirname(os.path.realpath(__file__))
+#dirname=os.path.dirname(__file__)
+basedir = os.path.dirname(os.path.realpath(__file__))
 
 class NFW(InterpProfile2D):
-    def __init__(self, file='$(INST_DIR)/pointlike/python/uw/darkmatter/jvalue_table.pkl', **kwargs):
+    def __init__(self, file='%s/jvalue_table.pkl'%basedir, **kwargs):
 
         """ This class returns the angular profile of the line-of-sight integral
         through the NFW density profile squared. This spatial model is normalized
         such that the integral over the emission radius is 1. To retrieve a physical
         description, it is necessary to multiply the spatial distribution by the factors
         rhos**2 * rs * self.scalefactor.
+
+        WARNING: Referring to INST_DIR is trouble if pointlike you are pointing
+        to a HEAD of pointlike not in INST_DIR
 
         The pickle input file is created with the CVS controlled script:
         user/mdwood/python/dsph/jtable.py
@@ -61,11 +69,11 @@ class NFW(InterpProfile2D):
 
     def effective_edge(self,energy=None):
         """ Clip at the 99% quantile """
-        return self.quantile(.99)
-
+        #return self.quantile(.99) # r99 ~ 3*self.sigma
+        return min(3*self.sigma,self.r_in_degrees[-1])
 
 class Einasto(InterpProfile2D):
-    def __init__(self, file='$(INST_DIR)/pointlike/python/uw/darkmatter/jvalue_table.pkl', **kwargs):
+    def __init__(self, file='%s/jvalue_table.pkl'%basedir, **kwargs):
 
         """ This class returns the angular profile of the line-of-sight integral
         through the Einasto density profile squared. This spatial model is normalized
@@ -101,11 +109,11 @@ class Einasto(InterpProfile2D):
 
     def effective_edge(self,energy=None):
         """ Clip at the 99% quantile """
-        return self.quantile(.99)
-
+        #return self.quantile(.99) # r99 ~ 5.2*self.sigma
+        return min(5.2*self.sigma,self.r_in_degrees[-1])
 
 class Burkert(InterpProfile2D):
-    def __init__(self, file='$(INST_DIR)/pointlike/python/uw/darkmatter/jvalue_table.pkl', **kwargs):
+    def __init__(self, file='%s/jvalue_table.pkl'%basedir, **kwargs):
 
         """ This class returns the angular profile of the line-of-sight integral
         through the Burkert density profile squared. This spatial model is normalized
@@ -141,7 +149,8 @@ class Burkert(InterpProfile2D):
 
     def effective_edge(self,energy=None):
         """ Clip at the 99% quantile """
-        return self.quantile(.99)
+        #return self.quantile(.99) # r99 ~ 2.6*self.sigma
+        return min(2.6*self.sigma,self.r_in_degrees[-1])
 
 ### DEPRICATED: Spatial models using an approximate formulation.
 class PingNFW(RadiallySymmetricModel):
