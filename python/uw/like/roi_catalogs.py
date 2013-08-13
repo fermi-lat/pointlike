@@ -1,7 +1,7 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.26 2012/08/03 17:30:51 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_catalogs.py,v 1.27 2012/10/06 00:06:55 lande Exp $
 
 author: Joshua Lande
 """
@@ -254,7 +254,11 @@ class BaseCatalog2FGL(SourceCatalog):
                 model=LogParabola(norm=n0, index=ind, beta=beta, e_break=pen)
                 model.freeze('e_break')
             elif stype == 'PLExpCutoff':
-                model=ExpCutoff(norm=n0, index=ind, cutoff=cutoff, e0=pen)
+                # PLExpCutoff is defined by Eq. 1 of the 2FGL paper:
+                # dN/dE = K*(E/E_pivot)**-gamma * exp(-(E - E_pivot)/E_cutoff)
+                # This forces a correction factor to match pointlike ExpCutoff
+                norm = n0 * np.exp(pen/cutoff)
+                model=ExpCutoff(norm=norm, index=ind, cutoff=cutoff, e0=pen)
             elif stype == 'PLSuperExpCutoff':
                 model=PLSuperExpCutoff(norm=n0, index=ind, cutoff=cutoff, e0=pen)
             else:
