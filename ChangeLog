@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Tue Aug 13 11:46:49 PDT 2013
+pointlike/python/uw/like
+
+Modified Files:
+	roi_catalogs.py 
+Log Message:
+Normalization correction when converting between 2FGL PLExpCutoff and pointlike ExpCutoff catalog
+    *
+------------------------------------------------------------
 User: kadrlica  Mon Aug 12 12:16:45 PDT 2013
 pointlike/python/uw/darkmatter
 
