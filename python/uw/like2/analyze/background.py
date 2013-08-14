@@ -1,6 +1,6 @@
 """
 background analysis
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/background.py,v 1.5 2013/08/03 18:09:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/background.py,v 1.6 2013/08/05 03:26:54 burnett Exp $
 
 """
 import os, glob
@@ -22,7 +22,7 @@ class Background(roi_info.ROIinfo):
     
     def introduction(self):
         r"""Introduction: Resolution for a point source
-        The following is from a derivation of the relative resolution for a fit to the flux from a point source, 
+        The following is from a <a href="../../../../../documents/background_systematics.htm">derivation</a> of the relative resolution for a fit to the flux from a point source, 
         with fixed spectral parameters:
         $$\begin{equation}  \frac{1}{{\sigma_s}^2} = \sum\limits_k    
           \int \mathrm{d}\Omega  \frac{P_k(\theta)^2}{ \alpha_k P_k(\theta)+\beta_k }
@@ -173,6 +173,12 @@ class Background(roi_info.ROIinfo):
     def resolution(self, source_name, s=1):
         """ Return a data frame with resolution information
         s is a scale factor, to examine dependence on flux
+        
+        bratio : beta/alpha, where beta is averate diffuse density for ROI, alpha the source counts
+        gratio : beta/alpha, beta for galactic only. (So bratio-gratio is isotropic)
+        pfun : value of the integral of P**2/(P+r), where P=PSR, r = bratio
+        snratio: P(0)/bratio , signal/noise
+        ivar : s * pfun, the expected inverse variance per bin
         """
         def Pfun( energy, ct, r):
             def f(x):
@@ -180,15 +186,18 @@ class Background(roi_info.ROIinfo):
                 return x * P**2 /(r + P)
             return 2.*np.pi * integrate.quad(f, 0, np.pi/6) [0]
         try:
-            p=self.sdict[source_name]
-            data = np.array([self.band_energy, self.source_type, p['counts'], p['bgcounts'][0], p['bgcounts'][1]])
+            p=self.sdict[source_name.replace(' ','_').replace('+','p')]
+            data = np.array([self.band_energy.round(0), self.source_type, 
+                p['counts'].round(0), p['bgcounts'][0].round(0), p['bgcounts'][1].round(0)])
         except:
             print '***Failed to find resolution info for source %s' % source_name
             raise
         df = pd.DataFrame(data, index='energy ct source gal iso'.split()).T
         alpha = s * df.source
         df['bratio']=(df.gal+df.iso)/self.solid_angle/alpha
+        df['gratio']=(df.gal)/self.solid_angle/alpha
         df['pfun'] = [Pfun(e,ct,br) for e,ct, br in zip(df.energy, df.ct, df.bratio)]
+        df['snratio'] = np.array([self.psf(e, int(ct), 0.)[0] for e,ct in zip(df.energy,df.ct)]) / df.bratio 
         df['ivar'] = alpha * df.pfun
         return df
         
@@ -243,8 +252,8 @@ class Background(roi_info.ROIinfo):
             <li>Adjust total flux only
             <li>Adjust the flux and spectral slope
             </ol> 
-            <p>The histograms show the results, comparing the corrected values the prediction of each fit.
-            The scale is percent, and the caption shows the RMS for each case.
+            <p>The histograms show the results, the residuals from comparing the corrected values with the prediction of each fit.
+            The scale is percent, and the plot legends show the RMS for each case.
         """
         try:
             corr_csv = self.config['diffuse']['ring']['correction']
