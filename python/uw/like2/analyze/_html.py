@@ -1,6 +1,6 @@
 """
 Manage the Web page generation
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/_html.py,v 1.7 2013/08/04 14:55:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/_html.py,v 1.8 2013/08/05 14:14:49 burnett Exp $
 """
 import os, glob
 import pandas as pd
@@ -48,7 +48,7 @@ dd_menu_header="""<!DOCTYPE html>
 <style type="text/css">
 body{	font-family:verdana,arial,sans-serif; font-size:10pt;	margin:10px;
 	background-color:white;	}
-h4 {margin-left:15pt;}
+h4 {margin-left:10pt; -webkit-margin-after: 0px; -webkit-margin-before: 2em; }
 a:link { text-decoration: none ; color:green}
 a:hover { background-color:yellow; }
 </style>
@@ -154,7 +154,7 @@ class HTMLindex():
             if os.path.exists(menu_html):
                 menu.add_menu(menu_html, folder)
             else:
-                menu.doc += '\n <li><a href="%s">%s</a></li>' % (os.path.join(folder,'index.html'), folder)
+                menu.doc += '\n <h4><a href="%s?skipDecoration">%s</a></h4>' % (os.path.join(folder,'index.html'), folder)
         self.menu = menu
    
     def _repr_html_(self):    
