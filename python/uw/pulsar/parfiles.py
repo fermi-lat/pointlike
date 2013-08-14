@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.43 2013/08/09 22:24:28 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.44 2013/08/11 21:10:00 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -11,6 +11,7 @@ import os
 import subprocess
 from uw.utilities.coords import ec2eq
 from collections import deque
+import tempfile
 
 C = 29979245800.
 
@@ -344,6 +345,7 @@ class ParFile(dict):
             val = self[key]
             if key[0] == '#': # handle comments
                 key = key.split('COMMENT')[0]
+                print key
             else:
                 key = pad(key,20)
             if hasattr(val,'__iter__'):
@@ -357,8 +359,8 @@ class ParFile(dict):
                         val = ''.join(map(pad26,val))
                     except TypeError:
                         print key,val
-            # ensure a space for long keys
-            if key[-1] != ' ':
+            # ensure a space for long keys; ignore comments
+            if (key[-1] != ' ') and (key[0]!='#'):
                 key += ' '
             f.write('%s%s\n'%(key,val))
         f.close()
@@ -675,6 +677,16 @@ def get_resids(par,tim,emax=None,phase=False,get_mjds=False):
         return resi,errs,chi2,dof,mjds
     return resi,errs,chi2,dof
 
+def get_toa_strings(tim):
+    """ Return a list of strings for all TOA entries."""
+    lines = filter(lambda x: x[0] != 'C',file(tim).readlines())
+    if not lines[0].startswith('FORMAT 1'):
+        raise ValueError('Cannot parse non-tempo2 style TOA files.')
+    lines = filter(lambda x: x[0] == ' ',lines)
+    if not lines[-1].endswith('\n'):
+        lines[-1] = lines[-1] + '\n'
+    return lines
+
 def tim_filter(tim,thresh=5,output=None):
     """ Parse a likelihood file and attempt to comment out TOAs that do
         not pass a likelihood (detection) threshold.
@@ -734,8 +746,8 @@ def tim_faker(tim,tim_shifts,thresh=5,output=None):
             continue
     file(output,'w').write(''.join(new_lines))
 
+"""
 def add_phase(tim,abs_phase,output=None):
-    """ Add an absolute phase flag to a .tim file."""
     output = output or tim
     lines = file(tim).readlines()
     new_lines = deque()
@@ -758,6 +770,47 @@ def add_phase(tim,abs_phase,output=None):
         raise ValueError('Found %d phases for %d TOAs!'%(
             len(abs_phase),counter))
     file(output,'w').write(''.join(new_lines))
+"""
+
+def add_flag(tim,flag,vals,output=None):
+    """ Add a flag to the TOAs in an output file with the specified value.
+        If the flag is already present, the value is replaced.
+        
+        The user may specify either a single value for all TOAs (e.g. a flag
+        to specify a jump) or a value for each and every TOA."""
+    output = output or tim
+    lines = file(tim).readlines()
+    new_lines = deque()
+    counter = 0
+    flagstr = '-%s'%flag
+    if not hasattr(vals,'__iter__'):
+        vals = [vals]*len(lines)
+        one2one = False
+    else:
+        one2one = True
+    for iline,line in enumerate(lines):
+        new_lines.append(line)
+        if line[0] != ' ':
+            continue
+        new_lines.pop()
+        ph = str(vals[counter])
+        toks = line.split()
+        try:
+            idx = toks.index(flagstr)
+            toks[idx+1] = ph
+            new_lines.append(' '+' '.join(toks)+'\n')
+        except ValueError:
+            new_lines.append(line.strip('\n')+' %s %s\n'%(flagstr,ph))
+        counter += 1
+    if one2one and (counter != len(vals)):
+        raise ValueError('Found %d vals for %d TOAs!'%(len(vals),counter))
+    file(output,'w').write(''.join(new_lines))
+
+def add_phase(tim,abs_phase,output=None):
+    """ Add an absolute phase flag to a TOA file.  abs_phase is a vector
+        containing the (integer) pulse number for each TOA."""
+    abs_phase = [int(x) for x in abs_phase]
+    add_flag(tim,'pn',abs_phase,output=output)
 
 def mask_tim(tim,mask,output=None):
     output = output or tim
@@ -778,3 +831,83 @@ def mask_tim(tim,mask,output=None):
             new_lines.append(nl)
         counter += 1
     file(output,'w').write(''.join(new_lines))
+
+def cut_tim(tim,tmin=None,tmax=None,output=None):
+    """ Trim out TOAs before tmin / after tmax."""
+    tmin = tmin or -np.inf
+    tmax = tmax or np.inf
+    tim_strings = deque()
+    lines = file(tim).readlines()
+    if 'FORMAT 1' not in lines[0]:
+        raise ValueError('Cannot parse non-tempo2 style TOA files.')
+    for line in lines:
+        tim_strings.append(line)
+        if line[0]==' ':
+            mjd = float(line.split()[2])
+            if not((mjd >= tmin) and (mjd < tmax)):
+                tim_strings.pop()
+    if output is not None:
+        file(output,'w').write(''.join(tim_strings))
+    return tim_strings
+
+def flag_filter(tim,flag,valfunc=lambda x: True):
+    """ Sort through a TOA file and return a mask containing those lines
+        that have a flag with the correct value."""
+    if flag[0] != '-':
+        flag = '-'+flag
+    toa_strings = get_toa_strings(tim)
+    def f(s):
+        s = s.split()
+        try:
+            idx = s.index(flag)
+            return idx==(len(s)-1) or valfunc(s[idx+1])
+        except ValueError:
+            return False
+    return np.argwhere(map(f,toa_strings)).flatten()
+
+def merge_tim(timfiles,output,tmin=None,tmax=None):
+    """ Merge TOA files, applying time cuts if desired."""
+    f = lambda x: 'FORMAT' not in x
+    g = lambda x: ''.join(filter(f,cut_tim(x,tmin=tmin,tmax=tmax)))
+    tim_strings = ''.join(map(g,timfiles))
+    file(output,'w').write('FORMAT 1\n%s'%(tim_strings))
+
+def compute_jump(par,tim,flags,vals,tmin=None,tmax=None):
+    """ Compute the jump parameter (microseconds) by computing the mean
+        (error-weighted) offset of the residuals.
+        
+        How this will work -- we have a .par file and a merged TOA file,
+        and each TOA to be included must have a flag/value pair to allow
+        us to select on them.  By default, all jumps are computed relative
+        to the first flag/value pair."""
+    if not os.path.isfile(par):
+        raise IOError('Ephemeris %s is not a valid file!'%par)
+    if not os.path.isfile(tim):
+        raise IOError('TOA collection %s is not a valid file!'%tim)
+    if len(flags)==1:
+        return 0
+    # construct a temporary TOA file to handle case of MWL files with TOAs
+    # extending before/beyond the domain of validity
+    tf = tempfile.mkstemp()
+    handle,fname = tf
+    cut_tim(tim,tmin=tmin,tmax=tmax,output=fname)
+    cmd = """tempo2 -output general2 -s "onerous\t{sat}\t{err}\t{pre}\n" -f %s %s"""%(par,fname)
+    proc = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE)
+    toks = [line.split('\t')[1:] for line in proc.stdout if line[:7]=='onerous']
+    sats = np.array([x[0] for x in toks],dtype=np.float128)
+    errs = np.array([x[1] for x in toks],dtype=np.float128) # in mus
+    resi = np.array([x[2] for x in toks],dtype=np.float128) # in s
+
+    # now, make the masks for each set of flags
+    means = np.empty(len(flags))
+    for i in xrange(len(flags)):
+        if vals[i] is not None:
+            valfunc = lambda s: s==vals[i]
+        else:
+            valfunc = lambda s: True
+        mask = flag_filter(fname,flags[i],valfunc)
+        means[i] = np.average(resi[mask],weights=(errs**-2)[mask])
+    jumps = [means[i]-means[0] for i in xrange(1,len(means))]
+    os.remove(fname)
+    return jumps
+
