@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Aug 13 21:15:07 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+Add code to allow computing offsets between MWL TOAs.
+
+    *
+------------------------------------------------------------
 User: kadrlica  Tue Aug 13 11:46:49 PDT 2013
 pointlike/python/uw/like
 
