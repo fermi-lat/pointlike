@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.27 2013/07/12 21:57:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.28 2013/07/12 22:58:33 burnett Exp $
 """
 import os, argparse, logging, datetime, subprocess
 import numpy as np
@@ -123,6 +123,7 @@ stagenames = dict(
     pulsar_detection=Stage(pipe.PulsarDetection, job_list='joblist8.txt', sum='pts', help='Create ts tables for pulsar detection'),
     gtlike_check=  Stage(pipe.Finish, dict(processor='processor.gtlike_compare()',), sum='gtlike_comparison', help='Compare with gtlike analysis of same sources'),
     uw_compare =  Stage(pipe.Finish, dict(processor='processor.UW_compare(other="uw26")',), sum='uw_comparison', help='Compare with another UW model'),
+    covariance =  Stage(pipe.Finish, dict(processor='processor.covariance',),  help='covariance matrices'),
 ) 
 keys = stagenames.keys()
 stage_help = '\nstage name, or sequential stages separaged by ":" names are\n\t' \

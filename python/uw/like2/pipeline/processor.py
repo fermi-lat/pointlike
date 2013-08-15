@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.57 2013/07/10 19:05:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.58 2013/07/12 21:57:56 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -520,8 +520,9 @@ def full_sed_processor(roi, **kwargs):
         t = os.path.join(outdir, kwargs.get(x))
         if not os.path.exists(t): os.mkdir(t)
         return t
-    sedfuns.makesed_all(roi, sedfig_dir=getdir('sedfig_dir'))
-
+    sedfig_dir=getdir('sedfig_dir')
+    if sedfig_dir is not None: sedfuns.makesed_all(roi, sedfig_dir=sedfig_dir)
+    roi.update() # make sure reset
     for pti,source in ptsources:
         try:
             ts = roi.TS(source.name)
@@ -530,7 +531,7 @@ def full_sed_processor(roi, **kwargs):
             sedrecs = [sedfuns.SED(sf, event_class).rec for event_class in (0,1,None)]
                      
         except Exception,e:
-            print 'source %s failed flux measurement: %s' % (source.name, e)
+            print '*** source %s failed flux measurement: %s' % (source.name, e)
             raise
         fname = source.name.replace('+','p').replace(' ', '_')+'_sedinfo.pickle'
         fullfname = os.path.join(sedinfo, fname)
@@ -541,7 +542,25 @@ def full_sed_processor(roi, **kwargs):
                     ( band[j].pix_counts * band[pti].pix_counts ).sum() / band[pti].counts\
                                 for band in roi.selected_bands],np.float32) )
         except Exception, e:
-            print 'failed bgdensity for source %s: %s' % (source.name, e)
+            print '*** failed bgdensity for source %s: %s' % (source.name, e)
+        
+        ##Compute covariance for first two backgrounds, low energy bands variable point sources
+        #def cov(j, k, bl):
+        #    b,s=bl[j].pix_counts, bl[k].pix_counts
+        #    q = bl.data/(s+b)**2
+        #    t,u,v = [sum(x*q) for x in (s**2, s*b, b**2)] 
+        #    vi = bl.unweight * np.matrix(np.array([[t,u],[u,v]]))
+        #    t = vi.I
+        #    u,v = np.sqrt(t[0,0]), np.sqrt(t[1,1])
+        #    return u,v, t[0,1]/(u*v) 
+        #covariance = []
+        #try:
+        #    for j in range(2):
+        #        covariance.append([cov(j,pti,bl) for bl in roi.selected_bands[:16]])
+                
+        except Exception, mag:
+            print '*** fieled covariacne for source %s: %s' % (source.name,msg)
+            
         sdir = source.skydir
         pickle.dump( dict(
                 ra=sdir.ra(), dec=sdir.dec(), 
@@ -552,14 +571,57 @@ def full_sed_processor(roi, **kwargs):
                 flux = np.vstack([sr.flux   for sr in sedrecs]),
                 lflux= np.vstack([sr.lflux  for sr in sedrecs]),
                 uflux= np.vstack([sr.uflux  for sr in sedrecs]),
+                mflux= np.vstack([sr.mflux  for sr in sedrecs]),
                 bts   =np.vstack([sr.ts     for sr in sedrecs]),
                 bgdensity = bgdensity,
                 bgnames = [s.name for ii,s in bgsources],
+                #covariance=covariance,
+                #unweight = [bl.unweight for bl in roi.selected_bands],
+                
                 ),
             open(fullfname, 'w'))
         print 'wrote sedinfo pickle file to %s' % fullfname
     sys.stdout.flush()
             
+
+def covariances(roi, **kwargs):
+    """Compute covariance for first two backgrounds, low energy bands variable point sources
+    """
+    outdir   = kwargs.get('outdir', '.')
+    ts_min   = kwargs.get('ts_min', 25)
+    covinfo = os.path.join(outdir, 'covinfo')
+    if not os.path.exists(covinfo): os.mkdir(covinfo)
+    ptsources = [(i,s) for i,s in enumerate(roi.sources) if s.skydir is not None and np.any(s.spectral_model.free)]
+    print 'evaluating %d sources' %len(ptsources)
+    
+    for pti,source in ptsources:
+        ts = roi.TS(source.name)
+        if ts<ts_min: continue
+        fname = source.name.replace('+','p').replace(' ', '_')+'_covinfo.pickle'
+        fullfname = os.path.join(covinfo, fname)
+
+        def cov(j, k, bl):
+            b,s=bl[j].pix_counts, bl[k].pix_counts
+            q = bl.data/(s+b)**2
+            t,u,v = [sum(x*q) for x in (s**2, s*b, b**2)] 
+            vi = bl.unweight * np.matrix(np.array([[t,u],[u,v]]))
+            t = vi.I
+            u,v = np.sqrt(t[0,0]), np.sqrt(t[1,1])
+            return u,v, t[0,1]/(u*v) 
+        covariance = []
+        try:
+            for j in range(2):
+                covariance.append(np.array([cov(j,pti,bl) for bl in roi.selected_bands[:16]],np.float32))
+                
+        except Exception, msg:
+            print '*** failed covariance for source %s: %s' % (source.name,msg)
+        pickle.dump( covariance,   open(fullfname, 'w'))
+        print 'wrote covariance pickle file to %s' % fullfname
+        
+    sys.stdout.flush()
+
+
+
 def roi_refit_processor(roi, **kwargs):
     """ roi processor to refit diffuse for each energy band
     
