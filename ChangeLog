@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Aug 14 18:17:22 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+Better handling of duplicate keys in ParFiles, and computation of jump between wavelengths.
+
+    *
+------------------------------------------------------------
 User: burnett  Wed Aug 14 11:42:09 PDT 2013
 pointlike/python/uw/like2/analyze
 
