@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.44 2013/08/11 21:10:00 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.45 2013/08/14 04:15:07 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -10,7 +10,7 @@ import numpy as np
 import os
 import subprocess
 from uw.utilities.coords import ec2eq
-from collections import deque
+from collections import deque,defaultdict
 import tempfile
 
 C = 29979245800.
@@ -102,6 +102,7 @@ class ParFile(dict):
 
     def init(self):
         self.ordered_keys = []
+        self.duplicates = defaultdict(list)
         comment_counter = 0
         for line in file(self.parfile):
             tok = line.strip().split()
@@ -109,19 +110,13 @@ class ParFile(dict):
             if line.strip()[0] == '#': # handle comments
                 tok = ['#COMMENT%d'%(comment_counter),line.strip()[1:]]
                 comment_counter += 1
-            known_key = False
-            for key in self.ordered_keys:
-                if tok[0] == key:
-                    known_key = True
-            if known_key:
-                # TODO -- figure out why I put this in! clearly breaks
-                # pathological cases like two identical PEPOCHs specified
-                if len(self[tok[0]][-1]) == 1:
-                    self[tok[0]] = [self[tok[0]]]
-                self[tok[0]] += [tok[1:]]
-            else:
+            key = tok[0]
+            val = tok[1:] if (len(tok[1:]) > 1) else tok[1:][0]
+            if key not in self.ordered_keys:
                 self.ordered_keys.append(tok[0])               
-                self[tok[0]] = tok[1:] if (len(tok[1:]) > 1) else tok[1:][0]
+                self[key] = val
+            else:
+                self.duplicates[key].append(val)
         self.degree = self._calc_degree()
     
     def _calc_degree(self):
@@ -340,30 +335,29 @@ class ParFile(dict):
         return phase
 
     def write(self,output):
-        f = file(output,'w')
+        # write to buffer until all keys successfully parsed
+        f = deque()
         for key in self.ordered_keys:
-            val = self[key]
+            vals = [self[key]]
+            if key in self.duplicates.keys():
+                vals += self.duplicates[key]
             if key[0] == '#': # handle comments
                 key = key.split('COMMENT')[0]
-                print key
             else:
                 key = pad(key,20)
-            if hasattr(val,'__iter__'):
-                if hasattr(val[0],'__iter__'):
-                    # multiple vals are mapped to same key
-                    substrings = ['  '.join(v) for v in val]
-                    s = '\n%s'%key
-                    val = s.join([v for v in substrings])
-                else:
-                    try:
-                        val = ''.join(map(pad26,val))
-                    except TypeError:
-                        print key,val
             # ensure a space for long keys; ignore comments
             if (key[-1] != ' ') and (key[0]!='#'):
                 key += ' '
-            f.write('%s%s\n'%(key,val))
-        f.close()
+            for val in vals:
+                if not hasattr(val,'__iter__'):
+                    val = [val]
+                try:
+                    val = ''.join(map(pad26,val))
+                except TypeError as e:
+                    print 'Failed writing key/val pair %s/%s.'%(key,val)
+                    raise e
+                f.append('%s%s\n'%(key,val))
+        file(output,'w').write(''.join(f))
 
     def get_pm(self):
         """ Get the proper motion, return value is of form
@@ -473,18 +467,22 @@ class ParFile(dict):
     def is_binary(self):
         return 'BINARY' in self.keys()
 
-    def add_key(self,key,val):
+    def add_key(self,key,val,allow_duplicates=False):
         """ Insert a key, placed at bottom of file.  If key already
-            present, update its entry."""
+            present, update its entry.  NB will NOT make a duplicate."""
         if key not in self.ordered_keys:
             self.ordered_keys.append(key)
-        self[key] = val
+            self[key] = val
+        elif allow_duplicates:
+            self.duplicates[key].append(val)
 
     def delete_key(self,key):
         try:
             idx = self.ordered_keys.index(key)
             self.ordered_keys.pop(idx)
             self.pop(key)
+            if key in self.duplicates.keys():
+                self.duplicates.pop(key)
         except ValueError:
             pass
 
@@ -495,6 +493,8 @@ class ParFile(dict):
             idx = vals.index(val) 
             key = self.ordered_keys.pop(idx)
             self.pop(key)
+            if key in self.duplicates.keys():
+                self.duplicates.pop(key)
         except ValueError:
             pass
 
@@ -679,11 +679,11 @@ def get_resids(par,tim,emax=None,phase=False,get_mjds=False):
 
 def get_toa_strings(tim):
     """ Return a list of strings for all TOA entries."""
-    lines = filter(lambda x: x[0] != 'C',file(tim).readlines())
+    lines = filter(lambda x: x[0]!='C' and x[0]!='#',file(tim).readlines())
     if not lines[0].startswith('FORMAT 1'):
         raise ValueError('Cannot parse non-tempo2 style TOA files.')
     lines = filter(lambda x: x[0] == ' ',lines)
-    if not lines[-1].endswith('\n'):
+    if (len(lines)>0) and (not lines[-1].endswith('\n')):
         lines[-1] = lines[-1] + '\n'
     return lines
 
@@ -782,7 +782,9 @@ def add_flag(tim,flag,vals,output=None):
     lines = file(tim).readlines()
     new_lines = deque()
     counter = 0
-    flagstr = '-%s'%flag
+    flagstr = str(flag)
+    if not flag.startswith('-'):
+        flagstr = '-%s'%flagstr
     if not hasattr(vals,'__iter__'):
         vals = [vals]*len(lines)
         one2one = False
@@ -833,7 +835,9 @@ def mask_tim(tim,mask,output=None):
     file(output,'w').write(''.join(new_lines))
 
 def cut_tim(tim,tmin=None,tmax=None,output=None):
-    """ Trim out TOAs before tmin / after tmax."""
+    """ Trim out TOAs before tmin / after tmax (MJD).  This differs slighly
+        from get_toa_strings + time cut in that commented lines and other
+        instructions are preserved."""
     tmin = tmin or -np.inf
     tmax = tmax or np.inf
     tim_strings = deque()
@@ -872,7 +876,7 @@ def merge_tim(timfiles,output,tmin=None,tmax=None):
     tim_strings = ''.join(map(g,timfiles))
     file(output,'w').write('FORMAT 1\n%s'%(tim_strings))
 
-def compute_jump(par,tim,flags,vals,tmin=None,tmax=None):
+def compute_jump(par,tim,flags,vals,tmin=None,tmax=None,add_jumps=False):
     """ Compute the jump parameter (microseconds) by computing the mean
         (error-weighted) offset of the residuals.
         
@@ -884,7 +888,7 @@ def compute_jump(par,tim,flags,vals,tmin=None,tmax=None):
         raise IOError('Ephemeris %s is not a valid file!'%par)
     if not os.path.isfile(tim):
         raise IOError('TOA collection %s is not a valid file!'%tim)
-    if len(flags)==1:
+    if len(flags)<2:
         return 0
     # construct a temporary TOA file to handle case of MWL files with TOAs
     # extending before/beyond the domain of validity
@@ -906,8 +910,25 @@ def compute_jump(par,tim,flags,vals,tmin=None,tmax=None):
         else:
             valfunc = lambda s: True
         mask = flag_filter(fname,flags[i],valfunc)
-        means[i] = np.average(resi[mask],weights=(errs**-2)[mask])
-    jumps = [means[i]-means[0] for i in xrange(1,len(means))]
+        if not np.any(mask):
+            means[i] = np.isnan
+        else:
+            means[i] = np.average(resi[mask],weights=(errs**-2)[mask])
+    jumps = [means[0]-means[i] for i in xrange(1,len(means))]
     os.remove(fname)
+    if add_jumps:
+        # Add the parameters to the .par file.
+        pf = ParFile(par)
+        for i in xrange(1,len(flags)):
+            if np.isnan(jumps[i-1]):
+                continue
+            flag = str(flags[i])
+            if flag[0] != '-':
+                flag = '-'+flag
+            val = str(vals[i] or 1)
+            t = [flag,val,'%.8f'%jumps[i-1]]
+            pf.add_key('JUMP',[flag,val,'%.8f'%jumps[i-1]],
+                allow_duplicates=True)
+        pf.write(par)
     return jumps
 
