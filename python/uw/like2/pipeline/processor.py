@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.60 2013/08/16 13:57:27 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.61 2013/08/16 14:27:08 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -603,7 +603,7 @@ def covariance(roi, **kwargs):
     """
     outdir   = kwargs.get('outdir', '.')
     ts_min   = kwargs.get('ts_min', 25)
-    covinfo = os.path.join(outdir, 'covinfo')
+    covinfo = os.path.join(outdir, 'covariance')
     if not os.path.exists(covinfo): os.mkdir(covinfo)
     ptsources = [(i,s) for i,s in enumerate(roi.sources) if s.skydir is not None and np.any(s.spectral_model.free)]
     print 'evaluating %d sources' %len(ptsources)
