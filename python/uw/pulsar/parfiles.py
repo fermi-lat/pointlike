@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.45 2013/08/14 04:15:07 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.46 2013/08/15 01:17:22 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -642,18 +642,24 @@ def get_bats_etc(par,tim,output=None,full_output=False,binary=False):
     else:
         return bats,errs,phas
 
-def get_resids(par,tim,emax=None,phase=False,get_mjds=False):
+def get_resids(par,tim,emax=None,phase=False,get_mjds=False,latonly=False):
     if not os.path.isfile(par):
         raise IOError('Ephemeris %s is not a valid file!'%par)
     if not os.path.isfile(tim):
         raise IOError('TOA collection %s is not a valid file!'%tim)
-    cmd = """tempo2 -output general2 -s "onerous\t{err}\t{post}\t{bat}\n" -f %s %s"""%(par,tim)
+    cmd = """tempo2 -output general2 -s "onerous\t{err}\t{post}\t{bat}\t{freq}\n" -f %s %s"""%(par,tim)
     proc = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE)
     toks = [line.split('\t')[1:] for line in proc.stdout if line[:7]=='onerous']
     # NB -- both residuals and errors in microseconds
-    errs = np.array([x[0] for x in toks],dtype=np.float128)
-    resi = np.array([x[1] for x in toks],dtype=np.float128)*1e6
-    mjds = np.array([x[2] for x in toks],dtype=np.float128)
+    frqs = np.array([x[3] for x in toks],dtype=np.float128)
+    if latonly:
+        m = frqs==0
+    else:
+        m = np.asarray([True]*len(frqs))
+    frqs = frqs[m]
+    errs = np.array([x[0] for x in toks],dtype=np.float128)[m]
+    resi = np.array([x[1] for x in toks],dtype=np.float128)[m]*1e6
+    mjds = np.array([x[2] for x in toks],dtype=np.float128)[m]
     # if we are restricting large error bars, remove their contribution
     # to the RMS
     if phase:
@@ -674,7 +680,7 @@ def get_resids(par,tim,emax=None,phase=False,get_mjds=False):
     else:
         chi2 = ((resi[mask]/errs[mask])**2).sum()
     if get_mjds:
-        return resi,errs,chi2,dof,mjds
+        return resi,errs,chi2,dof,mjds,frqs
     return resi,errs,chi2,dof
 
 def get_toa_strings(tim):
@@ -778,7 +784,6 @@ def add_flag(tim,flag,vals,output=None):
         
         The user may specify either a single value for all TOAs (e.g. a flag
         to specify a jump) or a value for each and every TOA."""
-    output = output or tim
     lines = file(tim).readlines()
     new_lines = deque()
     counter = 0
@@ -806,6 +811,34 @@ def add_flag(tim,flag,vals,output=None):
         counter += 1
     if one2one and (counter != len(vals)):
         raise ValueError('Found %d vals for %d TOAs!'%(len(vals),counter))
+    output = output or tim
+    file(output,'w').write(''.join(new_lines))
+
+def del_flag(tim,flag,output=None):
+    """ Remove a flag from a set of observations.  It is assumed that the
+        flags follow the standard flag/val pattern."""
+    lines = file(tim).readlines()
+    new_lines = deque()
+    if flag[0] != '-':
+        flag = '-%s'%flag
+    for iline,line in enumerate(lines):
+        new_lines.append(line)
+        if line[0] != ' ':
+            continue
+        new_lines.pop()
+        toks = line.split()
+        try:
+            print toks
+            idx = toks.index(flag)
+            print idx
+            if idx==len(toks)-2:
+                line = ' '.join(toks[:idx])
+            else:
+                line = ' '.join(toks[:idx] + toks[idx+1:])
+            new_lines.append(' %s\n'%line)
+        except ValueError:
+            new_lines.append(line)
+    output = output or tim
     file(output,'w').write(''.join(new_lines))
 
 def add_phase(tim,abs_phase,output=None):
@@ -932,3 +965,18 @@ def compute_jump(par,tim,flags,vals,tmin=None,tmax=None,add_jumps=False):
         pf.write(par)
     return jumps
 
+def istempo2(tim):
+    return file(tim).next().startswith('FORMAT 1')
+
+def parkes2tempo2(tim,output):
+    """ VERY crude conversion of a Parkes-style TOA file to tempo2 format.
+        Currently ignores everything but crucial data and is only tested
+        on Ryan's P574 TOAs."""
+    toa_strings = filter(lambda l: l[0]==' ',file(tim).readlines())
+    new_strings = deque()
+    for toa in toa_strings:
+        toks = toa.split()
+        new_strings.append(' %s %s %s %s %s\n'%(
+            toks[0],toks[3],toks[4],toks[6],toks[7]))
+    file(output,'w').write('FORMAT 1\n'+''.join(new_strings)) 
+            
