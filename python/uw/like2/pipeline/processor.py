@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.58 2013/07/12 21:57:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.59 2013/08/15 22:10:20 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -394,7 +394,7 @@ def process(roi, **kwargs):
     if localize:
         print 'localizing and associating all sources with variable...'
         q, roi.quiet = roi.quiet,False
-        tsmap_dir = getdir('tsmap_dir') 
+        tsmap_dir = None ####### getdir('tsmap_dir') 
         localization.localize_all(roi, tsmap_dir=tsmap_dir, associator = associator, source_name=source_name)
         roi.quiet=q
 
@@ -426,15 +426,32 @@ def process(roi, **kwargs):
     return chisq
 
 def localize(roi, **kwargs):
-    """ special processor to perform localization for tests """
-    outdir = kwargs.get('outdir')
+    """ special processor to perform localization for tests 
+    also do tsmaps for failed fits if kw 'poor_loc' is name of csv file
+    (sort of wired in now)
+    """
+    outdir = kwargs.get('outdir', '.')
     tsmin = kwargs.get('tsmin', 10)
     logpath = os.path.join(outdir, 'log')
-    locdir = os.path.join(outdir, 'localization')
-    if not os.path.exists(locdir): os.mkdir(locdir)
+    locdir = kwargs.pop('locdir', 'localization')
+    tsmap_dir = 'tsmap_fail' #kwargs.get('tsmap_dir', None)
     outtee = OutputTee(os.path.join(logpath, roi.name+'.txt'))
     print  '='*80
     print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (roi.name,))
+    poor_loc = kwargs.pop('poor_loc', 'poorly_localized.csv')
+    if poor_loc is not None:
+       poor = pd.read_csv(poor_loc, index_col=0)
+       names = list(poor[poor.roiname==roi.name].index.values)
+       if len(names)==0:
+           print '***no source names to fit'
+           outtee.close()
+           return
+       print 'Localizing and perhaps ts_maps for: ', names
+       for source_name in names:
+           localization.localize_all(roi, source_name=source_name, tsmap_dir=tsmap_dir)
+       outtee.close()
+       return
+       
     emin = kwargs.pop('emin', None)
     if emin is not None:
         roi.select_bands(emin=emin)
@@ -444,7 +461,12 @@ def localize(roi, **kwargs):
         kw = x[0]
         if kw in kwargs:
             loc_kw[kw]=kwargs[kw]
-    localization.localize_all(roi, **loc_kw)
+    loc_kw.update(tsmap_dir=kwargs.get('tsmap_dir',None), source_name=kwargs.get('source_name',None))
+    localization.localize_all(roi,  **loc_kw)
+    if locdir is None:
+       outtee.close()
+       return
+    if not os.path.exists(locdir): os.mkdir(locdir)
     sources = [s for s in roi.sources if s.skydir is not None\
         and s.__dict__.get(  'spatial_model', None) is None \
         and np.any(s.spectral_model.free) and s.ts>tsmin]
@@ -509,8 +531,9 @@ def full_sed_processor(roi, **kwargs):
     """
     print 'processing ROI %s: creating full sedinfo ' %roi.name
     outdir   = kwargs.get('outdir')
-    ts_min   = kwargs.get('ts_min', 25)
+    ts_min   = kwargs.get('ts_min', 10)
     sedinfo = os.path.join(outdir, 'sedinfo')
+    make_seds = kwargs.get('make_seds', True)
     if not os.path.exists(sedinfo): os.mkdir(sedinfo)
     ptsources = [(i,s) for i,s in enumerate(roi.sources) if s.skydir is not None and np.any(s.spectral_model.free)]
     bgsources = [(j,s) for j,s in enumerate(roi.sources) if s.skydir is None]
@@ -520,12 +543,12 @@ def full_sed_processor(roi, **kwargs):
         t = os.path.join(outdir, kwargs.get(x))
         if not os.path.exists(t): os.mkdir(t)
         return t
-    sedfig_dir=getdir('sedfig_dir')
-    if sedfig_dir is not None: sedfuns.makesed_all(roi, sedfig_dir=sedfig_dir)
-    roi.update() # make sure reset
+    if make_seds:
+       sedfuns.makesed_all(roi, sedfig_dir=getdir('sedfig_dir'))
     for pti,source in ptsources:
+        print 'processing %s, ts=%.1f' % (source.name, source.ts)
         try:
-            ts = roi.TS(source.name)
+            ts = source.ts #roi.TS(source.name)
             if ts<ts_min: continue
             sf = sedfuns.SourceFlux(roi, source.name, )
             sedrecs = [sedfuns.SED(sf, event_class).rec for event_class in (0,1,None)]
@@ -536,31 +559,23 @@ def full_sed_processor(roi, **kwargs):
         fname = source.name.replace('+','p').replace(' ', '_')+'_sedinfo.pickle'
         fullfname = os.path.join(sedinfo, fname)
         bgdensity = []
+        roi.update() # make sure likelihood initialize
         try:
             for j, bgsource in bgsources:
                 bgdensity.append(np.array([ 
                     ( band[j].pix_counts * band[pti].pix_counts ).sum() / band[pti].counts\
                                 for band in roi.selected_bands],np.float32) )
         except Exception, e:
-            print '*** failed bgdensity for source %s: %s' % (source.name, e)
+            print 'failed bgdensity for source %s: %s' % (source.name, e)
         
-        ##Compute covariance for first two backgrounds, low energy bands variable point sources
-        #def cov(j, k, bl):
-        #    b,s=bl[j].pix_counts, bl[k].pix_counts
-        #    q = bl.data/(s+b)**2
-        #    t,u,v = [sum(x*q) for x in (s**2, s*b, b**2)] 
-        #    vi = bl.unweight * np.matrix(np.array([[t,u],[u,v]]))
-        #    t = vi.I
-        #    u,v = np.sqrt(t[0,0]), np.sqrt(t[1,1])
-        #    return u,v, t[0,1]/(u*v) 
-        #covariance = []
-        #try:
-        #    for j in range(2):
-        #        covariance.append([cov(j,pti,bl) for bl in roi.selected_bands[:16]])
-                
-        except Exception, mag:
-            print '*** fieled covariacne for source %s: %s' % (source.name,msg)
-            
+        bgcounts = []
+        for j, bgsource in bgsources:
+            bgcounts.append(np.array(
+                [band[j].counts for band in roi.selected_bands], np.float32))
+        try:
+            counts = np.array([band[source.name].counts for band in roi.selected_bands], np.float32)
+        except:
+            counts = None 
         sdir = source.skydir
         pickle.dump( dict(
                 ra=sdir.ra(), dec=sdir.dec(), 
@@ -573,18 +588,17 @@ def full_sed_processor(roi, **kwargs):
                 uflux= np.vstack([sr.uflux  for sr in sedrecs]),
                 mflux= np.vstack([sr.mflux  for sr in sedrecs]),
                 bts   =np.vstack([sr.ts     for sr in sedrecs]),
+                counts = counts,
                 bgdensity = bgdensity,
+                bgcounts = bgcounts,
                 bgnames = [s.name for ii,s in bgsources],
-                #covariance=covariance,
-                #unweight = [bl.unweight for bl in roi.selected_bands],
-                
                 ),
             open(fullfname, 'w'))
         print 'wrote sedinfo pickle file to %s' % fullfname
     sys.stdout.flush()
             
 
-def covariances(roi, **kwargs):
+def covariance(roi, **kwargs):
     """Compute covariance for first two backgrounds, low energy bands variable point sources
     """
     outdir   = kwargs.get('outdir', '.')
@@ -602,12 +616,12 @@ def covariances(roi, **kwargs):
 
         def cov(j, k, bl):
             b,s=bl[j].pix_counts, bl[k].pix_counts
-            q = bl.data/(s+b)**2
+            q = bl.data/(bl.model_pixels)**2
             t,u,v = [sum(x*q) for x in (s**2, s*b, b**2)] 
-            vi = bl.unweight * np.matrix(np.array([[t,u],[u,v]]))
+            vi = np.matrix(np.array([[t,u],[u,v]]))
             t = vi.I
             u,v = np.sqrt(t[0,0]), np.sqrt(t[1,1])
-            return u,v, t[0,1]/(u*v) 
+            return u,v, t[0,1]/(u*v) , bl.unweight
         covariance = []
         try:
             for j in range(2):
@@ -763,7 +777,7 @@ def check_seeds(roi, **kwargs):
     prefix = kwargs.get('prefix')
     tsmap_dir=kwargs.get('tsmap', None)
     tsmin = kwargs.pop('tsmin', 10)
-    repivot = kwargs.pop('repivot', True)
+    repivot_flag = True ##########kwargs.pop('repivot', True)
     seedcheck_dir = kwargs.get('seedcheck_dir', 'seedcheck')
     if not os.path.exists(seedcheck_dir): os.mkdir(seedcheck_dir)
     associator= kwargs.pop('associate', None)
@@ -785,7 +799,7 @@ def check_seeds(roi, **kwargs):
         s.ts=ts = roi.TS(s.name)
     localization.localize_all(roi, prefix=prefix, tsmap_dir=tsmap_dir, associator = associator, update=True, tsmin=tsmin)
     roi.fit() 
-    if repivot: 
+    if repivot_flag: 
         repivot(roi) # one iteration
     for s in seed_sources: 
         s.ts=ts = roi.TS(s.name)
