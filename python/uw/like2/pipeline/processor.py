@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.59 2013/08/15 22:10:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.60 2013/08/16 13:57:27 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -609,27 +609,36 @@ def covariance(roi, **kwargs):
     print 'evaluating %d sources' %len(ptsources)
     
     for pti,source in ptsources:
-        ts = roi.TS(source.name)
+        ts = source.ts #roi.TS(source.name)
         if ts<ts_min: continue
         fname = source.name.replace('+','p').replace(' ', '_')+'_covinfo.pickle'
         fullfname = os.path.join(covinfo, fname)
 
-        def cov(j, k, bl):
-            b,s=bl[j].pix_counts, bl[k].pix_counts
-            q = bl.data/(bl.model_pixels)**2
-            t,u,v = [sum(x*q) for x in (s**2, s*b, b**2)] 
-            vi = np.matrix(np.array([[t,u],[u,v]]))
-            t = vi.I
-            u,v = np.sqrt(t[0,0]), np.sqrt(t[1,1])
-            return u,v, t[0,1]/(u*v) , bl.unweight
+        def cov3(bd):
+            """ for source at index j, in bandlike bd, return errors, correlation coefficients with
+            respect to first two diffuse sources
+            """
+            ix = (pti,0,1)
+            cix = [bd[i].pix_counts for i in ix] #counts
+            q = bd.data/(bd.model_pixels)**2
+            t = [[sum(x*y*q) for x in cix] for y in cix] 
+            v = np.matrix(t).I
+            sigs = np.array(np.sqrt(v.diagonal()),np.float32)[0]
+            return dict(sigs=sigs,
+                        cc = np.array([v[i,j]/(sigs[i]*sigs[j]) for i,j in ((0,1),(0,2),(1,2))], np.float32) ,
+                        unweight = bl.unweight,)
+
         covariance = []
         try:
-            for j in range(2):
-                covariance.append(np.array([cov(j,pti,bl) for bl in roi.selected_bands[:16]],np.float32))
+            covariance.append(np.array([cov3(bl) for bl in roi.selected_bands[:16]]))
                 
         except Exception, msg:
             print '*** failed covariance for source %s: %s' % (source.name,msg)
-        pickle.dump( covariance,   open(fullfname, 'w'))
+        pickle.dump( dict(name=source.name,
+                        covariance=covariance, 
+                        ts=ts,
+                        skydir=source.skydir ,), 
+                open(fullfname, 'w'))
         print 'wrote covariance pickle file to %s' % fullfname
         
     sys.stdout.flush()
