@@ -1,6 +1,6 @@
 """
 Package containing source analysis code
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/__init__.py,v 1.5 2013/07/30 22:58:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/__init__.py,v 1.6 2013/08/03 19:39:48 burnett Exp $
 
 """
 # this is a list of modules in this package that have a class implementing an 'all_plots()' method.
@@ -30,6 +30,7 @@ __all__=[
  'localization',
  'localization1k',
 # 'pgwseedcheck',
+ 'maps',
  'ptstable',
  'pulsarseedcheck',
  'roi_info',
