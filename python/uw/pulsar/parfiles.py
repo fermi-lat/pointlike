@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.46 2013/08/15 01:17:22 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.47 2013/08/16 04:29:59 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -12,6 +12,7 @@ import subprocess
 from uw.utilities.coords import ec2eq
 from collections import deque,defaultdict
 import tempfile
+import time
 
 C = 29979245800.
 
@@ -101,10 +102,21 @@ class ParFile(dict):
         self.init()
 
     def init(self):
+        # make this a little more bulletproof on the cluster
         self.ordered_keys = []
         self.duplicates = defaultdict(list)
         comment_counter = 0
-        for line in file(self.parfile):
+        for i in xrange(3):
+            f = open(self.parfile,'r')
+            lines = f.readlines()
+            f.close()
+            if len(lines) > 0:
+                break
+            else:
+                time.sleep(1)
+        if len(lines) == 0:
+            raise IOError('Could not read data from %s.'%self.parfile)
+        for line in lines:
             tok = line.strip().split()
             if len(tok)==0: continue
             if line.strip()[0] == '#': # handle comments
@@ -211,7 +223,6 @@ class ParFile(dict):
 
     def get_time_cuts(self):
         import datetime
-        import time
         from uw.utilities.fermitime import utc_to_met
         tomorrow = datetime.date.fromtimestamp(time.time()+86400)
         tmin = 239557418 # first photon timestamp
