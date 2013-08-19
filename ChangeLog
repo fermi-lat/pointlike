@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sun Aug 18 21:20:40 PDT 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+Put in extra I/O attempts for ParFile for batch farm issues.
+
+    *
+------------------------------------------------------------
 User: kerrm  Sun Aug 18 19:00:26 PDT 2013
 pointlike/python/uw/pulsar
 
