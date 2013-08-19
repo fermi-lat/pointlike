@@ -9,7 +9,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.47 2013/04/27 17:39:07 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.48 2013/05/22 23:30:06 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -32,7 +32,6 @@ def weighted_light_curve(nbins,phases,weights,normed=False,phase_shift=0):
     errors = np.where(counts > 1, w2**0.5, counts)
     norm = w1.sum()/nbins if normed else 1.
     return bins,w1/norm,errors/norm
-
 
 def LCFitter(template,phases,weights=None,log10_ens=None,times=1,
              binned_bins=100,binned_ebins=8,phase_shift=0):
@@ -701,9 +700,36 @@ def hess_from_grad(grad,par,step=1e-3,iterations=2):
             [array] specify a step for each parameters.
         """
 
+    def mdet(M):
+        """ Return determinant of M.
+            Use a Laplace cofactor expansion along first row."""
+        n = M.shape[0]
+        if n == 2:
+            return M[0,0]*M[1,1]-M[0,1]*M[1,0]
+        if n == 1:
+            return M[0,0]
+        rvals = np.zeros(1,dtype=M.dtype)
+        toggle = 1.
+        for i in xrange(n):
+            minor = np.delete(np.delete(M,0,0),i,1)
+            rvals += M[0,i] * toggle * mdet(minor) 
+            toggle *= -1
+        return rvals
+
+    def minv(M):
+        """ Return inverse of M, using cofactor expansion."""
+        n = M.shape[0]
+        C = np.empty_like(M)
+        for i in xrange(n):
+            for j in xrange(n):
+                m = np.delete(np.delete(M,i,0),j,1)
+                C[i,j] = (-1)**(i+j)*mdet(m)
+        det = (M[0,:]*C[0,:]).sum()
+        return C.transpose()/det
+
     def make_hess(p0,steps):
         npar = len(par)
-        hess = np.empty([npar,npar])
+        hess = np.empty([npar,npar],dtype=p0.dtype)
         for i in xrange(npar):
             par[i] = p0[i] + steps[i]
             gup = grad(par) 
@@ -719,12 +745,17 @@ def hess_from_grad(grad,par,step=1e-3,iterations=2):
     hessians = [make_hess(p0,step)]
 
     for i in xrange(iterations):
-        steps = np.diag(np.linalg.inv(hessians[-1]))**0.5
-        steps[np.isnan(steps)] = step[i]
+        steps = np.diag(minv(hessians[-1]))**0.5
+        mask = np.isnan(steps)
+        if np.any(mask):
+            steps[mask] = step[mask]
         hessians.append(make_hess(p0,steps))
 
     g = grad(p0) # reset parameters
-    return hessians[-1]
+    for i in xrange(iterations,-1,-1):
+        if not np.any(np.isnan(np.diag(minv(hessians[i]))**0.5)):
+            return hessians[i].astype(float)
+    return hessians[0].astype(float)
 
 def calc_step_size(logl,par,minstep=1e-5,maxstep=1e-1):
     from scipy.optimize import bisect
