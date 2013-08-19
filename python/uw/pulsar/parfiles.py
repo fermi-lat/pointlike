@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.47 2013/08/16 04:29:59 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.48 2013/08/19 04:20:39 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -483,9 +483,11 @@ class ParFile(dict):
             present, update its entry.  NB will NOT make a duplicate."""
         if key not in self.ordered_keys:
             self.ordered_keys.append(key)
-            self[key] = val
+            self[key] = str(val)
         elif allow_duplicates:
             self.duplicates[key].append(val)
+        else:
+            self[key] = str(val)
 
     def delete_key(self,key):
         try:
