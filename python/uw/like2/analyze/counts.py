@@ -1,7 +1,7 @@
 """
-Description here
+Count plots
 
-$Header: /phys/users/glast/python/uw/like2/analyze/countplots.py,v 1.144 2013/06/18 12:35:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/countplots.py,v 1.1 2013/06/21 20:15:30 burnett Exp $
 
 """
 
@@ -10,11 +10,12 @@ import numpy as np
 import pylab as plt
 import pandas as pd
 
-from . import diagnostics
-from . diagnostics import FloatFormat
+from . import analysis_base
+from . analysis_base import FloatFormat
 
-class CountPlots(diagnostics.Diagnostics): #picks out Diagnostics class from diagnostics.py file.
-    """ Plots generated after each iteration, checking quality of counts histogram
+class CountPlots(analysis_base.AnalysisBase): 
+    """Count plots
+    <br> Plots generated after each iteration, checking quality of counts histogram
     %(iteration_info)s
     """ 
     require='pickle.zip'
