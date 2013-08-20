@@ -76,9 +76,11 @@ class AnalysisBase(object):
             print 'created folder "plots"'
         if hasattr(self, 'plotfolder'):
             self.plotfolder = os.path.join('plots', self.plotfolder)
-            if not os.path.exists(self.plotfolder): os.makedirs(self.plotfolder)
+            self.just_created = not os.path.exists(self.plotfolder) 
+            if self.just_created:
+               os.makedirs(self.plotfolder)
         else:
-            raise Exception('Subclass of AnalysisBase did not create a "plotfolder" variable')
+            raise Exception('Subclass %s of AnalysisBase did not create a "plotfolder" variable' % self.__class__.__name__)
 
     def setup(self, **kwargs):
         assert False, 'Base class not implemented'
@@ -216,7 +218,11 @@ class AnalysisBase(object):
             print '*** TypeError with string "%s": %s' % (htmldoc, msg)
         open(os.path.join(self.plotfolder,'index.html'), 'w').write(text)
         print 'saved html doc to %s' %os.path.join(self.plotfolder,'index.html')
-        _html.HTMLindex().create_menu()
+        h = _html.HTMLindex()
+        h.create_menu()
+        if self.just_created:
+           h.update_top()
+           
             
     def basic_skyplot(self, ax, glon, singlat, c,
                 title=None, ecliptic=False, labels=True, colorbar=False, cbtext='', 

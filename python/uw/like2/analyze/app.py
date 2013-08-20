@@ -1,7 +1,7 @@
 """
 Application module, allowing command-line access to analysis/plotting tasks
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/app.py,v 1.11 2013/07/18 12:24:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/app.py,v 1.12 2013/08/03 18:09:36 burnett Exp $
 
 """
 _locs = locals().keys()
@@ -95,7 +95,6 @@ def main(args, update_top=False , raise_exception=False):
             if raise_exception: raise
             success = False
     if success: 
-        _html.HTMLindex().create_menu()
         if update_top: _html.HTMLindex().update_top()
         
     return success  
