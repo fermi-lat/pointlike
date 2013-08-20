@@ -1,4 +1,17 @@
 ------------------------------------------------------------
+User: burnett  Tue Aug 20 07:29:32 PDT 2013
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	__init__.py 
+Added Files:
+	counts.py 
+Removed Files:
+	countplots.py 
+Log Message:
+rename countplots to counts
+    *
+------------------------------------------------------------
 User: burnett  Mon Aug 19 18:49:42 PDT 2013
 pointlike/python/uw/like2/analyze
 
