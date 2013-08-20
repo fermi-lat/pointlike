@@ -1,7 +1,7 @@
 """
-Description here
+Galactic diffuse refit spectra
 
-$Header: /phys/users/glast/python/uw/like2/analyze/galacticspectra.py,v 1.144 2013/06/18 12:35:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/galacticspectra.py,v 1.1 2013/06/21 20:15:30 burnett Exp $
 
 """
 
@@ -11,9 +11,16 @@ import pylab as plt
 import pandas as pd
 
 from . import roi_info
-from . diagnostics import FloatFormat
+from . analysis_base import FloatFormat
 
 class GalacticSpectra(roi_info.ROIinfo): #Diagnostics):
+    """Galactic diffuse refits
+      Set of plots to check consistency of %(title)s spectra. These result 
+        from analysis of a special run that, for each ROI and each energy band, allows this diffuse component to be free.
+        This is done three times: using only front, only back, and both.
+        <p>There two sets of plots: using both, how consistent is it with the expected unit normalization; 
+        and is the front        consistent with the back?
+        """
 
     require = 'galfits_all.zip'
     
@@ -58,7 +65,28 @@ class GalacticSpectra(roi_info.ROIinfo): #Diagnostics):
 
     def setup(self):
         self.diffuse_setup('gal')
-
+    #### these from old diagnostics: do I want them in AnalysisBase?
+    def get_figure(self,axin):
+        return plt.subplots( figsize=(5,5)) if axin is None else axin.figure, axin
+    def multifig(self):
+        fig,ax = plt.subplots(2,4, figsize=(14,8), sharex=True);
+        plt.subplots_adjust(left=0.10, wspace=0.25, hspace=0.25,right=0.95)
+        return ax.flatten()
+    def multilabels(self, xtext, ytext, title=None):
+        plt.subplots_adjust(bottom=0.2)
+        plt.figtext(0.5,0.07, xtext, ha='center');
+        plt.figtext(0.05, 0.5, ytext, rotation='vertical', va='center')
+        if title is not None: plt.suptitle(title)
+    def set_plot(self, ax, fignum, figsize=(4,4)):
+        if ax is None:
+            plt.close(fignum)
+            plt.figure(fignum, figsize=figsize);
+            ax = plt.gca()
+        else:
+            plt.sca(ax); 
+        return ax
+    ##################
+        
     def like_scat(self, ib, axin=None, fb='both', vmin=0, vmax=1):
         fig, ax=self.get_figure(axin); 
         scat=ax.scatter(self.rois.glon, self.rois.singlat, 
@@ -84,8 +112,8 @@ class GalacticSpectra(roi_info.ROIinfo): #Diagnostics):
         to a value determined for just that energy band. The distribution of the log likelihood should be approximately 
         the chi squared distribution of one degree of freedom. The lighter colors, especially red, indicate serious discrepancy.
         """
-        fig,ax = plt.subplots(2,4, figsize=(14,8));
-        plt.subplots_adjust(left=0.10, wspace=0.25, hspace=0.25,right=0.90, bottom=0.15, sharex=True, sharey=True)
+        fig,ax = plt.subplots(2,4, figsize=(14,8), sharex=True, sharey=True);
+        plt.subplots_adjust(left=0.10, wspace=0.25, hspace=0.25,right=0.90, bottom=0.15,)
         scats =map(self.like_scat, range(8), ax.flatten());
         plt.figtext(0.5,0.07, 'glon', ha='center');
         plt.figtext(0.05, 0.5, 'sin(glat)', rotation='vertical', va='center')
@@ -232,9 +260,4 @@ class GalacticSpectra(roi_info.ROIinfo): #Diagnostics):
         return plt.gcf()
             
     def all_plots(self):
-        """Set of plots to check consistency of %(title)s spectra. These result 
-        from analysis of a special run that, for each ROI and each energy band, allows this diffuse component to be free.
-        This is done three times: using only front, only back, and both.
-        <p>There two sets of plots: using both, how consistent is it with the expected unit normalization; and is the front consistent with the back?
-        """
         self.runfigures(*self.plot_functions)
