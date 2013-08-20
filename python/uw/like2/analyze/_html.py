@@ -1,9 +1,10 @@
 """
 Manage the Web page generation
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/_html.py,v 1.10 2013/08/19 21:20:21 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/_html.py,v 1.11 2013/08/19 21:22:44 burnett Exp $
 """
 import os, glob
 import pandas as pd
+import numpy as np
 
 style="""
 <style type="text/css">
@@ -118,6 +119,29 @@ mathjax=r"""<script type="text/x-mathjax-config">
 </script>
 """
 
+def table_menu():
+    models = sorted(glob.glob('../*/plots/index.html'), reverse=True)
+    mdict={}
+    ddict={}
+    anames = set()
+    for m in models:
+        t = os.path.split(m)[0]
+        mname = t.split('/')[-2]
+        dirs = filter(lambda f: os.path.isdir(f), glob.glob(t+'/*'))
+        dnames = map(lambda f: f.split('/')[-1], dirs)
+        map( lambda n: anames.add(n), dnames)
+        mdict[mname] = dnames
+        for d in dnames:
+            if d in ddict.keys():
+                ddict[d].append(mname)
+            else: ddict[d]=[mname]
+    idents = sorted(np.array(list(anames ))) 
+    cols = sorted(mdict.keys())
+    href = lambda m, a: '-A-%s-B-%s-C-' %(m ,a)
+    h = pd.DataFrame(np.array([[href(id,a) if id in ddict[a] else '' for id in cols] for a in idents]), columns=cols, index = idents).to_html()
+    # <a href="%s/plots/%s/index.html?skipDecoration">X</a>'
+    return h.replace('-A-','<a href="').replace('-B-','/plots/').replace('-C-', '/index.html?skipDecoration">X</a>').replace('<th>','<th class="index">')
+    
 def header(title=''):
     """ return HTML for start of a document """
     return '<!DOCTYPE html>\n<head><title>%s</title>\n' %title + style + mathjax +'</head>\n'
@@ -202,6 +226,10 @@ class HTMLindex():
             s += '\n  <tr><td valign="top" class="index">%s</td>'% parse_model(m)
             s += '\n      <td class="index"> %s </td></tr>' % model_comment(m)
         s += '\n</table>\n</body></html>\n'
+        
+        s += '\n<hr>'
+        s += '\n<h3>Table of analyses and models</h3>'
+        s +=  table_menu()
         open(filename, 'w').write(s)
         print 'wrote top menu %s' % os.path.join(os.getcwd(),filename)
     
