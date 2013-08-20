@@ -1,4 +1,17 @@
 ------------------------------------------------------------
+User: burnett  Tue Aug 20 09:05:36 PDT 2013
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	__init__.py 
+Added Files:
+	frontback.py 
+Removed Files:
+	frontbacksedplots.py 
+Log Message:
+rename frontback
+    *
+------------------------------------------------------------
 User: burnett  Tue Aug 20 07:30:08 PDT 2013
 pointlike/python/uw/like2/analyze
 
