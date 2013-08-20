@@ -1,6 +1,6 @@
 """
 Manage the Web page generation
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/_html.py,v 1.11 2013/08/19 21:22:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/_html.py,v 1.12 2013/08/20 01:49:42 burnett Exp $
 """
 import os, glob
 import pandas as pd
@@ -105,7 +105,7 @@ a:hover { background-color:yellow; }
 </style> 
 </head>
 <body>
-<h3>skymodels/%(upper)s</h3>""" 
+<h3><a %(skymodels)s/%(upper)s</h3>""" 
 
 mathjax=r"""<script type="text/x-mathjax-config">
      MathJax.Hub.Config({tex2jax: {
@@ -120,6 +120,8 @@ mathjax=r"""<script type="text/x-mathjax-config">
 """
 
 def table_menu():
+    """Make a table of analyses vx. models
+    """
     models = sorted(glob.glob('../*/plots/index.html'), reverse=True)
     mdict={}
     ddict={}
@@ -138,9 +140,12 @@ def table_menu():
     idents = sorted(np.array(list(anames ))) 
     cols = sorted(mdict.keys())
     href = lambda m, a: '-A-%s-B-%s-C-' %(m ,a)
-    h = pd.DataFrame(np.array([[href(id,a) if id in ddict[a] else '' for id in cols] for a in idents]), columns=cols, index = idents).to_html()
+    h = pd.DataFrame(np.array([[href(id,a) if id in ddict[a] else '' for id in cols] for a in idents]),
+       columns=cols, index=idents).to_html()
     # <a href="%s/plots/%s/index.html?skipDecoration">X</a>'
-    return h.replace('-A-','<a href="').replace('-B-','/plots/').replace('-C-', '/index.html?skipDecoration">X</a>').replace('<th>','<th class="index">')
+    return h.replace('-A-','<a href="').replace('-B-','/plots/')\
+           .replace('-C-', '/index.html?skipDecoration">X</a>')\
+           .replace('<td><strong>', '<td class="index"><strong>') 
     
 def header(title=''):
     """ return HTML for start of a document """
@@ -220,15 +225,16 @@ class HTMLindex():
         models = sorted(glob.glob('../*/plots/index.html'), reverse=True)
         assert len(models)>0, 'No models found?'
         self.last_model = parse_path(models[0])[0]
+        self.skymodels='<a href="../plot_index.html?skipDecoration">skymodels</a>'
         s = top_nav % self.__dict__
         s += '\n<table class="topmenu">'
         for m in models:
-            s += '\n  <tr><td valign="top" class="index">%s</td>'% parse_model(m)
+            s += '\n  <tr><td valign="top" class="index"><strong>%s</strong></td>'% parse_model(m)
             s += '\n      <td class="index"> %s </td></tr>' % model_comment(m)
         s += '\n</table>\n</body></html>\n'
         
         s += '\n<hr>'
-        s += '\n<h3>Table of analyses and models</h3>'
+        s += '\n<h3>Table of analyses and models</h3>\n'
         s +=  table_menu()
         open(filename, 'w').write(s)
         print 'wrote top menu %s' % os.path.join(os.getcwd(),filename)
