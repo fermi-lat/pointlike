@@ -1,7 +1,7 @@
 """
 Plots involving the 1728 ROIs
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/roi_info.py,v 1.2 2013/07/09 03:13:00 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/roi_info.py,v 1.3 2013/08/03 18:09:36 burnett Exp $
 
 """
 
@@ -55,6 +55,7 @@ class ROIinfo(analysis_base.AnalysisBase):
         rx = rois['ra dec glat glon'.split()] 
         rx['chisq'] = [r['chisq'] for r in rois['counts']]
         rx['npar'] = [len(p) for p in rois.parameters]
+        rx.index.name='name'
         ###
         #rx['ring'] = [10**p[0] for p in rois.parameters]
         #rx['iso']  = [10**p[1] for p in rois.parameters]
