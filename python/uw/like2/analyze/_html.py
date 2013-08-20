@@ -2,7 +2,7 @@
 Manage the Web page generation
 $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/_html.py,v 1.12 2013/08/20 01:49:42 burnett Exp $
 """
-import os, glob
+import os, glob, re
 import pandas as pd
 import numpy as np
 
@@ -143,9 +143,16 @@ def table_menu():
     h = pd.DataFrame(np.array([[href(id,a) if id in ddict[a] else '' for id in cols] for a in idents]),
        columns=cols, index=idents).to_html()
     # <a href="%s/plots/%s/index.html?skipDecoration">X</a>'
-    return h.replace('-A-','<a href="').replace('-B-','/plots/')\
-           .replace('-C-', '/index.html?skipDecoration">X</a>')\
-           .replace('<td><strong>', '<td class="index"><strong>') 
+    h1 =  h.replace('-A-','<a href="').replace('-B-','/plots/')\
+           .replace('-C-', '/index.html?skipDecoration">&#10004;</a>')\
+           .replace('<td><strong>', '<td class="index"><strong>')
+    # a regex make models across the top clickable
+    p = re.compile(r'<th>(.*)</th>')
+    def replacement(match):
+        m = match.group(1)
+        return '<th><a href="%s/plots/index.html?skipDecoration"><strong>%s</strong></a></th>' %(m,m)
+    return p.sub(replacement, h1)
+           
     
 def header(title=''):
     """ return HTML for start of a document """
