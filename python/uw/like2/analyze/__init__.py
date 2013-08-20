@@ -18,7 +18,7 @@ __all__=[
  'find_peak',
  'fluxcorr',
 # 'fluxcorriso',
- 'frontbacksedplots',
+ 'frontback',
  'galactic',
  'galacticspectra',
  'gtlikecomparison',
