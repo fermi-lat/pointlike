@@ -1,7 +1,7 @@
 """
 Limb plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/limb.py,v 1.1 2013/06/21 20:15:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/limb.py,v 1.2 2013/06/21 20:51:41 burnett Exp $
 
 """
 
@@ -12,6 +12,7 @@ from skymaps import SkyDir
 from . import roi_info
 
 class Limb(roi_info.ROIinfo):
+    "Limb plots"
     def setup(self, **kwargs):
         super(Limb, self).setup(**kwargs)
         self.plotfolder='limb'

@@ -1,7 +1,7 @@
 """
 Description here
 
-$Header: /phys/users/glast/python/uw/like2/analyze/limbrefit.py,v 1.144 2013/06/18 12:35:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/limbrefit.py,v 1.1 2013/06/21 20:15:30 burnett Exp $
 
 """
 
@@ -13,6 +13,10 @@ from skymaps import SkyDir
 from . import limb
 
 class LimbRefit(limb.Limb):
+    """ Special run to refit Limb normalization
+    %(table)s
+    """
+
     def setup(self, **kw):
         self.plotfolder = 'limb_refit'
         self.source_name='limb'
@@ -32,9 +36,6 @@ class LimbRefit(limb.Limb):
         self.bpar = self.df.back
         
     def all_plots(self):
-        """ Special run to refit Limb normalization
-        %(table)s
-        """
         self.table = pd.DataFrame([self.df.front, self.df.back, ], 
                 index=['front', 'back']).T.describe().to_html()
         self.runfigures([self.flux_vs_dec], ['limb_fit_norm_vs_dec'] )
