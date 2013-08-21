@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Aug 20 21:35:10 PDT 2013
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	limb.py limbrefit.py 
+Log Message:
+fix docstring
+    *
+------------------------------------------------------------
 User: burnett  Tue Aug 20 12:50:23 PDT 2013
 pointlike/python/uw/like2/analyze
 
