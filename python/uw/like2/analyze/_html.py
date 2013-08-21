@@ -1,6 +1,6 @@
 """
 Manage the Web page generation
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/_html.py,v 1.12 2013/08/20 01:49:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/_html.py,v 1.14 2013/08/20 19:49:13 burnett Exp $
 """
 import os, glob, re
 import pandas as pd
@@ -87,7 +87,7 @@ a:hover { background-color:yellow; }
 <h2><a href="%(upper_link)s?skipDecoration">%(upper)s</a>%(model)s</h2>"""
 
 top_nav= """<html> 
-<head> <title>Top Nav</title>
+<head> <title>%(series)s menu</title>
 <style type="text/css">
 body{	font-family:verdana,arial,sans-serif; font-size:10pt;	margin:10px;
 	background-color:white;	}
@@ -233,6 +233,7 @@ class HTMLindex():
         assert len(models)>0, 'No models found?'
         self.last_model = parse_path(models[0])[0]
         self.skymodels='<a href="../plot_index.html?skipDecoration">skymodels</a>'
+        self.series = os.getcwd().split('/')[-2]
         s = top_nav % self.__dict__
         s += '\n<table class="topmenu">'
         for m in models:
