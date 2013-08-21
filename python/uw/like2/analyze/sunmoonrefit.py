@@ -11,6 +11,7 @@ import pandas as pd
 
 from skymaps import SkyDir
 from . import roi_info
+from .analysis_base import FloatFormat
 
 class SunMoonRefit(roi_info.ROIinfo):
     """ Refit to SunMoon model, showing normalization, change in likelihood
@@ -40,15 +41,15 @@ class SunMoonRefit(roi_info.ROIinfo):
         """ Sun/Moon normalization 
         Note that it is defined for all directions
         """
-        self.skyplot_with_hist(self.df.norm, 'norm', 0.5, 1.5, (0.5,1.5))
+        return self.skyplot_with_hist(self.df.norm, 'norm', 0.5, 1.5, (0.5,1.5))
         
     def sunmoon_loglikelihood(self):
         """ Sun/Moon log likelihood change
         The improvement in the log likelihood when Sun/Moon normalization is freed
         """
-        self.skyplot_with_hist(self.df.delta_likelihood, 'delta loglike', 0, 5, (0,5))
+        return self.skyplot_with_hist(self.df.delta_likelihood, 'delta loglike', 0, 5, (0,5))
 
     def all_plots(self):
         self.table = pd.DataFrame([self.df.norm, self.df.norm_unc,self.df.delta_likelihood ], 
-                index=['norm', 'norm_unc', 'delta_likelihood']).T.describe().to_html()
+                index=['norm', 'norm_unc', 'delta_likelihood']).T.describe().to_html(float_format=FloatFormat(2))
         self.runfigures([self.sunmoon_normalization, self.sunmoon_loglikelihood])
