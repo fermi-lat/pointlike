@@ -1,7 +1,7 @@
 """
 Limb plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/limb.py,v 1.2 2013/06/21 20:51:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/limb.py,v 1.3 2013/08/21 04:35:09 burnett Exp $
 
 """
 
@@ -62,9 +62,11 @@ class Limb(roi_info.ROIinfo):
         return fig
         
         
-    def flux_vs_dec(self):
+    def flux_vs_dec(self, ymax=3):
         """ front and back flux vs dec
-        Plots of front and back flux normalizations, ploting ROIS with |b|>35
+        Plots of front and back flux normalizations, ploting ROIS with |b|>35.
+        <br>The dashed lines are piecewise functions, fit to the observed pass 7 4-year mean.
+        <br>The spectral function is described by the diffuse configuration entry for the limb: "%(limbspect)s"
         """
         class PieceWise(object):
             """ functiod that is a piecewise set of straight lines"""
@@ -84,21 +86,25 @@ class Limb(roi_info.ROIinfo):
         ra = np.array(map(lambda dir: dir.ra(), self.df.skydir))
         dec = np.array(map(lambda dir: dir.dec(), self.df.skydir))
         dom = np.linspace(-1,1,201) 
-        
+        try:
+            config = eval(open('config.txt').read())
+            self.limbspect = config['diffuse']['limb']
+        except Exception, msg:
+            self.limbspect='(Failed to retrieve: %s)'%msg
         #dm = self.diffuse_models('limb')
         #fpar,bpar = [np.array([m[i] if m else np.nan for m in dm] )for i in range(2)]
         
         
-        fig, axx = plt.subplots(2,1, figsize=(8,6))
+        fig, axx = plt.subplots(2,1, figsize=(8,6), sharex=True)
         plt.subplots_adjust(right=0.9)
         c=np.abs(self.df.glat)
         cut = c>35
         for ax, par, label  in zip(axx, [self.fpar,self.bpar], 'front back'.split()):
             scat=ax.scatter(np.sin(np.radians(dec))[cut], par[cut], c=c[cut], s=30,vmin=0, vmax=90, edgecolor='none')
-            plt.setp(ax, xlim=(-1,1), xlabel='sin(dec)' if label=='back' else '',  ylim=(0,2))
+            plt.setp(ax, xlim=(-1,1), xlabel='sin(dec)' if label=='back' else '',  ylim=(0,ymax))
             ax.plot(dom, map(limbfun[label],dom), '--', color='k', lw=1) 
             ax.grid()
-            ax.text(-0.75, 1.6, label, fontsize=18)
+            ax.text(-0.75, ymax-0.4, label, fontsize=18)
         fig.text(0.05, 0.5, 'flux normalization factor', rotation='vertical', va='center')
         cax = fig.add_axes((0.94, 0.25, 0.02, 0.4))
         cb=plt.colorbar(scat, cax)
