@@ -1,9 +1,11 @@
 """
 Base class for skymodel analysis
 
+$Header$
+
 """
 
-import os, sys, pickle, glob, zipfile, time
+import os, sys, pickle, glob, zipfile, time, re
 import numpy as np
 import pylab as plt
 from mpl_toolkits.axes_grid import axes_grid, axes_size, Divider, make_axes_locatable
@@ -14,30 +16,46 @@ class FloatFormat(): #simple formatting functor for to_html!
     def __init__(self, n): self.fmt = '%%.%df' % n
     def __call__(self, x): return self.fmt % x
     
-def html_table( df, heading={}, href=True, **kw):
-    """ utility to reformat a pandas-generated html table
+def html_table( df, columns={}, name='temp', heading='heading', href=True, maxlines=10, **kw):
+    """ utility to create and reformat a pandas-generated html table
     df : a DataFrame
-    heading : dict
+    columns : dict
         keys are column names
         items - comma-delimited string, first field the title to use instead of the column name, rest an explanation
     href : bool
          if True, replace index names with link to sedrec
+    maxlines : int
+        maximum number of lines to return as an HTML table; if length of the table is greater, 
     """
-    t = df.to_html(**kw)
+    t = heading+'\n'+df.to_html(**kw)
     t = t.replace('<td><strong>', '<td class="index"><strong>') #what pandas generates for index column
-    for h, item in heading.items():
+    # this for later version
+    t = re.sub(r'<tr>\s*<th>(.+)</th>', lambda x: '<tr>\n\t<th class="index">'+x.group(1)+'</th>', t) 
+    
+    # modify columns headings: search for each name in the heading dict
+    for h, item in columns.items():
         try:
             newhead,title=item.split(',',1)
         except: 
             print '***fail to parse html_table data:',item
             continue
         t = t.replace('>'+h+'<', ' title="%s">%s<'% (title, newhead if newhead!='' else h))
+    
     if href:
        for n in df.index:
            fn = 'sedfig/' + n.replace(' ','_').replace('+','p') + '_sed.png'
            if not os.path.exists(fn): continue
            t = t.replace('>'+n+'<', '><a href="../../%s">%s<' %(fn,n))
-    return t
+    if len(df)<maxlines:
+        return t
+    # long table: make document and return link to it
+    tt = _html.menu_header % dict(name=name)
+    filename = name+'.htm'
+    open(filename, 'w').write(tt+'\n<body>\n'+t+'\n</body>')
+    print 'wrote file %s' % filename
+    
+    return '<a href="%s">%s</a>' % ( filename.split('/')[-1], heading)
+    
     
     
 class OutputTee(object):
@@ -214,7 +232,7 @@ class AnalysisBase(object):
             text = htmldoc%self.__dict__
         except KeyError, msg:
             print '*** failed filling %s:%s' % (title, msg)
-        except TypeError:
+        except TypeError, msg:
             print '*** TypeError with string "%s": %s' % (htmldoc, msg)
         open(os.path.join(self.plotfolder,'index.html'), 'w').write(text)
         print 'saved html doc to %s' %os.path.join(self.plotfolder,'index.html')

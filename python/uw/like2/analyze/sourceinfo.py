@@ -1,7 +1,7 @@
 """
 Basic analyis of source spectra
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.8 2013/08/03 18:09:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.9 2013/08/03 19:40:19 burnett Exp $
 
 """
 
@@ -247,10 +247,13 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             filename = 'non_pulsar_tails.html'
             html_file = self.plotfolder+'/%s' % filename
             #html = tails.sort_index(by='roiname').to_html(float_format=FloatFormat(2))
-            html = html_table(tails, float_format=FloatFormat(2))
-            open(html_file,'w').write('<head>\n'+ _html.style + '</head>\n<body>'+ html+'\n</body>')
-            self.tail_check = '<p><a href="%s?skipDecoration">Table of %d sources on tails</a>: '% (filename, len(tails))
+            self.tail_check = html_table(tails, name=self.plotfolder+'/pulsar_tails', 
+                heading='<h4>Table of %d sources on tails</h4>'%len(tails),
+                float_format=FloatFormat(2))
+            #open(html_file,'w').write('<head>\n'+ _html.style + '</head>\n<body>'+ html+'\n</body>')
+            #self.tail_check = '<p><a href="%s?skipDecoration">Table of %d sources on tails</a>: '% (filename, len(tails))
             self.tail_check += 'Criteria: require index between 1 and 3.5 for powerlaw, beta<2.0 for log parabola'
+            
             # flag sources
             flags = self.df.flags
             tails = tails.index
@@ -264,8 +267,10 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         beta_bad = (t.beta>0.001) * ((t.beta_unc==0) + (t.beta/t.beta_unc<2) + (t.freebits!=7))
         if sum(beta_bad)>0:
             print '%d sources fail beta check' % sum(beta_bad)
-            self.beta_check ='<br>Sources failing beta 2-sigma significance check' +\
-            html_table(t[beta_bad]['ts beta beta_unc freebits roiname'.split()], float_format=FloatFormat(2))
+            self.beta_check = html_table(t[beta_bad]['ts beta beta_unc freebits roiname'.split()], 
+                name=self.plotfolder+'/beta_check',
+                heading = '<h4>Table of %d sources failing beta 2-sigma check</h4>'%sum(beta_bad),
+                float_format=FloatFormat(2))
             
         return fig
         
@@ -340,21 +345,21 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
 
         # table of pulsars with b<1
 
-        filename='pulsar_b.html'
-        #t['significance']=np.where(t.index2_unc>0, (1-t.index2)/t.index2_unc, [np.nan]*len(t) )
         tt=t[t.index2<1]['ts fitqual pindex cutoff index2 index2_unc'.split()]
         tt['significance'] = (1-tt.index2)/tt.index2_unc
-        html_file = self.plotfolder+'/%s' % filename
-        html = html_table(tt,float_format=FloatFormat(2))
-        open(html_file,'w').write('<head>\n'+ _html.style + '</head>\n<body>'+ html+'\n</body>')
-        self.pulsar_b = '<p><a href="%s?skipDecoration">Table of %d sources with b&lt;1</a> '% (filename, len(tt))
+        self.pulsar_b = html_table(tt,
+            name=self.plotfolder+'/pulsar_b',
+            heading='<h4>Table of %d sources with b&lt;1' % len(tt),
+            float_format=FloatFormat(2))
         print '%d pulsar sources with b<1' %len(tt)
 
-        # table of fits with any fixed parameter other than b
+        # table of fits with any fixed parame er other than b
         tt = t[(t.freebits&7!=7)]['ts fitqual pindex cutoff freebits roiname'.split()].sort_index(by='roiname')
         if len(tt)>0:
             print '%d pulsar-like sources with fixed parameters' %len(tt)
-            self.pulsar_fixed='<p>Sources with any fixed parameter other than b: %s' % html_table(tt, float_format=FloatFormat(2))
+            self.pulsar_fixed= html_table(tt, name=self.plotfolder+'/pulsar_fixed', 
+                heading='<h4>%d pulsar-like sources with fixed parameters</h4>' %len(tt),
+                float_format=FloatFormat(2))
         else: self.pulsar_fixed=''
         return fig
     
@@ -426,30 +431,26 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         print '%d sources with bad fits' %len(t)
         if len(t)>0:
             self.badfit = t[['ts', 'errs', 'roiname']]
-            #self.badfit_check = '<h4>Sources with missing errors:</h4>'+self.badfit.to_html(float_format=FloatFormat(1))
-            self.badfit_check = '<h4>Sources with missing errors:</h4>'+html_table(self.badfit, float_format=FloatFormat(1))
+            self.badfit_check = html_table(self.badfit, name=self.plotfolder+'/badfits', heading='<h4>Sources with missing errors</h4>', float_format=FloatFormat(1))
         else: self.badfit_check = '<p>All sources fit ok.'
         self.fit_quality_average =  ', '.join( map(lambda x,n :'%s: %.1f' %(n,x) ,
                             self.average, 'powerlaw logparabola expcutoff(hilat) expcutoff(lolat)'.split()) )
         self.ndf=ndf
         print 'fit quality averages:', self.fit_quality_average
 
-        # Make tables (csv and html) of the poor fits
+        # Make table of the poor fits
         s['pull0'] = np.array([x.pull[0] for x in s.sedrec])
         t =s.ix[((s.fitqual>30) | (np.abs(s.pull0)>3))*(s.ts>10) ]['ra dec glat fitqual pull0 ts modelname freebits index2 roiname'.split()].sort_index(by='roiname')
-        poorfit_csv = 'poor_spectral_fits.csv'
-        t.to_csv(poorfit_csv)
-        bs =sorted(list(set(t.roiname)))
-        print 'Wrote out list of poor fits to %s, %d with fitqual>30 or abs(pull0)>3, in %d ROIs' % (poorfit_csv, len(t), len(bs))
-        # todo: make a function to do this nidcely
-        poorfit_html = self.plotfolder+'/poorfits.html'
-        #t_html = '<h3>Table of poorly-fit sources, model %s</h3>'%self.skymodel + t.to_html(float_format=FloatFormat(2),
-        #        formatters=dict(ra=FloatFormat(3), dec=FloatFormat(3), ts=FloatFormat(0),index2=FloatFormat(3)))
-        t_html = '<h3>Table of poorly-fit sources, model %s</h3>'%self.skymodel + html_table(t,float_format=FloatFormat(2),
+        #poorfit_csv = 'poor_spectral_fits.csv'
+        #t.to_csv(poorfit_csv)
+        #bs =sorted(list(set(t.roiname)))
+        #print 'Wrote out list of poor fits to %s, %d with fitqual>30 or abs(pull0)>3, in %d ROIs' % (poorfit_csv, len(t), len(bs))
+        
+        self.poorfit_table  = html_table(t, name=self.plotfolder+'/poorfit', 
+                heading='<h4>Table of %d poor spectral fits</h4>'%len(t),
+                float_format=FloatFormat(2),
                 formatters=dict(ra=FloatFormat(3), dec=FloatFormat(3), ts=FloatFormat(0),index2=FloatFormat(3)))
 
-        open(poorfit_html,'w').write('<head>\n'+ _html.style + '</head>\n<body>'+t_html+'\n</body>')
-        self.poorfit_table = '<p> <a href="poorfits.html?skipDecoration"> Table of %d poor fits, with fitqual>30 or abs(pull0)>3</a>' % (  len(t) )
         # flag sources that made it into the list
         self.df.flags[t.index] |= 2
         print '%d sources flagged (2) as poor fits' %len(t)
@@ -464,7 +465,6 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         poor = ( (s.fitqual>30) | (np.abs(s.pull0)>3))*(s.ts>10) 
         return self.skyplot(s.fitqual[poor], vmin=30, vmax=100)
         
-    
     def pivot_vs_e0(self, xylim=(100, 4e4)):
         """ pivot vs e0
         The reference energy, e0, is fixed except by a special run that iterates until the measured pivot energy, 
