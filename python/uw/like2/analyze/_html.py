@@ -1,10 +1,11 @@
 """
 Manage the Web page generation
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/_html.py,v 1.14 2013/08/20 19:49:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/_html.py,v 1.15 2013/08/21 04:35:37 burnett Exp $
 """
 import os, glob, re
 import pandas as pd
 import numpy as np
+#from uw.like2.analyze import app # for the menu
 
 style="""
 <style type="text/css">
@@ -144,15 +145,22 @@ def table_menu():
        columns=cols, index=idents).to_html()
     # <a href="%s/plots/%s/index.html?skipDecoration">X</a>'
     h1 =  h.replace('-A-','<a href="').replace('-B-','/plots/')\
-           .replace('-C-', '/index.html?skipDecoration">&#10004;</a>')\
-           .replace('<td><strong>', '<td class="index"><strong>')
-    # a regex make models across the top clickable
-    p = re.compile(r'<th>(.*)</th>')
-    def replacement(match):
-        m = match.group(1)
-        return '<th><a href="%s/plots/index.html?skipDecoration"><strong>%s</strong></a></th>' %(m,m)
-    return p.sub(replacement, h1)
+           .replace('-C-', '/index.html?skipDecoration">&#10004;</a>')
            
+    def replace_model(instring):
+        p = re.compile(r'<th>(.+)</th>')
+        replacer = lambda m: '<tr>\n  <th><a href="*/plots/index.html?skipDecoration"><strong>*</strong></a></th>'.replace('*',m.group(1)) 
+        return p.sub(replacer, instring)
+        
+    def replace_analysis(instring):
+        p = re.compile('<tr>\s*<th>(.+)<')
+        replacer = lambda m: '<td class="index" title="'+app.menu[m.group(1)]['title'] \
+                    +'">'+m.group(1)+'<'
+        return p.sub(replacer, instring)
+
+    h2 = replace_model(h1) ##### oops, now they use <th>
+    h3 = replace_analysis(h2)
+    return h2
     
 def header(title=''):
     """ return HTML for start of a document """
