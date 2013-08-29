@@ -1,6 +1,6 @@
 """    Description here
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.5 2013/07/21 15:18:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.6 2013/08/03 18:09:36 burnett Exp $
 
 """
 
@@ -55,9 +55,9 @@ class Localization(sourceinfo.SourceInfo):
         The 'finish' stage of creating a model runs the localization code to check that the current position is 
         still appropriate. This is measured by the change in the value of the TS at the best fit position. The position is only 
         updated based on this information at the start of a new series of interations.
-            Left: histogram of the square root of the TS difference from current position to
-            the fit; corresponds the number of sigmas. <br>
-            Right: scatter plot of this vs. TS
+           <br> <b>Left</b>: histogram of the square root of the TS difference from current position to
+           the fit; corresponds the number of sigmas. <br>
+            <b>Right</b>: scatter plot of this vs. TS
             """
         bins=np.linspace(0,np.sqrt(maxdelta),26)
         fig, axx = plt.subplots(1,2,figsize=(13,5)); 
@@ -168,7 +168,10 @@ class Localization(sourceinfo.SourceInfo):
             dict(source1=name1href, source2=name2href, distance=distance, 
                     tolerance=tolerance),
                 columns = 'source1 source2 distance tolerance'.split(),
-            ), float_format=FloatFormat(2), href=False) 
+            ), 
+            name=self.plotfolder+'/close',
+            heading='<h4>Table of pairs of close sources</h4>',
+            float_format=FloatFormat(2), href=False) 
         return None
         
     def source_confusion(self, bmin=10, dtheta=0.1, nbins=50, deficit_angle=1.0, tsmin=10):
@@ -225,17 +228,22 @@ class Localization(sourceinfo.SourceInfo):
                 %(poorly_localized_table_check)s
         """
         if len(self.poorloc)>0:
-            tohtml = html_table(self.poorloc, float_format=FloatFormat(2))
-            poorly_localized_tablepath = os.path.join(self.plotfolder,'poorly_localized_table.html')
-            open('poorly_localized_table.html','w').write(tohtml)
-            print 'Wrote poorly_localized_table.html'
-            open(os.path.join(poorly_localized_tablepath),'w').write(
-                '<head>\n'  + _html.style + '</head>\n<body>\n<h3>Poorly Localized Source Table</h3>'\
-                            +  tohtml+'\n</body>')
-            print 'saved html doc to %s' % os.path.join(poorly_localized_tablepath)
-            self.poorly_localized_table_check =\
-                        '<p><a href="%s?skipDecoration"> Table of %d poorly localized (a>%.2f deg, or qual>%.1f with TS>%d) sources</a>'\
-                        % ( 'poorly_localized_table.html',len(self.poorloc),self.acut,self.qualcut, self.tscut)
+            self.poorly_localized_table_check  = html_table(self.poorloc, 
+                name=self.plotfolder+'/poorly_localized',
+                heading='<h4>Table of %d poorly localized (a>%.2f deg, or qual>%.1f with TS>%d) sources</h4>'\
+                        % ( len(self.poorloc),self.acut,self.qualcut, self.tscut),
+                float_format=FloatFormat(2))
+                
+            #poorly_localized_tablepath = os.path.join(self.plotfolder,'poorly_localized_table.html')
+            #open('poorly_localized_table.html','w').write(tohtml)
+            #print 'Wrote poorly_localized_table.html'
+            #open(os.path.join(poorly_localized_tablepath),'w').write(
+            #    '<head>\n'  + _html.style + '</head>\n<body>\n<h3>Poorly Localized Source Table</h3>'\
+            #                +  tohtml+'\n</body>')
+            #print 'saved html doc to %s' % os.path.join(poorly_localized_tablepath)
+            #self.poorly_localized_table_check =\
+            #            '<p><a href="%s?skipDecoration"> Table of %d poorly localized (a>%.2f deg, or qual>%.1f with TS>%d) sources</a>'\
+            #            % ( 'poorly_localized_table.html',len(self.poorloc),self.acut,self.qualcut, self.tscut)
             try:
                 version = os.path.split(os.getcwd())[-1]
                 pv = makepivot.MakeCollection('poor localizations %s'%version, 'tsmap_fail', 'poorly_localized.csv',refresh=True)
