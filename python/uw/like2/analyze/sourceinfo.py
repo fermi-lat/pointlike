@@ -1,7 +1,7 @@
 """
 Basic analyis of source spectra
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.9 2013/08/03 19:40:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.10 2013/08/28 07:29:39 burnett Exp $
 
 """
 
@@ -349,7 +349,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         tt['significance'] = (1-tt.index2)/tt.index2_unc
         self.pulsar_b = html_table(tt,
             name=self.plotfolder+'/pulsar_b',
-            heading='<h4>Table of %d sources with b&lt;1' % len(tt),
+            heading='<h4>Table of %d sources with b&lt;1</h4>' % len(tt),
             float_format=FloatFormat(2))
         print '%d pulsar sources with b<1' %len(tt)
 
