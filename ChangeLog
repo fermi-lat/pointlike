@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Wed Sep  4 05:34:59 PDT 2013
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	analysis_base.py associations.py background.py find_peak.py 
+	frontback.py isotropic.py 
+Log Message:
+allow 2-tuple of (ra,dec) for roi selection
+    *
+------------------------------------------------------------
 User: burnett  Wed Sep  4 05:34:58 PDT 2013
 pointlike/python/uw/like2
 
