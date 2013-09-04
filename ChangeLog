@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Wed Sep  4 05:35:00 PDT 2013
+pointlike/python/uw/like2/pub
+
+Modified Files:
+	publish.py 
+Log Message:
+allow 2-tuple of (ra,dec) for roi selection
+    *
+------------------------------------------------------------
+User: burnett  Wed Sep  4 05:35:00 PDT 2013
 pointlike/python/uw/like2/pipeline
 
 Modified Files:
