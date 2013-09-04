@@ -1,6 +1,6 @@
 """
 Check the residual TS maps for clusters
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_ts.py,v 1.1 2012/12/23 20:19:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_ts.py,v 1.2 2013/01/20 14:06:04 burnett Exp $
 
 """
 
@@ -114,7 +114,7 @@ def main(args):
     assert os.path.exists(args.files[0]), 'did not find file %s'%args.files[0]
     tsdata = TSdata('.', args.files[0], args.tsfield)
     rec = open(args.files[1], 'w')
-    make_seeds(tsdata, rcut=args.tsmin, bcut=args.bmin, rec=rec, seedroot=args.seedroot, minsize=args.minsize)
+    make_seeds(tsdata, rcut=args.tsmin, bcut=float(args.bmin), rec=rec, seedroot=args.seedroot, minsize=args.minsize)
     
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='examine a TS map file for clusters, create a file of source candidates')

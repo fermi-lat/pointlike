@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.34 2013/05/14 15:39:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.35 2013/07/28 15:29:35 burnett Exp $
 
 """
 import types
@@ -267,7 +267,7 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
                 if not hasattr(source,'ellipse'):
                     loc.localize()
                     loc.summary()
-                tsize = source.ellipse[2]*15. # scale according to major axis size
+                tsize = kwargs.pop('size', source.ellipse[2]*15.) # scale according to major axis size
                 plot_kw.update(size=tsize, pixelsize=tsize/15.)
             except Exception, e:
                 print 'Failed localization for source %s: %s' % (source.name, e)
@@ -408,12 +408,12 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
         """
         from sources import ExpCutoff, PLSuperExpCutoff, LogParabola, PowerLaw
         src = self.get_source(source_name)
-        old_model = src.model
+        old_model = src.spectral_model
         if type(model)==types.StringType:
             model = eval(model) 
         #assert model.isinstance(Models.Model), 'model must inherit from Model class'
         sourcelist.set_default_bounds(model)
-        src.model = model
+        src.spectral_model = model
         self.initialize()
         return old_model
         

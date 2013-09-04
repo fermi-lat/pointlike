@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.28 2013/07/12 22:58:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.29 2013/08/15 22:10:20 burnett Exp $
 """
 import os, argparse, logging, datetime, subprocess
 import numpy as np
@@ -96,19 +96,19 @@ stagenames = dict(
     # List of possible stages, with proc to run, parameters for it,  summary string
     # list is partly recognized by check_converge.py, TODO to incoprorate it here, especially the part that may start a new stream
     create      =  Stage(pipe.Create,  sum='environment counts menu', help='Create a new skymodel, follow with update_full',),
-    update_full =  Stage(pipe.Update, dict( dampen=1.0,),sum='counts',help='perform update' ),
-    update      =  Stage(pipe.Update, dict( dampen=0.5,),sum='counts',help='perform update' ),
-    update_beta =  Stage(pipe.Update, dict( dampen=1.0, fix_beta=True),sum='counts',help='perform update', ),
-    update_pivot=  Stage(pipe.Update, dict( dampen=1.0, repivot=True), sum='counts',help='update pivot', ), 
-    update_only =  Stage(pipe.Update, dict( dampen=1.0), sum='counts sources', help='update, no additional stage', ), 
+    update_full =  Stage(pipe.Update, dict( dampen=1.0,),sum='counts',help='refit, full update' ),
+    update      =  Stage(pipe.Update, dict( dampen=0.5,),sum='counts',help='refit, half update' ),
+    update_beta =  Stage(pipe.Update, dict( dampen=1.0, fix_beta=True),sum='sourceinfo',help='check beta', ),
+    update_pivot=  Stage(pipe.Update, dict( dampen=1.0, repivot=True), sum='sourceinfo',help='update pivot', ), 
+    update_only =  Stage(pipe.Update, dict( dampen=1.0), sum='counts sourceinfo', help='update, no additional stage', ), 
     finish      =  Stage(pipe.Finish,  sum='sourceinfo localization',help='perform localization', ),
     tables      =  Stage(pipe.Tables,  sum='hptables', job_list='joblist8.txt', help='create HEALPix tables: ts kde counts', ),
-    sedinfo     =  Stage(pipe.Update, dict( processor='processor.full_sed_processor',sedfig_dir='"sedfig"',), sum='fb',
+    sedinfo     =  Stage(pipe.Update, dict( processor='processor.full_sed_processor',sedfig_dir='"sedfig"',), sum='frontback',
                             help='process SED information' ),
-    diffuse     =  Stage(pipe.Update, dict( processor='processor.roi_refit_processor'), sum='galspect', help='Refit the galactic component' ),
-    isodiffuse  =  Stage(pipe.Update, dict( processor='processor.iso_refit_processor'), sum='isospect', help='Refit the isotropic component'),
-    limb        =  Stage(pipe.Update, dict( processor='processor.limb_processor'),     sum='limb_refit', help='Refit the limb component, usually fixed' ),
-    sunmoon     =  Stage(pipe.Update, dict( processor='processor.sunmoon_processor'), sum='sunmoon_refit', help='Refit the SunMoon component, usually fixed' ),
+    diffuse     =  Stage(pipe.Update, dict( processor='processor.roi_refit_processor'), sum='galacticspectra', help='Refit the galactic component' ),
+    isodiffuse  =  Stage(pipe.Update, dict( processor='processor.iso_refit_processor'), sum='isotropicspecta', help='Refit the isotropic component'),
+    limb        =  Stage(pipe.Update, dict( processor='processor.limb_processor'),     sum='limbrefit', help='Refit the limb component, usually fixed' ),
+    sunmoon     =  Stage(pipe.Update, dict( processor='processor.sunmoon_processor'), sum='sunmoonrefit', help='Refit the SunMoon component, usually fixed' ),
     fluxcorr    =  Stage(pipe.Update, dict( processor='processor.flux_correlations'), sum='fluxcorr', ),
     fluxcorrgal =  Stage(pipe.Update, dict( processor='processor.flux_correlations'), sum='flxcorriso', ),
     fluxcorriso =  Stage(pipe.Update, dict( processor='processor.flux_correlations(diffuse="iso*", fluxcorr="fluxcorriso")'), ),
@@ -121,8 +121,9 @@ stagenames = dict(
     pseedcheck  =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="PSEED")',auxcat="pseeds.txt"), help='refit pulsar seeds'),
     fglcheck    =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="2FGL")',auxcat="2fgl_lost.csv"), help='check 2FGL'),
     pulsar_detection=Stage(pipe.PulsarDetection, job_list='joblist8.txt', sum='pts', help='Create ts tables for pulsar detection'),
-    gtlike_check=  Stage(pipe.Finish, dict(processor='processor.gtlike_compare()',), sum='gtlike_comparison', help='Compare with gtlike analysis of same sources'),
+    gtlike_check=  Stage(pipe.Finish, dict(processor='processor.gtlike_compare()',), sum='gtlikecomparison', help='Compare with gtlike analysis of same sources'),
     uw_compare =  Stage(pipe.Finish, dict(processor='processor.UW_compare(other="uw26")',), sum='uw_comparison', help='Compare with another UW model'),
+    tsmap_fail =  Stage(pipe.Update, dict(processor='processor.localize()',), sum='localization', help='tsmap_fail'),
     covariance =  Stage(pipe.Finish, dict(processor='processor.covariance',),  help='covariance matrices'),
 ) 
 keys = stagenames.keys()

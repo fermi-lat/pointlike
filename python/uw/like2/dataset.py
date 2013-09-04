@@ -1,11 +1,11 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.21 2013/01/29 16:37:14 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.22 2013/02/10 23:19:25 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.21 $'.split()[1]
+version='$Revision: 1.22 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np
@@ -63,7 +63,7 @@ class Interval(dict):
     """
     start = 239557417
     day = 24*60*60
-    length= [day, 7*day, 365.25*day/12., 365.25]
+    length= [day, 7*day, 365.25*day/12., 365.25*day]
     def __getitem__(self, x):
         for i, kind in enumerate(['day', 'week', 'month', 'year']):
             if not x.startswith(kind): continue
@@ -187,7 +187,8 @@ class DataSet(dataman.DataSpec):
                 print 'found dataset %s in %s' % (dataset, folder)
                 # translate event class name to appropriate bit
                 ddict=ldict[dataset]
-                ddict['event_class_bit']= dict(source=2, clean=3, extraclean=4)[ddict.get('event_class','source').lower()]
+                #ddict['event_class_bit']= 4 ######FOR PASS8 now 
+                ddict['event_class_bit']=dict(source=2, clean=3, extraclean=4)[ddict.get('event_class','source').lower()]
                 return DataSpecification(folder,  interval=interval, gti_mask=gti_mask, **ddict)
         raise DataSetError('dataset name "%s" not found in %s' % (dataset, folders))
 

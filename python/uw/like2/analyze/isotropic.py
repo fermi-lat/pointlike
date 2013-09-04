@@ -1,7 +1,7 @@
 """
 Isotropic diffuse plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/isotropic.py,v 1.1 2013/06/21 20:15:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/isotropic.py,v 1.2 2013/06/21 20:51:41 burnett Exp $
 
 """
 
@@ -12,6 +12,8 @@ import pylab as plt
 from . import galactic
 
 class Isotropic(galactic.Galactic):
+    """Isotropic diffuse analysis
+    """
 
     def setup(self, **kw):
         super(Isotropic, self).setup(**kw)

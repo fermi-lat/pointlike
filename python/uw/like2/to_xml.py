@@ -1,6 +1,6 @@
 """
 Generate the XML representation of a skymodel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.10 2013/07/09 16:05:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.11 2013/07/11 17:42:17 burnett Exp $
 
 """
 import os, collections, argparse, types, glob, pyfits
@@ -124,7 +124,7 @@ def source_library(source_list, title='sources', stream=None, strict=False, maxi
                     ns +=1
                 else:
                     with Element('spatialModel', type='SpatialMap', 
-                            file=extended.ix[source['name']]['Spatial_Filename'].strip() ) as sm:
+                            file="%s" % extended.ix[source['name']]['Spatial_Filename'].strip() ) as sm:
                         SimpleElement('parameter', name='Prefactor', value=1.0, free=0, max=1e3,min=1e-3, scale=1.0)
                     ne += 1
             if maxi is not None and i>maxi: break

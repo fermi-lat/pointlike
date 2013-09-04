@@ -1,6 +1,6 @@
 """
 background analysis
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/background.py,v 1.6 2013/08/05 03:26:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/background.py,v 1.7 2013/08/14 18:40:54 burnett Exp $
 
 """
 import os, glob
@@ -22,7 +22,7 @@ class Background(roi_info.ROIinfo):
     
     def introduction(self):
         r"""Introduction: Resolution for a point source
-        The following is from a <a href="../../../../../documents/background_systematics.htm">derivation</a> of the relative resolution for a fit to the flux from a point source, 
+        The following is from a <a href="../../../../../documents/background_systematics.htm?skipDecoration">derivation</a> of the relative resolution for a fit to the flux from a point source, 
         with fixed spectral parameters:
         $$\begin{equation}  \frac{1}{{\sigma_s}^2} = \sum\limits_k    
           \int \mathrm{d}\Omega  \frac{P_k(\theta)^2}{ \alpha_k P_k(\theta)+\beta_k }

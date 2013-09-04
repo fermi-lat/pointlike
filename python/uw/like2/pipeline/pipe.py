@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.37 2013/05/04 14:44:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.38 2013/07/12 21:57:56 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
@@ -443,7 +443,7 @@ class PulsarLimitTables(Tables):
 
 class PulsarDetection(Tables):
     """ create TS table with pulsar-like function"""
-    skyfuns = [("ResidualTS", "pts", dict(model="Models.ExpCutoff(p=[6e-14, 1.2, 2000])"),)]
+    skyfuns = [("ResidualTS", "pts", dict(model="Models.ExpCutoff(p=[6e-14, 1.5, 3000])"),)]
             
 class ModelTables(Tables):
     """ create Model prediction tables """
