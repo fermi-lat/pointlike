@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.16 2013/05/25 17:57:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.17 2013/06/04 18:27:47 burnett Exp $
 
 """
 import os
@@ -54,7 +54,10 @@ class Localization(object):
         self.rs.update(True)
         self.maxlike=self.rs.log_like()
         self.skydir=self.saved_skydir = self.source.skydir #saved value
-        if self.seedpos is not None: self.skydir = self.seedpos
+        if self.seedpos is not None: 
+            if not isinstance(self.seedpos, SkyDir):
+                self.seedpos = SkyDir(*self.seedpos)
+            self.skydir = self.seedpos
         self.name = self.source.name
     
     def __enter__(self):

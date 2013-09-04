@@ -1,7 +1,7 @@
 """
 Association analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.2 2013/07/12 17:31:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.3 2013/07/12 22:36:28 burnett Exp $
 
 """
 
@@ -19,11 +19,12 @@ from . diagnostics import html_table
 
 
 class Associations(sourceinfo.SourceInfo):
-    """<h2> Analysis of associations</h2>
+    """Analysis of associations
     <p>
     A feature of the UW pipeline is the application of the LAT association algorithm, with the same catalogs as
     were used for 2FGL, except that the latest LAT pulsar catalog is used. Note that priors are not recalculated,
     we use the values determined for 2FGL. 
+    <p>And now that Jurgen's pipeline has Planck, this lacks that, too.
     """
     
     def setup(self, **kw):

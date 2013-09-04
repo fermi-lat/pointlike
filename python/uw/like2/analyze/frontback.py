@@ -1,7 +1,7 @@
 """
 Description here
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/frontbacksedplots.py,v 1.1 2013/06/21 20:15:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/frontback.py,v 1.1 2013/08/20 16:05:36 burnett Exp $
 
 """
 
@@ -126,10 +126,11 @@ class FrontBackSedPlots(diagnostics.Diagnostics):
 
     def consistency_plots(self):
         """ Front-Back consistency
-        Measure of the likelihood ratio test for front/back consistency.
+        Measure of the likelihood ratio test for front/back consistency. For each source, the color reflects the test statistic for 
+	the hypothesis that front and back are consistent. The color scale range is from -1 to 2
         """
         map(self.consistency_plot, range(8), self.multifig()); 
-        self.multilabels('flux (eV/cm**2/s)','front/back asymmery','Asymmetries for all sources');
+        self.multilabels('glon','sin(glat)','Asymmetries for all sources');
         return plt.gcf()
     
     def get_strongest(self):

@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.22 2013/05/14 15:33:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.23 2013/05/29 22:36:28 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -77,6 +77,15 @@ class Source(object):
                 print 'Failed to create LogParabola for source %s, pars= %s'% (self.name, (f,gamma,emin))
                 raise
             self.model.free[2:]=False
+        elif self.model.name=='LogParabola':
+            self.model.free[-1]=False # make sure Ebreak is always frozen (bug in handling extended sources?)
+            #assert not self.model.free[3], 'LogParabola model for source %s hae Ebreak free' % self.name
+            if False: ##########TURN OFF FOR NOW not self.model.free[2] and self.model[2]!=0.:
+                oldbeta=self.model[2]
+                self.model[2]=0
+                self.model.internal_cov_matrix[2,:]=0
+                self.model.internal_cov_matrix[:,2]=0
+                print 'Warning: set fixed beta=0 for source %s, beta was %.2f' %(self.name, oldbeta)
         if self.model.name not in ['LogParabola','PLSuperExpCutoff','ExpCutoff', 'Constant']:
             raise Exception('model %s not supported' % self.model.name)
         if not hasattr(self.model, 'npar'):
@@ -118,6 +127,8 @@ class ExtendedSource(Source):
         """ return a new ExtendSource object, with a copy of the model object"""
         ret = ExtendedSource(**self.__dict__)
         ret.model = self.model.copy()
+        if ret.model.name=='LogParabola':
+            ret.model.free[-1]=False # make sure Ebreak is frozen
         return ret
  
 class DiffuseFunction(skymaps.DiffuseFunction):
@@ -255,6 +266,7 @@ class ExtendedCatalog( pointspec_helpers.ExtendedSourceCatalog):
         if source.model.name=='BrokenPowerLaw': #convert this
             model = Models.LogParabola()
         else: model = source.model
+        if model.name=='LogParabola': model.free[-1]=False # E_break ne free
         ### seems to be necessary for some models created from 
         if model.mappers[0].__class__.__name__== 'LimitMapper':
             print 'wrong mappers: converting model for source %s, model %s' % (name, model.name)

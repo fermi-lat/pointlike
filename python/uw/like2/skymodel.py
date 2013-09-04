@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.37 2013/07/11 14:21:31 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.38 2013/07/11 14:23:03 burnett Exp $
 
 """
 import os, pickle, glob, types, collections, zipfile
@@ -595,5 +595,9 @@ class Rename(object):
         print 'found %d names to convert' % len(self.namedict)
         
     def __call__(self, s):
+        t = s.name
         s.name = self.namedict.get(s.name, s.name)
+        if s.name[0] =='*':
+           print 'deleting', t
+           return False
         return True
