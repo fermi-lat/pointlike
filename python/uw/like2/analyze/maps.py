@@ -1,7 +1,7 @@
 """
 Sky maps of various types
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/maps.py,v 1.1 2013/08/19 13:56:08 burnett Exp $
 
 """
 import os, sys, glob, pyfits
@@ -33,20 +33,18 @@ class Maps(analysis_base.AnalysisBase):
     def setup(self, **kw):
         self.plotfolder='maps'
     
-    def ait_plots(self,   **kwargs):
-        """Images from HEALPix FITS files
-        %(healpix_plots)s
-        """
+    def ait_plots(self, pattern='hptables*.fits',  **kwargs):
         show_kw_dict=dict( 
             kde=dict(nocolorbar=True, scale='log',vmin=4.5,vmax=7.5, cmap=colormaps.sls),
             ts = dict(nocolorbar=False, vmin=10, vmax=25),
             galactic = dict(nocolorbar=True, scale='log', cmap=colormaps.sls),
             counts = dict(scale='log'),
             )
+        show_kw_default = dict(vmin=kwargs.pop('vmin',None), vmax=kwargs.pop('vmax',None))
         dpi = kwargs.pop('dpi', 120)
-        infits = glob.glob('hptables*.fits')
+        infits = glob.glob(pattern)
         if  len(infits)==0:
-            raise Exception('No hptables found')
+            raise Exception('No files match pattern %s' %pattern)
         hp="<p>Click on any of the thumbnails below to see an expanded version. All are AIT projections."
         for filename in infits:
             try:
@@ -62,9 +60,8 @@ class Maps(analysis_base.AnalysisBase):
                 outfile = self._check_exist(table+'_ait.png')
                 if outfile is not None: 
                     dm = display_map.DisplayMap(t.field(table))
-                    show_kw=show_kw_dict.get(table, {})
+                    show_kw=show_kw_dict.get(table, show_kw_default)
                     dm.fill_ait(show_kw=show_kw, **kwargs)
-                    #plt.title( '%s for %s' % (field, self.outdir))
                     plt.savefig(outfile, bbox_inches='tight', dpi=dpi)
                     make_thumbnail(outfile)
                     print 'wrote %s image and thumbnail' % outfile
@@ -74,8 +71,21 @@ class Maps(analysis_base.AnalysisBase):
                         <img alt="%(path)s_ait.png"  
                         src="%(path)s_ait_thumbnail.png" /></a> <br/>""" % dict(table=table, path=table)
             
-        self.healpix_plots = hp + '\n'
+        return hp + '\n'
         
+    def hptables(self):
+        """Images from HEALPix FITS files
+        %(healpix_plots)s
+        """
+        self.healpix_plots = self.ait_plots('hptables*.fits')
+        
+    def diffuse_corrections(self, vmin=0.9, vmax=1.1):
+        """Images from the diffuse correction
+        <p>The maps show the locations of the applied diffuse correction, for the first four bands, from 100 MeV to 1 GeV.
+        %(diffuse_corr)s
+        """
+        self.diffuse_corr = self.ait_plots('diffuse_corr.fits', vmin=vmin, vmax=vmax)
+    
     def _check_exist(self, filename, overwrite=False):
         """ return full filename, remove if exists"""
         fn = os.path.join(self.plotfolder, filename)
@@ -87,5 +97,5 @@ class Maps(analysis_base.AnalysisBase):
 
         
     def all_plots(self):
-        self.runfigures([self.ait_plots,])
+        self.runfigures([self.hptables, self.diffuse_corrections,])
         pass
