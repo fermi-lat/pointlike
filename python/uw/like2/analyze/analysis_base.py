@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.4 2013/08/28 07:29:39 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.5 2013/09/04 12:34:59 burnett Exp $
 
 """
 
@@ -218,6 +218,9 @@ class AnalysisBase(object):
                 % (tuple(time.localtime()[:6])+
                  (os.environ.get('HOSTNAME',os.environ.get('COMPUTERNAME','?')),
                   os.environ.get('USER',os.environ.get('USERNAME','?'))))
+        try:
+            htmldoc+= '\n<br>'+ re.search(r'Header:(.+)\$', sys.modules[self.__module__].__doc__).group(1)
+        except: pass
         htmldoc+='\n</body>'
         self.htmlmenu.save(os.path.join(self.plotfolder,'menu.html'))
         print 'saved local menu to %s' % os.path.join(self.plotfolder,'menu.html')
