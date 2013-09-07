@@ -1,7 +1,7 @@
 """
 Sky maps of various types
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/maps.py,v 1.1 2013/08/19 13:56:08 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/maps.py,v 1.2 2013/09/07 09:48:49 burnett Exp $
 
 """
 import os, sys, glob, pyfits
@@ -55,6 +55,8 @@ class Maps(analysis_base.AnalysisBase):
             
             hp += """<p>File <a href="../../%(filename)s?download=true">"%(filename)s"</a>:
                 nside=%(nside)s, %(cols)d columns."""% dict(filename=filename, nside=nside, cols=len(t.dtype.names))
+            hrow = '\n<table><tr>'
+            mrow = '</tr>\n<tr>'
             for table in t.dtype.names:
                 print 'processing table %s, length=%d' % (table, len(table))
                 outfile = self._check_exist(table+'_ait.png')
@@ -67,11 +69,15 @@ class Maps(analysis_base.AnalysisBase):
                     print 'wrote %s image and thumbnail' % outfile
                 else: 
                     print 'using existing %s and thumbnail' % table
-                hp+="""\n <p><b>%(table)s</b> <br><a href="%(path)s_ait.png"> 
+                hrow += '<td>%s</td>' % table 
+                mrow += """\n<td><a href="%(path)s_ait.png"> 
                         <img alt="%(path)s_ait.png"  
-                        src="%(path)s_ait_thumbnail.png" /></a> <br/>""" % dict(table=table, path=table)
+                        src="%(path)s_ait_thumbnail.png" /></a> </td>""" % dict(path=table)
+                #hp+="""\n <p><b>%(table)s</b> <br><a href="%(path)s_ait.png"> 
+                #        <img alt="%(path)s_ait.png"  
+                #        src="%(path)s_ait_thumbnail.png" /></a> <br/>""" % dict(table=table, path=table)
             
-        return hp + '\n'
+        return hp + hrow + mrow +'</tr>\n</table>'
         
     def hptables(self):
         """Images from HEALPix FITS files
