@@ -1,6 +1,6 @@
 """
 background analysis
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/background.py,v 1.7 2013/08/14 18:40:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/background.py,v 1.8 2013/09/04 12:34:59 burnett Exp $
 
 """
 import os, glob
@@ -82,6 +82,12 @@ class Background(roi_info.ROIinfo):
         
         #make source info available from the csv
         self.dfs = pd.read_csv(glob.glob('sources_uw*.csv')[-1], index_col=0)
+        
+        # make sedinfo into a DataFrame sedinfo
+        self.sedinfo= pd.DataFrame(self.sdict).T
+        self.sedinfo.index = map(lambda n: n.replace('_',' ').replace('p','+'), self.sedinfo.index)
+        self.sedinfo.index.name = 'name'
+
 
     def get_background(self, roi):
         roiname='HP12_%04d' % roi
@@ -174,7 +180,7 @@ class Background(roi_info.ROIinfo):
         """ Return a data frame with resolution information
         s is a scale factor, to examine dependence on flux
         
-        bratio : beta/alpha, where beta is averate diffuse density for ROI, alpha the source counts
+        bratio : beta/alpha, where beta is average diffuse density for ROI, alpha the source counts
         gratio : beta/alpha, beta for galactic only. (So bratio-gratio is isotropic)
         pfun : value of the integral of P**2/(P+r), where P=PSR, r = bratio
         snratio: P(0)/bratio , signal/noise
@@ -290,7 +296,94 @@ class Background(roi_info.ROIinfo):
             ax.legend(prop = dict(size=10))
             plt.setp(ax, xlabel='residual band %d'%j, xlim=(-5,5))
             
-        return fig 
+        return fig
+ 
+    def gal_correction_maps(self, bands=4):
+        """galactic correction maps
+        The following maps show the distribution of the first %(nmaps)d corrections.
+        %(correction_info)s
+        %(gal_corr_maps)s
+        
+        """
+        from . maps import Maps
+        from uw.like2.pub import healpix_map as hm
+        self.nmaps = bands
+        try:
+            corr_csv = self.config['diffuse']['ring']['correction']
+            self.correction_info='Correction info file: "%s"' % os.path.join(os.getcwd(),corr_csv)
+        except Exception, msg:
+            print '*** no correction file found %s' % msg
+            self.correction_info='No correction file found'
+            self.gal_corr_maps=''
+            return
+        galcor = pd.read_csv(corr_csv, index_col=0)
+        tt = [hm.HParray('band%d'%x,galcor['%d'%x]) for x in range(bands)]
+        bb = [hm.HPresample(t) for t in tt]
+        hpf = hm.HEALPixFITS(bb)
+        fitsfile = os.path.join(self.plotfolder, 'diffuse_corrections.fits')
+        hpf.write(fitsfile)
+        mps = Maps()
+        mps.plotfolder = self.plotfolder
+        self.gal_corr_maps = mps.ait_plots(fitsfile, vmin=0.9, vmax=1.1)
    
+    def read_covariance(self, iband=0):
+        # requires that the covariance zip or folder, resulting from a special 'covariance' stage exists.
+        files, pkls = self.load_pickles('covariance')
+        print 'selecting band %d' % iband
+        dp = dict()
+        for pk in pkls:
+            name = pk.get('name')
+            try:
+                cov =pk['covariance'][0][iband] #only lowest energy/conversion (second 0)
+                sd = pk['skydir']
+                sigs=cov['sigs'], #relative sigmas, order source, gal, iso
+                if len(sigs)==1:
+                    sigs = sigs[0]
+                assert len(sigs)==3, 'problem with sigs: %s,len =%s' % (sigs, len(sigs))
+                cc = cov['cc'] # correlation coefficients, order src-gal, src-iso, gal-iso
+                assert  len(cc)==3, 'problem with cc: %s, len=%s' % (cc, len(cc) )
+            except Exception, msg:
+                print '*** fail to unpack source name %s: %s' %(name,msg)
+                continue
+            dp[name]= dict(ts=pk['ts'], skydir=pk['skydir'], 
+                glat=sd.b(), cc=cc, sigs=sigs, unweight=cov['unweight'],
+                galrat = cc[0]*sigs[0]/sigs[1], 
+                isorat = cc[1]*sigs[0]/sigs[2])
+        return pd.DataFrame(dp).T
+        
+    def covariance(self, iband=0):
+        """Background sensitivity
+        Evaluate the sensitivity of the measurement flux of point sources with
+        respect to the covariance matrix of the source with respect to both.
+        The plots are for the lowest energy band.
+        
+        """
+        cv = self.read_covariance(iband=iband)
+        
+        def plot2(clipto=(-100,50)):
+            fig, axx = plt.subplots(1,4, figsize=(14,5))
+            aglat=np.abs(np.array(cv.glat.values, float))
+            ax=axx[0]
+            scat=ax.scatter(cv.galrat.clip(*clipto), cv.isorat.clip(*clipto), marker='.',s=80, c=aglat, )
+            #plt.colorbar(scat,ax)
+            plt.setp(ax, xlabel='galactic', xlim=clipto, ylabel='isotropic',ylim=clipto)
+            ax.grid()
+            ax=axx[1]
+            ax.hist(cv.galrat.clip(*clipto), np.linspace(*clipto))
+            plt.setp(ax, xlabel='galrat')
+            ax=axx[2]
+            ssig = np.array([s[0] for s in cv.sigs])
+            ax.scatter(ssig.clip(0,1), cv.galrat.clip(*clipto), marker='.', s=80, c=aglat)
+            plt.setp(ax, xlabel='source sigma', xlim=(0,1),ylim=(-40,0))
+            ax=axx[3]
+            cut = cv.ts>500
+            ssig = np.array([s[0] for s in cv.sigs])
+            ax.scatter(ssig[cut].clip(0,1), cv.galrat[cut].clip(*clipto), marker='.', s=80, c=aglat[cut])
+            plt.setp(ax, xlabel='source sigma', xlim=(0,1),ylim=(-40,0))
+            
+            return fig
+        return plot2()
+
     def all_plots(self):
-        self.runfigures([self.introduction, self.plot_resolution,  self.psf_background,self.diffuse_flux, self.gal_corrections,])
+        self.runfigures([self.introduction, self.plot_resolution,  self.psf_background,
+            self.diffuse_flux, self.gal_corrections, self.gal_correction_maps,])
