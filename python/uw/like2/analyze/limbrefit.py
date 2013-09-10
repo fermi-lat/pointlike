@@ -1,7 +1,7 @@
 """
-Description here
+Limb refit
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/limbrefit.py,v 1.2 2013/08/21 04:35:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/limbrefit.py,v 1.3 2013/08/22 18:22:00 burnett Exp $
 
 """
 
@@ -14,7 +14,8 @@ from . import limb
 from .analysis_base import FloatFormat
 
 class LimbRefit(limb.Limb):
-    """ Special run to refit Limb normalization
+    """Limb normalization refit
+    <p>Results of a special pipeline run to allow only limb normalization to vary
     %(table)s
     """
 
