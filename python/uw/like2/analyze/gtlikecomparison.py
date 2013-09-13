@@ -1,7 +1,7 @@
 """
 Comparison with a gtlike model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gtlikecomparison.py,v 1.3 2013/07/12 17:32:39 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gtlikecomparison.py,v 1.4 2013/07/12 17:56:53 burnett Exp $
 
 """
 
@@ -27,7 +27,7 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         super(GtlikeComparison, self).setup(cat=cat, catname=cat.split('_')[-1].split('.')[0], **kw)
         self.plotfolder = 'comparison_%s' % self.catname
         
-        # make copy of the df with no blanks in names, for comparison, combination
+        # make copy of the df  index with no blanks in names, for comparison, combination
         cname = [n.replace(' ','') for n in self.df.index]
         gtname_dict= dict(zip(cname,self.df.index)) # look up original name, w/ blanks
         self.dfx = self.df.copy()
@@ -51,6 +51,7 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
             self.dfx[col] = self.gdf[col]
         df = self.dfx
         self.delta = df.ts-df.other_ts
+        df['name3'] = self.cat.name3
         df['plane']= np.abs(df.glat)<5
         df['ts_gtlike']= self.cat.ts ## should be the TS from the catalog
         df['ts_delta'] = self.delta
@@ -130,7 +131,9 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         which requires Silverlight.  
        """
         df = self.dfx
-        fixme = df[((self.delta>25)+(self.delta<-1))]['name ts ts_gtlike glat plane fitqual ts_delta ts_gt ts_pt freebits beta roiname'.split()].sort_index(by='roiname')
+        delta = df.ts_delta
+        mismatch = (delta>25)+(delta<-1)
+        fixme = df[mismatch]['name ts ts_gtlike glat plane fitqual ts_delta ts_gt ts_pt freebits beta roiname'.split()].sort_index(by='roiname')
         fixme.index = fixme.name
         fixme.index.name='name'
         fixme.to_csv('gtlike_mismatch.csv')
@@ -152,7 +155,7 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
             plt.setp(ax, ylim=(dmin-1,dmax+1), xscale='log', xlim=(10,1e4), xlabel='pointlike TS', ylabel='TS diff')
             ax.grid(); #ax.legend(prop = dict(size=10))
         def plot2(ax):
-            bins = np.linspace(dmin,dmax,1*(dmax-dmin+1))
+            bins = np.linspace(dmin,dmax,2*(dmax-dmin)+1)
             ax.hist( x[cut], bins)
             ax.hist(x[hilat], bins, color='red', label='|b|<5')
             plt.setp(ax, xlabel='TS diff', xlim=(dmin, dmax))

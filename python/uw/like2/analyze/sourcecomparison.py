@@ -1,7 +1,7 @@
 """
 Comparison with the 2FGL catalog
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourcecomparison.py,v 1.1 2013/06/21 20:15:31 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourcecomparison.py,v 1.2 2013/08/03 18:09:36 burnett Exp $
 
 """
 
@@ -14,7 +14,7 @@ from skymaps import SkyDir
 from . import sourceinfo
 
 class SourceComparison(sourceinfo.SourceInfo):
-    """2FGL Comparison
+    """Comparison with a FITS catalog, 2FGL or beyond
     """
 
     def setup(self, cat='gll_pscP72Y_v5r2_flags_assoc_v5r11p3.fit', #gll_psc_v06.fit', 
@@ -36,11 +36,11 @@ class SourceComparison(sourceinfo.SourceInfo):
         
         glat = [s.b() for s in cat_skydirs]
         glon = [s.l() for s in cat_skydirs]
-        index = ft.Source_Name 
-        self.cat = pd.DataFrame(dict(nickname=ft.NickName, ra=ft.RAJ2000,dec= ft.DEJ2000, ts=ft.Test_Statistic, 
+        index = [x.strip() for x in ft.NickName] #Source_Name 
+        self.cat = pd.DataFrame(dict(name3=ft.Source_Name, ra=ft.RAJ2000,dec= ft.DEJ2000, ts=ft.Test_Statistic, 
                 skydir=cat_skydirs,
                 glat=glat, glon=glon, pivot=ft.Pivot_Energy, flux=ft.Flux_Density, modelname=ft.SpectrumType, id_prob=id_prob), 
-            columns = 'ra dec glat glon skydir ts pivot flux modelname id_prob'.split(), # this to order them
+            columns = 'name3 ra dec glat glon skydir ts pivot flux modelname id_prob'.split(), # this to order them
             index=index, )
         self.cat.index.name='name'
         
