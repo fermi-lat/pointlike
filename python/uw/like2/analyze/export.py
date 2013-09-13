@@ -1,6 +1,6 @@
 """
 Export processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/export.py,v 1.10 2013/07/24 03:53:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/export.py,v 1.11 2013/08/03 18:09:36 burnett Exp $
 
 """
 import os, glob
@@ -79,7 +79,8 @@ class Export(sourceinfo.SourceInfo):
         df = pd.DataFrame(t)
         df['flux13*'] = df['Flux_Density']*1e13
         df['unc_flux13*'] = df['Unc_Flux_Density']*1e13
-        summary = html_table(df.describe().T, float_format=FloatFormat(3), href=False)
+        summary = html_table(df.describe().T, float_format=FloatFormat(3),
+                heading='', href=False, maxlines=50)
         self.fits_summary_table = summary.replace('%', '%%')
         print 'Check: %s' % df
         
