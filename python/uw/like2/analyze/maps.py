@@ -1,7 +1,7 @@
 """
 Sky maps of various types
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/maps.py,v 1.2 2013/09/07 09:48:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/maps.py,v 1.3 2013/09/07 11:51:08 burnett Exp $
 
 """
 import os, sys, glob, pyfits
@@ -53,8 +53,6 @@ class Maps(analysis_base.AnalysisBase):
                 raise Exception('Failed to open fits file "%s": %s'% (filename, msg))
             nside = int(np.sqrt(len(t)/12.))
             
-            hp += """<p>File <a href="../../%(filename)s?download=true">"%(filename)s"</a>:
-                nside=%(nside)s, %(cols)d columns."""% dict(filename=filename, nside=nside, cols=len(t.dtype.names))
             hrow = '\n<table><tr>'
             mrow = '</tr>\n<tr>'
             for table in t.dtype.names:
@@ -77,7 +75,11 @@ class Maps(analysis_base.AnalysisBase):
                 #        <img alt="%(path)s_ait.png"  
                 #        src="%(path)s_ait_thumbnail.png" /></a> <br/>""" % dict(table=table, path=table)
             
-        return hp + hrow + mrow +'</tr>\n</table>'
+        hp += + hrow + mrow +'</tr>\n</table>'
+        hp += """<p>These were projected from the nside=%(nside)s HEALPix FITS file <a href="../../%(filename)s?download=true">"%(filename)s"</a>:
+           containing %(cols)d images.
+           It can be examined with <a href="http://aladin.u-strasbg.fr">Aladin</a>"""% dict(filename=filename, nside=nside, cols=len(t.dtype.names))
+        return hp
         
     def hptables(self):
         """Images from HEALPix FITS files
