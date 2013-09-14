@@ -30,7 +30,9 @@ class Connection(object):
         dataFormat :
         """
         # this code adapted from the module PivotViewCollection by G. Watts
-        assert api in ('Images', 'Collections', 'Facets', 'FacetCategories'), 'api "%s" not valid'% api
+        
+        apis=('Images', 'Collections', 'Facets', 'FacetCategories','FacetsDB')
+        assert api in apis , 'api "%s" not one of %s'% (api, apis)
         arglist = urllib.urlencode(params)
         if len(arglist) > 0:
             arglist = "?" + arglist
@@ -74,21 +76,21 @@ class FacetList(object):
     """ manage a table, extract Facet-style entries for Pivot
     Note that they have to be serialized with JSON, which has limited number of types
     """
-    def __init__(self, table, collection_id=None) :
+    def __init__(self, table) :
         """ 
         table : string
             Expect to be a csv file with the first column the name of the item
         """
         ext = os.path.splitext(table)[-1]
         if ext=='.csv':
-            self.df = pd.read_csv(table, index_col=0)
+            self.df = pd.read_csv(table, index_col=0) 
         elif ext=='.pickle':
             self.df = pd.load(table)
         else:
             raise Exception('table extension not .csv or .pickle')
         self.cols = self.df.columns
         self.index = self.df.index
-        self.cid = collection_id
+        self.df['name']=self.index
         # this is the list of types that I've found so far that  pandas.read_csv generates
         self.types = [ dict(float64='Number', float='Number', int64='Number',object='Value', bool='bool')[str(t)] for t in self.df.dtypes]
         print 'Loaded CSV file %s: found %d items, %d columns' % (table, len(self.df), len(self.cols))
@@ -107,6 +109,24 @@ class FacetList(object):
             return (type, v)
         t = [dict( [('Name',x), interpret(type,item[x])]) for x,type in zip(self.cols, self.types)]
         return t
+        
+    def send(self, collection_name, keyname='name'):
+        """Send the table directly, using the FacetsDB API
+        Assume that the collection already exists, as a new-style list of images without attached facets.
+        
+        collection_name : string
+            set
+        keyname : string
+        """
+        self.connection = Connection()
+        cid= self.connection.put('Collections', dict(cname=collection_name ) )['Id']
+        print 'Created or attached to existing collection, name="%s", Id=%d' % (collection_name, cid)
+        columns = [ dict(Name=name, Values=list(np.array(values.values)), isKey=name==keyname) for name,values in self.df.T.iterrows()]
+        self.connection.put('FacetsDB', dict(cID=cid), data=dict(Name=collection_name, Columns=columns))
+
+    def keylist(self, keyname='name'):
+        return self.df[keyname].values
+        
 
 class CompositeImage(object):
     def __init__(self, folders, combine):
@@ -148,8 +168,45 @@ class ImageList(object):
                 #if f.find(prefix)>=0: 
                 return self.opener(f).read(), f
         raise Exception('File "%s" derived from image name "%s" not found in image list' % (prefix,itemname))
-
     
+    def add_image(self,  name): 
+        """ 
+        Add an image 
+        
+        name : string
+            name of the image: expect to find equivalent filename in the list of images
+        """
+        data, filename= self(name)
+        image_type = os.path.splitext(filename)[-1][1:]
+        assert image_type in ('png', 'jpg', 'jpeg'), 'Image type "%s" not accepted'
+
+        info = self.connection.put('Images', dict(cId=self.cId, iName=name ), 
+                data=data, dataFormat="image/%s" % image_type)
+ 
+    def send(self, collection_name, keynames=None):
+        """Send the list of images to a collection.
+        
+        collection_name : string
+        keynames : string, optional
+            if set, expect to be a list of names corresponding to the image names
+            otherwise, send them all
+        """   
+        self.connection = Connection()
+        self.cId = self.connection.put('Collections', dict(cname=collection_name ) )['Id']
+        print 'Created or attached to existing collection, name="%s", Id=%d' % (collection_name, self.cId)
+        
+        nsent=0
+        for filename in self.filenames:
+            t = os.path.split(filename)[-1].split('_')
+            name = (t[0] if len(t)==2 else ' '.join(t[:2])).replace('p','+')
+            if keynames is not None and name not in keynames: continue
+            try:
+                self.add_image( name)
+                nsent +=1
+            except Exception, msg:
+                print msg
+        print 'Sent %d/%d images' % (nsent, len(self.filenames))
+        
 class MakeCollection(object):
     """ Use the PivotWeb service to create a Pivot collection from a csv file, and associated folder containing images
     
@@ -181,10 +238,14 @@ class MakeCollection(object):
         print 'Created or attached to existing collection, name="%s", Id=%d' % (cname, self.cId)
         
         os.chdir(os.path.expanduser(folder))
-        self.facets = FacetList(table, self.cId)
+        self.facets = FacetList(table)
         self.images = ImageList(image_folder)
         self.fill_from_table()
     
+    def image_name(self, filename):
+        " parse filename to a source name "
+        return os.path.split(filename)[-1].split('_')[0].replace('_',' ').replace('p','+')
+            
     def fill_from_table(self):
         """ Fill the collection using all entries in the csv file with corresponding images
         """

@@ -1,5 +1,5 @@
 """ Various useful utilities for creating, dumping numpy recarry objects
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/makerec.py,v 1.7 2012/03/04 23:37:22 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/makerec.py,v 1.8 2013/05/14 20:59:20 burnett Exp $
 
 
 
@@ -7,7 +7,6 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/makerec.py,v
 import os, pyfits, pickle
 from pylab import mlab
 import numpy as np
-import pandas as pd
 
 def makefits(r, filename=None, **kwargs):
     """ convert a recarray to a pyfits object, write to filename if present.
