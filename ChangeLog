@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Sep 13 22:39:16 PDT 2013
+pointlike/python/uw/utilities
+
+Modified Files:
+	makepivot.py makerec.py xml_parsers.py 
+Log Message:
+remove pandas import: not needed
+    *
+------------------------------------------------------------
 User: burnett  Fri Sep 13 01:22:06 PDT 2013
 pointlike/python/uw/like2/analyze
 
