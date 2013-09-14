@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.89 2012/10/02 19:15:30 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.90 2013/01/24 17:38:42 lande Exp $
 
    author: Matthew Kerr
 """
@@ -1421,16 +1421,16 @@ def process_diffuse_source(ds,strict=False,convert_extended=False,
 
                 if isinstance(m,IsotropicSpectrum):
 
-                    if not isinstance(ds.smodel,Constant):
+                    if ds.smodel.name != 'Constant': #not isinstance(ds.smodel,Constant):
                         raise XMLException("Can only save out ConstantValue with FileFunction if it is modulated by a constant value.")
 
                     filename = os.path.abspath(m.name())
-                    model = FileFunction(
+                    model = Models.FileFunction(
                         normalization=ds.smodel['Scale'],
                         file=filename)
                     m2x.process_model(model,scaling=True, expand_env_vars=expand_env_vars)
 
-                elif isinstance(m,IsotropicConstant):
+                elif isinstance(m, Models.IsotropicConstant):
                     model = ds.smodel
                     m2x.process_model(model,scaling=False, expand_env_vars=expand_env_vars)
 
@@ -1464,12 +1464,15 @@ def unparse_diffuse_sources(diffuse_sources,strict=False,
     """Convert a list of DiffuseSources into XML blurbs."""
     xml_blurbs = Stack()
     for ds in diffuse_sources:
+        #try:
         xml_blurbs.push(process_diffuse_source(ds,
                                                strict=strict,
                                                convert_extended=convert_extended,
                                                extended_dir_name=extended_dir_name,
                                                expand_env_vars=expand_env_vars,
                                                filename=filename))
+        #except Exception, msg:
+        #    print 'Failed to create blurb for extended source %s: %s' % (ds.name, msg)
     return xml_blurbs
 
 def writeXML(stacks,filename, title='source_library'):
