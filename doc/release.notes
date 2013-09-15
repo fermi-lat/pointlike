@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.215 2013/01/25 01:08:57 jrb Exp $
+$Id: release.notes,v 1.216 2013/05/28 02:52:26 heather Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-08-01-00 15-Sep-2013 burnett fix pandas issue
  pointlike-08-00-04 28-May-2013 heather (for lande) 
  pointlike-08-00-03 24-Jan-2013    jrb [for lande] Bugfix for extended sources with new PSF convention
  pointlike-08-00-02 15-Jan-2013    jrb updating (for Joshua)
