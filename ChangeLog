@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Sep 17 06:28:39 PDT 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	processor.py 
+Log Message:
+use glob to get latest catalog
+    *
+------------------------------------------------------------
 User: burnett  Sun Sep 15 01:21:02 PDT 2013
 pointlike/cmt
 
