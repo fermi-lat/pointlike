@@ -1,8 +1,8 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.62 2013/08/16 16:10:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.63 2013/09/04 12:35:00 burnett Exp $
 """
-import os, time, sys, types
+import os, time, sys, types, glob
 import cPickle as pickle
 import numpy as np
 import pylab as plt
@@ -314,6 +314,8 @@ def process(roi, **kwargs):
     diffuse_only = kwargs.pop('diffuse_only', False)
     norms_first = kwargs.pop('norms_first', True)
     freeze_iem = kwargs.pop('freeze_iem', 1.0)
+    freeze_iso = kwargs.pop('freeze_iso', 1.0)
+
     countsplot_tsmin = kwargs.pop('countsplot_tsmin', 100) # minimum for counts plot
     source_name = kwargs.pop('source_name', None) # for localize perhaps
     damp = Damper(roi, dampen)
@@ -333,6 +335,10 @@ def process(roi, **kwargs):
     if freeze_iem is not None:
         print 'Freezeing IEM to %f' % freeze_iem
         roi.freeze('Norm', 'ring', freeze_iem)
+    if freeze_iso is not None:
+        print 'Freezeing isotropic to %f' % freeze_iso
+        roi.freeze('Scale', 'iso*', freeze_iso)
+
     init_log_like = roi.log_like()
     roi.print_summary(title='before fit, logL=%0.f'% init_log_like)
     fit_sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
@@ -823,9 +829,11 @@ def check_seeds(roi, **kwargs):
 class GtlikeCatalog(object):
     """ read in a gll catalog FITS file, then make spectral model available
     """
-    def __init__(self, name='gll_psc4yearclean_v4.fit'):
+    def __init__(self, name=None): #'gll_psc4yearclean_v4.fit'):
         import pyfits
-        self.cat=pyfits.open(os.path.expandvars('$FERMI/catalog/'+name))[1].data
+        catfile = sorted(glob.glob(os.path.expandvars('$FERMI/catalog/gll*.fit')))[-1]
+        print 'opening catalog file %s' % catfile
+        self.cat=pyfits.open(catfile)[1].data
         
     def __call__(self, nickname):
         """ Return a Model corresponding to the nickname field
