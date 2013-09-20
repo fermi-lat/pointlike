@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Sep 20 04:11:43 PDT 2013
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	gtlikecomparison.py 
+Log Message:
+fixes for delta_ts
+    *
+------------------------------------------------------------
 User: burnett  Wed Sep 18 00:13:31 PDT 2013
 pointlike/python/uw/like2
 
