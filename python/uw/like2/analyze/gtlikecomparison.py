@@ -1,7 +1,7 @@
 """
 Comparison with a gtlike model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gtlikecomparison.py,v 1.6 2013/09/20 11:11:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gtlikecomparison.py,v 1.7 2013/09/20 12:41:59 burnett Exp $
 
 """
 
@@ -131,19 +131,19 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
     def delta_ts(self, dmax=10, dmin=-1):
         """ Delta TS
         Plots of the TS for the gtlike fit spectra determined with the pointlike analysis, compared with the pointlike value.<br>
-        Outliers: %(over_ts)d with gtlike worse by %(dmax)d; %(under_ts)d with pointlike worse by %(dmin)d.<br>
-        <br>%(outlier_table)s
+        Mismatches: %(over_ts)d with gtlike worse by %(dmax)d; %(under_ts)d with pointlike worse by %(dmin)d.<br>
+        <br>%(mismatch_table)s
         <br>%(pivot_info)s
        """
         df = self.dfx
         delta = df.ts_delta
         mismatch = (delta>dmax)+(delta<dmin)
         self.dmax = dmax; self.dmin=dmin
-        fixme = df[mismatch]['ts ts_gtlike glat plane fitqual ts_delta ts_gt ts_pt freebits beta roiname'.split()].sort_index(by='roiname')
+        fixme = df[mismatch]['name ts ts_gtlike glat plane fitqual ts_delta ts_gt ts_pt freebits beta roiname'.split()].sort_index(by='roiname')
         fixme.index = fixme.name
         fixme.index.name='name'
-        self.outlier_table=html_table( fixme, columns={}, name=self.plotfolder+'/outliers', 
-            heading='Table of outliers with delta_ts<%d or >%d'%(dmin,dmax), href=True,
+        self.mismatch_table=html_table( fixme, columns={}, name=self.plotfolder+'/mismatch', 
+            heading='Table of poor matches with delta_ts<%d or >%d'%(dmin,dmax), href=True,
             float_format=FloatFormat(2)) 
         fixme.to_csv('gtlike_mismatch.csv')
         print 'wrote %d entries to gtlike_mismatch.csv' % len(fixme)
@@ -162,11 +162,9 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         self.under_ts = sum((delta<dmin)*cut)
         self.over_ts  = sum((delta>dmax)*cut)
         print 'under, over delta_ts: %d, %d' % (self.under_ts, self.over_ts)
-        fig, ax = plt.subplots(1,2, figsize=(12,5))
-        plt.subplots_adjust(left=0.1)
         def plot1(ax):
             ax.plot(df.ts_pt[cut], delta[cut].clip(dmin,dmax), '.')
-            ax.plot(df.ts_pt[hilat], delta[hilat].clip(dmin,dmax), 'or')
+            ax.plot(df.ts_pt[hilat], delta[hilat].clip(dmin,dmax), '.r')
             plt.setp(ax, ylim=(dmin-1,dmax+1), xscale='log', xlim=(10,1e4), xlabel='pointlike TS', ylabel='TS diff')
             ax.grid(); #ax.legend(prop = dict(size=10))
         def plot2(ax):
@@ -175,7 +173,18 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
             ax.hist(x[hilat], bins, color='red', label='|b|<5')
             plt.setp(ax, xlabel='TS diff', xlim=(dmin, dmax))
             ax.grid(); ax.legend(prop = dict(size=10))
-        for f, ax in zip([plot1,plot2,], ax): f(ax)
+        def plot3(ax):
+            bins = np.linspace(-1,1,51)
+            singlat = np.sin(np.radians(np.array(df.glat, float)))
+            ax.hist( singlat, bins)
+            ax.hist( singlat[delta>10], bins, color='r', label='delta_ts>10')
+            plt.setp(ax, xlabel='sin(glat)')
+            ax.grid()
+            ax.legend(prop = dict(size=10))
+
+        fig, ax = plt.subplots(1,3, figsize=(14,5))
+        plt.subplots_adjust(left=0.1)
+        for f, ax in zip([plot1,plot2,plot3], ax): f(ax)
         return fig
     
     def missing(self, tsmax=50):
