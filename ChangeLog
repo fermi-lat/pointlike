@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Sep 20 06:17:04 PDT 2013
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	gtlikecomparison.py 
+Log Message:
+add plot to show where mismatches are
+    *
+------------------------------------------------------------
 User: burnett  Fri Sep 20 05:41:59 PDT 2013
 pointlike/python/uw/like2/analyze
 
