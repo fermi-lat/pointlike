@@ -1,7 +1,7 @@
 """
 Comparison with a gtlike model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gtlikecomparison.py,v 1.4 2013/07/12 17:56:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gtlikecomparison.py,v 1.5 2013/09/13 08:20:54 burnett Exp $
 
 """
 
@@ -12,11 +12,11 @@ import pandas as pd
 
 from uw.utilities import makepivot
 from . import sourcecomparison
-from . diagnostics import html_table, FloatFormat
+from . analysis_base import html_table, FloatFormat
 
 class GtlikeComparison(sourcecomparison.SourceComparison):
-    """Results of comparison with glike version %(catname)s 
-    Compare the two lists of sources and spectral parameters, assuming that the skymodel names 
+    """Results of comparison with glike 
+    Gtlike version:  %(catname)s Compare the two lists of sources and spectral parameters, assuming that the skymodel names 
     correspond to the "NickName" field in the gtlike-generated FITS file.
     Assume that a special run has been made to evaluate the likelihoods for the gtlike models.
     """
@@ -24,7 +24,7 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         gllcats = sorted(glob.glob(os.path.expandvars(os.path.join('$FERMI','catalog', catpat))))
         assert len(gllcats)>0, 'No gtlike catalogs found'
         cat = gllcats[-1]
-        super(GtlikeComparison, self).setup(cat=cat, catname=cat.split('_')[-1].split('.')[0], **kw)
+        super(GtlikeComparison, self).setup(cat=cat, catname='v7' ) #cat.split('_')[-1].split('.')[0], **kw)
         self.plotfolder = 'comparison_%s' % self.catname
         
         # make copy of the df  index with no blanks in names, for comparison, combination
@@ -71,23 +71,25 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         ptnames = set(map(lambda s:s.replace(' ',''), df.index.values))
         added, lost = list(gtnames.difference(ptnames)), sorted(list(ptnames.difference(gtnames)))
 
-        s = '\n<h4>Sources added to gtlike</h4>'
-        s += html_table(self.cat.ix[added]['ra dec ts'.split()], 
-            dict(ts='TS, gtlike TS', ra='RA,', dec='Dec,'), float_format=FloatFormat(2))
+        s  = html_table(self.cat.ix[added]['ra dec ts'.split()], 
+             dict(ts='TS, gtlike TS', ra='RA,', dec='Dec,'), 
+             heading = '\n<h4>Sources added to gtlike</h4>',
+             float_format=FloatFormat(2), maxlines=50)
+             
         cut50 = (df.no_gtlike)*((df.ts>50)+df.psr*(df.ts>10)) 
         missing50 = df.ix[np.array(cut50,bool)]['ra dec ts fitqual locqual roiname'.split()]
         
-        s += '\n<h4>Sources with pointlike TS>50 or LAT pulsars and TS>10, not in gtlike</h4>'
-        s += html_table(missing50, 
+        s += html_table(missing50,
             dict(ts='TS, pointlike TS', ra='RA,', dec='Dec,', fitqual=',Fit quality,', 
                 locqual=',Localization quality; this is NaN for extended sources'),
-            float_format=FloatFormat(2))
+            heading='\n<h4>Sources with pointlike TS>50 or LAT pulsars and TS>10, not in gtlike</h4>', 
+            float_format=FloatFormat(2), maxlines=50)
         
-        s += '\n<h4>Sources present, but not fit by gtlike</h4>'
         s +=  html_table(df.ix[np.isinf(df.ts_gtlike.values)] ['ra dec ts fitqual locqual roiname'.split()],
             dict(ts='TS, pointlike TS', ra='RA,', dec='Dec,', fitqual=',Fit quality,', 
                 locqual=',Localization quality; this is NaN for extended sources'),
-            float_format=FloatFormat(2))
+            heading = '\n<h4>Sources present, but not fit by gtlike</h4>',
+            float_format=FloatFormat(2), maxlines=50)
 
         self.content_differences = s
         
@@ -122,25 +124,31 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         for f, ax in zip([plot1,plot2,plot_pivot,], ax): f(ax)
         return fig
 
-    def delta_ts(self, dmax=25, dmin=-1):
+    def delta_ts(self, dmax=10, dmin=-1):
         """ Delta TS
         Plots of the TS for the gtlike fit spectra determined with the pointlike analysis, compared with the pointlike value.<br>
-        Outliers: %(over_ts)d with gtlike worse by 25; %(under_ts)d with pointlike worse by 1.
-        <p> These can be examined with a 
-        <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%(pivot_id)d">Pivot browser</a>,
-        which requires Silverlight.  
+        Outliers: %(over_ts)d with gtlike worse by %(dmax)d; %(under_ts)d with pointlike worse by %(dmin)d.<br>
+        <br>%(outlier_table)s
+        <br>%(pivot_info)s
        """
         df = self.dfx
         delta = df.ts_delta
-        mismatch = (delta>25)+(delta<-1)
+        mismatch = (delta>dmax)+(delta<dmin)
+        self.dmax = dmax; self.dmin=dmin
         fixme = df[mismatch]['name ts ts_gtlike glat plane fitqual ts_delta ts_gt ts_pt freebits beta roiname'.split()].sort_index(by='roiname')
         fixme.index = fixme.name
         fixme.index.name='name'
+        self.outlier_table=html_table( fixme, columns={}, name='outliers', heading='outliers with delta_ts<%d or >%d'%(dmin,dmax), href=False) 
         fixme.to_csv('gtlike_mismatch.csv')
         print 'wrote %d entries to gtlike_mismatch.csv' % len(fixme)
         version = os.path.split(os.getcwd())[-1]
-        pc=makepivot.MakeCollection('gtlike mismatch %s/%s'% (version, self.catname), 'gtlike/sed', 'gtlike_mismatch.csv')
-        self.pivot_id=pc.cId
+        try:
+            pc=makepivot.MakeCollection('gtlike mismatch %s/%s'% (version, self.catname), 'gtlike/sed', 'gtlike_mismatch.csv', refresh=True)
+            self.pivot_info="""<p> These can be examined with a 
+        <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>,
+        which requires Silverlight. """% pc.cId
+        except:
+            self.pivot_info = '<p>No pivot output; job failed'
         delta = self.delta
         x = np.array(delta, float).clip(dmin,dmax) # avoid histogram problem
         cut = (~np.isnan(x))#*(df.ts>10)
@@ -155,7 +163,7 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
             plt.setp(ax, ylim=(dmin-1,dmax+1), xscale='log', xlim=(10,1e4), xlabel='pointlike TS', ylabel='TS diff')
             ax.grid(); #ax.legend(prop = dict(size=10))
         def plot2(ax):
-            bins = np.linspace(dmin,dmax,2*(dmax-dmin)+1)
+            bins = np.linspace(dmin,dmax,4*(dmax-dmin)+1)
             ax.hist( x[cut], bins)
             ax.hist(x[hilat], bins, color='red', label='|b|<5')
             plt.setp(ax, xlabel='TS diff', xlim=(dmin, dmax))
