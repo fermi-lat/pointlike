@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Sep 20 05:41:35 PDT 2013
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	analysis_base.py 
+Log Message:
+allow subfolders for zip
+    *
+------------------------------------------------------------
 User: burnett  Fri Sep 20 04:11:43 PDT 2013
 pointlike/python/uw/like2/analyze
 
