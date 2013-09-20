@@ -1,7 +1,7 @@
 """
 Comparison with a gtlike model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gtlikecomparison.py,v 1.5 2013/09/13 08:20:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gtlikecomparison.py,v 1.6 2013/09/20 11:11:43 burnett Exp $
 
 """
 
@@ -34,9 +34,7 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         self.dfx.index=cname
  
         #make a data frame from the analysis
-        ff = glob.glob('gtlike/models/*.pickle')
-        assert len(ff)>0, 'Expected to find pickle files in gtlike/models'
-        tt = [pickle.load(open(f)) for f in ff]
+        ff, tt = self.load_pickles('gtlike/models')
         
         gtcat = dict()
         for t in tt:
@@ -95,11 +93,15 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         
     def compare_fits(self):
         """ Compare spectral quantities for sources common to both models
+        <br><b>Left: </b> Gtlike TS distribution.
+        <br><b>Center:</b> Gtlike TS vs. pointlike TS, showing the hig latitude subset.
+        <br><b>Right: </b> Comparison of the pivot energies.
         
         """
         df = self.dfx
-        fig, ax = plt.subplots(1,3, figsize=(14,4))
-        plt.subplots_adjust(wspace=0.3, left=0.1)
+        lowlat = np.abs(df.glat)<5
+        psr = df.modelname=='PLSuperExpCutoff'
+
         def plot1(ax):
             ax.hist(self.cat.ts.clip(0,1000), np.logspace(1,3,41))
             plt.setp(ax, xscale='log', ylim=(0,200), xlabel='gtlike TS')
@@ -108,19 +110,21 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         def plot2(ax, lim=(10,1e4)):
             df['ts_gtlike'] = self.cat.ts
             ax.loglog(df.ts_gtlike, df.ts, '.')
-            ax.plot(lim, lim, '--r')
+            ax.plot(df.ts_gtlike[lowlat], df.ts[lowlat], '.r', label='|b|<5')
+            ax.plot(lim, lim, '--g')
             plt.setp(ax, xlabel='gtlike TS', ylabel='pointlike TS', xlim=lim,ylim=lim)
             ax.grid()
+            ax.legend(loc='upper left', prop=dict(size=10))
             ax.axvline(25, color='g')
         def plot_pivot(ax, xylim = (100,3e4)):
-            psr = self.dfx.modelname=='PLSuperExpCutoff'
             self.dfx['pivot_gt'] = self.cat['pivot']
-            ax.loglog(self.dfx.pivot_gt, self.dfx.e0, '.')
-            ax.loglog(self.dfx.pivot_gt[psr], self.dfx.pivot_energy[psr], 'or', label='pulsars')
+            ax.loglog(self.dfx.pivot_gt,      self.dfx.e0, '.')
             plt.setp(ax, xlim=xylim, ylim=xylim, xlabel='gtlike pivot', ylabel='pointlike pivot')
-            ax.plot(xylim, xylim, '--r')
-            ax.grid(); ax.legend(loc='upper left', prop=dict(size=10))
-
+            ax.plot(xylim, xylim, '--g')
+            ax.grid();
+        
+        fig, ax = plt.subplots(1,3, figsize=(14,6))
+        plt.subplots_adjust(wspace=0.3, left=0.1)
         for f, ax in zip([plot1,plot2,plot_pivot,], ax): f(ax)
         return fig
 
@@ -135,10 +139,12 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         delta = df.ts_delta
         mismatch = (delta>dmax)+(delta<dmin)
         self.dmax = dmax; self.dmin=dmin
-        fixme = df[mismatch]['name ts ts_gtlike glat plane fitqual ts_delta ts_gt ts_pt freebits beta roiname'.split()].sort_index(by='roiname')
+        fixme = df[mismatch]['ts ts_gtlike glat plane fitqual ts_delta ts_gt ts_pt freebits beta roiname'.split()].sort_index(by='roiname')
         fixme.index = fixme.name
         fixme.index.name='name'
-        self.outlier_table=html_table( fixme, columns={}, name='outliers', heading='outliers with delta_ts<%d or >%d'%(dmin,dmax), href=False) 
+        self.outlier_table=html_table( fixme, columns={}, name=self.plotfolder+'/outliers', 
+            heading='Table of outliers with delta_ts<%d or >%d'%(dmin,dmax), href=True,
+            float_format=FloatFormat(2)) 
         fixme.to_csv('gtlike_mismatch.csv')
         print 'wrote %d entries to gtlike_mismatch.csv' % len(fixme)
         version = os.path.split(os.getcwd())[-1]
@@ -147,8 +153,8 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
             self.pivot_info="""<p> These can be examined with a 
         <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>,
         which requires Silverlight. """% pc.cId
-        except:
-            self.pivot_info = '<p>No pivot output; job failed'
+        except Exception, msg:
+            self.pivot_info = '<p>No pivot output; job failed %s' %msg
         delta = self.delta
         x = np.array(delta, float).clip(dmin,dmax) # avoid histogram problem
         cut = (~np.isnan(x))#*(df.ts>10)
@@ -156,7 +162,8 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         self.under_ts = sum((delta<dmin)*cut)
         self.over_ts  = sum((delta>dmax)*cut)
         print 'under, over delta_ts: %d, %d' % (self.under_ts, self.over_ts)
-        fig, ax = plt.subplots(1,2, figsize=(11,4))
+        fig, ax = plt.subplots(1,2, figsize=(12,5))
+        plt.subplots_adjust(left=0.1)
         def plot1(ax):
             ax.plot(df.ts_pt[cut], delta[cut].clip(dmin,dmax), '.')
             ax.plot(df.ts_pt[hilat], delta[hilat].clip(dmin,dmax), 'or')
