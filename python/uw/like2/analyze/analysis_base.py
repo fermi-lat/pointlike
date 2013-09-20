@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.5 2013/09/04 12:34:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.6 2013/09/07 11:21:17 burnett Exp $
 
 """
 
@@ -280,17 +280,18 @@ class AnalysisBase(object):
     
     def load_pickles(self,folder='pickle'):
         """
-            load a set of pickles, return list from either zipfile or folder
-            (need offset=1 if folder name zipped as well)
+        load a set of pickles, return list from either zipfile or folder
+        
+        folder : string
+            A file path. If the first folder, +'.zip' exists, unpack from that zip file
         """
         pkls = []
-        if os.path.exists(folder+'.zip'):
-            print 'unpacking file %s.zip ...' % (os.getcwd()+'/'+folder ,),
-            z=zipfile.ZipFile(folder+'.zip')
-            files = sorted(z.namelist()) # skip  folder?
-            print 'found %d files ' % len(files)
-            if folder=='pickle' and len(files)==1729:
-                files = files[1:]
+        zipfilename = os.path.split(folder)[0]+'.zip'
+        if os.path.exists(zipfilename):
+            print 'unpacking file %s ...' % (os.getcwd()+'/'+zipfilename ,),
+            z = zipfile.ZipFile(zipfilename)
+            files = sorted( filter( lambda n: n.startswith(folder) and n.endswith('.pickle'), z.namelist() ) ) 
+            print 'found %d *.pickle files in folder %s' % (len(files), folder)
             opener = z.open
         else:
            files = sorted(glob.glob(os.path.join(folder,'*.pickle')))
