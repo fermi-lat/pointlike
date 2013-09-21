@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Sep 21 10:14:37 PDT 2013
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	associations.py 
+Log Message:
+get catalog names in associations
+    *
+------------------------------------------------------------
 User: burnett  Fri Sep 20 06:17:04 PDT 2013
 pointlike/python/uw/like2/analyze
 
