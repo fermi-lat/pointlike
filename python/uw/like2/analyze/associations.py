@@ -1,21 +1,19 @@
 """
 Association analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.3 2013/07/12 22:36:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.4 2013/09/04 12:34:59 burnett Exp $
 
 """
 
 
-import os, glob,  pyfits
+import os, glob, sys, pyfits
 import numpy as np
 import pylab as plt
 import pandas as pd
 
 from skymaps import SkyDir, Band
-from . import (sourceinfo,diagnostics)
-from . diagnostics import FloatFormat
-from . diagnostics import html_table
-
+from . import sourceinfo
+from . analysis_base import FloatFormat, html_table
 
 
 class Associations(sourceinfo.SourceInfo):
@@ -76,14 +74,41 @@ class Associations(sourceinfo.SourceInfo):
         """Summary
         %(summary_html)s
         """
+        # load the catalogs used
+        sys.path[0] = os.path.expandvars('$FERMI/catalog/srcid/')
+        import classes
+        from classes import *
+        cats = dict()
+        for cn in classes.__all__:
+            cd = dict()
+            for var in 'catid catname prob_prior prob_thres figure_of_merit max_counterparts new_quantity selection'.split():
+                cd[var] = eval('%s.__dict__["%s"]'%(cn,var))
+            cats[cn]= cd
+            if cd['catname'].find('*')>0:
+                try:
+                    s = os.path.expandvars('$FERMI/catalog/srcid/cat/')+cd['catname']
+                    t = glob.glob(s)[-1]
+                    cd['catname']=os.path.split(t)[-1]
+                except:
+                    print 'File %s not found' %s
+        self.catdf = pd.DataFrame(cats).T
+        
         t = dict()
         for c in self.df10.acat:
             if c not in t: t[c]=1
             else: t[c]+=1
-        html_rows = ['<tr><td class="index">%s</td><td class="integer">%d</td></tr>' %x for x in t.items() ]
-        self.summary_html = '<table border="1"><tr><th title="catalog nickname">Catalog</th><th>number</th></tr>'+\
-             '\n'.join(html_rows)+'</table>'
-             
+        
+        self.catdf['associations'] = pd.DataFrame(t.items(), index=t.keys(), columns='name associations'.split())['associations']
+        
+        self.summary_html = html_table(
+            self.catdf[~pd.isnull(self.catdf.associations)]['associations catname prob_prior'.split()],
+            heading='<br>Table of catalogs with associations', name=self.plotfolder+'/associated_catalogs', 
+            href=False, maxlines=100)
+            
+        #html_rows = ['<tr><td class="index">%s</td><td class="integer">%d</td></tr>' %x for x in t.items() ]
+        #self.summary_html = '<table border="1"><tr><th title="catalog nickname">Catalog</th><th>number</th></tr>'+\
+        #     '\n'.join(html_rows)+'</table>'
+     
     def pulsar_check(self):
         """LAT pulsar check
         %(atable)s
@@ -97,12 +122,14 @@ class Associations(sourceinfo.SourceInfo):
         lat = pd.DataFrame(pp, index=[n.strip() for n in pp.Source_Name])
         lat['ts'] = self.df[self.df.psr]['ts']
         lat['ROI_index'] = [Band(12).index(SkyDir(float(ra),float(dec))) for ra,dec in zip(lat.RAJ2000,lat.DEJ2000)]
-        lat['skydir'] = map(SkyDir, lat.RAJ2000, lat.DEJ2000)
+        
+        lat['skydir'] = [SkyDir(float(ra),float(dec)) for ra,dec in zip(lat.RAJ2000, lat.DEJ2000)]
+        #map(SkyDir, np.array(lat.RAJ2000,float), np.array(lat.DEJ2000,float))
         lat['sourcedir'] = self.df.skydir[self.df.psr]
         lat['delta'] = [np.degrees(s.difference(t)) if not type(t)==float else np.nan for s,t in zip(lat.skydir,lat.sourcedir)]
         if sum(lat.delta>0.25)>0:
             print 'LAT pulsar catalog entries found more than 0.25 deg from catalog:'
-            print lat[lat.delta>0.25]['ts delta'.split()]
+            #print lat[lat.delta>0.25]['ts delta'.split()]
         dc2names =set(pp.Source_Name)
         print 'sources with exp cutoff not in LAT catalog:', list(tt.difference(dc2names))
         print 'Catalog entries not found:', list(dc2names.difference(tt))
