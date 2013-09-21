@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Sep 21 10:38:06 PDT 2013
+pointlike/python/uw/like
+
+Modified Files:
+	srcid.py 
+Log Message:
+fix recursive call, add wild card
+    *
+------------------------------------------------------------
 User: burnett  Sat Sep 21 10:14:37 PDT 2013
 pointlike/python/uw/like2/analyze
 
