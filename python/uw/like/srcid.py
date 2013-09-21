@@ -3,14 +3,15 @@ Python support for source association, equivalent to the Fermi Science Tool gtsr
 author:  Eric Wallace <wallacee@uw.edu>
 """
 
-__version__ = "$Revision: 1.32 $"
-#$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/srcid.py,v 1.32 2012/02/12 20:22:45 burnett Exp $
+__version__ = "$Revision: 1.33 $"
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.33 2012/07/16 16:44:09 lande Exp $
 
 import os
 import sys
 import math
 import re
 import operator
+import glob
 
 import numpy as np
 import pyfits as pf
@@ -111,7 +112,9 @@ class SourceAssociation(object):
             id_kw = kw.copy()
             for c in kw['cpt_class']:
                 id_kw['cpt_class'] = c
-                ass = SourceAssociation.id(self,position,error,**id_kw)
+                ###################### recursive call. ugh #####################
+                ##ass = SourceAssociation.id(self,position,error,**id_kw)
+                ass = self.id(position,error,**id_kw)
                 if ass:
                     associations[c] = ass
             return associations
@@ -244,7 +247,11 @@ class Catalog(object):
             self.class_module = __import__(class_module)
         else:
             self.class_module = class_module
-        self.cat_file = os.path.join(catalog_dir,self.class_module.catname)
+        ## allows wild card in file specification
+        cat_files = sorted(glob.glob(os.path.join(catalog_dir,self.class_module.catname)))
+        #self.cat_file = os.path.join(catalog_dir,self.class_module.catname)
+        assert len(cat_files)>0, 'File "%s" does not exist; module=%s' % (self.cat_file, class_module)
+        self.cat_file = cat_files[-1]
         if self.verbosity > 1:
             print('Setting up catalog for source class "%s" from file "%s"'%(self.class_module.catid,self.cat_file))
         if hasattr(self.class_module,'name_prefix'):
