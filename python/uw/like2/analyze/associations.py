@@ -1,7 +1,7 @@
 """
 Association analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.4 2013/09/04 12:34:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.5 2013/09/21 17:14:36 burnett Exp $
 
 """
 
@@ -75,7 +75,8 @@ class Associations(sourceinfo.SourceInfo):
         %(summary_html)s
         """
         # load the catalogs used
-        sys.path[0] = os.path.expandvars('$FERMI/catalog/srcid/')
+        srcid_path=sys.path[0] = os.path.expandvars('$FERMI/catalog/srcid/')
+        
         import classes
         from classes import *
         cats = dict()
@@ -86,12 +87,13 @@ class Associations(sourceinfo.SourceInfo):
             cats[cn]= cd
             if cd['catname'].find('*')>0:
                 try:
-                    s = os.path.expandvars('$FERMI/catalog/srcid/cat/')+cd['catname']
-                    t = glob.glob(s)[-1]
+                    t = glob.glob(srcid_path+'/cat/'+cd['catname'])[-1]
                     cd['catname']=os.path.split(t)[-1]
                 except:
                     print 'File %s not found' %s
+            
         self.catdf = pd.DataFrame(cats).T
+        self.catdf['objects']=[len(pyfits.open(srcid_path+'cat/'+fname)[1].data) for fname in self.catdf.catname]
         
         t = dict()
         for c in self.df10.acat:
@@ -101,7 +103,7 @@ class Associations(sourceinfo.SourceInfo):
         self.catdf['associations'] = pd.DataFrame(t.items(), index=t.keys(), columns='name associations'.split())['associations']
         
         self.summary_html = html_table(
-            self.catdf[~pd.isnull(self.catdf.associations)]['associations catname prob_prior'.split()],
+            self.catdf[~pd.isnull(self.catdf.associations)]['objects associations prob_prior catname '.split()],
             heading='<br>Table of catalogs with associations', name=self.plotfolder+'/associated_catalogs', 
             href=False, maxlines=100)
             
