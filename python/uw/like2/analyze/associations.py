@@ -1,7 +1,7 @@
 """
 Association analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.5 2013/09/21 17:14:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.6 2013/09/22 16:24:30 burnett Exp $
 
 """
 
@@ -139,9 +139,9 @@ class Associations(sourceinfo.SourceInfo):
         
         self.atable += '<h4>Compare with LAT pulsar catalog: %s</h4>' % os.path.split(pulsar_lat_catname)[-1]
         self.atable += '<p>Sources fit with exponential cutoff not in catalog %s' %list(tt.difference(dc2names))
-        self.atable += '<p>%d LAT catalog entries not in the model (TS shown as NaN), or too weak.' % sum(missing)
         self.atable += html_table(lat[missing]['RAJ2000 DEJ2000 ts ROI_index'.split()],
                     dict(ts='TS,Test Statistic', ROI_index='ROI Index,Index of the ROI, a HEALPix ring index'),
+                    heading = '<p>%d LAT catalog entries not in the model (TS shown as NaN), or too weak.' % sum(missing),
                     float_format=(FloatFormat(2)))
         if sum(lat.delta>0.25)>0:
             self.atable += '<p>Pulsars located > 0.25 deg from nominal'\
@@ -149,8 +149,6 @@ class Associations(sourceinfo.SourceInfo):
         psrx = np.array([x in 'pulsar_fom pulsar_low msp'.split() for x in self.df.acat])
         print '%d sources found in other pulsar catalogs' % sum(psrx)
         if sum(psrx)>0:
-            self.atable+= """<p>%d sources with pulsar association not in LAT pulsar catalog. Note, no cut on 
-                          association probability.""" % sum(psrx)
             self.atable+= html_table(self.df[psrx]['aprob acat aname aang ts delta_ts locqual'.split()],
                           dict(name='Source Name,click for link to SED',
                           ts='TS,Test Statistic for the source', 
@@ -162,7 +160,11 @@ class Associations(sourceinfo.SourceInfo):
                                           'should be positive negative means peak of TS map was not at source',
                           locqual='Localization quality,measure of the goodness of the localization fit\n greater than 5 is questionable',
                           ),
-                          float_format=FloatFormat(2))        
+                          float_format=FloatFormat(2), 
+                          heading = """<p>%d sources with pulsar association not in LAT pulsar catalog. Note, no cut on 
+                            association probability.""" % sum(psrx),
+                          name=self.plotfolder+'/atable',
+                          maxlines=50)        
         
     def localization_check(self, tsmin=10, dtsmax=9):
         r"""Localization resolution test
