@@ -1,7 +1,7 @@
 """
 Association analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.7 2013/09/22 16:25:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.8 2013/09/24 14:12:21 burnett Exp $
 
 """
 
@@ -21,8 +21,9 @@ class Associations(sourceinfo.SourceInfo):
     <p>
     A feature of the UW pipeline is the application of the LAT association algorithm, with the same catalogs as
     were used for 2FGL, except that the latest LAT pulsar catalog is used. Note that priors are not recalculated,
-    we use the values determined for 2FGL. 
-    <p>And now that Jurgen's pipeline has Planck, this lacks that, too.
+    we use the values determined for 2FGL. The method is explained in the <a href="http://arxiv.org/pdf/1002.2280v1.pdf">1FGL paper</a>, see Appendix B.
+    <p>
+    <p>Note that Jurgen's pipeline now has the Planck catalogs.
     """
     
     def setup(self, **kw):
@@ -103,14 +104,13 @@ class Associations(sourceinfo.SourceInfo):
         self.catdf['associations'] = pd.DataFrame(t.items(), index=t.keys(), columns='name associations'.split())['associations']
         
         self.summary_html = html_table(
-            self.catdf[~pd.isnull(self.catdf.associations)]['objects associations prob_prior catname '.split()],
+            self.catdf[~pd.isnull(self.catdf.associations)]['objects associations prob_prior prob_thres catname'.split()],
+            dict(objects='Objects,number of entries in table',
+                 prob_prior='Prior,prior probability', prob_thres='Threshold,threshold probability',
+                 catname='Catalog,name of the FITS file in the folder %s'%(srcid_path+'/cat')),
             heading='<br>Table of catalogs with associations', name=self.plotfolder+'/associated_catalogs', 
             href=False, maxlines=100)
-            
-        #html_rows = ['<tr><td class="index">%s</td><td class="integer">%d</td></tr>' %x for x in t.items() ]
-        #self.summary_html = '<table border="1"><tr><th title="catalog nickname">Catalog</th><th>number</th></tr>'+\
-        #     '\n'.join(html_rows)+'</table>'
-     
+                 
     def pulsar_check(self):
         """LAT pulsar check
         %(atable)s
