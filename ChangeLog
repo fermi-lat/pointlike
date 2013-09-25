@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Sep 25 05:51:12 PDT 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	processor.py 
+Log Message:
+do not freeze iso by default
+    *
+------------------------------------------------------------
 User: burnett  Wed Sep 25 05:49:53 PDT 2013
 pointlike/python/uw/like
 
