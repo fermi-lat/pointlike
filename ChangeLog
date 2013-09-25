@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Sep 25 06:25:30 PDT 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	processor.py 
+Log Message:
+fix for comparing with gtlike
+    *
+------------------------------------------------------------
 User: burnett  Wed Sep 25 06:24:34 PDT 2013
 pointlike/python/uw/like2/pipeline
 
