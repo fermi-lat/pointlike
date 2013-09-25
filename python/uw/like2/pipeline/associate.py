@@ -1,7 +1,7 @@
 
 """
  Manage the catalog association tables
- $Header$
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/associate.py,v 1.1 2011/12/09 16:07:44 burnett Exp $
  author: T. Burnett <tburnett@uw.edu>
 """
 import pyfits, os, glob
@@ -182,11 +182,12 @@ class SrcId(srcid.SourceAssociation):
     """
     adapter to simplify source association
     """
-    def __init__(self, catalog_path, classes=['agn','bzcat','cgrabs','crates']):
+    def __init__(self, catalog_path='$FERMI/catalog/', classes='all_but_gammas', quiet=True):
         """ 
         catalog_path : string
             path to the catalogs, expect to find srcid/classes under it
-        clases: list of classes to apply
+        clases: ['all' | 'all_but_gammas' | list ]
+            list of classes to apply,
         
         """
         self.classes = classes
@@ -201,8 +202,9 @@ class SrcId(srcid.SourceAssociation):
             self.classes = allclasses
         elif self.classes=='all_but_gammas':
             self.classes = ['agn', 'bllac', 'bzcat', 'cgrabs', 'crates', 'crates_fom', 'dwarfs', 
-            'galaxies', 'globular', 'hmxb', 'ibis', 'lbv', 'lmxb', 'msp', 'ocl', 'ostar', 
-            'pulsar_fom','pulsar_high', 'pulsar_lat', 'pulsar_low', 'pulsar_nonATNF', 
+            'galaxies', 'globular', 'hmxb', 'ibis', 'lbv', 'lmxb',  'ocl', 'ostar', 
+             #'pulsar_fom',
+            'pulsar_lat', 'pulsar_big', #'msp', 'pulsar_high',  'pulsar_low', 'pulsar_nonATNF', 
             'pwn', 'qso', 'seyfert', 'seyfert_rl', 'snr', 'snr_ext', 'starbursts', 'tev']
         else:
             self.classes=classes
@@ -210,7 +212,7 @@ class SrcId(srcid.SourceAssociation):
             if c not in allclasses:
                 txt = 'class %s not in set classes: %s' % (c, allclasses)
                 raise Exception(txt)
-        super(SrcId, self).__init__(os.path.join(catalog_path, 'srcid'),quiet=True)
+        super(SrcId, self).__init__(os.path.join(catalog_path, 'srcid'),quiet=quiet)
         self.class_list = self.classes # will be used by the id method
      
     def __str__(self):
@@ -224,12 +226,17 @@ class SrcId(srcid.SourceAssociation):
     def __call__(self, name, pos, error):
         """ name: source name, ignored, for reference
             pos: a SkyDir object
-            error: a tuple (a,b,ang) or, ra,dec,a,b,ang,...
+            error: [float | tuple]
+                a or tuple: (a,b,ang) or, (ra,dec,a,b,ang,)...
+                a,b: 1-sigma elipse in deg; ang orientation degrees
             returns None, or a dictionary consistent with Association above. (elements sorted by prob.)
         """
-        if len(error)==7: 
-            error = error[3:6] 
-        assert len(error)==3, 'wrong length for error ellipse specification'
+        if not hasattr(error, '__iter__'):
+            error = (error,error,0)
+        else:
+            if len(error)==7: 
+                error = error[3:6] 
+            assert len(error)==3, 'wrong length for error ellipse specification'
         source_ass = self.id(pos,error)
         # select first association per catalog, rearrange to sort on over-all prob.
         candidates = [(v[0][1],v[0][0],v[0][2],key) for key,v in source_ass.items() if v!={}]
@@ -245,10 +252,15 @@ class SrcId(srcid.SourceAssociation):
             'dec':   [a[2].dec() for a in candidates],
             'ang':   [np.degrees(a[2].difference(pos)) for a in candidates],
             }
-        
+        # stuff depending on the catalog 
+        cats = [self.catalogs[a[3]] for a in candidates]
+        d['prior'] =   [cat.prior for cat in cats]
+        d['density'] = [cat.local_density(pos) for cat in cats]
+        #d['fom'] =     [cat.fom for cat in cats]
         return d
         
-        
+    def positional_likelihood(self, name, pos, error):
+        a,b,ang = error
 
 
 def run_srcid(r, classes=['agn','bzcat','cgrabs','crates']):
