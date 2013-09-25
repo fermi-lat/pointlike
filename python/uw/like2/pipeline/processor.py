@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.64 2013/09/17 13:28:39 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.65 2013/09/25 12:51:12 burnett Exp $
 """
 import os, time, sys, types, glob
 import cPickle as pickle
@@ -315,7 +315,6 @@ def process(roi, **kwargs):
     norms_first = kwargs.pop('norms_first', True)
     freeze_iem = kwargs.pop('freeze_iem', 1.0)
     freeze_iso = kwargs.pop('freeze_iso', None)
-
     countsplot_tsmin = kwargs.pop('countsplot_tsmin', 100) # minimum for counts plot
     source_name = kwargs.pop('source_name', None) # for localize perhaps
     damp = Damper(roi, dampen)
@@ -903,9 +902,11 @@ class CompareOtherModel(object):
         self.other_models.append(dict(name=source_name, m_other=othermodel, m_pt=saved_model, ts_pt=ptts, ts_other=gtts))
  
 class GtlikeModels(object):
-    def __init__(self, catpath=os.path.expandvars('$FERMI/catalog/gll_psc4yearclean_v4.fit'), otherversion='v4'):
-        import pyfits
-        self.cat = pyfits.open(catpath)[1].data
+    def __init__(self, catpath=os.path.expandvars('$FERMI/catalog/gll_psc4year*.fit'), otherversion='v7'):
+        import pyfits, glob
+        catfile = sorted(glob.glob(catpath))[-1]
+        print 'Loading gtlike file %s' % catfile
+        self.cat = pyfits.open(catfile)[1].data
         self.otherversion=otherversion
         self.uwversion = os.path.split(os.getcwd())[-1]
                  
@@ -916,7 +917,7 @@ class GtlikeModels(object):
         if sum(cselect)!=1: return None
         cs = self.cat[cselect][0]
         st = cs.field('SpectrumType')
-        flux,index,cutoff,b,pivot,beta=[cs.field(f) for f in 'Flux_Density Spectral_Index Cutoff Index2 Pivot_Energy beta'.split()]
+        flux,index,cutoff,b,pivot,beta=[cs.field(f) for f in 'Flux_Density Spectral_Index Cutoff Exp_Index Pivot_Energy beta'.split()]
         try:
             if st=='PowerLaw':
                return Models.PowerLaw(p=[flux, index], e0=pivot)
