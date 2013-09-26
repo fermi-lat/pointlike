@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Sep 26 10:39:16 PDT 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	associate.py 
+Log Message:
+add delta_ts, main
+    *
+------------------------------------------------------------
 User: burnett  Thu Sep 26 10:35:55 PDT 2013
 pointlike/python/uw/like
 
