@@ -1,7 +1,7 @@
 
 """
  Manage the catalog association tables
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/associate.py,v 1.1 2011/12/09 16:07:44 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/associate.py,v 1.2 2013/09/25 13:24:34 burnett Exp $
  author: T. Burnett <tburnett@uw.edu>
 """
 import pyfits, os, glob
@@ -239,7 +239,8 @@ class SrcId(srcid.SourceAssociation):
             assert len(error)==3, 'wrong length for error ellipse specification'
         source_ass = self.id(pos,error)
         # select first association per catalog, rearrange to sort on over-all prob.
-        candidates = [(v[0][1],v[0][0],v[0][2],key) for key,v in source_ass.items() if v!={}]
+        items =  source_ass.items()
+        candidates = [(v[0][1], v[0][0], v[0][2], key, v[0][3]) for key,v in items if v!={}]
         if len(candidates)==0: return None
         candidates.sort(reverse=True)
         # format as a dict to conform to Association above (TODO: a recarray would be cleaner)
@@ -251,6 +252,7 @@ class SrcId(srcid.SourceAssociation):
             'ra':    [a[2].ra() for a in candidates],
             'dec':   [a[2].dec() for a in candidates],
             'ang':   [np.degrees(a[2].difference(pos)) for a in candidates],
+            'delta_ts':[a[4] for a in candidates],
             }
         # stuff depending on the catalog 
         cats = [self.catalogs[a[3]] for a in candidates]
@@ -263,20 +265,41 @@ class SrcId(srcid.SourceAssociation):
         a,b,ang = error
 
 
-def run_srcid(r, classes=['agn','bzcat','cgrabs','crates']):
+def run_srcid(r, classes='all_but_gammas'):
     """ 
     Run the srcid tool on a recarrry, return associations from given set catalogs
-        r: recarry with columns name, ra, dec, a, b, ang 
-        classes: list of catalog names
-        return: dict with key=name, value = sorted list of associations
+        r: DataFrame with columns ra,dec,a,b,ang
+        classes: list of catalog names, or 'all_but_gammas'
+        return: pandas.Series with key=name, value = sorted list of associations
     
     """
-    assoc = SrcId(classes)
-    associations = {}
+    import pandas as pd
+    assoc = SrcId(classes=classes)
+    associations = []
 
-    for s in r:
-        pos = SkyDir(s.ra, s.dec)
-        error = (s.a, s.b, s.ang)
-        associations[s.name]=assoc(pos, error)
+    for name,s in r.iterrows():
+        pos = SkyDir(s['ra'], s['dec'])
+        error = (s['a'], s['b'], s['ang'])
+        d = assoc(name, pos, error)
+        associations.append(d)
 
-    return associations    
+    return pd.Series(associations,index=r.index)   
+    
+if __name__=='__main__':
+    import argparse
+    import pandas as pd
+    parser = argparse.ArgumentParser( description="""Run associations on all sources """)
+    parser.add_argument('filename', nargs=1, help='filename to write pickled association data to')
+
+    parser.add_argument('--sources', default='sources.pickle', help='input table')
+    parser.add_argument('--cuts',  default='(sources.ts>10)',
+            help='selection cuts: use name "sources"')
+    parser.add_argument('--classes', default='all_but_gammas', help='List of classes, default "all_but_gamma"')
+    args = parser.parse_args()
+    sources = pd.read_pickle(args.sources)
+    cut_sources = sources[eval(args.cuts)]
+    print 'applied cut "%s", %d remain' % (args.cuts, len(cut_sources))
+    ass = run_srcid(cut_sources, args.classes)
+    print 'Writing to file %s' % args.filename[0]
+    ass.to_pickle(args.filename[0])
+    
