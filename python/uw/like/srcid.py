@@ -3,8 +3,8 @@ Python support for source association, equivalent to the Fermi Science Tool gtsr
 author:  Eric Wallace <wallacee@uw.edu>
 """
 
-__version__ = "$Revision: 1.34 $"
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.34 2013/09/21 17:37:59 burnett Exp $
+__version__ = "$Revision: 1.35 $"
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.35 2013/09/25 12:49:53 burnett Exp $
 
 import os
 import sys
@@ -97,7 +97,7 @@ class SourceAssociation(object):
                               as gtsrcid, no reason to use it in general.
             accept_in_r95[False]: bool, if True, accept sources within r95 as
                                   associations, regardless of formal probability
-        Return: a dictionary with keys=class, value = a list of (name, prob. skydir) tuples sorted by prob.
+        Return: a dictionary with keys=class, value = a list of (name, prob, skydir, like) tuples sorted by prob.
         """
         kw = dict(cpt_class = None,name=None,trap_mask=False,unique = False,accept_in_r95=True)
         for k,v in kw.items():
@@ -130,7 +130,7 @@ class SourceAssociation(object):
                                                          trap_mask=kw['trap_mask'],
                                                          unique = kw['unique'],
                                                          accept_in_r95 = kw['accept_in_r95'])
-        associations = [(a[0].name, a[1], a[0].skydir) for a in these if these]
+        associations = [(a[0].name, a[1], a[0].skydir, a[2]) for a in these if these]
         if kw['name'] is not None and associations!=[]:
             if not self.sources.has_key(kw['name']):
                 self.sources[kw['name']] = dict()
@@ -528,6 +528,7 @@ class Catalog(object):
         sources = self.select_circle(position,self.source_mask_radius,trapezoid=trap_mask)
         post_probs = np.array([source.posterior_probability(position,error_ellipse,trap_mask=trap_mask)
                                for source in sources])
+        delta_ts_list = np.array([2*source.delta_logl(position, error_ellipse) for source in sources])
         #If desired, require no more than 1 counterpart per LAT source.
         if unique:
             inv_probs = 1-post_probs
@@ -541,9 +542,11 @@ class Catalog(object):
             post_probs = phk/norm
         #return sources above threshold with posterior probability, sorted by posterior probability
         if accept_in_r95:
-            source_list = [(source,prob) for prob,source in zip(post_probs,sources) if prob > self.prob_threshold or np.degrees(source.skydir.difference(position))<error_ellipse[0]*conv95]
+            source_list = [(source, prob, delta_ts) for prob,source, delta_ts  in zip(post_probs,sources,delta_ts_list)\
+                if prob > self.prob_threshold or np.degrees(source.skydir.difference(position))<error_ellipse[0]*conv95]
         else:
-            source_list = [(source,prob) for prob,source in zip(post_probs,sources) if prob > self.prob_threshold]
+            source_list = [(source, prob, delta_ts) for prob,source, delta_ts in zip(post_probs,sources,delta_ts_list)\
+                if prob > self.prob_threshold]
         source_list.sort(key = lambda x:-x[1])
         #source_dict = dict((el[1].name,el) for el in source_list[:self.max_counterparts])
         return source_list
@@ -649,7 +652,7 @@ class CatalogSource(object):
 
         norm = 2.*math.pi*operator.mul(*error_ellipse[:2])
         return math.exp(-self.delta_logl(position,error_ellipse))/norm
-
+        
     def chance_probability(self,position,radius = 4,trap_mask=False):
         """Probability of chance association"""
         return self.catalog.local_density(position,radius=radius,
