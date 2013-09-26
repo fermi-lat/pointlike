@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Sep 26 10:41:18 PDT 2013
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	associations.py 
+Log Message:
+allow specification of alternate association
+    *
+------------------------------------------------------------
 User: burnett  Thu Sep 26 10:40:31 PDT 2013
 pointlike/python/uw/like2/analyze
 
