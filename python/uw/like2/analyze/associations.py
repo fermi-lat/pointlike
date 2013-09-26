@@ -1,11 +1,9 @@
 """
 Association analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.8 2013/09/24 14:12:21 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.9 2013/09/24 14:12:51 burnett Exp $
 
 """
-
-
 import os, glob, sys, pyfits
 import numpy as np
 import pylab as plt
@@ -27,14 +25,23 @@ class Associations(sourceinfo.SourceInfo):
     """
     
     def setup(self, **kw):
+        self.args = kw.pop('args', None)
         super(Associations, self).setup(**kw)
         self.plotfolder='associations'
-        probfun = lambda x: x['prob'][0] if x is not None else 0
-        self.df['aprob'] = np.array([ probfun(assoc) for  assoc in self.df.associations])
-        self.df['acat']  = np.array([ assoc['cat'][0] if assoc is not None else 'unid' for  assoc in self.df.associations])
-        self.df['adeltats'] = np.array([assoc['deltats'][0] if assoc is not None else np.nan for assoc in self.df.associations])
-        self.df['aname']  = np.array([ assoc['name'][0] if assoc is not None else 'unid' for  assoc in self.df.associations])
-        self.df['aang']  = np.array([ assoc['ang'][0] if assoc is not None else np.nan for  assoc in self.df.associations])
+        self.load_assoc(self.args)
+    
+    def load_assoc(self, fromdf=None):
+        if fromdf is not None:
+            self.df['altassoc']=fromdf
+        associations = self.df.associations if fromdf is None else self.df.altassoc
+        probfun = lambda x: x['prob'][0] if not pd.isnull(x) else 0
+        self.df['aprob'] = np.array([ probfun(assoc) for  assoc in associations])
+        self.df['acat']  = np.array([ assoc['cat'][0] if not pd.isnull(assoc) else 'unid' for  assoc in associations])
+        self.df['aname']  = np.array([ assoc['name'][0] if not pd.isnull(assoc) else 'unid' for  assoc in associations])
+        self.df['aang']  = np.array([ assoc['ang'][0] if not pd.isnull(assoc) else np.nan for  assoc in associations])
+
+        self.df['adeltats'] = np.array([assoc['delta_ts'][0] if not pd.isnull(assoc) else np.nan for assoc in associations])
+        
         self.df10 = self.df.ix[self.df.ts>10]
         print 'associated: %d/%d' % (sum(self.df10.aprob>0.8), len(self.df10))
         
@@ -79,13 +86,14 @@ class Associations(sourceinfo.SourceInfo):
         srcid_path=sys.path[0] = os.path.expandvars('$FERMI/catalog/srcid/')
         import classes
         cats = dict()
-        for cn in classes.__all__:
+        for module_name in classes.__all__:
             cd = dict()
-            module = __import__('classes.'+cn,  fromlist=['classes'])
+            # this is equivalent to "from classes import module_name"
+            module = __import__('classes.'+module_name,  fromlist=['classes'])
 
             for var in 'catid catname prob_prior prob_thres figure_of_merit max_counterparts new_quantity selection'.split():
-                cd[var] = module.__dict__[var] #eval('%s.__dict__["%s"]'%(cn,var))
-            cats[cn]= cd
+                cd[var] = module.__dict__[var] 
+            cats[module_name]= cd
             if cd['catname'].find('*')>0:
                 try:
                     t = glob.glob(srcid_path+'/cat/'+cd['catname'])[-1]
@@ -95,7 +103,7 @@ class Associations(sourceinfo.SourceInfo):
             
         self.catdf = pd.DataFrame(cats).T
         self.catdf['objects']=[len(pyfits.open(srcid_path+'cat/'+fname)[1].data) for fname in self.catdf.catname]
-        
+        # make dict of catnames with values the number of associations
         t = dict()
         for c in self.df10.acat:
             if c not in t: t[c]=1
