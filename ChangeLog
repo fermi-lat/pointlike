@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Sep 26 10:35:55 PDT 2013
+pointlike/python/uw/like
+
+Modified Files:
+	srcid.py 
+Log Message:
+add likelihood calculation
+    *
+------------------------------------------------------------
 User: burnett  Wed Sep 25 06:25:30 PDT 2013
 pointlike/python/uw/like2/pipeline
 
