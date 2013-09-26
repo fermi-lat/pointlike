@@ -1,13 +1,16 @@
 """
 Application module, allowing command-line access to analysis/plotting tasks
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/app.py,v 1.12 2013/08/03 18:09:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/app.py,v 1.13 2013/08/20 19:49:13 burnett Exp $
 
 """
 _locs = locals().keys()
 from uw.like2.analyze import *
+
 newlocs = locals().keys()
 module_names = filter(lambda x:not x[0]=='_',set(newlocs).difference(_locs))
+#module_names = filter(lambda x:not x[0]=='_', uw.like2.analyze.__all__ ) #set(newlocs).difference(_locs))
+#
 from uw.like2.analyze import _html
 import numpy as np
 import sys, types
@@ -37,7 +40,7 @@ class AppMenu(dict):
             if 'all_plots' in value.__dict__: return name
         return None
 
-    def __call__(self, name, reloadit=False):
+    def __call__(self, name, args=None, reloadit=False):
         """ return an object for the class in this module, optionally reloading it"""
         try:
             pk = self[name]
@@ -47,7 +50,7 @@ class AppMenu(dict):
         if reloadit:
             print reload(pk['module'])
             pk = self[name]= self._create_entry(name)
-        return pk['classobj']()
+        return pk['classobj'](args=args)
 
         
     def __str__(self):
@@ -57,11 +60,11 @@ class AppMenu(dict):
 menu = AppMenu(module_names)
         
         
-def main(args, update_top=False , raise_exception=False):
+def main(procs, args, update_top=False , raise_exception=False):
     np.seterr(invalid='warn', divide='warn')
     success=True
-    if type(args)==types.StringType: args = args.split()
-    for arg in args:
+    if type(procs)==types.StringType: procs = procs.split()
+    for arg in procs:
         # ## does not work, needs fixing
         #if arg=='all':
         #    cs = set(np.hstack(menu.values()))
@@ -104,9 +107,10 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
         description=""" Run an analysis application \n """+menu.__str__()
     )
-    parser.add_argument('args', nargs='+', help='processsor identifier: must be one of %s' %menu.keys())
+    parser.add_argument('procs', nargs='+', help='processsor identifier(s): must be one of %s' %menu.keys())
+    parser.add_argument('--args', default=None, help='argments for the processor')
     parser.add_argument('--update_top', action='store_true', help='Update the top level Web  menu')
     parser.add_argument('--raise_exception', action='store_true', help ='set to catch exceptions')
     args = parser.parse_args()
-    if not main(args.args, update_top=args.update_top, raise_exception=args.raise_exception):
+    if not main(args.procs, args=args.args, update_top=args.update_top, raise_exception=args.raise_exception):
         sys.exit(1)
