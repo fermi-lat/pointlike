@@ -1,7 +1,7 @@
 """
 Manage sources for likelihood: single class SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.30 2013/01/31 23:48:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.31 2013/04/09 21:26:27 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import types
@@ -158,9 +158,11 @@ class SourceList(list):
             return self.selected_source
         names = [s.name for s in self]
         def not_found():
+            self.selected_source_index =-1
             raise SourceListException('source %s not found' %source_name)
         def found(s):
             self.selected_source=s
+            self.selected_source_index = names.index(s.name)
             return s
         if source_name[-1]=='*':
             for name in names:
@@ -241,7 +243,7 @@ class SourceList(list):
         """
         variances = np.concatenate([m.get_cov_matrix().diagonal()[m.free] for m in self.models])
         variances[variances<0]=0
-        return np.sqrt(variances) / np.abs(self.model_parameters)
+        return np.sqrt(variances) / (np.abs(self.model_parameters) +1e-6) #avoid divide by zero
 
     def set_default_bounds(self, source, force=False):
         model = source.spectral_model
