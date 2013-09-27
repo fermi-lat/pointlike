@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.25 2013/05/29 23:12:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.26 2013/05/30 18:17:25 burnett Exp $
 
 author: Matthew Kerr, Toby Burnett
 """
@@ -9,8 +9,10 @@ import sys, os, types, pickle, glob, copy, zipfile
 import numpy as np
 import pandas as pd
 from . import models
+from .pub import healpix_map
 from uw.utilities import keyword_options, convolution
 import skymaps #from Science Tools
+from skymaps import SkyDir, PySkyFunction, Hep3Vector
 from scipy import optimize # for fsolve
 
 class DiffuseException(Exception):pass
@@ -81,7 +83,8 @@ class DiffuseModel(object):
     @property
     def spectral_model(self):
         return self.diffuse_source.smodel
-
+        
+ 
 
 class ConvolvableGrid(convolution.BackgroundConvolution):
     """ subclass of the basic convolution used by all classes below.
@@ -94,6 +97,13 @@ class ConvolvableGrid(convolution.BackgroundConvolution):
         defaults.update(kwargs)
         super(ConvolvableGrid, self).__init__(*args, **defaults)
         
+    def show_vals(self, vals, ax=None, **kw):
+        if ax is None: ax=plt.gca()
+        ax.imshow( vals.transpose()[::-1],  interpolation='nearest', **kw)
+        ax.axvline(marker,color='k')
+        ax.axhline(marker,color='k')
+        plt.colorbar()
+            
     def show(self, **kwargs):
         import pylab as plt
         title = kwargs.pop('title', None)
@@ -165,19 +175,25 @@ class DiffuseModelFromCache(DiffuseModel):
 
         if not self.quiet: print '\tcached diffuse: %s'%self.filename
         self.emins = [cd['emin'] for cd in self.cached_diffuse]
-        if hasattr(dfun, 'kw') and dfun.kw is not None: # check for extra keywords
+        if hasattr(dfun, 'kw') and dfun.kw is not None: # check for extra keywords from diffuse spec.
+            # Manage keywords found in the 
             if dfun.kw['correction'] is not None:
+                if not self.quiet:print '%s loading corrections from %s.kw:' % (self.__class__.__name__, dfun.__class__.__name__)
                 df = pd.read_csv(dfun.kw['correction'], index_col=0) 
                 self.corr = df.ix['HP12_%04d'%roi_index].values
-                print '\tcorrection file: "%s"' % dfun.kw['correction']
-                print '\tcorrections: %s' %self.corr.round(3)
+                if not self.quiet:print '\tcorrection file: "%s"' % dfun.kw['correction']
+                if not self.quiet:print '\tcorrections: %s' %self.corr.round(3)
             else: self.corr=None
-            self.systematic = dfun.kw['systematic']
-            print '\tsystematic:   %.3f' % dfun.kw['systematic']
+            self.smooth = dfun.kw.get('smooth', None)
+            self.smear = dfun.kw.get('smear', None)
+            if self.smear is not None: print '\tsmear:     %.3f' %self.smear
+            self.systematic = dfun.kw.get('systematic', None)
+            if self.systematic is not None:
+                if not self.quiet:print '\tsystematic: %.3f' % self.systematic
 
         
     def make_grid(self, energy, conversion_type):
-        """ return a convovlved grid
+        """ return a convolved grid
         May correct if requested
         
         parameters
@@ -209,8 +225,11 @@ class DiffuseModelFromCache(DiffuseModel):
         
         # apply correction factor if any; use last value for all higher (depends only on energy)
         if hasattr(self, 'corr') and self.corr is not None:
-            c = self.corr[index] if index<len(self.corr) else self.corr[-1]
-            vals *= c
+            if self.smooth is None:
+                c = self.corr[index] if index<len(self.corr) else self.corr[-1]
+                vals *= c
+            else:
+                t = healpix_map.HParray('band', self.hparray[index])
 
         # finally do the convolution on the product of exposure and diffuse map, which is passed in 
         grid.do_convolution(energy, conversion_type, override_vals=vals)
@@ -218,7 +237,7 @@ class DiffuseModelFromCache(DiffuseModel):
 
     def show(self, iband=0):
         for ct, title in ((0,'front'),(1,'back')):
-            grid = self.make_grid(self.emins[iband],ct)
+            grid = self.make_grid(self.emins[iband]*1.1,ct)
             for t in (grid.bg_vals, grid.cvals):
                 print '%.3e, %.3f' % (t.mean(), t.std()/t.mean())
                 grid.show(fignum=ct+1, 
@@ -250,13 +269,13 @@ class IsotropicModel(DiffuseModel):
             npix=npix, pixelsize=pixelsize)
         cflux = dm(self.roi_dir, energy)
         if np.isnan(cflux):
-            print 'WARNING: nan flux from diffuse map: using zero'
+            print '%s: WARNING: nan flux from diffuse map: using zero (energy %.1f) ' %(self.__class__.__name__,energy)
             cflux=0
         grid.cvals = grid.fill(exp) * cflux 
         nnan = np.sum(np.isnan(grid.cvals))
-        if nnan>0: print 'Grid for %s has %d nan values ' %( dm.name(), nnan)
+        if nnan>0: print '%s: Grid for %s has %d nan values ' %(self.__class__.__name__, dm.name(), nnan)
         assert nnan<5, \
-            'Grid for %s, %.0f Mev< has %d >5 nan values ' %( dm.name(), energy, nnan)
+            '%s: Grid for %s, %.0f Mev< has %d >5 nan values ' %(self.__class__.__name__, dm.name(), energy, nnan)
         return grid
 
 class DiffuseModelFromFits( DiffuseModel):
@@ -560,8 +579,9 @@ def mapper(roi_factory, roiname, skydir, source, **kwargs):
     """
     psf = roi_factory.psf
     exposure = roi_factory.exposure
+    quiet = kwargs.get('quiet', True)
     try:
-        print '>>>>Loading', source.name, source.dmodel[0].name()
+        if not quiet: print '>>>>Loading', source.name, source.dmodel[0].name()
         if source.name.lower().startswith('iso'):
             return IsotropicModel(psf, exposure,skydir, source, **kwargs)
         elif source.name.startswith('limb'):
@@ -573,7 +593,8 @@ def mapper(roi_factory, roiname, skydir, source, **kwargs):
             return DiffuseModelFB(psf, exposure,skydir, source, **kwargs)
         elif source.name=='ring':
             for dmodel in source.dmodel:
-                if not getattr(dmodel,'loaded', False): dmodel.load()
+                if not getattr(dmodel,'loaded', False): 
+                    dmodel.load()
             if os.path.splitext(source.dmodel[0].name())[-1]=='.fits':
                 return DiffuseModelFromFits(psf, exposure, skydir, source, **kwargs)
         ### cache is default, it seems

@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.38 2013/07/11 14:23:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.39 2013/09/04 12:34:58 burnett Exp $
 
 """
 import os, pickle, glob, types, collections, zipfile
@@ -33,7 +33,7 @@ class SkyModel(object):
         ('global_check', lambda s: True, 'check global sources: can modify parameters when loading'),
         #('diffuse_check', lambda s: None, 'check diffuse sources: can modify parameters'),
         ('closeness_tolerance', 0., 'if>0, check each point source for being too close to another, print warning'),
-        ('quiet',  False,  'make quiet' ),
+        ('quiet',  True,  'suppress some messages if True' ),
         ('force_spatial_map', True, 'Force the use of a SpatialMap for extended sources'),
     )
     
@@ -227,7 +227,7 @@ class SkyModel(object):
             for key,item in roi_sources.items():
                 if key in extended_names: continue
                 if key in source_names:
-                    print 'SkyModel warning: source with name %s in ROI %d duplicates previous entry: ignored'%(key, i)
+                    #if not self.quiet: print 'SkyModel warning: source with name %s in ROI %d duplicates previous entry: ignored'%(key, i)
                     continue
                 source_names.append(key)
                 skydir = item['skydir']
@@ -279,10 +279,9 @@ class SkyModel(object):
                     
                     if es.model.name!=model.name:
                         if name not in self.changed:
-                            print 'SkyModel warning: catalog model  %s changed from %s for source %s: keeping change'%\
+                            if not self.quiet: print 'SkyModel warning: catalog model  %s changed from %s for source %s: keeping change'%\
                                    (es.model.name, model.name, name)
                         self.changed.add(name)
-                    #else:
                     es.smodel=es.model=model #update with current fit values always
                     if sources.validate(es,self.nside, self.filter): #lambda x: True): 
                         self.extended_sources.append(es)
@@ -584,7 +583,7 @@ class Rename(object):
     """
     def __init__(self, namefile):
         """ namefile : string
-                text file with from to pairs
+                text file with from to pairs; if second is '*', delete the source
         """
         def parse_line(line):
             t = line.split()
@@ -597,6 +596,7 @@ class Rename(object):
     def __call__(self, s):
         t = s.name
         s.name = self.namedict.get(s.name, s.name)
+        return s.name != '*'
         if s.name[0] =='*':
            print 'deleting', t
            return False
