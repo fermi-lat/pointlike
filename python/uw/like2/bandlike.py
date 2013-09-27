@@ -11,7 +11,7 @@ classes:
 functions:
     factory -- create a list of BandLike objects from bands and sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.29 2013/05/29 23:12:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.30 2013/06/04 18:30:59 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -97,8 +97,19 @@ class BandPoint(BandSource):
         #psf = band.psf
         #self.overlap = psf.cpsf.overlap_circle(roidir, radius_in_rad, self.source.skydir)
         
-        #unnormalized PSF evaluated at each pixel
+        #PSF evaluated at each pixel times pixel area
+        # old: needs wsdl to be a C++ vector, cannot extend
         self.pixel_values = band.pixels_from_psf(self.source.skydir)
+#        from pointlike import DoubleVector
+#        wsdl = band.wsdl
+#        dvec = DoubleVector(len(wsdl))
+#        wsdl.arclength(self.source.skydir, dvec) # fast multiple arclength in C++
+#        self.pixel_values = band.psf(dvec) * band.b.pixelArea() 
+#
+    def flux_value(self, skydir):
+        """  calculate the value at the given position.
+        """
+        return self.band.psf(skydir.difference(self.source.skydir)) * self.band.b.pixelArea()
 
     def fill_grid(self, sdirs):
         """ fill a grid, defined by sdirs array, with counts/solid angle"""
@@ -294,19 +305,21 @@ class BandLike(object):
         self.pixels=len(self.data)
         self.initialize(free)
         self.update()
+        self.pixel_indeces = None #may be set below to cache list of pixel indeces
         # special code to unweight if galactic diffuse too large
         self.unweight = self.make_unweight()#exposure.systematic)
-        
+         
     def make_unweight(self):
         """ return an unweighting factor <=1.0 to use to multiply the log likelihood
         assume that first BandSource object has the galactic diffuse
         
         systematic : float
-            a fraction representing the systematic uncertainty in the galactic diffuse
+            a fraction representing the relative systematic uncertainty in the galactic diffuse
         """
         if hasattr(self[0].source, 'systematic'): 
             systematic = self[0].source.systematic
         else:  return 1.0
+        if systematic==0: return 1.0 
         n = 1/systematic**2
         # m is the number of counts from the galactic diffuse in the footprint of a point source
         m = self[0].counts / (self.band.psf(0)[0]*self.band.solid_angle)
@@ -361,12 +374,13 @@ class BandLike(object):
 
     def log_like(self):
         """ return the Poisson extended log likelihood """
+        
         try:
-            #pix = np.sum( self.data * (np.log(self.model_pixels)+np.log(ec) ) ) if self.pixels>0 else 0
             pix = np.sum( self.data * np.log(self.model_pixels) )  if self.pixels>0 else 0
-            return self.unweight * (pix - self.counts*self.exposure_factor )
+            w = pix - self.counts * self.exposure_factor
+            return self.unweight * w
         except FloatingPointError, e:
-            print 'Floating point error %s evaluating likelihood for band at %s' %(e, self.__str__())
+            print '%s: Floating point error %s evaluating likelihood for band at %s' %(self.__class__.__name__,e, self.__str__())
             raise
 
     def chisq(self):  
@@ -416,7 +430,33 @@ class BandLike(object):
         for m in self.bandsources:
             t+= m.fill_grid(sdirs)
         return t
-   
+        
+    def counts_in_pixel(self, source_index, skydir):
+        """ return a tuple of predicted signal and background counts in the pixel corresponding to skydir
+        Note that if the pixel has no data, it will not have been computed for the model; instead
+        this will return the average background
+ 
+        source_index : int
+            the index of the source
+        skydir : SkyDir object
+        """
+        from skymaps import WeightedSkyDir
+        band = self.band
+        if self.pixel_indeces is None:
+            self.pixel_indeces = list([band.b.index(x) for x in band.wsdl])
+        source = self[source_index]
+        hp_index = band.b.index(skydir)
+        try:
+            pixel_index = self.pixel_indeces.index(hp_index)
+            signal = source.counts * source.pixel_values[pixel_index]
+            back  = self.model_pixels[pixel_index] - signal
+        except:
+            # missing pixel; calculate the expected source counts
+            # and estimate total by mean of model in ROI
+            signal = source.flux_value(skydir) * source.counts
+            back = self.model_pixels.mean()
+        return signal, back 
+       
   
 def factory(bands, sources, exposure, quiet=False):
     """ return an array, one per band, of BandLike objects 
@@ -462,4 +502,4 @@ def factory(bands, sources, exposure, quiet=False):
                     )
     if not quiet: print
     return np.array(bandlist)
-         
+      
