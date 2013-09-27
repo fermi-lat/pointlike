@@ -1,6 +1,6 @@
 """
 module that calculates weights for a source, given a model and a FT1 file
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/source_weights.py,v 1.1 2013/09/18 07:13:18 burnett Exp $
 """
 
 import os, argparse, pyfits
@@ -47,11 +47,11 @@ def doit(modeldir, sourcename, filename, emin=100):
     pw.add_weight_columns()
 
 if __name__=='__main__':
-    parser = argparse.ArgumentParser( description="""Add a column the the FT1 FTIS file with the weights for the given source
+    parser = argparse.ArgumentParser( description="""Add a column the the FT1 FTIS file with the weights for the given source.\n
     Note that modeldir must be a folder defining the pointlike all-sky model""")
     parser.add_argument('args', nargs=3, help='modeldir sourcename filename')
 
-    parser.add_argument('--emin', default=100, help='minimum energy')
+    parser.add_argument('--emin', default=100, help='minimum energy, default 100 MeV')
     #parser.add_argument('--cuts',  default='(sources.ts>10)',
     #       help='selection cuts')
     args = parser.parse_args()
