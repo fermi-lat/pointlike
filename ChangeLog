@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Sep 27 10:07:35 PDT 2013
+pointlike/python/uw/data
+
+Modified Files:
+	dataman.py dssman.py 
+Log Message:
+fixes for extra field in TYP 
+    *
+------------------------------------------------------------
 User: burnett  Thu Sep 26 10:41:18 PDT 2013
 pointlike/python/uw/like2/analyze
 
