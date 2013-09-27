@@ -4,8 +4,8 @@ Module implements classes and functions to specify data for use in pointlike ana
 author(s): Matthew Kerr, Eric Wallace
 """
 
-__version__ = '$Revision: 1.22 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.22 2013/01/28 18:35:03 burnett Exp $
+__version__ = '$Revision: 1.23 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.23 2013/02/11 01:53:48 burnett Exp $
 
 import os, sys
 import collections
@@ -65,7 +65,7 @@ def get_default(colname, kw):
     if colname == 'ZENITH_ANGLE':
         return SimpleCut(None,100,'deg','ZENITH_ANGLE')
     if colname == 'THETA':
-        print 'applying thetacut, kw=', kw
+        #print 'applying thetacut, kw=', kw
         return SimpleCut(None,kw.get('thetacut',66.4),'deg','THETA')
     if colname == 'EVENT_CLASS':
         if kw.get('data_pass')>6:
@@ -322,6 +322,10 @@ class DataSpec(object):
             If there is more than one FT1 file present, the protocol
             is that all DSS entries must agree."""
         self.data_pass = get_pass(self.ft1files[0])
+        if 'PROC_VER' not in pyfits.getheader(self.ft1files[0]).keys():
+            print 'Warning: PROC_VER not found in %s header' %self.ft1files[0]
+            self.dss = dssman.DSSEntries(self.ft1files[0])
+            return
         if len(self.ft1files) == 1:
             self.dss = dssman.DSSEntries(self.ft1files[0])
         else:
@@ -399,8 +403,8 @@ class DataSpec(object):
         if not self.quiet: print 'writing to binfile %s' %self.binfile
         def overlaps(f):
             fgti = skymaps.Gti(f)
-            return fgti.minValue()> self.gti.maxValue() or \
-                 fgti.maxValue()< self.gti.minValue()
+            inrange = lambda t: t>= self.gti.minValue() and t<=self.gti.maxValue()
+            return inrange(fgti.minValue()) or inrange(fgti.maxValue() )
         #
         # sort through files first to limit list to those with overlaps
         files = filter(overlaps, self.ft1files) ##TODO
