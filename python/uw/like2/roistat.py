@@ -4,7 +4,7 @@ Manage likelihood calculations for an ROI
 mostly class ROIstat, which computes the likelihood and its derivative from the lists of
 sources (see .sourcelist) and bands (see .bandlike)
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.22 2012/09/27 14:23:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.23 2012/09/29 16:03:54 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import sys
@@ -15,9 +15,7 @@ from . import bandlike, sourcelist, prior
 class ROIstat(object):
     """ manage statistical analysis of an ROI
     
-    Initialize from an existing ROIAnalysis object, for now. (Penalty in that
-    have to repeat the convolutions -- but see its skip_setup)
-    
+   
     Contains two lists:
        * all sources, in self.sources
          order is, for now, the same as for ROIAnlysis
@@ -42,6 +40,7 @@ class ROIstat(object):
         bandsel : function object returns bool
             returns True for a selected band
         """
+        self.roi_setup = roi # save to allow creating a clone
         self.name = roi.name
         self.roi_dir = roi.roi_dir
         self.exposure = roi.exposure
@@ -135,7 +134,7 @@ class ROIstat(object):
                 if None, all variable sources are selected
                 otherwise will compute likelihood only for the given source
         Note: this does not change the set of variable sources defined by the SourceList: but should.
-        It should also require that the source has varaiable parameters
+        It should also require that the source has variable parameters
         """
         if sourcename is None:
             self.initialize()
@@ -187,4 +186,13 @@ class ROIstat(object):
     def dump(self, **kwargs):
         map(lambda bs: bs.dump(**kwargs), self.selected_bands)
 
+    def select_band(self, energy, etype):
+        """ Select and return a BandLike object based on energy and conversion type
+        """
+        # note: could be made a lot more efficient if needed
+        sel = filter(lambda b:etype==b.band.ct and energy>=b.band.emin and energy<b.band.emax ,
+            self.all_bands)
+        assert len(sel)==1, 'Band with energy %s, type %s not found' % (energy, etype)
+        return sel[0]
+        
         
