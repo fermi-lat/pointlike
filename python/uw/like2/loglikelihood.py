@@ -1,9 +1,9 @@
-"""Tools for parametrizing log likelihood curves.
+"""Tools for parameterizing log likelihood curves.
 
-Author(s): Eric Wallace, Matthew Kerr
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.8 2012/10/18 18:22:56 burnett Exp $
+Author(s): Eric Wallace, Matthew Kerr, Toby Burnett
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.9 2012/11/03 22:42:39 burnett Exp $
 """
-__version__ = "$Revision: 1.8 $"
+__version__ = "$Revision: 1.9 $"
 
 import numpy as np
 from scipy import optimize, special, polyfit, stats
@@ -350,7 +350,7 @@ class LogLikelihood(object):
         return self.loglike(norm)
         
     def __call__(self, x):
-        """ evalate the likelihood function, normalized to 1 at peak"""
+        """ evalate the likelihood function (*not* log likelihood), normalized to 1 at peak"""
         return np.exp(self.logL(x)-self.wpeak)
 
     def maximum(self, guess=1.0, disp=0):
@@ -475,18 +475,19 @@ class PoissonFitter(object):
         tol : float
             absolute tolerance for fit, within default domain out to delta L of 4
         """
-        
         self.func = func
         self.smax = self.find_max(scale)
+        # determine values of the function corresponding to delta L of 0.5, 1, 2, 4
+        # depending on how peaked the function is, this will be from 5 to 8 
+        # The Poisson will be fit to this set of values
         dom = set()
         for delta in (0.5, 1.0, 2.0, 4.0):
-            #print delta,
-            a,b = self.find_delta(delta, scale)
-            #print a,b
+            a,b = self.find_delta(delta, scale, xtol=tol*1e-2)
             dom.add(a); dom.add(b)
         self.dom = np.array(sorted(list(dom)))
         self.fit()
         self.maxdev=self.check(tol)[0]
+        
     @property
     def poiss(self):
         return self._poiss
@@ -519,22 +520,28 @@ class PoissonFitter(object):
         while func(s_high)<0: s_high*=2
         s_high = optimize.brentq(func,self.smax,s_high, xtol=xtol)
         if not np.all(np.isreal([s_low,s_high])):
-            print('Could not find two roots!')
+            print '%s.find_delta Failed to find two roots!' % self.__class__.__name__
             return None
+        if s_high==s_low:
+            print '%s.find_delta Failed to find high root with delta=%.1f: %s' % (self.__class__.__name__,delta_logl,s_high)
         return (s_low,s_high)
 
     def fit(self, mu=30, beta=5):
         """Do the fit, return parameters for a Poisson constructor
+        mu, beta: initial parameters for the fit if the peak is positive
         """
         smax = self.smax
         if smax>0:
             # function to fit has positive peak. Fit the drived parameters mu, beta
             cod = self(self.dom)-self(smax)
+            #print 'smax=%.2f, w(%s)=%s' % (smax, self.dom, cod)
             def fitfunc(p):
                 mu,beta=p
                 e=(mu-beta)/smax; b = beta/e
                 self._poiss = Poisson([smax, e,b])
-                return self._poiss(self.dom)-cod
+                r = self._poiss(self.dom)-cod
+                #print'f(%.3f,%.3f): %s' % (mu,beta,r)
+                return r
             mu,beta =  optimize.leastsq(fitfunc,[mu,beta], maxfev=10000)[0]
             e = (mu-beta)/smax; b = beta/e
             return [smax, e, b]
@@ -561,7 +568,7 @@ class PoissonFitter(object):
     def check(self, tol=0.02):
         deltas = np.array(map( lambda x: self.func(x)-self._poiss(x), self.dom))
         t = np.abs(deltas-deltas.mean()).max()
-        if t>tol: raise Exception('PoissonFitter: maximum deviation, %s > tolerance %s'%(t,tol))
+        if t>tol: raise Exception('PoissonFitter: maximum deviation, %.2f > tolerance, %s'%(t,tol))
         return t, deltas
 
  
