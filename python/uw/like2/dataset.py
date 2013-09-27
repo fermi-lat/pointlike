@@ -1,11 +1,11 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.22 2013/02/10 23:19:25 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.23 2013/09/04 12:34:58 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.22 $'.split()[1]
+version='$Revision: 1.23 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np
@@ -21,7 +21,7 @@ class DataSetError(Exception):pass
 class DataSpecification(object):
     """ 
     """
-    def __init__(self, folder, **data):
+    def __init__(self, folder, quiet=True, **data):
         """
         folder : string
             the path to the folder where the dictionary was found
@@ -49,7 +49,7 @@ class DataSpecification(object):
                 for name in ('binfile', 'ltcube'):
                     data[name]=data[name].replace('.fit', '_%s.fit'%interval)
             self.__dict__.update(data)
-        print 'data spec:\n', str(self.__dict__)
+        if not quiet: print 'data spec:\n', str(self.__dict__)
 
     def __str__(self):
         return self.data_name
@@ -124,7 +124,8 @@ class DataSet(dataman.DataSpec):
                             (see docstring for that class) 
         """
 
-        dataspec = self._process_dataset(dataset_name, interval=kwargs.pop('interval',None)).__dict__
+        dataspec = self._process_dataset(dataset_name, quiet=kwargs.get('quiet',False),
+            interval=kwargs.pop('interval',None)).__dict__
         dataspec.update(
                 ft1=dataspec.pop('ft1files',None), 
                 ft2=dataspec.pop('ft2files',None),
@@ -146,7 +147,7 @@ class DataSet(dataman.DataSpec):
         self._load_binfile()
     
 
-    def _process_dataset(self, dataset, interval=None, month=None):
+    def _process_dataset(self, dataset, interval=None, month=None, quiet=False):
         """ Parse the dataset as either a DataSpecification object, a dict, or a string lookup key.
             interval: string
                 name of a 
@@ -178,13 +179,13 @@ class DataSet(dataman.DataSpec):
                     gr = idict[interval]
                     gti_mask = skymaps.Gti([gr[0]], [gr[1]])
                     if True: #self.verbose: 
-                        print 'apply gti mask %s, %s' %(interval, gti_mask)
+                        if not quiet: print 'apply gti mask %s, %s' %(interval, gti_mask)
                 except Exception, msg:
                     raise DataSetError('Interval dictionary file %s, key %s, problem: %s'\
                                 % (pyfile, interval, msg))
             else: gti_mask=None
             if dataset in ldict: 
-                print 'found dataset %s in %s' % (dataset, folder)
+                if not quiet: print 'found dataset %s in %s' % (dataset, folder)
                 # translate event class name to appropriate bit
                 ddict=ldict[dataset]
                 #ddict['event_class_bit']= 4 ######FOR PASS8 now 
@@ -279,7 +280,7 @@ def main(datadict=dict(dataname='P7_V4_SOURCE_4bpd'), analysis_kw=dict(irf='P7SO
     dataset = DataSet(datadict['dataname'], **analysis_kw)
     return dataset
     
-def validate(model_path, interval=None, nocreate=False, logfile='dataset.txt'):
+def validate(model_path='.', interval=None, nocreate=False, logfile='dataset.txt'):
     """
     validate the dataset for a model, as defined by the pipeline architecture
     

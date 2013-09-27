@@ -1,7 +1,7 @@
 """
 Set up an ROI factory object
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.31 2013/05/18 23:31:17 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.32 2013/09/04 12:34:58 burnett Exp $
 
 """
 import os, sys, types
@@ -58,9 +58,9 @@ class ExposureManager(object):
         if correction is not None:
             self.correction = map(eval, correction)
             energies = [100, 1000, 10000]
-            print 'Exposure correction: for energies %s ' % energies
+            if not self.quiet:  'Exposure correction: for energies %s ' % energies
             for i,f in enumerate(self.correction):
-                print ('\tfront:','\tback: ','\tdfront:', '\tdback')[i], map( f , energies)
+                if not self.quiet:  ('\tfront:','\tback: ','\tdfront:', '\tdback')[i], map( f , energies)
         else:
             self.correction = lambda x: 1.0, lambda x: 1.0
         iem_correction = datadict.pop('iem_correction', None)
@@ -68,12 +68,12 @@ class ExposureManager(object):
             self.correction.append( eval(iem_correction))
             self.correction.append( eval(iem_correction))
             energies = [133, 237, 421, 749, 1.333]
-            print 'Diffuse correction: for energies %s ' % energies
+            if not self.quiet:  'Diffuse correction: for energies %s ' % energies
             for i,f in enumerate(self.correction[3:]):
-                print ('\tfront: ','\tback: ',)[i], map( f , energies)
+                if not self.quiet:  ('\tfront: ','\tback: ',)[i], map( f , energies)
         self.systematic = datadict.pop('systematic', None)
         if self.systematic is not None:
-            print 'Galactic diffuse systematic uncertainty: %f' % self.systematic
+            if not self.quiet:  'Galactic diffuse systematic uncertainty: %f' % self.systematic
             
     def value(self, sdir, energy, event_class):
         return self.exposure[event_class].value(sdir, energy)*self.correction[event_class](energy)
@@ -111,7 +111,7 @@ class DiffuseCorrection(ExposureCorrection):
         loc = np.log10(e/100.)*self.binsperdec
         if loc<0 or loc>=len(self.vals): return 1.0
         return self.vals[int(loc)]
-        
+
 
 class ROIfactory(object):
     """
@@ -149,7 +149,8 @@ class ROIfactory(object):
                 if None, use the data used to generate the skymodel
         """
         keyword_options.process(self, kwargs)
-        print 'ROIfactory setup: \n\tskymodel: ', modeldir
+        self.analysis_kw['quiet']=self.quiet
+        if not self.quiet:  'ROIfactory setup: \n\tskymodel: ', modeldir
         # extract parameters used by skymodel for defaults
         input_config = eval(open(os.path.expandvars(modeldir+'/config.txt')).read())
         for key in 'extended diffuse irf galactic_correction galactic_systematic'.split():
@@ -161,9 +162,9 @@ class ROIfactory(object):
         config_skymodel = input_config.get('skymodel_config', None)
         if config_skymodel is not None:
             self.skymodel_kw.update(config_skymodel)
-            print 'Using skymodel config: %s' % self.skymodel_kw
+            if not self.quiet:  'Using skymodel config: %s' % self.skymodel_kw
             
-        self.skymodel = skymodel.SkyModel(modeldir, diffuse=self.diffuse,  **self.skymodel_kw)
+        self.skymodel = skymodel.SkyModel(modeldir, diffuse=self.diffuse,   **self.skymodel_kw)
 
         if isinstance(dataspec,dataman.DataSet):
             self.dataset = dataspec
@@ -178,7 +179,7 @@ class ROIfactory(object):
              
         else: # not a DataSet or dict
             if dataspec is None:
-                print 'dataspec is None: loading datadict from skymodel.config'; sys.stdout.flush()
+                if not self.quiet:  'dataspec is None: loading datadict from skymodel.config'; sys.stdout.flush()
                 datadict = self.skymodel.config['datadict']
                 if type(datadict)==types.StringType: datadict=eval(datadict)
                 if isinstance(datadict, dataman.DataSet): 
@@ -194,22 +195,22 @@ class ROIfactory(object):
                 # a dictionary
                 datadict = dataspec
             else:
-                print 'looking up dataspec %s' % dataspec
+                if not self.quiet:  'looking up dataspec %s' % dataspec
                 datadict = dict(dataname=dataspec)\
                         if type(dataspec)!=types.DictType else dataspec
-            print '\tdatadict: ', datadict
+            if not self.quiet:  '\tdatadict: ', datadict
             if True: #self.analysis_kw.get('irf',None) is None:
                 t = self.__dict__['irf']
                 if t[0] in ('"',"'"): t = eval(t)
                 self.analysis_kw['irf'] = t
-            print '\tirf:\t%s' % self.analysis_kw['irf'] ; sys.stdout.flush()
+            if not self.quiet:  '\tirf:\t%s' % self.analysis_kw['irf'] ; sys.stdout.flush()
             #datadict = dict(dataname=dataspec, ) \
             #        if type(dataspec)!=types.DictType else dataspec
             exposure_correction=datadict.pop('exposure_correction', None)        
             self.dataset = dataset.DataSet(datadict['dataname'], interval=datadict.get('interval',None),
                     nocreate = self.nocreate,
                     **self.analysis_kw)
-            print self.dataset
+            if not self.quiet:  self.dataset
             self.exposure = ExposureManager(self.dataset, exposure_correction=exposure_correction, systematic=self.galactic_systematic)
         
         if 'CUSTOM_IRF_DIR' not in os.environ and os.path.exists(os.path.expandvars('$FERMI/custom_irfs')):
@@ -221,7 +222,7 @@ class ROIfactory(object):
            if os.path.exists(self.galactic_correction):
                self.dcorr = pd.read_csv(self.galactic_correction, index_col=0)
            else:
-               print 'Galactic correction file "%s" not found, no correction applied' % self.galactic_correction
+               if not self.quiet:  'Galactic correction file "%s" not found, no correction applied' % self.galactic_correction
                self.galactic_correction=None
         convolution.AnalyticConvolution.set_points(self.convolve_kw['num_points'])
         convolution.ExtendedSourceConvolution.set_pixelsize(self.convolve_kw['pixelsize'])
@@ -247,14 +248,15 @@ class ROIfactory(object):
                 bpd = self.data_manager.dataspec.binsperdec
             else:
                 bpd = self.dataset.binsperdec
-            global_models = [diffuse.mapper(self, src_sel.name(), skydir, source, binsperdec = bpd) for source in globals]
+            global_models = [diffuse.mapper(self, src_sel.name(), skydir, 
+                    source, binsperdec = bpd, quiet=self.quiet) for source in globals]
         except Exception, msg:
             print self.dataset, msg
             raise
 
         def extended_mapper( source):
             if not self.quiet:
-                print 'constructing extended model for "%s", spatial model: %s' \
+                if not self.quiet:  'constructing extended model for "%s", spatial model: %s' \
                     %(source, source.spatial_model.__class__.__name__)
             return roi_extended.ROIExtendedModel.factory(self,source,skydir)
         extended_models = map(extended_mapper, extended)
