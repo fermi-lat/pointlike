@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.35 2013/07/28 15:29:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.36 2013/09/04 12:34:58 burnett Exp $
 
 """
 import types
@@ -245,6 +245,7 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
         source_name : string
             Name of a source in the ROI, with possible wildcards
         event_class : None, or integer, 0/1 for front/back
+        update : if present in kwargs and True, force a new evaluation; otherwise return present one
         """
         source = self.sources.find_source(source_name)
         update = kwargs.pop('update', False)
@@ -294,16 +295,16 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
         t = printing.print_summary(self, **kwargs)
         self.sources.selected_source=selected_source
 
-    def find_associations(self, source_name=None, classes='all'):
+    def find_associations(self, source_name=None, classes='all', quiet=True):
         """ find associations, using srcid object.
         Expect to find files at $FERMI/catalog.
         """
         try:
             if not hasattr(self,'srcid'):
                 from uw.like2.pipeline import associate
-                self.srcid=associate.SrcId('$FERMI/catalog',classes)
+                self.srcid=associate.SrcId('$FERMI/catalog',classes, quiet=quiet)
             source = self.sources.find_source(source_name)
-            with localization.Localization(self, source.name, quiet=True) as loc:
+            with localization.Localization(self, source.name, quiet=quiet) as loc:
                 if not hasattr(source, 'ellipse'):
                     loc.localize()
                 localization.make_association(source, loc.TSmap, self.srcid)
@@ -390,9 +391,12 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
         """ thaw the parameter
         
         parname : name or index
+            if a string with an underscore, interpret as source_parname
         source_name: None or string
             if None, use currently selected source
         """
+        if parname.find('_')>0 and source_name is None:
+            source_name, parname = parname.split('_')
         model = self.get_model(source_name)
         model.freeze(parname, freeze=False)
         self.initialize()
@@ -432,7 +436,28 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
             dc[2*i]=dc[2*i+1] = c
             for x,y in zip(dc,bgal):
                 y.diffuse_correction = x
+ 
+    def weights(self, source_name, data, emin=None):
+        """ return an array of weights, signal/total for the source
         
+        data : dict-like 
+            expect to have keys ENERGY, CONVERSION_TYPE, RA, DEC
+            can just be a pyfits.FITS_rec object
+        emin : [float | None ]
+            minimum energy, if specified. Assign zero weight for events with energy<emin
+        """
+        self.get_source(source_name)
+        weight = np.empty(len(data))
+        source_index = self.sources.selected_source_index
+        for i, (energy, ct, ra, dec) in enumerate(zip(
+                data['ENERGY'],data['CONVERSION_TYPE'], data['RA'], data['DEC'])):
+            if emin is not None and energy<emin: 
+                weight[i]=0 
+            else:
+                bl = self.select_band(energy, ct)
+                signal,back= bl.counts_in_pixel(source_index, skymaps.SkyDir(float(ra),float(dec)) )
+                weight[i]=signal/(signal+back)
+        return weight
         
 class Factory(roisetup.ROIfactory):
     """ subclass of ROIfactory that sets up a ROI_user analysis object"""
@@ -455,8 +480,9 @@ class Factory(roisetup.ROIfactory):
                 # starts with 'J': try coordinate like J123.6-60.1
                 t = sel[1:]
                 i = max(t.find('+'), t.find('-'))
-                ra,dec = skymaps.SkyDir(float(t[0:i]),float(t[i:]))
-                
+                skydir = skymaps.SkyDir(float(t[0:i]),float(t[i:]))
+            else:
+                raise Exception('Source %s not found in model' % sel)
             index = self.skymodel.hpindex(skydir)
             source_name=sel
         else:
