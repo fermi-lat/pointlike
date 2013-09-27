@@ -1,6 +1,6 @@
 """
 Utilities for managing Healpix arrays
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.9 2013/03/21 19:34:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.10 2013/05/25 20:53:09 burnett Exp $
 """
 import os,glob,pickle, types, copy, zipfile
 import pylab as plt
@@ -31,7 +31,10 @@ class HParray(object):
     
     def skyfun(self, skydir):
         return self[Band(self.nside).index(skydir)]
-     
+    
+    def get_pyskyfun(self):
+        return PySkyFunction(self)
+ 
     def __call__(self, skydir):
         return self[self._indexfun(skydir)]
     
@@ -555,51 +558,52 @@ from uw.like2.pub import healpix_map;
 g = healpix_map.ZEAdisplayTasks("%(title)s","%(outdir)s", nside=%(nside)s, %(extra)s)
 """ %dict(cwd=os.getcwd(), title=title, outdir=outdir, extra=extra, nside=nside)
     return setup_string
-    
-from uw.like2.pipeline import pipe
-
-class Setup(pipe.Setup):
-    """ subclass that allows parallel processing
-    """
-    def __init__(self,outdir, title):
-        self.outdir = outdir
-        if title[:2]=='ts':
-            self.setup= make_setup(outdir, title, 
-                imshow_kw='interpolation="bilinear", vmin=0,vmax=5,fun=np.sqrt',
-                label = r'$\mathrm{\sqrt{TS_{max}-TS}}$',
-                )
-        elif title=='kde':
-            self.setup= make_setup(outdir, title, 
-                imshow_kw='interpolation="bilinear",fun=np.log10',
-                label='log10(photon density)')
-        elif title=='counts':
-            self.setup=make_setup(outdir, title,
-                imshow_kw='interpolation="bilinear"',
-                label='r$\mathrm{counts}$'
-                )
-        else:
-            assert False, 'title %s not recognized' % title
-        self.mecsetup=False #needed from inheritance
-     
-    def dump(self): pass
-    
-    def __call__(self):
-        return self.setup
-
-def make_maps(outdir, title='all',):
-    all = title=='all'
-    if all or title=='kde':
-        Setup(outdir,'kde').run()
-    if all or title=='ts':
-        Setup(outdir,'ts' ).run()
-    if all or title=='counts':
-        Setup(outdir, 'counts').run()
-        
-def main(outdir=None): 
-    if outdir is None: outdir = sorted(glob.glob('uw*'))[-1]
-    print 'using outdir %s' % outdir
-    make_maps(outdir, 'all')
-
-if __name__=='__main__':
-    main()
-     
+ 
+# rethink this   
+#from uw.like2.pipeline import pipe
+#
+#class Setup(pipe.Setup):
+#    """ subclass that allows parallel processing
+#    """
+#    def __init__(self,outdir, title):
+#        self.outdir = outdir
+#        if title[:2]=='ts':
+#            self.setup= make_setup(outdir, title, 
+#                imshow_kw='interpolation="bilinear", vmin=0,vmax=5,fun=np.sqrt',
+#                label = r'$\mathrm{\sqrt{TS_{max}-TS}}$',
+#                )
+#        elif title=='kde':
+#            self.setup= make_setup(outdir, title, 
+#                imshow_kw='interpolation="bilinear",fun=np.log10',
+#                label='log10(photon density)')
+#        elif title=='counts':
+#            self.setup=make_setup(outdir, title,
+#                imshow_kw='interpolation="bilinear"',
+#                label='r$\mathrm{counts}$'
+#                )
+#        else:
+#            assert False, 'title %s not recognized' % title
+#        self.mecsetup=False #needed from inheritance
+#     
+#    def dump(self): pass
+#    
+#    def __call__(self):
+#        return self.setup
+#
+#def make_maps(outdir, title='all',):
+#    all = title=='all'
+#    if all or title=='kde':
+#        Setup(outdir,'kde').run()
+#    if all or title=='ts':
+#        Setup(outdir,'ts' ).run()
+#    if all or title=='counts':
+#        Setup(outdir, 'counts').run()
+#        
+#def main(outdir=None): 
+#    if outdir is None: outdir = sorted(glob.glob('uw*'))[-1]
+#    print 'using outdir %s' % outdir
+#    make_maps(outdir, 'all')
+#
+#if __name__=='__main__':
+#    main()
+#     
