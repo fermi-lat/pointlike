@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Sep 28 13:38:27 PDT 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	processor.py 
+Log Message:
+freeze_limb option
+    *
+------------------------------------------------------------
 User: burnett  Sat Sep 28 13:33:26 PDT 2013
 pointlike/python/uw/like
 
