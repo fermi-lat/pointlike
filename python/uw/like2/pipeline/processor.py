@@ -315,6 +315,8 @@ def process(roi, **kwargs):
     norms_first = kwargs.pop('norms_first', True)
     freeze_iem = kwargs.pop('freeze_iem', 1.0)
     freeze_iso = kwargs.pop('freeze_iso', None)
+    freeze_limb = kwargs.pop('freeze_limb', [1.0, 1.0])
+
     countsplot_tsmin = kwargs.pop('countsplot_tsmin', 100) # minimum for counts plot
     source_name = kwargs.pop('source_name', None) # for localize perhaps
     damp = Damper(roi, dampen)
@@ -337,6 +339,11 @@ def process(roi, **kwargs):
     if freeze_iso is not None:
         print 'Freezeing isotropic to %f' % freeze_iso
         roi.freeze('Scale', 'iso*', freeze_iso)
+    if freeze_limb is not None:
+        print 'Freezeing limb to %s' % freeze_limb
+        roi.freeze('Scale_front', 'limb', freeze_limb[0])
+        roi.freeze('Scale_back',  'limb', freeze_limb[1])
+    
 
     init_log_like = roi.log_like()
     roi.print_summary(title='before fit, logL=%0.f'% init_log_like)
@@ -481,7 +488,6 @@ def localize(roi, **kwargs):
         pickle.dump(source, open(outfile, 'w'))
         print 'wrote file %s' % outfile
     outtee.close()
-
     
 def table_processor(roi, **kwargs):
     """ do only tables """
@@ -602,7 +608,6 @@ def full_sed_processor(roi, **kwargs):
         print 'wrote sedinfo pickle file to %s' % fullfname
     sys.stdout.flush()
             
-
 def covariance(roi, **kwargs):
     """Compute covariance for first two backgrounds, low energy bands variable point sources
     """
@@ -650,8 +655,6 @@ def covariance(roi, **kwargs):
         print 'wrote covariance pickle file to %s' % fullfname
         
     sys.stdout.flush()
-
-
 
 def roi_refit_processor(roi, **kwargs):
     """ roi processor to refit diffuse for each energy band
@@ -754,7 +757,6 @@ def limb_processor(roi, **kwargs):
     print 'wrote file to %s' %fname
     outtee.close()
 
-
 def sunmoon_processor(roi, **kwargs):
     """ report on sunmon refit """
     outdir= kwargs.get('outdir')
@@ -785,7 +787,6 @@ def sunmoon_processor(roi, **kwargs):
       delta_likelihood=roi.log_like()-before ), open(fname,'w'))
     print 'wrote file to %s' %fname
     outtee.close()
-
     
 def check_seeds(roi, **kwargs):
     """ Evaluate a set of seeds: fit, localize with position update, fit again
@@ -902,11 +903,9 @@ class CompareOtherModel(object):
         self.other_models.append(dict(name=source_name, m_other=othermodel, m_pt=saved_model, ts_pt=ptts, ts_other=gtts))
  
 class GtlikeModels(object):
-    def __init__(self, catpath=os.path.expandvars('$FERMI/catalog/gll_psc4year*.fit'), otherversion='v7'):
-        import pyfits, glob
-        catfile = sorted(glob.glob(catpath))[-1]
-        print 'Loading gtlike file %s' % catfile
-        self.cat = pyfits.open(catfile)[1].data
+    def __init__(self, catpath=os.path.expandvars('$FERMI/catalog/gll_psc4yearclean_v4.fit'), otherversion='v4'):
+        import pyfits
+        self.cat = pyfits.open(catpath)[1].data
         self.otherversion=otherversion
         self.uwversion = os.path.split(os.getcwd())[-1]
                  
@@ -917,7 +916,7 @@ class GtlikeModels(object):
         if sum(cselect)!=1: return None
         cs = self.cat[cselect][0]
         st = cs.field('SpectrumType')
-        flux,index,cutoff,b,pivot,beta=[cs.field(f) for f in 'Flux_Density Spectral_Index Cutoff Exp_Index Pivot_Energy beta'.split()]
+        flux,index,cutoff,b,pivot,beta=[cs.field(f) for f in 'Flux_Density Spectral_Index Cutoff Index2 Pivot_Energy beta'.split()]
         try:
             if st=='PowerLaw':
                return Models.PowerLaw(p=[flux, index], e0=pivot)
