@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.142 2013/05/27 18:04:36 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.143 2013/08/03 18:21:12 burnett Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -573,7 +573,7 @@ class Model(object):
             z = np.zeros_like(p)
             return (p,z,z) if two_sided else (p,z) 
         elif not two_sided:
-            vars = np.diag(self.get_cov_matrix())
+            vars = np.diag(self.get_cov_matrix()).copy()
             vars[(vars<0)]=0
             p[p==0]=1e-6
             errs = vars**0.5 
@@ -2312,6 +2312,21 @@ class FrontBackConstant(CompositeModel):
     def external_gradient(self, e):
         return np.hstack([(1-self.ct)*self.models[0].external_gradient(e).T, 
                           self.ct*self.models[1].external_gradient(e).T])
+                          
+    def freeze(self, i, freeze=True):
+        """override base class, since doesn't seem to be reliable? This is simpler
+        """
+        i = self.name_mapper(i)
+        free = self.free
+        free[i] = not freeze
+        self.free = free
+
+    def setp(self, i, value, **kwargs):
+        """ i: [string | integer ]
+            value: float
+        """
+        i = self.name_mapper(i)
+        self.models[i].setp(0, value, **kwargs)
 
 class SumModel(CompositeModel):
     """ Model is the sum of other models. 
