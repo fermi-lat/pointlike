@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Sep 28 13:33:26 PDT 2013
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+fix freeze and setp for FrontBackConstant model
+    *
+------------------------------------------------------------
 User: burnett  Fri Sep 27 15:21:19 PDT 2013
 pointlike/python/uw/like2/pub
 
