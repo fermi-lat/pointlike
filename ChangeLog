@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Sep 30 09:57:18 PDT 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	processor.py 
+Log Message:
+add diffuse_info task
+    *
+------------------------------------------------------------
 User: burnett  Sat Sep 28 13:39:30 PDT 2013
 pointlike/python/uw/like2/pipeline
 
