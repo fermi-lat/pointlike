@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.65 2013/09/25 12:51:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.67 2013/09/28 20:38:27 burnett Exp $
 """
 import os, time, sys, types, glob
 import cPickle as pickle
@@ -1099,4 +1099,32 @@ def flux_correlations(roi, **kwargs):
     print 'wrote file to %s' %fname
     outtee.close()
   
+def diffuse_info(roi, **kwargs):
+    """ make map of all diffuse components"""
+    outdir= kwargs.get('outdir')
+
+    diffusedir = os.path.join(outdir, kwargs.get('diffusedir', 'diffuse_info'))
+    if not os.path.exists(diffusedir): os.mkdir(diffusedir)
+        
+    bdlist=[]
+    for i,bl in enumerate(roi.all_bands): # over all bandlike objects
+        band = bl.band
+        d = dict(
+            energy = band.e,
+            ct = band.ct,
+            exposure = band.exp.value(roi.roi_dir, band.e),
+            ring = bl[0].ap_evals,
+            isotrop=bl[1].ap_evals,
+            SunMoon =bl[2].ap_evals,
+            limb = bl[3].ap_evals if bl[3].source.name=='limb' else 0,
+            )
+        bdlist.append(d)
+    
+    fname = os.path.join(diffusedir,'%s_diffuse.pickle' %roi.name)   
+    pickle.dump( 
+        dict(ra=roi.roi_dir.ra(), dec=roi.roi_dir.dec(), 
+            bdlist = bdlist,
+            ),
+            open(fname,'w'))
+    print 'wrote file to %s' %fname
 
