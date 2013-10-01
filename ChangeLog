@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Oct  1 07:23:06 PDT 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	processor.py 
+Log Message:
+check for sun and limb index in diffuse_info
+    *
+------------------------------------------------------------
 User: burnett  Mon Sep 30 09:57:18 PDT 2013
 pointlike/python/uw/like2/pipeline
 
