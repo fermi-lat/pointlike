@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.67 2013/09/28 20:38:27 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.68 2013/09/30 16:57:17 burnett Exp $
 """
 import os, time, sys, types, glob
 import cPickle as pickle
@@ -1105,7 +1105,16 @@ def diffuse_info(roi, **kwargs):
 
     diffusedir = os.path.join(outdir, kwargs.get('diffusedir', 'diffuse_info'))
     if not os.path.exists(diffusedir): os.mkdir(diffusedir)
-        
+    
+    def source_index(name):
+        try:
+            roi.sources.find_source(name)
+            return roi.sources.selected_source_index
+        except:
+            return -1
+            
+    smindex = source_index('SunMoon')
+    limbindex=source_index('limb')
     bdlist=[]
     for i,bl in enumerate(roi.all_bands): # over all bandlike objects
         band = bl.band
@@ -1115,8 +1124,8 @@ def diffuse_info(roi, **kwargs):
             exposure = band.exp.value(roi.roi_dir, band.e),
             ring = bl[0].ap_evals,
             isotrop=bl[1].ap_evals,
-            SunMoon =bl[2].ap_evals,
-            limb = bl[3].ap_evals if bl[3].source.name=='limb' else 0,
+            SunMoon =bl[smindex].ap_evals if smindex>=0 else 0,
+            limb = bl[limbindex].ap_evals if limbindex>=0 else 0,
             )
         bdlist.append(d)
     
