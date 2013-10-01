@@ -1,7 +1,7 @@
 """
 Limb plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/limb.py,v 1.3 2013/08/21 04:35:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/limb.py,v 1.4 2013/08/22 18:22:00 burnett Exp $
 
 """
 
@@ -95,12 +95,12 @@ class Limb(roi_info.ROIinfo):
         #fpar,bpar = [np.array([m[i] if m else np.nan for m in dm] )for i in range(2)]
         
         
-        fig, axx = plt.subplots(2,1, figsize=(8,6), sharex=True)
+        fig, axx = plt.subplots(2,1, figsize=(14,6), sharex=True)
         plt.subplots_adjust(right=0.9)
         c=np.abs(self.df.glat)
         cut = c>35
         for ax, par, label  in zip(axx, [self.fpar,self.bpar], 'front back'.split()):
-            scat=ax.scatter(np.sin(np.radians(dec))[cut], par[cut], c=c[cut], s=30,vmin=0, vmax=90, edgecolor='none')
+            scat=ax.scatter(np.sin(np.radians(dec))[cut], par[cut], c=c[cut], s=25,vmin=0, vmax=90, edgecolor='none')
             plt.setp(ax, xlim=(-1,1), xlabel='sin(dec)' if label=='back' else '',  ylim=(0,ymax))
             ax.plot(dom, map(limbfun[label],dom), '--', color='k', lw=1) 
             ax.grid()
