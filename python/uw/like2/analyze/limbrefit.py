@@ -1,7 +1,7 @@
 """
 Limb refit
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/limbrefit.py,v 1.3 2013/08/22 18:22:00 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/limbrefit.py,v 1.4 2013/09/10 13:10:27 burnett Exp $
 
 """
 
@@ -32,6 +32,7 @@ class LimbRefit(limb.Limb):
             ra, dec = p['ra'], p['dec']
             skydir = SkyDir(ra,dec)
             glat,glon = skydir.b(), skydir.l()
+            if glon>180: glon-=360.
             rdict[name] = dict(ra=ra, dec=dec, glat=glat, glon=glon,skydir=skydir, front=front, back=back)
         self.df = pd.DataFrame(rdict).transpose()
         self.fpar = self.df.front
