@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.6 2013/09/07 11:21:17 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.7 2013/09/20 12:41:35 burnett Exp $
 
 """
 
@@ -286,7 +286,8 @@ class AnalysisBase(object):
             A file path. If the first folder, +'.zip' exists, unpack from that zip file
         """
         pkls = []
-        zipfilename = os.path.split(folder)[0]+'.zip'
+        zipfilename = folder+'.zip' #os.path.split(folder+'.zip')[0]
+        
         if os.path.exists(zipfilename):
             print 'unpacking file %s ...' % (os.getcwd()+'/'+zipfilename ,),
             z = zipfile.ZipFile(zipfilename)
