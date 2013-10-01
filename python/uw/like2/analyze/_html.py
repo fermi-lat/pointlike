@@ -1,6 +1,6 @@
 """
 Manage the Web page generation
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/_html.py,v 1.16 2013/08/28 07:30:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/_html.py,v 1.17 2013/08/31 04:52:31 burnett Exp $
 """
 import os, glob, re
 import pandas as pd
@@ -18,7 +18,7 @@ p   { font-size:10pt; margin-left:25pt; }
 pre { font-size:10pt; margin-left:25pt; 
     border-style:solid;    border-width:thin;}
 h3 { -webkit-margin-after: 0px; -webkit-margin-before: 2em; }
-h4, h5, ol, ul {margin-left:25pt;}
+h4, h5, ol, ul, dl {margin-left:25pt;}
 table { margin-left:25pt; margin-top:15pt; font-size:8pt;
     border-style: solid; border-width: 1px;  border-collapse: collapse; }
 table.topmenu {border-style:solid; border-width:0px}
