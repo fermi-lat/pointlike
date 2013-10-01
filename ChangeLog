@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Tue Oct  1 09:48:51 PDT 2013
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	__init__.py _html.py 
+Added Files:
+	diffuse_info.py 
+Log Message:
+add diffuse_info
+    *
+------------------------------------------------------------
 User: burnett  Tue Oct  1 07:23:06 PDT 2013
 pointlike/python/uw/like2/pipeline
 
