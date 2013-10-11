@@ -1,8 +1,8 @@
 package pointlike
 
-version v8r2p0
+version v8r3p0
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.211 2013/09/15 08:21:02 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.212 2013/10/11 16:08:40 burnett Exp $
 author  T. Burnett <tburnett@u.washington.edu>
 
 use astro *
