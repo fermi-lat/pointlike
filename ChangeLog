@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Oct 11 09:10:39 PDT 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	diffuse.py roisetup.py skymodel.py sources.py 
+Log Message:
+first diffuse refactor step
+    *
+------------------------------------------------------------
 User: burnett  Fri Oct 11 09:08:40 PDT 2013
 pointlike/cmt
 
