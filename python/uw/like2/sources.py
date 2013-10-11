@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.24 2013/09/04 12:34:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.25 2013/09/27 22:09:26 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -99,6 +99,8 @@ class Source(object):
     def __str__(self):
         return self.name + ' '+ self.skydir.__str__() +' '+ self.model.name \
                 +  (' (free)' if np.any(self.model.free) else ' (fixed)')
+    def __repr__(self):
+        return '%s %s' % (self.__class__.__name__ , self.name)
 
 class PointSource(Source):
     def __init__(self, **kwargs):
@@ -131,108 +133,6 @@ class ExtendedSource(Source):
             ret.model.free[-1]=False # make sure Ebreak is frozen
         return ret
  
-class DiffuseFunction(skymaps.DiffuseFunction):
-    """ wrapper for eventual invocation of skymaps.DiffuseFunction
-    load must be called before use
-    """
-    def __init__(self, filename):
-        """ filename: string or dict
-                if dict, expect 'filename' key
-        """
-        if type(filename)==types.DictType:
-            self.filename=filename['filename']
-            self.kw=filename
-        else:
-            self.filename = filename
-            self.kw=None
-        if not os.path.exists(self.filename):
-            self.filename = os.path.expandvars(os.path.join('$FERMI','diffuse',self.filename))
-        assert os.path.exists(self.filename), 'DiffuseFunction file %s not found' % self.filename
-        self.loaded =  os.path.splitext(self.filename)[-1][:4] != '.fit'
-    def load(self):
-        if  self.loaded: return
-        self.loaded=True
-        print 'loading diffuse file %s: warning, not interpolating' %self.filename
-        try:
-            super(DiffuseFunction,self).__init__(self.filename, 1000., False) #
-        except RuntimeError, msg:
-            print 'RuntimeEror "%s": retry' % msg
-            super(DiffuseFunction,self).__init__(self.filename, 1000., False) #
-
-    def name(self):
-        return self.filename
-        
-class IsotropicSpectralFunction(object):
-    """ wrapper for using a standard spectral function with isotropic
-    """
-    def __init__(self, expression):
-        """
-        expression: 
-        """
-        try:
-            self.expression  = expression.split('_')[-1]
-            self.spectral_function = eval(self.expression)
-            self.energy=1000.
-        except Exception, msg:
-            print 'Failure to evaluate IsotropicSpectralFunction %s : %s' % (self.expression, msg)
-            raise
-    def load(self): pass
-    def name(self): return 'IsotropicSpectralFunction/'+self.expression
-    def setEnergy(self, energy):  self.energy = energy #needed?
-    def __call__(self, skydir, energy):return self.spectral_function(energy)
-    
-class DiffuseDict(dict):
-    """ create a dictionary of global diffuse objects
-        key:   a string defined by the filename following an underscore, or key in input to init
-        value: (both) or (front,back)  diffuse objects determined by the extension:
-            txt: IsotropicSpectrum
-            fit or fits: DiffuseFunction
-            ): IsotropicSpectralFunction
-            none: expect that the key is an expression to be evaluated to create a spectral model function
-    
-    """
-    def __init__(self, diffuse):
-        """ diffuse: a list, where each entry is a file name or a tuple of one or two file names, for front and back
-            if the name ends with a ')', assume it is an expression and pass it on to be evaluated by IsotropicSpectralFunction
-        
-        New, alternate format: a dictionary where the source name is the key, instead of parsed from the filename
-        Newer: each entry can be a dict, with filename key, others ignored here
-        """
-        if type(diffuse)==types.DictType:
-            # new format: just a dictionary
-            keys = diffuse.keys()
-            tuplelist = map( lambda x: (x,) if not hasattr(x,'__iter__') else x, diffuse.values())
-        else:    
-            # convert each single entry to a tuple: assume iterables are tuples of strings
-            tuplelist = map( lambda x: (x,) if not hasattr(x,'__iter__') else x, diffuse)
-            keys = map( lambda x: x[0].split('_')[0], tuplelist) # key or name from first one
-         
-        for key, files in zip(keys, tuplelist):
-        
-            if type(files)==types.DictType:
-                self[key] = [DiffuseFunction(files)]
-                continue
-            # checking only first element, and only upto a comma, if not with '('
-            
-            f = files[0].split(',')[0] if files[0].find('(')<0 else files[0]
-            ext = os.path.splitext(f)[-1]
-            try:
-                dfun = {'.txt': IsotropicSpectrum, 
-                    '.fit': DiffuseFunction, '.fits': DiffuseFunction, '.zip': DiffuseFunction,
-                    ')': IsotropicSpectralFunction, 
-                    }[ext if ext[-1]!=')' else ')']
-            except:
-                raise Exception('File type, %s, for diffuse not recognized (from %s)'% (ext, files))
-            if dfun==IsotropicSpectralFunction:
-                self[key] = map(dfun,files)
-            elif dfun==IsotropicSpectrum:
-                full_files = map( lambda f: os.path.expandvars(os.path.join('$FERMI','diffuse',f)), files)
-                check = map(lambda f: os.path.exists(f) or f[-1]==')', full_files) 
-                assert all(check), 'not all diffuse files %s found' % full_files
-                self[key]= map(dfun, full_files) 
-            else:
-                self[key]= map(dfun,files)
-            
 
 class ExtendedCatalog( pointspec_helpers.ExtendedSourceCatalog):
     """ subclass to add this lookup function """

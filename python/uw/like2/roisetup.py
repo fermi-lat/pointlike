@@ -1,7 +1,7 @@
 """
 Set up an ROI factory object
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.32 2013/09/04 12:34:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.33 2013/09/27 22:04:42 burnett Exp $
 
 """
 import os, sys, types
@@ -126,13 +126,12 @@ class ROIfactory(object):
                             num_points=25), # AnalyticConvolution
                                     'convolution parameters'),
         ('irf', None,  'Set to override saved value with the skymodel: expect to find in custom_irf_dir'),
-        ('diffuse', None, 'Set to override saved value with skymodel'),
         ('extended', None, 'Set to override saved value with skymodel'),
-        ('selector', skymodel.HEALPixSourceSelector,' factory of SourceSelector objects'),
+        #('selector', skymodel.HEALPixSourceSelector,' factory of SourceSelector objects'),
         ('data_interval', 0, 'Data interval (e.g., month) to use'),
         ('nocreate', True, 'Do not allow creation of a binned photon file'),
-        ('galactic_correction', None, 'Name of file with diffuse correction factors'), 
-        ('galactic_systematic', None, 'Systematic uncertainty for the galactic counts'), 
+        #('galactic_correction', None, 'Name of file with diffuse correction factors'), 
+        #('galactic_systematic', None, 'Systematic uncertainty for the galactic counts'), 
         ('quiet', False, 'set to suppress most output'),
         )
 
@@ -153,7 +152,7 @@ class ROIfactory(object):
         if not self.quiet:  'ROIfactory setup: \n\tskymodel: ', modeldir
         # extract parameters used by skymodel for defaults
         input_config = eval(open(os.path.expandvars(modeldir+'/config.txt')).read())
-        for key in 'extended diffuse irf galactic_correction galactic_systematic'.split():
+        for key in 'extended irf'.split():
             if self.__dict__[key] is None or self.__dict__[key]=='None': 
                 #print '%s: %s replace from skymodel: "%s"' %(key, kwargs.get(key,None), input_config.get(key,None))
                 self.__dict__[key]=input_config.get(key, None)
@@ -164,7 +163,7 @@ class ROIfactory(object):
             self.skymodel_kw.update(config_skymodel)
             if not self.quiet:  'Using skymodel config: %s' % self.skymodel_kw
             
-        self.skymodel = skymodel.SkyModel(modeldir, diffuse=self.diffuse,   **self.skymodel_kw)
+        self.skymodel = skymodel.SkyModel(modeldir,  **self.skymodel_kw)
 
         if isinstance(dataspec,dataman.DataSet):
             self.dataset = dataspec
@@ -211,19 +210,12 @@ class ROIfactory(object):
                     nocreate = self.nocreate,
                     **self.analysis_kw)
             if not self.quiet:  self.dataset
-            self.exposure = ExposureManager(self.dataset, exposure_correction=exposure_correction, systematic=self.galactic_systematic)
+            self.exposure = ExposureManager(self.dataset, exposure_correction=exposure_correction)
         
         if 'CUSTOM_IRF_DIR' not in os.environ and os.path.exists(os.path.expandvars('$FERMI/custom_irfs')):
             os.environ['CUSTOM_IRF_DIR'] = os.path.expandvars('$FERMI/custom_irfs')
         self.psf = pypsf.CALDBPsf(self.dataset.CALDBManager)
  
-        # set up glactic correction if requested, and file exists
-        if self.galactic_correction is not None:
-           if os.path.exists(self.galactic_correction):
-               self.dcorr = pd.read_csv(self.galactic_correction, index_col=0)
-           else:
-               if not self.quiet:  'Galactic correction file "%s" not found, no correction applied' % self.galactic_correction
-               self.galactic_correction=None
         convolution.AnalyticConvolution.set_points(self.convolve_kw['num_points'])
         convolution.ExtendedSourceConvolution.set_pixelsize(self.convolve_kw['pixelsize'])
 
@@ -248,7 +240,7 @@ class ROIfactory(object):
                 bpd = self.data_manager.dataspec.binsperdec
             else:
                 bpd = self.dataset.binsperdec
-            global_models = [diffuse.mapper(self, src_sel.name(), skydir, 
+            global_models = [diffuse.mapper(self.psf, self.exposure, skydir, 
                     source, binsperdec = bpd, quiet=self.quiet) for source in globals]
         except Exception, msg:
             print self.dataset, msg
@@ -313,10 +305,10 @@ class ROIfactory(object):
         else:
             bands = self.dataset(self.psf,self.exposure,skydir)
             
-        # setup galactic diffuse correction and/or counts to pass into ROI generation
-        if self.galactic_correction is not None:
-            # look up the diffuse correction factors for this ROI, by name
-            self.exposure.dcorr = self.dcorr.ix[src_sel.name()].values
+        ## setup galactic diffuse correction and/or counts to pass into ROI generation
+        #if self.galactic_correction is not None:
+        #    # look up the diffuse correction factors for this ROI, by name
+        #    self.exposure.dcorr = self.dcorr.ix[src_sel.name()].values
 
         return ROIdef( name=src_sel.name() ,
                     roi_dir=skydir, 

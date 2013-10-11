@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.39 2013/09/04 12:34:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.40 2013/09/27 22:07:48 burnett Exp $
 
 """
 import os, pickle, glob, types, collections, zipfile
@@ -9,8 +9,8 @@ import numpy as np
 import pandas as pd
 from skymaps import SkyDir, Band
 from uw.utilities import keyword_options, makerec
-from ..like import Models, pointspec_helpers
-from . import sources
+from uw.like import Models, pointspec_helpers
+from . import sources, diffusedict
 
 class SkyModel(object):
     """
@@ -25,7 +25,7 @@ class SkyModel(object):
         ('extended_catalog_name', None,  'name of folder with extended info\n'
                                          'if None, look it up in the config.txt file\n'
                                          'if "ignore", create model without extended sources'),
-        ('diffuse', None,   'set of diffuse file names; if None, expect config to have'),
+        #('diffuse', None,   'set of diffuse file names; if None, expect config to have'),
         ('auxcat', None, 'name of auxilliary catalog of point sources to append or names to remove',),
         ('newmodel', None, 'if not None, a string to eval\ndefault new model to apply to appended sources'),
         ('update_positions', None, 'set to minimum ts  update positions if localization information found in the database'),
@@ -55,14 +55,8 @@ class SkyModel(object):
             raise Exception('sky model folder %s not found' % folder)
         self.get_config()
         self._setup_extended()
-        if self.diffuse is not None:
-            """ make a dictionary of (file, object) tuples with key the first part of the diffuse name"""
-            #assert len(self.diffuse)<4, 'expect 2 or 3 diffuse names'
-        else:
-            t = self.config['diffuse']
-            self.diffuse = eval(t) if type(t)==types.StringType else t 
-            assert self.diffuse is not None, 'SkyModel: no diffuse in config'
-        self.diffuse_dict = sources.DiffuseDict(self.diffuse)
+        self.diffuse_dict = diffusedict.DiffuseDict(folder)
+        
         # evaluate the filter functions if necessary
         if type(self.filter)==types.StringType:
             self.filter = eval(self.filter)
@@ -72,10 +66,12 @@ class SkyModel(object):
         self.load_auxcat()
 
     def __str__(self):
-        return 'SkyModel %s' %self.folder\
-                +'\n\t\tdiffuse: %s' %list(self.diffuse)\
+        return '%s.%s %s' %(self.__module__,+self.__class__.__name__ ,os.path.join(os.getcwd(),self.folder))\
+                +'\n\t\tdiffuse: %s' %self.diffuse_dict.keys()\
                 +'\n\t\textended: %s' %self.extended_catalog_name 
      
+    def __repr__(self): return self.__str__()
+    
     def get_config(self, fn = 'config.txt'):
         """ parse the items in the configuration file into a dictionary
         """
@@ -255,7 +251,7 @@ class SkyModel(object):
                     self.point_sources.append( ps)
             # make a list of extended sources used in the model   
             t = []
-            names = p.get('diffuse_names', self.diffuse )
+            names = p.get('diffuse_names')
             for name, oldmodel in zip(names, p['diffuse']):
                 model = sources.convert_model(oldmodel) # convert from old Model version if necessary 
                 key = name.split('_')[0]
@@ -342,17 +338,16 @@ class SkyModel(object):
         """return diffuse, global and extended sources defined by src_sel
             always the global diffuse, and perhaps local extended sources.
             For the latter, make parameters free if not selected by src_sel.frozen
-            Note that the global_check function, default none, can modify free status for globals
         """
-        globals = self.global_sources[self.hpindex(src_sel.skydir())]
-        def iterable_check(x):
-            return x if hasattr(x,'__iter__') else (x,x)
-
-        for s in globals:
-            prefix = s.name.split('_')[0]
-            s.name, s.dmodel = prefix, self.diffuse_dict[prefix]
-            self.global_check(s)
-            s.smodel = s.model
+#        globals = self.global_sources[self.hpindex(src_sel.skydir())]
+#        #def iterable_check(x):
+#        #    return x if hasattr(x,'__iter__') else (x,x)
+#
+#        for s in globals:
+#            prefix = s.name.split('_')[0]
+#            s.name, s.dmodel = prefix, self.diffuse_dict[prefix]
+#            self.global_check(s)
+#            s.smodel = s.model
 
         extended = self._select_and_freeze(self.extended_sources, src_sel)
         for s in extended: # this seems redundant, but was necessary
@@ -360,8 +355,18 @@ class SkyModel(object):
             sources.validate(s,self.nside, None)
             s.smodel = s.model
             
-        return globals, extended
+        return self.get_global_sources(src_sel.skydir()), extended
 
+    def get_global_sources(self, skydir):
+        """ return global sources in ROI given by skydir
+        """
+        globals = self.global_sources[self.hpindex(skydir)]
+
+        for s in globals:
+            s.dmodel = self.diffuse_dict[s.name]
+            s.smodel = s.model
+        return globals
+   
     def roi_rec(self, reload=False):
         self._load_recfiles(reload)
         return self.rois
