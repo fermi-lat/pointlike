@@ -1,7 +1,7 @@
 """
 Description here
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/data.py,v 1.2 2013/08/03 18:09:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/data.py,v 1.3 2013/08/04 14:55:23 burnett Exp $
 
 """
 
@@ -18,7 +18,7 @@ class Data(analysis_base.AnalysisBase):
     <br>look at binned data 
     """
     require='config.txt'
-    def setup(self, eminmin=0):
+    def setup(self, eminmin=0, **kwargs):
         self.plotfolder = 'data'
         config = eval(open('config.txt').read())
         datadict = config['datadict']
