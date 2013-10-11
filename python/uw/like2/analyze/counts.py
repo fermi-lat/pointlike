@@ -1,7 +1,7 @@
 """
 Count plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/countplots.py,v 1.1 2013/06/21 20:15:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.1 2013/08/20 14:29:32 burnett Exp $
 
 """
 
@@ -19,7 +19,7 @@ class CountPlots(analysis_base.AnalysisBase):
     %(iteration_info)s
     """ 
     require='pickle.zip'
-    def setup(self):
+    def setup(self, **kwargs):
         self.plotfolder = 'counts'
 
          # get the basic pickles with the model
