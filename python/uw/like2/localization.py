@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.17 2013/06/04 18:27:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.18 2013/09/04 12:34:58 burnett Exp $
 
 """
 import os
@@ -210,6 +210,7 @@ def make_association(source, tsf, associate, quiet=False):
     except Exception, msg:
         if not quiet: print 'Exception associating %s: %s' %( source.name, msg)
         adict=None
+        raise
     source.adict = adict 
     if adict is not None:
     

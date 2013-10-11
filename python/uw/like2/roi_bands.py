@@ -2,7 +2,7 @@
 Implements classes encapsulating an energy/conversion type band.  These
 are the building blocks for higher level analyses.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roi_bands.py,v 1.4 2013/02/13 03:38:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roi_bands.py,v 1.5 2013/09/27 22:05:22 burnett Exp $
 
 author: Matthew Kerr
 extracted from like.roi_bands, v 1.28 for like2 by T Burnett
@@ -105,6 +105,7 @@ class ROIBand(object):
           f: function of energy
         """
         a,b = self.emin, self.emax
+        if f(a)==0 or f(b)==0: return np.sqrt(a*b)
         alpha = np.log(f(a)/f(b))/np.log(b/a)
         fn = lambda x: x**-alpha
         t = self.expected(fn) / (b-a)
