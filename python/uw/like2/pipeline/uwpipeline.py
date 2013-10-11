@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.29 2013/08/15 22:10:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.30 2013/09/04 12:35:00 burnett Exp $
 """
 import os, argparse, logging, datetime, subprocess
 import numpy as np
@@ -105,8 +105,8 @@ stagenames = dict(
     tables      =  Stage(pipe.Tables,  sum='hptables', job_list='joblist8.txt', help='create HEALPix tables: ts kde counts', ),
     sedinfo     =  Stage(pipe.Update, dict( processor='processor.full_sed_processor',sedfig_dir='"sedfig"',), sum='frontback',
                             help='process SED information' ),
-    diffuse     =  Stage(pipe.Update, dict( processor='processor.roi_refit_processor'), sum='galacticspectra', help='Refit the galactic component' ),
-    isodiffuse  =  Stage(pipe.Update, dict( processor='processor.iso_refit_processor'), sum='isotropicspecta', help='Refit the isotropic component'),
+    galspectra  =  Stage(pipe.Update, dict( processor='processor.roi_refit_processor'), sum='galacticspectra', help='Refit the galactic component' ),
+    isospectra  =  Stage(pipe.Update, dict( processor='processor.iso_refit_processor'), sum='isotropicspectra', help='Refit the isotropic component'),
     limb        =  Stage(pipe.Update, dict( processor='processor.limb_processor'),     sum='limbrefit', help='Refit the limb component, usually fixed' ),
     sunmoon     =  Stage(pipe.Update, dict( processor='processor.sunmoon_processor'), sum='sunmoonrefit', help='Refit the SunMoon component, usually fixed' ),
     fluxcorr    =  Stage(pipe.Update, dict( processor='processor.flux_correlations'), sum='fluxcorr', ),
@@ -125,6 +125,7 @@ stagenames = dict(
     uw_compare =  Stage(pipe.Finish, dict(processor='processor.UW_compare(other="uw26")',), sum='uw_comparison', help='Compare with another UW model'),
     tsmap_fail =  Stage(pipe.Update, dict(processor='processor.localize()',), sum='localization', help='tsmap_fail'),
     covariance =  Stage(pipe.Finish, dict(processor='processor.covariance',),  help='covariance matrices'),
+    diffuse_info= Stage(pipe.Update, dict(processor='processor.diffuse_info',), help='extract diffuse information'),
 ) 
 keys = stagenames.keys()
 stage_help = '\nstage name, or sequential stages separaged by ":" names are\n\t' \
