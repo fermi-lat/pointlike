@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.38 2013/07/12 21:57:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.39 2013/09/04 12:35:00 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
@@ -94,7 +94,7 @@ class Setup(dict):
         """ generate setup string"""
         self.outdir=outdir=kwargs.pop('outdir', indir)
         self.indir=indir
-        self.quiet = kwargs.pop('quiet', False)
+        self.quiet = kwargs.get('quiet', False)
         if not os.path.exists(outdir): os.mkdir(outdir)
         if os.name=='nt':
             os.system('title %s %s'% (os.getcwd(), indir))
@@ -103,7 +103,6 @@ class Setup(dict):
                 auxcat='',
                 outdir=outdir,
                 datadict = None,
-                diffuse = None,
                 emin=100, emax=316227, minROI=5, maxROI=5,
                 extended= None, #flag to get from model
                 skymodel_extra = '',
@@ -122,6 +121,7 @@ class Setup(dict):
                                 # (roi_tsmap.TSCalc, 'ts', dict(photon_index=2.0),) 
                                 #  (ts_map.KdeMap, "kde", dict()),))
                 dampen = 1.0,
+                quiet=False,
                 setup_cmds='',
                 ))
         self.update(kwargs)
@@ -142,12 +142,6 @@ class Setup(dict):
         self.mypipe = None
         if not self.quiet:
             print 'Pipeline input, output: %s -> %s ' % (indir, outdir)
-        #if os.path.exists(indir+'/config.txt'):
-        #    input_config = eval(open(indir+'/config.txt').read())
-        #    for key in 'extended diffuse irf'.split():
-        #        if self[key] is None: 
-        #            self[key]=input_config[key]
-        #            print 'updating %s from skymodel' %key
 
         
     def create_string(self):
@@ -160,7 +154,6 @@ g=pipe.Pipe("%(indir)s", %(datadict)s,
             %(skymodel_extra)s), 
         analysis_kw=dict(irf="%(irf)s", minROI=%(minROI)s, maxROI=%(maxROI)s, emin=%(emin)s,emax=%(emax)s),
         irf="%(irf)s",
-        diffuse=%(diffuse)s,
         processor="%(processor)s",
         process_kw=dict(outdir="%(outdir)s", dampen=%(dampen)s,
             fit_kw = %(fit_kw)s,
@@ -171,6 +164,7 @@ g=pipe.Pipe("%(indir)s", %(datadict)s,
             tables= %(tables)s,
             %(process_extra)s
             ),
+        quiet=%(quiet)s,
     ) 
 n,chisq = len(g.names()), -1
 """ % self
@@ -384,18 +378,19 @@ class Update(NotebookPipe):
             os.makedirs(self.analysisdir)
         os.chdir(self.analysisdir)
         kw = self.defaults()
-        kw.update(skymodel_extra = self.extra_check())
+        kw.update(skymodel_extra = self.extra_check('skymodel_kw'))
+        kw.update(process_extra = self.extra_check('process_kw'))
         kw.update(kwargs)
         self.setup = Setup(self.indir, outdir=self.outdir, **kw)
      
     def defaults(self):
         return dict( dampen=0.5, quiet=True)
     
-    def extra_check(self):
-        # if config has skymodel_kw, will add to the skymodel keywords by interpreting it and setting skymodel_extra
+    def extra_check(self, kw_name='skymodel_kw'):
+        # if config has kw_name, will add its keywords by interpreting it and setting 
         # especially, for a filter entry
         config = eval(open(os.path.join(self.analysisdir, self.indir, 'config.txt')).read())
-        skykw = config.pop('skymodel_kw', None)
+        skykw = config.pop(kw_name, None)
         return  ','.join(['%s="%s"' % item for item in skykw.items() ]) if skykw is not None else ''
 
      
@@ -485,7 +480,6 @@ class Create(Update):
         
         kw.update(outdir=model_dir, datadict=config['datadict'],
             irf=config['irf'],
-            diffuse=config['diffuse'],
             auxcat=auxcat,
             skymodel_extra=skymodel_extra,
             )
