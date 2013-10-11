@@ -1,7 +1,7 @@
 """
 Association analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.9 2013/09/24 14:12:51 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.10 2013/09/26 17:41:18 burnett Exp $
 
 """
 import os, glob, sys, pyfits
@@ -32,7 +32,9 @@ class Associations(sourceinfo.SourceInfo):
     
     def load_assoc(self, fromdf=None):
         if fromdf is not None:
-            self.df['altassoc']=fromdf
+            print 'loading associations from file %s' %fromdf
+            self.df['altassoc']=pd.load(fromdf)
+        else: print 'using associations found in sourceinfo'
         associations = self.df.associations if fromdf is None else self.df.altassoc
         probfun = lambda x: x['prob'][0] if not pd.isnull(x) else 0
         self.df['aprob'] = np.array([ probfun(assoc) for  assoc in associations])
@@ -40,7 +42,7 @@ class Associations(sourceinfo.SourceInfo):
         self.df['aname']  = np.array([ assoc['name'][0] if not pd.isnull(assoc) else 'unid' for  assoc in associations])
         self.df['aang']  = np.array([ assoc['ang'][0] if not pd.isnull(assoc) else np.nan for  assoc in associations])
 
-        self.df['adeltats'] = np.array([assoc['delta_ts'][0] if not pd.isnull(assoc) else np.nan for assoc in associations])
+        self.df['adeltats'] = np.array([assoc['deltats'][0] if not pd.isnull(assoc) else np.nan for assoc in associations])
         
         self.df10 = self.df.ix[self.df.ts>10]
         print 'associated: %d/%d' % (sum(self.df10.aprob>0.8), len(self.df10))
@@ -154,7 +156,7 @@ class Associations(sourceinfo.SourceInfo):
         if sum(lat.delta>0.25)>0:
             self.atable += '<p>Pulsars located > 0.25 deg from nominal'\
                     + lat[lat.delta>0.25]['ts delta'.split()].to_html(float_format=FloatFormat(2))
-        psrx = np.array([x in 'pulsar_fom pulsar_low msp'.split() for x in self.df.acat])
+        psrx = np.array([x in 'pulsar_fom pulsar_low msp pulsar_big'.split() for x in self.df.acat])
         print '%d sources found in other pulsar catalogs' % sum(psrx)
         if sum(psrx)>0:
             self.atable+= html_table(self.df[psrx]['aprob acat aname aang ts delta_ts locqual'.split()],
