@@ -1,7 +1,7 @@
 """
 Galactic diffuse refit spectra
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/galacticspectra.py,v 1.1 2013/06/21 20:15:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/galacticspectra.py,v 1.2 2013/08/20 19:50:23 burnett Exp $
 
 """
 
@@ -15,7 +15,7 @@ from . analysis_base import FloatFormat
 
 class GalacticSpectra(roi_info.ROIinfo): #Diagnostics):
     """Galactic diffuse refits
-      Set of plots to check consistency of %(title)s spectra. These result 
+      <br>Set of plots to check consistency of %(title)s spectra. These result 
         from analysis of a special run that, for each ROI and each energy band, allows this diffuse component to be free.
         This is done three times: using only front, only back, and both.
         <p>There two sets of plots: using both, how consistent is it with the expected unit normalization; 
@@ -63,7 +63,7 @@ class GalacticSpectra(roi_info.ROIinfo): #Diagnostics):
                     map( lambda s: self.which+'_'+s, ['likelihood_diff', 'diffuse_fits', 'diffuse_normalization_factor', 'bfratio', 'diffuse_ratio', ]),
                     ]
 
-    def setup(self):
+    def setup(self, args=None):
         self.diffuse_setup('gal')
     #### these from old diagnostics: do I want them in AnalysisBase?
     def get_figure(self,axin):
@@ -91,7 +91,7 @@ class GalacticSpectra(roi_info.ROIinfo): #Diagnostics):
         fig, ax=self.get_figure(axin); 
         scat=ax.scatter(self.rois.glon, self.rois.singlat, 
                 c=np.log10(self.flux[fb]['deltalike'].transpose().ix[ib]), 
-                s=15 if axin is not None else 25,
+                s=25 if axin is not None else 40,
                 vmin=vmin, vmax=vmax, edgecolors='none')
         ax.set_title('%.0f MeV'%(self.energy[ib]),fontsize='small')
         plt.setp(ax, xlim=(180,-180), ylim=(-1.01, 1.01))
@@ -126,7 +126,7 @@ class GalacticSpectra(roi_info.ROIinfo): #Diagnostics):
         fig, ax=self.get_figure(axin); 
         scat=ax.scatter(self.rois.glon, self.rois.singlat, 
                 c=c, 
-                s=15 if axin is not None else 40, 
+                s=25 if axin is not None else 40, 
                  marker='D',
                 vmin=vmin, vmax=vmax, edgecolors='none')
         plt.setp(ax, xlim=(180,-180), ylim=(-1.01, 1.01))
@@ -146,7 +146,7 @@ class GalacticSpectra(roi_info.ROIinfo): #Diagnostics):
         if cb_label is not None: cb.set_label('fit value')
         return fig        
 
-    def normalization_factor_scats(self, vmin=0.95, vmax=1.05):
+    def normalization_factor_scats(self, vmin=0.75, vmax=1.25):
         """Normalization factors
         The fit normalization factor for each ROI and the first eight energy bands
         """
@@ -202,7 +202,7 @@ class GalacticSpectra(roi_info.ROIinfo): #Diagnostics):
         ax.set_title('%s diffuse spectral fits'%self.which, fontsize='medium')
         return fig
         
-    def diffuse_fit(self, axin, ind=0,  fignum=2, xlim=(0.8,1.2), **kwargs):
+    def diffuse_fit(self, axin, ind=0,  fignum=2, xlim=(0.5,1.5), **kwargs):
     
         plane = abs(self.rois.glat)<10
         cut, cut_name = (plane, 'plane') if self.which=='gal' else (abs(self.rois.glat)>20, 'high-lat')
@@ -211,14 +211,37 @@ class GalacticSpectra(roi_info.ROIinfo): #Diagnostics):
         kw = dict( histtype='stepfilled')
         kw.update(kwargs)
         ax = self.set_plot(axin, fignum)
-        ax.hist(vals, space,label='all', **kw)
-        ax.hist(vals[cut], space ,color='r',label=cut_name,**kw);
+        ax.hist(vals.clip(*xlim), space,label='all', **kw)
+        ax.hist(vals[cut].clip(*xlim), space ,color='r',label=cut_name,**kw);
         ax.grid(True);
         ax.axvline(1.0, color='grey');
         ax.set_xlim(xlim)
         ax.set_title('%.0f MeV'%self.energy[ind],fontsize='medium')
-        ax.legend(prop=dict(size=10))
+        #ax.legend(prop=dict(size=10))
         
+    class DiffuseFit(object):
+    
+        def __init__(self, spectra,  xlim=(0.5,1.5), nbins=40, **kwargs):
+            plane = abs(spectra.rois.glat)<10
+            self.cut, self.cut_name = (plane, 'plane') if spectra.which=='gal' else (abs(spectra.rois.glat)>20, 'high-lat')
+            self.space=np.linspace(xlim[0],xlim[1], nbins+1)
+            self.xlim = xlim
+            self.kw = dict( histtype='stepfilled')
+            self.kw.update(kwargs)
+            self.flux = spectra.flux
+            self.energy = spectra.energy
+            
+        def __call__(self, ax, ind):
+            vals = self.flux['both']['values'].transpose().ix[ind] #values[:,ind]
+            ax.hist(vals.clip(self.xlim), self.space,label='all', **self.kw)
+            ax.hist(vals[self.cut].clip(self.xlim), self.space ,color='r', label=self.cut_name,**self.kw);
+            ax.grid(True);
+            ax.axvline(1.0, color='grey');
+            ax.set_xlim((self.space[0],self.space[1]))
+            ax.set_title('%.0f MeV'%self.energy[ind],fontsize='medium')
+            ax.legend(prop=dict(size=10))
+
+            
     def fit_map(self, axin=None, ib=0, fignum=2, vmin=0.75, vmax=1.25, **kwars):
         vals = self.flux['both']['values'].transpose().ix[ib] 
         ax = self.set_plot(axin, fignum)
@@ -240,21 +263,30 @@ class GalacticSpectra(roi_info.ROIinfo): #Diagnostics):
         ax = self.multifig()
         self.multilabels('ratio', 'ROIs', '%s diffuse fit' %self.which)
         map(self.diffuse_fit, ax, range(8))
-        ax[0].set_xticks(np.arange(0.9, 1.2, 0.1))
+        ###### fix later
+        #map(self.DiffuseFit(self), ax, range(8))
+        ax[0].set_xticks(np.arange(0.5, 1.51, 0.25))
+        ax[0].legend(loc='upper left',bbox_to_anchor=(-0.4,1.2));
         
         # add a table of the means and RMS values for all ROIS, and those within 5 deg.
         xx = self.flux['both']['values']
         plane = np.abs(self.df.glat)<5
+        hilat = ~ plane
         av = xx[plane].mean()
         rms=xx[plane].std()
+        av_hilat = xx[hilat].mean()
+        rms_hilat= xx[hilat].std()
         av_all=xx.mean()
         rms_all=xx.std()
-        z=pd.DataFrame(dict([('mean_plane',av.round(3)),('std_plane',rms.round(3)),
-                     ('mean_all',av_all.round(3)),('std_all',rms_all.round(3)),]))
+        z=pd.DataFrame(dict([
+                     ('mean_plane',av.round(3)),      ('std_plane',rms.round(3)),
+                     ('mean_hilat',av_hilat.round(3)),('std_hilat',rms_hilat.round(3)),
+                     ('mean_all',av_all.round(3)),    ('std_all',rms_all.round(3)),
+                     ]))
         z.index.name='band'
         zhtml = z.to_html(float_format=FloatFormat(3))
         self.normalization_table="""
-        <p>Normalization statistics: 'plane' means |b|<5.<br> %s """ % zhtml
+        <p>Normalization statistics: 'plane' means |b|<5, 'hilat' is not plane <br>%s """ % zhtml
         open('normalization_stats.html','w').write(zhtml)
         print 'wrote HTML file to %s' % 'normalization_stats.html'
         return plt.gcf()
