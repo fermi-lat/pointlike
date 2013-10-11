@@ -1,7 +1,7 @@
 """
 Basic analyis of source spectra
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.11 2013/08/29 06:12:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.12 2013/09/26 17:40:30 burnett Exp $
 
 """
 
@@ -92,12 +92,12 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             df['ra'] = ra
             df['dec'] = dec
             self.df = df.sort_index(by='ra')
-            self.df.to_pickle(filename)
+            self.df.save(filename) ###to_pickle(filename)
             print 'saved %s' % filename
 
         else:
             print 'loading %s' % filename
-            self.df = pd.read_pickle(filename)
+            self.df = pd.load(filename) #read_pickle(filename)
         #self.df['flux']    = [v[0] for v in self.df.pars.values]
         #self.df['flux_unc']= [v[0] for v in self.df.errs.values]
         localized = ~np.array(pd.isnull(self.df.delta_ts))
