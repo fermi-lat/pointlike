@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Oct 11 09:24:47 PDT 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	diffusedict.py 
+Log Message:
+had to implement setEnergy
+    *
+------------------------------------------------------------
 User: burnett  Fri Oct 11 09:10:40 PDT 2013
 pointlike/python/uw/like2/pipeline
 
