@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Oct 11 09:33:13 PDT 2013
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	__init__.py isotropicspectra.py 
+Log Message:
+add isotropicspectra
+    *
+------------------------------------------------------------
 User: burnett  Fri Oct 11 09:29:18 PDT 2013
 pointlike/python/uw/like2
 
