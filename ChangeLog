@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Oct 13 06:55:58 PDT 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	bandlike.py diffuse.py diffusedict.py roisetup.py 
+Log Message:
+clean up a bit
+    *
+------------------------------------------------------------
 User: burnett  Fri Oct 11 09:38:17 PDT 2013
 pointlike/cmt
 
