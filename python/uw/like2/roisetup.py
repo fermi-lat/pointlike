@@ -1,7 +1,7 @@
 """
 Set up an ROI factory object
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.33 2013/09/27 22:04:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.34 2013/10/11 16:10:39 burnett Exp $
 
 """
 import os, sys, types
@@ -98,19 +98,19 @@ class ExposureCorrection(object):
         ax.plot(dom, map(self, dom), lw=2, color='r', **kwargs)
         plt.setp(ax, xscale='log', xlim=(dom[0], dom[-1]))
  
-class DiffuseCorrection(ExposureCorrection):
-    """ binned low-energy diffuse correction functor
-    """
-    def __init__(self, vals, binsperdec=4):
-        """ vals: array-type of float
-                values to correct at the energies from 100 MeV defined by binsperdec
-        """
-        self.vals, self.binsperdec=vals, binsperdec
-        
-    def __call__(self, e):
-        loc = np.log10(e/100.)*self.binsperdec
-        if loc<0 or loc>=len(self.vals): return 1.0
-        return self.vals[int(loc)]
+#class DiffuseCorrection(ExposureCorrection):
+#    """ binned low-energy diffuse correction functor
+#    """
+#    def __init__(self, vals, binsperdec=4):
+#        """ vals: array-type of float
+#                values to correct at the energies from 100 MeV defined by binsperdec
+#        """
+#        self.vals, self.binsperdec=vals, binsperdec
+#        
+#    def __call__(self, e):
+#        loc = np.log10(e/100.)*self.binsperdec
+#        if loc<0 or loc>=len(self.vals): return 1.0
+#        return self.vals[int(loc)]
 
 
 class ROIfactory(object):

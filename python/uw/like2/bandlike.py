@@ -11,7 +11,7 @@ classes:
 functions:
     factory -- create a list of BandLike objects from bands and sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.30 2013/06/04 18:30:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.31 2013/09/27 22:02:17 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -176,13 +176,13 @@ class BandDiffuse(BandSource):
         else: self.pix_counts=[]
         
         # a little klugy -- only apply additional correction to Gal diffuse
-        self.diffuse_correction = self.band.diffuse_correction if self.source.name=='ring' else 1.0
+        #self.diffuse_correction = self.band.diffuse_correction if self.source.name=='ring' else 1.0
         
     def update(self, fixed=False):
         """ Update self.counts and self.pix_counts by multiplying by the value of the scaling spectral model
         """
         ### Note making exposure correction to model ###
-        scale = self.spectral_model(self.energy) * self.diffuse_correction
+        scale = self.spectral_model(self.energy) #* self.diffuse_correction
         self.counts = self.ap_evals * scale
         if self.band.has_pixels:
             self.pix_counts = self.pixel_values * scale
@@ -195,11 +195,11 @@ class BandDiffuse(BandSource):
         apterm  = exposure_factor * self.ap_evals 
         pixterm = ( self.pixel_values * weights ).sum() if self.band.has_pixels else 0
         ### Note making exposure correction to model ###
-        return (apterm - pixterm) * model.gradient(self.energy)[model.free] * self.diffuse_correction
+        return (apterm - pixterm) * model.gradient(self.energy)[model.free] #* self.diffuse_correction
  
     def fill_grid(self, sdirs):
         """ fill a grid with values"""
-        scale = self.spectral_model(self.energy) * self.diffuse_correction
+        scale = self.spectral_model(self.energy) #* self.diffuse_correction
         return self.grid(sdirs, self.grid.cvals) * (self.band.emax - self.band.emin) * scale
 
  
@@ -269,7 +269,7 @@ class BandDiffuseFB(BandDiffuse):
     def initialize(self):
         """ do not apply special diffuse correction, since spectrum not fit with original effective area"""
         super(BandDiffuseFB, self).initialize()
-        self.diffuse_correction = 1.0
+        #self.diffuse_correction = 1.0
     
     @property 
     def spectral_model(self):
@@ -479,23 +479,23 @@ def factory(bands, sources, exposure, quiet=False):
         return B(band, source)
     bandlist = []
     dcorr = getattr(exposure, 'dcorr', None)
-    if dcorr is not None: 
-        print 'applying diffuse correction:', exposure.dcorr
-        average_corr = dcorr.mean()
+    #if dcorr is not None: 
+    #    print 'applying diffuse correction:', exposure.dcorr
+    #    average_corr = dcorr.mean()
     for i,band in enumerate(bands):
         # note: adding attribute to each band for access by BandLike object if needed
-        band.exposure_correction = exposure.correction[band.ct](band.e)
+        #band.exposure_correction = exposure.correction[band.ct](band.e)
         #if len(exposure.correction)>2:
         #    band.diffuse_correction = exposure.correction[band.ct+2](band.e)
         #else:
         #    band.diffuse_correction =1.
-        if dcorr is not None:
-            if  i/2<len(dcorr):
-                band.diffuse_correction = dcorr[i/2] 
-            else: #make average correction the same by adjusting all high bins too (mostly for looks)
-                band.diffuse_correction = average_corr
-            
-        else: band.diffuse_correction=1.0
+        #if dcorr is not None:
+        #    if  i/2<len(dcorr):
+        #        band.diffuse_correction = dcorr[i/2] 
+        #    else: #make average correction the same by adjusting all high bins too (mostly for looks)
+        #        band.diffuse_correction = average_corr
+        #    
+        #else: band.diffuse_correction=1.0
         bandlist.append(BandLike(band, 
                     np.array( [bandsource_factory(band, source) for source in sources]),
                     sources.free, exposure)
