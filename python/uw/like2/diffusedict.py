@@ -1,7 +1,7 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffusedict.py,v 1.1 2013/10/11 03:01:46 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffusedict.py,v 1.2 2013/10/11 16:24:47 burnett Exp $
 
 author:  Toby Burnett
 """
@@ -18,6 +18,7 @@ def PowerLaw(*pars, **kw):   return Models.PowerLaw(p=pars, **kw)
 
 class DiffuseBase(object):
     """Base class for diffuse sources
+    expect subclasses to implement SkySpectrum interface
     """
     def load(self): pass
     def __repr__(self):
