@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Oct 14 14:01:39 PDT 2013
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	environment.py 
+Log Message:
+bug fix for diffuse ordering
+    *
+------------------------------------------------------------
 User: burnett  Mon Oct 14 08:13:12 PDT 2013
 pointlike/cmt
 
