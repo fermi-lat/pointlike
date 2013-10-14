@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.40 2013/09/27 22:07:48 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.41 2013/10/11 16:10:39 burnett Exp $
 
 """
 import os, pickle, glob, types, collections, zipfile
@@ -30,8 +30,6 @@ class SkyModel(object):
         ('newmodel', None, 'if not None, a string to eval\ndefault new model to apply to appended sources'),
         ('update_positions', None, 'set to minimum ts  update positions if localization information found in the database'),
         ('filter',   lambda s: True,   'source selection filter, applied when creating list of all soruces: see examples at the end. Can be string, which will be eval''ed '), 
-        ('global_check', lambda s: True, 'check global sources: can modify parameters when loading'),
-        #('diffuse_check', lambda s: None, 'check diffuse sources: can modify parameters'),
         ('closeness_tolerance', 0., 'if>0, check each point source for being too close to another, print warning'),
         ('quiet',  True,  'suppress some messages if True' ),
         ('force_spatial_map', True, 'Force the use of a SpatialMap for extended sources'),
@@ -60,15 +58,13 @@ class SkyModel(object):
         # evaluate the filter functions if necessary
         if type(self.filter)==types.StringType:
             self.filter = eval(self.filter)
-        if type(self.global_check)==types.StringType:
-            self.global_check = eval(self.global_check)
         self._load_sources()
         self.load_auxcat()
 
     def __str__(self):
-        return '%s.%s %s' %(self.__module__,+self.__class__.__name__ ,os.path.join(os.getcwd(),self.folder))\
-                +'\n\t\tdiffuse: %s' %self.diffuse_dict.keys()\
-                +'\n\t\textended: %s' %self.extended_catalog_name 
+        return '%s.%s %s' %(self.__module__,self.__class__.__name__ ,os.path.join(os.getcwd(),self.folder))\
+                +('\n\t\tdiffuse: %s' %self.diffuse_dict.keys())\
+                +('\n\t\textended: %s' %self.extended_catalog_name )
      
     def __repr__(self): return self.__str__()
     
@@ -207,7 +203,7 @@ class SkyModel(object):
                 % (len(files),os.path.join(self.folder, 'pickle'))
             raise Exception(msg)
             
-        self.global_sources = []  # allocate list to index parameters for global sources
+        ####self.global_sources = sources.GlobalSourceList()  # allocate list to index parameters for global sources
         self.extended_sources=[]  # list of unique extended sources
         self.changed=set() # to keep track of extended models that are different from catalog
         moved=0
@@ -241,24 +237,16 @@ class SkyModel(object):
                 ps = sources.PointSource(name=key,
                     skydir=skydir, model= sources.convert_model(item['model']),
                     ts=item['ts'],band_ts=item['band_ts'], index=index)
-                #if self.free_index is not None and not ps.free[1] and ps.ts>self.free_index:
-                #    ps.free[1]=True
-                #    nfreed +=1
-                #    if nfreed<10: print 'Freed photon index for source %s'%ps.name
-                #    elif nfreed==10: print ' [...]'
                 if sources.validate(ps,self.nside, self.filter):
                     self._check_position(ps) # check that it is not coincident with previous source(warning for now?)
                     self.point_sources.append( ps)
             # make a list of extended sources used in the model   
-            t = []
             names = p.get('diffuse_names')
             for name, oldmodel in zip(names, p['diffuse']):
                 model = sources.convert_model(oldmodel) # convert from old Model version if necessary 
                 key = name.split('_')[0]
                 if key in self.diffuse_dict:
-                    gs = sources.GlobalSource(name=name, model=model, skydir=None, index=index)
-                    self.global_check(gs)
-                    t.append(gs)
+                    self.diffuse_dict.add_model(index, name, model)
                 elif  self.extended_catalog_name=='ignore': 
                     continue
                 else:
@@ -281,7 +269,6 @@ class SkyModel(object):
                     es.smodel=es.model=model #update with current fit values always
                     if sources.validate(es,self.nside, self.filter): #lambda x: True): 
                         self.extended_sources.append(es)
-            self.global_sources.append(t)
         # check for new extended sources not yet in model
         self._check_for_extended()
         if self.update_positions and moved>0:
@@ -339,16 +326,6 @@ class SkyModel(object):
             always the global diffuse, and perhaps local extended sources.
             For the latter, make parameters free if not selected by src_sel.frozen
         """
-#        globals = self.global_sources[self.hpindex(src_sel.skydir())]
-#        #def iterable_check(x):
-#        #    return x if hasattr(x,'__iter__') else (x,x)
-#
-#        for s in globals:
-#            prefix = s.name.split('_')[0]
-#            s.name, s.dmodel = prefix, self.diffuse_dict[prefix]
-#            self.global_check(s)
-#            s.smodel = s.model
-
         extended = self._select_and_freeze(self.extended_sources, src_sel)
         for s in extended: # this seems redundant, but was necessary
             s.model.free[:] = False if src_sel.frozen(s) else s.free[:]
@@ -360,12 +337,8 @@ class SkyModel(object):
     def get_global_sources(self, skydir):
         """ return global sources in ROI given by skydir
         """
-        globals = self.global_sources[self.hpindex(skydir)]
-
-        for s in globals:
-            s.dmodel = self.diffuse_dict[s.name]
-            s.smodel = s.model
-        return globals
+        index = self.hpindex(skydir)
+        return self.diffuse_dict.get_sources(index, sources.GlobalSource)
    
     def roi_rec(self, reload=False):
         self._load_recfiles(reload)

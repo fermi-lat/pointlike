@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.25 2013/09/27 22:09:26 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.26 2013/10/11 16:10:39 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -100,7 +100,7 @@ class Source(object):
         return self.name + ' '+ self.skydir.__str__() +' '+ self.model.name \
                 +  (' (free)' if np.any(self.model.free) else ' (fixed)')
     def __repr__(self):
-        return '%s %s' % (self.__class__.__name__ , self.name)
+        return '%s.%s: %s' % (self.__module__,self.__class__.__name__ , self.name)
 
 class PointSource(Source):
     def __init__(self, **kwargs):
@@ -119,6 +119,13 @@ class GlobalSource(Source):
         super(GlobalSource, self).__init__(**kwargs)
         assert self.skydir is None # used as a flag
     
+class GlobalSourceList(list):
+    """ a list, indexed by ROI number, of GLobalSource lists
+        each element is a list if the GlobalSource objects, includeing Models, in the ROI
+    """
+    def __repr__(self):
+        return '%s.%s: %d elements' % (self.__module__, self.__class__.__name__, len(self))
+
 class ExtendedSource(Source):
     def __str__(self):
         return self.name + ' '+ self.model.name \
