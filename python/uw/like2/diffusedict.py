@@ -1,11 +1,11 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffusedict.py,v 1.2 2013/10/11 16:24:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffusedict.py,v 1.3 2013/10/13 13:55:58 burnett Exp $
 
 author:  Toby Burnett
 """
-import os, types
+import os, types, json, collections
 #import  pickle, glob, copy, zipfile
 #import numpy as np
 #import pandas as pd
@@ -91,21 +91,28 @@ class CachedMapCube(DiffuseBase):
 class DiffuseList(list):
     """contain the subtype, or front/back list of DiffuseBase objects If only one, applied to all
     """
+    def __init__(self, inlist):
+        super(DiffuseList,self).__init__(inlist)
+    def __repr__(self):
+        return  '%s.%s' % (self.module, self.__class__.__name__)
+        
     def __getitem__(self, index):
         if len(self)==1: index=0
         return super(DiffuseList,self).__getitem__(index) 
     def load(self):
         for x in self:
             x.load()
+        
     
 def diffuse_factory(value):
     """
     Create a DiffuseList object 
     """
-    if  not hasattr(value, '__iter__') or type(value)==types.DictType:
+    isdict = issubclass(value.__class__, dict)
+    if  not hasattr(value, '__iter__') or isdict:
         value  = (value,)
     
-    if type(value[0])==types.DictType:
+    if isdict:
         files = DiffuseList([val['filename'] for val in value])
         kws = value
     else:
@@ -137,7 +144,7 @@ def diffuse_factory(value):
     return DiffuseList(diffuse_source)
 
 
-class DiffuseDict(dict):
+class DiffuseDict(collections.OrderedDict):
     """ create a dictionary of global diffuse objects
         key:   a string defined by the filename following an underscore, or key in input to init
         value: (both,) or (front,back)  diffuse objects determined by the extension:
@@ -146,6 +153,7 @@ class DiffuseDict(dict):
             ): IsotropicSpectralFunction
             none: expect that the key is an expression to be evaluated to create a spectral model function
     
+    Also maintain a list of spectral models for each ROI: the attribute models
     """
     def __init__(self, modeldir='.'):
         """
@@ -153,13 +161,18 @@ class DiffuseDict(dict):
             folder containing a file config.txt
         """
         try:
-            self.spec= eval(open(os.path.join(modeldir, 'config.txt')).read())['diffuse']
+            self.spec=eval(open(os.path.join(modeldir, 'config.txt')).read()
+                #.replace('dict(','collections.OrderedDict(')
+                )['diffuse']
         except Exception, msg:
             print 'Failed to open model at %s: %s' % (modeldir, msg)
             raise
-
+        super(DiffuseDict, self).__init__()
         for key, value in self.spec.items():
+            print key,value
             self[key] = diffuse_factory(value) 
+        self.models=[dict() for i in range(1728)] # list of spectral models for each ROI
+
   
     def __repr__(self):
         r = self.__class__.__name__ + ':'
@@ -169,6 +182,26 @@ class DiffuseDict(dict):
                 r += '\n\t' + str(value)
         return r
         
+    def add_model(self, index, name, model):
+        """ add a model to the dict with ROI index index
+        """
+        assert name in self.keys()
+        model.background=True # for printing
+        self.models[index][name]=model
+        
+    def get_sources(self, index, GlobalSource):
+        """ return a list of GlobalSource objects for the given index
+        """
+        global_sources = []
+        for name in self.keys():
+            model = self.models[index].get(name, None)
+            if model is None: continue
+            s = GlobalSource(name=name, model=model, skydir=None, index=index) 
+            s.dmodel = self[name]
+            s.smodel = s.model
+            global_sources.append(s)
+        return global_sources
+
 def main():
     pass
     
