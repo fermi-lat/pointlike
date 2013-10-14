@@ -1,7 +1,7 @@
 """
 Environment plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.12 2013/08/03 18:09:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.13 2013/08/05 03:26:54 burnett Exp $
 
 """
 
@@ -22,7 +22,15 @@ class Environment(roi_info.ROIinfo):
         super(Environment, self).setup(**kw)
         self.plotfolder='environment'
         self.config = eval(open('config.txt').read())
-        s = [[ x[1]['counts']['models'][modelnumber][1][:16] for x in self.df.iterrows()] for modelnumber in range(2)]
+        s=[]
+        for sname in ['ring', 'isotrop']:
+            z=[]
+            for i,r in self.df.iterrows():
+                j = r['diffuse_names'].index(sname)
+                z.append(r['counts']['models'][j][1][:16])
+            s.append(z)
+        
+        #s = [[ x[1]['counts']['models'][modelnumber][1][:16] for x in self.df.iterrows()] for modelnumber in range(2)]
         self.bdf = [pd.DataFrame(y, index=self.df.index) for y in s]
 
         
