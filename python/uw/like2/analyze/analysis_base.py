@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.9 2013/10/16 12:46:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.10 2013/10/16 13:21:24 burnett Exp $
 
 """
 
@@ -220,11 +220,17 @@ class AnalysisBase(object):
                  (os.environ.get('HOSTNAME',os.environ.get('COMPUTERNAME','?')),
                   os.environ.get('USER',os.environ.get('USERNAME','?'))))
         try:
-            htmldoc+= '\n<br>'+ re.search(r'Header:(.+)\$', sys.modules[self.__module__].__doc__).group(1)
+            cvs_header = re.search(r'Header:(.+)\$', sys.modules[self.__module__].__doc__).group(1)
+            t = re.search(r'/cvs/(.+),v (.+) 20', cvs_header)
+            path,version = [t.group(i) for i in range(1,3)]
+            htmldoc+= '\n<br><a href="http://glast.stanford.edu/cgi-bin/cvsweb-SLAC/%s?revision=%s&view=markup">%s</a>'\
+                %(path,version,cvs_header)
             ## the link that could be generated to the source
             #http://glast.stanford.edu/cgi-bin/cvsweb-SLAC/pointlike/python/uw/like2/analyze/sourceinfo.py?revision=1.13&view=markup
             #/nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.13 2013/10/11 16:34:00 burnett Exp
-        except: pass
+            
+        except Exception, msg: 
+            print '**** failed to write footer: %s' % msg
         htmldoc+='\n</body>'
         self.htmlmenu.save(os.path.join(self.plotfolder,'menu.html'))
         print 'saved local menu to %s' % os.path.join(self.plotfolder,'menu.html')
