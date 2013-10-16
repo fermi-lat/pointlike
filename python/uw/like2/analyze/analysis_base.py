@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.7 2013/09/20 12:41:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.8 2013/10/01 16:49:21 burnett Exp $
 
 """
 
@@ -100,7 +100,7 @@ class AnalysisBase(object):
         else:
             raise Exception('Subclass %s of AnalysisBase did not create a "plotfolder" variable' % self.__class__.__name__)
 
-    def setup(self, **kwargs):
+    def setup(self, *args, **kwargs):
         assert False, 'Base class not implemented'
         
     def startlog(self):

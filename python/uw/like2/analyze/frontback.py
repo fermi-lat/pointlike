@@ -1,7 +1,7 @@
 """
 Description here
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/frontback.py,v 1.1 2013/08/20 16:05:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/frontback.py,v 1.2 2013/09/04 12:34:59 burnett Exp $
 
 """
 
@@ -10,14 +10,14 @@ import numpy as np
 import pylab as plt
 import pandas as pd
 
-from . import diagnostics
+from . import analysis_base
 
 
-class FrontBackSedPlots(diagnostics.Diagnostics):
+class FrontBackSedPlots(analysis_base.AnalysisBase):
     require = 'sedinfo.zip'
     """
     """
-    def setup(self):
+    def setup(self, **kwargs):
         """
         Unpack the pickles, one per source, into convenient DataFrame objects
         """
