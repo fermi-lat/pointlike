@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.8 2013/10/01 16:49:21 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.9 2013/10/16 12:46:44 burnett Exp $
 
 """
 
@@ -199,7 +199,8 @@ class AnalysisBase(object):
         
         # start the menu
         self.htmlmenu = _html.DDmenu(name=self.plotfolder.split('/')[-1], depth=4 )
-        headstring = self.__class__.__doc__.split('\n')[0]
+        classdoc = self.__class__.__doc__
+        headstring = classdoc.split('\n')[0] if classdoc is not None else ''
         if headstring=='': headstring = class_name
         self.htmlmenu.folder(id, href='index.html?skipDecoration', text=headstring, id=class_name)
  
@@ -220,6 +221,9 @@ class AnalysisBase(object):
                   os.environ.get('USER',os.environ.get('USERNAME','?'))))
         try:
             htmldoc+= '\n<br>'+ re.search(r'Header:(.+)\$', sys.modules[self.__module__].__doc__).group(1)
+            ## the link that could be generated to the source
+            #http://glast.stanford.edu/cgi-bin/cvsweb-SLAC/pointlike/python/uw/like2/analyze/sourceinfo.py?revision=1.13&view=markup
+            #/nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.13 2013/10/11 16:34:00 burnett Exp
         except: pass
         htmldoc+='\n</body>'
         self.htmlmenu.save(os.path.join(self.plotfolder,'menu.html'))
@@ -300,6 +304,22 @@ class AnalysisBase(object):
         assert len(files)>0, 'no files found in %s' % folder 
         pkls = [pickle.load(opener(file)) for file in files]
         return files,pkls
+    
+    ### utility for making plots &&&
+    def multifig(self):
+        fig,ax = plt.subplots(2,4, figsize=(14,8), sharex=True);
+        plt.subplots_adjust(left=0.10, wspace=0.25, hspace=0.25,right=0.95)
+        return ax.flatten()
+    
+    def get_figure(self, ax, figsize=(5,4), **kwargs):
+        if ax is not None:
+            return ax.figure, ax
+        return plt.subplots( figsize=figsize, **kwargs)
+    def multilabels(self, xtext, ytext, title=None):
+        plt.subplots_adjust(bottom=0.2)
+        plt.figtext(0.5,0.07, xtext, ha='center');
+        plt.figtext(0.05, 0.5, ytext, rotation='vertical', va='center')
+        if title is not None: plt.suptitle(title)
     
     def __call__(self, **kw):
         return self.all_plots( **kw)   
