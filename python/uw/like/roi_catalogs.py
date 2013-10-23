@@ -1,7 +1,7 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_catalogs.py,v 1.27 2012/10/06 00:06:55 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_catalogs.py,v 1.28 2013/08/13 18:46:48 kadrlica Exp $
 
 author: Joshua Lande
 """
@@ -476,7 +476,7 @@ class ExtendedSourceCatalog(SourceCatalog):
         self.archive_directory = archive_directory
 
         import pyfits
-        filename=join(self.archive_directory,"LAT_extended_sources*.fit")
+        filename=join(self.archive_directory,"LAT_extended_sources*.fit*")
         filename=glob.glob(filename)
         if len(filename)!=1: raise Exception("Unable to find LAT_extended_sources.fit archive file.")
         filename=filename[0]
