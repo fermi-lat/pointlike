@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Oct 23 20:45:17 PDT 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	diffusedict.py 
+Log Message:
+now support Healpix format
+    *
+------------------------------------------------------------
 User: burnett  Wed Oct 23 20:44:39 PDT 2013
 pointlike/python/uw/like2
 
