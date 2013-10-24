@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.48 2013/08/19 04:20:39 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.49 2013/08/19 19:06:01 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -9,7 +9,7 @@ author: Matthew Kerr
 import numpy as np
 import os
 import subprocess
-from uw.utilities.coords import ec2eq
+from uw.utilities.coords import ec2eq,eq2ec
 from collections import deque,defaultdict
 import tempfile
 import time
@@ -184,6 +184,45 @@ class ParFile(dict):
         ra,dec = self.get_ra(), self.get_dec()
         return SkyDir(ra,dec)
 
+    def get_astrometry(self,epoch=None):
+        """ Return the astrometry as a 4-tuple with RA, error, Dec, error
+            in degrees.
+            
+            If the epoch is provided, and the source has a proper motion,
+            then correct the position to given epoch and add the errors
+            in quadrature."""
+        ra = ra2dec(self.get('RAJ'))
+        de = decl2dec(self.get('DECJ'))
+        idx = 1 if (len(self['RAJ'])==2) else 2
+        rae = float(self['RAJ'][idx]) * (15./3600)
+        idx = 1 if (len(self['DECJ'])==2) else 2
+        dee = float(self['DECJ'][idx]) * (1./3600)
+        
+        if epoch is not None:
+            dt = (epoch - self.get('POSEPOCH',type=float))/365.24
+            if 'PMRA' in self.keys():
+                pmra = self.get('PMRA',type=float)/1000/3600 # deg
+                idx = 1 if (len(self['PMRA'])==2) else 2
+                pmrae = float(self['PMRA'][idx])/1000/3600 # deg
+                print pmra,pmra*dt,pmrae,pmrae*dt
+                ra += pmra * dt
+                rae = (rae**2 + (pmrae*dt)**2)**0.5
+            if 'PMDEC' in self.keys():
+                pmde = self.get('PMDEC',type=float)/1000/3600 # deg
+                idx = 1 if (len(self['PMDEC'])==2) else 2
+                pmdee = float(self['PMDEC'][idx])/1000/3600 # deg
+                print pmde,pmde*dt,pmdee,pmdee*dt
+                de += pmde * dt
+                dee = (dee**2 + (pmdee*dt)**2)**0.5
+        return [ra,rae,de,dee]
+
+    def get_icrs_coord(self):
+        """ Return an astropy ICRSCoordinate object."""
+        from astropy.coordinates import ICRSCoordinates
+        ra = self.get('RAJ')
+        dec = self.get('DECJ')
+        return ICRSCoordinates(ra=ra,dec=dec,unit=('hour','deg'))
+
     def p(self,error=False):
         f0 = self.get('F0',first_elem=not error,type=float)
         if error and hasattr(f0,'__iter__'):
@@ -210,9 +249,6 @@ class ParFile(dict):
             corr = 1-self.get_shklovskii_pdot(distance)/self.pdot()
         else: corr = 1
         return edot*corr
-
-    def has_waves(self):
-        return np.any(['WAVE' in key for key in self.keys()])
 
     def is_msp(self,maxp=0.03,maxpdot=1e-18):
         # hard cut on period to catch energetic msps
@@ -499,6 +535,30 @@ class ParFile(dict):
         except ValueError:
             pass
 
+    def change_key(self,key,newkey,swap=True):
+        """ Replace one key label with a new one.  If the new key is
+            already populated, replace the old key values with those that
+            originally belonged to the new key.  (Swap.)"""
+        try:
+            idx1 = self.ordered_keys.index(key)
+            if swap and newkey in self.ordered_keys:
+                idx2 = self.ordered_keys.index(newkey)
+                self.ordered_keys[idx1],self.ordered_keys[idx2] = \
+                    newkey,key
+                self[newkey],self[key] = self.pop(key),self.pop(newkey)
+            else:
+                self.ordered_keys[idx1] = newkey
+                self[newkey] = self.pop(key)
+            if key in self.duplicates.keys():
+                if swap and (newkey in self.duplicate_keys):
+                    self.duplicates[newkey],self.duplicates[key] = \
+                        self.duplicates.pop(key),self.duplicates.pop(newkey)
+                else:
+                    self.duplicates[newkey] = self.duplicates.pop(key)
+        except ValueError:
+            print 'Could not find key %s.'%key
+            pass
+
     def delete_val(self,val):
         """ Attempt to remove an entry by value."""
         vals = [self[k] for k in self.ordered_keys]
@@ -517,40 +577,106 @@ class ParFile(dict):
                 return True
         return False
 
+    def get_glitch_index(self,glepoch=None,tol=1e-2):
+        """ Get the integer(s) corresponding to the provided glitch 
+            epoch.  If no epoch is provided, return all indices"""
+        indices = []
+        for key in self.keys():
+            if key[:4]=='GLEP':
+                k_glepoch = self.get(key,type=float)
+                if (glepoch is None) or (abs(glepoch-k_glepoch) < tol):
+                    indices.append(int(key.split('_')[-1]))
+        return indices
+
     def zero_glitches(self,glepoch=None):
         """ If glepoch is provided, only zero glitches near (within 1d) of
             that epoch.  Otherwise, remove all glitches."""
         no_glitches = True
-        indices = []
+        indices = self.get_glitch_index(glepoch=glepoch)
         for key in self.keys():
-            if key[:4]=='GLEP':
-                if ((glepoch is None) or 
-                    (abs(glepoch-self.get(key,type=float)) < 1)):
-                    indices.append(int(key[-1]))
-        for key in self.keys():
-            if (key[:2]=='GL') and (int(key[-1]) in indices):
+            if (key[:2]=='GL') and (int(key.split('_')[-1]) in indices):
                 no_glitches = False
                 lab = key[2:4]
                 if key[2:4] != 'EP':
                     self.set(key,0)
         return no_glitches
 
-    def get_glepochs(self):
+    def sort_glitches(self):
+        """ Put glitch indices in time order."""
+        indices = []
+        epochs = []
+        for key in self.ordered_keys:
+            if key.startswith('GLEP'):
+                print key
+                indices.append(int(key.split('_')[-1]))
+                epochs.append(self.get(key,type=float))
+
+        # perform a stable sort on epoch
+        new_indices = np.argsort(epochs,kind='mergesort')+1
+
+        for key in self.keys():
+            if key.startswith('GL'):
+                base,idx = key.split('_')
+                new_idx = new_indices[indices.index(int(idx))]
+                self.change_key(key,base+'_%d'%new_idx)
+                print key,base+'_%d'%new_idx
+
+    def glitch_phase_jump(self,glepoch):
+        """ Compute the phase jump associated with a particular glitch."""
+        indices = self.get_glitch_index(glepoch=glepoch)
+        phase = 0
+        for idx in indices:
+            if 'GLPH_%d'%idx in self.keys():
+                phase += self.get('GLPH_%d'%idx,type=float)
+            if 'GLTD_%d'%idx in self.keys():
+                phase += self.get('GLTD_%d'%idx,type=float)* \
+                    86400*self.get('GLF0D_%d'%idx,type=float)
+        return phase
+
+    def delete_glitch(self,glepoch):
+        indices = self.get_glitch_index(glepoch=glepoch)
+        glphase = self.glitch_phase_jump(glepoch)
+        if len(indices)==0:
+            return glphase
+        # remove overlapping keys
+        for key in self.keys():
+            if (key[:2]=='GL'):
+                idx = int(key.split('_')[-1])
+                if idx in indices:
+                    self.delete_key(key)
+        # finally, relabel & sort remaining glitches
+        self.sort_glitches()
+        return glphase
+
+    def get_glepochs(self,unique=True):
         glepochs = []
         for key in self.keys():
             if key[:4] == 'GLEP':
                 glepochs.append(self.get(key,type=np.float128))
+        if unique:
+            return sorted(list(set(glepochs)))
         return glepochs
+
+    def has_waves(self):
+        return self.num_waves() > 0
+
+    def num_waves(self):
+        f = lambda s: s.startswith('WAVE') and s[-1].isdigit()
+        return len(filter(f,self.keys()))
 
     def get_wave_string(self,epoch=None):
         """ Return a sting suitable for appending to an ephemeris giving
             a zeroed wave contribution with the same number of terms as
             the current ephemeris."""
         keys = []
+        has_waves = False
         for key in self.ordered_keys:
             if 'WAVE' in key:
+                has_waves = True
                 if 'EPOCH' not in key:
                     keys.append(key)
+        if not has_waves:
+            return ''
         epoch = epoch or self['WAVEEPOCH']
         return 'WAVEEPOCH %s\n'%(epoch) + \
             '\n'.join(map(lambda s: '%s 0 0'%s,keys))
@@ -587,7 +713,11 @@ class ParFile(dict):
         file(output,'w').write('\n'.join(
             lines[:idx+1]+block.split('\n')+lines[idx+1:]))
         self.init()
-                    
+
+    def freeze_params(self):
+        for key in self.keys():
+            if hasattr(self[key],'__iter__') and (len(self[key])>1) and self[key][1]=='1':
+                self[key][1] = '0'
 
 class TimFile(object):
 
