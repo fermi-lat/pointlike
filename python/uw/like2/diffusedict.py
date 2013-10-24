@@ -1,12 +1,13 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffusedict.py,v 1.4 2013/10/14 15:11:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffusedict.py,v 1.5 2013/10/24 03:45:17 burnett Exp $
 
 author:  Toby Burnett
 """
-import os, types, pyfits, collections
+import os, types, pyfits, collections, zipfile, pickle
 import numpy as np
+import pandas as pd 
 from .pub import healpix_map #make this local in future
 from uw.utilities import keyword_options, convolution
 
@@ -14,17 +15,26 @@ import skymaps #from Science Tools: for SkyDir, DiffuseFunction, IsotropicSpectr
 from uw.like import  Models
 def PowerLaw(*pars, **kw):   return Models.PowerLaw(p=pars, **kw)
 
+class DiffuseException(Exception):pass
+
 class ConvolvableGrid(convolution.BackgroundConvolution):
-    """ subclass of the basic convolution used by classes below.
-    It
+    """ Convolution used by classes below. This subclass
+    
       1) changes the default for a bounds error (to check)
       2) Replaces fill method with version that works for python class
-      3) provides useful show method
+      3) provides useful show methods
       """
-    def __init__(self, *args, **kwargs):
+    def __init__(self, center, **kwargs):
+        """ center -- a SkyDir giving the center of the grid on which to convolve bg
+            kwargs are passed to Grid.
+        """
         defaults=dict(bounds_error=False)
         defaults.update(kwargs)
-        super(ConvolvableGrid, self).__init__(*args, **defaults)
+        # note do not use code in superclass needing psf, diffuse function
+        super(ConvolvableGrid, self).__init__(center, None, None, **defaults)
+        
+    def __repr__(self):
+        return '%s: center %s ' %(self.__class__.__name__, self.center)
         
     def fill(self, skyfun):
         """ Evaluate skyfun along the internal grid and return the resulting array.
@@ -41,9 +51,10 @@ class ConvolvableGrid(convolution.BackgroundConvolution):
                 skymaps.PySkyFunction(pyskyfun))
         return v.reshape([self.npix,self.npix])
         
-    def bg_fill(self, exp, dm, ignore_nan=False):
-        # set it up with product of exposure and diffuse map
-        self.bg_vals = self.fill(exp) * self.fill(dm) #product of exposure and map
+    def bg_fill(self, exp, dm, cache=None, ignore_nan=False):
+        """ Evaluate product of exposure and diffuse map on the grid
+        """
+        self.bg_vals = self.fill(exp) * (self.fill(dm) if cache is None else cache) #product of exposure and map
         
         # check for nans, replace with zeros if not full ROI
         nans = np.isnan(self.bg_vals)
@@ -54,7 +65,9 @@ class ConvolvableGrid(convolution.BackgroundConvolution):
  
         
     def psf_fill(self, psf):
-        psf_vals = self.psf(self.dists).reshape([self.npix,self.npix])
+        """ Evalurate PSF on the grid
+        """
+        psf_vals = psf(self.dists).reshape([self.npix,self.npix])
         self.psf_vals = psf_vals / psf_vals.sum()
 
     
@@ -111,7 +124,7 @@ class ConvolvableGrid(convolution.BackgroundConvolution):
 
 class GridGenerator(object):
     """Base class for creation of local grid for global diffuse models
-    Note that it applies to all, or to a particular subtype (front/back)
+    Note that it applies to a particular subtype (front/back)
     """
     defaults =(
         ('pixelsize',0.25,'Pixel size for convolution grid'),
@@ -123,15 +136,20 @@ class GridGenerator(object):
     def __init__(self, psf, exposure, roi_dir, diffuse_source, 
             **kwargs):
         """
+        Factory class to create grids of convolved diffuse
+        
+        parameters
+        ----------
         exposure : Exposure object
             provides exposure for this subtype
         psf: pypsf.CALDBpsf object
             at least a functor; it is passed to the convolution
-        
         roi_dir : SkyDir object
             center of the ROI 
-            
         diffuse_source : DiffuseBase object
+        
+        Note that psf, exposure, and perhaps diffuse_source have been selected for a particular event type
+            
         """
         keyword_options.process(self, kwargs)
         self.roi_dir = roi_dir
@@ -141,14 +159,14 @@ class GridGenerator(object):
         self.setup()
         
     def __repr__(self):
-        return '%s %s' % (self.__class__.__name__, self.diffuse_source.__repr__() )
+        return '%s for %s' % (self.__class__.__name__, self.diffuse_source.__repr__() )
         
     def setup(self): pass
     
     def get_convolver(self):
-        return ConvolvableGrid(self.roi_dir, None, self.psf,  npix=self.npix, pixelsize=self.pixelsize)
+        return ConvolvableGrid(self.roi_dir, npix=self.npix, pixelsize=self.pixelsize)
         
-    def make_grid(self, energy):
+    def __call__(self, energy):
         """ return a convolved grid for a band in an ROI
         parameters
         ----------
@@ -182,14 +200,14 @@ class DiffuseBase(object):
     def setupfile(self, filename):
         """ filename: string 
         """
-        self.filename = filename
+        self.filename = os.path.expandvars(filename)
         if not os.path.exists(self.filename):
             self.filename = os.path.expandvars(os.path.join('$FERMI','diffuse',self.filename))
         assert os.path.exists(self.filename), 'DiffuseFunction file "%s" not found' % self.filename
         self.loaded =  False
 
     def load(self): 
-        assert not hasattr(self, 'filename'), 'Logic error; subclass must implemnt load'
+        assert not hasattr(self, 'filename'), 'Logic error; class %s must implement load' %self.name
         pass
     
     def __repr__(self):
@@ -222,7 +240,12 @@ class Isotropic(DiffuseBase, skymaps.IsotropicSpectrum):
     def __init__(self, filename):
         self.filename=filename
         super(Isotropic, self).__init__(filename)
+        self.loaded=False
         
+    def load(self):
+        if self.loaded: return
+        super(Isotropic,self).__init__(self.filename)
+
 
 class MapCube(DiffuseBase, skymaps.DiffuseFunction):
     """ wrapper for eventual invocation of skymaps.DiffuseFunction, which interprets a map cube
@@ -303,10 +326,94 @@ class IsotropicSpectralFunction(DiffuseBase):
 
 
 class CachedMapCube(DiffuseBase):
+    """ for compatibility with previous models"""
     def __init__(self, zipfilename):
-        self.filename = zipfilename
+        self.setupfile(zipfilename)
+    
+    def load(self):
+        z = zipfile.ZipFile(self.filename)
+        t = z.namelist()
+        if len(t)==1729: # if ziped with foldername
+            t = t[1:]
+        self.files = sorted(t) 
+        assert len(self.files)==1728, 'wrong number of files: expected 1728, found %d' % len(files)
+        self.opener = z.open
+
+    def grid_generator(self, skydir, psf, exposure):
+        """Return a GridGenerator object
+         """
+        dfun = self
+        class CachedGridGenerator(GridGenerator):
+            def __init__(self, psf, exposure, center, **kwargs):
+                self.center=center
+                self.psf=psf
+                self.exposure=exposure
+                self.__dict__.update(kwargs)
+                self.npix=61
+                self.diffuse_source = dfun
+                roi_index = skymaps.Band(12).index(center)
+                try:
+                    self.filename = dfun.files[roi_index]
+                    self.cached_diffuse = pickle.load(dfun.opener(self.filename))
+                except Exception, msg:
+                    raise DiffuseException( 'Diffuse cache file # %d not found:%s' %(roi_index,msg))
+                self.emins = [cd['emin'] for cd in self.cached_diffuse]
+                if hasattr(dfun, 'kw') and dfun.kw is not None: # check for extra keywords from diffuse spec.
+                    # Manage keywords found in the 
+                    if dfun.kw['correction'] is not None:
+                        if not self.quiet:print '\t%s loading corrections from %s.kw:' % (self.__class__.__name__, dfun.__class__.__name__)
+                        df = pd.read_csv(dfun.kw['correction'], index_col=0) 
+                        self.corr = df.ix['HP12_%04d'%roi_index].values
+                        if not self.quiet:print '\tcorrection file: "%s"' % dfun.kw['correction']
+                        if not self.quiet:print '\tcorrections: %s' %self.corr.round(3)
+                    else: self.corr=None
+                    self.systematic = dfun.kw.get('systematic', None)
+                    if self.systematic is not None:
+                        if not self.quiet:print '\tsystematic: %.3f' % self.systematic
+
+
+            def __call__(self, energy):
+                grid = ConvolvableGrid(self.center)
+                grid.cvals = np.zeros((self.npix, self.npix))
+                grid.energy=energy
+                # find the appropriate cached grid
+                for index in range(len(self.emins)):
+                    if energy>self.emins[index] and (index==len(self.emins)-1 or energy<self.emins[index+1])\
+                        : break
+                emin = self.emins[index]    
+                assert energy/emin < 1.8 and energy> emin, 'too large a factor: energy, emin=%.0f,%.0f\nemins=%s' % (energy, emin, self.emins)
+                cd = self.cached_diffuse[index]
+                
+                # create a convolvable grid from it, with current PSF
+                energy = cd['energy']
+                grid = ConvolvableGrid(cd['center'],   npix=cd['npix'], pixelsize=cd['pixelsize'])
+                    
+                # determine the current exposure for this energy 
+                exp = self.exposure
+                exp.setEnergy(energy)
+                self.psf.setEnergy(energy)
+                grid.psf_fill(self.psf)
+                
+                # apply correction factor if any; use last value for all higher (depends only on energy)
+                vals = cd['vals']
+                ds = self.diffuse_source
+                if hasattr(ds, 'corr') and ds.corr is not None:
+                    c = ds.corr[index] if index<len(ds.corr) else ds.corr[-1]
+                    vals *= c
+
+                # finally do the convolution on the product of exposure and diffuse map, which is passed in 
+                #grid.do_convolution(energy, conversion_type, override_vals=vals)
+                grid.bg_fill(exp, None, cache=vals)
+                grid.convolve()
+                return grid
+
+                
+        return CachedGridGenerator(psf, exposure, skydir,quiet=False, **self.kw)
+
     def __call__(self, skydir, energy=None):
         return np.nan
+    def setEnergy(self, energy):
+        pass
 
 class DiffuseList(list):
     """contain the subtype, or front/back list of DiffuseBase objects If only one, applied to all
@@ -407,7 +514,7 @@ class DiffuseDict(collections.OrderedDict):
             raise
         super(DiffuseDict, self).__init__()
         for key, value in self.spec.items():
-            print key,value
+            #print key,value
             self[key] = diffuse_factory(value) 
         self.models=[dict() for i in range(1728)] # list of spectral models for each ROI
 
@@ -440,8 +547,29 @@ class DiffuseDict(collections.OrderedDict):
             global_sources.append(s)
         return global_sources
 
-def main():
-    pass
+def test(model_dir='.', energy=1333, event_type=0):
+    """ Test creation of diffuse 
+    """
+    from skymaps import SkyDir
+    from uw.like2 import configuration
+    gc, npole = SkyDir(0,0, SkyDir.GALACTIC), SkyDir(0,90, SkyDir.GALACTIC)
+    
+    # setup the configuration, and load the diffuse dictioinary
+    config = configuration.Configuration(model_dir, quiet=True, postpone=True)
+    dd = DiffuseDict(model_dir)
+    
+    for dname, dlist in dd.items():
+        dm = dlist[event_type]
+        print '\n%-10s: %s' % (dname, dm)
+        dm.load() # check load
+        print '\tvalue at GC, NP: %.2e, %.2e'%  tuple([dm(dir, energy) for dir in gc, npole])
+        # check convolution at GC
+        gg = dlist.grid_generator(gc, event_type, config)
+        grid = gg(energy)
+        cvals = grid.cvals
+        cvmean = cvals.mean()
+        print '\tconvolved grid: mean=%.1f counts, std/mean=%.3f' % ( cvmean, cvals.std()/cvmean if cvmean>0 else np.nan)
+
     
 if __name__=='__main__':
-    main()
+    test()
