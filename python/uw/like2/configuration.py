@@ -1,7 +1,7 @@
 """
 Manage the analysis configuration
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.1 2013/10/24 03:44:39 burnett Exp $
 
 """
 import os, sys, types
@@ -173,9 +173,9 @@ class Configuration(object):
         
         config = eval(open(os.path.expandvars(modeldir+'/config.txt')).read())
         for key in 'extended irf'.split():
-            if self.__dict__[key] is None or self.__dict__[key]=='None': 
+            if self.__dict__[key] is not None: 
                 if not self.quiet:
-                    print '%s: %s set from config: "%s"' %(key, kwargs.get(key,None), config.get(key,None))
+                    print '%s : override config.txt, "%s" => "%s"' %(key, kwargs.get(key,None), config.get(key,None))
                 self.__dict__[key]=config.get(key, None)
 
         # set up IRF
