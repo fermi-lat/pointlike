@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.143 2013/08/03 18:21:12 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.144 2013/09/28 20:33:26 burnett Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -1956,11 +1956,11 @@ class MonoenergeticCurvature(Model):
         n0,cutoff=self.get_all_parameters()
         f = lambda x: kv(5./3,x)
         if hasattr(e,'__len__'):
-            rvals = np.empty_like(e)
+            rvals = np.empty(len(e),dtype=float)
             for i in xrange(len(rvals)):
                 rvals[i] = n0*quad(f,e[i]/cutoff,np.inf)[0]
         else:
-            rvals = n0*quad(f,e/cutoff,np.inf)
+            rvals = n0*quad(f,float(e)/cutoff,np.inf)[0]
         return rvals
 
     def external_gradient(self,e):
