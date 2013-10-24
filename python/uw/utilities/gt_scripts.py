@@ -1,6 +1,6 @@
 """ Scripts for interfacing with the ScienceTools.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/gt_scripts.py,v 1.1 2010/12/06 21:45:51 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/gt_scripts.py,v 1.2 2012/03/29 22:21:55 kerrm Exp $
 
     author: Matthew Kerr
 """
@@ -68,7 +68,6 @@ def do_gtltcube(ft1,ft2,outfile=None,dcostheta=0.025,pixelsize=1,opt_strings=[])
     return command
 
 def do_gtbin(ft1,ft2,outfile=None,algorithm='CCUBE',pixelsize=0.1,numpix=200,
-             #ra=None,dec=None,emin=177.82794100389228,emax=100000,enumbins=22,
              ra=None,dec=None,emin=100,emax=100000,enumbins=24,
              opt_strings=[]):
     if outfile is None:
@@ -117,6 +116,30 @@ def do_gtexpcube2(ltcube,ccube,ft1,outfile=None,irf='P6_V3_DIFFUSE',opt_strings=
                         'cmap=%s'%(ccube),
                         'outfile=%s'%(outfile),
                         'irfs=%s'%(irf),
+                        ] + opt_strings)
+    return command
+
+def do_gtexpcube2_new(ltcube,ft1,outfile=None,
+                      ra=None,dec=None,pixelsize=0.1,numpix=200,
+                      emin=100,emax=100000,enumbins=25,
+                      irf='P6_V3_DIFFUSE',opt_strings=[]):
+    if outfile is None: outfile = ft1[:-5] + '-EXPCUBE.fits'
+    command = ' '.join(['gtexpcube2',
+                        'infile=%s'%(ltcube),
+                        'cmap=none',
+                        'outfile=%s'%(outfile),
+                        'irfs=%s'%(irf),
+                        'xref=%s'%(ra),
+                        'yref=%s'%(dec),
+                        'coordsys=CEL',
+                        'axisrot=0',
+                        'nxpix=%d'%(numpix),
+                        'nypix=%d'%(numpix),
+                        'binsz=%s'%(pixelsize),
+                        'proj=ZEA',
+                        'emin=%s'%(emin),
+                        'emax=%s'%(emax),
+                        'enumbins=%s'%(enumbins)
                         ] + opt_strings)
     return command
 

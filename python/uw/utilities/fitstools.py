@@ -1,6 +1,6 @@
 """A suite of tools for processing FITS files.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.19 2012/03/20 21:33:03 wallacee Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.20 2012/09/10 23:31:01 kerrm Exp $
 
    author: Matthew Kerr
 
@@ -64,7 +64,7 @@ def get_gti_mask(ft1file,times):
     accept = (times > gti_starts[indices]) & (times <= gti_stops[indices])
     return accept
 
-def rad_extract(eventfiles,center,radius_function,return_cols=['PULSE_PHASE'],cuts=None,apply_GTI=True,theta_cut=66.4,zenith_cut=105):
+def rad_extract(eventfiles,center,radius_function,return_cols=['PULSE_PHASE'],cuts=None,apply_GTI=True,theta_cut=66.4,zenith_cut=105,return_indices=False):
     """ Extract events with a radial cut.  
         Return specified columns and perform additional boolean cuts.
 
@@ -96,6 +96,9 @@ def rad_extract(eventfiles,center,radius_function,return_cols=['PULSE_PHASE'],cu
     no_cuts     [False] do not apply default zenith and incidence angle cuts
     apply_GTI   [True] accept or reject an event based on GTI if True; 
                 else ignore GTI
+    return_indices [False] if True, return an array giving the index in the
+                original file of each event; obviously only useful in the 
+                case of a single event file
     =========   =======================================================
     """
     if not hasattr(radius_function,'__call__'):
@@ -130,12 +133,18 @@ def rad_extract(eventfiles,center,radius_function,return_cols=['PULSE_PHASE'],cu
         tmask &= (cols['ZENITH_ANGLE'] < zenith_cut) & (cols['THETA'] < theta_cut)
         if apply_GTI:
             tmask &= get_gti_mask(eventfile,cols['TIME'])
+            print 'GTI will remove %d of %d photons.'%((~tmask).sum(),len(tmask))
         if simple_scalar:
             rmask,diffs = rad_mask(cols['RA'][tmask],cols['DEC'][tmask],center,rad)
         else:
             rmask,diffs = rad_mask(cols['RA'][tmask],cols['DEC'][tmask],center,rad[tmask])
 
-        for key in keys: coldict[key].append(cols[key][tmask][rmask])
+        for key in keys:
+            coldict[key].append(cols[key][tmask][rmask])
+        if return_indices:
+            if 'EVENT_INDICES' not in return_cols:
+                return_cols.append('EVENT_INDICES')
+            coldict['EVENT_INDICES'].append(np.arange(len(tmask))[tmask][rmask])
         coldict['DIFFERENCES'].append(diffs)
         accepted += tmask.sum()
         total += len(tmask)
