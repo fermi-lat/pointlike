@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Oct 26 08:40:29 PDT 2013
+pointlike/python/uw/like2/plotting
+
+Modified Files:
+	counts.py 
+Log Message:
+protect against zero data
+    *
+------------------------------------------------------------
 User: burnett  Thu Oct 24 13:58:34 PDT 2013
 pointlike/python/uw/like2
 
