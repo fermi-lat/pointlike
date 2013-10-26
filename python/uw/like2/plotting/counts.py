@@ -1,6 +1,6 @@
 """
 Code to generate an ROI counts plot 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.4 2011/12/06 22:11:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.5 2013/03/05 19:49:26 burnett Exp $
 
 Authors M. Kerr, T. Burnett
 
@@ -93,6 +93,7 @@ def plot_counts(roi,fignum=1, event_class=None, outfile=None,
         ax.set_yscale('log')
         en,obs,tot = count_data['energies'],count_data['observed'],count_data['total']
         for name, data in count_data['models']:
+            if np.any(data<=0): continue # ignore models with no predicted counts
             assert len(en)==len(data), 'energy, data mismatch'
             if len(name)>20: name=name[:17]+'...'
             tmodel_kw = model_kw.copy()
