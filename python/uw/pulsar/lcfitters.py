@@ -9,7 +9,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.48 2013/05/22 23:30:06 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.49 2013/08/19 02:00:26 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -21,6 +21,13 @@ from scipy.optimize import fmin,fmin_tnc,leastsq
 from uw.pulsar.stats import z2mw,hm,hmw
 
 SECSPERDAY = 86400.
+
+def shifted(m,delta=0.5):
+    """ Produce a copy of a binned profile shifted in phase by delta."""
+    f = np.fft.fft(m,axis=-1) 
+    n = f.shape[-1]
+    arg = np.fft.fftfreq(n)*(n*np.pi*2.j*delta)
+    return np.real(np.fft.ifft(np.exp(arg)*f,axis=-1))
 
 def weighted_light_curve(nbins,phases,weights,normed=False,phase_shift=0):
     """ Return a set of bins, values, and errors to represent a
@@ -551,45 +558,58 @@ class WeightedLCFitter(UnweightedLCFitter):
 class ChiSqLCFitter(object):
     """ Fit binned data with a gaussian likelihood."""
 
-    def __init__(self,template,x,y,yerr,**kwargs):
+    def __init__(self,template,x,y,yerr,log10_ens=3,**kwargs):
         self.template = template
-        self.chistuff = x,y,yerr
+        self.chistuff = x,y,yerr,log10_ens
         self.__dict__.update(kwargs)
 
+    def is_energy_dependent(self):
+        return False
+
     def chi(self,p,*args):
-        x,y,yerr = self.chistuff
+        x,y,yerr,log10_ens = self.chistuff
         t = self.template
         if not self.template.shift_mode and np.any(p < 0):
             return 2e100*np.ones_like(x)/len(x)
         t.set_parameters(p)
-        chi = (t(x) - y)/yerr
+        chi = (t(x,log10_ens) - y)/yerr
         return chi
 
     def chigrad(self,p,*args):
-        x,y,yerr = self.chistuff
+        x,y,yerr,log10_ens = self.chistuff
         #chi = self.chi(p,*args)
-        g = self.template.gradient(x)
+        g = self.template.gradient(x,log10_ens)
         #return 2*(chi*g)
         return g/yerr
 
-    def fit(self,use_gradient=True):
+    def fit(self,use_gradient=True,get_results=False):
         p = self.template.get_parameters()
         Dfun = self.chigrad if use_gradient else None
         results = leastsq(self.chi,p,Dfun=Dfun,full_output=1,
             col_deriv=True)
         p,cov = results[:2]
         self.template.set_parameters(p)
-        self.template.set_errors(np.diag(cov)**0.5)
+        if cov is not None:
+            self.template.set_errors(np.diag(cov)**0.5)
+        if get_results:
+            return results
     
     def __str__(self):
         return str(self.template)
 
-    def plot(self,fignum=2):
-        x,y,yerr = self.chistuff
+    def plot(self,fignum=2,shift=0,resids=False):
         import pylab as pl
-        pl.figure(2); pl.clf()
+        x,y,yerr,log10_ens = self.chistuff
+        my = self.template(x,log10_ens)
+        if shift != 0:
+            y = shifted(y,shift)
+            my = shifted(my,shift)
+        if resids:
+            y = y-my
+        pl.figure(fignum); pl.clf()
         pl.errorbar(x,y,yerr=yerr,ls=' ')
-        pl.plot(x,self.template(x))
+        if not resids:
+            pl.plot(x,my,color='red')
 
 def hessian(m,mf,*args,**kwargs):
     """Calculate the Hessian; mf is the minimizing function, m is the model,args additional arguments for mf."""
