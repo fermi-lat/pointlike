@@ -1,16 +1,16 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.24 2013/09/27 22:03:38 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.25 2013/10/24 03:42:32 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.24 $'.split()[1]
+version='$Revision: 1.25 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np
 import skymaps, pointlike #from the science tools
-from ..like import pycaldb# , roi_bands
+from ..like import pycaldb, pypsf# , roi_bands
 from . import roi_bands
 from ..data import dataman, dssman
 
@@ -196,31 +196,35 @@ class DataSet(dataman.DataSpec):
                 return DataSpecification(folder,  interval=interval, gti_mask=gti_mask, **ddict)
         raise DataSetError('dataset name "%s" not found in %s' % (dataset, folders))
 
-    def __call__(self, psf, exposure, roi_dir, **kwargs):
-        """ return array of ROIBand objects for given direction, radius, emin, emax
-        
-        Parameters
-        ----------
-        psf
-        exposure
-        roi_dir
-        """
+    def load(self):
         if self.postpone:
-            self.load_binfile()
+            self._load_binfile()
             self.postpone=False
-        self.bands = []
-        band_kwargs= dict()
-        band_kwargs.update(kwargs)
-        class ForBand(object):
-            """ mix stuff that ROIBand wants """
-            def __init__(self, minROI, maxROI):
-                self.__dict__.update(psf=psf, exposure=exposure, 
-                        minROI=minROI, maxROI=maxROI)
-        forband = ForBand(self.minROI,self.maxROI)
-        for band in self.dmap:
-            if (band.emin() + 1) >= self.emin and (band.emax() - 1) < self.emax:
-                self.bands.append(roi_bands.ROIBand(band, forband, roi_dir, **band_kwargs))
-        return np.asarray(self.bands)
+ 
+    
+    #def __call__(self, psf, exposure, roi_dir, **kwargs):
+    #    """ return array of ROIBand objects for given direction, radius, emin, emax
+    #    
+    #    Parameters
+    #    ----------
+    #    psf
+    #    exposure
+    #    roi_dir
+    #    """
+    #    self.load()
+    #    self.bands = []
+    #    band_kwargs= dict(min=self.emin, emax=self.emax, minROI=self.minROi, maxROI=self.maxROI)
+    #    band_kwargs.update(kwargs)
+    #    class ForBand(object):
+    #        """ mix stuff that ROIBand wants """
+    #        def __init__(self, minROI, maxROI):
+    #            self.__dict__.update(psf=psf, exposure=exposure, 
+    #                    minROI=minROI, maxROI=maxROI)
+    #    forband = ForBand(self.minROI,self.maxROI)
+    #    for band in self.dmap:
+    #        if (band.emin() + 1) >= self.emin and (band.emax() - 1) < self.emax:
+    #            self.bands.append(roi_bands.ROIBand(band, forband, roi_dir, **band_kwargs))
+    #    return np.asarray(self.bands)
 
     def _load_binfile(self):
         if not self.quiet: print 'loading binfile %s ...' % self.binfile ,
@@ -234,6 +238,7 @@ class DataSet(dataman.DataSpec):
             
     def info(self, out=None):
         """ formatted table of band contents """
+        self.load()
         print >>out, 'File: %s ' %self.binfile
         print >>out, '\n  index    emin      emax  class nside     photons'
         total = 0
@@ -265,6 +270,7 @@ class DataSet(dataman.DataSpec):
                 s.append(label + '\tNone')
                 return
             s.append(label)
+            s.append(label)
             if len(files) < 10:
                 s.append('\n\t'.join(files))
             else:
@@ -283,6 +289,60 @@ class DataSet(dataman.DataSpec):
         s.append(self.gti.__str__())
         s.append(self.dss_info())
         return 'dataset "%s":\n  '%self.name+'\n  '.join(s)
+    def __repr__(self):
+        return self.__str__()
+
+
+class ROIBand(object):
+    """Data access class
+        indludes the appropriate PSF and exposure functions for this energy band
+    """
+
+    def __init__(self, band, psf, exposure,  skydir, radius):
+    
+        self.psf, self.exposure, self.sd, self.b = psf, exposure, skydir, band
+        self.radius_in_rad = np.radians(radius)
+        self.wsdl = skymaps.WeightedSkyDirList(band,skydir,self.radius_in_rad,False)
+        self.pix_counts   = np.asarray([x.weight() for x in self.wsdl]) if len(self.wsdl)>0 else []
+        self.npix         = self.wsdl.total_pix()
+        self.has_pixels   = self.wsdl.counts()>0
+        self.pixel_area   = band.pixelArea()
+        self.solid_angle  = self.npix*self.pixel_area #ragged edge
+        self.energy       = np.sqrt(band.emin()*band.emax())
+        self.event_type   = band.event_class()
+        self.emin         = band.emin()
+        self.emax         = band.emax()
+        self.exposureint  = self.exposure(self.sd, self.energy)*(self.emax-self.emin)
+    
+    def __repr__(self):
+        return 'dataset.ROIBand %.0f MeV event_type %d, %d photons' % (self.energy, self.event_type, np.sum(self.pix_counts))
+        
+    def pixels_from_psf(self,  skydir):
+        """ return pixel array of predicted values given the PSF and direction
+        """
+        rvals  = np.empty(len(self.wsdl),dtype=float)
+        self.psf.cpsf.wsdl_val(rvals, skydir, self.wsdl) #from C++: sets rvals
+        return rvals*self.pixel_area
+    
+    def psf_overlap(self, skydir):
+        """ return the overlap of the associated PSF at the given position with this ROI
+        """
+        return pypsf.PsfOverlap()(self, self.sd, skydir)  
+    
+    def exposure_integral(self, model_function, axis=None):
+        """ return integral over exposure for function of differential flux """
+        return model_function(self.energy)*self.exposureint
+        #return (model_function(self.sp_points)*self.sp_vector).sum(axis=axis)
+
+    def expected(self,model):
+        """Integrate the passed spectral model over the exposure, at the given direction and return expected counts."""
+        return model(self.energy)*self.exposureint
+        #return (model(self.sp_points)*self.sp_vector).sum()
+
+
+ 
+
+
 
 def main(datadict=dict(dataname='P7_V4_SOURCE_4bpd'), analysis_kw=dict(irf='P7SOURCE_V6')):
     """ for testing: must define a dataset, and and at least an IRF"""
@@ -297,7 +357,7 @@ def validate(model_path='.', interval=None, nocreate=False, logfile='dataset.txt
         full path to the folder containing the model info, expect to find a file config.txt
         can contain environment variables with $ prefix
     
-    interval: string
+    interval: [string | None]
         name for an interval to use: override any specified in the config.txt
         
     nocreate: bool

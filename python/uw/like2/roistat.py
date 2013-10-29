@@ -4,7 +4,7 @@ Manage likelihood calculations for an ROI
 mostly class ROIstat, which computes the likelihood and its derivative from the lists of
 sources (see .sourcelist) and bands (see .bandlike)
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.23 2012/09/29 16:03:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.24 2013/09/27 22:07:30 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import sys
@@ -43,7 +43,7 @@ class ROIstat(object):
         self.roi_setup = roi # save to allow creating a clone
         self.name = roi.name
         self.roi_dir = roi.roi_dir
-        self.exposure = roi.exposure
+        #self.exposure = roi.exposure
         #try:
         self.sources = sourcelist.SourceList(roi) 
         #except Exception,msg:
@@ -51,7 +51,7 @@ class ROIstat(object):
         #    raise Exception(t) 
             
         quiet = kwargs.pop('quiet', False)
-        self.all_bands = bandlike.factory(filter(bandsel, roi.bands), self.sources , roi.exposure, quiet=quiet)
+        self.all_bands = bandlike.factory(filter(bandsel, roi.bands), self.sources , roi.config)
         self.selected_bands = self.all_bands # the possible subset to analyze
         self.saved_bands = None
         self.calls=0
@@ -62,8 +62,13 @@ class ROIstat(object):
         self.saved_pars = self.get_parameters()
     
     def __str__(self):
-        return 'ROIstat for ROI %s: %d bands %d sources (%d free)' \
-                % (self.name, len(self.all_bands), len(self.sources), sum(self.sources.free))
+        return '%s.%s for ROI %s: %d bands %d sources (%d free)' \
+                % (self.__module__, self.__class__.__name__,self.name, len(self.all_bands), len(self.sources), sum(self.sources.free))
+    def __repr__(self):
+        return self.__str__()
+    def __getitem__(self, band_index):
+        return self.all_bands[band_index]
+        
     @property
     def parameter_names(self):
         return self.sources.parameter_names

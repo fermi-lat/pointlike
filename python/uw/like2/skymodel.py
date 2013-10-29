@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.41 2013/10/11 16:10:39 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.42 2013/10/14 15:11:42 burnett Exp $
 
 """
 import os, pickle, glob, types, collections, zipfile
@@ -9,8 +9,8 @@ import numpy as np
 import pandas as pd
 from skymaps import SkyDir, Band
 from uw.utilities import keyword_options, makerec
-from uw.like import Models, pointspec_helpers
-from . import sources, diffusedict
+from uw.like import Models #, pointspec_helpers
+from . import sources, diffusedict, extended
 
 class SkyModel(object):
     """
@@ -174,11 +174,11 @@ class SkyModel(object):
         if not self.extended_catalog_name or self.extended_catalog_name=='None' or self.extended_catalog_name=='ignore':
             self.extended_catalog = None
             return
-        extended_catalog_name = \
-            os.path.expandvars(os.path.join('$FERMI','catalog',self.extended_catalog_name))
-        if not os.path.exists(extended_catalog_name):
-            raise Exception('extended source folder "%s" not found' % extended_catalog_name)
-        self.extended_catalog= sources.ExtendedCatalog(extended_catalog_name, force_map=self.force_spatial_map)
+        #extended_catalog_name = \
+        #    os.path.expandvars(os.path.join('$FERMI','catalog',self.extended_catalog_name))
+        #if not os.path.exists(extended_catalog_name):
+        #    raise Exception('extended source folder "%s" not found' % extended_catalog_name)
+        self.extended_catalog= extended.ExtendedCatalog(self.extended_catalog_name, force_map=self.force_spatial_map)
         #print 'Loaded extended catalog %s' % self.extended_catalog_name
         
     def _load_sources(self):
@@ -266,7 +266,7 @@ class SkyModel(object):
                             if not self.quiet: print 'SkyModel warning: catalog model  %s changed from %s for source %s: keeping change'%\
                                    (es.model.name, model.name, name)
                         self.changed.add(name)
-                    es.smodel=es.model=model #update with current fit values always
+                    es.spectral_model=es.model=model #update with current fit values always
                     if sources.validate(es,self.nside, self.filter): #lambda x: True): 
                         self.extended_sources.append(es)
         # check for new extended sources not yet in model
@@ -330,7 +330,7 @@ class SkyModel(object):
         for s in extended: # this seems redundant, but was necessary
             s.model.free[:] = False if src_sel.frozen(s) else s.free[:]
             sources.validate(s,self.nside, None)
-            s.smodel = s.model
+            s.spectral_model = s.model
             
         return self.get_global_sources(src_sel.skydir()), extended
 
@@ -399,18 +399,22 @@ class HEALPixSourceSelector(SourceSelector):
         keyword_options.process(self,kwargs)
         assert type(index)==types.IntType, 'Expect int type'
         self.myindex = index
-        self.mskydir =  self.skydir(index)
+        self.mskydir =  self.skydirfun(index)
 
     def __str__(self):
-        return 'selector %s nside=%d, index=%d' %(self.__class__.__name__, self.nside, self.index)
+        return 'selector %s  index=%d' %(self.__class__.__name__,  self.myindex)
         
+    def __repr__(self):
+        return self.__str__()
+        
+    @property
     def name(self):
         return 'HP%02d_%04d' % (self.nside, self.myindex)
 
-    def skydir(self, index=None):
+    def skydirfun(self, index=None):
         return Band(self.nside).dir(int(index)) if index is not None else self.mskydir
         
-    def index(self, skydir):
+    def indexfun(self, skydir):
         return Band(self.nside).index(skydir)
     
     def free(self,source):
@@ -418,7 +422,7 @@ class HEALPixSourceSelector(SourceSelector):
         source : instance of skymodel.Source
         -> bool, if this source in in the region where fit parameters are free
         """
-        return self.index(source.skydir) == self.myindex
+        return self.indexfun(source.skydir) == self.myindex
         
 #========================================================================================
 #  These classes are filters. An object of which can be loaded by the filter parameter
