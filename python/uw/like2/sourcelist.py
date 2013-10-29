@@ -1,28 +1,28 @@
 """
 Manage sources for likelihood: single class SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.32 2013/09/27 22:10:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.33 2013/10/11 16:28:17 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import types
 import numpy as np
 from uw.like import SpatialModels # for setting all spatial models to use template
 
-def set_extended_property(esource):
-    """ kluge until proper design for sources
-        create property 'spectral_model' with get, set methods do the original smodel of an extended source
-    """
-    def getter(source): return source.extended_source.smodel
-    def setter(source, newmodel): source.extended_source.smodel = newmodel
-    esource.__class__.spectral_model = property(getter, setter,doc='spectral model')
-def set_diffuse_property(dsource):
-    def getter(source): return source.diffuse_source.model
-    def setter(source, newmodel): source.diffuse_source.model = newmodel
-    dsource.__class__.spectral_model = property(getter, setter,doc='spectral model')
-def set_point_property(psource) : 
-    def getter(source): return source.model
-    def setter(source, newmodel): source.model = newmodel
-    psource.__class__.spectral_model = property(getter, setter,doc='spectral model')
+#def set_extended_property(esource):
+#    """ kluge until proper design for sources
+#        create property 'spectral_model' with get, set methods do the original smodel of an extended source
+#    """
+#    def getter(source): return source.smodel
+#    def setter(source, newmodel): source.smodel = newmodel
+#    esource.__class__.spectral_model = property(getter, setter,doc='spectral model')
+#def set_diffuse_property(dsource):
+#    def getter(source): return source.diffuse_source.model
+#    def setter(source, newmodel): source.diffuse_source.model = newmodel
+#    dsource.__class__.spectral_model = property(getter, setter,doc='spectral model')
+#def set_point_property(psource) : 
+#    def getter(source): return source.model
+#    def setter(source, newmodel): source.model = newmodel
+#    psource.__class__.spectral_model = property(getter, setter,doc='spectral model')
 
 class SourceListException(Exception):pass
 
@@ -94,22 +94,16 @@ class SourceList(list):
                 
                 
         # note that sources are added in the order diffuse, point to agree with ROIAnalysis
-        # also, add two attributes to each source object and define 'spectral_model'
         def append(source):
             assert source.name not in self.source_names, 'attempt to add name %s twice' % source.name
-            assert hasattr(source, 'spectral_model'), 'bug'
             self.set_default_bounds(source, True) # override until figure out more subtle
             self.append(source)
         for source in roi.global_sources:
             append(source)
         for i, source in enumerate(roi.extended_sources):
             source.manager_index = i
-            set_extended_property(source)
-            source.skydir = source.extended_source.skydir
-            source.spatial_model = source.extended_source.spatial_model
             append(source)
         for source in roi.point_sources:
-            set_point_property(source)
             append(source)
         self.selected_source = None
         
@@ -127,14 +121,14 @@ class SourceList(list):
     @property
     def source_names(self): return np.array([s.name for s in self])
     @property
-    def models(self): return np.array([s.spectral_model for s in self])
+    def models(self): return np.array([s.model for s in self])
     
     @property
     def free(self): 
         """ mask which defines variable sources: all global and local sources with at least one variable parameter 
         """
         def free_source(s):
-            return np.any(s.spectral_model.free) or s.skydir is None
+            return np.any(s.model.free) or s.skydir is None
         return np.array([ free_source(s) for s in self])
         
     @property 
@@ -246,7 +240,7 @@ class SourceList(list):
         return np.sqrt(variances) / (np.abs(self.model_parameters) +1e-20) #avoid divide by zero
 
     def set_default_bounds(self, source, force=False):
-        model = source.spectral_model
+        model = source.model
         if not force and hasattr(model, 'bounds'):
             # model has bounds. Were they set? check to see if all are None
             notset =  np.all(np.array([np.all(b ==[None,None]) for b in model.bounds]))

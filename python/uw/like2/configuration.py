@@ -1,7 +1,7 @@
 """
 Manage the analysis configuration
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.1 2013/10/24 03:44:39 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.2 2013/10/24 20:57:57 burnett Exp $
 
 """
 import os, sys, types
@@ -65,22 +65,23 @@ class ExposureManager(object):
     def value(self, sdir, energy, event_type):
         return self.exposure[event_type].value(sdir, energy)*self.correction[event_type](energy)
         
-    def __call__(self, event_type):
-        """Return a SkySppectrum-compatible object of the exposure for the given event tupe (e.g., front or back)
+    def __call__(self, event_type, energy=1000):
+        """Return a SkySpectrum-compatible object of the exposure for the given event type (e.g., front or back)
         """
         class Exposure(object):
-            def __init__(self, eman, event_type):
+            def __init__(self, eman, event_type, energy, correction):
                 self.eman = eman
                 self.et =event_type
-                self.energy=1000.
+                self.energy=energy
+                self.correction = correction
             def __repr__(self):
-                return 'Exposure SkySpectrum for event_type %d, default energy set to %.0f MeV' % (self.et, self.energy)
+                return 'Exposure SkySpectrum for event_type %d, energy %.0f MeV' % (self.et, self.energy)
             def __call__(self, sdir, e=None):
                 if e is None: e=self.energy
                 return self.eman.value(sdir, e, self.et)
             def setEnergy(self, e):
                 self.energy=e
-        return Exposure(self, event_type)
+        return Exposure(self, event_type, energy, self.correction[event_type](energy))
         
 class PSFmanager(object):
     """ manage the PSF
@@ -98,32 +99,40 @@ class PSFmanager(object):
         return '%s.%s: IRF "%s"' % (self.__module__, self.__class__.__name__, self.irfname)
         
     
-    def __call__(self, event_type):
+    def __call__(self, event_type, energy=1000):
         """Return a PSF functor of distance for the given event type (e.g., front or back)
-            the energy is specifed by a setEnergy method
+            the energy can be changed by a setEnergy method
         """
-        cdb_psf = self.cdb_psf
+        cdb_psf = self.cdb_psf 
         
         class PSF(object):
-            def __init__(self,  event_type):
+            def __init__(self,  event_type, energy):
                 self.event_type =event_type
-                self.energy=1000.
-            def __repr__(self):
-                return 'PSF for event_type %d, current energy  %.0f MeV' % (self.event_type, self.energy)
-            def setEnergy(self, e):
-                self.energy=e
- 
-            def __call__(self, delta):
+                self.setEnergy(energy)
+                self.parent = cdb_psf # reference for clients that need it, like convolution
+                
+            def setEnergy(self, energy):
+                self.energy=energy
+                self.cpsf  = cdb_psf.get_cpp_psf(energy,event_type) # for access to C++
                 class Band(object):
                     def __init__(self, energy, event_type, **kwargs):
                         self.e, self.ct = energy, event_type
                         self.__dict__.update(kwargs)
                         
-                bpsf = pypsf.BandCALDBPsf(cdb_psf, Band(self.energy, self.event_type),
+                self.bpsf = pypsf.BandCALDBPsf(cdb_psf, Band(self.energy, self.event_type),
                         override_en=False,adjust_mean=False)
-                return bpsf(delta)
+
+            def __repr__(self):
+                return 'PSF for event_type %d, energy  %.0f MeV' % (self.event_type, self.energy)
+ 
+            def __call__(self, delta):
+                return self.bpsf(delta)
+            def integral(self, dmax, dmin=0):
+                return self.bpsf.integral(dmax, dmin)
+            def inverse_integral(self, percent=68,on_axis=False): 
+                return self.parent.inverse_integral(self.energy, self.event_type, percent, on_axis)
                
-        return PSF(event_type)
+        return PSF(event_type, energy)
 
         
 class ExposureCorrection(object):
@@ -149,7 +158,7 @@ class ExposureCorrection(object):
 
 class Configuration(object):
     """
-    Manage an analysis configuration, including the IRF and exposure and data
+    Manage an analysis configuration: the IRF, exposure and data
     """
     defaults =(
         ('irf', None,  'Set to override value in config.txt : may find in custom_irf_dir'),
@@ -160,20 +169,25 @@ class Configuration(object):
         )
 
     @keyword_options.decorate(defaults)
-    def __init__(self, modeldir='.', **kwargs):
+    def __init__(self, configdir='.', **kwargs):
         """ 
         parameters
         ----------
-        modeldir: folder containing configuration definition, file config.txt
+        configdir: folder containing configuration definition, file config.txt
+        It is a Python dictionary, and must have the keys:
+            irf : a text string name for the IRF
+            diffuse: a dict defining the diffuse components
+            datadict: a dict with at least a key 'dataname'
         """
         keyword_options.process(self, kwargs)
-        if not self.quiet:  'Defining configuration in folder: %s', os.path.join(os.getcwd(),modeldir)
+        self.configdir = os.path.join(os.getcwd(),configdir)
+        assert os.path.exists(self.configdir), 'Configuration folder %s not found' % self.configdir
+        if not self.quiet: print 'Defining configuration in folder: %s' % self.configdir
         
         # extract parameters config
-        
-        config = eval(open(os.path.expandvars(modeldir+'/config.txt')).read())
+        config = eval(open(os.path.expandvars(self.configdir+'/config.txt')).read())
         for key in 'extended irf'.split():
-            if self.__dict__[key] is not None: 
+            if self.__dict__.get(key, None) is None: 
                 if not self.quiet:
                     print '%s : override config.txt, "%s" => "%s"' %(key, kwargs.get(key,None), config.get(key,None))
                 self.__dict__[key]=config.get(key, None)
@@ -203,6 +217,28 @@ class Configuration(object):
         self.exposureman = ExposureManager(self.dataset, exposure_correction=exposure_correction)
         
         self.psfman = PSFmanager(self.dataset)
+      
+    def __repr__(self):
+        return '%s.%s: %s' %(self.__module__, self.__class__.__name__, self.configdir)
         
+    def get_bands(self, roi_dir, **kwargs):
+    
+        """ return a list of dataset.ROIband objexts for an ROI
+        """
+        dset = self.dataset
+        dset.load()
+        band_kwargs = dict(emin=dset.emin, emax=dset.emax, minROI=dset.minROI, maxROI=dset.maxROI)
+        band_kwargs.update(kwargs)
+        radius = band_kwargs['minROI'] # fixed radius now
+        bandlist = []
+        for band in dset.dmap:
+            emin,emax, event_type =  band.emin(), band.emax(), band.event_class()&5
+            if (emin + 1) < band_kwargs['emin'] or (emax - 1) >band_kwargs['emax']: continue
+            #print int(emin), event_class
+            energy= np.sqrt(emin*emax)
+            bandlist.append( dataset.ROIBand(band, self.psfman(event_type,energy), self.exposureman(event_type,energy), 
+                roi_dir, radius))
+        return np.asarray(bandlist)
+ 
   
 
