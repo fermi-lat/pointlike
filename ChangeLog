@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Mon Oct 28 20:23:52 PDT 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	configuration.py diffusedict.py sourcelist.py sources.py 
+Added Files:
+	convolution.py extended.py 
+Log Message:
+new convolution
+    *
+------------------------------------------------------------
 User: burnett  Sat Oct 26 08:41:10 PDT 2013
 pointlike/python/uw/like2/plotting
 
