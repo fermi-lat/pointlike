@@ -1,7 +1,7 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffusedict.py,v 1.6 2013/10/24 20:58:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffusedict.py,v 1.7 2013/10/29 03:23:52 burnett Exp $
 
 author:  Toby Burnett
 """
@@ -347,7 +347,7 @@ class CachedMapCube(DiffuseBase):
         """Return a GridGenerator object
          """
                 
-        return convolution.CachedGridGenerator(band) #psf, exposure, skydir,self, quiet=False, **self.kw)
+        return convolution.CachedGridGenerator(band, band.sd, self) #psf, exposure, skydir,self, quiet=False, **self.kw)
 
     # these not implemented, and not needed for this class
     def __call__(self, skydir, energy=None):
@@ -500,18 +500,27 @@ def test(model_dir='.', energy=1333, event_type=0):
     # setup the configuration, and load the diffuse dictioinary
     config = configuration.Configuration(model_dir, quiet=True, postpone=True)
     dd = DiffuseDict(model_dir)
-    
+    class Bandlite(object):
+        def __init__(self, roi_dir, event_type=event_type, energy =energy):
+            self.event_type=event_type
+            self.energy=energy
+            self.sd=roi_dir
+            self.psf=config.psfman(event_type,energy)
+            self.exposure = config.exposureman(event_type,energy)
+            self.radius = 5
+    band = Bandlite(roi_dir=gc)
+   
     for dname, dlist in dd.items():
         dm = dlist[event_type]
         print '\n%-10s: %s' % (dname, dm)
         dm.load() # check load
         print '\tvalue at GC, NP: %.2e, %.2e'%  tuple([dm(dir, energy) for dir in gc, npole])
-        ## check convolution at GC
-        #gg = dlist.grid_generator(gc, event_type, config)
-        #grid = gg(energy)
-        #cvals = grid.cvals
-        #cvmean = cvals.mean()
-        #print '\tconvolved grid: mean=%.1f counts, std/mean=%.3f' % ( cvmean, cvals.std()/cvmean if cvmean>0 else np.nan)
+        # check convolution at GC
+        gg = dlist.grid_generator(band)
+        grid = gg(energy)
+        cvals = grid.cvals
+        cvmean = cvals.mean()
+        print '\tconvolved grid: mean=%.1f counts, std/mean=%.3f' % ( cvmean, cvals.std()/cvmean if cvmean>0 else np.nan)
 
     
 if __name__=='__main__':

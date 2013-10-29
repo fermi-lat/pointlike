@@ -1,7 +1,7 @@
 """
 Extended source code
 Much of this adapts and utilize3s
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.1 2013/10/29 03:23:52 burnett Exp $
 
 """
 import os, copy
@@ -37,6 +37,7 @@ class ExtendedSource(sources.Source):
     def grid_for_band(self, band, pixelsize=0.1):
         """return convolved grid for a Band object, which has the event_type, position, psf, esposure, and energy
         """
+        assert hasattr(band, 'sd'), 'Not a Band-like object? %s' %band
         grid = self.grid_generator( band, pixelsize=pixelsize)
         return grid(band.energy)
 
@@ -98,3 +99,29 @@ class ExtendedCatalog( pointspec_helpers.ExtendedSourceCatalog):
             )
         if extsource.model.name=='LogParabola': extsource.free[-1]=False # E_break not free
         return extsource  
+
+def test(config_dir='.', source_name='LMC', sdir=(78.032,-70.216), event_type=1, energy=133 ):
+    """Test and demonstrate interface
+    """
+    from uw.like2 import configuration
+    import skymaps
+    cf = configuration.Configuration(config_dir, quiet=True, postpone=True)
+    ecat = ExtendedCatalog(cf.extended)
+    lmc =ecat.lookup(source_name)
+    roi_dir = skymaps.SkyDir(*sdir) #ROI that contains LMC
+    class Bandlite(object):
+        def __init__(self, roi_dir=roi_dir, event_type=event_type, energy =energy):
+            self.event_type=event_type
+            self.energy=energy
+            self.sd=roi_dir
+            self.psf=cf.psfman(event_type,energy)
+            self.exposure = cf.exposureman(event_type,energy)
+            self.radius = 5
+    band = Bandlite()
+    print 'Testing source "%s" with band parameters\n' %lmc
+    for item in band.__dict__.items():
+        print '\t%-10s %s' % item
+    grid = lmc.grid_for_band(band, pixelsize=0.2)
+    print 'overlap: %.3f,  exposure_ratio: %.3f' %( grid.overlap(),grid.exposure_ratio())
+    return grid.show() # return a figure showing convolution
+    
