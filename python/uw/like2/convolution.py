@@ -3,7 +3,7 @@ Convolution interface for like2
 Extends classes from uw.utilities 
 
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/convolution.py,v 1.1 2013/10/29 03:23:52 burnett Exp $
 author:  Toby Burnett
 """
 import os, pickle, zipfile 
@@ -68,7 +68,8 @@ class FillMixin(object):
         rad = max(min(r_max,rad),edge+2.5)
         npix = int(round(2*rad/self.pixelsize))
         npix += (npix%2 == 0)
-        self.setup_grid(npix, self.pixelsize)
+        return npix
+        #self.setup_grid(npix, self.pixelsize)
 
 
 class ShowMixin(object):
@@ -110,7 +111,7 @@ class ShowMixin(object):
         from matplotlib.colors import LogNorm
         title = kwargs.pop('title', None)
         if hasattr(self, 'band'):
-            roi_radius = np.degrees(self.band.radius_in_rad)
+            roi_radius = self.band.radius
             roi_dir = self.band.sd
         fig, axx = plt.subplots(1,3, figsize=(10,3), sharex=True, sharey=True)
         plt.subplots_adjust(wspace=0.05)
@@ -158,7 +159,7 @@ class ConvolvableGrid(FillMixin, ShowMixin, utilities_convolution.BackgroundConv
 
 class GridGenerator(object):
     """Base class for creation of local grid for global diffuse models
-    Note that it applies to a particular subtype (front/back)
+    Note that it applies to a particular subtype (front, back ....)
     """
     defaults =(
         ('pixelsize',0.25,'Pixel size for convolution grid'),
@@ -173,16 +174,10 @@ class GridGenerator(object):
         
         parameters
         ----------
-        exposure : Exposure object
-            provides exposure for this subtype
-        psf: pypsf.CALDBpsf object
-            at least a functor; it is passed to the convolution
-        roi_dir : SkyDir object
-            center of the ROI 
-        diffuse_source : DiffuseBase object
-        
-        Note that psf, exposure, and perhaps diffuse_source have been selected for a particular event type
-            
+        band : ROIBand or equivalent
+            Contains position, psf, exposure, selected for a particular event type
+
+        diffuse_source : DiffuseBase object. It must be for the same event type, if relevant
         """
         keyword_options.process(self, kwargs)
         self.roi_dir = band.sd #roi_dir
@@ -190,42 +185,56 @@ class GridGenerator(object):
         self.band=band
         self.diffuse_source = diffuse_source
         self.name = diffuse_source.name
-        self.setup()
         
     def __repr__(self):
         return '%s for %s' % (self.__class__.__name__, self.diffuse_source.__repr__() )
         
-    def setup(self): pass
-    
+    def set_npix(self,  edge=0, r_multi=1.2, r_max=20):
+        """ modify the npix with
+            edge: float --Source size (degrees)
+            r_multi   float multiple of r95 to set max dimension of grid
+            r_max     float an absolute maximum (half)-size of grid (deg)
+            """
+        r95 = self.psf.inverse_integral(95)
+        rad = r_multi*r95 + edge + self.band.radius
+        rad = max(min(r_max,rad),edge+2.5)
+        npix = int(round(2*rad/self.pixelsize))
+        npix += (npix%2 == 0)
+        return npix
+   
     def _get_convolver(self):
-        return ConvolvableGrid(self.band, npix=self.npix, pixelsize=self.pixelsize)
+        """ load a convolution object with npix adjusted for current energy""" 
+        npix = self.set_npix()
+        return ConvolvableGrid(self.band, npix=npix, pixelsize=self.pixelsize)
         
-    def __call__(self, energy):
+    def __call__(self, energy, tol=0.5):
         """ return a convolved grid for a band in an ROI
         parameters
         ----------
         energy : float
             intermediate energy for the band
         """
+        # First set energy in appropriated places (perhaps Band should know how to do this)
         dm = self.diffuse_source
         if hasattr(dm, 'setEnergy'): # case for extended
             dm.setEnergy(energy)
-        exp = self.exposure
-        exp.setEnergy(energy)
+        self.exposure.setEnergy(energy)
         self.psf.setEnergy(energy)
-        # get the convolution class, set npix for it
-        grid = self._get_convolver()
-        grid.set_npix(self.psf)
         
-        grid.bg_fill(exp,dm)
+        # get the convolution class, with perhaps new npix
+        grid = self._get_convolver()
+        
+        grid.bg_fill(self.exposure,dm)
          
         #set the PSF map
         grid.psf_fill(self.psf)
 
-        # finally convolve it
-        print 'convolving...',
-        grid.convolve()
-        print 
+        # finally convolve it unless fairly flat or psf is very local
+        bgmax, bgmin = grid.bg_vals.max(), grid.bg_vals.min()
+        if bgmax==0 or (bgmax-bgmin)/bgmax < tol:
+            grid.cvals = grid.bg_vals
+        else:
+            grid.convolve()
         return grid
 
 
@@ -238,8 +247,8 @@ class ExtendedConvolvableGrid(ConvolvableGrid):
         
         """
 
-        super(ExtendedConvolvableGrid, self).__init__(center, pixelsize=pixelsize, npix=npix)
-        self.band=band
+        super(ExtendedConvolvableGrid, self).__init__(band, pixelsize=pixelsize, npix=npix)
+        #self.band=band
         
     def __repr__(self):
         return '%s.%s: center %s npix %d' %(self.__module__,self.__class__.__name__, self.center, self.npix)
@@ -256,7 +265,7 @@ class ExtendedConvolvableGrid(ConvolvableGrid):
             choice of r_max and r_multi."""
         
         roi_center = self.band.sd
-        roi_radius = np.degrees(self.band.radius_in_rad)
+        roi_radius = self.band.radius
         x,y = self.pix(roi_center)
         dx =np.arange(0,self.npix)-x
         dy =np.arange(0,self.npix)-y
@@ -269,7 +278,7 @@ class ExtendedConvolvableGrid(ConvolvableGrid):
  
 class ExtendedGridGenerator(GridGenerator):
     def __init__(self, band, extended_source, pixelsize=0.1):
-        super(ExtendedGridGenerator, self).__init__(band.psf, band.exposure, extended_source.center, extended_source)
+        super(ExtendedGridGenerator, self).__init__(band,  extended_source)
         self.extended_source=extended_source
         self.pixelsize=pixelsize
         self.band=band
@@ -280,6 +289,7 @@ class ExtendedGridGenerator(GridGenerator):
 class CachedGridGenerator(GridGenerator):
     def __init__(self, band, center, dfun, **kwargs):
         self.center=center
+        self.band = band
         self.psf=band.psf
         self.exposure=band.exposure
         self.__dict__.update(kwargs)
@@ -308,7 +318,7 @@ class CachedGridGenerator(GridGenerator):
 
 
     def __call__(self, energy):
-        grid = ConvolvableGrid(self.center)
+        grid = ConvolvableGrid(self.band)
         grid.cvals = np.zeros((self.npix, self.npix))
         grid.energy=energy
         # find the appropriate cached grid
@@ -321,7 +331,9 @@ class CachedGridGenerator(GridGenerator):
         
         # create a convolvable grid from it, with current PSF
         energy = cd['energy']
-        grid = ConvolvableGrid(cd['center'],   npix=cd['npix'], pixelsize=cd['pixelsize'])
+        if cd['center']!=self.band.sd:
+            print 'WARNING: Logic error? %s not %s' % (cd['center'], self.band.sd)
+        grid = ConvolvableGrid(self.band,   npix=cd['npix'], pixelsize=cd['pixelsize'])
             
         # determine the current exposure for this energy 
         exp = self.exposure
