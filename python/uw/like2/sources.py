@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.26 2013/10/11 16:10:39 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.27 2013/10/14 15:11:42 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -117,7 +117,11 @@ class PointSource(Source):
 class GlobalSource(Source):
     def __init__(self, **kwargs):
         super(GlobalSource, self).__init__(**kwargs)
+        self.dmodel=None
         assert self.skydir is None # used as a flag
+    def grid_for_band(self, band, **kwargs):
+        assert self.dmodel is not None, 'GlobalSource dmodel not set'
+        return self.dmodel.grid_for_band(band, **kwargs)
     
 class GlobalSourceList(list):
     """ a list, indexed by ROI number, of GLobalSource lists
@@ -156,7 +160,6 @@ class ExtendedCatalog( pointspec_helpers.ExtendedSourceCatalog):
                 #print 'converting mappers for model for source %s, model %s' % (source.name, model.name)
                 source.model = eval('Models.%s(p=%s)' % (model.name, list(model.get_all_parameters())))
 
-
     def realname(self, cname):
         """ cname was truncated"""
         if cname in self.names: return cname
@@ -183,10 +186,11 @@ class ExtendedCatalog( pointspec_helpers.ExtendedSourceCatalog):
         if model.mappers[0].__class__.__name__== 'LimitMapper':
             print 'wrong mappers: converting model for source %s, model %s' % (name, model.name)
             model = eval('Models.%s(p=%s)' % (model.name, list(model.get_all_parameters())))
-        extsource= ExtendedSource(name=self.realname(aname), skydir=source.skydir,
+        extsource= ExtendedSource(name=self.realname(aname), 
+            skydir=source.skydir,
             model = model, 
-            spatial_model = source.spatial_model,
-            smodel= model,      # these reference copies needed
+            #spatial_model = source.spatial_model,
+            #smodel= model,      # these reference copies needed
             dmodel= source.spatial_model
             )
         if extsource.model.name=='LogParabola': extsource.free[-1]=False # E_break not free
