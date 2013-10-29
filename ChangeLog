@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Oct 29 07:09:17 PDT 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	convolution.py dataset.py diffusedict.py extended.py 
+Log Message:
+Next convolution update, some test functions
+    *
+------------------------------------------------------------
 User: kerrm  Mon Oct 28 23:47:37 PDT 2013
 pointlike/python/uw/pulsar
 
