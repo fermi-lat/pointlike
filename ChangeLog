@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Nov  7 09:21:28 PST 2013
+pointlike/python/uw/like2
+
+Added Files:
+	exposure.py psf.py response.py test.py 
+Log Message:
+new refactor, involving tests
+    *
+------------------------------------------------------------
 User: burnett  Tue Oct 29 07:09:17 PDT 2013
 pointlike/python/uw/like2
 
