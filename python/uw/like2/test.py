@@ -1,6 +1,6 @@
 """
 All like2 testing code goes here, using unittest
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.1 2013/11/07 17:21:28 burnett Exp $
 """
 import os, sys, unittest
 import numpy as np
@@ -10,7 +10,6 @@ from uw.like2 import ( configuration,
     sources,
     exposure,
     response,
-    convolution,
     extended,
     )
 import skymaps
@@ -108,80 +107,74 @@ class TestDiffuse(TestSetup):
         super(TestDiffuse,self).setUp(**kwargs)
         self.band = Bandlite(self.skydir,self.config)
         
-    def xtest_dict(self):
-        """load dict ok from config.txt"""
-        dd = diffuse.DiffuseDict(self.config_dir)
-        print dd
         
-    def test_isotropic(self):
-        """testing isotropic diffuse"""
-        
-        # load the diffuse model: just spectra from text files
-        ecnames = self.config.event_class_names
-        dl = diffuse.diffuse_factory(['isotrop_4years_P7_V15_repro_v2_source_%s.txt'%s for s in ecnames])
-        for i in range(len(ecnames)):
-            self.assertAlmostEqual(dl[i](self.skydir)/1e-10, 5.5, delta=1.5)
-        
-        # make a source from it
-        model = sources.Constant(1.0);  model.background=True
-        source = sources.GlobalSource(name='isotrop', model=model, skydir=None, dmodel=dl)
-        
-        # combine with a band to have a full spatial model, 
-        # which is only the exposure times the differential flux at the band energy
-        flux = dl[self.band.event_type](self.skydir, self.band.energy)
-        exposure = self.band.exposure(self.skydir)
-        conv = convolution.IsotropicConvolver(source, self.band)
-        ## in flux as move to response tests
-        #ap_average, exposure_ratio =  conv.convolve()
-        #print exposure, flux, flux*exposure, ap_average, '...',
-        #self.assertAlmostEquals( flux*exposure, conv(conv.center), delta=1e-2)
-        #self.assertAlmostEquals(flux*exposure, 2491, delta=1, 
-        #    msg='counts/sr/Mev, as expected from previous version')
+    def test_isotrop(self):
+        """istropic source with constant model"""
+        glsrc = sources.GlobalSource(name='isotrop', skydir=None,
+            model=sources.Constant(1.0),
+            dmodel=diffuse.diffuse_factory(['isotrop_4years_P7_V15_repro_v2_source_%s.txt'%s 
+                                            for s in self.config.event_class_names]))
+        self.resp =resp= response.IsotropicResponse(glsrc, self.band)
+        self.assertAlmostEquals(4766, resp.counts, delta=1) # warning: seems to be 4850 in old version
+        self.assertAlmostEquals(199772, resp(resp.roicenter), delta=10)
 
-    def test_map(self):
-        """test a MapCube"""
-        ecnames = self.config.event_class_names
-        dl = diffuse.diffuse_factory('template_4years_P7_v15_repro_v2.fits')
-        dl.load()
-               
-        # make a source from it
-        model = sources.Constant(1.5);  model.background=True
-        source = sources.GlobalSource(name='ring', model=model, skydir=None, dmodel=dl)
+    def test_cached_galactic(self):
+        """cached galactic source"""
+        glsrc = sources.GlobalSource(name='ring', skydir=None,
+                model=sources.Constant(1.0),
+                dmodel = diffuse.diffuse_factory(dict(filename='template_4years_P7_v15_repro_v2_4bpd.zip'))
+                )
+        self.glsrc=glsrc
+        self.resp =resp= response.CachedDiffuseResponse(glsrc, self.band)
+        self.assertAlmostEquals(747, resp.ap_average, delta=1)
+        self.assertAlmostEquals(1391, resp.counts, delta=1) # expected  1535
+        self.assertAlmostEquals(57312, resp(resp.roicenter), delta = 100)
         
-        # combine with a band to have a full spatial model, 
-        # which is only the exposure times the differential flux at the band energy
+        
+    def test_map_cube(self):
+        """a MapCube source"""
+        glsrc = sources.GlobalSource(name='ring1', skydir=None,
+                model=sources.Constant(1.0),
+                dmodel = diffuse.diffuse_factory(dict(filename='template_4years_P7_v15_repro_v2.fits'))
+                )
+        self.glsrc=glsrc
+        self.resp =resp= response.DiffuseResponse(glsrc, self.band)
+        self.assertAlmostEquals(742, resp.ap_average, delta=1)
+        self.assertAlmostEquals(1381, resp.counts, delta=1) # expected  1535
+        self.assertAlmostEquals(56876, resp(resp.roicenter), delta = 100)
 
-        flux = dl[self.band.event_type](self.skydir, self.band.energy)
-        exposure = self.band.exposure(self.skydir)
-        conv = convolution.MapCubeConvolver(source, self.band)
-        ap_average, exposure_ratio =  conv.convolve()
-        print exposure, flux, flux*exposure, ap_average, '...',
-        self.assertAlmostEqual(746, ap_average, delta=1) 
+    def test_healpix_diffuse(self):
+        """a MapCube source"""
+        glsrc = sources.GlobalSource(name='ring2', skydir=None,
+                model=sources.Constant(1.0),
+                dmodel = diffuse.diffuse_factory(dict(filename='template_4years_P7_v15_repro_v2_nside256_bpd4.fits',
+                    type='Healpix',  ))
+                )
+        self.glsrc=glsrc
+        self.resp =resp= response.DiffuseResponse(glsrc, self.band)
+        self.assertAlmostEquals(722, resp.ap_average, delta=1)
+        self.assertAlmostEquals(1344, resp.counts, delta=1) # expected  1535
+        self.assertAlmostEquals(55354, resp(resp.roicenter), delta = 100)
         
-    def test_cached_diffuse(self):
-        """test a chached diffuse """
-        dl = diffuse.diffuse_factory('template_4years_P7_v15_repro_v2_4bpd.zip')
-        dl.load()
-        #print dl[0].__dict__
-               
-        # make a source from it
-        model = sources.Constant(1.5);  model.background=True
-        source = sources.GlobalSource(name='ring', model=model, skydir=None, dmodel=dl)
-        
-        # combine with a band to have a full spatial model, 
-        # which is only the exposure times the differential flux at the band energy
-        # find the appropriate cached grid
-        conv = convolution.CachedGridConvolver(source, self.band)
-        print conv.cd.keys()
-        ap_average, exposure_ratio = conv.convolve()
-        print ap_average, conv(self.skydir),
-        self.assertAlmostEquals(747, ap_average, delta=1)
+    
+ 
     
 class TestPoint(TestSetup):
     def setUp(self, **kwargs):
         super(TestPoint,self).setUp(**kwargs)
         self.band = Bandlite(self.skydir,self.config)
   
+    
+    def test_point(self):
+        """point source at the center"""
+        ptsrc =sources.PointSource(name='test', skydir=self.skydir, 
+                                           model=sources.PowerLaw(1e-11, 2.0))
+        self.resp =resp = response.PointResponse(ptsrc, self.band)
+        self.assertAlmostEquals(0.65, resp.overlap, delta=0.01)
+        self.assertAlmostEquals(1.0, resp._exposure_ratio)
+        self.assertAlmostEquals(600, resp.counts, delta=1.)
+        self.assertAlmostEquals(75042, resp(resp.source.skydir), delta=10)
+        
     def make_test_source(self, offset, expected_overlap):
         model = sources.PowerLaw(1e-11,2.0)
         source = sources.PointSource(name='test source', 
@@ -208,8 +201,10 @@ class TestExtended(TestSetup):
         if ecat is None:
             ecat = extended.ExtendedCatalog(self.config.extended)
 
-    def extended(self, source_name='W28', roi=None, expect=0, psf_check=True, quiet=True):
+    def extended(self, source_name='W28', roi=None, expect=(0,), psf_check=True, model=None, quiet=True):
         source = ecat.lookup(source_name)
+        if model is not None:
+            source.model = model
         self.assertIsNotNone(source, 'Source %s not in catalog'%source_name)
         b12 = skymaps.Band(12);
         roi_index=roi if roi is not None else b12.index(source.skydir)
@@ -221,48 +216,30 @@ class TestExtended(TestSetup):
             print 'Testing source "%s at %s" with band parameters' % (source, source.skydir)
             for item in band.__dict__.items():
                 print '\t%-10s %s' % item
-        conv = source.convolver(band)
-        ap_average, overlap, psf_overlap = conv.convolve()
+        self.resp = conv = source.response(band)
         if not quiet:
-            print 'overlap: %.3f,  exposure_ratio: %.3f' %( overlap,conv.exposure_ratio())
-            print 'PSF overlap: %.3f'% psf_overlap
-        self.assertAlmostEqual(expect, overlap, delta=1e-2)
+            print 'overlap: %.3f,  exposure_ratio: %.3f' %( conv.overlap,conv.exposure_ratio)
+            print 'PSF overlap: %.3f'% conv.psf_overlap
+        self.assertAlmostEqual(expect[0], conv.overlap, delta=1e-2)
         if psf_check:
-            self.assertAlmostEqual(overlap, psf_overlap, delta=1e-2)
+            self.assertAlmostEqual(conv.overlap, conv.psf_overlap, delta=1e-2)
+        if len(expect)>1:
+            self.assertAlmostEqual(expect[1], conv.counts, delta=1)
         
     def test_W28(self):
-        self.extended('W28', expect=0.590)
+        self.extended('W28', expect=(0.590,3141), 
+            model=sources.LogParabola(3.38e-11, 2.27, 0.127, 1370))
     def test_W30_in840(self):
-        self.extended('W30', 840, expect=0.377)
+        self.extended('W30', 840, expect=(0.377,1038,), 
+            model=sources.LogParabola(1.31e-11,2.15, 0.036, 1430) )
     def test_LMC(self):
-        self.extended('LMC', expect=0.593, psf_check=False)
+        self.extended('LMC', expect=(0.593,), psf_check=False)
 
     def test_Cygnus_Cocoon(self):
-        self.extended('Cygnus Cocoon', expect=0.551, psf_check=False)
+        self.extended('Cygnus Cocoon', expect=(0.551,), psf_check=False)
 
-class TestResponse(TestSetup):
-    def setUp(self):
-        super(TestResponse, self).setUp()
-        self.band = Bandlite(self.skydir, self.config)
 
-    def test_point(self):
-        """point source a the center"""
-        ptsrc =sources.PointSource(name='test', skydir=self.skydir, 
-                                           model=sources.PowerLaw(1e-11, 2.0))
-        self.resp =resp = response.PointResponse(ptsrc, self.band)
-        self.assertAlmostEquals(0.65, resp.overlap, delta=0.01)
-        self.assertAlmostEquals(1.0, resp._exposure_ratio)
-        self.assertAlmostEquals(600, resp.counts, delta=1.)
         
-    def test_isotrop(self):
-        """istropic source with constant model"""
-        glsrc = sources.GlobalSource(name='isotrop', skydir=None,
-            model=sources.Constant(1.0),
-            dmodel=diffuse.diffuse_factory(['isotrop_4years_P7_V15_repro_v2_source_%s.txt'%s 
-                                            for s in self.config.event_class_names]))
-        self.resp =resp= response.IsotropicResponse(glsrc, self.band)
-        self.assertAlmostEquals(4766, resp.counts, delta=1) # warning: seems to be 4850 in old version
-
 def test_suite(t):
     return unittest.TestLoader().loadTestsFromTestCase(t)
     
