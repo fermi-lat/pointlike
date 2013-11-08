@@ -1,13 +1,13 @@
 """
 Extended source code
-Much of this adapts and utilize3s
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.1 2013/10/29 03:23:52 burnett Exp $
+Much of this adapts and utilizes 
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.2 2013/10/29 14:09:17 burnett Exp $
 
 """
 import os, copy
 import numpy as np
-from uw.like import pointspec_helpers, Models
-from . import sources, convolution
+from uw.like import roi_catalogs, Models
+from . import sources, response
 
 
 class ExtendedSource(sources.Source):
@@ -26,23 +26,15 @@ class ExtendedSource(sources.Source):
         if ret.model.name=='LogParabola':
             ret.model.free[-1]=False # make sure Ebreak is frozen
         return ret
- 
-    def grid_generator(self,  band, pixelsize):
-        """convolvable grid for this object
-            psf : PSF (from configuration) for given event_type
-            exposure : Exposure (from configuration) for event type        """
-        grid = convolution.ExtendedGridGenerator(band, self.dmodel, pixelsize=pixelsize)
-        return grid
-                
-    def grid_for_band(self, band, pixelsize=0.1):
-        """return convolved grid for a Band object, which has the event_type, position, psf, esposure, and energy
+         
+    def response(self, band):
+        """ return a Respose object, which, given a band, can create a convolved image
+        and calculate expected counts
         """
-        assert hasattr(band, 'sd'), 'Not a Band-like object? %s' %band
-        grid = self.grid_generator( band, pixelsize=pixelsize)
-        return grid(band.energy)
+        return response.ExtendedResponse(self, band)
 
 
-class ExtendedCatalog( pointspec_helpers.ExtendedSourceCatalog):
+class ExtendedCatalog( roi_catalogs.ExtendedSourceCatalog):
     """ subclass to add this lookup function """
 
     def __init__(self, extended_catalog_name, **kwargs):
@@ -54,7 +46,7 @@ class ExtendedCatalog( pointspec_helpers.ExtendedSourceCatalog):
             raise Exception('extended source folder "%s" not found' % extended_catalog_name)
         print 'Loaded extended catalog %s' % extended_catalog_name
         
-        super(ExtendedCatalog,self).__init__(extended_catalog_name, **kwargs)
+        super(ExtendedCatalog,self).__init__(extended_catalog_name, force_map=True)#**kwargs)
         
         # create list of sources using superclass, for lookup by name
         self.sources = [self.get_sources(self.dirs[i], 0.1)[0] for i in range(len(self.names))]
@@ -99,16 +91,56 @@ class ExtendedCatalog( pointspec_helpers.ExtendedSourceCatalog):
             )
         if extsource.model.name=='LogParabola': extsource.free[-1]=False # E_break not free
         return extsource  
+    def __getitem__(self, name): return self.lookup(name)
 
-def test(config_dir='.', source_name='LMC', sdir=(78.032,-70.216), event_type=1, energy=133 ):
+def make_pictures(config_dir='.', image_folder = 'extended_images'):
+    """ make a folder with images for all extended sources """
+    from uw.like2 import configuration
+    from skymaps import Band
+    if not os.path.exists(image_folder):
+        os.mkdir(image_folder)
+    cf = configuration.Configuration(config_dir, quiet=True, postpone=True)
+    class Bandlite(object):
+        def __init__(self, roi_dir, event_type=1, energy =133.352):
+            self.event_type=event_type
+            self.energy=energy
+            self.sd=roi_dir
+            self.psf=cf.psfman(event_type,energy)
+            self.exposure = cf.exposureman(event_type,energy)
+            self.radius =5
+
+    ecat = ExtendedCatalog(cf.extended)
+    for name in ecat.names:
+        print 'processing %s ...' % name ,
+        source = ecat.lookup(name)
+        b12 = Band(12); roi_index = b12.index(source.skydir); 
+        roi_dir = b12.dir(roi_index)
+        conv = convolution.ExtendedConvolver(source, Bandlite(roi_dir=roi_dir))
+        conv.create_grid()
+        fig = conv.show_source()
+        fig.savefig('%s/%s_map.png' %(image_folder,name.replace(' ','_')))
+        print 
+
+
+
+def test(source_name='LMC', config_dir='.',   event_type=1, energy=133 , roi=None):
     """Test and demonstrate interface
+    
     """
     from uw.like2 import configuration
     import skymaps
+    print '============== testing source %s ===================' % source_name
     cf = configuration.Configuration(config_dir, quiet=True, postpone=True)
     ecat = ExtendedCatalog(cf.extended)
-    lmc =ecat.lookup(source_name)
-    roi_dir = skymaps.SkyDir(*sdir) #ROI that contains LMC
+    source = ecat.lookup(source_name)
+    b12 = skymaps.Band(12);
+    if roi is not None:
+        roi_index=roi
+    else:
+         roi_index = b12.index(source.skydir)
+    roi_dir = b12.dir(roi_index) 
+    difference = np.degrees(roi_dir.difference(source.skydir))
+    print 'Using ROI #%d, distance=%.2f deg' %( roi_index, difference)
     class Bandlite(object):
         def __init__(self, roi_dir=roi_dir, event_type=event_type, energy =energy):
             self.event_type=event_type
@@ -117,11 +149,17 @@ def test(config_dir='.', source_name='LMC', sdir=(78.032,-70.216), event_type=1,
             self.psf=cf.psfman(event_type,energy)
             self.exposure = cf.exposureman(event_type,energy)
             self.radius = 5
+        def set_energy(self, energy): self.psf.setEnergy(energy); self.exposure.setEnergy(energy)
     band = Bandlite()
-    print 'Testing source "%s" with band parameters\n' %lmc
+    print 'Testing source "%s" with band parameters\n' %source
+    #print 'pixelsize=%.2f' % pixelsize
     for item in band.__dict__.items():
         print '\t%-10s %s' % item
-    grid = lmc.grid_for_band(band, pixelsize=0.2)
-    print 'overlap: %.3f,  exposure_ratio: %.3f' %( grid.overlap(),grid.exposure_ratio())
-    return grid.show() # return a figure showing convolution
+    convolver = source.convolver(band)# pixelsize=pixelsize, npix=npix)
+    convolver.create_grid()
+    print convolver
+    convolver.convolve()
+    print 'overlap: %.3f,  exposure_ratio: %.3f' %( convolver.overlap(),convolver.exposure_ratio())
+    print 'PSF overlap: %.3f' % band.psf.cpsf.overlap_circle(band.sd, np.radians(band.radius), source.skydir)
+    return convolver.show_all() #(title='%s: %.0f MeV etype %d' % (source_name, energy, event_type)) # return a figure showing convolution
     
