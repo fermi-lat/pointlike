@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Thu Nov  7 20:30:05 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	configuration.py convolution.py dataset.py diffusedict.py 
+	extended.py response.py sources.py test.py 
+Log Message:
+implement response module
+    *
+------------------------------------------------------------
 User: burnett  Thu Nov  7 09:21:28 PST 2013
 pointlike/python/uw/like2
 
