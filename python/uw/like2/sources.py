@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.28 2013/10/29 03:23:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.29 2013/11/08 04:30:05 burnett Exp $
 
 """
 import os, copy
@@ -15,6 +15,7 @@ def PowerLaw(*pars, **kw):   return Models.PowerLaw(p=pars, **kw)
 def ExpCutoff(*pars, **kw):  return Models.ExpCutoff(p=pars, **kw)
 def PLSuperExpCutoff(*pars, **kw): return Models.PLSuperExpCutoff(p=pars, **kw)
 def Constant(*pars, **kw):   return Models.Constant(p=pars, **kw)
+def FBconstant(f,b, **kw): return Models.FrontBackConstant(b,b, **kw)
     
 def convert_model(oldmodel):
     """ convert the original version to the new one with parameter mappers
@@ -52,6 +53,8 @@ class Source(object):
             # global source: keep original model
             self.free = self.model.free.copy()  # save copy of initial free array to restore
             return
+        elif hasattr(self.skydir, '__iter__'): #allow a tuple of (ra,dec)
+            self.skydir = SkyDir(*self.skydir)
         if 'model' not in kwargs or self.model is None:
             self.model=LogParabola(1e-14, 2.2, 1e-3, 1e3)
             self.model.free[2:]=False
@@ -123,11 +126,21 @@ class GlobalSource(Source):
         super(GlobalSource, self).__init__(**kwargs)
         self.dmodel= kwargs.get('dmodel', None)
         assert self.skydir is None # used as a flag
-    def grid_for_band(self, band, **kwargs):
-        assert self.dmodel is not None, 'GlobalSource dmodel not set'
-        return self.dmodel.grid_for_band(band, **kwargs)
-    def convolver(self, band, **kwargs):
-        return response.IsotropicResponse(self,band) #### FIX to be general
+
+    def response(self, band, **kwargs):
+        """ return a Response class for the band"""
+        assert self.dmodel, 'Need DiffuseBase object to determine response'
+        try:
+            resp_class =  dict(
+                Isotropic =response.IsotropicResponse,
+                MapCube   =response.DiffuseResponse,
+                CachedMapCube=response.CachedDiffuseResponse,
+                Healpix   =response.DiffuseResponse,
+                IsotropicSpectralFunction = response.IsotropicResponse,
+                )[self.dmodel.type]
+        except Exception, msg:
+            raise Exception('Could not find a response class for source %s:"%s"' %(self,msg))
+        return resp_class(self,band,**kwargs) 
     
 
 class GlobalSourceList(list):
