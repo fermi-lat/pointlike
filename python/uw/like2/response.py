@@ -1,7 +1,7 @@
 """
 Classes to compute response from various sources
  
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.3 2013/11/10 04:27:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.4 2013/11/10 20:05:08 burnett Exp $
 author:  Toby Burnett
 """
 import os, pickle
@@ -276,7 +276,7 @@ class ExtendedResponse(DiffuseResponse):
          
         self.cvals = dict()
         self.dm_vals = None
-        self.grid = None
+        self.create_grid()
         self.convolve()
         self.evaluate()
 
@@ -298,8 +298,11 @@ class ExtendedResponse(DiffuseResponse):
     def create_grid(self):
         """create a grid for all convolutions, evaluate exended model on it
         Note that is is normalized so the integral over solid angle should be 1
+        Have the source own the grid; each band has 
         """
-        self.grid = convolution.ConvolvableGrid(self.center, pixelsize=self.pixelsize, npix=self.npix)
+        if not hasattr(self.source, 'grid'):
+            self.source.grid = convolution.ConvolvableGrid(self.center, pixelsize=self.pixelsize, npix=self.npix)
+        self.grid =self.source.grid
         self.dm_vals = self.grid.fill(self.source.dmodel)
         self.dm_vals/= (self.dm_vals.sum() * np.radians(self.pixelsize)**2) 
 
@@ -322,7 +325,7 @@ class ExtendedResponse(DiffuseResponse):
         return the tuple ap_average, overlap, psf_overlap
         """
         if energy is not None: self.band.set_energy(energy)
-        if self.grid is None: self.create_grid()
+        #if self.grid is None: self.create_grid()
         
         # chedk the PSF size: if less than grid spacing, do not convolve, keep original grid
         #if self.band.psf.inverse_integral(68)< self.pixelsize:
@@ -335,11 +338,11 @@ class ExtendedResponse(DiffuseResponse):
         self.grid.bg_vals = exp_grid * self.dm_vals
         self.grid.convolve()  
         
-        # save a copy for this energy
-        self.cvals[self.energy] = self.grid.cvals.copy()
+        # save a copy of cvals for this band
+        self.cvals = self.grid.cvals.copy()
         
         # calculations needed which depend on this convolution
-        cvals = self.cvals[self.energy]
+        cvals = self.cvals
         inside = self.overlap_mask() #self.grid.dists< np.radians(self.band.radius)
         self.ap_average = cvals[inside].mean()
         self.ap_center = self.grid(self.center, cvals)
@@ -350,7 +353,7 @@ class ExtendedResponse(DiffuseResponse):
         self.exposure_ratio = self.exposure_at_center / self.band.exposure(self.roicenter)
         self.factor = self.overlap * self.exposure_ratio 
         if self.band.has_pixels:
-            self.pixel_values = self.grid(self.band.wsdl, self.grid.cvals)\
+            self.pixel_values = self.grid(self.band.wsdl, self.cvals)\
                 /self.exposure_at_center * self.band.pixel_area
    
     def evaluate(self):

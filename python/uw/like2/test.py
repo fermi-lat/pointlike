@@ -1,6 +1,6 @@
 """
 All like2 testing code goes here, using unittest
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.3 2013/11/10 04:27:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.4 2013/11/10 20:06:01 burnett Exp $
 """
 import os, sys, unittest
 import numpy as np
@@ -177,9 +177,9 @@ class TestDiffuse(TestSetup):
             model = sources.FBconstant(2.0, 1.0),
             dmodel=diffuse.diffuse_factory('limb_PowerLaw(1e-11, 4.0)'))
         self.resp_back = source.response(self.back_band)
-        self.assertAlmostEquals(1311, self.resp_back.counts, delta=1)
+        self.assertAlmostEquals(1272, self.resp_back.counts, delta=1)
         self.resp_front = source.response(self.front_band)
-        self.assertAlmostEquals(1116, self.resp_front.counts, delta=1)
+        self.assertAlmostEquals(1068, self.resp_front.counts, delta=1)
     
 class TestPoint(TestSetup):
     def setUp(self, **kwargs):
