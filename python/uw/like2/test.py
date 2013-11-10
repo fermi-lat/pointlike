@@ -1,6 +1,6 @@
 """
 All like2 testing code goes here, using unittest
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.2 2013/11/08 04:30:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.3 2013/11/10 04:27:35 burnett Exp $
 """
 import os, sys, unittest
 import numpy as np
@@ -14,37 +14,13 @@ from uw.like2 import ( configuration,
     )
 import skymaps
 from skymaps import SkyDir, Band
+from . configuration import Bandlite # for testing.
+
 # to define the configuration
 config = None
 ecat = None
 bands=None
 
-class Bandlite(object):
-    """ behaves like ROIBand, but does not require data
-    Default initialization is for back, first energy bin above 100 MeV
-    """
-    def __init__(self, roi_dir, config,     
-            radius=5, event_type=1, emin=10**2, emax=10**2.25):
-        self.skydir=roi_dir
-        self.radius =5
-        self.event_type = event_type
-        self.emin, self.emax = emin, emax
-        self.energy = energy =  np.sqrt(emin*emax)
-        self.psf=config.psfman(event_type, energy)
-        self.exposure = config.exposureman(event_type, energy)
-        self.has_pixels=False
-        
-    def set_energy(self, energy):
-        self.psf.setEnergy(energy)
-        self.exposure.setEnergy(energy)
-        self.energy=energy
-    @property
-    def radius_in_rad(self): return np.radians(self.radius)
-    @property #alias, for compatibilty, but deprecated
-    def sd(self): return self.skydir
-    @property
-    def solid_angle(self):
-        return np.pi*self.radius_in_rad**2 
 
 def setup_config_dir(skymodelname='P202/uw29'):
     return os.path.join(os.path.expandvars('$HOME/skymodels'),skymodelname)
@@ -138,8 +114,8 @@ class TestDiffuse(TestSetup):
             dmodel=diffuse.diffuse_factory(['isotrop_4years_P7_V15_repro_v2_source_%s.txt'%s 
                                             for s in self.config.event_class_names]))
         self.resp =resp=source.response(self.back_band)
-        self.assertAlmostEquals(4766, resp.counts, delta=1) # warning: seems to be 4850 in old version
-        self.assertAlmostEquals(199772, resp(resp.roicenter), delta=10)
+        self.assertAlmostEquals(4626, resp.counts, delta=1) # warning: seems to be 4850 in old version
+        self.assertAlmostEquals(193864, resp(resp.roicenter), delta=10)
 
     def test_cached_galactic(self):
         """cached galactic source"""
@@ -245,6 +221,7 @@ class TestExtended(TestSetup):
         if ecat is None:
             ecat = extended.ExtendedCatalog(self.config.extended)
 
+
     def extended(self, source_name='W28', roi=None, expect=(0,), psf_check=True, model=None, quiet=True):
         source = ecat.lookup(source_name)
         if model is not None:
@@ -314,9 +291,63 @@ class TestData(TestSetup):
             resp(SkyDir(resp.band.wsdl[0].dir())) * resp.band.pixel_area, delta=0.001)
         if resp.band.has_pixels:
             self.assertAlmostEquals(0.0495, resp.pix_counts[0], delta=0.0005)
+            # gradient: second is exactly zero before?
+            weights = np.ones(len(resp.pixel_values))
+            self.assertListEqual([-14.9, -18.8,  55.], list(resp.grad(weights, 0).round(1)))
+            self.assertListEqual([-0.2, -0.2,  0.7], list(resp.grad(weights, 1).round(1)))
     
+    def test_ring(self, band_index=1):
+        #galactic diffuse (with correction)
+        source = sources.GlobalSource(name='ring', skydir=None,
+                model=sources.Constant(1.0),
+                dmodel = diffuse.diffuse_factory(dict(
+                    filename='template_4years_P7_v15_repro_v2_4bpd.zip',
+                    correction=os.path.expandvars('$HOME/skymodels/P202/uw29/galactic_correction_uw26a_v2.csv'), 
+                    systematic=0.0316),
+                )
+            )
+        self.resp = resp= source.response(self.bands[band_index])
+        self.assertAlmostEquals(60530, resp.counts, delta=20)
+        if resp.band.has_pixels:
+            self.assertAlmostEquals(658, resp.pix_counts[0], delta=1)
+            weights = np.ones(len(resp.pixel_values))
+            self.assertListEqual([-83], list(resp.grad(weights,1).round(0)))
+            self.assertAlmostEqual(-139710, resp.grad(weights,0)[0], delta=400)
+
+    def test_isotrop(self, band_index=1):
+        source = sources.GlobalSource(name='isotrop', skydir=None,
+                model=sources.Constant(1.95),
+                dmodel = diffuse.diffuse_factory(('isotrop_4years_P7_V15_repro_v2_source_front.txt',
+                        'isotrop_4years_P7_V15_repro_v2_source_back.txt'),
+                )
+            )
+        
+        self.resp = resp= source.response(self.bands[band_index])
+        self.assertAlmostEquals(9215, resp.counts, delta=20)
+        if resp.band.has_pixels:
+            self.assertAlmostEquals(143, resp.pix_counts[0], delta=1)
+            weights = np.ones(len(resp.pixel_values))
+            self.assertListEqual([18], list(resp.grad(weights,1).round(0)))
+            self.assertAlmostEqual(-21202, resp.grad(weights,0)[0], delta=10)
+            
+    def test_W28(self, band_index=1):
+        global ecat
+        if ecat is None:
+            ecat = extended.ExtendedCatalog(self.config.extended)
+        source = ecat.lookup('W28')
+        source.model=sources.LogParabola(3.38e-11, 2.27, 0.127, 1370)
+        source.model.free[3]=False
+        self.resp = resp= source.response(self.bands[band_index])
+        self.assertAlmostEquals(3141, resp.counts, delta=20)
+        if resp.band.has_pixels:
+            self.assertAlmostEquals(14.2, resp.pix_counts[0], delta=1)
+            weights = np.ones(len(resp.pixel_values))
+            self.assertListEqual([-342,  -344,  802], list(resp.grad(weights,1).round(0)))
+            self.assertListEqual([-7658,-7715,17987], list(resp.grad(weights,0).round(0)))
 
 
+
+        
         
 class TestLikelihood(TestSetup):
     pass

@@ -1,7 +1,7 @@
 """
 Implements exposure calcuations
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/exposure.py,v 1.1 2013/11/07 17:21:28 burnett Exp $
 """
 import os
 import numpy as np
@@ -80,7 +80,14 @@ class ExposureManager(object):
             def model_integral(self, skydir, func,  emin, emax):
                 """ return the integral of func(e)*exp(e) from emin to emax
                 """
-                return ExposureIntegral(self, skydir,  emin, emax)(func)
+                #return ExposureIntegral(self, skydir,  emin, emax)(func)
+                return self.integrator(skydir,  emin, emax)(func)
+                
+            def integrator(self, skydir, emin, emax):
+                """ return an integrator that will  evaluate func(e)*exp(e) from emin to emax
+                call with func, which may return a scalar or a 1-d array
+                """
+                return ExposureIntegral(self, skydir,  emin, emax)
                 
         return Exposure(self, event_type, energy, self.correction[event_type](energy))
   
