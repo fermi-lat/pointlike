@@ -1,7 +1,7 @@
 """
 Manage the analysis configuration
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.4 2013/11/08 04:30:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.5 2013/11/10 04:27:28 burnett Exp $
 
 """
 import os, sys, types
@@ -116,7 +116,8 @@ class ROIBand(object):
         self.emax         = cband.emax()
         self.energy       = 0
         self.set_energy(np.sqrt(self.emin * self.emax))
-        self.exposureint  = self.exposure(self.sd, self.energy)*(self.emax-self.emin) ### FIXME
+        self.integrator   = self.exposure.integrator(self.skydir, self.emin, self.emax)
+        #self.exposureint  = self.exposure(self.sd, self.energy)*(self.emax-self.emin) ### FIXME
         ## data stuff
         self.wsdl = skymaps.WeightedSkyDirList(cband,skydir,np.radians(self.radius),False)
         self.pix_counts   = np.asarray([x.weight() for x in self.wsdl]) if len(self.wsdl)>0 else []
@@ -142,36 +143,35 @@ class ROIBand(object):
         self.energy=energy
         self.psf.setEnergy(energy)
         self.exposure.setEnergy(energy)
+    def solid_angle(self):
+        return np.pi*self.radius_in_rad**2 
+
  
-class BandData(object):
-    """Data access class
-    Selects data from a skymaps::Band C++ object within a cone
+class Bandlite(object):
+    """ behaves like ROIBand, but does not require data
+    Default initialization is for back, first energy bin above 100 MeV
     """
+    def __init__(self, roi_dir, config,     
+            radius=5, event_type=1, emin=10**2, emax=10**2.25):
+        self.skydir=roi_dir
+        self.radius =5
+        self.event_type = event_type
+        self.emin, self.emax = emin, emax
+        self.energy = energy =  np.sqrt(emin*emax)
+        self.psf=config.psfman(event_type, energy)
+        self.exposure = config.exposureman(event_type, energy)
+        self.has_pixels=False
+        self.integrator   = self.exposure.integrator(self.skydir, self.emin, self.emax)
 
-    def __init__(self, cband,  skydir, radius):
-        """ cband : SWOG-wrapped skymaps::Band C++ object
-        S
-        """
-        self.skydir       = skydir
-        self.radius       = radius
-        self.event_type   = cband.event_class()
-        self.emin         = cband.emin()
-        self.emax         = cband.emax()
-        self.pixel_area   = cband.pixelArea()
-        self.pixel_nside  = cband.nside()
-        self.energy       = np.sqrt(self.emin * self.emax)
-        self.wsdl         = skymaps.WeightedSkyDirList(cband,skydir,self.radius_in_rad,False)
-        self.pix_counts   = np.asarray([x.weight() for x in self.wsdl]) if len(self.wsdl)>0 else []
-        self.npix         = self.wsdl.total_pix()
-        self.has_pixels   = self.wsdl.counts()>0
-        self.solid_angle  = self.npix*self.pixel_area #ragged edge
-    
-    @property
-    def radius_in_rad(self):
-        return np.radians(self.radius) 
         
-    def __repr__(self):
-        return '%s %.0f-%.0f MeV event_type %d, %d photons' % (self.__module, self.__class__.__name__, 
-            elf.emin, self.emax, self.event_type, np.sum(self.pix_counts))
-
-
+    def set_energy(self, energy):
+        self.psf.setEnergy(energy)
+        self.exposure.setEnergy(energy)
+        self.energy=energy
+    @property
+    def radius_in_rad(self): return np.radians(self.radius)
+    @property #alias, for compatibilty, but deprecated
+    def sd(self): return self.skydir
+    @property
+    def solid_angle(self):
+        return np.pi*self.radius_in_rad**2 

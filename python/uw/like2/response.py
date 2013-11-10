@@ -1,7 +1,7 @@
 """
 Classes to compute response from various sources
  
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.2 2013/11/08 04:30:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.3 2013/11/10 04:27:32 burnett Exp $
 author:  Toby Burnett
 """
 import os, pickle
@@ -13,7 +13,8 @@ from . import convolution
 class ResponseException(Exception): pass
 
 class Response(object):
-    """ base class for classes that manage the response of a source, in total counts or count density for any position within the ROI    
+    """ base class for classes that manage the response of a source, in total counts 
+    or count density for any position within the ROI.   
     """
     def __init__(self, source, band, **kwargs):
         """
@@ -37,9 +38,12 @@ class Response(object):
         return '%s.%s: ROI at %s source "%s" at %s' %( self.__module__,self.__class__.__name__,
             self.roicenter, self.source.name, self.source.skydir)
 
-    def exposure_integral(self, skydir=None):
-        if skydir is None: skydir = self.roicenter
-        return self.band.exposure.model_integral(skydir, self.source.model, self.band.emin, self.band.emax)
+    def exposure_integral(self):
+        """Integral of the exposure times the flux at the given position"""
+        #if skydir is None: skydir = self.roicenter
+        #return self.band.exposure.model_integral(skydir, self.source.model, self.band.emin, self.band.emax)
+        return self.band.integrator(self.source.model)
+    
     def __call__(self, skydir):
         """return the counts/sr for the source at the position"""
         raise NotImplemented
@@ -73,64 +77,41 @@ class PointResponse(Response):
         """ update values of counts, pix_counts used for likelihood calculation, derivatives
         Called when source parameters change
         """
-        expected = self.exposure_integral(self.source.skydir)
-        self.counts =  expected * self.overlap
+        self.expected = self.band.integrator(self.spectral_model)
+        self.counts =  self.expected * self.overlap
         if self.band.has_pixels:
-            self.pix_counts = self.pixel_values* expected
+            self.pix_counts = self.pixel_values * self.expected
         
+    def grad(self, weights, exposure_factor=1): 
+        """ contribution to the overall gradient
+        weights : arrary of float
+            
+            weights = self.data / self.model_pixels
+
+        """
+        model = self.spectral_model
+        if np.sum(model.free)==0 : return []
+        # Calculate the gradient of a spectral model (wrt its parameters) integrated over the exposure.
+        g = self.band.integrator( model.gradient)[model.free] #* self.exposure_ratio
+        apterm = exposure_factor* self.overlap
+        pixterm = (weights*self.pixel_values).sum() if self.band.has_pixels else 0
+        return g * (apterm - pixterm)
+
     def __call__(self, skydir):
-        return self.band.psf(skydir.difference(self.source.skydir)) \
-            * self.exposure_integral(self.source.skydir)
+        return self.band.psf(skydir.difference(self.source.skydir))  * self.expected
      
 diffuse_grid_defaults = (
         ('pixelsize', 0.25, 'Size of pixels to use for convolution grid'),
         ('npix',      61,   'Number of pixels (must be an odd number'),
+        ('quiet',     False, ''),
         )
         
 extended_grid_defaults = (
         ('pixelsize', 0.1, 'Size of pixels to use for convolution grid'),
         ('npix',      201,   'Number of pixels (must be an odd number'),
+        ('quiet',     False, ''),
         )
 
-class IsotropicResponse(Response):
-
-    defaults = diffuse_grid_defaults
-    @keyword_options.decorate(defaults)    
-    def __init__(self, source, band, **kwargs):
-        keyword_options.process(self, kwargs)
-
-        super(IsotropicResponse, self).__init__(source, band, **kwargs)
-        
-    def initialize(self):
-
-        #set up the diffuse model
-        self.dmodel = self.source.dmodel[self.band.event_type]
-        self.dmodel.setEnergy(self.band.energy)
-        
-        # create a temporary grid for evaluating counts integral over ROI, individual pixel predictions
-        grid = self.grid= convolution.ConvolvableGrid(center=self.roicenter, 
-                npix=self.npix, pixelsize=self.pixelsize)
-        self.flux = self.dmodel(self.roicenter)
-        self.center_exposure = self.band.exposure(self.roicenter) # flux at roicenter
-        grid.bg_fill(self.band.exposure, None, cache=1)
-        inside = grid.dists< np.radians(self.band.radius)
-        self.mean_exposure = grid.bg_vals[inside].mean()
-        self.factor = self.mean_exposure/self.center_exposure * self.flux * self.band.solid_angle
-        self.evaluate()
-        
-    def evaluate(self):
-        self.counts = self.exposure_integral() * self.factor
-    
-    def __call__(self, skydir):
-        return self.exposure_integral(skydir) * self.flux
-
-    def evaluate_at(self, skydirs):
-        return super(IsotropicConvolver, self).__call__(skydirs, self.bg_vals)
-    def convolve(self, energy=None):
-        if energy is not None: self.band.set_energy(energy)
-        self.bg_fill(self.band.exposure, None, cache=self.dmodel(self.center))
-        inside = self.dists< np.radians(self.band.radius)
-        self.ap_average = self.bg_vals[inside].mean()
     
 class DiffuseResponse(Response):
         
@@ -138,45 +119,70 @@ class DiffuseResponse(Response):
     @keyword_options.decorate(defaults)
     def __init__(self, source, band, **kwargs):
         keyword_options.process(self, kwargs)
+        self.setup=False
         super(DiffuseResponse, self).__init__(source, band, **kwargs)
         
     def initialize(self):
-        #set up the spatial model NOTE THIS NEEDS TO BE SAVED
+        if self.setup: return
+        self.setup=True
+        #set up the spatial model 
         self.dmodel = self.source.dmodel[self.band.event_type]
         self.dmodel.load()
         self.energy = self.band.energy
-        self.setup_grid()
-        self.evaluate()
-        
-    def setup_grid(self):
         self.dmodel.setEnergy(self.band.energy)
         
-        # create a temporary grid for evaluating counts integral over ROI, individual pixel predictions
-        grid = self.grid= convolution.ConvolvableGrid(center=self.roicenter, 
-                npix=self.npix, pixelsize=self.pixelsize)
-                
-        grid.psf_fill(self.band.psf)
-        grid.bg_fill(self.band.exposure, self.dmodel)
-        grid.convolve()
+        self.create_grid()
+        grid = self.grid
         inside = grid.dists< self.band.radius_in_rad
         self.ap_average = grid.cvals[inside].mean()
         self.delta_e = self.band.emax - self.band.emin
         self.factor = self.ap_average * self.band.solid_angle * self.delta_e
+        if self.band.has_pixels:
+            self.pixel_values = grid(self.band.wsdl, grid.cvals) * self.band.pixel_area * self.delta_e
 
+        self.evaluate()
+        
+    def create_grid(self):
+        # create a grid for evaluating counts integral over ROI, individual pixel predictions
+        grid = self.grid= convolution.ConvolvableGrid(center=self.roicenter, 
+                npix=self.npix, pixelsize=self.pixelsize)
+        # this may be overridden
+        self.fill_grid()
 
+            
+    def fill_grid(self):
+        # fill and convolve the grid
+        self.grid.psf_fill(self.band.psf)
+        self.grid.bg_fill(self.band.exposure, self.dmodel)
+        self.grid.convolve()
+        
     def evaluate(self):
-        self.counts = self.source.model(self.band.energy) * self.factor
+        norm = self.source.model(self.band.energy)
+        self.counts = norm * self.factor
+        if self.band.has_pixels:
+            self.pix_counts = self.pixel_values * norm
+
+    def grad(self, weights, exposure_factor=1): 
+        """ contribution to the overall gradient
+        weights : arrary of float
+            weights = self.data / self.model_pixels
+        """
+        model = self.spectral_model
+        if np.sum(model.free)==0 : 
+            return []
+        pixterm = ( self.pixel_values * weights ).sum() if self.band.has_pixels else 0
+        return (self.factor*exposure_factor - pixterm) * model.gradient(self.energy)[model.free] 
         
     def __call__(self, skydir):
         return self.grid(skydir, self.grid.cvals)[0] * self.delta_e
 
         
 class CachedDiffuseResponse(DiffuseResponse):
-
         
-    def setup_grid(self):
+    def create_grid(self):
         """ set up the grid from the cached files """
         
+        import pandas as pd
         roi_index = skymaps.Band(12).index(self.roicenter)
         dfun = dmodel = self.dmodel
         try:
@@ -225,14 +231,33 @@ class CachedDiffuseResponse(DiffuseResponse):
         
         # finally do the convolution on the product of exposure and diffuse map, which is passed in 
         grid.bg_fill(self.band.exposure, None, cache=vals)
-        grid.convolve()
-        inside = grid.dists< np.radians(self.band.radius)
-        self.ap_average = grid.cvals[inside].mean()
-        self.ap_center = grid(grid.center, grid.cvals)
         
-        # a few things needed by evaluate
-        self.delta_e = self.band.emax - self.band.emin
-        self.factor = self.ap_average * self.band.solid_angle * self.delta_e
+        grid.convolve()
+        #inside = grid.dists< np.radians(self.band.radius)
+        #self.ap_average = grid.cvals[inside].mean()
+        #self.ap_center = grid(grid.center, grid.cvals)
+        #
+        ## a few things needed by evaluate
+        #self.delta_e = self.band.emax - self.band.emin
+        #self.factor = self.ap_average * self.band.solid_angle * self.delta_e
+        #if self.band.has_pixels:
+        #    self.pixel_values = grid(self.band.wsdl, grid.cvals) * self.band.pixel_area * self.delta_e
+
+class IsotropicResponse(DiffuseResponse):
+
+    defaults = diffuse_grid_defaults
+    @keyword_options.decorate(defaults)    
+    def __init__(self, source, band, **kwargs):
+        keyword_options.process(self, kwargs)
+        super(IsotropicResponse, self).__init__(source, band, **kwargs)
+        
+    def fill_grid(self):
+        # fill the grid for evaluating counts integral over ROI, individual pixel predictions
+        grid = self.grid
+        #grid.bg_fill(self.band.exposure, None, cache=self.dmodel(band.skydir))
+        grid.cvals = grid.fill(self.band.exposure) * self.dmodel(self.band.skydir)
+        #grid.cvals = grid.bg_vals
+        
 
 
 class ExtendedResponse(DiffuseResponse):
@@ -280,7 +305,8 @@ class ExtendedResponse(DiffuseResponse):
 
     def overlap_mask(self):
         """ 
-        return a npix x npix array of bools for the part of the grid inside the ROI circle
+        return a npix x npix array of bools for the part of the grid, which is centered on the source,
+        which is inside the ROI circle
         """
         x,y = self.grid.pix(self.roicenter)
         npix = self.grid.npix
@@ -304,7 +330,7 @@ class ExtendedResponse(DiffuseResponse):
         # Fill the psf in the grid
         self.grid.psf_fill(self.band.psf)
         
-        # now look at values, decide if want to convolve
+        # now look at values, decide if want to convolve    
         exp_grid = self.grid.fill(self.band.exposure) # this is expensive, 1.6 s for npix=201
         self.grid.bg_vals = exp_grid * self.dm_vals
         self.grid.convolve()  
@@ -320,12 +346,34 @@ class ExtendedResponse(DiffuseResponse):
         self.overlap = cvals[inside].sum() / cvals.sum()
         pvals = self.grid.psf_vals
         self.psf_overlap = pvals[inside].sum() / pvals.sum() 
-        self.exposure_ratio = self.band.exposure(self.source.skydir)/self.band.exposure(self.roicenter)
+        self.exposure_at_center = self.band.exposure(self.source.skydir)
+        self.exposure_ratio = self.exposure_at_center / self.band.exposure(self.roicenter)
         self.factor = self.overlap * self.exposure_ratio 
+        if self.band.has_pixels:
+            self.pixel_values = self.grid(self.band.wsdl, self.grid.cvals)\
+                /self.exposure_at_center * self.band.pixel_area
    
     def evaluate(self):
-        self.counts = self.exposure_integral() * self.factor
+        total_counts = self.exposure_integral()
+        self.counts = total_counts * self.factor
+        if self.band.has_pixels:
+            self.pix_counts = self.pixel_values * total_counts
         
+    def grad(self, weights, exposure_factor=1): 
+        """ contribution to the overall gradient
+        weights : arrary of float
+            weights = self.data / self.model_pixels
+        """
+        model = self.spectral_model
+        if np.sum(model.free)==0 : 
+            return []
+        #pixterm = ( self.pixel_values * weights ).sum() * self.exposure_at_center if self.band.has_pixels else 0
+        #return (self.factor*exposure_factor - pixterm) * model.gradient(self.energy)[model.free] 
+        g = self.band.integrator( model.gradient)[model.free] #* self.exposure_ratio
+        apterm = exposure_factor* self.overlap
+        pixterm = (weights*self.pixel_values).sum() if self.band.has_pixels else 0
+        return g * (apterm - pixterm)
+
     def __call__(self, skydir, force=False):
         """ return value of perhaps convolved grid for the position
         skydir : SkyDir object | [SkyDir]

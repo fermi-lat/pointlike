@@ -1,7 +1,7 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffusedict.py,v 1.9 2013/11/08 04:30:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffusedict.py,v 1.10 2013/11/10 04:27:30 burnett Exp $
 
 author:  Toby Burnett
 """
@@ -172,6 +172,8 @@ class CachedMapCube(DiffuseBase):
         assert len(self.files)==1728, 'wrong number of files: expected 1728, found %d' % len(files)
         self.opener = z.open
 
+    def __repr__(self):
+        return '%s.%s: %s' % (self.__module__, self.__class__.__name__, self.filename)
     #def grid_generator(self, band): #skydir, psf, exposure):
         #"""Return a GridGenerator object
         # """
