@@ -1,9 +1,7 @@
 """
 Classes to compute response from various sources
  
-
-
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.1 2013/11/07 17:21:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.2 2013/11/08 04:30:05 burnett Exp $
 author:  Toby Burnett
 """
 import os, pickle
@@ -15,21 +13,24 @@ from . import convolution
 class ResponseException(Exception): pass
 
 class Response(object):
+    """ base class for classes that manage the response of a source, in total counts or count density for any position within the ROI    
+    """
     def __init__(self, source, band, **kwargs):
         """
-        source : PointSource object
-            skydir 
-            model
+        source : Source object, inherit from sources.Source
+            skydir : position of source, or None if global
+            model : associated specral model
         band : ROIband object
             psf, exposure functions for the event type
-            sd, radius : location, size of ROI
+            skydir, radius : location, size of ROI
             emin, emax : energy range
+            ----- pixelization, data ---
             wsdl : list of pixel positions, perhaps None
             pixel_size : pixel solid angle
         """
         self.band=band
         self.source=source
-        self.roicenter = self.band.sd
+        self.roicenter = self.band.skydir
         self.initialize()
         
     def __repr__(self):
@@ -41,7 +42,10 @@ class Response(object):
         return self.band.exposure.model_integral(skydir, self.source.model, self.band.emin, self.band.emax)
     def __call__(self, skydir):
         """return the counts/sr for the source at the position"""
-        raise NotImplemented()
+        raise NotImplemented
+    @property
+    def spectral_model(self):
+        return self.source.model
 
 class PointResponse(Response):
     """Manage predictions of the response of a point source
@@ -58,19 +62,22 @@ class PointResponse(Response):
         """
         self.overlap = self.band.psf.overlap(self.roicenter, self.band.radius, self.source.skydir)
         self._exposure_ratio = self.band.exposure(self.source.skydir) / self.band.exposure(self.roicenter)
+        if self.band.has_pixels:
+            wsdl = self.band.wsdl
+            rvals  = np.empty(len(wsdl),dtype=float)
+            self.band.psf.cpsf.wsdl_val(rvals, self.source.skydir, wsdl) #from C++: sets rvals
+            self.pixel_values = rvals * self.band.pixel_area
         self.evaluate()
         
     def evaluate(self): #, weights=None, exposure_factor=1):
-        """ update values of counts, pixel_values, used for likelihood calculation, derivatives
+        """ update values of counts, pix_counts used for likelihood calculation, derivatives
         Called when source parameters change
         """
-        self.counts = self.exposure_integral(self.source.skydir) * self.overlap
+        expected = self.exposure_integral(self.source.skydir)
+        self.counts =  expected * self.overlap
+        if self.band.has_pixels:
+            self.pix_counts = self.pixel_values* expected
         
-    #def evaluate_at(self, skydirs):
-    #    """ set relative exposure values from a list of skydirs
-    #    """
-    #    return np.array([self.band.psf(s.difference(self.source.skydir))[0] for s in skydirs]) #* exp
-    #    
     def __call__(self, skydir):
         return self.band.psf(skydir.difference(self.source.skydir)) \
             * self.exposure_integral(self.source.skydir)
@@ -84,6 +91,7 @@ extended_grid_defaults = (
         ('pixelsize', 0.1, 'Size of pixels to use for convolution grid'),
         ('npix',      201,   'Number of pixels (must be an odd number'),
         )
+
 class IsotropicResponse(Response):
 
     defaults = diffuse_grid_defaults
@@ -225,6 +233,7 @@ class CachedDiffuseResponse(DiffuseResponse):
         # a few things needed by evaluate
         self.delta_e = self.band.emax - self.band.emin
         self.factor = self.ap_average * self.band.solid_angle * self.delta_e
+
 
 class ExtendedResponse(DiffuseResponse):
     defaults = extended_grid_defaults

@@ -1,20 +1,19 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffusedict.py,v 1.8 2013/10/29 14:09:17 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffusedict.py,v 1.9 2013/11/08 04:30:05 burnett Exp $
 
 author:  Toby Burnett
 """
 import os, types, pyfits, collections, zipfile, pickle
 import numpy as np
-import pandas as pd 
-from .pub import healpix_map #make this local in future
-from uw.utilities import keyword_options, convolution
-from . import convolution
-
+#import pandas as pd 
 import skymaps #from Science Tools: for SkyDir, DiffuseFunction, IsotropicSpectrum
-from uw.like import  Models
-def PowerLaw(*pars, **kw):   return Models.PowerLaw(p=pars, **kw)
+
+from .pub import healpix_map #make this local in future
+from . import (response, sources    )
+
+def PowerLaw(*pars, **kw):   return sources.PowerLaw(*pars, **kw)
 
 class DiffuseException(Exception):pass
 
@@ -22,14 +21,27 @@ class DiffuseException(Exception):pass
 class DiffuseBase(object):
     """Base class for global diffuse sources
     expect subclasses to implement SkySpectrum interface
+    
+    This uses a modified singleton pattern: 
+    any subclass will have only one instance associated with the constructor argument, usually a filename.
+    see http://stackoverflow.com/questions/42558/python-and-the-singleton-pattern
     """
+    _instance_dict = dict()
+    def __new__(cls, filename, **kwargs):
+        if filename not in cls._instance_dict:
+            cls._instance_dict[filename] = super(DiffuseBase, cls).__new__(
+                                cls, filename, **kwargs)
+            #print 'diffuse: loaded ', filename
+        return cls._instance_dict[filename]
+    
     def setupfile(self, filename):
         """ filename: string 
         """
-        self.filename = os.path.expandvars(filename)
-        if not os.path.exists(self.filename):
-            self.filename = os.path.expandvars(os.path.join('$FERMI','diffuse',self.filename))
-        assert os.path.exists(self.filename), 'DiffuseFunction file "%s" not found' % self.filename
+        self.filename=filename
+        self.fullfilename = os.path.expandvars(filename)
+        if not os.path.exists(self.fullfilename):
+            self.fullfilename = os.path.expandvars(os.path.join('$FERMI','diffuse',self.filename))
+        assert os.path.exists(self.fullfilename), 'DiffuseFunction file "%s" not found' % self.fullfilename
         self.loaded =  False
 
     def load(self): 
@@ -41,11 +53,6 @@ class DiffuseBase(object):
         if hasattr(self, 'kw') and self.kw is not None:
             t+= '\n'+ '\n'.join(['\t    %-10s: %s' % item for item in self.kw.items() if item[0]!='filename'])
         return t
-    
-    def grid_generator(self, band):# skydir, psf, exposure):
-        """Return a GridGenerator object appropriste for this model, and the psf, exposre
-         """
-        return convolution.GridGenerator(band, self) #psf, exposure, skydir, self)
         
     @property
     def name(self):
@@ -79,11 +86,12 @@ class MapCube(DiffuseBase, skymaps.DiffuseFunction):
     def __init__(self, filename):
         """ filename: string or dict
         """
-        self.setupfile( filename)
+        if not self.__dict__.get('loaded', False): #allows for invokation of singleton
+            self.setupfile( filename)
             
     def load(self, interpolate=False):
         if  self.loaded: return
-        self.loaded=True
+        self.loaded=True
         if not interpolate: 
             print 'loading diffuse file %s: warning, not interpolating' %self.filename
         super(MapCube,self).__init__(self.filename, 1000., interpolate)
@@ -164,11 +172,11 @@ class CachedMapCube(DiffuseBase):
         assert len(self.files)==1728, 'wrong number of files: expected 1728, found %d' % len(files)
         self.opener = z.open
 
-    def grid_generator(self, band): #skydir, psf, exposure):
-        """Return a GridGenerator object
-         """
-                
-        return convolution.CachedGridGenerator(band, band.sd, self) #psf, exposure, skydir,self, quiet=False, **self.kw)
+    #def grid_generator(self, band): #skydir, psf, exposure):
+        #"""Return a GridGenerator object
+        # """
+        #        
+        #return convolution.CachedGridGenerator(band, band.sd, self) #psf, exposure, skydir,self, quiet=False, **self.kw)
 
     # these not implemented, and not needed for this class
     def __call__(self, skydir, energy=None):
@@ -177,7 +185,7 @@ class CachedMapCube(DiffuseBase):
         pass
 
 class DiffuseList(list):
-    """A list of  subtype, or front/back list of DiffuseBase objects If only one, applied to all
+    """A list of  event type list of DiffuseBase objects. If only one, applied to all
     """
     def __init__(self, inlist):
         super(DiffuseList,self).__init__(inlist)
@@ -191,29 +199,35 @@ class DiffuseList(list):
     def load(self):
         for x in self:
             x.load()
-            
-    def grid_generator(self, band): #skydir, event_type, configuration):
-        """return a grid generator for the given skydir and event type index. Gets psf and exposure from config.
-        """
-        return self[band.event_type].grid_generator(band) #skydir, configuration.psfman(event_type), configuration.exposureman(event_type))
+    @property
+    def type(self):
+        """return the diffuse class name implementing the global source"""
+        return self[0].__class__.__name__
                 
-    def grid_for_band(self, band):
-        """return convolved grid for an Band object, which has the event_type, position, psf, esposure, and energy
-        """
-        self.load()
-        grid = self[band.event_type].grid_generator(band) #band.sd, band.psf, band.exposure)
-        return grid(band.energy)
-    
 def diffuse_factory(value):
     """
     Create a DiffuseList object from a text specification
+    value : [string | list | dict ]
+        if string: a single filename to apply to all event types
+        if list: a set of filesnames corresponding to the list of event types
+        if dict: must have keyword "filename", may have "type" to specify the type, 
+            which must be the name of a class in this module inheriting from DiffuseBase
+    
+    If the keyword "type" is not specified, filenames are examined for extensions:
+        txt : Isotropic
+        zip : CachedMapCube
+        fit for fits : MapCube
+    A special case is ')' : IsotropicSpectralFunction
     """
     isdict = issubclass(value.__class__, dict)
     if  not hasattr(value, '__iter__') or isdict:
         value  = (value,)
     
     if isdict:
-        files = DiffuseList([val['filename'] for val in value])
+        try:
+            files = DiffuseList([val['filename'] for val in value])
+        except KeyError:
+            raise DiffuseException('expected "filename" key in dict')
         type = value[0].pop('type', None)
         kws = value
     else:
@@ -227,7 +241,7 @@ def diffuse_factory(value):
         try:
             dfun = eval(type)
         except Exception, msg:
-            raise Exception('Diffuse type specification "%s" failed: %s'%(type, msg))
+            raise DiffuseException('Diffuse type specification "%s" failed: %s'%(type, msg))
     else:
         # inferr class to use from file type
         try:
@@ -237,7 +251,7 @@ def diffuse_factory(value):
                 ')': IsotropicSpectralFunction, 
                 }[ext if ext[-1]!=')' else ')']
         except Exception, msg:
-            raise Exception('File type, "%s", for diffuse not recognized, from "%s":%s (message :%s)'\
+            raise DiffuseException('File type, "%s", for diffuse not recognized, from "%s":%s (message :%s)'\
                 % (ext, files, ext, msg))
     
     if dfun==IsotropicSpectralFunction:
@@ -245,7 +259,8 @@ def diffuse_factory(value):
     else:
         full_files = map( lambda f: os.path.expandvars(os.path.join('$FERMI','diffuse',f)), files)
         check = map(lambda f: os.path.exists(f) or f[-1]==')', full_files) 
-        assert all(check), 'not all diffuse files %s found' % full_files
+        if not all(check):
+            raise DiffuseException('not all diffuse files %s found' % full_files)
         diffuse_source= map(dfun, full_files) 
     # if a dict, add keywords to the objects
     if kws is not None:
@@ -309,43 +324,3 @@ class DiffuseDict(collections.OrderedDict):
             s.dmodel = self[name]
             global_sources.append(s)
         return global_sources
-
-def test(model_dir='.', energy=1333, event_type=0):
-    """ Test creation of diffuse list from config file 
-    """
-    from skymaps import SkyDir
-    from uw.like2 import configuration
-    gc, npole = SkyDir(0,0, SkyDir.GALACTIC), SkyDir(0,90, SkyDir.GALACTIC)
-    
-    # setup the configuration, and load the diffuse dictioinary
-    config = configuration.Configuration(model_dir, quiet=True, postpone=True)
-    dd = DiffuseDict(model_dir)
-    class Bandlite(object):
-        def __init__(self, roi_dir, event_type=event_type, energy =energy):
-            self.event_type=event_type
-            self.energy=energy
-            self.sd=roi_dir
-            self.psf=config.psfman(event_type,energy)
-            self.exposure = config.exposureman(event_type,energy)
-            self.radius = 5
-        def set_energy(self, energy):
-            self.psf.setEnergy(energy)
-            self.exposure.setEnergy(energy)
-            
-    band = Bandlite(roi_dir=gc)
-   
-    for dname, dlist in dd.items():
-        dm = dlist[event_type]
-        print '\n%-10s: %s' % (dname, dm)
-        dm.load() # check load
-        print '\tvalue at GC, NP: %.2e, %.2e'%  tuple([dm(dir, energy) for dir in gc, npole])
-        # check convolution at GC
-        gg = dlist.grid_generator(band)
-        grid = gg(energy)
-        cvals = grid.cvals
-        cvmean = cvals.mean()
-        print '\tconvolved grid: mean=%.1f counts, std/mean=%.3f' % ( cvmean, cvals.std()/cvmean if cvmean>0 else np.nan)
-
-    
-if __name__=='__main__':
-    test()
