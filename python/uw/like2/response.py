@@ -1,7 +1,7 @@
 """
 Classes to compute response from various sources
  
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.4 2013/11/10 20:05:08 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.5 2013/11/10 20:28:59 burnett Exp $
 author:  Toby Burnett
 """
 import os, pickle
@@ -11,6 +11,18 @@ from uw.utilities import keyword_options
 from . import convolution
 
 class ResponseException(Exception): pass
+
+diffuse_grid_defaults = (
+        ('pixelsize', 0.25, 'Size of pixels to use for convolution grid'),
+        ('npix',      61,   'Number of pixels (must be an odd number'),
+        ('quiet',     False, ''),
+        )
+        
+extended_grid_defaults = [
+        ['pixelsize', 0.2, 'Size of pixels to use for convolution grid'],
+        ('size',      14,  'Size of grid; npix set to size/pixelsize'),
+        ('quiet',     False, ''),
+        ]
 
 class Response(object):
     """ base class for classes that manage the response of a source, in total counts 
@@ -32,7 +44,11 @@ class Response(object):
         self.band=band
         self.source=source
         self.roicenter = self.band.skydir
+        self.quiet = kwargs.pop('quiet', True)
         self.initialize()
+        
+    def update(self):
+        self.evaluate()
         
     def __repr__(self):
         return '%s.%s: ROI at %s source "%s" at %s' %( self.__module__,self.__class__.__name__,
@@ -100,17 +116,6 @@ class PointResponse(Response):
     def __call__(self, skydir):
         return self.band.psf(skydir.difference(self.source.skydir))  * self.expected
      
-diffuse_grid_defaults = (
-        ('pixelsize', 0.25, 'Size of pixels to use for convolution grid'),
-        ('npix',      61,   'Number of pixels (must be an odd number'),
-        ('quiet',     False, ''),
-        )
-        
-extended_grid_defaults = (
-        ('pixelsize', 0.1, 'Size of pixels to use for convolution grid'),
-        ('npix',      201,   'Number of pixels (must be an odd number'),
-        ('quiet',     False, ''),
-        )
 
     
 class DiffuseResponse(Response):
@@ -120,6 +125,7 @@ class DiffuseResponse(Response):
     def __init__(self, source, band, **kwargs):
         keyword_options.process(self, kwargs)
         self.setup=False
+        self.overlap=1
         super(DiffuseResponse, self).__init__(source, band, **kwargs)
         
     def initialize(self):
@@ -175,6 +181,40 @@ class DiffuseResponse(Response):
         
     def __call__(self, skydir):
         return self.grid(skydir, self.grid.cvals)[0] * self.delta_e
+    
+    def _keyword_check(self, roi_index):
+        # check for extra keywords from diffuse spec.
+        import pandas as pd
+        if hasattr(self.source,'corr'): 
+            self.corr = self.source.corr
+            return
+        dfun = self.dmodel
+        
+        if hasattr(dfun, 'kw') and len(dfun.kw.keys())>1: 
+            # Manage keywords found in the 
+            if dfun.kw['correction'] is not None:
+                if not self.quiet:print '\t%s loading corrections for source %s from %s.kw:' \
+                    % (self.__class__.__name__, self.source.name,  dfun.__class__.__name__)
+                corr_file = dfun.kw['correction']
+                if not os.path.exists(corr_file):
+                    corr_file = os.path.expandvars(os.path.join('$FERMI','diffuse', corr_file))
+                try:
+                    df = pd.read_csv(corr_file, index_col=0) 
+                except Exception, msg:
+                    raise Exception('Error loading correction file %s: %s'% (corr_file,msg))
+                self.corr = df.ix['HP12_%04d'%roi_index].values
+                if not self.quiet:print '\tcorrection file: "%s"' % corr_file
+                if not self.quiet:print '\tcorrections: %s' %self.corr.round(3)
+            else: self.corr=None
+            self.systematic = dfun.kw.get('systematic', None)
+            if self.systematic is not None:
+                if not self.quiet:print '\tsystematic: %.3f' % self.systematic
+        else: 
+            self.corr =self.systematic = None
+            
+        #cache this result in the diffuse object
+        self.source.corr = self.corr 
+        self.source.systematic = self.systematic
 
         
 class CachedDiffuseResponse(DiffuseResponse):
@@ -182,28 +222,16 @@ class CachedDiffuseResponse(DiffuseResponse):
     def create_grid(self):
         """ set up the grid from the cached files """
         
-        import pandas as pd
         roi_index = skymaps.Band(12).index(self.roicenter)
-        dfun = dmodel = self.dmodel
+        dmodel = self.dmodel
         try:
             self.filename = dmodel.files[roi_index]
             self.cached_diffuse = pickle.load(dmodel.opener(self.filename))
         except Exception, msg:
             raise ResponseException( 'Diffuse cache file # %d not found:%s' %(roi_index,msg))
         self.emins = [cd['emin'] for cd in self.cached_diffuse]
-        if hasattr(dfun, 'kw') and len(dfun.kw.keys())>1: # check for extra keywords from diffuse spec.
-            # Manage keywords found in the 
-            if dfun.kw['correction'] is not None:
-                if not self.quiet:print '\t%s loading corrections from %s.kw:' % (self.__class__.__name__, dfun.__class__.__name__)
-                df = pd.read_csv(dfun.kw['correction'], index_col=0) 
-                self.corr = df.ix['HP12_%04d'%roi_index].values
-                if not self.quiet:print '\tcorrection file: "%s"' % dfun.kw['correction']
-                if not self.quiet:print '\tcorrections: %s' %self.corr.round(3)
-            else: self.corr=None
-            self.systematic = dfun.kw.get('systematic', None)
-            if self.systematic is not None:
-                if not self.quiet:print '\tsystematic: %.3f' % self.systematic
-
+        
+        self._keyword_check(roi_index)
         
         # find the appropriate cached grid
         energy = self.band.energy
@@ -233,15 +261,6 @@ class CachedDiffuseResponse(DiffuseResponse):
         grid.bg_fill(self.band.exposure, None, cache=vals)
         
         grid.convolve()
-        #inside = grid.dists< np.radians(self.band.radius)
-        #self.ap_average = grid.cvals[inside].mean()
-        #self.ap_center = grid(grid.center, grid.cvals)
-        #
-        ## a few things needed by evaluate
-        #self.delta_e = self.band.emax - self.band.emin
-        #self.factor = self.ap_average * self.band.solid_angle * self.delta_e
-        #if self.band.has_pixels:
-        #    self.pixel_values = grid(self.band.wsdl, grid.cvals) * self.band.pixel_area * self.delta_e
 
 class IsotropicResponse(DiffuseResponse):
 
@@ -259,14 +278,17 @@ class IsotropicResponse(DiffuseResponse):
         #grid.cvals = grid.bg_vals
         
 
-
 class ExtendedResponse(DiffuseResponse):
-    defaults = extended_grid_defaults
     
-    @keyword_options.decorate(defaults)
     def __init__(self, source, band, **kwargs):
-        keyword_options.process(self, kwargs)
-        super(ExtendedResponse, self).__init__(source, band, **kwargs)
+        defaults = dict( [x[:2] for x in extended_grid_defaults])
+        defaults.update(kwargs)
+        if 'npix' not in defaults:
+            npix = defaults.pop('size')/defaults['pixelsize']
+            defaults['npix'] = int(npix) | 1 # make odd
+            #print 'setting npix', defaults
+        self.quiet=defaults.get('quiet', True)
+        super(ExtendedResponse, self).__init__(source, band, **defaults)
       
     def initialize(self):
         #set up the spatial model NOTE THIS NEEDS TO BE SAVED
