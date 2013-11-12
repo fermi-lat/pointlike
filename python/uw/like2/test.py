@@ -1,6 +1,6 @@
 """
 All like2 testing code goes here, using unittest
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.5 2013/11/10 20:28:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.6 2013/11/12 00:39:05 burnett Exp $
 """
 import os, sys, unittest
 import numpy as np
@@ -10,18 +10,86 @@ from skymaps import SkyDir, Band
 from uw.like2 import ( configuration, 
     diffusedict as diffuse,
     sources,
+    bands,
     exposure,
     extended,
     roisetup,
     dataset,
     bandlike,
     )
-from uw.like2.configuration import Bandlite # for testing.
 
-# to define the configuration
+ 
+class Bandlite(object):
+    """ behaves like ROIBand, but does not require data
+    Default initialization is for back, first energy bin above 100 MeV
+    """
+    def __init__(self, roi_dir, config,  roi_index=None  , 
+            radius=5, event_type=1, emin=10**2, emax=10**2.25):
+        self.skydir=roi_dir if roi_dir is not None else  skymaps.Band(12).dir(roi_index)
+        self.radius =5
+        self.event_type = event_type
+        self.emin, self.emax = emin, emax
+        self.energy = energy =  np.sqrt(emin*emax)
+        self.psf=config.psfman(event_type, energy)
+        self.exposure = config.exposureman(event_type, energy)
+        self.has_pixels=False
+        self.integrator = self.exposure.integrator(self.skydir, self.emin, self.emax)
+
+    def __repr__(self):
+        return '%s.%s: %s' \
+            % (self.__module__,self.__class__.__name__, self.title)
+    def set_energy(self, energy):
+        self.psf.setEnergy(energy)
+        self.exposure.setEnergy(energy)
+        self.energy=energy
+    def load_data(self, cband):
+        self.wsdl = skymaps.WeightedSkyDirList(cband, skydir, self.radius_in_rad, False)
+        self.has_pixels = len(self.wsdl)>0
+    @property
+    def radius_in_rad(self): return np.radians(self.radius)
+    @property #alias, for compatibilty, but deprecated
+    def sd(self): return self.skydir
+    @property
+    def solid_angle(self):
+        return np.pi*self.radius_in_rad**2 
+    @property
+    def title(self):
+        return '%.0f-%.0f MeV event_type %d' % (self.emin, self.emax, self.event_type)
+
+class BandSet(list):
+    """ manage the list of bands
+    """
+    def __init__(self, config, roi_index, max=None):
+        """fill the list at the nside=12 indes"""
+        self.config = config
+        energybins = np.logspace(2,5.5,15) # default 100 MeV to 3.16 GeV
+        self.roi_index = roi_index
+        for emin, emax  in zip(energybins[:-1], energybins[1:]):
+            for et in range(2):
+                self.append(Bandlite(None, config, roi_index, event_type=et, emin=emin,emax=emax))
+    
+    def __repr__(self):
+        return '%s.%s : %d bands %d-%d MeV for ROI %d' % (
+            self.__module__,self.__class__.__name__,
+            len(self), self[0].emin, self[-1].emax, self.roi_index)
+    
+    def load_data(self):
+        """load the current dataset, have the respective bands fill pixels from it"""
+        dset = self.config.dataset
+        dset.load()
+        for cband in dset.dmap:
+            emin, emax, event_type =  cband.emin(), cband.emax(), cband.event_class()
+            print emin, emax, event_type
+
+
+        Band
+# globals
 config = None
 ecat = None
-bands=None
+roi_index = 840
+roi_sources = None
+roi_bands = None
+blike = None
 
 def setup_config_dir(skymodelname='P202/uw29'):
     return os.path.join(os.path.expandvars('$HOME/skymodels'),skymodelname)
@@ -37,7 +105,7 @@ class TestSetup(unittest.TestCase):
         self.skydir = Band(12).dir(2)#SkyDir()
         
 class TestConfig(TestSetup):
-    """Test aspects of the configuration
+    """Test aspects of the configuration    
     """
     
     def test_psf(self):
@@ -72,15 +140,15 @@ class TestConfig(TestSetup):
         
     def test_bandlite(self):
         """ check bandlite"""
-        band = Bandlite(self.skydir, self.config)
+        band = bands.Bandlite(self.skydir, self.config)
         self.assertDictContainsSubset(dict(radius=5, event_type=1), band.__dict__, str(band.__dict__))
 
 class TestDiffuse(TestSetup):
     
     def setUp(self, **kwargs):
         super(TestDiffuse,self).setUp(**kwargs)
-        self.back_band = Bandlite(self.skydir,self.config, event_type=1)
-        self.front_band = Bandlite(self.skydir,self.config, event_type=0)
+        self.back_band = bands.Bandlite(self.skydir,self.config, event_type=1)
+        self.front_band = bands.Bandlite(self.skydir,self.config, event_type=0)
         
     def test_factory(self):
         """test the factory setup """
@@ -185,7 +253,7 @@ class TestDiffuse(TestSetup):
 class TestPoint(TestSetup):
     def setUp(self, **kwargs):
         super(TestPoint,self).setUp(**kwargs)
-        self.back_band = Bandlite(self.skydir,self.config)
+        self.back_band = bands.Bandlite(self.skydir,self.config)
   
     
     def test_point(self):
@@ -232,19 +300,19 @@ class TestExtended(TestSetup):
         roi_index=roi if roi is not None else b12.index(source.skydir)
         roi_dir = b12.dir(roi_index) 
         difference = np.degrees(roi_dir.difference(source.skydir))
-        band = Bandlite(roi_dir, self.config)
+        band1 = bands.Bandlite(roi_dir, self.config)
         if not quiet:
             print 'Using ROI #%d, distance=%.2f deg' %( roi_index, difference)
             print 'Testing source "%s at %s" with band parameters' % (source, source.skydir)
-            for item in band.__dict__.items():
+            for item in band1.__dict__.items():
                 print '\t%-10s %s' % item
-        self.resp = conv = source.response(band)
+        self.resp = conv = source.response(band1)
         if not quiet:
             print 'overlap: %.3f,  exposure_ratio: %.3f' %( conv.overlap,conv.exposure_ratio)
             print 'PSF overlap: %.3f'% conv.psf_overlap
-        self.assertAlmostEqual(expect[0], conv.overlap, delta=1e-2)
         if psf_check:
             self.assertAlmostEqual(conv.overlap, conv.psf_overlap, delta=1e-2)
+        self.assertAlmostEqual(expect[0], conv.overlap, delta=1e-2)
         if len(expect)>1:
             self.assertAlmostEqual(expect[1], conv.counts, delta=10)
         
@@ -262,42 +330,68 @@ class TestExtended(TestSetup):
 
 class TestLoadROI(TestSetup):
 
-    def setUp(self, roi_index=840):
+    def setUp(self):
         super(TestLoadROI, self).setUp()
-        global ecat
+        global ecat, roi_sources
         if ecat is None:
             ecat = extended.ExtendedCatalog(self.config.extended, quiet=True)
-        self.roi_sources = roisetup.ROImodel(config, ecat=ecat, roi_index=roi_index) 
+        if roi_sources is None:
+            roi_sources = roisetup.ROImodel(config, ecat=ecat, roi_index=roi_index)
 
-    def test_loaded(self, roi_index=840):
-        roi = self.roi_sources
+    def test_loaded(self):
+        roi = roi_sources
         self.assertEquals(13, len(roi.local_sources))
-        self.assertEquals(4, len(roi.global_sources))
         self.assertEquals(65, len(roi.neighbor_sources))
+        self.assertEquals( 4, len(roi.global_sources))
         
+class TestBands(TestSetup):
+    def setUp(self):
+        super(TestBands, self).setUp()
+        global roi_bands
+        if roi_bands is None:
+            roi_bands = bands.BandSet(config, roi_index)
+            
+    def test_load_data(self):
+        print roi_bands
+        roi_bands.load_data()
+        print roi_bands
+        self.assertEquals( 88484, roi_bands.pixels)
+
         
-class TestLikelihood(TestLoadROI):
-    def setUp(self, roi_index=840):
+class TestLikelihood(TestBands):
+    def setUp(self):
         super(TestLikelihood, self).setUp()
-        self.front_band = Bandlite(None, self.config, event_type=0, roi_index=roi_index)
-        self.back_band = Bandlite(None, self.config, event_type=1, roi_index=roi_index)
-        self.all_bands = configuration.BandSet(self.config, roi_index)
-        print 'loaded', self.all_bands
-        sources, freelist = self.roi_sources.prep_for_likelihood()
-        self.bl = bandlike.factory(self.all_bands[:], sources, freelist)
+        global roi_sources, blike
+        if roi_sources is None:
+            roi_sources = roisetup.ROImodel(config, ecat=ecat, roi_index=roi_index)
+        if blike is None:
+            sources, freelist = roi_sources.prep_for_likelihood()
+            blike = bandlike.factory(roi_bands, sources, freelist)
+        self.bl = blike
         
     def test_unweight(self):
         self.assertAlmostEquals(0.092, self.bl[0].make_unweight().round(3))
         self.assertAlmostEquals(0.033, self.bl[1].make_unweight().round(3))
+        
 
-    
+test_cases = (TestConfig, 
+    TestPoint, TestDiffuse, 
+   # TestExtended, 
+    TestLoadROI, TestBands, TestLikelihood,)
+
+def load_tests(test_classes, loader=unittest.TestLoader(),  pattern=None):
+    suite = unittest.TestSuite()
+    for test_class in test_classes:
+        tests = loader.loadTestsFromTestCase(test_class)
+        suite.addTests(tests)
+    return suite    
         
 def test_suite(t):
     return unittest.TestLoader().loadTestsFromTestCase(t)
     
 def run(t='all'): 
     if t=='all':
-        suite = unittest.TestLoader().loadTestsFromModule(sys.modules[__name__])
+        suite = load_tests(test_cases)
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(t)
     print 'running %d tests' % suite.countTestCases()

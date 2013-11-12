@@ -1,7 +1,7 @@
 """
 Manage the analysis configuration
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.6 2013/11/10 20:05:08 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.7 2013/11/12 00:39:04 burnett Exp $
 
 """
 import os, sys, types
@@ -112,118 +112,54 @@ class Configuration(object):
                 roi_dir, radius))
         return np.asarray(bandlist)
  
-class ROIBand(object):
-    """Data access class
-        indludes the appropriate PSF and exposure functions for this energy band
-    """
-
-    def __init__(self, cband, psf, exposure,  skydir, radius):
-        """ cband : SWIG-wrapped skymaps::Band C++ object
-        """
-    
-        self.psf, self.exposure, self.skydir = psf, exposure, skydir
-        self.radius       = radius
-        self.event_type   = cband.event_class()
-        self.emin         = cband.emin()
-        self.emax         = cband.emax()
-        self.energy       = 0
-        self.set_energy(np.sqrt(self.emin * self.emax))
-        self.integrator   = self.exposure.integrator(self.skydir, self.emin, self.emax)
-        #self.exposureint  = self.exposure(self.sd, self.energy)*(self.emax-self.emin) ### FIXME
-        ## data stuff
-        self.wsdl = skymaps.WeightedSkyDirList(cband, skydir, self.radius_in_rad,False)
-        self.pix_counts   = np.asarray([x.weight() for x in self.wsdl]) if len(self.wsdl)>0 else []
-        self.npix         = self.wsdl.total_pix()
-        self.has_pixels   = self.wsdl.counts()>0
-        self.pixel_area   = cband.pixelArea()
-        self.solid_angle  = self.npix*self.pixel_area #ragged edge
-    @property
-    def radius_in_rad(self):
-        return np.radians(self.radius) 
-    @property
-    def sd(self): # deprecated
-        return self.skydir
-        
-    def __repr__(self):
-        return '%s.%s: %s, %d photons' \
-            % (self.__module__,self.__class__.__name__, self.title, np.sum(self.pix_counts))
-        
-    def set_energy(self, energy):
-        """set the energy for the psf and exposure objects
-        """
-        if energy==self.energy: return
-        self.energy=energy
-        self.psf.setEnergy(energy)
-        self.exposure.setEnergy(energy)
-    def solid_angle(self):
-        return np.pi*self.radius_in_rad**2 
-    @property
-    def title(self):
-        return '%.0f-%.0f MeV event_type %d' % (self.emin, self.emax, self.event_type)
-
+#class ROIBand(object):
+#    """Data access class
+#        indludes the appropriate PSF and exposure functions for this energy band
+#    """
+#
+#    def __init__(self, cband, psf, exposure,  skydir, radius):
+#        """ cband : SWIG-wrapped skymaps::Band C++ object
+#        """
+#    
+#        self.psf, self.exposure, self.skydir = psf, exposure, skydir
+#        self.radius       = radius
+#        self.event_type   = cband.event_class()
+#        self.emin         = cband.emin()
+#        self.emax         = cband.emax()
+#        self.energy       = 0
+#        self.set_energy(np.sqrt(self.emin * self.emax))
+#        self.integrator   = self.exposure.integrator(self.skydir, self.emin, self.emax)
+#        #self.exposureint  = self.exposure(self.sd, self.energy)*(self.emax-self.emin) ### FIXME
+#        ## data stuff
+#        self.wsdl = skymaps.WeightedSkyDirList(cband, skydir, self.radius_in_rad,False)
+#        self.pix_counts   = np.asarray([x.weight() for x in self.wsdl]) if len(self.wsdl)>0 else []
+#        self.npix         = self.wsdl.total_pix()
+#        self.has_pixels   = self.wsdl.counts()>0
+#        self.pixel_area   = cband.pixelArea()
+#        self.solid_angle  = self.npix*self.pixel_area #ragged edge
+#    @property
+#    def radius_in_rad(self):
+#        return np.radians(self.radius) 
+#    @property
+#    def sd(self): # deprecated
+#        return self.skydir
+#        
+#    def __repr__(self):
+#        return '%s.%s: %s, %d photons' \
+#            % (self.__module__,self.__class__.__name__, self.title, np.sum(self.pix_counts))
+#        
+#    def set_energy(self, energy):
+#        """set the energy for the psf and exposure objects
+#        """
+#        if energy==self.energy: return
+#        self.energy=energy
+#        self.psf.setEnergy(energy)
+#        self.exposure.setEnergy(energy)
+#    def solid_angle(self):
+#        return np.pi*self.radius_in_rad**2 
+#    @property
+#    def title(self):
+#        return '%.0f-%.0f MeV event_type %d' % (self.emin, self.emax, self.event_type)
+#
 
  
-class Bandlite(object):
-    """ behaves like ROIBand, but does not require data
-    Default initialization is for back, first energy bin above 100 MeV
-    """
-    def __init__(self, roi_dir, config,  roi_index=None  , 
-            radius=5, event_type=1, emin=10**2, emax=10**2.25):
-        self.skydir=roi_dir if roi_dir is not None else  skymaps.Band(12).dir(roi_index)
-        self.radius =5
-        self.event_type = event_type
-        self.emin, self.emax = emin, emax
-        self.energy = energy =  np.sqrt(emin*emax)
-        self.psf=config.psfman(event_type, energy)
-        self.exposure = config.exposureman(event_type, energy)
-        self.has_pixels=False
-        self.integrator = self.exposure.integrator(self.skydir, self.emin, self.emax)
-
-    def __repr__(self):
-        return '%s.%s: %s' \
-            % (self.__module__,self.__class__.__name__, self.title)
-    def set_energy(self, energy):
-        self.psf.setEnergy(energy)
-        self.exposure.setEnergy(energy)
-        self.energy=energy
-    def load_data(self, cband):
-        self.wsdl = skymaps.WeightedSkyDirList(cband, skydir, self.radius_in_rad, False)
-        self.has_pixels = len(self.wsdl)>0
-    @property
-    def radius_in_rad(self): return np.radians(self.radius)
-    @property #alias, for compatibilty, but deprecated
-    def sd(self): return self.skydir
-    @property
-    def solid_angle(self):
-        return np.pi*self.radius_in_rad**2 
-    @property
-    def title(self):
-        return '%.0f-%.0f MeV event_type %d' % (self.emin, self.emax, self.event_type)
-
-class BandSet(list):
-    """ manage the list of bands
-    """
-    def __init__(self, config, roi_index, max=None):
-        """fill the list at the nside=12 indes"""
-        self.config = config
-        energybins = np.logspace(2,5.5,15) # default 100 MeV to 3.16 GeV
-        self.roi_index = roi_index
-        for emin, emax  in zip(energybins[:-1], energybins[1:]):
-            for et in range(2):
-                self.append(Bandlite(None, config, roi_index, event_type=et, emin=emin,emax=emax))
-    
-    def __repr__(self):
-        return '%s.%s : %d bands %d-%d MeV for ROI %d' % (
-            self.__module__,self.__class__.__name__,
-            len(self), self[0].emin, self[-1].emax, self.roi_index)
-    
-    def load_data(self):
-        """load the current dataset, have the respective bands fill pixels from it"""
-        dset = self.config.dataset
-        dset.load()
-        for cband in dset.dmap:
-            emin, emax, event_type =  cband.emin(), cband.emax(), cband.event_class()
-            print emin, emax, event_type
-
-
-        
