@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Tue Nov 12 07:28:58 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	configuration.py roisetup.py test.py 
+Added Files:
+	bands.py 
+Log Message:
+move band stuff
+    *
+------------------------------------------------------------
 User: burnett  Mon Nov 11 16:39:05 PST 2013
 pointlike/python/uw/like2
 
