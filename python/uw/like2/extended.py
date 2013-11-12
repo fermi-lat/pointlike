@@ -1,7 +1,7 @@
 """
 Extended source code
 Much of this adapts and utilizes 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.2 2013/10/29 14:09:17 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.3 2013/11/08 04:30:05 burnett Exp $
 
 """
 import os, copy
@@ -27,11 +27,11 @@ class ExtendedSource(sources.Source):
             ret.model.free[-1]=False # make sure Ebreak is frozen
         return ret
          
-    def response(self, band):
+    def response(self, band, **kwargs):
         """ return a Respose object, which, given a band, can create a convolved image
         and calculate expected counts
         """
-        return response.ExtendedResponse(self, band)
+        return response.ExtendedResponse(self, band, **kwargs)
 
 
 class ExtendedCatalog( roi_catalogs.ExtendedSourceCatalog):
@@ -40,11 +40,13 @@ class ExtendedCatalog( roi_catalogs.ExtendedSourceCatalog):
     def __init__(self, extended_catalog_name, **kwargs):
         """ initialize by also filling an array with all source spectral models"""
         self.alias = kwargs.pop('alias', dict())
+        self.quiet = kwargs.pop('quiet', False)
         extended_catalog_name = \
             os.path.expandvars(os.path.join('$FERMI','catalog',extended_catalog_name))
         if not os.path.exists(extended_catalog_name):
             raise Exception('extended source folder "%s" not found' % extended_catalog_name)
-        print 'Loaded extended catalog %s' % extended_catalog_name
+        if not self.quiet:
+            print 'Loaded extended catalog %s' % extended_catalog_name
         
         super(ExtendedCatalog,self).__init__(extended_catalog_name, force_map=True)#**kwargs)
         

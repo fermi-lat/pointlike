@@ -1,7 +1,7 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffusedict.py,v 1.10 2013/11/10 04:27:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffusedict.py,v 1.11 2013/11/10 20:05:08 burnett Exp $
 
 author:  Toby Burnett
 """
@@ -93,7 +93,8 @@ class MapCube(DiffuseBase, skymaps.DiffuseFunction):
         if  self.loaded: return
         self.loaded=True
         if not interpolate: 
-            print 'loading diffuse file %s: warning, not interpolating' %self.filename
+            pass
+            #print 'loading diffuse file %s: warning, not interpolating' %self.filename
         super(MapCube,self).__init__(self.filename, 1000., interpolate)
 
 class Healpix(DiffuseBase):

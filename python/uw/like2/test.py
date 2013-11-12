@@ -1,26 +1,27 @@
 """
 All like2 testing code goes here, using unittest
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.4 2013/11/10 20:06:01 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.5 2013/11/10 20:28:59 burnett Exp $
 """
 import os, sys, unittest
 import numpy as np
+import skymaps
+from skymaps import SkyDir, Band
 
 from uw.like2 import ( configuration, 
     diffusedict as diffuse,
     sources,
     exposure,
     extended,
+    roisetup,
     dataset,
+    bandlike,
     )
-import skymaps
-from skymaps import SkyDir, Band
-from . configuration import Bandlite # for testing.
+from uw.like2.configuration import Bandlite # for testing.
 
 # to define the configuration
 config = None
 ecat = None
 bands=None
-
 
 def setup_config_dir(skymodelname='P202/uw29'):
     return os.path.join(os.path.expandvars('$HOME/skymodels'),skymodelname)
@@ -245,10 +246,10 @@ class TestExtended(TestSetup):
         if psf_check:
             self.assertAlmostEqual(conv.overlap, conv.psf_overlap, delta=1e-2)
         if len(expect)>1:
-            self.assertAlmostEqual(expect[1], conv.counts, delta=1)
+            self.assertAlmostEqual(expect[1], conv.counts, delta=10)
         
     def test_W28(self):
-        self.extended('W28', expect=(0.590,3141), 
+        self.extended('W28', expect=(0.65,3483), 
             model=sources.LogParabola(3.38e-11, 2.27, 0.127, 1370))
     def test_W30_in840(self):
         self.extended('W30', 840, expect=(0.377,1038,), 
@@ -259,98 +260,37 @@ class TestExtended(TestSetup):
     def test_Cygnus_Cocoon(self):
         self.extended('Cygnus Cocoon', expect=(0.551,), psf_check=False)
 
-        
-class TestData(TestSetup):
-    """ Tests that require data """
-    def setUp(self, roinumber=840, radius=5):
-        super(TestData,self).setUp()
-        global bands
-        if bands is None:
-            print 'Loading bands for ROI  %d ...' % roinumber ,
-            bands = self.config.get_bands_for_ROI(roinumber)
-            self.assertEquals(32, len(bands))
-            self.assertDictContainsSubset(dict(event_type=0, radius=5, emin=100), bands[0].__dict__, 
-                msg='first band not event type 0, emin=100')
-            print
-        self.bands= bands
-        
-    def test_get_bands(self):
-        """check loading a set of bands from dataset in config"""
-        self.assertEquals( 87285, self.bands[0].pix_counts.sum())
-        self.assertEquals( 89834, self.bands[1].pix_counts.sum())
-        
-    def test_point(self, band_index=1):
-        # setup source close to center by hand
-        source = sources.PointSource(name='P7R42747', skydir=(268.508,-25.649), 
-                model=sources.LogParabola( 1.277e-12, 1.966, 0.4947, 2640))
-        # compare with old results for this band
-        self.resp = resp =source.response(self.bands[band_index])
-        self.assertAlmostEquals(0.659, resp.overlap, delta=0.01)
-        self.assertAlmostEquals(6.45, resp.counts, delta=0.06)
-        self.assertAlmostEquals(0.0492, 
-            resp(SkyDir(resp.band.wsdl[0].dir())) * resp.band.pixel_area, delta=0.001)
-        if resp.band.has_pixels:
-            self.assertAlmostEquals(0.0495, resp.pix_counts[0], delta=0.0005)
-            # gradient: second is exactly zero before?
-            weights = np.ones(len(resp.pixel_values))
-            self.assertListEqual([-14.9, -18.8,  55.], list(resp.grad(weights, 0).round(1)))
-            self.assertListEqual([-0.2, -0.2,  0.7], list(resp.grad(weights, 1).round(1)))
-    
-    def test_ring(self, band_index=1):
-        #galactic diffuse (with correction)
-        source = sources.GlobalSource(name='ring', skydir=None,
-                model=sources.Constant(1.0),
-                dmodel = diffuse.diffuse_factory(dict(
-                    filename='template_4years_P7_v15_repro_v2_4bpd.zip',
-                    correction=os.path.expandvars('$HOME/skymodels/P202/uw29/galactic_correction_uw26a_v2.csv'), 
-                    systematic=0.0316),
-                )
-            )
-        self.resp = resp= source.response(self.bands[band_index])
-        self.assertAlmostEquals(60530, resp.counts, delta=20)
-        if resp.band.has_pixels:
-            self.assertAlmostEquals(658, resp.pix_counts[0], delta=1)
-            weights = np.ones(len(resp.pixel_values))
-            self.assertListEqual([-83], list(resp.grad(weights,1).round(0)))
-            self.assertAlmostEqual(-139710, resp.grad(weights,0)[0], delta=400)
+class TestLoadROI(TestSetup):
 
-    def test_isotrop(self, band_index=1):
-        source = sources.GlobalSource(name='isotrop', skydir=None,
-                model=sources.Constant(1.95),
-                dmodel = diffuse.diffuse_factory(('isotrop_4years_P7_V15_repro_v2_source_front.txt',
-                        'isotrop_4years_P7_V15_repro_v2_source_back.txt'),
-                )
-            )
-        
-        self.resp = resp= source.response(self.bands[band_index])
-        self.assertAlmostEquals(9215, resp.counts, delta=20)
-        if resp.band.has_pixels:
-            self.assertAlmostEquals(143, resp.pix_counts[0], delta=1)
-            weights = np.ones(len(resp.pixel_values))
-            self.assertListEqual([18], list(resp.grad(weights,1).round(0)))
-            self.assertAlmostEqual(-21202, resp.grad(weights,0)[0], delta=10)
-            
-    def test_W28(self, band_index=1):
+    def setUp(self, roi_index=840):
+        super(TestLoadROI, self).setUp()
         global ecat
         if ecat is None:
-            ecat = extended.ExtendedCatalog(self.config.extended)
-        source = ecat.lookup('W28')
-        source.model=sources.LogParabola(3.38e-11, 2.27, 0.127, 1370)
-        source.model.free[3]=False
-        self.resp = resp= source.response(self.bands[band_index])
-        self.assertAlmostEquals(3141, resp.counts, delta=20)
-        if resp.band.has_pixels:
-            self.assertAlmostEquals(14.2, resp.pix_counts[0], delta=1)
-            weights = np.ones(len(resp.pixel_values))
-            self.assertListEqual([-342,  -344,  802], list(resp.grad(weights,1).round(0)))
-            self.assertListEqual([-7658,-7715,17987], list(resp.grad(weights,0).round(0)))
+            ecat = extended.ExtendedCatalog(self.config.extended, quiet=True)
+        self.roi_sources = roisetup.ROImodel(config, ecat=ecat, roi_index=roi_index) 
 
-
-
+    def test_loaded(self, roi_index=840):
+        roi = self.roi_sources
+        self.assertEquals(13, len(roi.local_sources))
+        self.assertEquals(4, len(roi.global_sources))
+        self.assertEquals(65, len(roi.neighbor_sources))
         
         
-class TestLikelihood(TestSetup):
-    pass
+class TestLikelihood(TestLoadROI):
+    def setUp(self, roi_index=840):
+        super(TestLikelihood, self).setUp()
+        self.front_band = Bandlite(None, self.config, event_type=0, roi_index=roi_index)
+        self.back_band = Bandlite(None, self.config, event_type=1, roi_index=roi_index)
+        self.all_bands = configuration.BandSet(self.config, roi_index)
+        print 'loaded', self.all_bands
+        sources, freelist = self.roi_sources.prep_for_likelihood()
+        self.bl = bandlike.factory(self.all_bands[:], sources, freelist)
+        
+    def test_unweight(self):
+        self.assertAlmostEquals(0.092, self.bl[0].make_unweight().round(3))
+        self.assertAlmostEquals(0.033, self.bl[1].make_unweight().round(3))
+
+    
         
 def test_suite(t):
     return unittest.TestLoader().loadTestsFromTestCase(t)

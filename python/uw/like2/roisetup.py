@@ -1,17 +1,17 @@
 """
 Set up an ROI factory object
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.35 2013/10/13 13:55:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.36 2013/10/29 03:25:20 burnett Exp $
 
 """
-import os, sys, types
+import os, sys, types, pickle, zipfile
 import numpy as np
 import pandas as pd
 import skymaps
-from . import dataset, skymodel, diffusedict, configuration #, roi_bands
 from .. utilities import keyword_options, convolution
 from .. like import roi_extended
 
+from . import (dataset, skymodel, diffusedict as diffuse, configuration, extended , sources)
         
 
 
@@ -145,6 +145,89 @@ class ROIfactory(object):
         self.skymodel._load_sources()
 
 
+class ROImodel(object):
+    """ construct the model, or list of sources, for an ROI, reading the zipped pickle format
+    """
+    defaults = (
+        ('quiet', True, 'set False for info'),
+        ('ecat',  None, 'If present, use for catalog'),
+        )
+    @keyword_options.decorate(defaults)
+    def __init__(self, config, roi_index, **kwargs):
+        """config : configuration.Configuration object
+            used to find model info
+        roi_index : integer
+            ROI index, from 0 to 1727
+        """
+        keyword_options.process(self, kwargs)
+        self.pickle_file = os.path.join(config.configdir, 'pickle.zip')
+        assert os.path.exists(self.pickle_file)
+        self.config = config
+        self.index = roi_index
+        self._z = zipfile.ZipFile(os.path.expandvars(self.pickle_file))
+        if self.ecat is None: #speed up if already loaded
+            self.ecat = extended.ExtendedCatalog(self.config.extended, quiet=self.quiet)
+        self.local_sources, self.global_sources = self.load_sources(roi_index)
+        self.neighbor_sources = []
+        for neighbor_index in self.neighbors():
+            self.neighbor_sources += self.load_sources(neighbor_index, neighbors=True)
+        
+    def __repr__(self):
+        return '%s.%s : %d local, %d neighbor, %d global sources at ROI %d' \
+            % (self.__module__, self.__class__.__name__, len(self.local_sources), len(self.neighbor_sources),
+            len(self.global_sources), self.index)
+            
+    def prep_for_likelihood(self):
+        """ return a list of sources, and a list of the ones with free parameters for BandLike 
+            order as global, local, neighbors
+            """
+        tmp = self.global_sources
+        tmp += self.local_sources
+        tmp += self.neighbor_sources
+        free = np.array([np.any(src.free) for src in tmp])
+        return tmp, free
+        
+    def load_sources(self, index, neighbors=False):
+        """ select and return lists of sources in the given HEALPix 
+        Tags each with an index property
+        if neigbors is True, return only local sources, otherwise a tuple global,local
+        also set the free list to False for neighbors. (The Source constructor sets it as a 
+        copy of the model's free list)
+        """
+
+        def load_local_source(name, rec):
+            if not rec['isextended']:
+                src = sources.PointSource(name=name, skydir=rec['skydir'], model=rec['model'])
+                
+            else:
+                src = self.ecat.lookup(name)
+                src.model = rec['model']
+            if neighbors: src.free[:]=False # not sure this is necessary
+            src.index = index
+            return src
+        
+        def load_global_source(name, rec):
+            if not self.quiet: print 'Loading global source %s for %d' % (name, index)
+            gsrc = sources.GlobalSource(name=name, skydir=None, model=rec,
+                dmodel = diffuse.diffuse_factory(self.config.diffuse[name]))
+            gsrc.index =index
+            return gsrc
+
+        p = pickle.load(self._z.open('pickle/HP12_%04d.pickle' % index))
+        local_sources = [load_local_source(name, rec) for name,rec in p['sources'].items()]
+        if neighbors: return local_sources
+        global_sources = [load_global_source(name, rec) for name, rec \
+            in zip(p['diffuse_names'], p['diffuse']) if name not in self.ecat.names]
+        return local_sources, global_sources
+        
+    def neighbors(self):
+        from pointlike import IntVector
+        b12 = skymaps.Band(12)
+        v = IntVector()
+        b12.findNeighbors(int(self.index),v) 
+        return list(v)
+
+    
 def main(modeldir='P202/uw29', skymodel_kw={}):
     rf = ROIfactory(modeldir, **skymodel_kw)
     return rf
