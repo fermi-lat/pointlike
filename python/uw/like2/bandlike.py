@@ -2,7 +2,7 @@
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    Currently delegates some computation to classes in modules like.roi_diffuse, like.roi_extended
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.32 2013/10/13 13:55:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.33 2013/11/12 00:39:04 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -114,7 +114,7 @@ class BandLike(object):
             w = pix - self.counts * self.exposure_factor
             return self.unweight * w
         except FloatingPointError, e:
-            print '%s: Floating point error %s evaluating likelihood for band at %s' %(self.__class__.__name__,e, self.__str__())
+            print '%s: Floating point error %s evaluating likelihood for band %s' % (e,self,)
             raise
     
     def gradient(self):
@@ -172,7 +172,8 @@ class BandLike(object):
                     diffuse=s.source.skydir is None,
                     distance=np.degrees(s.band.skydir.difference(s.source.skydir)) if s.source.skydir is not None else 0 ),
                     )
-                for i,s in enumerate(self)])).T
+                for i,s in enumerate(self)])
+            ).T
         return df
 
     
@@ -203,17 +204,32 @@ class BandLike(object):
             back = self.model_pixels.mean()
         return signal, back 
        
-def factory(bands, sources, free):
-    """ return an array, one per band, of BandLike objects 
-        bands : list of ROIBand objects
-        sources :  sourcelist.SourceList object
-            a list of Source objects 
-        free : array of bool
-            will be a mask to select variable sources
-    """
-    bandlist = []
-    for band in bands:
-        bandlist.append( BandLike(band, sources, free) )
-    return np.array(bandlist)
          
-  
+class BandLikeList(list):
+    
+    def __init__(self, roi_bands, roi_sources):
+        """ create a list, one per band, of BandLike objects for a given ROI 
+        Provide some useful methods 
+        
+        parameters
+        ----------        
+        roi_bands : list of ROIBand objects
+        roi_sources :  sourcelist.SourceList object
+            a list of Source objects 
+        """
+
+        self.sources = roi_sources
+        self.bands = roi_bands
+        for band in roi_bands:
+            self.append( BandLike(band, self.sources, self.sources.free) )
+    
+    def __repr__(self):
+        return '%s.%s: \n\t%s\n\t%s\n\tparameters: %d/%d free' % (self.__module__,
+            self.__class__.__name__,
+            self.sources, self.bands, sum(self.free_list), len(self.free_list))
+
+    def log_like(self):
+        return sum( b.log_like() for b in self)
+        
+    def gradient(self):
+        return np.array([blike.gradient() for blike in self]).sum(axis=0) 

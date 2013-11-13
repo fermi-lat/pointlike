@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.30 2013/11/10 04:27:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.31 2013/11/12 00:39:05 burnett Exp $
 
 """
 import os, copy
@@ -126,6 +126,12 @@ class GlobalSource(Source):
         super(GlobalSource, self).__init__(**kwargs)
         self.dmodel= kwargs.get('dmodel', None)
         assert self.skydir is None # used as a flag
+
+    def copy(self):
+        """ return a new PointSource object, with a copy of the model, others"""
+        ret = GlobalSource(**self.__dict__)
+        ret.model = self.model.copy()
+        return ret
 
     def response(self, band, **kwargs):
         """ return a Response class for the band"""
