@@ -1,7 +1,7 @@
 """
 manage band classes
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bands.py,v 1.1 2013/11/12 15:28:58 burnett Exp $
 """
 import os
 import numpy as np
@@ -39,9 +39,7 @@ class Bandlite(object):
         self.pix_counts=[]
 
     def __repr__(self):
-        data_status = '%d pixels %d events'% (self.pixels, self.events) if self.has_pixels else 'no data'
-        return '%s.%s: %s %s' \
-            % (self.__module__,self.__class__.__name__, self.title, data_status )
+        return '%s.%s: %s' % (self.__module__,self.__class__.__name__, self.title)
     def set_energy(self, energy):
         self.psf.setEnergy(energy)
         self.exposure.setEnergy(energy)

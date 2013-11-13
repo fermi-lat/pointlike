@@ -1,6 +1,6 @@
 """
 All like2 testing code goes here, using unittest
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.6 2013/11/12 00:39:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.7 2013/11/12 15:28:58 burnett Exp $
 """
 import os, sys, unittest
 import numpy as np
@@ -13,77 +13,13 @@ from uw.like2 import ( configuration,
     bands,
     exposure,
     extended,
-    roisetup,
+    roimodel,
     dataset,
     bandlike,
     )
 
- 
-class Bandlite(object):
-    """ behaves like ROIBand, but does not require data
-    Default initialization is for back, first energy bin above 100 MeV
-    """
-    def __init__(self, roi_dir, config,  roi_index=None  , 
-            radius=5, event_type=1, emin=10**2, emax=10**2.25):
-        self.skydir=roi_dir if roi_dir is not None else  skymaps.Band(12).dir(roi_index)
-        self.radius =5
-        self.event_type = event_type
-        self.emin, self.emax = emin, emax
-        self.energy = energy =  np.sqrt(emin*emax)
-        self.psf=config.psfman(event_type, energy)
-        self.exposure = config.exposureman(event_type, energy)
-        self.has_pixels=False
-        self.integrator = self.exposure.integrator(self.skydir, self.emin, self.emax)
-
-    def __repr__(self):
-        return '%s.%s: %s' \
-            % (self.__module__,self.__class__.__name__, self.title)
-    def set_energy(self, energy):
-        self.psf.setEnergy(energy)
-        self.exposure.setEnergy(energy)
-        self.energy=energy
-    def load_data(self, cband):
-        self.wsdl = skymaps.WeightedSkyDirList(cband, skydir, self.radius_in_rad, False)
-        self.has_pixels = len(self.wsdl)>0
-    @property
-    def radius_in_rad(self): return np.radians(self.radius)
-    @property #alias, for compatibilty, but deprecated
-    def sd(self): return self.skydir
-    @property
-    def solid_angle(self):
-        return np.pi*self.radius_in_rad**2 
-    @property
-    def title(self):
-        return '%.0f-%.0f MeV event_type %d' % (self.emin, self.emax, self.event_type)
-
-class BandSet(list):
-    """ manage the list of bands
-    """
-    def __init__(self, config, roi_index, max=None):
-        """fill the list at the nside=12 indes"""
-        self.config = config
-        energybins = np.logspace(2,5.5,15) # default 100 MeV to 3.16 GeV
-        self.roi_index = roi_index
-        for emin, emax  in zip(energybins[:-1], energybins[1:]):
-            for et in range(2):
-                self.append(Bandlite(None, config, roi_index, event_type=et, emin=emin,emax=emax))
-    
-    def __repr__(self):
-        return '%s.%s : %d bands %d-%d MeV for ROI %d' % (
-            self.__module__,self.__class__.__name__,
-            len(self), self[0].emin, self[-1].emax, self.roi_index)
-    
-    def load_data(self):
-        """load the current dataset, have the respective bands fill pixels from it"""
-        dset = self.config.dataset
-        dset.load()
-        for cband in dset.dmap:
-            emin, emax, event_type =  cband.emin(), cband.emax(), cband.event_class()
-            print emin, emax, event_type
-
-
-        Band
-# globals
+# globals: references set by setUp methods in classes as needed
+config_dir = os.path.expandvars('$HOME/skymodels/P202/uw29')
 config = None
 ecat = None
 roi_index = 840
@@ -91,23 +27,20 @@ roi_sources = None
 roi_bands = None
 blike = None
 
-def setup_config_dir(skymodelname='P202/uw29'):
-    return os.path.join(os.path.expandvars('$HOME/skymodels'),skymodelname)
     
 class TestSetup(unittest.TestCase):
     def setUp(self, force=False):
         """Configuration assuming P202_uw29, back 133 MeV"""
         global config
         if config is None:
-            self.config_dir=setup_config_dir()
-            config =  configuration.Configuration(self.config_dir, quiet=True, postpone=True)
+            config =  configuration.Configuration(config_dir, quiet=True, postpone=True)
         self.config = config
+        # use ROI 2 for some simple tests
         self.skydir = Band(12).dir(2)#SkyDir()
         
 class TestConfig(TestSetup):
     """Test aspects of the configuration    
     """
-    
     def test_psf(self):
         """check that the PSF is set up
         """
@@ -328,23 +261,40 @@ class TestExtended(TestSetup):
     def test_Cygnus_Cocoon(self):
         self.extended('Cygnus Cocoon', expect=(0.551,), psf_check=False)
 
-class TestLoadROI(TestSetup):
+class TestLoadSources(TestSetup):
 
     def setUp(self):
-        super(TestLoadROI, self).setUp()
+        super(TestLoadSources, self).setUp()
         global ecat, roi_sources
         if ecat is None:
             ecat = extended.ExtendedCatalog(self.config.extended, quiet=True)
         if roi_sources is None:
-            roi_sources = roisetup.ROImodel(config, ecat=ecat, roi_index=roi_index)
+            roi_sources = roimodel.ROImodel(config, ecat=ecat, roi_index=roi_index)
 
-    def test_loaded(self):
-        roi = roi_sources
-        self.assertEquals(13, len(roi.local_sources))
-        self.assertEquals(65, len(roi.neighbor_sources))
-        self.assertEquals( 4, len(roi.global_sources))
+    def test_properties(self):
+        rs = roi_sources
+        self.assertEquals(14, sum(rs.free))
+        self.assertEquals(82, len(rs.free))
+        self.assertEquals(82, len(rs.source_names))
+        self.assertEquals(35, len(rs.parameter_names))
         
-class TestBands(TestSetup):
+    def test_source_access(self):
+        rs = roi_sources
+        self.assertRaises(roimodel.ROImodelException, rs.find_source, 'junk')
+        self.assertEquals('PSR J1801-2451', rs.find_source('PSR*').name)
+        self.assertEquals('P7R42735',rs.find_source('*2735').name)
+        self.assertEquals('P7R42735',rs.find_source(None).name)
+        # adding and removing sources
+        self.assertRaises(roimodel.ROImodelException, rs.add_source, rs[0])
+        s = rs[0].copy()
+        s.name = 'ring2'
+        rs.add_source(s)
+        self.assertEquals('ring2', rs[-1].name)
+        self.assertEquals('ring2', rs.find_source('ring2').name)
+        rs.del_source('ring2')
+        self.assertRaises(roimodel.ROImodelException, rs.find_source, 'ring2')
+        
+class TestBands(TestExtended):
     def setUp(self):
         super(TestBands, self).setUp()
         global roi_bands
@@ -358,26 +308,35 @@ class TestBands(TestSetup):
         self.assertEquals( 88484, roi_bands.pixels)
 
         
-class TestLikelihood(TestBands):
+class TestLikelihood(TestSetup):
     def setUp(self):
         super(TestLikelihood, self).setUp()
-        global roi_sources, blike
+        global ecat, roi_bands, roi_sources, blike
+        if ecat is None:
+            ecat = extended.ExtendedCatalog(self.config.extended)
         if roi_sources is None:
-            roi_sources = roisetup.ROImodel(config, ecat=ecat, roi_index=roi_index)
+            roi_sources = roimodel.ROImodel(config, ecat=ecat, roi_index=roi_index)
+        if roi_bands is None:
+            roi_bands = bands.BandSet(config, roi_index)
+            roi_bands.load_data()
         if blike is None:
-            sources, freelist = roi_sources.prep_for_likelihood()
-            blike = bandlike.factory(roi_bands, sources, freelist)
+            blike = bandlike.BandLikeList(roi_bands, roi_sources)
         self.bl = blike
         
     def test_unweight(self):
         self.assertAlmostEquals(0.092, self.bl[0].make_unweight().round(3))
         self.assertAlmostEquals(0.033, self.bl[1].make_unweight().round(3))
-        
+    def test_weights(self):
+        'check weights for band 1'
+        b1 = self.bl[1]
+        weights = b1.data / b1.model_pixels
+        self.assertAlmostEquals(0.98, weights.mean(), delta=0.01)
+        self.assertAlmostEquals(0.035, weights.std(), delta=0.002)
 
 test_cases = (TestConfig, 
     TestPoint, TestDiffuse, 
    # TestExtended, 
-    TestLoadROI, TestBands, TestLikelihood,)
+    TestLoadSources, TestBands, TestLikelihood,)
 
 def load_tests(test_classes, loader=unittest.TestLoader(),  pattern=None):
     suite = unittest.TestSuite()
