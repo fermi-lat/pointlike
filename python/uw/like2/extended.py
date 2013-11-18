@@ -1,7 +1,7 @@
 """
 Extended source code
 Much of this adapts and utilizes 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.3 2013/11/08 04:30:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.4 2013/11/12 00:39:04 burnett Exp $
 
 """
 import os, copy
@@ -40,7 +40,7 @@ class ExtendedCatalog( roi_catalogs.ExtendedSourceCatalog):
     def __init__(self, extended_catalog_name, **kwargs):
         """ initialize by also filling an array with all source spectral models"""
         self.alias = kwargs.pop('alias', dict())
-        self.quiet = kwargs.pop('quiet', False)
+        self.quiet = kwargs.pop('quiet', True)
         extended_catalog_name = \
             os.path.expandvars(os.path.join('$FERMI','catalog',extended_catalog_name))
         if not os.path.exists(extended_catalog_name):

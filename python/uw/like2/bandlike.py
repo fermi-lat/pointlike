@@ -2,7 +2,7 @@
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    Currently delegates some computation to classes in modules like.roi_diffuse, like.roi_extended
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.34 2013/11/13 06:36:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.35 2013/11/18 00:03:24 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -249,9 +249,11 @@ class BandLikeList(list):
     def gradient(self):
         return np.array([blike.gradient() for blike in self]).sum(axis=0) 
         
-    def covariance(self, delta=1e-6):
-        """ return a covariance matrix based on the current parameters
+    def hessian(self, delta=1e-6):
+
+        """ return a hessian matrix based on the current parameters
         For sigmas and correlation coefficients:
+                cov =  self.hessian().inv()
                 sigs = np.sqrt(cov.diagonal())
                 corr = cov / np.outer(sigs,sigs)
 
@@ -266,7 +268,7 @@ class BandLikeList(list):
             fl = self.log_like()
             assert abs(fl- fzero)>1e-8, '%d %.3e' % (i, fl - fzero)
             gprime = self.gradient()
-            ret= (gprime-gzero)/delta
+            ret= (gprime-gzero)/(2*delta)
             parameters[i] = parz[i]
             self.update()
             gcheck = self.gradient()
@@ -276,6 +278,20 @@ class BandLikeList(list):
         cov = np.matrix(map(dg, range(len(parz))))
         return cov
         
+    def likelihood_plots(self, index = None):
+        """ one, or all likelihood plots
+        """
+        import matplotlib.pyplot as plt
+        if index is None:
+            n = len(self.parameters)
+            fig, axx = plt.subplots(n/5,5, figsize=(15,12), sharex=True, sharey=True)
+            for i, ax in enumerate(axx.flatten()):
+                self.likelihood_functor(i).plot(ax = ax, nolabels=True)
+        else:
+            fig = self.likelihood_functor(index).plot()
+        return fig
+        
+    
     def likelihood_functor(self, indexlist, force=False ):
         """return a functor of one variable, for testing at the moment"""
         blike = self

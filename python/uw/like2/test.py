@@ -1,6 +1,6 @@
 """
 All like2 testing code goes here, using unittest
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.8 2013/11/13 06:36:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.9 2013/11/18 00:03:24 burnett Exp $
 """
 import os, sys, unittest
 import numpy as np
@@ -27,14 +27,28 @@ roi_sources = None
 roi_bands = None
 blike = None
 
-    
+def setup(name):
+    global config, ecat, roi_sources, roi_bands, blike
+    gnames = 'config ecat roi_sources roi_bands blike'.split()
+    assert name in globals() and name in gnames
+    if config is None :
+        config =  configuration.Configuration(config_dir, quiet=True, postpone=True)
+    if ecat is None:
+        ecat = extended.ExtendedCatalog(config.extended)
+    if (name=='roi_sources' or name=='blike') and roi_sources is None:
+        roi_sources = roimodel.ROImodel(config, ecat=ecat, roi_index=roi_index)
+    if (name=='roi_bands' or name=='blike') and roi_bands is None:
+        roi_bands = bands.BandSet(config, roi_index)
+    if name=='blike' and blike is None:
+        assert roi_bands is not None and roi_sources is not None
+        roi_bands.load_data()
+        blike = bandlike.BandLikeList(roi_bands, roi_sources)
+    return eval(name)
+        
 class TestSetup(unittest.TestCase):
     def setUp(self, force=False):
         """Configuration assuming P202_uw29, back 133 MeV"""
-        global config
-        if config is None:
-            config =  configuration.Configuration(config_dir, quiet=True, postpone=True)
-        self.config = config
+        self.config = setup('config')
         # use ROI 2 for some simple tests
         self.skydir = Band(12).dir(2)#SkyDir()
         
@@ -219,10 +233,6 @@ class TestExtended(TestSetup):
 
     def setUp(self):
         super(TestExtended, self).setUp()
-        global ecat
-        if ecat is None:
-            ecat = extended.ExtendedCatalog(self.config.extended)
-
 
     def extended(self, source_name='W28', roi=None, expect=(0,), psf_check=True, model=None, quiet=True):
         source = ecat.lookup(source_name)
@@ -264,12 +274,7 @@ class TestExtended(TestSetup):
 class TestROImodel(TestSetup):
 
     def setUp(self):
-        super(TestROImodel, self).setUp()
-        global ecat, roi_sources
-        if ecat is None:
-            ecat = extended.ExtendedCatalog(self.config.extended, quiet=True)
-        if roi_sources is None:
-            roi_sources = roimodel.ROImodel(config, ecat=ecat, roi_index=roi_index)
+        setup('roi_sources')
 
     def test_properties(self):
         rs = roi_sources
@@ -311,12 +316,10 @@ class TestROImodel(TestSetup):
         self.assertEquals(0.3, rs.parameters[k])
         rs.set_parameters(parz)
     
-class TestBands(TestExtended):
+class TestBands(TestSetup):
+
     def setUp(self):
-        super(TestBands, self).setUp()
-        global roi_bands
-        if roi_bands is None:
-            roi_bands = bands.BandSet(config, roi_index)
+        setup('roi_bands')
             
     def test_load_data(self):
         print roi_bands
@@ -327,18 +330,7 @@ class TestBands(TestExtended):
         
 class TestLikelihood(TestSetup):
     def setUp(self):
-        super(TestLikelihood, self).setUp()
-        global ecat, roi_bands, roi_sources, blike
-        if ecat is None:
-            ecat = extended.ExtendedCatalog(self.config.extended)
-        if roi_sources is None:
-            roi_sources = roimodel.ROImodel(config, ecat=ecat, roi_index=roi_index)
-        if roi_bands is None:
-            roi_bands = bands.BandSet(config, roi_index)
-            roi_bands.load_data()
-        if blike is None:
-            blike = bandlike.BandLikeList(roi_bands, roi_sources)
-        self.bl = blike
+        self.bl = setup('blike')
         
     def test_unweight(self):
         self.assertAlmostEquals(0.092, self.bl[0].make_unweight().round(3))
@@ -349,7 +341,7 @@ class TestLikelihood(TestSetup):
         weights = b1.data / b1.model_pixels
         self.assertAlmostEquals(0.98, weights.mean(), delta=0.01)
         self.assertAlmostEquals(0.035, weights.std(), delta=0.002)
-    def test_gradient(self):
+    def test_gradient(self, delta=3e-2): #high for extended
         bl = self.bl
         ss = bl.sources
         gradient = bl.gradient()
@@ -359,17 +351,18 @@ class TestLikelihood(TestSetup):
             b = bl.likelihood_functor(parameter_index).derivative(parameters[parameter_index])
             #print '%3d %-22s %10.2f %10.2f %10.3f' % (parameter_index,ss.parameter_names[parameter_index],
             #        parameters[parameter_index], a, round(np.abs(1+b/a),3))
-            self.assertAlmostEquals(1, -b/a, delta=15e-3,
+            self.assertAlmostEquals(1, -b/a, delta=delta,
                 msg='Fail derivative check for %s %.3f %.3f'%( ss.parameter_names[parameter_index], a,b))
 
-    def test_covariance(self):
+    def test_hessian(self):
         bl = self.bl
-        cov = bl.covariance()
-        self.assertTrue( np.all(cov.diagonal()>0), msg='diagonal: %s' % cov.diagonal())
-        s = np.sqrt(cov.diagonal())
-        corr = cov / np.outer(s,s)
+        hess = bl.hessian()
+        self.assertTrue( np.all(hess.diagonal()>0), msg='diagonal: %s' % hess.diagonal())
+        s = np.sqrt(hess.diagonal())
+        corr = hess / np.outer(s,s)
         t = np.array(corr.T - corr).flatten()
         self.assertTrue( np.abs(t).max()<0.02)
+        self.hess = hess # for testing access
 
         
     
@@ -377,12 +370,14 @@ class TestLikelihood(TestSetup):
 test_cases = (TestConfig, 
     TestPoint, TestDiffuse, 
    # TestExtended, 
-    TestROImodel, TestBands, TestLikelihood,)
+    TestROImodel, 
+    TestBands, 
+    TestLikelihood,)
     
 def run(t='all', loader=unittest.TestLoader(), debug=False): 
     if t=='all':
         suite = unittest.TestSuite()
-        for test_class in test_classes:
+        for test_class in test_cases:
             tests = loader.loadTestsFromTestCase(test_class)
             suite.addTests(tests)
     else:
