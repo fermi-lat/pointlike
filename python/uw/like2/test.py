@@ -1,6 +1,6 @@
 """
 All like2 testing code goes here, using unittest
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.7 2013/11/12 15:28:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.8 2013/11/13 06:36:24 burnett Exp $
 """
 import os, sys, unittest
 import numpy as np
@@ -261,10 +261,10 @@ class TestExtended(TestSetup):
     def test_Cygnus_Cocoon(self):
         self.extended('Cygnus Cocoon', expect=(0.551,), psf_check=False)
 
-class TestLoadSources(TestSetup):
+class TestROImodel(TestSetup):
 
     def setUp(self):
-        super(TestLoadSources, self).setUp()
+        super(TestROImodel, self).setUp()
         global ecat, roi_sources
         if ecat is None:
             ecat = extended.ExtendedCatalog(self.config.extended, quiet=True)
@@ -277,9 +277,11 @@ class TestLoadSources(TestSetup):
         self.assertEquals(82, len(rs.free))
         self.assertEquals(82, len(rs.source_names))
         self.assertEquals(35, len(rs.parameter_names))
+        self.assertEquals(35, len(rs.bounds))
         
     def test_source_access(self):
         rs = roi_sources
+        #finding a source
         self.assertRaises(roimodel.ROImodelException, rs.find_source, 'junk')
         self.assertEquals('PSR J1801-2451', rs.find_source('PSR*').name)
         self.assertEquals('P7R42735',rs.find_source('*2735').name)
@@ -293,7 +295,22 @@ class TestLoadSources(TestSetup):
         self.assertEquals('ring2', rs.find_source('ring2').name)
         rs.del_source('ring2')
         self.assertRaises(roimodel.ROImodelException, rs.find_source, 'ring2')
-        
+    
+    def test_parameters(self):
+        rs = roi_sources
+        parz = rs.get_parameters()
+        self.assertEquals(True, np.all(parz == rs.parameters.get_all()))
+
+        k = 3
+        a = rs.parameters[k]
+        b = rs.get_parameters()[k]
+        self.assertEquals(a,b)
+        self.assertEquals(0, sum(rs.parameters.dirty))
+        rs.parameters[k]=0.3
+        self.assertEquals(1, sum(rs.parameters.dirty))
+        self.assertEquals(0.3, rs.parameters[k])
+        rs.set_parameters(parz)
+    
 class TestBands(TestExtended):
     def setUp(self):
         super(TestBands, self).setUp()
@@ -332,29 +349,50 @@ class TestLikelihood(TestSetup):
         weights = b1.data / b1.model_pixels
         self.assertAlmostEquals(0.98, weights.mean(), delta=0.01)
         self.assertAlmostEquals(0.035, weights.std(), delta=0.002)
+    def test_gradient(self):
+        bl = self.bl
+        ss = bl.sources
+        gradient = bl.gradient()
+        parameters = bl.sources.parameters
+        for parameter_index in range(len(bl.sources.parameter_names)):
+            a = gradient[parameter_index]
+            b = bl.likelihood_functor(parameter_index).derivative(parameters[parameter_index])
+            #print '%3d %-22s %10.2f %10.2f %10.3f' % (parameter_index,ss.parameter_names[parameter_index],
+            #        parameters[parameter_index], a, round(np.abs(1+b/a),3))
+            self.assertAlmostEquals(1, -b/a, delta=15e-3,
+                msg='Fail derivative check for %s %.3f %.3f'%( ss.parameter_names[parameter_index], a,b))
+
+    def test_covariance(self):
+        bl = self.bl
+        cov = bl.covariance()
+        self.assertTrue( np.all(cov.diagonal()>0), msg='diagonal: %s' % cov.diagonal())
+        s = np.sqrt(cov.diagonal())
+        corr = cov / np.outer(s,s)
+        t = np.array(corr.T - corr).flatten()
+        self.assertTrue( np.abs(t).max()<0.02)
+
+        
+    
 
 test_cases = (TestConfig, 
     TestPoint, TestDiffuse, 
    # TestExtended, 
-    TestLoadSources, TestBands, TestLikelihood,)
-
-def load_tests(test_classes, loader=unittest.TestLoader(),  pattern=None):
-    suite = unittest.TestSuite()
-    for test_class in test_classes:
-        tests = loader.loadTestsFromTestCase(test_class)
-        suite.addTests(tests)
-    return suite    
-        
-def test_suite(t):
-    return unittest.TestLoader().loadTestsFromTestCase(t)
+    TestROImodel, TestBands, TestLikelihood,)
     
-def run(t='all'): 
+def run(t='all', loader=unittest.TestLoader(), debug=False): 
     if t=='all':
-        suite = load_tests(test_cases)
+        suite = unittest.TestSuite()
+        for test_class in test_classes:
+            tests = loader.loadTestsFromTestCase(test_class)
+            suite.addTests(tests)
     else:
-        suite = unittest.TestLoader().loadTestsFromTestCase(t)
+        suite = loader.loadTestsFromTestCase(t)
     print 'running %d tests' % suite.countTestCases()
-    unittest.TextTestRunner(stream=sys.stdout,verbosity=2).run(suite)
+    if debug:
+        suite.debug()
+    else:
+        unittest.TextTestRunner(stream=sys.stdout,verbosity=2).run(suite)
+    
     
 if __name__=='__main__':
     run()
