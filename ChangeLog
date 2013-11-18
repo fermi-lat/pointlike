@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Nov 17 19:51:12 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	extended.py bandlike.py test.py 
+Log Message:
+fix hessian, improve test setup
+    *
+------------------------------------------------------------
 User: burnett  Sun Nov 17 16:03:24 PST 2013
 pointlike/python/uw/like2
 
