@@ -1,7 +1,7 @@
 """
 Classes to compute response from various sources
  
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.5 2013/11/10 20:28:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.6 2013/11/12 00:39:04 burnett Exp $
 author:  Toby Burnett
 """
 import os, pickle
@@ -56,8 +56,6 @@ class Response(object):
 
     def exposure_integral(self):
         """Integral of the exposure times the flux at the given position"""
-        #if skydir is None: skydir = self.roicenter
-        #return self.band.exposure.model_integral(skydir, self.source.model, self.band.emin, self.band.emax)
         return self.band.integrator(self.source.model)
     
     def __call__(self, skydir):
@@ -93,8 +91,10 @@ class PointResponse(Response):
         """ update values of counts, pix_counts used for likelihood calculation, derivatives
         Called when source parameters change
         """
-        self.expected = self.band.integrator(self.spectral_model)
+        model = self.spectral_model
+        self.expected = self.band.integrator(model)
         self.counts =  self.expected * self.overlap
+        self.model_grad = self.band.integrator( model.gradient)[model.free] #* self.exposure_ratio
         if self.band.has_pixels:
             self.pix_counts = self.pixel_values * self.expected
         
@@ -103,12 +103,13 @@ class PointResponse(Response):
         weights : arrary of float
             
             weights = self.data / self.model_pixels
-
+        Assume that evaluate has set model_grad
         """
         model = self.spectral_model
         if np.sum(model.free)==0 : return []
         # Calculate the gradient of a spectral model (wrt its parameters) integrated over the exposure.
-        g = self.band.integrator( model.gradient)[model.free] #* self.exposure_ratio
+        #g = self.band.integrator( model.gradient)[model.free] #* self.exposure_ratio
+        g = self.model_grad
         apterm = exposure_factor* self.overlap
         pixterm = (weights*self.pixel_values).sum() if self.band.has_pixels else 0
         return g * (apterm - pixterm)
@@ -288,7 +289,16 @@ class ExtendedResponse(DiffuseResponse):
             defaults['npix'] = int(npix) | 1 # make odd
             #print 'setting npix', defaults
         self.quiet=defaults.get('quiet', True)
+        self.initialized = False
         super(ExtendedResponse, self).__init__(source, band, **defaults)
+            
+    def exposure_integral(self):
+        """Perform integral of the exposure times the flux at the source position
+        (Override base to specify source position)
+        """
+        return self.band.exposure.integrator(self.source.skydir, 
+                self.band.emin, self.band.emax)(self.source.model)
+
       
     def initialize(self):
         #set up the spatial model NOTE THIS NEEDS TO BE SAVED
@@ -301,6 +311,7 @@ class ExtendedResponse(DiffuseResponse):
         self.create_grid()
         self.convolve()
         self.evaluate()
+        self.initialized = True
 
     def setup_image(self):
         # load the SkyImage as a numpy 2-d array (not used yet?)
@@ -346,6 +357,7 @@ class ExtendedResponse(DiffuseResponse):
         
         return the tuple ap_average, overlap, psf_overlap
         """
+        assert not self.initialized, 'Already initialized?'
         if energy is not None: self.band.set_energy(energy)
         #if self.grid is None: self.create_grid()
         
@@ -377,7 +389,10 @@ class ExtendedResponse(DiffuseResponse):
         if self.band.has_pixels:
             self.pixel_values = self.grid(self.band.wsdl, self.cvals)\
                 /self.exposure_at_center * self.band.pixel_area
-   
+        self.expint = self.exposure_integral() # save initial value
+        self.initcounts = self.expint * self.factor # "
+        self.initmodel = self.source.model.copy()
+        
     def evaluate(self):
         total_counts = self.exposure_integral()
         self.counts = total_counts * self.factor
@@ -395,7 +410,7 @@ class ExtendedResponse(DiffuseResponse):
         #pixterm = ( self.pixel_values * weights ).sum() * self.exposure_at_center if self.band.has_pixels else 0
         #return (self.factor*exposure_factor - pixterm) * model.gradient(self.energy)[model.free] 
         g = self.band.integrator( model.gradient)[model.free] #* self.exposure_ratio
-        apterm = exposure_factor* self.overlap
+        apterm = exposure_factor * self.factor #self.overlap
         pixterm = (weights*self.pixel_values).sum() if self.band.has_pixels else 0
         return g * (apterm - pixterm)
 
@@ -423,7 +438,7 @@ class ExtendedResponse(DiffuseResponse):
         norm = LogNorm(vmin=0.001, vmax=1.0) if logscale else None
         roi_radius = self.band.radius if roi_radius is None else roi_radius
         self.grid.show_vals(vals/vals.max(), ax=ax, roi_radius=roi_radius,
-            roi_dir=self.roi_dir,norm=norm, colorbar=colorbar)
+            roi_dir=self.roicenter, norm=norm, colorbar=colorbar)
         ax.set_title(title, size=10)
         return ax.figure
     

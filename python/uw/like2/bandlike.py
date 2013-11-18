@@ -2,12 +2,13 @@
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    Currently delegates some computation to classes in modules like.roi_diffuse, like.roi_extended
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.33 2013/11/12 00:39:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.34 2013/11/13 06:36:24 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
 import sys, types
 import numpy as np
+from scipy import misc
 from  uw.utilities import keyword_options
 
     
@@ -20,9 +21,11 @@ class BandLike(object):
     @keyword_options.decorate(defaults)
     def __init__(self, band, sources, free=None, **kwargs):
         """
-           band : ROIband object
+           band    : ROIband object
            sources : list of sources.Source objects
-           free : array of bool to select models
+           free    : [array of bool | None]
+                to select models with variable parameters
+                If None, select all
         """
         keyword_options.process(self, kwargs)
         # make a list of the Response objects
@@ -90,25 +93,27 @@ class BandLike(object):
         for m in self.free_sources:
             self.model_pixels += m.pix_counts
         
-    def update(self, reset=False):
+    def update(self, reset=False, **kwargs):
         """ assume that parameters have changed. Update only contributions 
         from models with free parameters. *must* be called before evaluating likelihood.
-        reset: bool
+        reset: bool, optional
             if True, need to reinitialize variable source(s), for change of position or shape
-        fixed : bool
-            if True, will not update prediction, for band_ts use (not implemented??)
         """
         if self.band.has_pixels: self.model_pixels[:]=self.fixed_pixels
         self.counts = self.fixed_counts
-        for m in self.free_sources:
-            if reset: m.initialize()
-            m.update()
-            if self.band.has_pixels: self.model_pixels += m.pix_counts
-            self.counts+= m.counts
+        force = kwargs.get('force', False) # set to defeat
+        for bandsource in self.free_sources:
+            if reset: 
+                bandsource.initialize()
+                bandsource.source.changed=False
+            elif bandsource.source.changed or force:
+                bandsource.update()
+            if self.band.has_pixels: self.model_pixels += bandsource.pix_counts
+            self.counts+= bandsource.counts
+        self.weights = self.data / self.model_pixels
 
     def log_like(self):
         """ return the Poisson extended log likelihood """
-        
         try:
             pix = np.sum( self.data * np.log(self.model_pixels) )  if self.pixels>0 else 0
             w = pix - self.counts * self.exposure_factor
@@ -121,8 +126,9 @@ class BandLike(object):
         """ gradient of the likelihood with resepect to the free parameters
         """
         if not self.band.has_pixels: return None
-        weights = self.data / self.model_pixels
-        return self.unweight * np.concatenate([m.grad(weights, self.exposure_factor) for m in self.bandsources])
+        return self.unweight * np.concatenate(
+                [m.grad(self.weights, self.exposure_factor) for m in self.free_sources]
+            )
        
     def model_counts(self, sourcemask=None):
         """ return the model predicted counts for all or a subset of the sources
@@ -176,8 +182,6 @@ class BandLike(object):
             ).T
         return df
 
-    
-        
     def counts_in_pixel(self, source_index, skydir):
         """ return a tuple of predicted signal and background counts in the pixel corresponding to skydir
         Note that if the pixel has no data, it will not have been computed for the model; instead
@@ -222,14 +226,130 @@ class BandLikeList(list):
         self.bands = roi_bands
         for band in roi_bands:
             self.append( BandLike(band, self.sources, self.sources.free) )
+    @property
+    def free_list(self):
+        return self.sources.free
     
     def __repr__(self):
         return '%s.%s: \n\t%s\n\t%s\n\tparameters: %d/%d free' % (self.__module__,
             self.__class__.__name__,
             self.sources, self.bands, sum(self.free_list), len(self.free_list))
 
+    def initialize(self):
+        assert False, 'needed?'
+        
     def log_like(self):
         return sum( b.log_like() for b in self)
         
+    def update(self, **kwargs):
+        for b in self: 
+            b.update(**kwargs)
+        self.sources.parameters.clear_changed()
+        
     def gradient(self):
         return np.array([blike.gradient() for blike in self]).sum(axis=0) 
+        
+    def covariance(self, delta=1e-6):
+        """ return a covariance matrix based on the current parameters
+        For sigmas and correlation coefficients:
+                sigs = np.sqrt(cov.diagonal())
+                corr = cov / np.outer(sigs,sigs)
+
+        """
+        parameters = self.sources.parameters
+        gzero = self.gradient()
+        fzero = self.log_like()
+        parz = parameters.get_all()
+        def dg(i, delta=delta):
+            parameters[i] = parz[i]+delta
+            self.update()
+            fl = self.log_like()
+            assert abs(fl- fzero)>1e-8, '%d %.3e' % (i, fl - fzero)
+            gprime = self.gradient()
+            ret= (gprime-gzero)/delta
+            parameters[i] = parz[i]
+            self.update()
+            gcheck = self.gradient()
+            assert np.all(np.abs(gcheck-gzero)<1e-5), gcheck-gzero
+            return ret
+        
+        cov = np.matrix(map(dg, range(len(parz))))
+        return cov
+        
+    def likelihood_functor(self, indexlist, force=False ):
+        """return a functor of one variable, for testing at the moment"""
+        blike = self
+        class LikelihoodFunctor(object):
+            def __init__(self, indexlist, force):
+                self.parameters = blike.sources.parameters
+                self.aup = force
+                self.k = indexlist
+                
+            def setpar(self,par):
+                self.parameters[self.k] = par
+                blike.update(force=self.aup)
+                       
+            def __call__(self, par):
+                self.setpar( par )
+                ret = blike.log_like()
+                return ret
+                
+            def gradient(self, par, full=False):
+                self.setpar(par)
+                return blike.gradient()[self.k] if not full else blike.gradient()
+            
+            def get_quad(self, par, dx=1e-5):
+                """estimate position of peak and sigma using scipy derivative, assuming quadratric
+                """
+                d1,d2 = [misc.derivative(self, par, n=n, dx=dx) for n in (1,2)]
+                sig = np.sqrt(-2./d2)
+                pmax = par - d1/d2
+                return pmax, sig
+            
+            def derivative(self, par, n=1, dx=0.0001):
+                """ numerical derivative; make sure state is same after"""
+                pz = self.parameters[self.k]
+                before = self(pz)
+                d = misc.derivative(self, par, dx=dx, n=n)
+                self.parameters[self.k] = pz
+                assert self(pz)==before, 'failed to restore?'
+                return d
+                
+            def plot(self, ax=None, nolabels=False , y2lim=(-10,10)):
+                """make a plot showing the log likelihood and its derivative as a function of
+                expected sigma, evaluated from the second derivative at the current point
+                """
+                import matplotlib.pyplot as plt
+                func = self
+                index=self.k
+                pz =self.parameters[self.k]
+                x0, sig = func.get_quad(pz)
+                ref = func(x0)
+                if ax is None:
+                    fig, ax = plt.subplots( figsize=(3,3))
+                else: fig = ax.figure
+                plt.subplots_adjust(wspace=0.3)
+                xsig = np.linspace(-3, 3, 27)
+                x =  x0 + xsig * sig 
+                ax.plot(xsig, map(func,x)-ref, '-')
+                ax.plot(xsig, -((x-x0)/sig)**2, '--')
+                ax.plot((pz-x0)/sig, func(pz)-ref, 'db')
+                plt.setp(ax, ylim=(-9,0.5))
+                if not nolabels: ax.set_ylabel('log likelihood')
+                ax.set_title('#%d: %s' %(index,blike.sources.parameter_names[index]), size=10)
+                ax.text( -2,-8, 'par %.3f\nsig %.3f' % (pz,sig), size=10)
+                ax.axvline(0, color='k', ls = ':')
+                
+                ax2 = ax.twinx()
+                gradvals = sig*np.array(map(func.gradient, x))
+                ax2.plot(xsig, gradvals, '-r')
+                ax2.axhline(0, color='r', ls=':')
+                ax2.set_ylim( y2lim)
+                if not nolabels: ax2.set_ylabel('derivative (sig units)')
+                else: ax2.set_yticklabels([])
+                
+                self.setpar(pz) # restore when done
+                return fig
+                
+                
+        return LikelihoodFunctor(indexlist, force)

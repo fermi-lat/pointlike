@@ -1,7 +1,7 @@
 """
 Set up and manage the model for all the sources in an ROI
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.1 2013/11/13 06:36:24 burnett Exp $
 
 """
 import os ,zipfile, pickle
@@ -66,7 +66,69 @@ class ROImodel(list):
         for neighbor_index in self.neighbors():
             self.load_sources(neighbor_index, neighbors=True)
         self.selected_source = None
+        self.initialize()
 
+     
+    def initialize(self):
+        """For fast parameter access: must be called if any source changes
+        """
+        class Parameters(object):
+            """ Manage the free parameters in the model, as a virtual array
+            
+            Note that if a parameter in a source model is changed from its current value,
+            that source is marked; its 'changed' property is set True
+            """
+            def __init__(self, sources):
+                models = sources.models
+                self.free_sources = [source for source in sources if np.any(source.model.free)]
+                self.clear_changed()
+                self.ms = t = [(source, sum(source.model.free)) for source in self.free_sources]
+                ss=[]; ii=[]
+                for (s,k) in t:
+                    for j in range(k):
+                        ss.append(s) #free_models[s])
+                        ii.append(j)
+                self.index = np.array([ss, ii])
+            
+            def __getitem__(self, i):
+                source, k = self.index[:,i]
+                return source.model.get_parameters()[k]
+            
+            def __setitem__(self,i,x):
+                source, k = self.index[:,i]
+                model = source.model
+                pars = model.get_parameters()
+                if x==pars[k]: return
+                pars[k] = x
+                source.changed=True
+                model.set_parameters(pars)
+            
+            def get_all(self):
+                return np.concatenate([s.model.get_parameters() for s in self.free_sources])
+                
+            def set_all(self, pars):
+                i =0
+                for source, n in self.ms:
+                    j = i+n
+                    model = source.model
+                    oldpars = model.get_parameters()
+                    newpars = pars[i:j]
+                    if np.any(oldpars != newpars):
+                        source.model.set_parameters(newpars)
+                        source.changed=True
+                    i =j
+                    
+            def __repr__(self):
+                return '%d parameters' % (self.index).shape[1]
+            def clear_changed(self):
+                for s in self.free_sources:
+                    s.changed=False
+            @property
+            def dirty(self):
+                return np.array([s.changed for s in self.free_sources])
+
+        self.parameters = Parameters(self)
+  
         
     def __repr__(self):
         return '%s.%s : %d global, %d local, %d total sources for ROI %d' \
@@ -134,6 +196,8 @@ class ROImodel(list):
     def bounds(self):
         """ fitter representation of applied bounds """
         return np.concatenate([m.bounds[m.free] for m in self.models])
+    
+        
     @property
     def parameter_names(self):
         """ array of free parameter names """
@@ -155,17 +219,6 @@ class ROImodel(list):
             cp,nn = current_position, current_position+ sum(m.free)
             m.set_parameters(parameters[cp:nn])
             current_position += nn-cp
-    def get_model_parameters(self):
-        if len(self.models)==0: return []
-        return np.concatenate([m.free_parameters for m in self.models])
-        #return 10**self.get_parameters()
-    
-    def set_model_parameters(self, par):
-        assert False, 'is this used?'
-        self.set_parameters(np.log10(par))
-        
-    model_parameters = property(get_model_parameters, set_model_parameters,
-                doc='array of free model parameters')
 
     def find_source(self, source_name):
         """ Search for the source with the given name
@@ -206,8 +259,12 @@ class ROImodel(list):
             not_found()
 
     def add_source(self, source):
+        """Add a point source
+        Must be a sources.PointSource object
+        """
+        
         if source.name in self.source_names:
-            raise ROImodelException('Attempt to add source "%s": already exists' % source.name)
+            raise ROImodelException('Attempt to add source "%s": a source with that name already exists' % source.name)
         set_default_bounds(source.model)
         self.append(source)
  
@@ -215,8 +272,3 @@ class ROImodel(list):
         source = self.find_source(source_name) # first get it
         self.remove(source)
         return source
-
-    
-def main(modeldir='P202/uw29', skymodel_kw={}):
-    rf = ROIfactory(modeldir, **skymodel_kw)
-    return rf
