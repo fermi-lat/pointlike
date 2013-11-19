@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Nov 19 13:07:13 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	roimodel.py test.py 
+Log Message:
+final implementation of parameter subset management
+    *
+------------------------------------------------------------
 User: burnett  Tue Nov 19 09:01:16 PST 2013
 pointlike/python/uw/like2
 
