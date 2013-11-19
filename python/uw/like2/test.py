@@ -1,6 +1,6 @@
 """
 All like2 testing code goes here, using unittest
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.10 2013/11/18 03:51:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.11 2013/11/19 17:01:16 burnett Exp $
 """
 import os, sys, unittest
 import numpy as np
@@ -303,18 +303,25 @@ class TestROImodel(TestSetup):
     
     def test_parameters(self):
         rs = roi_sources
-        parz = rs.get_parameters()
-        self.assertEquals(True, np.all(parz == rs.parameters.get_parameters()))
-
         k = 3
-        a = rs.parameters[k]
-        b = rs.get_parameters()[k]
-        self.assertEquals(a,b)
+        parz = rs.parameters.get_parameters()
         self.assertEquals(0, sum(rs.parameters.dirty))
         rs.parameters[k]=0.3
         self.assertEquals(1, sum(rs.parameters.dirty))
         self.assertEquals(0.3, rs.parameters[k])
-        rs.set_parameters(parz)
+        rs.parameters.set_parameters(parz)
+        
+        # subset tests
+        ps = rs.parsubset()
+        pars =ps.get_parameters()
+        pz = pars.copy()
+        pz[2]+=0.1
+        ps.set_parameters(pz)
+        self.assertTrue( np.all( pz== ps.get_parameters()))
+        ps.select(8)
+        self.assertEquals(pz[8], ps[0])
+        # should check other features ...
+        
     
 class TestBands(TestSetup):
 

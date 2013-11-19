@@ -1,10 +1,10 @@
 """
 Set up and manage the model for all the sources in an ROI
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.2 2013/11/18 00:03:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.3 2013/11/19 17:01:16 burnett Exp $
 
 """
-import os ,zipfile, pickle
+import os ,zipfile, pickle, types
 import numpy as np
 import skymaps
 from .. utilities import keyword_options
@@ -96,6 +96,11 @@ class ParameterSet(object):
                 source.changed=True
             i =j
             
+    @property 
+    def bounds(self):
+        """ fitter representation of applied bounds """
+        return np.concatenate([source.model.bounds[source.model.free] for source in self.free_sources])
+
     def __repr__(self):
         return '%d parameters from %d free sources' % (len(self), len(self.free_sources))
     def clear_changed(self):
@@ -115,15 +120,18 @@ class ParameterSet(object):
 
 class ParSubSet(ParameterSet):
     """ adapt ParameterSet to implement a subset
-    to use, set the mask property to an array of bool
+    to use, set the mask property to an array of bool or call the select function 
     """
-    def __init__(self, roimodel, mask=None):
+    def __init__(self, roimodel, select=None, exclude=None, mask=None):
         """
         roimodel : ROImodel object
         mask    : [array of bool | None ]
         """
+        self.roimodel=roimodel
         super(ParSubSet,self).__init__(roimodel)
         self.set_mask(mask)
+        if select is not None:
+            self.select(select, exclude)
         
     def set_mask(self, m=None):
         if m is None:
@@ -136,6 +144,62 @@ class ParSubSet(ParameterSet):
     def get_mask(self): return self._mask        
     mask = property(get_mask, set_mask) 
     
+    def select(self, select=None, exclude=None):
+        """
+        Parameters
+        ----------
+        select : None, item or list of items, where item is an int or a string
+            if not None, it defines a subset of the parameter numbers to select
+                    to define a projected function to fit
+            int:  select the corresponding parameter number
+            string: select parameters according to matching rules
+                    The name of a source (with possible wild cards) to select for fitting
+                    If initial character is '_', match the rest with parameter names
+                    if initial character is not '_' and last character is '*', treat as wild card
+            
+        exclude : None, int, or list of int 
+                if specified, will remove parameter numbers from selection
+        """
+
+        # select a list of parameter numbers, or None for all free parameters
+        selected= set()
+        npars = len(self)
+        
+        if select is not None:
+            selectpar = select
+            if not hasattr(select, '__iter__'): select = [select]
+            for item in select:
+                if type(item)==types.IntType or type(item)==np.int64:
+                    selected.add(item)
+                    if item>=npars:
+                        raise Exception('Selected parameter number, %d, not in range [0,%d)' %(item, npars))
+                elif type(item)==types.StringType:
+                    if item.startswith('_'):
+                        # look for parameters
+                        if item[-1] != '*':
+                            toadd = filter( lambda i: self.parameter_names[i].endswith(item), range(npars) )
+                        else:
+                            def filt(i):
+                                return self.parameter_names[i].find(item[:-1])!=-1
+                            toadd = filter( filt, range(npars) )
+                    else:
+                        src = self.roimodel.find_source(item)
+                        toadd = filter(lambda i: self.parameter_names[i].startswith(src.name), range(npars))
+                    selected = selected.union(toadd )
+                else:
+                    raise Exception('fit parameter select list item %s, type %s, must be either an integer or a string' %(item, type(item)))
+            select = sorted(list(selected))
+            if len(select)==0:
+                raise Exception('nothing selected using "%s"' % selectpar)
+        
+        if exclude is not None:
+            if not hasattr(exclude, '__iter__'): exclude = [exclude]
+            all = set(range(npars)) if select is None else set(select)
+            select = list( all.difference(exclude))
+        t = np.zeros(len(self), bool)
+        t[select]=True
+        self.set_mask( t )
+        
     def __getitem__(self, i):
         """ access the ith parameter"""
         return super(ParSubSet,self).__getitem__(self.subsetindex[i])
@@ -149,11 +213,15 @@ class ParSubSet(ParameterSet):
         t = super(ParSubSet, self).get_parameters()
         t[self._mask]=pars
         super(ParSubSet, self).set_parameters(t)
+
     @property
     def parameter_names(self):
         t = super(ParSubSet, self).parameter_names
         return t[self._mask]
-
+    @property
+    def bounds(self):
+        t = super(ParSubSet, self).bounds
+        return t[self.mask]
 
 class ROImodel(list):
     """ construct the model, or list of sources, for an ROI, reading the zipped pickle format
@@ -189,6 +257,10 @@ class ROImodel(list):
         """
         self.parameters = ParameterSet(self, **kw)
   
+    def parsubset(self, select=None, exclude=None):
+        """ return a ParSubSet object with possible initial selection of a subset of the parameters
+        """
+        return ParSubSet(self, select, exclude)
         
     def __repr__(self):
         return '%s.%s : %d global, %d local, %d total sources for ROI %d' \
@@ -267,18 +339,18 @@ class ROImodel(list):
                 names.append(source_name.strip()+'_'+pname)
         return np.array(names)
     
-    def get_parameters(self):
-        """ array of free parameters (fitter rep)"""
-        if len(self.models)==0: return []
-        return np.concatenate([m.get_parameters() for m in self.models])
-    
-    def set_parameters(self,parameters):
-        """ set the (fitter rep) parameters"""
-        current_position=0
-        for m in self.models:
-            cp,nn = current_position, current_position+ sum(m.free)
-            m.set_parameters(parameters[cp:nn])
-            current_position += nn-cp
+    #def get_parameters(self):
+    #    """ array of free parameters (fitter rep)"""
+    #    if len(self.models)==0: return []
+    #    return np.concatenate([m.get_parameters() for m in self.models])
+    #
+    #def set_parameters(self,parameters):
+    #    """ set the (fitter rep) parameters"""
+    #    current_position=0
+    #    for m in self.models:
+    #        cp,nn = current_position, current_position+ sum(m.free)
+    #        m.set_parameters(parameters[cp:nn])
+    #        current_position += nn-cp
 
     def find_source(self, source_name):
         """ Search for the source with the given name
