@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Nov 19 09:01:16 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	roimodel.py bandlike.py test.py 
+Log Message:
+implement band and parameter subset selection
+    *
+------------------------------------------------------------
 User: burnett  Sun Nov 17 19:51:12 PST 2013
 pointlike/python/uw/like2
 
