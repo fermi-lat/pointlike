@@ -1,7 +1,7 @@
 """
 Set up and manage the model for all the sources in an ROI
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.1 2013/11/13 06:36:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.2 2013/11/18 00:03:24 burnett Exp $
 
 """
 import os ,zipfile, pickle
@@ -39,6 +39,121 @@ def set_default_bounds( model, force=False):
         bounds.append( to_internal(mp.tointernal, plim) )
     model.bounds = np.array(bounds) # convert to array so can mask with free
 
+class ParameterSet(object):
+    """ Manage the free parameters in the model, as a virtual array
+    
+    Note that if a parameter in a source model is changed from its current value,
+    that source is marked; its 'changed' property is set True
+    
+    """
+    def __init__(self, sources, **kw):
+        self.free_sources = [source for source in sources if np.any(source.model.free)]
+        self.clear_changed()
+        # make two indexing arrays:
+        #  ms : list of (source, npar) for each source
+        #  index :  (source, index within that source) for each parameter
+        self.ms = t = [(source, sum(source.model.free)) for source in self.free_sources]
+        ss=[]; ii=[]
+        for (s,k) in t:
+            for j in range(k):
+                ss.append(s) 
+                ii.append(j)
+        self.index = np.array([ss, ii])
+    
+    def __getitem__(self, i):
+        """ access the ith parameter"""
+        source, k = self.index[:,i]
+        return source.model.get_parameters()[k]
+    
+    def __setitem__(self,i,x):
+        """ set the ith parameter to x, and, if different,
+            set the changed property for the source"""
+        source, k = self.index[:,i]
+        model = source.model
+        pars = model.get_parameters()
+        if x==pars[k]: return
+        pars[k] = x
+        source.changed=True
+        model.set_parameters(pars)
+    
+    def __len__(self):
+        return self.index.shape[1]
+        
+    def get_parameters(self):
+        """ return array of all parameters"""
+        return np.concatenate([s.model.get_parameters() for s in self.free_sources])
+        
+    def set_parameters(self, pars):
+        """ set parameters, checking to see if changed"""
+        i =0
+        for source, n in self.ms:
+            j = i+n
+            model = source.model
+            oldpars = model.get_parameters()
+            newpars = pars[i:j]
+            if np.any(oldpars != newpars):
+                source.model.set_parameters(newpars)
+                source.changed=True
+            i =j
+            
+    def __repr__(self):
+        return '%d parameters from %d free sources' % (len(self), len(self.free_sources))
+    def clear_changed(self):
+        for s in self.free_sources:
+            s.changed=False
+    @property
+    def dirty(self):
+        return np.array([s.changed for s in self.free_sources])
+    @property
+    def parameter_names(self):
+        """ array of free parameter names """
+        names = []
+        for source in self.free_sources:
+            for pname in np.array(source.model.param_names)[source.model.free]:
+                names.append(source.name.strip()+'_'+pname)                
+        return np.array(names)
+
+class ParSubSet(ParameterSet):
+    """ adapt ParameterSet to implement a subset
+    to use, set the mask property to an array of bool
+    """
+    def __init__(self, roimodel, mask=None):
+        """
+        roimodel : ROImodel object
+        mask    : [array of bool | None ]
+        """
+        super(ParSubSet,self).__init__(roimodel)
+        self.set_mask(mask)
+        
+    def set_mask(self, m=None):
+        if m is None:
+            self._mask = np.ones(len(self),bool)
+        else: 
+            assert len(m)==len(self)
+            assert sum(m)>0
+            self._mask = m
+        self.subsetindex = np.arange(len(self))[self._mask]
+    def get_mask(self): return self._mask        
+    mask = property(get_mask, set_mask) 
+    
+    def __getitem__(self, i):
+        """ access the ith parameter"""
+        return super(ParSubSet,self).__getitem__(self.subsetindex[i])
+    
+    def __setitem__(self,i,x):
+        super(ParSubSet,self).__setitem__(self.subsetindex[i], x)
+    def get_parameters(self):
+        t = super(ParSubSet, self).get_parameters()
+        return t[self._mask]
+    def set_parameters(self, pars):
+        t = super(ParSubSet, self).get_parameters()
+        t[self._mask]=pars
+        super(ParSubSet, self).set_parameters(t)
+    @property
+    def parameter_names(self):
+        t = super(ParSubSet, self).parameter_names
+        return t[self._mask]
+
 
 class ROImodel(list):
     """ construct the model, or list of sources, for an ROI, reading the zipped pickle format
@@ -69,65 +184,10 @@ class ROImodel(list):
         self.initialize()
 
      
-    def initialize(self):
+    def initialize(self, **kw):
         """For fast parameter access: must be called if any source changes
         """
-        class Parameters(object):
-            """ Manage the free parameters in the model, as a virtual array
-            
-            Note that if a parameter in a source model is changed from its current value,
-            that source is marked; its 'changed' property is set True
-            """
-            def __init__(self, sources):
-                models = sources.models
-                self.free_sources = [source for source in sources if np.any(source.model.free)]
-                self.clear_changed()
-                self.ms = t = [(source, sum(source.model.free)) for source in self.free_sources]
-                ss=[]; ii=[]
-                for (s,k) in t:
-                    for j in range(k):
-                        ss.append(s) #free_models[s])
-                        ii.append(j)
-                self.index = np.array([ss, ii])
-            
-            def __getitem__(self, i):
-                source, k = self.index[:,i]
-                return source.model.get_parameters()[k]
-            
-            def __setitem__(self,i,x):
-                source, k = self.index[:,i]
-                model = source.model
-                pars = model.get_parameters()
-                if x==pars[k]: return
-                pars[k] = x
-                source.changed=True
-                model.set_parameters(pars)
-            
-            def get_all(self):
-                return np.concatenate([s.model.get_parameters() for s in self.free_sources])
-                
-            def set_all(self, pars):
-                i =0
-                for source, n in self.ms:
-                    j = i+n
-                    model = source.model
-                    oldpars = model.get_parameters()
-                    newpars = pars[i:j]
-                    if np.any(oldpars != newpars):
-                        source.model.set_parameters(newpars)
-                        source.changed=True
-                    i =j
-                    
-            def __repr__(self):
-                return '%d parameters' % (self.index).shape[1]
-            def clear_changed(self):
-                for s in self.free_sources:
-                    s.changed=False
-            @property
-            def dirty(self):
-                return np.array([s.changed for s in self.free_sources])
-
-        self.parameters = Parameters(self)
+        self.parameters = ParameterSet(self, **kw)
   
         
     def __repr__(self):
