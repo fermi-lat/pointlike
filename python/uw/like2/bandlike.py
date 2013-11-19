@@ -2,7 +2,7 @@
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    Currently delegates some computation to classes in modules like.roi_diffuse, like.roi_extended
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.35 2013/11/18 00:03:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.36 2013/11/18 03:51:12 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -226,71 +226,127 @@ class BandLikeList(list):
         self.bands = roi_bands
         for band in roi_bands:
             self.append( BandLike(band, self.sources, self.sources.free) )
+            
+        self.set_selected(self)# set selected for a subset?
+        
+    #  the band selection mechanism, used by log_like, update and gradient   
+    def set_selected(self, values):
+        """setter for the property selected, which must be a subset of self"""
+        if values in self: # single guy
+            self._selected = [values]
+            return
+        assert set(values).issubset(self), 'Improper selection'
+        self._selected = values
+    def get_selected(self):
+        return self._selected
+    selected = property(get_selected, set_selected)
+        
     @property
-    def free_list(self):
+    def free_sources(self):
+        """ list of sources with currently free parameters
+        """
         return self.sources.free
     
     def __repr__(self):
-        return '%s.%s: \n\t%s\n\t%s\n\tparameters: %d/%d free' % (self.__module__,
-            self.__class__.__name__,
-            self.sources, self.bands, sum(self.free_list), len(self.free_list))
+        return '%s.%s: \n\t%s\n\t%s\n\tParameters: %d in %d/%d free sources' % (
+            self.__module__, self.__class__.__name__,
+            self.sources, self.bands,len(self.sources.parameters), 
+            sum(self.free_sources),  len(self.free_sources))
 
     def initialize(self):
         assert False, 'needed?'
         
+    # the following methods sum over the current set of bands
     def log_like(self):
-        return sum( b.log_like() for b in self)
+        """log likelihood for current set of bands"""
+        return sum( b.log_like() for b in self._selected)
         
     def update(self, **kwargs):
-        for b in self: 
+        for b in self._selected: 
             b.update(**kwargs)
         self.sources.parameters.clear_changed()
         
     def gradient(self):
-        return np.array([blike.gradient() for blike in self]).sum(axis=0) 
+        return np.array([blike.gradient() for blike in self._selected]).sum(axis=0) 
         
     def hessian(self, delta=1e-6):
-
-        """ return a hessian matrix based on the current parameters
-        For sigmas and correlation coefficients:
-                cov =  self.hessian().inv()
+        """ return a hessian matrix based on the current parameter set
+        This makes a numerical derivative of the analytic gradient, so not exactly
+        symmetric, but the the result must be (nearly) symmetric.
+        
+        For sigmas and correlation coefficients, invert to covariance
+                cov =  self.hessian().I
                 sigs = np.sqrt(cov.diagonal())
-                corr = cov / np.outer(sigs,sigs)
-
+                corr = hess / np.outer(sigs,sigs)
         """
+        # get the source parameter management object
         parameters = self.sources.parameters
-        gzero = self.gradient()
+        parz = parameters.get_parameters()
+        # initial values for the likelihood and gradient
         fzero = self.log_like()
-        parz = parameters.get_all()
-        def dg(i, delta=delta):
+        glast = gzero = self.gradient()
+        t = []
+        for i in range(len(parz)):
+            # increment current variable and get new gradient
             parameters[i] = parz[i]+delta
             self.update()
-            fl = self.log_like()
-            assert abs(fl- fzero)>1e-8, '%d %.3e' % (i, fl - fzero)
-            gprime = self.gradient()
-            ret= (gprime-gzero)/(2*delta)
-            parameters[i] = parz[i]
-            self.update()
-            gcheck = self.gradient()
-            assert np.all(np.abs(gcheck-gzero)<1e-5), gcheck-gzero
-            return ret
-        
-        cov = np.matrix(map(dg, range(len(parz))))
-        return cov
-        
+            gnow = self.gradient()
+            # numerical derivative of gradient with respect to this parameter
+            t.append( (gnow-glast)/(2*delta))
+            glast = gnow
+        hess = np.matrix(t)
+        parameters.set_parameters(parz) #restore all parameters, check that no difference
+        self.update()
+        assert fzero==self.log_like()
+        return hess 
+       
     def likelihood_plots(self, index = None):
         """ one, or all likelihood plots
         """
         import matplotlib.pyplot as plt
         if index is None:
-            n = len(self.parameters)
-            fig, axx = plt.subplots(n/5,5, figsize=(15,12), sharex=True, sharey=True)
+            n = len(self.sources.parameters.get_all())
+            fig, axx = plt.subplots((n+4)/5,5, figsize=(15,12), sharex=True, sharey=True)
             for i, ax in enumerate(axx.flatten()):
                 self.likelihood_functor(i).plot(ax = ax, nolabels=True)
         else:
             fig = self.likelihood_functor(index).plot()
         return fig
         
+    
+    def likelihood_fitfunc(self, **kwargs):
+        """ return a object to use with a fitter.
+        """
+
+        class FitFunction(object): 
+            blike = self
+            def __init__(self, blike,  **kwargs):
+                self.blike = blike
+                self.parameters = blike.sources.parameters
+                self.sources = self.parameters.free_sources
+            def get_parameters(self):
+                return self.parameters.get_parameters()
+            def set_parameters(self, pars):
+                self.parameters.set_parameters(pars)
+                self.blike.update()
+            @property 
+            def bounds(self):
+                return np.concatenate([s.model.bounds[s.model.free] for s in self.sources]) 
+            def __call__(self, pars):
+                self.set_parameters(pars)
+                return -self.blike.log_like()
+            def gradient(self,pars):
+                self.set_parameters(pars)
+                return self.blike.gradient()
+            def hessian(self, pars):
+                self.set_parameters(pars)
+                return self.blike.hessian()
+            @property
+            def parameter_names(self):
+                return sel.parameters.parameter_names
+                
+        return FitFunction(self, **kwargs)
+       
     
     def likelihood_functor(self, indexlist, force=False ):
         """return a functor of one variable, for testing at the moment"""
@@ -357,7 +413,7 @@ class BandLikeList(list):
                 ax.axvline(0, color='k', ls = ':')
                 
                 ax2 = ax.twinx()
-                gradvals = sig*np.array(map(func.gradient, x))
+                gradvals = -sig*np.array(map(func.gradient, x))
                 ax2.plot(xsig, gradvals, '-r')
                 ax2.axhline(0, color='r', ls=':')
                 ax2.set_ylim( y2lim)
