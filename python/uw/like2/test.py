@@ -1,6 +1,6 @@
 """
 All like2 testing code goes here, using unittest
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.11 2013/11/19 17:01:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.12 2013/11/19 21:07:13 burnett Exp $
 """
 import os, sys, unittest
 import numpy as np
@@ -348,21 +348,21 @@ class TestLikelihood(TestSetup):
         weights = b1.data / b1.model_pixels
         self.assertAlmostEquals(0.98, weights.mean(), delta=0.01)
         self.assertAlmostEquals(0.035, weights.std(), delta=0.002)
-    def test_gradient(self, delta=1e-3, exclude='W28'):
-        bl = self.bl
-        ss = bl.sources
-        gradient = bl.gradient()
-        parameters = bl.sources.parameters
-        for parameter_index in range(len(bl.sources.parameter_names)):
-            a = gradient[parameter_index]
-            b = bl.likelihood_functor(parameter_index).derivative(parameters[parameter_index])
-            #print '%3d %-22s %10.2f %10.2f %10.3f' % (parameter_index,ss.parameter_names[parameter_index],
-            #        parameters[parameter_index], a, round(np.abs(1+b/a),3))
-            parname = ss.parameter_names[parameter_index]
-            # note possible exclusion
-            if exclude is None or not parname.startswith(exclude):
-                self.assertAlmostEquals(1, -b/a, delta=delta,
-                    msg='Fail derivative check for %s %.3f %.3f'%( parname, a,b))
+    #def test_gradient(self, delta=1e-3, exclude='W28'):
+    #    bl = self.bl
+    #    ss = bl.sources
+    #    gradient = bl.gradient()
+    #    parameters = bl.sources.parameters
+    #    for parameter_index in range(len(bl.sources.parameter_names)):
+    #        a = gradient[parameter_index]
+    #        b = bl.likelihood_functor(parameter_index).derivative(parameters[parameter_index])
+    #        #print '%3d %-22s %10.2f %10.2f %10.3f' % (parameter_index,ss.parameter_names[parameter_index],
+    #        #        parameters[parameter_index], a, round(np.abs(1+b/a),3))
+    #        parname = ss.parameter_names[parameter_index]
+    #        # note possible exclusion
+    #        if exclude is None or not parname.startswith(exclude):
+    #            self.assertAlmostEquals(1, -b/a, delta=delta,
+    #                msg='Fail derivative check for %s %.3f %.3f'%( parname, a,b))
 
     def test_hessian(self):
         bl = self.bl
@@ -373,13 +373,12 @@ class TestLikelihood(TestSetup):
         t = np.array(corr.T - corr).flatten()
         self.assertTrue( np.abs(t).max()<0.02)
 
-    def test_subset(self):
+    def test_bandsubset(self):
         bl = self.bl
         bl.selected = bl
         self.assertTrue(bl.selected == bl)
         bl.selected = bl[1]
         bl.selected = bl[:4]
-        self.test_gradient()
         parta = bl.log_like()
         bl.selected = bl[4:]
         partb = bl.log_like()
