@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Nov 20 15:09:36 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	bandlike.py test.py roimodel.py 
+Log Message:
+fitting, plotting of fits functional
+    *
+------------------------------------------------------------
 User: burnett  Tue Nov 19 13:07:13 PST 2013
 pointlike/python/uw/like2
 
