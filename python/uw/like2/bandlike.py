@@ -2,16 +2,129 @@
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    Currently delegates some computation to classes in modules like.roi_diffuse, like.roi_extended
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.36 2013/11/18 03:51:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.37 2013/11/19 17:01:16 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
 import sys, types
 import numpy as np
-from scipy import misc
+from scipy import misc, optimize
 from  uw.utilities import keyword_options
+from . import roimodel
 
+class FitPlotMixin(object):
+    """mixin  for likelihood function to generate a plot, or set of all plots"""
+    def plot_fit(self, index, ax=None, nolabels=False , y2lim=(-10,10)):
+        """make a plot showing the log likelihood and its derivative as a function of
+        expected sigma, evaluated from the second derivative at the current point
+        
+        index : int
+            index of the parameter
+        """
+        import matplotlib.pyplot as plt
+        # get current parameters, gradient, and the Hessian for estimate of max liklihood position
+        parz = self.get_parameters()
+        hess = self.hessian(parz)
+        cov = hess.I
+        sigs = np.sqrt(np.asarray(cov.diagonal()).flatten())
+        dtomax = -self.gradient(parz)*sigs**2/2.
+        
+        pz = parz[index]
+        part = parz.copy()
+        def func(x):
+            part[index]=x
+            return -self(part) #(restore sign for minimization)
+        def gradf(x):
+            part[index]=x
+            return self.gradient(part)[index]
+        x0, sig = (parz+dtomax)[index], sigs[index]
+        ref = func(x0)
+        if ax is None:
+            fig, ax = plt.subplots( figsize=(3,3))
+        else: fig = ax.figure
+        xsig = np.linspace(-3, 3, 27)
+        x =  x0 + xsig * sig 
+        ax.plot(xsig, map(func,x)-ref, '-')
+        ax.plot(xsig, -((x-x0)/sig)**2, '--')
+        ax.plot((pz-x0)/sig, func(pz)-ref, 'db')
+        plt.setp(ax, ylim=(-9,1), xlim=(-4,4))
+        if not nolabels: ax.set_ylabel('log likelihood')
+        j = np.arange(len(self.mask))[self.mask][index]if hasattr(self,'mask') else index
+        ax.set_title('#%d: %s' %(j,self.parameter_names[index]), size=10)
+        ax.text( -2,-8, 'par %.3f\nsig %.3f' % (pz,sig), size=10)
+        ax.axvline(0, color='k', ls = ':')
+        
+        ax2 = ax.twinx()
+        gradvals = -sig*np.array(map(gradf, x))
+        ax2.plot(xsig, gradvals, '-r')
+        ax2.axhline(0, color='r', ls=':')
+        ax2.set_ylim( y2lim)
+        if not nolabels: ax2.set_ylabel('derivative (sig units)')
+        else: ax2.set_yticklabels([])
+        
+        self.set_parameters(parz) # restore when done
+        return fig
     
+    def plot_all_fits(self, perrow=5, figsize=(12,12)):
+        """
+        """
+        import matplotlib.pyplot as plt
+        n = len(self.parameters)
+        if n==1:
+            return self.plot_fit(0)
+        fig, axx = plt.subplots((n+perrow-1)/perrow,perrow, 
+            figsize=figsize, sharex=True, sharey=True)
+        for i, ax in enumerate(axx.flatten()):
+            if i>n: break
+            self.plot_fit(i, ax = ax, nolabels=True)
+        return fig
+
+
+class FitterMixin(object):
+    def maximize(self,  **kwargs):
+        """Maximize likelihood and estimate errors.
+        """
+        from scipy import optimize
+        quiet = kwargs.pop('quiet', True)
+        if not quiet: print 'using optimize.fmin_l_bfgs_b with parameter bounds %s\n, kw= %s'% (
+                            self.bounds, kwargs)
+        parz = self.get_parameters()
+        ret = optimize.fmin_l_bfgs_b(self, parz, 
+                bounds=self.bounds,  fprime=self.gradient, **kwargs)
+        if ret[2]['warnflag']>0: 
+            self.set_parameters(parz) #restore if error   
+            raise Exception( 'Fit failure:\n%s' % ret[2])
+        if not quiet:
+            print ret[2]
+        f = ret 
+        cov = self.hessian(f[0]).I
+        diag = cov.diagonal().copy()
+        bad = diag<0
+        if np.any(bad):
+            if not quiet: print 'Minimizer warning: bad errors for values %s'\
+                %np.asarray(self.parameter_names)[bad] 
+            diag[bad]=np.nan
+        return f[1], f[0], np.array(np.sqrt(diag)).flatten()
+        
+    def check_gradient(self, delta=1e-5):
+        """compare the analytic gradient with a numerical derivative"""
+        
+        parz = self.get_parameters()
+        fz = self(parz)
+        grad = self.gradient(parz)
+        fprime=[]
+        for i in range(len(parz)):
+            parz[i]+=delta
+            fplus = self(parz)
+            assert abs(fplus-fz)>1e-6, 'Fail consistency: variable %d not changing' % i
+            parz[i]-=2*delta
+            fminus = self(parz)
+            parz[i]+= delta
+            fzero = self(parz)
+            assert abs(fzero-fz)<1e-2, 'Fail consistency: %e, %e ' % (fzero, fz)
+            fprime.append((fplus-fminus)/(2*delta))
+        return grad, np.array(fprime) 
+   
 class BandLike(object):
     """ manage the likelihood calculation for a band 
     """
@@ -269,10 +382,13 @@ class BandLikeList(list):
     def gradient(self):
         return np.array([blike.gradient() for blike in self._selected]).sum(axis=0) 
         
-    def hessian(self, delta=1e-6):
+    def hessian(self, mask=None, delta=1e-6):
         """ return a hessian matrix based on the current parameter set
         This makes a numerical derivative of the analytic gradient, so not exactly
         symmetric, but the the result must be (nearly) symmetric.
+        
+        mask : [None, array of bool]
+            If present, must have dimension of the parameters, will generate a sub matrix
         
         For sigmas and correlation coefficients, invert to covariance
                 cov =  self.hessian().I
@@ -282,15 +398,19 @@ class BandLikeList(list):
         # get the source parameter management object
         parameters = self.sources.parameters
         parz = parameters.get_parameters()
+        if mask is None: mask = np.ones(len(parz),bool)
+        else:
+            mask = np.asarray(mask)
+            assert len(mask)==len(parz)
         # initial values for the likelihood and gradient
         fzero = self.log_like()
-        glast = gzero = self.gradient()
+        glast = gzero = self.gradient()[mask]
         t = []
-        for i in range(len(parz)):
+        for i in np.arange(len(parz))[mask]:
             # increment current variable and get new gradient
             parameters[i] = parz[i]+delta
             self.update()
-            gnow = self.gradient()
+            gnow = self.gradient()[mask]
             # numerical derivative of gradient with respect to this parameter
             t.append( (gnow-glast)/(2*delta))
             glast = gnow
@@ -314,11 +434,12 @@ class BandLikeList(list):
         return fig
         
     
-    def likelihood_fitfunc(self, **kwargs):
+    def likelihood_fitfunc(self, select=None, **kwargs):
         """ return a object to use with a fitter.
+            Two versions, one with full set of parameters, other if a subset is specified
         """
 
-        class FitFunction(object): 
+        class FitFunction(FitPlotMixin, FitterMixin): 
             blike = self
             def __init__(self, blike,  **kwargs):
                 self.blike = blike
@@ -343,85 +464,30 @@ class BandLikeList(list):
                 return self.blike.hessian()
             @property
             def parameter_names(self):
-                return sel.parameters.parameter_names
-                
-        return FitFunction(self, **kwargs)
+                return self.parameters.parameter_names
+             
+        class LikeFunctor(roimodel.ParSubSet, FitPlotMixin, FitterMixin):
+            def __init__(self, blike, select=None):
+                self.blike = blike
+                super(LikeFunctor, self).__init__(blike.sources, select)
+            @property
+            def parameters(self):
+                return self.get_parameters()
+            def set_parameters(self, pars):
+                super(LikeFunctor,self).set_parameters(pars)
+                self.blike.update()
+            def __call__(self, pars):
+                self.set_parameters(pars)
+                return -self.blike.log_like()
+            def gradient(self, pars):
+                self.set_parameters(pars)
+                return self.blike.gradient()[self.mask]
+            def hessian(self,pars):
+                self.set_parameters(pars)
+                return self.blike.hessian(self.mask) # needS mask
+
+        if select is None:
+            return FitFunction(self, **kwargs)
+        return LikeFunctor(self, select, **kwargs)
        
     
-    def likelihood_functor(self, indexlist, force=False ):
-        """return a functor of one variable, for testing at the moment"""
-        blike = self
-        class LikelihoodFunctor(object):
-            def __init__(self, indexlist, force):
-                self.parameters = blike.sources.parameters
-                self.aup = force
-                self.k = indexlist
-                
-            def setpar(self,par):
-                self.parameters[self.k] = par
-                blike.update(force=self.aup)
-                       
-            def __call__(self, par):
-                self.setpar( par )
-                ret = blike.log_like()
-                return ret
-                
-            def gradient(self, par, full=False):
-                self.setpar(par)
-                return blike.gradient()[self.k] if not full else blike.gradient()
-            
-            def get_quad(self, par, dx=1e-5):
-                """estimate position of peak and sigma using scipy derivative, assuming quadratric
-                """
-                d1,d2 = [misc.derivative(self, par, n=n, dx=dx) for n in (1,2)]
-                sig = np.sqrt(-2./d2)
-                pmax = par - d1/d2
-                return pmax, sig
-            
-            def derivative(self, par, n=1, dx=0.0001):
-                """ numerical derivative; make sure state is same after"""
-                pz = self.parameters[self.k]
-                before = self(pz)
-                d = misc.derivative(self, par, dx=dx, n=n)
-                self.parameters[self.k] = pz
-                assert self(pz)==before, 'failed to restore?'
-                return d
-                
-            def plot(self, ax=None, nolabels=False , y2lim=(-10,10)):
-                """make a plot showing the log likelihood and its derivative as a function of
-                expected sigma, evaluated from the second derivative at the current point
-                """
-                import matplotlib.pyplot as plt
-                func = self
-                index=self.k
-                pz =self.parameters[self.k]
-                x0, sig = func.get_quad(pz)
-                ref = func(x0)
-                if ax is None:
-                    fig, ax = plt.subplots( figsize=(3,3))
-                else: fig = ax.figure
-                plt.subplots_adjust(wspace=0.3)
-                xsig = np.linspace(-3, 3, 27)
-                x =  x0 + xsig * sig 
-                ax.plot(xsig, map(func,x)-ref, '-')
-                ax.plot(xsig, -((x-x0)/sig)**2, '--')
-                ax.plot((pz-x0)/sig, func(pz)-ref, 'db')
-                plt.setp(ax, ylim=(-9,0.5))
-                if not nolabels: ax.set_ylabel('log likelihood')
-                ax.set_title('#%d: %s' %(index,blike.sources.parameter_names[index]), size=10)
-                ax.text( -2,-8, 'par %.3f\nsig %.3f' % (pz,sig), size=10)
-                ax.axvline(0, color='k', ls = ':')
-                
-                ax2 = ax.twinx()
-                gradvals = -sig*np.array(map(func.gradient, x))
-                ax2.plot(xsig, gradvals, '-r')
-                ax2.axhline(0, color='r', ls=':')
-                ax2.set_ylim( y2lim)
-                if not nolabels: ax2.set_ylabel('derivative (sig units)')
-                else: ax2.set_yticklabels([])
-                
-                self.setpar(pz) # restore when done
-                return fig
-                
-                
-        return LikelihoodFunctor(indexlist, force)
