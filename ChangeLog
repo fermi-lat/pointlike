@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Nov 23 08:07:38 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	loglikelihood.py 
+Log Message:
+add repr
+    *
+------------------------------------------------------------
 User: burnett  Sat Nov 23 08:05:34 PST 2013
 pointlike/python/uw/like2
 
