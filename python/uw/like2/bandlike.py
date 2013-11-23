@@ -2,7 +2,7 @@
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    Currently delegates some computation to classes in modules like.roi_diffuse, like.roi_extended
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.37 2013/11/19 17:01:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.38 2013/11/20 23:09:36 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -10,10 +10,24 @@ import sys, types
 import numpy as np
 from scipy import misc, optimize
 from  uw.utilities import keyword_options
-from . import roimodel
+from . import roimodel, tools
 
 class FitPlotMixin(object):
     """mixin  for likelihood function to generate a plot, or set of all plots"""
+    
+    def estimate_solution(self):
+        """ return a tuple with:
+            current parameters, 
+            estimated parmeters at maximum
+            sigmas
+        """
+        parz = self.get_parameters()
+        hess = self.hessian(parz)
+        cov = hess.I
+        sigs = np.sqrt(np.asarray(cov.diagonal()).flatten())
+        parmax = parz-self.gradient(parz)*sigs**2/2.
+        return parz, parmax, sigs
+
     def plot_fit(self, index, ax=None, nolabels=False , y2lim=(-10,10)):
         """make a plot showing the log likelihood and its derivative as a function of
         expected sigma, evaluated from the second derivative at the current point
@@ -23,12 +37,7 @@ class FitPlotMixin(object):
         """
         import matplotlib.pyplot as plt
         # get current parameters, gradient, and the Hessian for estimate of max liklihood position
-        parz = self.get_parameters()
-        hess = self.hessian(parz)
-        cov = hess.I
-        sigs = np.sqrt(np.asarray(cov.diagonal()).flatten())
-        dtomax = -self.gradient(parz)*sigs**2/2.
-        
+        parz, parmax, sigs = self.estimate_solution()
         pz = parz[index]
         part = parz.copy()
         def func(x):
@@ -37,7 +46,7 @@ class FitPlotMixin(object):
         def gradf(x):
             part[index]=x
             return self.gradient(part)[index]
-        x0, sig = (parz+dtomax)[index], sigs[index]
+        x0, sig = (parmax)[index], sigs[index]
         ref = func(x0)
         if ax is None:
             fig, ax = plt.subplots( figsize=(3,3))
@@ -75,7 +84,7 @@ class FitPlotMixin(object):
         fig, axx = plt.subplots((n+perrow-1)/perrow,perrow, 
             figsize=figsize, sharex=True, sharey=True)
         for i, ax in enumerate(axx.flatten()):
-            if i>n: break
+            if i>=n: break
             self.plot_fit(i, ax = ax, nolabels=True)
         return fig
 
@@ -223,6 +232,7 @@ class BandLike(object):
                 bandsource.update()
             if self.band.has_pixels: self.model_pixels += bandsource.pix_counts
             self.counts+= bandsource.counts
+ 
         self.weights = self.data / self.model_pixels
 
     def log_like(self):
@@ -341,6 +351,7 @@ class BandLikeList(list):
             self.append( BandLike(band, self.sources, self.sources.free) )
             
         self.set_selected(self)# set selected for a subset?
+        self.all_energies = self.energies[:]
         
     #  the band selection mechanism, used by log_like, update and gradient   
     def set_selected(self, values):
@@ -354,25 +365,62 @@ class BandLikeList(list):
         return self._selected
     selected = property(get_selected, set_selected)
         
+    def select(self, index=None, event_type=None):
+        """ Select an energy band or bands
+        parameters:
+        ----------
+        index: None or integer
+            an index into the list of energies; if None, select all bands
+            and use the current spectral model, otherwise a powerlaw to 
+            represent an model-independent flux over the band.
+        event_type : None or integer
+            if None, select both front and back, otherwise 0/1 for front/back
+                
+        """
+        if index==None: #select all (initially selected) bands, use input model
+            selected_bands = self[:]
+        else:
+            energy = self.all_energies[index]
+            type_select = lambda x : True if event_type is None else x==event_type
+            selected_bands = filter(lambda b: b.band.energy==energy and type_select(b.band.event_type), self)
+            assert len(selected_bands)>0, 'did not find any bands for energy %.1f' % energy
+        self.selected = selected_bands
+
     @property
     def free_sources(self):
         """ list of sources with currently free parameters
         """
         return self.sources.free
     
+    @property
+    def energies(self):
+        return  np.sort(list(set([ sm.band.energy for sm in self._selected])))
+    @property
+    def emin(self):
+        return np.array([b.band.emin for b in self.__selected]).min()
+    @property
+    def emax(self):
+        return np.array([b.band.emax for b in self.__selected]).max()
+        
     def __repr__(self):
+        sel = '%d bands'%len(self.bands) if len(self.selected)==len(self) else '%d / %d selected bands'\
+            %(len(self.selected),len(self))
         return '%s.%s: \n\t%s\n\t%s\n\tParameters: %d in %d/%d free sources' % (
             self.__module__, self.__class__.__name__,
-            self.sources, self.bands,len(self.sources.parameters), 
+            self.sources, sel, len(self.sources.parameters), 
             sum(self.free_sources),  len(self.free_sources))
 
     def initialize(self):
         assert False, 'needed?'
         
     # the following methods sum over the current set of bands
-    def log_like(self):
-        """log likelihood for current set of bands"""
-        return sum( b.log_like() for b in self._selected)
+    def log_like(self, summed=True):
+        """log likelihood for current set of bands
+        summed : bool, optional
+        if false, return the array of likelihods for each band
+        """
+        r = np.array([b.log_like() for b in self._selected])
+        return  sum(r) if summed else r
         
     def update(self, **kwargs):
         for b in self._selected: 
@@ -417,24 +465,53 @@ class BandLikeList(list):
         hess = np.matrix(t)
         parameters.set_parameters(parz) #restore all parameters, check that no difference
         self.update()
-        assert fzero==self.log_like()
+        assert abs(fzero-self.log_like())<1e-2
         return hess 
        
-    def likelihood_plots(self, index = None):
-        """ one, or all likelihood plots
-        """
-        import matplotlib.pyplot as plt
-        if index is None:
-            n = len(self.sources.parameters.get_all())
-            fig, axx = plt.subplots((n+4)/5,5, figsize=(15,12), sharex=True, sharey=True)
-            for i, ax in enumerate(axx.flatten()):
-                self.likelihood_functor(i).plot(ax = ax, nolabels=True)
-        else:
-            fig = self.likelihood_functor(index).plot()
-        return fig
         
-    
-    def likelihood_fitfunc(self, select=None, **kwargs):
+    def energy_flux_view(self, source_name, energy=None, **kw):
+        """ a functor for a source, which returns log likelihood as a 
+                function of the differential energy flux, in eV units, at the given energy
+                
+        parameters
+        ----------
+        source_name : string
+        energy : [None | float]
+            if None, use the reference energy e0
+        """
+
+        class EnergyFluxLikelihood(object):
+            def __init__(self, blike, func, energy):
+                self.func = func
+                self.saved_pars = self.func.parameters
+                source = self.func.source
+                model = source.spectral_model
+                if energy is None:
+                    energy=model.e0
+                eflux = model(energy) * energy**2 * 1e6
+                self.ratio = model[0]/eflux
+                assert model[0]==model['norm']
+                self.tointernal = model.mappers[0].tointernal
+                self.bound = model.bounds[0][0]
+        
+            def restore(self):
+                self.func.set_parameters(self.saved_pars)
+
+            @tools.ufunc_decorator # make this behave like a ufunc
+            def __call__(self, eflux):
+                if eflux<=0:
+                    par = self.bound
+                else:
+                    par = max(self.bound, self.tointernal(eflux*self.ratio))
+                return -self.func([par])
+                
+        try:
+            func = self.fitter_view(source_name+'_Norm')
+        except Exception, msg:
+            raise Exception('could not create energy flux function for source %s;%s' %(source_name, msg))
+        return EnergyFluxLikelihood(self, func, energy, **kw)
+        
+    def fitter_view(self, select=None, **kwargs):
         """ return a object to use with a fitter.
             Two versions, one with full set of parameters, other if a subset is specified
         """
@@ -453,9 +530,13 @@ class BandLikeList(list):
             @property 
             def bounds(self):
                 return np.concatenate([s.model.bounds[s.model.free] for s in self.sources]) 
-            def __call__(self, pars):
-                self.set_parameters(pars)
+            def __call__(self, pars=None):
+                if pars is not None: self.set_parameters(pars)
                 return -self.blike.log_like()
+            def log_like(self, summed=True):
+                """assume that parameters are set, possibility of individual likelihoods"""
+                return self.blike.log_like(summed)
+
             def gradient(self,pars):
                 self.set_parameters(pars)
                 return self.blike.gradient()
@@ -470,15 +551,20 @@ class BandLikeList(list):
             def __init__(self, blike, select=None):
                 self.blike = blike
                 super(LikeFunctor, self).__init__(blike.sources, select)
+            def __repr__(self):
+                return '%s.%s: %s '% (self.__module__, self.__class__.__name__, self.selection_description)
             @property
             def parameters(self):
                 return self.get_parameters()
             def set_parameters(self, pars):
                 super(LikeFunctor,self).set_parameters(pars)
                 self.blike.update()
-            def __call__(self, pars):
-                self.set_parameters(pars)
+            def __call__(self, pars=None):
+                if pars is not None: self.set_parameters(pars)
                 return -self.blike.log_like()
+            def log_like(self, summed=True):
+                """assume that parameters are set, possibility of individual likelihoods"""
+                return self.blike.log_like(summed)
             def gradient(self, pars):
                 self.set_parameters(pars)
                 return self.blike.gradient()[self.mask]
@@ -489,5 +575,33 @@ class BandLikeList(list):
         if select is None:
             return FitFunction(self, **kwargs)
         return LikeFunctor(self, select, **kwargs)
+        
+    def tsmap_view(self, source_name, **kw):
+        """Return TSmap function for the source
+        """
+        class TSmap(object):
+            def __init__(self, blike, func, **kw):
+                self.func = func
+                self.source = self.func.source
+                self.skydir = self.source.skydir
+                self.wzero = func.log_like()
+
+            def __repr__(self):
+                return '%s.%s: source' % (self.__module__, self.__class__.__name__, self.source)
+                
+            def restore(self):
+                self.source.skydir = self.skydir
+
+            def __call__(self, skydir):
+                self.source.changed=True
+                self.source.skydir = skydir
+                blike.update(reset=True)
+                return 2*(self.func.log_like()-self.wzero)
+        
+        try:
+            func = self.fitter_view(source_name+'_Norm')
+        except Exception, msg:
+            raise Exception('could not create tsmap function for source %s;%s' %(source_name, msg))
+        return TSmap(self, func, **kw)
        
     

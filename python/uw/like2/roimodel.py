@@ -1,7 +1,7 @@
 """
 Set up and manage the model for all the sources in an ROI
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.4 2013/11/19 21:07:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.5 2013/11/20 23:09:36 burnett Exp $
 
 """
 import os ,zipfile, pickle, types
@@ -130,9 +130,12 @@ class ParSubSet(ParameterSet):
         self.roimodel=roimodel
         super(ParSubSet,self).__init__(roimodel)
         self.set_mask(mask)
+        self.selection_description = None
         if select is not None:
             self.select(select, exclude)
         
+    def __repr__(self):
+        return '%s.%s: subset of %d parameters' % (self.__module__, self.__class__.__name__, sum(self.mask))
     def set_mask(self, m=None):
         if m is None:
             self._mask = np.ones(len(self),bool)
@@ -182,8 +185,12 @@ class ParSubSet(ParameterSet):
                             def filt(i):
                                 return self.parameter_names[i].find(item[:-1])!=-1
                             toadd = filter( filt, range(npars) )
+                    elif item in self.parameter_names:
+                        toadd = [list(self.parameter_names).index(item)]
+                        self.selection_description = 'parameter %s' % item
                     else:
                         src = self.roimodel.find_source(item)
+                        self.selection_description = 'source %s'%src.name
                         toadd = filter(lambda i: self.parameter_names[i].startswith(src.name), range(npars))
                     selected = selected.union(toadd )
                 else:
@@ -199,6 +206,8 @@ class ParSubSet(ParameterSet):
         t = np.zeros(len(self), bool)
         t[select]=True
         self.set_mask( t )
+        if self.selection_description is None:
+            self.selection_description = 'parameters %s' % select
         
     def __getitem__(self, i):
         """ access the ith parameter"""
@@ -212,8 +221,21 @@ class ParSubSet(ParameterSet):
     def set_parameters(self, pars):
         t = super(ParSubSet, self).get_parameters()
         t[self._mask]=pars
-        super(ParSubSet, self).set_parameters(t)
-
+        super(ParSubSet, self).set_parameters(t)    
+    
+    @property
+    def spectral_model(self):
+        """ access to the spectral model for the first parameter"""
+        return self.index[0, self.subsetindex[0]].model
+    @property
+    def source(self):
+        """ access to the source associated with the first parameter"""
+        return self.index[0, self.subsetindex[0]]
+        
+    def get_model(self,i):
+        """spectral model for parameter i"""
+        return self.index[0, self.subsetindex[i]].model
+        
     @property
     def parameter_names(self):
         t = super(ParSubSet, self).parameter_names

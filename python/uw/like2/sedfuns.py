@@ -1,17 +1,32 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.17 2013/04/02 04:22:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.19 2013/05/14 15:33:04 burnett Exp $
 
 """
-import os,pickle
+import os, pickle
 import numpy as np
 from uw.utilities import fitter,  makerec, keyword_options
-from . import plotting 
-from . import tools
-from uw.like import Models
+from . import ( plotting, tools, loglikelihood)
 
-class SourceFlux(object):
+#class EnergyFluxConverter(object):
+#    """ a functor for any Model, which returns the flux internal parameter as a 
+#        function of the differential energy flux, in eV units, at the given energy
+#    """
+#    def __init__(self, model, energy):
+#        eflux = model(energy) * energy**2 * 1e6
+#        self.ratio = model[0]/eflux
+#        assert model[0]==model['norm']
+#        self.tointernal = model.mappers[0].tointernal
+#        self.bound = model.bounds[0][0]
+#        
+#    def __call__(self, eflux):
+#        if eflux<=0:
+#            return self.bound
+#        t = self.tointernal(eflux*self.ratio)
+#        return max(self.bound, t)
+        
+class SourceFlux(tools.WithMixin):
     """ measure the energy-dependent flux for a given source
     An object can be passed to LogLikelihood to measure errors, limit, TS
     It can be set for all bands, just the band(s) at given energy, or a single band:
@@ -19,90 +34,82 @@ class SourceFlux(object):
     But beware: it alters the source's spectral_model if so: be sure to call reset when done!
     Note that it supports the 'with' 
     """
-    def __init__(self, rstat, source_name=None, quiet=True):
+    def __init__(self, rstat, source_name, quiet=False):
         """ rstat : ROIstat object
             source_name : name of one of the sources in the SourceList, or None
         """
         self.rs = rstat
         self.rs.quiet=quiet
-        self.source = rstat.sources.find_source(source_name)
-        parname = self.source.name+'_Norm'
-        try:
-            self.pindex = list(rstat.parameter_names).index(parname)
-        except:
-            raise Exception('did not find parameter name, %s, for source flux'%parname)
-        self.saved_flux = self.source.spectral_model[0]
-        self.saved_model = self.source.spectral_model
-        self.energies = np.sort(list(set([ sm.band.e for sm in rstat.all_bands])))
-        self.all_bands = self.rs.selected_bands.copy() # save list of initial bands selected
-        #self.select_band(None)
-      
-    def __str__(self):
-        return 'SourceFlux of %s in ROI %s' %(self.source.name, self.rs.name)
-        
-    def restore(self):
-        """ restore the selected model """
-        self.source.spectral_model = self.saved_model
-        self.source.spectral_model[0] = self.saved_flux
-        self.rs.selected_bands = self.all_bands
-
-    @tools.ufunc_decorator # make this behave like a ufunc
-    def __call__(self, eflux):
-        """ eflux : double
-                energy flux in eV units
-        """
-        self.source.spectral_model[0] = max(eflux,1e-3)*self.factor
-        self.rs.update()
-        return self.rs.log_like()
-        
-    def model_flux(self):
-        """ return the energy flux predicted by the saved model, for the current energy
-        (select_band must have been called)
-        """
-        return self.saved_model(self.selected_energy)/self.factor
-
-    def select_band(self, index, event_class=None):
+        self.func = self.rs.energy_flux_view(source_name)
+        self.source_name = source_name
+        self.full_poiss = self.select(None)
+        self.energies = self.rs.energies # the original list
+    
+    def __repr__(self):
+        return '%s.%s : %d bands selected, energy range %.0f-%.0f'% (
+                    self.__module__, self.__class__.__name__,len(self.rs.selected), self.emin, self.emax)
+    def select(self, index, event_type=None, poisson_tolerance=0.05):
         """ Select an energy band or bands
         parameters:
             index: None or integer
                 an index into the list of energies; if None, select all bands
                 and use the current spectral model, otherwise a powerlaw to 
                 represent an model-independent flux over the band.
-            event_class : None or integer
+            event_type : None or integer
                 if None, select both front and back, otherwise 0/1 for front/back
-        Sets self.factor as conversion factor from flux to eflux in eV    
+                
+        returns an equivalent Poisson object
         """
-        if index==None: #select all (initially selected) bands, use input model
-            self.selected_energy = self.source.spectral_model.e0
-            self.rs.selected_bands = self.all_bands
-            self.factor = self.saved_model[0]/(self.saved_model.eflux*1e6)
+        if index is None:
+            self.rs.select()
+            self.func =func = self.rs.energy_flux_view(self.source_name)
         else:
-            # selected band(s) at a given energy: use a powerlaw 
-            # (but beware: this replaces the spectral model, which must be restored)
-            self.selected_energy = energy =self.energies[index]
-            self.source.spectral_model = Models.PowerLaw(free=[True,False],p=[1e-11,2.1], 
-                        e0=self.selected_energy) 
-            class_select = lambda x : True if event_class is None else x==event_class
-            self.rs.select_bands(lambda b: b.e==energy and class_select(b.ec))
-            assert len(self.rs.selected_bands)>0, 'did not find any bands for energy %.1f' % energy
-            self.factor = 1.0/(energy**2*1e6) 
-        self.emin = np.min([bandlike.band.emin for bandlike in self.rs.selected_bands])
-        self.emax = np.max([bandlike.band.emax for bandlike in self.rs.selected_bands])
-        w = tools.LogLikelihood(self)
-        return w
-        
-    def __enter__(self):
-        """ supports the 'with' construction, guarantees that restore is called to restore the ROI
-        example:
-        -------
-        with SourceFlux(roi, name) as sf:
-            # use sf ...
-        """
-        return self
-        
-    def __exit__(self, type, value, traceback):
-        self.restore()
+            self.rs.select(index, event_type)
+            energies = self.rs.energies
+            assert len(energies)==1
+            energy = self.rs.energies[0]
+            func = self.rs.energy_flux_view(self.source_name, energy)
+        return loglikelihood.PoissonFitter(func).poiss
 
+    def all_poiss(self, event_type=None):
+        """ return array of Poisson objects for each energy band """
+        pp = []
+        for i,e in enumerate(self.energies):
+            pp.append(self.select(i, event_type=event_type))
+        self.restore()
+        return np.array(pp)
+        
+    def restore(self):
+        self.func.restore()
+        self.rs.select()
+        
+    def __call__(self, eflux):
+        """eflux : float or array of float
+            energy flux in eV units
+        """
+        return self.func(eflux)
+        
+    def plots(self, full=True, x = np.linspace(0, 80, 25)):
+        import matplotlib.pylab as plt
+           
+        fig, axx = plt.subplots(4,4, figsize=(12,12), sharex=True, sharey=True)
+        
+        for i,ax in enumerate(axx.flatten()):
+            if i>=len(self.energies): 
+                ax.set_visible(False)
+                continue
+            ll = self.select(i)
+            if full:
+                y = self(x)
+                ax.plot(x, y-y.max(), '-')
+            ax.set_title('%d' % self.selected_energy, size=10)
+            y2 = np.array(ll(x))
+            ax.plot(x, y2-y2.max() ,'+', label='Poisson fit')
+            plt.setp(ax, ylim=(-9,1))
+        self.restore()
+        return fig
+
+    
         
 class SED(object):
     """     

@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.31 2013/11/12 00:39:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.32 2013/11/13 06:36:24 burnett Exp $
 
 """
 import os, copy
@@ -95,9 +95,13 @@ class Source(object):
             raise Exception('model %s for source %s was not converted to new format'\
                     % (self.model.name, self.name))
             
-    @property
-    def spectral_model(self): #an alias for the model
+    def get_spectral_model(self):
         return self.model
+    def set_spectral_model(self, newmodel):
+        t =self.model
+        self.model = newmodel
+        return t
+    spectral_model = property(get_spectral_model, set_spectral_model)
 
     def freeze(self, freeze):
         self.model.free[:] = False if freeze else self.free

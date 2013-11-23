@@ -1,6 +1,6 @@
 """
 All like2 testing code goes here, using unittest
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.12 2013/11/19 21:07:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.13 2013/11/20 23:09:36 burnett Exp $
 """
 import os, sys, unittest
 import numpy as np
@@ -16,6 +16,7 @@ from uw.like2 import ( configuration,
     roimodel,
     dataset,
     bandlike,
+    sedfuns,
     )
 
 # globals: references set by setUp methods in classes as needed
@@ -348,22 +349,6 @@ class TestLikelihood(TestSetup):
         weights = b1.data / b1.model_pixels
         self.assertAlmostEquals(0.98, weights.mean(), delta=0.01)
         self.assertAlmostEquals(0.035, weights.std(), delta=0.002)
-    #def test_gradient(self, delta=1e-3, exclude='W28'):
-    #    bl = self.bl
-    #    ss = bl.sources
-    #    gradient = bl.gradient()
-    #    parameters = bl.sources.parameters
-    #    for parameter_index in range(len(bl.sources.parameter_names)):
-    #        a = gradient[parameter_index]
-    #        b = bl.likelihood_functor(parameter_index).derivative(parameters[parameter_index])
-    #        #print '%3d %-22s %10.2f %10.2f %10.3f' % (parameter_index,ss.parameter_names[parameter_index],
-    #        #        parameters[parameter_index], a, round(np.abs(1+b/a),3))
-    #        parname = ss.parameter_names[parameter_index]
-    #        # note possible exclusion
-    #        if exclude is None or not parname.startswith(exclude):
-    #            self.assertAlmostEquals(1, -b/a, delta=delta,
-    #                msg='Fail derivative check for %s %.3f %.3f'%( parname, a,b))
-
     def test_hessian(self):
         bl = self.bl
         hess = bl.hessian()
@@ -385,6 +370,30 @@ class TestLikelihood(TestSetup):
         bl.selected= bl
         total = bl.log_like()
         self.assertAlmostEquals(total, parta+partb)
+        
+    def test_fitting(self):
+        """***no fitting tests yet"""
+        pass
+        
+class TestSED(TestSetup):
+    def setUp(self):
+        self.bl = setup('blike')
+        
+    def test_sourceflux(self, sourcename='W28'):
+        """create and check the SourceFlux object"""
+        sf = sedfuns.SourceFlux(self.bl, sourcename)
+        poiss = sf.full_poiss
+        errors =poiss.errors
+        self.assertAlmostEquals(61.695, errors[0],delta=1e-2)
+        self.assertAlmostEquals(63.817, errors[1], delta=1e-2)
+        self.assertAlmostEquals(4899, poiss.ts, delta=10.)
+        pp = sf.all_poiss()
+        self.assertAlmostEquals(5025, np.array([x.ts for x in pp]).sum(), delta=1.0)
+class TestLocalization(TestSetup):
+    def setUp(self):
+        self.bl = setup('blike')
+    def test(self):
+        """No test yet"""
 
  
     
@@ -394,7 +403,9 @@ test_cases = (TestConfig,
    # TestExtended, 
     TestROImodel, 
     TestBands, 
-    TestLikelihood,)
+    TestLikelihood,
+    TestSED,
+    )
     
 def run(t='all', loader=unittest.TestLoader(), debug=False): 
     if t=='all':
