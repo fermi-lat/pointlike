@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Nov 23 08:05:34 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	bandlike.py roimodel.py sedfuns.py sources.py test.py tools.py 
+Log Message:
+enable SED, energy flux view
+    *
+------------------------------------------------------------
 User: burnett  Wed Nov 20 15:09:36 PST 2013
 pointlike/python/uw/like2
 
