@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Nov 24 09:45:02 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	bandlike.py views.py test.py 
+Log Message:
+make subclass for views
+    *
+------------------------------------------------------------
 User: burnett  Sun Nov 24 08:26:00 PST 2013
 pointlike/python/uw/like2
 
