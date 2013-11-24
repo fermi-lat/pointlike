@@ -4,7 +4,7 @@ classes presenting views of the likelihood engine in the module bandlike
 Each has a mixin to allow the with ... as ... construction, which should restore the BandLikeList
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.1 2013/11/24 16:08:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.2 2013/11/24 16:26:00 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -12,8 +12,7 @@ import sys, types
 import numpy as np
 from scipy import misc, optimize
 from skymaps import SkyDir
-from  uw.utilities import keyword_options
-from . import roimodel, tools
+from . import (roimodel, bandlike, tools)
 
 class FitPlotMixin(object):
     """mixin  for likelihood function to generate a plot, or set of all plots"""
@@ -177,6 +176,7 @@ class FitterMixin(object):
              
 
 class FitterView(FitPlotMixin, FitterMixin, tools.WithMixin): 
+
     def __init__(self, blike,  **kwargs):
         self.blike = blike
         self.parameters = blike.sources.parameters
@@ -211,6 +211,7 @@ class FitterView(FitPlotMixin, FitterMixin, tools.WithMixin):
              
 
 class SubsetFitterView(roimodel.ParSubSet, FitPlotMixin, FitterMixin, tools.WithMixin):
+
     def __init__(self, blike, select=None):
         self.blike = blike
         super(SubsetFitterView, self).__init__(blike.sources, select)
@@ -242,6 +243,7 @@ class SubsetFitterView(roimodel.ParSubSet, FitPlotMixin, FitterMixin, tools.With
         
 
 class TSmapView(tools.WithMixin):
+
     def __init__(self, blike, func):
         self.func = func
         self.blike = blike
@@ -269,6 +271,7 @@ class TSmapView(tools.WithMixin):
 
 
 class EnergyFluxView(tools.WithMixin):
+
     def __init__(self, blike, func, energy):
         self.func = func
         source = self.func.source
@@ -293,3 +296,40 @@ class EnergyFluxView(tools.WithMixin):
         else:
             par = max(self.bound, self.tointernal(eflux*self.ratio))
         return -self.func([par])        
+class LikelihoodViews(bandlike.BandLikeList):
+
+    """Subclass of BandLikeList with  methods to return views for specific analyses
+    """
+    
+    def fitter_view(self, select=None, **kwargs):
+        """ return a object to use with a fitter.
+            Two versions, one with full set of parameters, other if a subset is specified
+        """
+        if select is None:
+            return FitterView(self, **kwargs)
+        return SubsetFitterView(self, select, **kwargs)
+
+    def energy_flux_view(self, source_name, energy=None, **kw):
+        """ a functor for a source, which returns log likelihood as a 
+                function of the differential energy flux, in eV units, at the given energy
+                
+        parameters
+        ----------
+        source_name : string
+        energy : [None | float]
+            if None, use the reference energy e0
+        """
+        try:
+            func = self.fitter_view(source_name+'_Norm')
+        except Exception, msg:
+            raise Exception('could not create energy flux function for source %s;%s' %(source_name, msg))
+        return EnergyFluxView(self, func, energy, **kw)
+        
+    def tsmap_view(self, source_name, **kw):
+        """Return TSmap function for the source
+        """
+        try:
+            func = self.fitter_view(source_name+'_Norm')
+        except Exception, msg:
+            raise Exception('could not create tsmap function for source %s;%s' %(source_name, msg))
+        return TSmapView(self, func, **kw)
