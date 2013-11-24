@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Nov 24 08:26:00 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	bandlike.py views.py 
+Log Message:
+rename the view classes
+    *
+------------------------------------------------------------
 User: burnett  Sun Nov 24 08:09:22 PST 2013
 pointlike/python/uw/like2
 
