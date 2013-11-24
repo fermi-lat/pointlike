@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.32 2013/11/13 06:36:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.33 2013/11/23 16:05:33 burnett Exp $
 
 """
 import os, copy
@@ -15,32 +15,32 @@ def PowerLaw(*pars, **kw):   return Models.PowerLaw(p=pars, **kw)
 def ExpCutoff(*pars, **kw):  return Models.ExpCutoff(p=pars, **kw)
 def PLSuperExpCutoff(*pars, **kw): return Models.PLSuperExpCutoff(p=pars, **kw)
 def Constant(*pars, **kw):   return Models.Constant(p=pars, **kw)
-def FBconstant(f,b, **kw): return Models.FrontBackConstant(b,b, **kw)
+def FBconstant(f,b, **kw): return Models.FrontBackConstant(f,b, **kw)
     
-def convert_model(oldmodel):
-    """ convert the original version to the new one with parameter mappers
-    """
-    if hasattr(oldmodel, 'mappers'): return oldmodel #new, or already converted
-    pars = 10**oldmodel._p
-    # absorb index_offset into index (but avoid exactly zero for now)
-    if oldmodel.name=='PowerLaw':
-        pars[1] -= oldmodel.index_offset
-        if pars[1]==0: pars[1]=1e-3
-    elif oldmodel.name=='FrontBackConstant':
-        # different constructor for this guy
-        # assume still use log
-        return Models.FrontBackConstant(pars[0],pars[1])
-    model = eval('Models.%s()' % oldmodel.name)
-    model.set_all_parameters(pars)
-    model.free = oldmodel.free
-    # try to set complete state: e0 tricky
-    if hasattr(oldmodel, 'e0') and 'e0' in model.default_extra_params : 
-        model['e0'] = oldmodel.e0 
-    # jacobian for conversion from all log10 to default
-    j =  (np.log(10)*pars) / model.dexternaldinternal()
-    model.internal_cov_matrix = j * oldmodel.cov_matrix * j.T
-    #model.internal_cov_matrix = oldmodel.cov_matrix
-    return model
+#def convert_model(oldmodel):
+#    """ convert the original version to the new one with parameter mappers
+#    """
+#    if hasattr(oldmodel, 'mappers'): return oldmodel #new, or already converted
+#    pars = 10**oldmodel._p
+#    # absorb index_offset into index (but avoid exactly zero for now)
+#    if oldmodel.name=='PowerLaw':
+#        pars[1] -= oldmodel.index_offset
+#        if pars[1]==0: pars[1]=1e-3
+#    elif oldmodel.name=='FrontBackConstant':
+#        # different constructor for this guy
+#        # assume still use log
+#        return Models.FrontBackConstant(pars[0],pars[1])
+#    model = eval('Models.%s()' % oldmodel.name)
+#    model.set_all_parameters(pars)
+#    model.free = oldmodel.free
+#    # try to set complete state: e0 tricky
+#    if hasattr(oldmodel, 'e0') and 'e0' in model.default_extra_params : 
+#        model['e0'] = oldmodel.e0 
+#    # jacobian for conversion from all log10 to default
+#    j =  (np.log(10)*pars) / model.dexternaldinternal()
+#    model.internal_cov_matrix = j * oldmodel.cov_matrix * j.T
+#    #model.internal_cov_matrix = oldmodel.cov_matrix
+#    return model
     
 
 class Source(object):

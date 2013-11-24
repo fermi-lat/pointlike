@@ -1,7 +1,7 @@
 """
 Set up and manage the model for all the sources in an ROI
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.5 2013/11/20 23:09:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.6 2013/11/23 16:05:33 burnett Exp $
 
 """
 import os ,zipfile, pickle, types
@@ -61,8 +61,14 @@ class ParameterSet(object):
         self.index = np.array([ss, ii])
     
     def __getitem__(self, i):
-        """ access the ith parameter"""
-        source, k = self.index[:,i]
+        """ access the ith parameter, or all parameters with [:] """
+        if isinstance(i, slice):
+            if i==slice(None,None,None):
+                return self.get_parameters()
+            else:
+                raise Exception('slice format not supported')
+        else:
+            source, k = self.index[:,i]
         return source.model.get_parameters()[k]
     
     def __setitem__(self,i,x):
