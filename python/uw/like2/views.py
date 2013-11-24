@@ -4,7 +4,7 @@ classes presenting views of the likelihood engine in the module bandlike
 Each has a mixin to allow the with ... as ... construction, which should restore the BandLikeList
 
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.1 2013/11/24 16:08:12 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -175,7 +175,8 @@ class FitterMixin(object):
             def parameter_names(self):
                 return self.parameters.parameter_names
              
-class FitFunction(FitPlotMixin, FitterMixin, tools.WithMixin): 
+
+class FitterView(FitPlotMixin, FitterMixin, tools.WithMixin): 
     def __init__(self, blike,  **kwargs):
         self.blike = blike
         self.parameters = blike.sources.parameters
@@ -187,7 +188,7 @@ class FitFunction(FitPlotMixin, FitterMixin, tools.WithMixin):
         self.parameters.set_parameters(pars)
         self.blike.update()
     def restore(self):
-        self.set_parameters(self, self.init)
+        self.set_parameters(self.init)
     @property 
     def bounds(self):
         return np.concatenate([s.model.bounds[s.model.free] for s in self.sources]) 
@@ -209,10 +210,10 @@ class FitFunction(FitPlotMixin, FitterMixin, tools.WithMixin):
         return self.parameters.parameter_names
              
 
-class LikeFunctor(roimodel.ParSubSet, FitPlotMixin, FitterMixin, tools.WithMixin):
+class SubsetFitterView(roimodel.ParSubSet, FitPlotMixin, FitterMixin, tools.WithMixin):
     def __init__(self, blike, select=None):
         self.blike = blike
-        super(LikeFunctor, self).__init__(blike.sources, select)
+        super(SubsetFitterView, self).__init__(blike.sources, select)
         self.initial_parameters = self.parameters[:]
 
     def __repr__(self):
@@ -224,7 +225,7 @@ class LikeFunctor(roimodel.ParSubSet, FitPlotMixin, FitterMixin, tools.WithMixin
     def parameters(self):
         return self.get_parameters()
     def set_parameters(self, pars):
-        super(LikeFunctor,self).set_parameters(pars)
+        super(SubsetFitterView,self).set_parameters(pars)
         self.blike.update()
     def __call__(self, pars=None):
         if pars is not None: self.set_parameters(pars)
@@ -239,7 +240,8 @@ class LikeFunctor(roimodel.ParSubSet, FitPlotMixin, FitterMixin, tools.WithMixin
         if pars is not None: self.set_parameters(pars)
         return self.blike.hessian(self.mask) 
         
-class TSmap(tools.WithMixin):
+
+class TSmapView(tools.WithMixin):
     def __init__(self, blike, func):
         self.func = func
         self.blike = blike
@@ -265,7 +267,8 @@ class TSmap(tools.WithMixin):
             self.set_dir(skydir)
         return 2*(self.func.log_like()-self.wzero)
 
-class EnergyFluxLikelihood(tools.WithMixin):
+
+class EnergyFluxView(tools.WithMixin):
     def __init__(self, blike, func, energy):
         self.func = func
         source = self.func.source
