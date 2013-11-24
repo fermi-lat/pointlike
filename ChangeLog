@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Nov 24 08:08:54 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	test.py 
+Log Message:
+Move view classes into views module
+    *
+------------------------------------------------------------
 User: burnett  Sun Nov 24 08:08:12 PST 2013
 pointlike/python/uw/like2
 
