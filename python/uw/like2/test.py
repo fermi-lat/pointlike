@@ -1,6 +1,6 @@
 """
 All like2 testing code goes here, using unittest
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.14 2013/11/23 16:05:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.15 2013/11/24 16:08:54 burnett Exp $
 """
 import os, sys, unittest
 import numpy as np
@@ -16,6 +16,7 @@ from uw.like2 import ( configuration,
     roimodel,
     dataset,
     bandlike,
+    views,
     sedfuns,
     )
 
@@ -27,23 +28,29 @@ roi_index = 840
 roi_sources = None
 roi_bands = None
 blike = None
+likeviews = None
 
 def setup(name):
-    global config, ecat, roi_sources, roi_bands, blike
-    gnames = 'config ecat roi_sources roi_bands blike'.split()
+    global config, ecat, roi_sources, roi_bands, blike, likeviews
+    gnames = 'config ecat roi_sources roi_bands blike likeviews'.split()
     assert name in globals() and name in gnames
     if config is None :
         config =  configuration.Configuration(config_dir, quiet=True, postpone=True)
     if ecat is None:
         ecat = extended.ExtendedCatalog(config.extended)
-    if (name=='roi_sources' or name=='blike') and roi_sources is None:
+    if (name=='roi_sources' or name=='blike' or name=='likeviews') and roi_sources is None:
         roi_sources = roimodel.ROImodel(config, ecat=ecat, roi_index=roi_index)
-    if (name=='roi_bands' or name=='blike') and roi_bands is None:
+    if (name=='roi_bands' or name=='blike' or name=='likeviews') and roi_bands is None:
         roi_bands = bands.BandSet(config, roi_index)
     if name=='blike' and blike is None:
         assert roi_bands is not None and roi_sources is not None
         roi_bands.load_data()
         blike = bandlike.BandLikeList(roi_bands, roi_sources)
+    if name=='likeviews' and likeviews is None:
+        assert roi_bands is not None and roi_sources is not None
+        if roi_bands.pixels==0:
+            roi_bands.load_data()
+        likeviews = views.LikelihoodViews(roi_bands, roi_sources)
     return eval(name)
         
 class TestSetup(unittest.TestCase):
@@ -380,9 +387,12 @@ class TestLikelihood(TestSetup):
         total = bl.log_like()
         self.assertAlmostEquals(total, parta+partb)
         
+class TestFitter(TestSetup):
+    def setUp(self):
+        setup('likeviews')
     def test_fitting(self):
-        """\tgenerate a fitter_view, use it to maximize the likelihood"""
-        with self.bl.fitter_view() as t:
+        """generate a fitter_view, use it to maximize the likelihood"""
+        with likeviews.fitter_view() as t:
             a = t()
             self.assertEquals(t.log_like(), -a)
             b, g, sig = t.maximize()
@@ -391,15 +401,15 @@ class TestLikelihood(TestSetup):
         
 class TestSED(TestSetup):
     def setUp(self):
-        self.bl = setup('blike')
-        self.init = blike.log_like()
+        setup('likeviews')
+        self.init = likeviews.log_like()
         print 'initial loglike: %.1f ...' % self.init ,
     def tearDown(self):
-        self.assertAlmostEquals(self.init, blike.log_like())
+        self.assertAlmostEquals(self.init, likeviews.log_like())
 
     def test_sourceflux(self, sourcename='W28', checks=(61.695, 63.816, 4889, 5025)):
         """\tcreate and check the SourceFlux object"""
-        with sedfuns.SourceFlux(self.bl, sourcename) as sf:
+        with sedfuns.SourceFlux(likeviews, sourcename) as sf:
             poiss = sf.full_poiss
             errors =poiss.errors
             pp = sf.all_poiss()
@@ -412,16 +422,16 @@ class TestSED(TestSetup):
 
 class TestLocalization(TestSetup):
     def setUp(self):
-        setup('blike')
-        print 'initial loglike: %.1f ...' % blike.log_like() ,
+        setup('likeviews')
+        print 'initial loglike: %.1f ...' % likeviews.log_like() ,
 
     def test(self):
         """--> generate a view, check values, and restore"""
-        init = blike.log_like()
-        with blike.tsmap_view('P7R42722') as tsm:
+        init = likeviews.log_like()
+        with likeviews.tsmap_view('P7R42722') as tsm:
             self.assertEquals(0, tsm())
             self.assertAlmostEquals(-0.297, tsm((266.6, -28.86)), delta=0.1)
-        self.assertAlmostEquals(init, blike.log_like(), delta=0.1)
+        self.assertAlmostEquals(init, likeviews.log_like(), delta=0.1)
 
  
 test_cases = (TestConfig, 
@@ -430,6 +440,7 @@ test_cases = (TestConfig,
     TestROImodel, 
     TestBands, 
     TestLikelihood,
+    TestFitter,
     TestSED,
     TestLocalization,
     )
