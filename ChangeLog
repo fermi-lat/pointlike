@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Sun Nov 24 17:27:46 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	__init__.py localization.py main.py roimodel.py test.py 
+	tools.py views.py 
+Log Message:
+associate moved; localization in main now
+    *
+------------------------------------------------------------
 User: burnett  Sun Nov 24 09:45:02 PST 2013
 pointlike/python/uw/like2
 
