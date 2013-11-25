@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Nov 25 15:48:43 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	loglikelihood.py sedfuns.py test.py 
+Log Message:
+fix up SED
+    *
+------------------------------------------------------------
 User: burnett  Mon Nov 25 09:45:28 PST 2013
 pointlike/python/uw/like2
 
