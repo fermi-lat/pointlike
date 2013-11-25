@@ -1,6 +1,6 @@
 """
 All like2 testing code goes here, using unittest
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.16 2013/11/24 17:45:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.17 2013/11/25 01:27:46 burnett Exp $
 """
 import os, sys, unittest
 import numpy as np
@@ -413,8 +413,8 @@ class TestSED(TestSetup):
         self.assertAlmostEquals(self.init, likeviews.log_like())
 
     def test_sourceflux(self, sourcename='W28', checks=(61.695, 63.816, 4889, 5025)):
-        """\tcreate and check the SourceFlux object"""
-        with sedfuns.SourceFlux(likeviews, sourcename) as sf:
+        """-->create and check the SED object"""
+        with sedfuns.SED(likeviews, sourcename) as sf:
             poiss = sf.full_poiss
             errors =poiss.errors
             pp = sf.all_poiss()
