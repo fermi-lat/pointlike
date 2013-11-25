@@ -4,7 +4,7 @@ classes presenting views of the likelihood engine in the module bandlike
 Each has a mixin to allow the with ... as ... construction, which should restore the BandLikeList
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.3 2013/11/24 17:45:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.4 2013/11/25 01:27:46 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -339,20 +339,29 @@ class EnergyFluxView(tools.WithMixin):
 
     def __init__(self, blike, func, energy):
         self.func = func
-        source = self.func.source
-        model = source.spectral_model
-        if energy is None:
-            energy=model.e0
-        eflux = model(energy) * energy**2 * 1e6
-        self.ratio = model[0]/eflux
+        self.blike=blike
+        self.source = source = self.func.source
+        self.model=model = source.spectral_model
         assert model[0]==model['norm']
+        self.norm = model[0]
         self.tointernal = model.mappers[0].tointernal
         self.bound = model.bounds[0][0]
+        self.set_energy(energy)
 
+    def set_energy(self, energy=None):
+        if energy is None:
+            energy=self.model.e0
+        self.model[0]=self.norm # get original norm 
+        self.source.changed=True
+        self.blike.update()
+        self.energy = energy
+        self.eflux = self.model(energy) * energy**2 * 1e6
+        self.ratio = self.model[0]/self.eflux
+    
     def __repr__(self):
-        return '%s.%s: func=%s' % (self.__module__, self.__class__.__name__,self.func,)
+        return '%s.%s: func=%s, at %.0f MeV' % (self.__module__, self.__class__.__name__,self.func,self.energy)
     def restore(self):
-        self.func.restore()
+        self.set_energy()
 
     @tools.ufunc_decorator # make this behave like a ufunc
     def __call__(self, eflux):

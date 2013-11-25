@@ -1,9 +1,9 @@
 """Tools for parameterizing log likelihood curves.
 
 Author(s): Eric Wallace, Matthew Kerr, Toby Burnett
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.10 2013/09/27 22:06:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.11 2013/11/23 16:07:38 burnett Exp $
 """
-__version__ = "$Revision: 1.10 $"
+__version__ = "$Revision: 1.11 $"
 
 import numpy as np
 from scipy import optimize, special, polyfit, stats
@@ -232,7 +232,11 @@ class Poisson(object):
 
     def __str__(self):
         e, beta, mu = self.altpars()
-        return 'Poisson: mu,beta= %.0f, %.0f' %( mu, beta)
+        return 'Poisson: mu,beta= %.1f, %.1f' %( mu, beta)
+    
+    def __repr__(self):
+        e, beta, mu = self.altpars()
+        return '%s.%s: mu,beta=%.1f, %.1f' % (self.__module__, self.__class__.__name__, mu,beta)
     @property
     def flux(self):
         return max(self.p[0], 0)
@@ -245,8 +249,9 @@ class Poisson(object):
     def ts(self):
         return 0 if self.flux<=0 else (self(self.flux)-self(0))*2.0
     
+        
     def altpars(self):
-        """ compute alternate parameters """
+        """ return alternate parameters: e, beta, mu """
         e = abs(self.p[1])
         beta = e * abs(self.p[2])
         mu =   e * self.p[0] + beta
@@ -314,6 +319,7 @@ class Poisson(object):
     def percentile(self, limit=0.95):
         """Left for compatibility: use cdfinv or cdfcinv
         """
+        if limit>=0.95: return self.cdfcinv(1-limit)
         return self.cdfinv(limit)
         
     def pts(self):
@@ -465,7 +471,7 @@ class PoissonFitter(object):
     array([ 50.,   1.,  10.])
     
     """
-    def __init__(self, func, scale=1., tol=0.025):
+    def __init__(self, func, scale=1., tol=0.05):
         """
         parameters
         ----------
@@ -473,7 +479,7 @@ class PoissonFitter(object):
         scale: float
             estimate for scale to use
         tol : float
-            absolute tolerance for fit, within default domain out to delta L of 4
+            absolute tolerance in probability amplitude for fit, within default domain out to delta L of 4
         """
         self.func = func
         self.smax = self.find_max(scale)
@@ -546,7 +552,7 @@ class PoissonFitter(object):
                 r = self._poiss(self.dom)-cod
                 #print'f(%.3f,%.3f): %s' % (mu,beta,r)
                 return r
-            mu,beta =  optimize.leastsq(fitfunc,[mu,beta], maxfev=10000)[0]
+            mu,beta =  optimize.leastsq(fitfunc,[mu,beta], ftol=1e-6,xtol=1e-6, maxfev=10000)[0]
             e = (mu-beta)/smax; b = beta/e
             return [smax, e, b]
         else:
@@ -566,14 +572,30 @@ class PoissonFitter(object):
             def fitfunc(p):
                 self._poiss = Poisson([p[0], e, p[1]])
                 return self._poiss(x) -cod
-            t =  optimize.leastsq(fitfunc,  pinit,  maxfev=10000)[0]
+            t =  optimize.leastsq(fitfunc,  pinit,  xtol=1e-6,ftol=1e-6, maxfev=10000)[0]
             return self._poiss.p
 
-    def check(self, tol=0.02):
-        deltas = np.array(map( lambda x: self.func(x)-self._poiss(x), self.dom))
-        t = np.abs(deltas-deltas.mean()).max()
+    def check(self, tol=0.05):
+        offset = self(self.smax)
+        deltas = np.array(map( lambda x: np.exp(self.func(x)-offset)-np.exp(self._poiss(x)), self.dom))
+        t = np.abs(deltas).max()
         if t>tol: raise Exception('PoissonFitter: maximum deviation, %.2f > tolerance, %s'%(t,tol))
         return t, deltas
+    
+    def plot(self, ax=None):
+        """Return a figure showing the fit"""
+        import matplotlib.pyplot as plt
+        xp = self.dom
+        x = np.linspace(0, xp[-1])
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(3,3))
+        else: fig = ax.figure
+        pfmax = self(self.smax)
+        ax.plot(x, np.exp(self(x)-pfmax), '-', label='Input')
+        ax.plot(xp, np.exp(self._poiss(xp)), 'o', label='approx')
+        ax.legend(prop =dict(size=8) )        ax.grid()
+        return fig
+        
 
  
 class MultiPoiss(object):
