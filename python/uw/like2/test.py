@@ -1,6 +1,6 @@
 """
 All like2 testing code goes here, using unittest
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.15 2013/11/24 16:08:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.16 2013/11/24 17:45:02 burnett Exp $
 """
 import os, sys, unittest
 import numpy as np
@@ -18,6 +18,8 @@ from uw.like2 import ( configuration,
     bandlike,
     views,
     sedfuns,
+    associate,
+    main,
     )
 
 # globals: references set by setUp methods in classes as needed
@@ -29,10 +31,11 @@ roi_sources = None
 roi_bands = None
 blike = None
 likeviews = None
+user = None
 
 def setup(name):
-    global config, ecat, roi_sources, roi_bands, blike, likeviews
-    gnames = 'config ecat roi_sources roi_bands blike likeviews'.split()
+    global config, ecat, roi_sources, roi_bands, blike, likeviews, user
+    gnames = 'config ecat roi_sources roi_bands blike likeviews user'.split()
     assert name in globals() and name in gnames
     if config is None :
         config =  configuration.Configuration(config_dir, quiet=True, postpone=True)
@@ -51,6 +54,8 @@ def setup(name):
         if roi_bands.pixels==0:
             roi_bands.load_data()
         likeviews = views.LikelihoodViews(roi_bands, roi_sources)
+    if name=='user' and user is None:
+        user = main.ROI_user(config_dir, roi_index)
     return eval(name)
         
 class TestSetup(unittest.TestCase):
@@ -432,8 +437,30 @@ class TestLocalization(TestSetup):
             self.assertEquals(0, tsm())
             self.assertAlmostEquals(-0.297, tsm((266.6, -28.86)), delta=0.1)
         self.assertAlmostEquals(init, likeviews.log_like(), delta=0.1)
+        
+class TestUser(TestSetup):
+    def setUp(self):
+        setup('user')
+    
+    def test_fit(self, selects=(0, '_Norm', None), 
+            expects=(697608.2, 697617.7 ,697645.4)):
+        for select, expect in zip(selects, expects):
+            wfit, pfit = user.fit(select, summarize=False)
+            self.assertAlmostEquals(expect, wfit, delta=0.1)
 
+    def test_localization(self, source_name='P7R42722'):
+        t =user.localize(source_name, quiet=True)
+        self.assertAlmostEquals(0.0062, t['a'], delta=1e-3)
+        self.assertAlmostEquals(0.210, t['qual'], delta=1e-3)
  
+class TestAssociations(TestSetup):
+    def test(self):
+        assoc = associate.SrcId()
+        t = assoc('test', (266.5980,  -28.8680), 0.01)
+        self.assertTrue(set(['ra', 'deltats', 'ang', 'name', 'prior', 'density', 'dec', 'prob',
+                'dir', 'cat']).issubset(t.keys()))
+        self.assertAlmostEquals(2.614, t['deltats'][0], delta=0.001)
+        
 test_cases = (TestConfig, 
     TestPoint, TestDiffuse, 
    # TestExtended, 
@@ -443,6 +470,9 @@ test_cases = (TestConfig,
     TestFitter,
     TestSED,
     TestLocalization,
+    TestAssociations,
+    #### no memory to do this at the same time since it creates duplicate large objects
+    #TestUser,
     )
     
 def run(t='all', loader=unittest.TestLoader(), debug=False): 
