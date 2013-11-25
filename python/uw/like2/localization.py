@@ -1,23 +1,15 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.18 2013/09/04 12:34:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.19 2013/10/11 16:29:18 burnett Exp $
 
 """
 import os
 import numpy as np
 from skymaps import SkyDir
 from uw.like import quadform, srcid
-from uw.like2 import sources
 from uw.utilities import keyword_options
-from . plotting import tsmap
-
-
-def ufunc_decorator(f): # this adapts a bound function
-    def new_ufunc(self, par):
-        return np.array(map(lambda x: f(self,x),par)) if hasattr(par, '__iter__')  else f(self,par)
-    return new_ufunc
-
+from . import (sources, plotting )
 
     
 class Localization(object):
@@ -38,27 +30,23 @@ class Localization(object):
         ('maxdist',1,"fail if try to move further than this"),
         ('seedpos', None, 'if set, start from this position instead of the source position'),
         ('quiet', False, 'set to suppress output'),
-        
     )
 
     @keyword_options.decorate(defaults)
-    def __init__(self, roistat, source_name, **kwargs):
-        """ roistat : an ROIstat object
-            source_name : string
-                the name of a source, with possible wild cards
+    def __init__(self, tsm, **kwargs):
+        """ 
+        tsm : a TSmap object, with a source selected
         """
         keyword_options.process(self, kwargs)
-        self.rs = roistat
-        self.source = self.rs.sources.find_source(source_name)
-        self.rs.select_source(self.source.name)
-        self.rs.update(True)
-        self.maxlike=self.rs.log_like()
-        self.skydir=self.saved_skydir = self.source.skydir #saved value
+        
+        self.tsm = tsm # roistat.tsmap_view(source_name)
+        self.maxlike = self.log_like()
+        self.skydir  = self.tsm.skydir
         if self.seedpos is not None: 
             if not isinstance(self.seedpos, SkyDir):
                 self.seedpos = SkyDir(*self.seedpos)
             self.skydir = self.seedpos
-        self.name = self.source.name
+        self.name = self.tsm.source.name
     
     def __enter__(self):
         """ supports the 'with' construction, guarantees that reset is called to restore the ROI
@@ -72,13 +60,9 @@ class Localization(object):
     def __exit__(self, type, value, traceback):
         self.reset()
 
-    def log_like(self, skydir):
+    def log_like(self, skydir=None):
         """ return log likelihood at the given position"""
-        self.source.skydir =skydir
-        self.rs.update(True)
-        w = self.rs.log_like()
-        self.source.skydir = self.saved_skydir
-        return w
+        return self.tsm(skydir)
    
     def TSmap(self, skydir):
         """ return the TS at given position, or 
@@ -89,21 +73,19 @@ class Localization(object):
 
     
     def get_parameters(self):
-        return np.array([self.source.skydir.ra(), self.source.skydir.dec()])
+        return np.array([self.tsm.skydir.ra(), self.tsm.skydir.dec()])
     
     def set_parameters(self, par):
         self.skydir = SkyDir(par[0],par[1])
-        self.source.skydir = self.skydir
+        self.tsm.skydir = self.tsm.set_dir(self.skydir)
         
     def __call__(self, par):
         return -self.TSmap(SkyDir(par[0],par[1]))
     
     def reset(self):
-        """ restore modifications to the ROIstat
+        """ restore modifications to the source
         """
-        self.source.skydir=self.skydir
-        self.rs.update(True)
-        self.rs.select_source(None)
+        self.tsm.reset()
       
     def dir(self):
         return self.skydir
@@ -122,7 +104,6 @@ class Localization(object):
         #roi    = self.roi
         #bandfits = self.bandfits
         verbose  = self.verbose
-        update    = self.update
         tolerance= self.tolerance
         l   = quadform.Localize(self,verbose = verbose)
         ld  = l.dir
@@ -173,18 +154,16 @@ class Localization(object):
         #roi.delta_loc_logl = (ll0 - ll1)
         # this is necessary in case the fit always fails.
         delt = np.degrees(l.dir.difference(self.skydir))
-        if self.update: # this will be copied to the source on exit.
-            self.skydir = l.dir
         self.delta_ts = 2*(ll0-ll1)
         self.delt = delt
         self.niter = i
         # if successful, add a list representing the ellipse to the source
-        self.source.ellipse = self.qform.par[0:2]+self.qform.par[3:7] +[self.delta_ts] 
+        self.tsm.source.ellipse = self.qform.par[0:2]+self.qform.par[3:7] +[self.delta_ts] 
         
     def summary(self):
         if hasattr(self, 'niter') and self.niter>0: 
             print 'Localized %s: %d iterations, moved %.3f deg, deltaTS: %.1f' % \
-                (self.source.name, self.niter, self.delt, self.delta_ts)
+                (self.name, self.niter, self.delt, self.delta_ts)
             labels = 'ra dec a b ang qual'.split()
             print (len(labels)*'%10s') % tuple(labels)
             p = self.qform.par[0:2]+self.qform.par[3:7]

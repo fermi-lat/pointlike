@@ -4,7 +4,7 @@ classes presenting views of the likelihood engine in the module bandlike
 Each has a mixin to allow the with ... as ... construction, which should restore the BandLikeList
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.2 2013/11/24 16:26:00 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.3 2013/11/24 17:45:02 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -13,6 +13,49 @@ import numpy as np
 from scipy import misc, optimize
 from skymaps import SkyDir
 from . import (roimodel, bandlike, tools)
+
+class FitterSummaryMixin(object):
+    """mixin to summarize variables"""
+    
+    def summary(self, select=None, exclude=None, out=None, title=None, gradient=True):
+        """ summary table of free parameters, values uncertainties gradient
+        
+        Parameters:
+        ----------
+        select : list of integers or string
+            integers are indices of parameters
+            string is the wildcarded name of a source
+        out : open file or None
+        title: None or string
+        gradient: bool
+            set False to not print gradient
+            
+        """
+        if title is not None:
+            print >>out, title
+
+        fmt, tup = '%-21s%6s%10s%10s', tuple('Name index value error(%)'.split())
+        if gradient:
+            grad = self.gradient()
+            fmt +='%10s'; tup += ('gradient',)
+        print >>out, fmt %tup
+        prev=''
+        selected = (select, exclude)
+        index_array = np.arange(len(self.mask))[self.mask]
+        for index, (name, value, rsig) in enumerate(zip(self.parameter_names, 
+                                                        self.model_parameters, 
+                                                        self.uncertainties)):
+            t = name.split('_')
+            pname = t[-1]
+            sname = '_'.join(t[:-1])
+            if sname==prev: name = len(sname)*' '+'_'+pname
+            prev = sname
+            fmt = '%-21s%6d%10.4g%10s'
+            psig = '%.1f'%(rsig*100) if rsig>0 and not np.isnan(rsig) else '***'
+            tup = (name,index_array[index], value,psig)
+            if gradient:
+                fmt +='%10.1f'; tup += (grad[index],)
+            print >>out,  fmt % tup
 
 class FitPlotMixin(object):
     """mixin  for likelihood function to generate a plot, or set of all plots"""
@@ -96,11 +139,16 @@ class FitPlotMixin(object):
 
 
 class FitterMixin(object):
+
     def maximize(self,  **kwargs):
         """Maximize likelihood and estimate errors.
         """
         from scipy import optimize
         quiet = kwargs.pop('quiet', True)
+        if not kwargs.pop('use_gradient', True):
+            print 'Warning: ignoring use_gradient=False'
+        if not kwargs.pop('estimate_errors', True):
+            print 'Warning: ignoing estimate_errors=False'
         if not quiet: print 'using optimize.fmin_l_bfgs_b with parameter bounds %s\n, kw= %s'% (
                             self.bounds, kwargs)
         parz = self.get_parameters()
@@ -175,47 +223,62 @@ class FitterMixin(object):
                 return self.parameters.parameter_names
              
 
-class FitterView(FitPlotMixin, FitterMixin, tools.WithMixin): 
+class FitterView(FitPlotMixin, FitterMixin, FitterSummaryMixin, tools.WithMixin): 
 
     def __init__(self, blike,  **kwargs):
         self.blike = blike
         self.parameters = blike.sources.parameters
         self.sources = self.parameters.free_sources
-        self.init = self.parameters[:]
+        self.initial_parameters = self.parameters[:]
+        self.initial_likelihood = self.log_like()
+        self.calls=0
+        
     def get_parameters(self):
         return self.parameters.get_parameters()
     def set_parameters(self, pars):
         self.parameters.set_parameters(pars)
         self.blike.update()
     def restore(self):
-        self.set_parameters(self.init)
+        self.set_parameters(self.initial_parameters)
     @property 
     def bounds(self):
         return np.concatenate([s.model.bounds[s.model.free] for s in self.sources]) 
     def __call__(self, pars=None):
         if pars is not None: self.set_parameters(pars)
+        self.calls+=1
         return -self.blike.log_like()
     def log_like(self, summed=True):
         """assume that parameters are set, possibility of individual likelihoods"""
         return self.blike.log_like(summed)
 
-    def gradient(self,pars):
-        self.set_parameters(pars)
+    def gradient(self,pars=None):
+        if pars is not None: self.set_parameters(pars)
         return self.blike.gradient()
-    def hessian(self, pars):
-        self.set_parameters(pars)
+    def hessian(self, pars=None):
+        if pars is not None: self.set_parameters(pars)
         return self.blike.hessian()
     @property
     def parameter_names(self):
         return self.parameters.parameter_names
+    @property
+    def model_parameters(self):
+        return self.parameters.model_parameters
+    @property
+    def uncertainties(self):
+        return self.parameters.uncertainties
+    @property
+    def mask(self):
+        return self.parameters.mask
              
 
-class SubsetFitterView(roimodel.ParSubSet, FitPlotMixin, FitterMixin, tools.WithMixin):
+class SubsetFitterView(roimodel.ParSubSet, FitPlotMixin, FitterMixin, FitterSummaryMixin,tools.WithMixin):
 
-    def __init__(self, blike, select=None):
+    def __init__(self, blike, select=None, exclude=None):
         self.blike = blike
-        super(SubsetFitterView, self).__init__(blike.sources, select)
+        super(SubsetFitterView, self).__init__(blike.sources, select, exclude)
         self.initial_parameters = self.parameters[:]
+        self.initial_likelihood = self.log_like()
+        self.calls=0
 
     def __repr__(self):
         return '%s.%s: %s '% (self.__module__, self.__class__.__name__, self.selection_description)
@@ -230,6 +293,7 @@ class SubsetFitterView(roimodel.ParSubSet, FitPlotMixin, FitterMixin, tools.With
         self.blike.update()
     def __call__(self, pars=None):
         if pars is not None: self.set_parameters(pars)
+        self.calls +=1
         return -self.blike.log_like()
     def log_like(self, summed=True):
         """assume that parameters are set, possibility of individual likelihoods"""
@@ -244,7 +308,8 @@ class SubsetFitterView(roimodel.ParSubSet, FitPlotMixin, FitterMixin, tools.With
 
 class TSmapView(tools.WithMixin):
 
-    def __init__(self, blike, func):
+    def __init__(self, blike, func, quiet=True):
+        self.quiet = quiet
         self.func = func
         self.blike = blike
         self.source = self.func.source
@@ -328,6 +393,10 @@ class LikelihoodViews(bandlike.BandLikeList):
     def tsmap_view(self, source_name, **kw):
         """Return TSmap function for the source
         """
+        if source_name is None and self.sources.selected_source is not None:
+            source_name = self.sources.selected_source.name 
+        if source_name is None: 
+            raise Exception('No source is selected for a tsmap')
         try:
             func = self.fitter_view(source_name+'_Norm')
         except Exception, msg:
