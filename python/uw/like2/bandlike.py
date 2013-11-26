@@ -1,7 +1,7 @@
 """
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.42 2013/11/24 17:45:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.43 2013/11/25 17:45:28 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -228,6 +228,7 @@ class BandLikeList(list):
             
         self.set_selected(self)# set selected for a subset?
         self.all_energies = self.energies[:]
+        self.roi_dir = roi_bands.roi_dir
         
     #  the band selection mechanism, used by log_like, update and gradient   
     def set_selected(self, values):
