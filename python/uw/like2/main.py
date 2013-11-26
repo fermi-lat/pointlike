@@ -1,11 +1,10 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.41 2013/11/26 04:39:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.42 2013/11/26 14:56:45 burnett Exp $
 
 """
 import numpy as np
-from skymaps import Band
 from . import (views,  configuration, extended,  roimodel, bands,  
                 localization, sedfuns, tools,
                 plotting,
@@ -43,7 +42,6 @@ class ROI_user(views.LikelihoodViews):
         roi_bands = bands.BandSet(config, roi_index)
         roi_bands.load_data()
         super(ROI_user, self).__init__( roi_bands, roi_sources)
-        self.roi_dir = Band(12).dir(roi_index)
 
     def fit(self, select=None, exclude=None,  summarize=True, quiet=True, **kwargs):
         """ Perform fit, return fitter object to examine errors, or refit
