@@ -1,11 +1,12 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.38 2013/10/29 03:26:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.39 2013/11/25 01:27:46 burnett Exp $
 
 """
 import numpy as np
-from . import (bandlike, views, configuration, extended, roimodel, bands, localization,
+from . import (views,  configuration, extended,  roimodel, bands,  
+                localization, tools, plotting,
         )
 
 
@@ -114,47 +115,45 @@ class ROI_user(views.LikelihoodViews):
             tsm.source.skydir = skymaps.SkyDir(t['ra'], t['dec'])
         return t
     
-    #def get_sources(self):
-    #    return [ s for s in self.sources if s.skydir is not None]
-    #def get_model(self, source_name=None):
-    #    return self.get_source(source_name).spectral_model
-    #def get_source(self, source_name=None):
-    #    return self.sources.find_source(source_name)
+    def get_model(self, source_name=None):
+        return self.sources.find_source(source_name).spectral_model
+    def get_source(self, source_name=None):
+        return self.sources.find_source(source_name)
         
-            
-#    def TS(self, source_name=None, quick=True, zero=1e-20):
-#        """ measure the TS for the given source
-#        """
-#        source = self.sources.find_source(source_name)
-#        model = source.spectral_model
-#        norm =model[0]
-#        model[0]=zero
-#        self.update()
-#        llzero = self.log_like()
-#        model[0]=norm; self.update()
-#        ts= 2*(self.log_like()-llzero)
-#        source.ts=max(ts,0)
-#        return source.ts
+    def TS(self, source_name=None, quick=True):
+        """ measure the TS for the given source and set the ts property of the source
+        """
+        source = self.sources.find_source(source_name)
+        with self.fitter_view(source_name) as fv:
+             source.ts  = fv.ts()
+        return source.ts
 #
 #    def band_ts(self, source_name=None):
 #        sed = self.get_sed(source_name)
 #        return np.sum(sed.ts)
 #        
-#    def get_sed(self, source_name=None, event_class=None, **kwargs):
-#        """ return the SED recarray for the source
-#        source_name : string
-#            Name of a source in the ROI, with possible wildcards
-#        event_class : None, or integer, 0/1 for front/back
-#        update : if present in kwargs and True, force a new evaluation; otherwise return present one
-#        """
-#        source = self.sources.find_source(source_name)
-#        update = kwargs.pop('update', False)
-#        if hasattr(source, 'sedrec') and not update:
-#            return source.sedrec
-#        with sedfuns.SourceFlux(self, source.name, **kwargs) as sf:
-#            source.sedrec = sedfuns.SED(sf, event_class=event_class).rec
-#            return source.sedrec
-#
+    def get_sed(self, source_name=None, event_type=None, update=False, **kwargs):
+        """ return the SED recarray for the source
+        source_name : string
+            Name of a source in the ROI, with possible wildcards
+        event_type : None, or integer, 0/1 for front/back
+        """
+        source = self.sources.find_source(source_name)
+        if not hasattr(source, 'sedrec') and not update:
+            with sedfuns.SED(self, source.name, **kwargs) as sf:
+                source.sedrec = sf.sed_rec(event_type=event_type)
+        return source.sedrec
+
+    @tools.decorate_with(plotting.sed.stacked_plots)    
+    def plot_sed(self, source_name=None, **kwargs):
+        source = self.sources.find_source(source_name)
+        showts = kwargs.pop('showts', True)
+        if kwargs.get('update', True):
+            self.get_sed(update=True)
+        annotation =(0.04,0.88, 'TS=%.0f' % source.ts ) if showts else None 
+        kwargs.update(galmap=self.roi_dir, annotate=annotation)
+        return plotting.sed.stacked_plots(self, **kwargs); 
+
 #    @decorate_with(pointlike_plotting.tsmap.plot)
 #    def plot_tsmap(self, source_name=None, **kwargs):
 #        """ create a TS map showing the source localization
@@ -175,16 +174,6 @@ class ROI_user(views.LikelihoodViews):
 #            tsp = pointlike_plotting.tsmap.plot(loc, **plot_kw)
 #        return tsp
 #        
-#    @decorate_with(pointlike_plotting.sed.stacked_plots)    
-#    def plot_sed(self, source_name=None, **kwargs):
-#        source = self.sources.find_source(source_name)
-#        showts = kwargs.pop('showts', True)
-#        if kwargs.get('update', True):
-#            self.get_sed(update=True)
-#        annotation =(0.04,0.88, 'TS=%.0f' % source.ts ) if showts else None 
-#        kwargs.update(galmap=self.roi_dir, annotate=annotation)
-#        return pointlike_plotting.sed.stacked_plots(self, **kwargs); 
-#
 #    @decorate_with(pointlike_plotting.counts.stacked_plots)
 #    def plot_counts(self, **kwargs):
 #        return pointlike_plotting.counts.stacked_plots(self, **kwargs)
@@ -320,83 +309,4 @@ class ROI_user(views.LikelihoodViews):
 #        src.spectral_model = model
 #        self.initialize()
 #        return old_model
-#        
-#    def diffuse_correction(self, corr=None):
-#        """ set or return the diffuse correction factors
-#        corr : array of float or None
-#             if None, return the current correction factors
-#             
-#        """
-#        bands = self.selected_bands
-#        bgal = [b[0] for b in bands]
-#        dc = [x.diffuse_correction for x in bgal]
-#        if corr is None:
-#            return np.array(dc)
-#        for i,c in enumerate(corr):
-#            dc[2*i]=dc[2*i+1] = c
-#            for x,y in zip(dc,bgal):
-#                y.diffuse_correction = x
-# 
-#    def weights(self, source_name, data, emin=None):
-#        """ return an array of weights, signal/total for the source
-#        
-#        data : dict-like 
-#            expect to have keys ENERGY, CONVERSION_TYPE, RA, DEC
-#            can just be a pyfits.FITS_rec object
-#        emin : [float | None ]
-#            minimum energy, if specified. Assign zero weight for events with energy<emin
-#        """
-#        self.get_source(source_name)
-#        weight = np.empty(len(data))
-#        source_index = self.sources.selected_source_index
-#        for i, (energy, ct, ra, dec) in enumerate(zip(
-#                data['ENERGY'],data['CONVERSION_TYPE'], data['RA'], data['DEC'])):
-#            if emin is not None and energy<emin: 
-#                weight[i]=0 
-#            else:
-#                bl = self.select_band(energy, ct)
-#                signal,back= bl.counts_in_pixel(source_index, skymaps.SkyDir(float(ra),float(dec)) )
-#                weight[i]=signal/(signal+back)
-#        return weight
         
-#class Factory(roisetup.ROIfactory):
-#    """ subclass of ROIfactory that sets up a ROI_user analysis object"""
-#    def __call__(self, sel):
-#        """
-#        Select and setup an ROI.
-#        sel : string or SkyDir
-#            if string, the name of a source, or coordinate in form J123.9+30.1
-#        """
-#        source_name=None
-#        if type(sel)==types.IntType:
-#            index = sel
-#        elif type(sel)==skymaps.SkyDir:
-#            index = self.skymodel.hpindex(sel)
-#        elif type(sel)==types.StringType:
-#            source = self.skymodel.find_source(sel)
-#            if source is not None:
-#                skydir = source.skydir
-#            elif sel[0]=='J':
-#                # starts with 'J': try coordinate like J123.6-60.1
-#                t = sel[1:]
-#                i = max(t.find('+'), t.find('-'))
-#                skydir = skymaps.SkyDir(float(t[0:i]),float(t[i:]))
-#            else:
-#                raise Exception('Source %s not found in model' % sel)
-#            index = self.skymodel.hpindex(skydir)
-#            source_name=sel
-#        else:
-#            raise Exception( 'factory argument "%s" not recognized.' %sel)
-#        roi = ROI_user(super(Factory,self).__call__(index))
-#        ## preselect the given source after setting up the ROI
-#        if source_name is not None: 
-#            roi.sources.find_source(source_name)
-#            assert source_name==roi.sources.selected_source.name
-#        return roi
-#
-#
-#@decorate_with(roisetup.ROIfactory, append_init=True)
-#def factory(  modeldir='.',   **kwargs ):
-#    """ will then return a ROI_user object 
-#    """
-#    return Factory(modeldir, **kwargs)

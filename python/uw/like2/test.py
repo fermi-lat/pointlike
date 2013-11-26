@@ -1,6 +1,6 @@
 """
 All like2 testing code goes here, using unittest
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.17 2013/11/25 01:27:46 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.18 2013/11/25 23:48:43 burnett Exp $
 """
 import os, sys, unittest
 import numpy as np
@@ -392,11 +392,17 @@ class TestLikelihood(TestSetup):
         total = bl.log_like()
         self.assertAlmostEquals(total, parta+partb)
         
-class TestFitter(TestSetup):
+class TestFitterView(TestSetup):
     def setUp(self):
         setup('likeviews')
+        
+    def test_ts(self, sourcename='P7R42722', expect=800):
+        """--> set up a subset fitter view, use it to checka TS value"""
+        with likeviews.fitter_view(sourcename) as fv:
+            self.assertAlmostEquals(expect, fv.ts(), delta=1)
+            
     def test_fitting(self):
-        """generate a fitter_view, use it to maximize the likelihood"""
+        """-->generate a fitter_view, use it to maximize the likelihood"""
         with likeviews.fitter_view() as t:
             a = t()
             self.assertEquals(t.log_like(), -a)
@@ -441,7 +447,11 @@ class TestLocalization(TestSetup):
 class TestUser(TestSetup):
     def setUp(self):
         setup('user')
-    
+        self.init = user.log_like()
+
+    def tearDown(self):
+        self.assertAlmostEquals(self.init, user.log_like())
+
     def test_fit(self, selects=(0, '_Norm', None), 
             expects=(697608.2, 697617.7 ,697645.4)):
         for select, expect in zip(selects, expects):
@@ -449,10 +459,21 @@ class TestUser(TestSetup):
             self.assertAlmostEquals(expect, wfit, delta=0.1)
 
     def test_localization(self, source_name='P7R42722'):
-        t =user.localize(source_name, quiet=True)
+        t = user.localize(source_name, quiet=True)
         self.assertAlmostEquals(0.0062, t['a'], delta=1e-3)
         self.assertAlmostEquals(0.210, t['qual'], delta=1e-3)
  
+    def testTS(self, source_name='P7R42722', expect=800):
+        """-->compute a Test Statistic"""
+        ts = user.TS(source_name)
+        self.assertAlmostEquals(expect, ts, delta=1)
+        
+    def testSED(self, source_name='P7R42722'):
+        """-->measure a full SED (not yet)"""
+        pass
+        
+    
+    
 class TestAssociations(TestSetup):
     def test(self):
         assoc = associate.SrcId()
@@ -460,14 +481,15 @@ class TestAssociations(TestSetup):
         self.assertTrue(set(['ra', 'deltats', 'ang', 'name', 'prior', 'density', 'dec', 'prob',
                 'dir', 'cat']).issubset(t.keys()))
         self.assertAlmostEquals(2.614, t['deltats'][0], delta=0.001)
-        
+     
+    
 test_cases = (TestConfig, 
     TestPoint, TestDiffuse, 
    # TestExtended, 
     TestROImodel, 
     TestBands, 
     TestLikelihood,
-    TestFitter,
+    TestFitterView,
     TestSED,
     TestLocalization,
     TestAssociations,
