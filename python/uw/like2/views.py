@@ -4,7 +4,7 @@ classes presenting views of the likelihood engine in the module bandlike
 Each has a mixin to allow the with ... as ... construction, which should restore the BandLikeList
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.4 2013/11/25 01:27:46 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.5 2013/11/25 23:49:10 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -305,6 +305,13 @@ class SubsetFitterView(roimodel.ParSubSet, FitPlotMixin, FitterMixin, FitterSumm
         if pars is not None: self.set_parameters(pars)
         return self.blike.hessian(self.mask) 
         
+    def ts(self):
+        """ simple test statistic """
+        lnow = self()
+        pars = self.parameters
+        pars[0] = self.bounds[0][0]
+        return 2 * (self(pars)-lnow)
+        
 
 class TSmapView(tools.WithMixin):
 
@@ -316,6 +323,9 @@ class TSmapView(tools.WithMixin):
         self.saved_skydir = self.get_dir()
         self.wzero = func.log_like()
     
+    def __repr__(self):
+        return '%s.%s: source %s' % self.source.name
+        
     def set_dir(self, skydir):
         self.source.skydir = skydir
         self.blike.initialize(self.source.name)
