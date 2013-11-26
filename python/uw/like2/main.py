@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.39 2013/11/25 01:27:46 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.40 2013/11/26 04:25:47 burnett Exp $
 
 """
 import numpy as np
@@ -154,6 +154,11 @@ class ROI_user(views.LikelihoodViews):
         kwargs.update(galmap=self.roi_dir, annotate=annotation)
         return plotting.sed.stacked_plots(self, **kwargs); 
 
+        
+    @tools.decorate_with(plotting.counts.stacked_plots)
+    def plot_counts(self, **kwargs):
+        return plotting.counts.stacked_plots(self, **kwargs)
+        
 #    @decorate_with(pointlike_plotting.tsmap.plot)
 #    def plot_tsmap(self, source_name=None, **kwargs):
 #        """ create a TS map showing the source localization
@@ -173,11 +178,6 @@ class ROI_user(views.LikelihoodViews):
 #                print 'Failed localization for source %s: %s' % (source.name, e)
 #            tsp = pointlike_plotting.tsmap.plot(loc, **plot_kw)
 #        return tsp
-#        
-#    @decorate_with(pointlike_plotting.counts.stacked_plots)
-#    def plot_counts(self, **kwargs):
-#        return pointlike_plotting.counts.stacked_plots(self, **kwargs)
-#        
 #    @decorate_with(printing.print_summary)
 #    def print_summary(self, **kwargs):
 #        selected_source= self.sources.selected_source

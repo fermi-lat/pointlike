@@ -1,6 +1,6 @@
 """
 Code to generate an ROI counts plot 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.5 2013/03/05 19:49:26 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.6 2013/10/26 15:40:29 burnett Exp $
 
 Authors M. Kerr, T. Burnett
 
@@ -22,13 +22,13 @@ def get_counts(roi, event_class=None, tsmin=10):
         used to select sources if bandts info in sedrec exists
         the bandts values are in the dict, None if no info
     """
-    bands = roi.selected_bands
+    bands = roi.selected
     if event_class is not None:
         bands = [b for b in bands if b.band.ec==event_class]
     assert len(bands)>0, 'get_counts: no bands found'
     all_sources = np.array(roi.sources)
     global_mask = np.array([s.skydir is None for s in roi.sources])
-    free_mask = np.array([s.skydir is not None and np.any(s.spectral_model.free) for s in roi.sources])
+    free_mask = np.array([s.skydir is not None and np.any(s.model.free) for s in roi.sources])
     
     global_sources = np.array([ s for s in roi.sources if s.skydir is None])
     free_sources = all_sources[free_mask] 
@@ -39,7 +39,7 @@ def get_counts(roi, event_class=None, tsmin=10):
     
     names = np.array([s.name for s in np.hstack([global_sources,free_sources])])
     bandts = np.array([s.sedrec.ts.sum() if hasattr(s,'sedrec') else None for s in free_sources])
-    energies = sorted(list(set([b.energy for b in bands])))
+    energies = roi.energies #sorted(list(set([b.energy for b in bands])))
     nume = len(energies)
     numsrc = sum(global_mask | strong_mask)
     observed = np.zeros(nume)
@@ -49,7 +49,7 @@ def get_counts(roi, event_class=None, tsmin=10):
     total = np.zeros(nume)
     for i, energy in enumerate(energies):
         for b in bands:
-            if b.energy!=energy: continue
+            if b.band.energy!=energy: continue
             counts = np.array([s.counts for s in b]) # array of all model counts
             observed[i] += sum(b.data)
             fixed[i] += b.fixed_counts            
@@ -113,8 +113,7 @@ def plot_counts(roi,fignum=1, event_class=None, outfile=None,
         ax.set_xticklabels(map(gevticklabel, ax.get_xticks()))
         ax.set_xlabel(r'$\mathsf{Energy\ (GeV)}$')
 
-        prop = font_manager.FontProperties(size='x-small')
-        ax.legend(loc=0,prop=prop)
+        ax.legend(loc=0,prop=dict(size=8))
         ax.grid(b=True)
         ax.set_ylim(ymin=0.3)
         
