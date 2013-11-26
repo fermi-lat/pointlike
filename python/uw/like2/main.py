@@ -1,17 +1,19 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.40 2013/11/26 04:25:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.41 2013/11/26 04:39:58 burnett Exp $
 
 """
 import numpy as np
+from skymaps import Band
 from . import (views,  configuration, extended,  roimodel, bands,  
-                localization, tools, plotting,
+                localization, sedfuns, tools,
+                plotting,
         )
 
 
 class ROI_user(views.LikelihoodViews):
-    """ subclass of ROIstat that adds user-interface tools: fitting, localization, plotting sources, counts
+    """ subclass of LikelihoodViews that adds user-interface tools: fitting, localization, plotting sources, counts
     methods
     =======
     fit
@@ -41,8 +43,8 @@ class ROI_user(views.LikelihoodViews):
         roi_bands = bands.BandSet(config, roi_index)
         roi_bands.load_data()
         super(ROI_user, self).__init__( roi_bands, roi_sources)
+        self.roi_dir = Band(12).dir(roi_index)
 
-       
     def fit(self, select=None, exclude=None,  summarize=True, quiet=True, **kwargs):
         """ Perform fit, return fitter object to examine errors, or refit
         
@@ -74,7 +76,6 @@ class ROI_user(views.LikelihoodViews):
                 use_gradient = True
         """
         ignore_exception = kwargs.pop('ignore_exception', False)
-        #self.call_limit = kwargs.pop('call_limit', self.call_limit)
         fit_kw = dict(use_gradient=True, estimate_errors=True)
         fit_kw.update(kwargs)
 
@@ -102,7 +103,6 @@ class ROI_user(views.LikelihoodViews):
     def localize(self, source_name=None, update=False, **kwargs):
         """ localize the source, return elliptical parameters 
         """
-
         with self.tsmap_view(source_name, **kwargs) as tsm:
             loc = localization.Localization(tsm, **kwargs)
             try: 
@@ -117,6 +117,7 @@ class ROI_user(views.LikelihoodViews):
     
     def get_model(self, source_name=None):
         return self.sources.find_source(source_name).spectral_model
+        
     def get_source(self, source_name=None):
         return self.sources.find_source(source_name)
         
@@ -124,14 +125,10 @@ class ROI_user(views.LikelihoodViews):
         """ measure the TS for the given source and set the ts property of the source
         """
         source = self.sources.find_source(source_name)
-        with self.fitter_view(source_name) as fv:
+        with self.fitter_view(source.name) as fv:
              source.ts  = fv.ts()
         return source.ts
-#
-#    def band_ts(self, source_name=None):
-#        sed = self.get_sed(source_name)
-#        return np.sum(sed.ts)
-#        
+
     def get_sed(self, source_name=None, event_type=None, update=False, **kwargs):
         """ return the SED recarray for the source
         source_name : string
@@ -139,7 +136,7 @@ class ROI_user(views.LikelihoodViews):
         event_type : None, or integer, 0/1 for front/back
         """
         source = self.sources.find_source(source_name)
-        if not hasattr(source, 'sedrec') and not update:
+        if not hasattr(source, 'sedrec') or update:
             with sedfuns.SED(self, source.name, **kwargs) as sf:
                 source.sedrec = sf.sed_rec(event_type=event_type)
         return source.sedrec
@@ -150,35 +147,39 @@ class ROI_user(views.LikelihoodViews):
         showts = kwargs.pop('showts', True)
         if kwargs.get('update', True):
             self.get_sed(update=True)
-        annotation =(0.04,0.88, 'TS=%.0f' % source.ts ) if showts else None 
+        annotation =(0.04,0.88, 'TS=%.0f' % source.ts ) if showts and hasattr(source, 'ts') else None 
         kwargs.update(galmap=self.roi_dir, annotate=annotation)
-        return plotting.sed.stacked_plots(self, **kwargs); 
+        with sedfuns.SED(self, source_name) as sf:
+            t = plotting.sed.stacked_plots(sf, **kwargs)
+        return t
 
-        
     @tools.decorate_with(plotting.counts.stacked_plots)
     def plot_counts(self, **kwargs):
         return plotting.counts.stacked_plots(self, **kwargs)
         
-#    @decorate_with(pointlike_plotting.tsmap.plot)
-#    def plot_tsmap(self, source_name=None, **kwargs):
-#        """ create a TS map showing the source localization
-#        """
-#        source = self.sources.find_source(source_name)
-#        plot_kw = dict(size=0.25, pixelsize=0.25/15, outdir=None, 
-#            assoc=getattr(source, 'adict', None) ) 
-#        plot_kw.update(kwargs)
-#        with localization.Localization(self, source.name, quiet=True) as loc:
-#            try: 
-#                if not hasattr(source,'ellipse'):
-#                    loc.localize()
-#                    loc.summary()
-#                tsize = kwargs.pop('size', source.ellipse[2]*15.) # scale according to major axis size
-#                plot_kw.update(size=tsize, pixelsize=tsize/15.)
-#            except Exception, e:
-#                print 'Failed localization for source %s: %s' % (source.name, e)
-#            tsp = pointlike_plotting.tsmap.plot(loc, **plot_kw)
-#        return tsp
-#    @decorate_with(printing.print_summary)
+    @tools.decorate_with(plotting.tsmap.plot)
+    def plot_tsmap(self, source_name=None, **kwargs):
+        """ create a TS map showing the source localization
+        """
+        source = self.sources.find_source(source_name)
+        plot_kw = dict(size=0.25, pixelsize=0.25/15, outdir=None, 
+            assoc=getattr(source, 'adict', None) ) 
+        plot_kw.update(kwargs)
+        with self.tsmap_view(source_name) as tsm:
+
+            loc = localization.Localization(tsm)
+            try: 
+                if not hasattr(source,'ellipse'):
+                    loc.localize()
+                    loc.summary()
+                tsize = kwargs.pop('size', source.ellipse[2]*15.) # scale according to major axis s
+                plot_kw.update(size=tsize, pixelsize=tsize/15.)
+            except Exception, e:
+                print 'Failed localization for source %s: %s' % (source.name, e)
+            tsp = plotting.tsmap.plot(loc, **plot_kw)
+        return tsp
+        
+#    @tools.decorate_with(printing.print_summary)
 #    def print_summary(self, **kwargs):
 #        selected_source= self.sources.selected_source
 #        t = printing.print_summary(self, **kwargs)
@@ -200,26 +201,7 @@ class ROI_user(views.LikelihoodViews):
 #        except Exception, msg:
 #            print 'Failed to find associations for %s: %s' % (self.get_source().name, msg)
 #            
-#    @property
-#    def bounds(self):
-#        return self.sources.bounds
-#    @property
-#    def cov_matrix(self):
-#        """ the current covariance matrix, determined from the gradient 
-#            assumes that there is a consistent fit for for the full set of parameters
-#        """
-#        return fitter.Minimizer.mycov(self.gradient, self.get_parameters())
-#        
-#    @property
-#    def correlations(self):
-#        """Return the linear correlation coefficients for the estimated covariance matrix.
-#        """
-#        cm = self.cov_matrix
-#        diag = cm.diagonal()
-#        diag[diag<=0]=np.nan # protect against zero or negative
-#        s = np.sqrt(diag)
-#        return cm / np.outer(s,s)
-#        
+        
 #    def add_source(self, **kwargs):
 #        """ add a source to the ROI
 #        keywords:
@@ -251,17 +233,6 @@ class ROI_user(views.LikelihoodViews):
 #        model.unzero()
 #        self.initialize()
 #    
-#    def poisson_likelihood(self, source_name=None, **kwargs):
-#        """ return a functor that corresponds to the likelihood function for the given source
-#        """
-#        source = self.sources.find_source(source_name)
-#
-#        with sedfuns.SourceFlux(self, source.name) as sf:
-#            sf.select_band(None)
-#            pf = loglikelihood.PoissonFitter(sf, **kwargs)
-#            p = pf.poiss
-#        return p 
-#        
 #    def freeze(self, parname, source_name=None, value=None):
 #        """ freeze the parameter, optionally set the value
 #        
