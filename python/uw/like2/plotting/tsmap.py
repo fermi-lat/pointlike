@@ -1,7 +1,7 @@
 """
 Code to plot TS maps
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/tsmap.py,v 1.8 2013/04/11 20:31:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/tsmap.py,v 1.9 2013/04/11 22:02:13 burnett Exp $
 
 """
 import math, os
@@ -50,8 +50,9 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
 
     returns the image.TSplot object for plotting positions, for example
     """
-    if name is None: name=localizer.source.name
-    sdir = center if center is not None else localizer.skydir
+    source = localizer.tsm.source
+    if name is None: name=source.name
+    sdir = center if center is not None else source.skydir
     if axes is None: 
         fig = plt.figure(fignum,figsize=(4,4)); 
         fig.clf()
@@ -65,13 +66,12 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
     tsp = image.TSplot(localizer.TSmap, sdir, size, 
                 pixelsize=pixelsize if pixelsize is not None else size/20. , 
                 axes=axes, galactic=galactic, galmap=galmap, galpos=galpos, **kwargs)
-    if hasattr(localizer, 'ellipse'): 
-        loc = localizer.ellipse
-        sigma = np.sqrt(loc['a']*loc['b']) #?? scale factor needed?
-        qual = loc['qual']
+    if hasattr(source, 'ellipse'): 
+        loc = source.ellipse
+        sigma = np.sqrt(loc[2]*loc[3]) #loc['a']*loc['b']) #?? scale factor needed?
+        qual = loc[5] #'qual']
         if sigma<1 and qual <50:
-            #tsp.overplot([loc['ra'],loc['dec'],loc['a'],loc['b'],loc['ang'], qual], sigma)
-            tsp.overplot(localizer.qform, sigma)
+            tsp.overplot(loc, sigma)
         else:
             print 'bad fit sigma %g, >1 or qual %.1f >50' % (sigma, qual)
     tsp.show(colorbar=False)
@@ -84,7 +84,8 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
     marker = 'ov^<>1234sphH'; i=k=0
     if markersize!=0:
         # plot nearby sources in the ROI 
-        for ps in localizer.rs.sources: 
+        for ps in localizer.tsm.blike.sources: 
+
             if ps.skydir is None: continue
             x,y = tsp.zea.pixel(ps.skydir)
             if ps.name==name or x<0 or x>tsp.zea.nx or y<0 or y>tsp.zea.ny: continue
