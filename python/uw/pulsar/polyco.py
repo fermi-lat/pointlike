@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.13 2013/06/26 19:52:03 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.14 2013/06/30 01:24:53 kerrm Exp $
 
 Mange polycos from tempo2.
 
@@ -82,13 +82,19 @@ class Polyco:
     def __init__(self, fname, psrname=None, recalc_polycos=True,
         mjd0=51544,bary=False, working_dir=None, output=None, ndays=None,
         verbose=False):
-        """ Create an object encapsulating a set of polynomial coefficients for
-            evaluating phase.
+        """ Create an object encapsulating a set of polynomial coefficients             for evaluating phase.
 
+            fname -- either an existing polyco .dat file or an ephemeris
+                     with which to generate the polycos
+            recalc_polycos -- force generation of polycos; fname must be an
+                     ephemeris in this case
             mjd0 -- start of polyco validity; default Jan 1, 2000
-
-            ndays -- number of days to include; default spans 2000 to present
-                     but can be lengthy to compute
+            bary -- generate polycos at barycenter if set (default geo)
+            working_dir -- change to this directory to generate polycos
+            output -- use this stem to prepend to polyco .dat files
+            ndays -- number of days to include; default spans 2000 to 
+                     present but can be lengthy to compute
+            verbose -- spit out more diagnostic output
         """
 
         self.bary = bary
@@ -121,7 +127,8 @@ class Polyco:
             logrms = float(sp[6])
             if verbose:
                 print "- - - - - - -"
-                print "psrname %s date %s utc %s tmid %s dm %f doppler %f logrms %f" % (psrname,date,utc,tmid,dm,doppler,logrms)
+                #print "psrname %s date %s utc %s tmid %s dm %f doppler %f logrms %f" % (psrname,date,utc,tmid,dm,doppler,logrms)
+                print "psrname %s date %s utc %s tmid %s dm %f logrms %f" % (psrname,date,utc,tmid,dm,logrms)
             line2 = f.readline()
             rphase = float(line2[0:20])
             f0 = float(line2[20:38])
@@ -150,6 +157,8 @@ class Polyco:
                 print "COEFFS: ",coeffs
             pe = PolycoEntry(tmid,mjdspan,rphase,f0,ncoeff,coeffs,obs)
             self.entries.append(pe)
+        if len(self.entries)==0:
+            raise ValueError('No polycos generated!')
         self.make_keys()
 
     def gen_polycos(self,polyconame,recalc_polycos=True,mjd0=51544,ndays=None):
