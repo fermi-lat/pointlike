@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.49 2013/08/19 19:06:01 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.50 2013/10/24 06:10:25 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -786,6 +786,13 @@ def get_bats_etc(par,tim,output=None,full_output=False,binary=False):
         return bats,errs,phas
 
 def get_resids(par,tim,emax=None,phase=False,get_mjds=False,latonly=False):
+    """ Use the tempo2 general2 plugin to obtain residuals.  By default, the
+        residuals and the errors are given in microseconds.
+
+        phase -- convert residuals and errors to phase units
+        get_mjds -- return the site arrival times in MJD too
+        latonly -- filter TOAs that aren't at 0 frequency
+    """
     if not os.path.isfile(par):
         raise IOError('Ephemeris %s is not a valid file!'%par)
     if not os.path.isfile(tim):
@@ -813,7 +820,7 @@ def get_resids(par,tim,emax=None,phase=False,get_mjds=False,latonly=False):
     # apply emax *after* phase correction to be consistent
     if emax is not None:
         mask = errs < emax
-        resi -= resi[mask].mean()
+        resi -= np.average(resi[mask],weights=1./errs[mask]**2)
         dof = mask.sum()
     else:
         dof = len(resi)
@@ -894,32 +901,6 @@ def tim_faker(tim,tim_shifts,thresh=5,output=None):
         except ValueError:
             continue
     file(output,'w').write(''.join(new_lines))
-
-"""
-def add_phase(tim,abs_phase,output=None):
-    output = output or tim
-    lines = file(tim).readlines()
-    new_lines = deque()
-    counter = 0
-    for iline,line in enumerate(lines):
-        new_lines.append(line)
-        if line[0] != ' ':
-            continue
-        new_lines.pop()
-        ph = str(int(abs_phase[counter]))
-        toks = line.split()
-        try:
-            idx = toks.index('-pn')
-            toks[idx+1] = ph
-            new_lines.append(' '+' '.join(toks)+'\n')
-        except ValueError:
-            new_lines.append(line.strip('\n')+' -pn %s\n'%ph)
-        counter += 1
-    if counter != len(abs_phase):
-        raise ValueError('Found %d phases for %d TOAs!'%(
-            len(abs_phase),counter))
-    file(output,'w').write(''.join(new_lines))
-"""
 
 def add_flag(tim,flag,vals,output=None):
     """ Add a flag to the TOAs in an output file with the specified value.
@@ -1122,4 +1103,16 @@ def parkes2tempo2(tim,output):
         new_strings.append(' %s %s %s %s %s\n'%(
             toks[0],toks[3],toks[4],toks[6],toks[7]))
     file(output,'w').write('FORMAT 1\n'+''.join(new_strings)) 
-            
+
+def plot_resids_hist(par,tim,fignum=2):
+    """ Plot the normalized distribution of residuals."""
+    resids,errs,chi2,dof = get_resids(par,tim)
+    pulls = resids/errs
+    binwidth = 0.5
+    g = lambda x: (2*np.pi)**-0.5*np.exp(-0.5*x**2)
+    import pylab as pl
+    pl.figure(fignum); pl.clf()
+    pl.hist(pulls,bins=np.arange(-5,5+binwidth,binwidth),histtype='step',
+        color='blue',normed=False);
+    dom = np.linspace(-5,5,101)
+    pl.plot(dom,g(dom)*len(resids)*binwidth,color='red')
