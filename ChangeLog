@@ -1,4 +1,17 @@
 ------------------------------------------------------------
+User: burnett  Wed Nov 27 06:59:56 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	diffuse.py main.py roimodel.py sources.py test.py to_fits.py 
+	views.py 
+Removed Files:
+	models.py roi_bands.py roisetup.py roistat.py skymodel.py 
+	sourcelist.py 
+Log Message:
+final cut
+    *
+------------------------------------------------------------
 User: burnett  Wed Nov 27 06:55:27 PST 2013
 pointlike/python/uw/like2
 
