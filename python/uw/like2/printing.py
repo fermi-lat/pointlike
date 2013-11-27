@@ -1,12 +1,10 @@
 """
 Implementation of various roi printing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/printing.py,v 1.5 2012/12/16 17:08:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/printing.py,v 1.6 2013/02/10 23:19:53 burnett Exp $
 """
-import os, math
+import os
 import numpy as np
 import pandas as pd
-
-#from . pointspec_helpers import PointSource
 
 def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_all_ts=False):
     """ formatted table point sources positions and parameter in the ROI, 
@@ -40,17 +38,19 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
     if title is None: 
         title = self.name if hasattr(self,'name') else ''
     print 90*'-', '\n\t Nearby sources within %.1f degrees %s' % (maxdist,title)
-    colstring = 'name dist ra dec TS eflux(eV) index beta cutoff'
+    colstring = 'name dist ra dec TS eflux(eV) index energy beta/b'
     if galactic: colstring =colstring.replace('ra dec', 'l b')
     colnames = tuple(colstring.split())
     n = len(colnames)-1
     print ('%-13s'+4*'%10s'+' '+(n-4)*'%9s')% colnames
-    sources = self.get_sources()
-    sources.sort(key=lambda s:s.skydir.difference(self.roi_dir))
-    for ps in sources:
+    local_sources =  filter(lambda s: s.skydir is not None, roi.sources[:])
+    local_sources.sort( key=lambda s: s.skydir.difference(roi.roi_dir))
+    global_sources = filter(lambda s: s.skydir is None, roi.sources[:])
+
+    for ps in local_sources:
         sdir = ps.skydir
         model = roi.get_model(ps.name)
-        dist=math.degrees(sdir.difference(self.roi_dir))
+        dist=np.degrees(sdir.difference(self.roi_dir))
         if maxdist and dist>maxdist:  continue
         loc = (sdir.l(),sdir.b()) if galactic else (sdir.ra(),sdir.dec())
         try:
@@ -59,21 +59,22 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
             par  =model.parameters
             sigpar = np.zeros(model.len())
             
-        expcutoff = model.name=='ExpCutoff'
         npar = len(par)
+        index_order = range(1,npar) if model.name!='LogParabola' else (1,3,2)
+        expcutoff = model.name=='ExpCutoff'
         ts = '%10.0f'% self.TS(ps.name) if (np.any(model.free) or print_all_ts) else 10*' '
         fmt = '%-18s%5.1f'+2*'%10.3f'+ '%10s'+ '%10.1f%1s'
         freeflag = map(makefreeflag, model.free, sigpar)
         values = (ps.name.strip(), dist) +loc+ (ts,)+( model.i_flux(e_weight=1, emax=1e5)*1e6, freeflag[0], )
-        for i in range(1,npar): # parameters beyond flux
-            if expcutoff and i==npar-1: fmt+=9*' '# gap if ExpCutoff to line up with cutoff 
+        
+        for i in index_order: # parameters beyond flux
+            #if expcutoff and i==npar-1: fmt+=9*' '# gap if ExpCutoff to line up with cutoff 
             fmt    += '%8.2f%1s' 
             values += (par[i], freeflag[i]) 
         print fmt % values
         
     print 90*'-','\n\tDiffuse sources\n',90*'-'
-    for source in self.sources:
-        if  source.skydir is not None: continue
+    for source in global_sources:
         par, sigpar = source.spectral_model.statistical()
         n= len(par)
         freeflag = map(makefreeflag, source.spectral_model.free, sigpar)
@@ -85,93 +86,6 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
         print fmt % values
     print 90*'-'
 
-def print_resids(roi):
-    """Print out (weighted) residuals for each energy range, both in
-       separate front/back columns and in a joint column.
-
-       Useful for identifying systematic effects that distinguish between
-       front and back events.
-    """
-    self=roi
-    assert False, 'Not implemented for like2 roi'
-    d = dict()
-    for b in self.bands:
-        key = (-1 if b.ct==1 else 1)*int(b.e)
-        d[key] = b
-    ens = np.sort(list(set([b.e for b in self.bands]))).astype(int)
-    print ''
-    print '        -------CT=0--------     -------CT=1--------     ------CT=0+1-------'
-    print 'Energy  Mod     Obs     Res     Mod     Obs     Res     Mod     Obs     Res'
-    print '        -------------------     -------------------     -------------------'
-    for en in ens:
-        s1 = '%-6.0f'%(en)
-        tm = 0; to = 0
-        for key in [en,-en]:
-            if key in d.keys():
-                b  = d[key]
-                m = b.ps_all_counts + b.bg_all_counts
-                o = b.photons
-            else:
-                m = o = 0
-            tm += m; to += o
-            wres = (o-m)/m**0.5 if m>0 else 0
-            s1 = '\t'.join([s1,'%-6.0f\t%-6d\t%.1f'%(m,o,wres)])
-        wres = (to-tm)/tm**0.5 if tm>0 else 0
-        s1 = '\t'.join([s1,'%-6.0f\t%-6d\t%.1f'%(tm,to,(to-tm)/tm**0.5)])
-        print s1
-
-def printSpectrum(roi,sources=None):
-    """Print total counts and estimated signal in each band for a list of sources.
-
-    Sources can be specified as PointSource objects, source names, or integers
-    to be interpreted as indices for the list of point sources in the roi. If
-    only one source is desired, it needn't be specified as a list. If no sources
-    are specified, all sources with free fit parameters will be used."""
-
-    self=roi
-    assert False, 'Not implemented for like2 roi'
-
-    if sources is None:
-        sources = [s for s in self.psm.point_sources if np.any(s.model.free)]
-    elif type(sources) != type([]):
-        sources = [sources]
-    if sources == []: return # No point sources in ROI
-    bad_sources = []
-    for i,s in enumerate(sources):
-        if type(s) == PointSource:
-            if not s in self.psm.point_sources:
-                print 'Source not found in source list:\n%s\n'%s
-                bad_sources += [s]
-        elif type(s) == int:
-            try:
-                sources[i] = self.psm.point_sources[s]
-            except IndexError:
-                print 'No source #%i. Only %i source(s) specified.'\
-                        %(s,len(self.psm.point_sources))
-                bad_sources += [s]
-        elif type(s) == type(''):
-            names = [ps.name for ps in self.psm.point_sources]
-            try:
-                sources[i] = self.psm.point_sources[names.index(s)]
-            except ValueError:
-                print 'No source named %s'%s
-                bad_sources += [s]
-        else:
-            print 'Unrecognized source specification:', s
-            bad_sources += [s]
-    sources = set([s for s in sources if not s in bad_sources])
-    indices = [list(self.psm.point_sources).index(s) for s in sources]
-    self.setup_energy_bands()
-
-    fields = ['  Emin',' f_ROI',' b_ROI' ,' Events','Galactic','Isotropic']\
-                 +[' '*15+'Signal']*len(sources)
-    outstring = 'Spectra of sources in ROI about %s at ra = %.2f, dec = %.2f\n'\
-                      %(self.psm.point_sources[0].name, self.roi_dir.ra(), self.roi_dir.dec())
-    outstring += ' '*54+'  '.join(['%21s'%s.name for s in sources])+'\n'
-    outstring += '  '.join(fields)+'\n'
-    print outstring
-    for eb in self.energy_bands:
-        print eb.spectralString(which=indices)
 
 def gtlike(roi, sources=None, tsmin=25):
     sourcenames = [s.name for s in roi.sources if s.skydir is not None\
@@ -189,12 +103,12 @@ def gtlike(roi, sources=None, tsmin=25):
             scale = 10**(int(np.log10(value))-1) if gtname=='norm' else 1.0
             print '%16s: %7.4f %7.4f ( %.1e)' % (gtname, value/scale, error/scale, scale)
             
-def band_summary(roi, ct=0):
+def band_summary(roi, event_type=0):
     snames = ['data','model','residual', 'normresid']+[s.name for s in roi.sources]
     d = dict()
-    for index,b in enumerate(roi.selected_bands):
-        if b.band.ct != ct: continue
-        energy = b.band.e
+    for index,b in enumerate(roi.selected):
+        if b.band.event_type != event_type: continue
+        energy = b.band.energy
         data = sum(b.data)
         resid = data-b.counts
         models = [data,b.counts, resid, resid/np.sqrt(b.counts) ]+[ s.counts for s in b]
