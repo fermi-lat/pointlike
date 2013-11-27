@@ -1,13 +1,13 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.42 2013/11/26 14:56:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.43 2013/11/26 15:57:58 burnett Exp $
 
 """
 import numpy as np
 from . import (views,  configuration, extended,  roimodel, bands,  
                 localization, sedfuns, tools,
-                plotting,
+                plotting, associate, printing
         )
 
 
@@ -65,15 +65,17 @@ class ROI_user(views.LikelihoodViews):
 
         kwargs 
         ------
-            ignore_exceptions : bool
+        ignore_exception : bool
                 if set, run the fit in a try block and return None
-            call_limit : int
-                if set, modify default limit on number of calls
+        update_by : float
+            set to zero to not change parameters, or a number between 0 and 1 to make a partial update
+            
             others passed to the fitter minimizer command. defaults are
                 estimate_errors = True
                 use_gradient = True
         """
         ignore_exception = kwargs.pop('ignore_exception', False)
+        update_by = kwargs.pop('update_by', 1.0)
         fit_kw = dict(use_gradient=True, estimate_errors=True)
         fit_kw.update(kwargs)
 
@@ -91,13 +93,20 @@ class ROI_user(views.LikelihoodViews):
                 if summarize: fv.summary()
                 wfit = fv.log_like()
                 pfit = fv.parameters[:] 
+                cov  = fv.covariance
+                fv.modify(update_by)
             except FloatingPointError, e:
                 if not ignore_exception: raise
             except Exception:
                 if ignore_exception: return 
                 else: raise
-        return wfit, pfit
+        return wfit, pfit, cov
     
+    def summarize(self, select=None, exclude=None):
+        with self.fitter_view(select, exclude=exclude) as fv:
+            print 'current likelihood: %.1f' % fv.log_like()
+            fv.summary()
+            
     def localize(self, source_name=None, update=False, **kwargs):
         """ localize the source, return elliptical parameters 
         """
@@ -177,28 +186,27 @@ class ROI_user(views.LikelihoodViews):
             tsp = plotting.tsmap.plot(loc, **plot_kw)
         return tsp
         
-#    @tools.decorate_with(printing.print_summary)
-#    def print_summary(self, **kwargs):
-#        selected_source= self.sources.selected_source
-#        t = printing.print_summary(self, **kwargs)
-#        self.sources.selected_source=selected_source
-#
-#    def find_associations(self, source_name=None, classes='all', quiet=True):
-#        """ find associations, using srcid object.
-#        Expect to find files at $FERMI/catalog.
-#        """
-#        try:
-#            if not hasattr(self,'srcid'):
-#                from uw.like2.pipeline import associate
-#                self.srcid=associate.SrcId('$FERMI/catalog',classes, quiet=quiet)
-#            source = self.sources.find_source(source_name)
-#            with localization.Localization(self, source.name, quiet=quiet) as loc:
-#                if not hasattr(source, 'ellipse'):
-#                    loc.localize()
-#                localization.make_association(source, loc.TSmap, self.srcid)
-#        except Exception, msg:
-#            print 'Failed to find associations for %s: %s' % (self.get_source().name, msg)
-#            
+    @tools.decorate_with(printing.print_summary)
+    def print_summary(self, **kwargs):
+        selected_source= self.sources.selected_source
+        t = printing.print_summary(self, **kwargs)
+        self.sources.selected_source=selected_source
+
+    def find_associations(self, source_name=None, classes='all', quiet=True):
+        """ find associations, using srcid object.
+        Expect to find files at $FERMI/catalog.
+        """
+        source = self.sources.find_source(source_name)
+        try:
+            if not hasattr(source,'srcid'):
+                self.srcid=associate.SrcId('$FERMI/catalog',classes, quiet=quiet)
+            with localization.Localization(self, source.name, quiet=quiet) as loc:
+                if not hasattr(source, 'ellipse'):
+                    loc.localize()
+                localization.make_association(source, loc.TSmap, self.srcid)
+        except Exception, msg:
+            print 'Failed to find associations for %s: %s' % (source.name, msg)
+            
         
 #    def add_source(self, **kwargs):
 #        """ add a source to the ROI

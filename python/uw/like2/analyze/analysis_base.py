@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.10 2013/10/16 13:21:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.11 2013/10/16 13:59:33 burnett Exp $
 
 """
 
@@ -56,7 +56,26 @@ def html_table( df, columns={}, name='temp', heading='heading', href=True, maxli
     
     return '<a href="%s?skipDecoration">%s</a>' % ( filename.split('/')[-1], heading)
     
+
+def load_pickles_from_zip(zipfilename='pickle.zip'):
+    """
+    load a set of pickles, return list from a zipfile or folder
     
+    folder : string
+        A file path. If the first folder, +'.zip' exists, unpack from that zip file
+    """
+    pkls = []
+    
+    assert os.path.exists(zipfilename)
+    print 'unpacking file %s ...' % (os.getcwd()+'/'+zipfilename ,),
+    z = zipfile.ZipFile(zipfilename)
+    files = sorted( filter( lambda n:  n.endswith('.pickle'), z.namelist() ) ) 
+    print 'found %d *.pickle files in folder %s' % (len(files), zipfilename)
+    opener = z.open
+    assert len(files)>0, 'no files found in %s' % zipfilename 
+    pkls = [pickle.load(opener(file)) for file in files]
+    return files,pkls
+   
     
 class OutputTee(object):
     """ capture a copy of stdout to a local string

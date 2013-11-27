@@ -1,6 +1,6 @@
 """
 background analysis
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/background.py,v 1.8 2013/09/04 12:34:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/background.py,v 1.9 2013/09/07 09:44:51 burnett Exp $
 
 """
 import os, glob
@@ -300,7 +300,7 @@ class Background(roi_info.ROIinfo):
  
     def gal_correction_maps(self, bands=4):
         """galactic correction maps
-        The following maps show the distribution of the first %(nmaps)d corrections.
+        The following maps show the distribution of the first %(nmaps)d corrections, exractred from
         %(correction_info)s
         %(gal_corr_maps)s
         
