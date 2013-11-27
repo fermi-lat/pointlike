@@ -1,6 +1,6 @@
 """
 Code to generate an ROI counts plot 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.6 2013/10/26 15:40:29 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.7 2013/11/26 04:39:59 burnett Exp $
 
 Authors M. Kerr, T. Burnett
 
@@ -87,7 +87,7 @@ def plot_counts(roi,fignum=1, event_class=None, outfile=None,
     def plot_counts_and_models(ax, count_data,
                 model_kw = dict(linestyle='-', marker=''),
                 total_kw = dict(linestyle='steps-mid', color='black', linewidth=2),
-                obs_kw= dict(linestyle=' ', marker='o', color='black')
+                obs_kw= dict(linestyle=' ', marker='o', color='black',)
                 ):
         ax.set_xscale('log')
         ax.set_yscale('log')
@@ -118,15 +118,29 @@ def plot_counts(roi,fignum=1, event_class=None, outfile=None,
         ax.set_ylim(ymin=0.3)
         
     def plot_residuals(ax, count_data, 
-                ylabel='Fractional Residual',
+                ylabel='fract. dev',
                 plot_kw=dict( linestyle=' ', marker='o', color='black',),
-                show_chisq=True,
+                show_chisq=True, plot_pulls=True,
                 ):
-        en,obs,tot = count_data['energies'],count_data['observed'],count_data['total']
+        energy, obs,tot = count_data['energies'],count_data['observed'],count_data['total']
         ax.set_xscale('log')
-        ax.errorbar(en,(obs-tot)/(tot), yerr=tot**-0.5, **plot_kw)
+        if not plot_pulls:
+            ax.errorbar(energy, (obs-tot)/(tot), yerr=tot**-0.5, **plot_kw)
+            ybound = min( 0.5, np.abs(np.array(ax.get_ylim())).max() )
+
+        else:
+            ylabel = 'pull'
+            ybound = 3.5
+            pull = (obs-tot)/np.sqrt(tot)
+            axes[1].plot(energy, pull, 'ko')
+
+            nhigh = sum(pull>3)
+            if nhigh>0:  ax.plot(energy[pull>3], [3]*nhigh, '^r', markersize=10) 
+            nlow = sum(pull<-3)
+            if nlow >0:  ax.plot(energy[pull<-3], [-3]*nlow, 'vr', markersize=10) 
+            plt.setp(ax, xscale='log', ylabel='pull', ylim=(-3.5,3.5) )
+
         ax.axhline(0, color = 'black')
-        ybound = min( 0.5, np.abs(np.array(ax.get_ylim())).max() )
         ax.set_ylim((-ybound,ybound))
         ax.set_ylabel(ylabel)
         def gevticklabel(x):
@@ -138,7 +152,7 @@ def plot_counts(roi,fignum=1, event_class=None, outfile=None,
         ax.set_xlabel(r'$\mathsf{Energy\ (GeV)}$')
         ax.grid(b=True)
         if show_chisq :
-            ax.text(0.04, 0.80,'chisq=%.1f'% count_data['chisq'], transform = ax.transAxes, fontsize=10)
+            ax.text(0.8, 0.8,'chisq=%.0f'% count_data['chisq'], transform = ax.transAxes, fontsize=8)
 
 
     if axes is None:
@@ -182,7 +196,7 @@ def stacked_plots(roi, counts_dir=None, fignum=6, title=None, **kwargs):
 
     axes[0].set_xlabel('') 
     axes[0].set_ylim(ymin=0.3)
-    axes[1].set_ylabel('fract. dev')
+    #axes[1].set_ylabel('fract. dev')
     if title is None:
         if hasattr(roi,'name'): fig.suptitle(roi.name)
     else: fig.suptitle(title)
