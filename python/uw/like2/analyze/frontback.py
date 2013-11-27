@@ -1,7 +1,7 @@
 """
 SED analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/frontback.py,v 1.3 2013/10/16 12:46:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/frontback.py,v 1.4 2013/10/16 13:21:24 burnett Exp $
 
 """
 
@@ -14,7 +14,7 @@ from . import analysis_base
 
 
 class FrontBackSedPlots(analysis_base.AnalysisBase):
-    """ 
+    """Front/back analysis of SED information 
     Analysis of a special "sedinfo" run, which records SED information for all sources
         with fits to front and back only, as well as both.
     """

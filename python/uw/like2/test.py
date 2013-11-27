@@ -1,6 +1,6 @@
 """
 All like2 testing code goes here, using unittest
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.19 2013/11/26 04:25:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.20 2013/11/26 14:56:45 burnett Exp $
 """
 import os, sys, unittest
 import numpy as np
@@ -8,7 +8,7 @@ import skymaps
 from skymaps import SkyDir, Band
 
 from uw.like2 import ( configuration, 
-    diffusedict as diffuse,
+    diffuse,
     sources,
     bands,
     exposure,
@@ -339,7 +339,13 @@ class TestROImodel(TestSetup):
         self.assertEquals(pz[8], ps[0])
         # should check other features ...
 
-        
+    def test_covariance(self):
+        for parset in (roi_sources.parameters, roi_sources.parsubset('W28')):
+            cov1 = parset.get_covariance()
+            parset.set_covariance(cov1)
+            cov2 = parset.get_covariance()
+            self.assertTrue(np.all(cov2==cov1))
+
     
 class TestBands(TestSetup):
 
@@ -455,7 +461,7 @@ class TestUser(TestSetup):
     def test_fit(self, selects=(0, '_Norm', None), 
             expects=(697608.2, 697617.7 ,697645.4)):
         for select, expect in zip(selects, expects):
-            wfit, pfit = user.fit(select, summarize=False)
+            wfit, pfit, conv = user.fit(select, summarize=False, update_by=0.)
             self.assertAlmostEquals(expect, wfit, delta=0.1)
 
     def test_localization(self, source_name='P7R42722'):

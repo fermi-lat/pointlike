@@ -1,6 +1,6 @@
 """
 Utilities for managing Healpix arrays
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.10 2013/05/25 20:53:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.11 2013/09/27 22:21:19 burnett Exp $
 """
 import os,glob,pickle, types, copy, zipfile
 import pylab as plt
@@ -184,6 +184,10 @@ class HPskyfun(HParray):
         self.skyfun = skyfun
         self.nside=nside
         self.dirfun = Band(self.nside).dir
+        self._indexfun = Band(self.nside).index
+
+    def __repr__(self):
+        return '%-10s %s, nside=%d' % (self.__class__.__name__, self.name, self.nside)
     def __getitem__(self, index):
         try:
             return self.skyfun(self.dirfun(index))
@@ -192,6 +196,8 @@ class HPskyfun(HParray):
         
     def getcol(self, type=np.float32):
         return np.asarray([self[index] for index in xrange(12*self.nside**2)],type)
+    def setcol(self, type=np.float32):
+        self.vec = self.getcol(type)
 
 class HPfitscube(HPskyfun):
     """ generate from a FITS cube """
@@ -258,9 +264,9 @@ class HEALPixFITS(list):
         for col in cols:
             self.append( col if col.nside==self.nside else HPresample(col, self.nside) )
             print 'appended column %s' %col.name
-            
-    def write(self, outfile, unit=None):
-        makecol = lambda v: pyfits.Column(name=v.name, format='E', unit=unit, array=v.getcol(np.float32))
+    
+    def make_table(self, unit=None):        
+        makecol = lambda v: pyfits.Column(name=v.name, format='E', unit=unit, array=v.vec)
         cols = map(makecol, self)
         nside = self.nside
         cards = [pyfits.Card(*pars) for pars in [ 
@@ -272,13 +278,53 @@ class HEALPixFITS(list):
                 ('LASTPIX',  12*nside**2-1, 'Last pixel (0 based)')]]
         table = pyfits.new_table(cols, header=pyfits.Header(cards))
         table.name = 'healpix' 
-        hdus =  [pyfits.PrimaryHDU(header=None),  #primary
-                 table,      # this table
-                ]
+        return table
+        
+    def make_hdus(self):
+        return [ pyfits.PrimaryHDU(header=None),  #primary
+                   self.make_table(),           # this table
+               ]
+
+    def write(self, outfile):
+        hdus = self.make_hdus()
         if os.path.exists(outfile):
             os.remove(outfile)
         pyfits.HDUList(hdus).writeto(outfile)
         print '\nwrote FITS file to %s' % outfile
+
+
+def mapcube_to_healpix(inputfile, 
+            suffix='_nside256_bpd4',
+            inpath= '$FERMI/diffuse',
+            outpath=None,
+            energy_bins=np.logspace(1.75,6.5, 20), 
+            emin=58.5 ):
+    """ convert a MapCube to column format, consistent with diffuse group
+    """
+    fullinputfile = os.path.expandvars(os.path.join(inpath,inputfile))
+    assert os.path.exists(fullinputfile), 'File not found: %s' % fullinputfile
+    d = skymaps.DiffuseFunction(fullinputfile)
+    galbands = []
+    energies = np.sqrt( energy_bins[:-1] * energy_bins[1:] )
+    for elow, ehigh in zip(energy_bins[:-1], energy_bins[1:]):
+        print elow,ehigh
+        d.setEnergyRange(max(elow, emin), ehigh)
+        t = HPskyfun('e_%d'%np.sqrt(elow*ehigh), d, 256)
+        t.setcol()
+        t.vec /= (ehigh-elow)
+        galbands.append(t)
+    tt = HEALPixFITS(galbands)
+    flux_table = tt.make_table()
+    energy_column = pyfits.Column('MeV', format='E', unit='MeV', array=energies)
+    energy_table = pyfits.new_table([energy_column])
+    energy_table.name='ENERGIES'
+    hdus = [ pyfits.PrimaryHDU(header=None), flux_table, energy_table]
+    fulloutfile = os.path.expandvars(os.path.join(outpath if outpath is not None else inpath,
+        inputfile.replace('.fits', suffix+'.fits')))
+    if os.path.exists(fulloutfile):
+        os.remove(fulloutfile)
+    pyfits.HDUList(hdus).writeto(fulloutfile)
+
 
 def assemble_tables(table_names, outputfile=None, folder= '.'):
     """ assemble one or more healpix tables from individual ROIs into a single FITS file
@@ -559,51 +605,3 @@ g = healpix_map.ZEAdisplayTasks("%(title)s","%(outdir)s", nside=%(nside)s, %(ext
 """ %dict(cwd=os.getcwd(), title=title, outdir=outdir, extra=extra, nside=nside)
     return setup_string
  
-# rethink this   
-#from uw.like2.pipeline import pipe
-#
-#class Setup(pipe.Setup):
-#    """ subclass that allows parallel processing
-#    """
-#    def __init__(self,outdir, title):
-#        self.outdir = outdir
-#        if title[:2]=='ts':
-#            self.setup= make_setup(outdir, title, 
-#                imshow_kw='interpolation="bilinear", vmin=0,vmax=5,fun=np.sqrt',
-#                label = r'$\mathrm{\sqrt{TS_{max}-TS}}$',
-#                )
-#        elif title=='kde':
-#            self.setup= make_setup(outdir, title, 
-#                imshow_kw='interpolation="bilinear",fun=np.log10',
-#                label='log10(photon density)')
-#        elif title=='counts':
-#            self.setup=make_setup(outdir, title,
-#                imshow_kw='interpolation="bilinear"',
-#                label='r$\mathrm{counts}$'
-#                )
-#        else:
-#            assert False, 'title %s not recognized' % title
-#        self.mecsetup=False #needed from inheritance
-#     
-#    def dump(self): pass
-#    
-#    def __call__(self):
-#        return self.setup
-#
-#def make_maps(outdir, title='all',):
-#    all = title=='all'
-#    if all or title=='kde':
-#        Setup(outdir,'kde').run()
-#    if all or title=='ts':
-#        Setup(outdir,'ts' ).run()
-#    if all or title=='counts':
-#        Setup(outdir, 'counts').run()
-#        
-#def main(outdir=None): 
-#    if outdir is None: outdir = sorted(glob.glob('uw*'))[-1]
-#    print 'using outdir %s' % outdir
-#    make_maps(outdir, 'all')
-#
-#if __name__=='__main__':
-#    main()
-#     

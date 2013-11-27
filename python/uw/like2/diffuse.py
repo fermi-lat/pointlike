@@ -1,638 +1,330 @@
 """
-Classes to create and convolve diffuse grids for each ROI
+Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.28 2013/10/11 16:10:39 burnett Exp $
+$Header$
 
-author: Matthew Kerr, Toby Burnett
+author:  Toby Burnett
 """
-import sys, os, types, pickle, glob, copy, zipfile
+import os, types, pyfits, collections, zipfile, pickle
 import numpy as np
-import pandas as pd
-from uw.utilities import keyword_options, convolution
-import skymaps #from Science Tools
-from skymaps import SkyDir, PySkyFunction, Hep3Vector
-from scipy import optimize # for fsolve
+#import pandas as pd 
+import skymaps #from Science Tools: for SkyDir, DiffuseFunction, IsotropicSpectrum
+
+from .pub import healpix_map #make this local in future
+from . import (response, sources    )
+
+def PowerLaw(*pars, **kw):   return sources.PowerLaw(*pars, **kw)
 
 class DiffuseException(Exception):pass
 
-class Simpson(object):
-    """ implement quick simpson integral with log scale """
-    ## not used in this module yet.
-    def __init__(self, emin, emax, nsimps=4):
 
-        # use a higher nsimps at low energy where effective area is jagged
-        ns= (2 if emin<200 else 1)*nsimps
-        if ns > 0:
-            self.points = sp = np.logspace(np.log10(emin),np.log10(emax),ns+1)
-            self.vector = sp * (np.log(sp[-1]/sp[0])/(3.*ns)) * \
-                                     np.asarray([1.] + ([4.,2.]*(ns/2))[:-1] + [1.])
-        else:
-            self.points = sp = np.asarray([np.sqrt(emin*emax)])
-            self.vector = sp * np.log(emax/emin)
-        
-        self.delta = emax-emin
-            
-    def __call__(self, fn):
-        vals = np.array([fn(x) for x in self.points]) # this might be inefficient
-        return np.sum( self.vector * vals)
- 
-    def _mean_energy(self, roi_dir, dmodel, exp):
-        fcn = lambda e : dmodel.value(roi_dir, e) * exp(roi_dir,e)
-        w = self(fcn)/self.delta
-        print w, fcn(self.points[0]), fcn(self.points[-1]) 
-        return optimize.brentq(lambda x : fcn(x)-w, self.points[0], self.points[-1]) 
-       
-
-class DiffuseModel(object):
-    """ Base class to implement diffuse angular distributions for an ROI
-    """
-
-    defaults = (
-        ('quiet',   False,     'Set True to quiet'),
-        ('binsperdec',    4,           'bins per decade'),
-    )
-
-    @keyword_options.decorate(defaults)
-    def __init__(self, psf, exposure_manager, roi_dir, diffuse_source, 
-                **kwargs):
-        """
-        exposure_manager : ExposureManager object
-            provides exposure for front and back
-        psf: object
-        
-        roi_dir : SkyDir object
-            center of the ROI 
-        diffuse_source :
-        """
-        keyword_options.process(self, kwargs)
-        self.roi_dir = roi_dir
-        self.skydir = None # (flag that this is global)
-        self.psf, self.exposure = psf, exposure_manager.exposure
-        #self.exposure_correction = exposure.correction
-        self.diffuse_source = diffuse_source
-        self.name = diffuse_source.name
-        self.setup()
-        
-    def __repr__(self):
-        return '%s %s' % (self.__class__.__name__, self.name)
-        
-    def setup(self): pass
+class DiffuseBase(object):
+    """Base class for global diffuse sources
+    expect subclasses to implement SkySpectrum interface
     
-    def make_grid(self, energy, conversion_type):
-        """ return a convolved grid for a band in an ROI
-        parameters
-        ----------
-        energy : float
-            intermediate energy for the band
-        conversion_type : int
-            0 or 1 for front or back
+    This uses a modified singleton pattern: 
+    any subclass will have only one instance associated with the constructor argument, usually a filename.
+    see http://stackoverflow.com/questions/42558/python-and-the-singleton-pattern
+    """
+    _instance_dict = dict()
+    def __new__(cls, filename, **kwargs):
+        if filename not in cls._instance_dict:
+            cls._instance_dict[filename] = super(DiffuseBase, cls).__new__(
+                                cls, filename, **kwargs)
+            #print 'diffuse: loaded ', filename
+        return cls._instance_dict[filename]
+    
+    def setupfile(self, filename):
+        """ filename: string 
         """
+        self.filename=filename
+        self.fullfilename = os.path.expandvars(filename)
+        if not os.path.exists(self.fullfilename):
+            self.fullfilename = os.path.expandvars(os.path.join('$FERMI','diffuse',self.filename))
+        assert os.path.exists(self.fullfilename), 'DiffuseFunction file "%s" not found' % self.fullfilename
+        self.loaded =  False
+
+    def load(self): 
+        assert not hasattr(self, 'filename'), 'Logic error; class %s must implement load' %self.name
         pass
     
-    @property
-    def spectral_model(self):
-        return self.diffuse_source.smodel
-        
- 
-class ConvolvableGrid(convolution.BackgroundConvolution):
-    """ subclass of the basic convolution used by all classes below.
-    It
-      1) changes the default for a bounds error (to check)
-      2) provides useful show method
-      """
-    def __init__(self, *args, **kwargs):
-        defaults=dict(bounds_error=False)
-        defaults.update(kwargs)
-        super(ConvolvableGrid, self).__init__(*args, **defaults)
-        
-    def show_vals(self, vals=None, ax=None, colorbar=True, npix=None, **kw):
-        """Make a display.
-        vals : 2-d array of float
-            generated by the fill method; expect to be npix x npix
-        npix : [int | None]
-            if int, override self.npix to for central npix x npix
-        """
-        import pylab as plt
-        if ax is None: ax=plt.gca()
-        if vals is None: vals = self.cvals
-        if npix is not None and npix!=self.npix:
-            delta = (self.npix-npix)/2
-            assert delta>0, 'npix not >= self.npix'
-            tvals = vals[delta:delta+npix, delta:delta+npix]
-        else: 
-            npix=self.npix; tvals = vals
-        v = ax.imshow( tvals.transpose()[::-1],  interpolation='nearest', **kw)
-        marker = float(npix)/2
-        ax.axvline(marker,color='k')
-        ax.axhline(marker,color='k')
-        if colorbar: plt.colorbar(v)
-        def scale(x, factor=1.0):
-            return x*factor/self.pixelsize+self.npix/2.
-        r = np.arange(-8,9,4)
-        ax.set_xticks(scale(r))
-        ax.set_xticklabels(map(lambda x:'%.0f'%x ,r))
-        ax.set_yticks(scale(r, -1))
-        ax.set_yticklabels(map(lambda x:'%.0f'%x ,r))
-        return ax.figure
-            
-    def show(self, **kwargs):
-        import pylab as plt
-        title = kwargs.pop('title', None)
-        fig, axx = plt.subplots(1,3, figsize=(8,3), sharex=True, sharey=True)
-        axx[0].set_aspect(1.0)
-        plt.subplots_adjust(wspace=0.05)
-        if hasattr(self, 'psf_vals'):
-            axx[0].imshow(self.psf_vals,interpolation='nearest')
-        bgmin = self.bg_vals[self.bg_vals>0].min()
-        norm = plt.normalize(np.log10(bgmin),np.log10(self.bg_vals.max()))
-        marker = float(self.npix)/2
-        for ax,what in zip(axx[1:], (self.bg_vals, self.cvals)  ):
-            what[what==0]=bgmin
-            ax.imshow(np.log10(what).transpose()[::-1], norm=norm, interpolation='nearest')
-            ax.axvline(marker,color='k')
-            ax.axhline(marker,color='k')
-
-        if title is not None:
-            plt.suptitle(title,fontsize='small')
-        return fig
-            
-    
-class DiffuseModelFromCache(DiffuseModel):
-    """ define the diffuse model by reading a grid of the flux values, then
-        applying exposure and convolution
-        """
-    defaults = DiffuseModel.defaults 
-    
-    @keyword_options.decorate(defaults)
-    def __init__(self, *args, **kwargs):
-        super(DiffuseModelFromCache, self).__init__(*args, **kwargs)
-        keyword_options.process(self, kwargs)
-        self.efactor = 10**(0.5/self.binsperdec)
-    
-    def setup(self):
-        dfun = self.diffuse_source.dmodel[0]
-        try:
-            filename = dfun.filename
-        except AttributeError:
-            filename = dfun.name
-        cache_path = os.path.splitext(filename)[0]+'_%dbpd'%self.binsperdec
-        cache_path_alt = os.path.splitext(filename)[0]
-        assert os.path.exists(filename), 'oops, %s not found' %filename
-        if os.path.exists(cache_path+'.zip'):
-            z = zipfile.ZipFile(cache_path+'.zip')
-            t = z.namelist()
-            if len(t)==1729: # if ziped with foldername
-                t = t[1:]
-            files = sorted(t) 
-            opener = z.open
-        elif os.path.exists(cache_path_alt+'.zip'):
-            z = zipfile.ZipFile(cache_path_alt+'.zip')
-            t = z.namelist()
-            if len(t)==1729: # if ziped with foldername
-                t = t[1:]
-            files = sorted(t) 
-            opener = z.open
-        else:
-            if not os.path.exists(cache_path):
-                cache_path = cache_path_alt
-                if not os.path.exists(cache_path):
-                    raise DiffuseException('cache folder or zip %s not found' %cache_path)
-            files = sorted(glob.glob(cache_path+'/*'))
-            opener=open
-        assert len(files)==1728, 'wrong number of files: expected 1728, found %d' % len(files)
-        roi_index = self.diffuse_source.index
-        try:
-            self.filename = files[roi_index]
-            self.cached_diffuse = pickle.load(opener(self.filename))
-        except:
-            raise DiffuseException( 'Diffuse cache file # %d not found' %roi_index)
-
-        if not self.quiet: print '\tcached diffuse: %s'%self.filename
-        self.emins = [cd['emin'] for cd in self.cached_diffuse]
-        if hasattr(dfun, 'kw') and dfun.kw is not None: # check for extra keywords from diffuse spec.
-            # Manage keywords found in the 
-            if dfun.kw['correction'] is not None:
-                if not self.quiet:print '\t%s loading corrections from %s.kw:' % (self.__class__.__name__, dfun.__class__.__name__)
-                df = pd.read_csv(dfun.kw['correction'], index_col=0) 
-                self.corr = df.ix['HP12_%04d'%roi_index].values
-                if not self.quiet:print '\tcorrection file: "%s"' % dfun.kw['correction']
-                if not self.quiet:print '\tcorrections: %s' %self.corr.round(3)
-            else: self.corr=None
-            self.systematic = dfun.kw.get('systematic', None)
-            if self.systematic is not None:
-                if not self.quiet:print '\tsystematic: %.3f' % self.systematic
-
-        
-    def make_grid(self, energy, conversion_type):
-        """ return a convolved grid
-        May correct if requested
-        
-        parameters
-        ----------
-        energy : float
-            intermediate energy for the band
-        conversion_type : int
-            0 or 1 for front or back
-      
-        """
-        # find the appropriate cached grid
-        for index in range(len(self.emins)):
-            if energy>self.emins[index] and (index==len(self.emins)-1 or energy<self.emins[index+1])\
-                : break
-        emin = self.emins[index]    
-        assert energy/emin < 1.8 and energy> emin, 'too large a factor: energy, emin=%.0f,%.0f\nemins=%s' % (energy, emin, self.emins)
-        cd = self.cached_diffuse[index]
-        
-        # create a convolvable grid from it, with current PSF
-        energy = cd['energy']
-        grid = ConvolvableGrid(cd['center'], None, self.psf,  npix=cd['npix'], pixelsize=cd['pixelsize'])
-            
-        # determine the current exposure for this energy and conversion type
-        exp = self.exposure[conversion_type]
-        exp.setEnergy(energy)
-        
-        # get values of exposure on the grid, multiply by saved diffuse
-        vals = grid.fill(exp) * cd['vals'] 
-        
-        # apply correction factor if any; use last value for all higher (depends only on energy)
-        if hasattr(self, 'corr') and self.corr is not None:
-            c = self.corr[index] if index<len(self.corr) else self.corr[-1]
-            vals *= c
-
-        # finally do the convolution on the product of exposure and diffuse map, which is passed in 
-        grid.do_convolution(energy, conversion_type, override_vals=vals)
-        return grid
-
-    def show(self, iband=0):
-        for ct, title in ((0,'front'),(1,'back')):
-            grid = self.make_grid(self.emins[iband]*1.1,ct)
-            for t in (grid.bg_vals, grid.cvals):
-                print '%.3e, %.3f' % (t.mean(), t.std()/t.mean())
-                grid.show(fignum=ct+1, 
-                    title='Emin=%.0f, %s'%(self.emins[iband], title), origin='upper')
-  
-  
-class IsotropicModel(DiffuseModel):
-    """ processing appropriate for Isotropic: no convolution needed
-    
-    """
-
-    def __init__(self, *pars, **kwargs):
-        super(IsotropicModel,self).__init__(*pars, **kwargs)
-        
-    def setup(self):
-        if not self.quiet:
-            for dm in self.diffuse_source.dmodel:
-                print '\t%s'% dm
-                
-            
-    def make_grid(self, energy, conversion_type, npix=61, pixelsize=0.25):
-        dmodels = self.diffuse_source.dmodel
-        dm = dmodels[conversion_type if len(dmodels)>1 else 0]
-        dm.setEnergy(energy)
-        exp = self.exposure[conversion_type]
-        exp.setEnergy(energy)
-        grid = ConvolvableGrid(self.roi_dir, None, self.psf, 
-            npix=npix, pixelsize=pixelsize)
-        cflux = dm(self.roi_dir, energy)
-        if np.isnan(cflux):
-            print '%s: WARNING: nan flux from diffuse map: using zero (energy %.1f) ' %(self.__class__.__name__,energy)
-            cflux=0
-        grid.cvals = grid.fill(exp) * cflux 
-        nnan = np.sum(np.isnan(grid.cvals))
-        if nnan>0: print '%s: Grid for %s has %d nan values ' %(self.__class__.__name__, dm.name(), nnan)
-        assert nnan<5, \
-            '%s: Grid for %s, %.0f Mev< has %d >5 nan values ' %(self.__class__.__name__, dm.name(), energy, nnan)
-        return grid
-
-class DiffuseModelFromFits( DiffuseModel):
-
-    defaults =DiffuseModel.defaults+ (
-        ('pixelsize',0.25,'Pixel size for convolution grid'),
-        ('npix_list',    (161,  141,  103,   81,   67,   61,), 'number of pixels: array for bands'),
-        ('npix', 61, 'number of pixels for 5 deg'),
-        ('ignore_nan', True, 'replace nan values with zero (generates warning)'), 
-        )
-
-    """ load pattern from a FITS file """
-    def __init__(self, *pars, **kwargs):
-        keyword_options.process(self, kwargs)
-        super(DiffuseModelFromFits,self).__init__(*pars, **kwargs)
-        
-    def setup(self):
-        if not self.quiet:
-            for dm in self.diffuse_source.dmodel:
-                print '\t%s'% dm
-                
-    def make_grid(self, energy, conversion_type):
-        """ return a convovlved grid
-        
-        parameters
-        ----------
-        energy : float
-            intermediate energy for the band (perhaps derive it here)
-        conversion_type : int
-            0 or 1 for front or back
-       
-        """
-        # get the diffuse map, set energy
-        dmodels = self.diffuse_source.dmodel
-        dm = dmodels[conversion_type if len(dmodels)>1 else 0]
-        dm.setEnergy(energy)
-        
-        # get the exposure
-        exp = self.exposure[conversion_type]
-        exp.setEnergy(energy)
-        
-        # create a grid with size determine by npix_list, appropriate PSF function
-        #iband = min(int(np.log10(energy/100.)*4), len(self.npix_list)-1)
-        npix = self.npix #self.npix_list[iband] 
-        
-        grid = ConvolvableGrid(self.roi_dir, None, self.psf,  npix=npix, pixelsize=self.pixelsize)
-        
-        # set it up with product of exposure and diffuse map
-        grid.cvals = grid.fill(exp) * grid.fill(dm) #product of exposure and map
-        # check for nans, replace with zeros if not full ROI
-        nans = np.isnan(grid.cvals)
-        if np.all(nans):
-            raise DiffuseException('Diffuse cube %s has no overlap with ROi' % dm.filename)
-        if np.any(nans) and self.ignore_nan:
-            grid.cvals[nans]=0
-        
-        # finally convolve it
-        grid.do_convolution(energy, conversion_type, override_vals=grid.cvals) 
-        return grid
-     
-    def copy(self):
-        t = copy.copy(self)
-        t.diffuse_source.smodel = self.diffuse_source.smodel.copy()
+    def __repr__(self):
+        t= self.__class__.__name__ + ': '+self.filename
+        if hasattr(self, 'kw') and self.kw is not None:
+            t+= '\n'+ '\n'.join(['\t    %-10s: %s' % item for item in self.kw.items() if item[0]!='filename'])
         return t
-    
+        
     @property
-    def spectral_model(self):
-        return self.diffuse_source.smodel
-
-class DiffuseModelFB(IsotropicModel): #DiffuseModelFromFits): 
-    def __init__(self, *pars, **kwargs):
-        super(DiffuseModelFB,self).__init__(*pars, **kwargs)
-
-
-class CacheableDiffuse(convolution.Grid):
-    def __init__(self, *args, **kwargs):
-        super(CacheableDiffuse,self).__init__(*args, **kwargs)
-    
-    def make_dict(self):
-        return dict(center=self.center, npix=self.npix, pixelsize=self.pixelsize,
-                vals = np.array(self.vals, np.float32),
-        )
-    def dump(self,filename):
-        pickle.dump(self.make_dict(), open(filename, 'w'))
-    
-    def show(self, fignum=1, ax=None, nocolorbar=False, notitle=False, **kwargs):
-        """ A simple plot for a sanity check """
-        import pylab as plt
-        if ax is None:
-            plt.close(fignum);
-            fig = plt.figure(fignum, figsize=(5,5)); ax = plt.gca() 
-        t = np.log10(self.vals)
-        imshow_kw = dict(interpolation='nearest', origin='upper'); dict.update(kwargs)
-        mappable = ax.imshow(t.transpose()[::-1],**imshow_kw)
-        marker = float(self.npix)/2
-        ax.axvline(marker,color='k')
-        ax.axhline(marker,color='k')
-        if not notitle:
-            ax.set_title('l, b= (%06.2f,%+06.2f)'%(self.center.l(), self.center.b()),fontsize='medium')
-        if not nocolorbar: plt.colorbar(mappable,ax=ax)
+    def name(self):
+        return self.__class__.__name__
         
-    def load(self, filename):
-        t = pickle.load(open(filename))
-        self.__dict__.update(t)
- 
-class CacheDiffuseConvolution(object):
-    """ 
-    Create convolved cache
-    Deprecated, remove at some point
-    
+    def show(self, title=None, scale='log', **kwargs):
+        """make an AIT image for testing
+        """
+        from uw.utilities import image
+        ait = image.AIT(self, **kwargs)
+        ait.imshow(title=self.name if title is None else title, scale=scale)
+        return ait.axes.figure
+       
+
+class Isotropic(DiffuseBase, skymaps.IsotropicSpectrum):
+    """Implement the isotropic diffuse, by wrapping skymaps.IsotopicSpectrum
     """
-    defaults = DiffuseModel.defaults + (
-        ('pixelsize',0.25,'Pixel size for convolution grid'),
-        ('r_multi',1.0,"Multiple of r95 to set max dimension of grid"),
-        ('r_max',20,"An absolute maximum (half)-size of grid (deg)"),
-    )
-
-    @keyword_options.decorate(defaults)
-    def __init__(self, exposure, diffuse_function, **kwargs):
-        """ 
-            exposure : skymaps.Exposure object
-            diffuse_filename :string
-        """
-        keyword_options.process(self, kwargs)
-        self.df = diffuse_function
-        self.bg = skymaps.Background(self.df,exposure[0],exposure[1])
+    def __init__(self, filename):
+        self.filename=filename
+        super(Isotropic, self).__init__(filename)
+        self.loaded=True
         
-    def convolve(self, band):
-        """ band : an ROIBand object
-        returns a convolution.Grid object
-        """
-        psf = band.psf.parent_psf # use this for compatibilty
-        roi_dir = band.sd
-        energy = band.e #only at geometric average energy
-        conversion_type = band.ct 
-        
-        multi = 1 + 0.01*(energy==band.emin) -0.01*(energy==band.emax)
-        r95 = psf.inverse_integral(energy*multi,conversion_type,95)
-        #r95 = psf.inverse_integral_on_axis(0.95)
-        rad = self.r_multi*r95 + np.degrees(band.radius_in_rad)
-        rad = max(min(self.r_max,rad),np.degrees(band.radius_in_rad)+2.5)
-        npix = int(round(2*rad/self.pixelsize))
-        npix += (npix%2 == 0)
-        bgc = CacheableBackgroundConvolution(roi_dir,self.bg, psf,
-                npix=npix, pixelsize=self.pixelsize)
-        bgc.setup_grid(npix,self.pixelsize)
-        bgc.do_convolution(energy,conversion_type)
-        return bgc
+    def load(self):
+        pass
 
-    def process_bands(self, bands, dumpto):
-        dicts = []
-        for band in bands:
-            d = dict(energy=band.e, conversion_type=band.ct)
-            d.update( self.convolve(band).make_dict())
-            dicts.append(d)
-        pickle.dump(dicts, open(dumpto, 'w'))
-        print 'wrote pickle file %s' %dumpto       
 
-class CacheDiffuseModel(CacheDiffuseConvolution):
+class MapCube(DiffuseBase, skymaps.DiffuseFunction):
+    """ wrapper for eventual invocation of skymaps.DiffuseFunction, which interprets a map cube
+    load() must be called before use
     """
-    create a cache of the diffuse flux values, for later multiplication by exposure and convolution
-    Note that the default npix correspond to M. Kerr's code for 4 bands/decade, back.
-    This will be used for front as well.
-    """
-    defaults =CacheDiffuseConvolution.defaults+ (
-        ('npix',      None, ""),
-        ('emin',   100., 'minimum enery'),
-        ('binsperdec',      4,  'bands per decade'),
-        ('decades',     3.5, 'number of decades'),
-        ('npix_list',    (161,  141,  103,   81,   67,   61,), 'number of pixels: array for bands'),
-        ('ignore_nan', True, 'replace nan values with zero (generates warning)'), 
-        )
-
-    @keyword_options.decorate(defaults)
-    def __init__(self, diffuse_function, **kwargs):
+    def __init__(self, filename):
+        """ filename: string or dict
         """
-        parameters
-        ----------
-        diffuse_function : skymaps.SkySpectrum object
-            presumably a 
-        """
-        keyword_options.process(self, kwargs)
-        if self.binsperdec==8:
-            self.npix_list = (161,161,141,141,103,103,81,81,67,67, 61,61)
-            self.nbands=28
-        elif self.binsperdec!=4:
-            raise DiffuseException('binsperdec parameter=%d: must be either 4 or 8'%self.binsperdec)
-        self.efactor = 10**(0.5/self.binsperdec)
-        self.nbands = int(self.binsperdec*self.decades)
-        self.df = diffuse_function
-        logemin = np.log10(self.emin)
-        self.energies = np.logspace(logemin, logemin+float(self.nbands)/self.binsperdec, 
-            self.nbands+1)  
-        
-    def fill(self, sdir, energy,  npix):
-        """ sdir : Skydir
-            energy : energy to evaluate 
-            npix : number of pixels in x and y
-        returns a convolution.Grid object
-        """
-        grid = CacheableDiffuse(sdir, npix=npix, pixelsize=self.pixelsize)
-        grid.setup_grid(npix,self.pixelsize)
-        self.df.setEnergy(energy) 
-        grid.vals = grid.fill(self.df)
-        if np.any(np.isnan(grid.vals)):
-            vals = grid.vals.flatten()
-            ok = ~np.isnan(vals)
-            print '%d/%d nans for energy %.0f:  min %.2g, mean %.2g, max %.2g:'%(sum(np.isnan(vals)), len(vals), energy,
-                    vals[ok].min(), vals[ok].mean(), vals[ok].max())
-            if self.ignore_nan:
-                grid.vals[np.isnan(grid.vals)]=0
-            else:
-                raise DiffuseException('Convolution problem?: energy=%.1f, %d/%d nan(s)'\
-                    % (energy, np.sum(np.isnan(grid.vals)), len(grid.vals)) )
-        return grid
-        
-    def process_bands(self, center, dumpto):
-        """  
-        create and write a list of dictionaries for the energy bands,
-        using npix and energies from the 
-        """
-        dicts = []
-        for iband, emin in enumerate(self.energies[:-1]): 
-            npix = self.npix_list[min(iband, len(self.npix_list)-1)]
-            energy = emin*self.efactor
-            d = dict(emin=emin, emax=self.energies[iband+1], energy=energy)
-            try:
-                d.update( self.fill(center, energy, npix).make_dict())
-            except DiffuseException, msg:
-                print 'exception in process_bands, emin=%.0f'%emin
-                raise
+        if not self.__dict__.get('loaded', False): #allows for invokation of singleton
+            self.setupfile( filename)
             
-            dicts.append(d)
-        pickle.dump(dicts, open(dumpto, 'w'))
-        print 'wrote pickle file %s with %d bands' % (dumpto, self.nbands)
+    def load(self, interpolate=False):
+        if  self.loaded: return
+        self.loaded=True
+        if not interpolate: 
+            pass
+            #print 'loading diffuse file %s: warning, not interpolating' %self.filename
+        super(MapCube,self).__init__(self.filename, 1000., interpolate)
 
+class Healpix(DiffuseBase):
+    """Diffuse map using HEALPix representation.
+    Presumes that columns have eneregies (found in hdu#3) which exactly
+    correspond to bands
 
-def create_diffuse_cache(name, **kwargs):
     """
-    Create a file for each healpixel containing grids for each energy
-    
-    name : string
-        name of the global diffuse. Unless specific file specified, expect to find a FITS file name_*fit*
-    
-    optional parameters
-        outdir :string
-            actual path to folder in which to create files (eventually zip?)
-            default determined from name of fits file found
-        idlist : int
-            number of HEALPix rois, default 1728
-        binsperdec : int
-            either 4 or 8, default 4
-        infile : string
-            name file to analyze. Default None, meaning expect to find with glob
-       others passed on to skymaps.DiffuseFunction
-    """
-    
-    diffuse_dir = kwargs.pop('outdir', os.path.expandvars('$FERMI/diffuse')) 
-    assert os.path.exists(diffuse_dir), 'diffuse directory %s not found' %diffuse_Dir
-    binsperdec = kwargs.pop('binsperdec',4)
-    idlist = kwargs.pop('idlist', 1728) 
-
-    diffuse_file = kwargs.pop('infile', None)
-    if diffuse_file is None:
-        pattern = os.path.join(diffuse_dir, name+'_*.fit*')
-        diffuse_file = glob.glob(pattern)
-        if len(diffuse_file)==0:
-            raise DiffuseException('no files found with pattern %s'%pattern)
-        elif len(diffuse_file)>1:
-            raise DIffuseException("""more than one input file found, %s:
-                specify which one with infile"""%diffuse_file)
-        else: diffuse_file = diffuse_file[0]
-    if not os.path.exists(diffuse_file):
-        DiffuseException('Diffuse file %s nof found'%diffuse_file)
-    
-    outdir = kwargs.pop('outdir', None)
-    if outdir is None:
-        outdir = os.path.join(diffuse_dir,
-                os.path.split(diffuse_file)[-1].split('.')[0])+'_%dbpd'%binsperdec
-        if not os.path.exists(outdir):
-            os.mkdir(outdir)
-
-    print 'will create cache from: %s\n\t\t    to: %s' % (diffuse_file, outdir)
-    if kwargs.pop('test', False): return
-
-    # load the FITS diffuse file
-    diffusemodel = skymaps.DiffuseFunction(diffuse_file, **kwargs)
-    
-    cdm = CacheDiffuseModel(diffusemodel, binsperdec=binsperdec)
-    
-    def makeone(hp12):
-        skydir = skymaps.Band(12).dir(hp12)
-        filename = 'HP12_%04d_%s.pickle'%(hp12,name)
-        cdm. process_bands(skydir, os.path.join(outdir,filename))
+    def __init__(self, filename):
+        self.setupfile(filename)
+        self.energy=0
+        self.eindex=-1
+        self.fits = None
         
-    map(makeone, range(idlist))
-  
+    def load(self):
+        if self.fits is not None: return
+        self.fits = pyfits.open(self.filename)
+        table = self.fits[1]
+        self.columns = table.data
+        self.col_names = [t.name for t in table.get_coldefs()]
+        self.energies = self.fits[2].data.field('MeV')
 
-def mapper(psf, exposure, skydir, source, **kwargs): 
-    """
-    return a DiffuseModel, with methods to multiply by the exposure and convolve with the psf,
-        appropriate for the source, which must be a subclass of diffusedict.DiffuseBase
-        It must implement a make_grid() function, which returns a (convolved) grid that can be 
-        interpolated to any position.
+    def setEnergy(self, energy):
+        self.load()
+        if energy==self.energy: return
+        self.eindex = -1
+        for i,e in enumerate(self.energies):
+            if abs(e-energy)<0.01*e:
+                self.eindex= i
+                self.energy=energy
+                break
+        assert self.eindex>=0, 'Energy %.0f not found' % energy
+        cname = self.col_names[self.eindex]
+        self.hpm = healpix_map.HParray(cname, self.columns.field(cname))
         
-    psf: like.pypsf.CALDBPsf object
-    exposure_manager : like2.roisetup.ExposureManager.ExposureManager object
-        provides exposure for front, back, ...
-    skydir : SkyDir object
-        center of the ROI 
-    source : diffusedict.DiffuseBase object
-        If is has a select_roi() method, call that, return the object
-        (Must also have a make_grid() method.)
-    """
-    quiet = kwargs.get('quiet', True)
-    try:
-        classname = source.dmodel[0].name
-        if not quiet: print '>>>>Loading', source.name
-        if hasattr(source, 'select_roi'):
-            return source.select_roi(psf, exposure, skydir, **kwargs)
-        mapto = dict( 
-            MapCube         = DiffuseModelFromFits,
-            Isotropic       = IsotropicModel,
-            CachedMapCube   = DiffuseModelFromCache,
-            IsotropicSpectralFunction=DiffuseModelFB,
-            )[classname]
-        source.dmodel.load() # make sure fits files loaded
-        return mapto( psf, exposure, skydir, source,  **kwargs)
-            
-    except Exception, msg:
-        print 'Failed to map diffuse source "%s" : %s' % (source.name, msg)
-        raise
+    def __call__(self, skydir, energy=None):
+        if energy is not None and energy !=self.energy: self.setEnergy(energy)
+        return self.hpm(skydir)
         
+    @property
+    def name(self):
+        return '%s %s' % (self.__class__.__name__, 
+            self.col_names[self.eindex] if self.eindex>-1 else 'not loaded')
+    
+class IsotropicSpectralFunction(DiffuseBase):
+    """ wrapper for using a standard spectral function with isotropic
+    """
+    def __init__(self, expression):
+        """
+        expression: 
+        """
+        try:
+            self.expression  = expression.split('_')[-1]
+            self.spectral_function = eval(self.expression)
+        except Exception, msg:
+            print 'Failure to evaluate IsotropicSpectralFunction %s : %s' % (self.expression, msg)
+            raise
+        self.energy=1000
+    def __repr__(self):
+        return '%s: %s' % (self.__class__.__name__, self.expression )
+    def __call__(self, skydir, energy=None):
+        return self.spectral_function(self.energy if energy is None else energy)
+    def setEnergy(self, energy): self.energy=energy
+
+
+class CachedMapCube(DiffuseBase):
+    """ for compatibility with previous models"""
+    def __init__(self, zipfilename):
+        self.setupfile(zipfilename)
+    
+    def load(self):
+        z = zipfile.ZipFile(self.filename)
+        t = z.namelist()
+        if len(t)==1729: # if ziped with foldername
+            t = t[1:]
+        self.files = sorted(t) 
+        assert len(self.files)==1728, 'wrong number of files: expected 1728, found %d' % len(files)
+        self.opener = z.open
+
+    def __repr__(self):
+        return '%s.%s: %s' % (self.__module__, self.__class__.__name__, self.filename)
+    #def grid_generator(self, band): #skydir, psf, exposure):
+        #"""Return a GridGenerator object
+        # """
+        #        
+        #return convolution.CachedGridGenerator(band, band.sd, self) #psf, exposure, skydir,self, quiet=False, **self.kw)
+
+    # these not implemented, and not needed for this class
+    def __call__(self, skydir, energy=None):
+        return np.nan
+    def setEnergy(self, energy):
+        pass
+
+class DiffuseList(list):
+    """A list of  event type list of DiffuseBase objects. If only one, applied to all
+    """
+    def __init__(self, inlist):
+        super(DiffuseList,self).__init__(inlist)
+        self.gg = None
+    def __repr__(self):
+        return  '%s.%s\n\t' % (self.__module__, self.__class__.__name__) + '\n\t'.join([t.__repr__() for t in self])
+        
+    def __getitem__(self, index):
+        if len(self)==1: index=0
+        return super(DiffuseList,self).__getitem__(index) 
+    def load(self):
+        for x in self:
+            x.load()
+    @property
+    def type(self):
+        """return the diffuse class name implementing the global source"""
+        return self[0].__class__.__name__
+                
+def diffuse_factory(value):
+    """
+    Create a DiffuseList object from a text specification
+    value : [string | list | dict ]
+        if string: a single filename to apply to all event types
+        if list: a set of filesnames corresponding to the list of event types
+        if dict: must have keyword "filename", may have "type" to specify the type, 
+            which must be the name of a class in this module inheriting from DiffuseBase
+    
+    If the keyword "type" is not specified, filenames are examined for extensions:
+        txt : Isotropic
+        zip : CachedMapCube
+        fit for fits : MapCube
+    A special case is ')' : IsotropicSpectralFunction
+    """
+    isdict = issubclass(value.__class__, dict)
+    if  not hasattr(value, '__iter__') or isdict:
+        value  = (value,)
+    
+    if isdict:
+        try:
+            files = DiffuseList([val['filename'] for val in value])
+        except KeyError:
+            raise DiffuseException('expected "filename" key in dict')
+        type = value[0].pop('type', None)
+        kws = value
+    else:
+        files = DiffuseList(value)
+        kws = type = None
+
+    # checking only first element, and only upto a comma, if not with '('
+    f = files[0].split(',')[0] if files[0].find('(')<0 else files[0]
+    ext = os.path.splitext(f)[-1]
+    if type is not None:
+        try:
+            dfun = eval(type)
+        except Exception, msg:
+            raise DiffuseException('Diffuse type specification "%s" failed: %s'%(type, msg))
+    else:
+        # inferr class to use from file type
+        try:
+            dfun = {'.txt': Isotropic, 
+                '.fit': MapCube, '.fits': MapCube,
+                '.zip': CachedMapCube,
+                ')': IsotropicSpectralFunction, 
+                }[ext if ext[-1]!=')' else ')']
+        except Exception, msg:
+            raise DiffuseException('File type, "%s", for diffuse not recognized, from "%s":%s (message :%s)'\
+                % (ext, files, ext, msg))
+    
+    if dfun==IsotropicSpectralFunction:
+        diffuse_source = map(dfun,files)
+    else:
+        full_files = map( lambda f: os.path.expandvars(os.path.join('$FERMI','diffuse',f)), files)
+        check = map(lambda f: os.path.exists(f) or f[-1]==')', full_files) 
+        if not all(check):
+            raise DiffuseException('not all diffuse files %s found' % full_files)
+        diffuse_source= map(dfun, full_files) 
+    # if a dict, add keywords to the objects
+    if kws is not None:
+        for x,kw in zip(diffuse_source, kws):
+            x.kw = kw
+    return DiffuseList(diffuse_source)
+
+
+class DiffuseDict(collections.OrderedDict):
+    """ create a dictionary of global diffuse objects
+        key:   a string defined by the filename following an underscore, or key in input to init
+        value: (both,) or (front,back) or (...) of  diffuse objects determined by the extension:
+            txt: IsotropicSpectrum
+            fit or fits: DiffuseFunction
+            ): IsotropicSpectralFunction
+            none: expect that the key is an expression to be evaluated to create a spectral model function
+    
+    Also maintain a list of spectral models for each ROI: the attribute models
+    """
+    def __init__(self, modeldir='.'):
+        """
+        modeldir : string 
+            folder containing a file config.txt
+        """
+        try:
+            self.spec=eval(open(os.path.join(modeldir, 'config.txt')).read()
+                #.replace('dict(','collections.OrderedDict(')
+                )['diffuse']
+        except Exception, msg:
+            print 'Failed to open model at %s: %s' % (modeldir, msg)
+            raise
+        super(DiffuseDict, self).__init__()
+        for key, value in self.spec.items():
+            #print key,value
+            self[key] = diffuse_factory(value) 
+        self.models=[dict() for i in range(1728)] # list of spectral models for each ROI
+
+    def __repr__(self):
+        r = self.__class__.__name__ + ':'
+        for key, values in self.items():
+            r += '\n    '+key
+            for value in values:
+                r += '\n\t' + str(value)
+        return r
+        
+    def add_model(self, index, name, model):
+        """ add a model to the dict with ROI index index
+        """
+        assert name in self.keys()
+        model.background=True # for printing
+        self.models[index][name]=model
+        
+    def get_sources(self, index, GlobalSource):
+        """ return a list of GlobalSource objects for the given index
+        """
+        global_sources = []
+        for name in self.keys():
+            model = self.models[index].get(name, None)
+            if model is None: continue
+            s = GlobalSource(name=name, model=model, skydir=None, index=index) 
+            s.dmodel = self[name]
+            global_sources.append(s)
+        return global_sources
