@@ -1,7 +1,7 @@
 """
 Manage the analysis configuration
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.7 2013/11/12 00:39:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.8 2013/11/12 15:28:58 burnett Exp $
 
 """
 import os, sys, types
@@ -35,6 +35,9 @@ class Configuration(object):
             irf : a text string name for the IRF
             diffuse: a dict defining the diffuse components
             datadict: a dict with at least a key 'dataname'
+            
+        If there is a key 'input_model' and the file 'pickle.zip' does not exist in the directory
+        will look in input_model['path'] folder
         """
         keyword_options.process(self, kwargs)
         # make absolute path
@@ -86,6 +89,17 @@ class Configuration(object):
         self.exposureman = exposure.ExposureManager(self.dataset, exposure_correction=exposure_correction)
         
         self.psfman = psf.PSFmanager(self.dataset)
+        
+        # check location of model
+        
+        input_model = config.get('input_model', None)
+        self.modeldir = self.configdir
+        if not os.path.exists(os.path.join(self.configdir, 'pickle.zip')) and input_model is not None:
+            self.modeldir = os.path.expandvars(input_model['path'])
+            if not os.path.exists(self.modeldir):
+                raise Exception('No soure model file found')
+            
+        
       
     def __repr__(self):
         return '%s.%s: %s' %(self.__module__, self.__class__.__name__, self.configdir)
