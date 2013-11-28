@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.34 2013/11/24 16:08:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.35 2013/11/27 14:59:56 burnett Exp $
 
 """
 import os, copy
@@ -24,6 +24,7 @@ class Source(object):
     """
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
+        self.changed = False # flag for bandlike
         assert self.name is not None, 'bad source name'
         self.name = str(self.name) # force to be a string
         if self.skydir is None:
@@ -80,8 +81,16 @@ class Source(object):
         return t
     spectral_model = property(get_spectral_model, set_spectral_model)
 
-    def freeze(self, freeze):
-        self.model.free[:] = False if freeze else self.free
+    def freeze(self, parname, value=None):
+        self.model.freeze(parname)
+        if value is not None: self.model.setp(parname, value)
+        self.changed=True
+        assert sum(self.model.free)>0, 'cannot freeze all parameters this way'
+
+    def thaw(self, parname):
+        self.model.freeze(parname, freeze=False)
+        self.changed = True
+
     def __str__(self):
         return self.name + ' '+ self.skydir.__str__() +' '+ self.model.name \
                 +  (' (free)' if np.any(self.model.free) else ' (fixed)')
