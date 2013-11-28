@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Nov 28 11:36:06 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	sources.py 
+Log Message:
+setup changed property, implemtn freeze and thaw
+    *
+------------------------------------------------------------
 User: burnett  Thu Nov 28 11:34:55 PST 2013
 pointlike/python/uw/like2
 
