@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Nov 28 11:31:29 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	tools.py 
+Log Message:
+move OutputTee here
+    *
+------------------------------------------------------------
 User: burnett  Wed Nov 27 06:59:58 PST 2013
 pointlike/python/uw/like2/pub
 
