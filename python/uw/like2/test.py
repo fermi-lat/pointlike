@@ -1,6 +1,6 @@
 """
 All like2 testing code goes here, using unittest
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.20 2013/11/26 14:56:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.21 2013/11/27 14:59:56 burnett Exp $
 """
 import os, sys, unittest
 import numpy as np
@@ -31,11 +31,11 @@ roi_sources = None
 roi_bands = None
 blike = None
 likeviews = None
-user = None
+roi = None
 
 def setup(name):
-    global config, ecat, roi_sources, roi_bands, blike, likeviews, user
-    gnames = 'config ecat roi_sources roi_bands blike likeviews user'.split()
+    global config, ecat, roi_sources, roi_bands, blike, likeviews, roi
+    gnames = 'config ecat roi_sources roi_bands blike likeviews roi'.split()
     assert name in globals() and name in gnames
     if config is None :
         config =  configuration.Configuration(config_dir, quiet=True, postpone=True)
@@ -54,8 +54,8 @@ def setup(name):
         if roi_bands.pixels==0:
             roi_bands.load_data()
         likeviews = views.LikelihoodViews(roi_bands, roi_sources)
-    if name=='user' and user is None:
-        user = main.ROI_user(config_dir, roi_index)
+    if name=='roi' and roi is None:
+        roi = main.ROI(config_dir, roi_index)
     return eval(name)
         
 class TestSetup(unittest.TestCase):
@@ -450,28 +450,28 @@ class TestLocalization(TestSetup):
             self.assertAlmostEquals(-0.297, tsm((266.6, -28.86)), delta=0.1)
         self.assertAlmostEquals(init, likeviews.log_like(), delta=0.1)
         
-class TestUser(TestSetup):
+class TestROI(TestSetup):
     def setUp(self):
-        setup('user')
-        self.init = user.log_like()
+        setup('roi')
+        self.init = roi.log_like()
 
     def tearDown(self):
-        self.assertAlmostEquals(self.init, user.log_like())
+        self.assertAlmostEquals(self.init, roi.log_like())
 
     def test_fit(self, selects=(0, '_Norm', None), 
             expects=(697608.2, 697617.7 ,697645.4)):
         for select, expect in zip(selects, expects):
-            wfit, pfit, conv = user.fit(select, summarize=False, update_by=0.)
+            wfit, pfit, conv = roi.fit(select, summarize=False, update_by=0.)
             self.assertAlmostEquals(expect, wfit, delta=0.1)
 
     def test_localization(self, source_name='P7R42722'):
-        t = user.localize(source_name, quiet=True)
+        t = roi.localize(source_name, quiet=True)
         self.assertAlmostEquals(0.0062, t['a'], delta=1e-3)
         self.assertAlmostEquals(0.210, t['qual'], delta=1e-3)
  
     def testTS(self, source_name='P7R42722', expect=800):
         """-->compute a Test Statistic"""
-        ts = user.TS(source_name)
+        ts = roi.TS(source_name)
         self.assertAlmostEquals(expect, ts, delta=1)
         
     def testSED(self, source_name='P7R42722'):
@@ -502,7 +502,7 @@ test_cases = (
     TestLocalization,
     TestAssociations,
     # no memory to do this at the same time since it creates duplicate large objects
-    #TestUser,
+    #TestROI,
     )
     
 def run(t='all', loader=unittest.TestLoader(), debug=False): 
