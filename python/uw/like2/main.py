@@ -1,49 +1,94 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.43 2013/11/26 15:57:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.44 2013/11/27 14:59:56 burnett Exp $
 
 """
 import numpy as np
+from uw.utilities import keyword_options
 from . import (views,  configuration, extended,  roimodel, bands,  
                 localization, sedfuns, tools,
                 plotting, associate, printing
         )
 
 
-class ROI_user(views.LikelihoodViews):
-    """ subclass of LikelihoodViews that adds user-interface tools: fitting, localization, plotting sources, counts
-    methods
-    =======
-    fit
-    localize
-    get_source
-    get_model
-    summary
-    TS, band_ts
-    get_sed
-    plot_tsmap
-    plot_sed
+class ROI(views.LikelihoodViews):
+    """ROI analysis
+    This is a list of the properties and functions appropriate for user analysis of an ROI
+    
+    properties
+    ----------
+    all_energies -- list of all band energies
+    bands -- BandSet object, a list of all thebands
+    emin, emax -- range of energies used by currently selected bands
+    energies -- list of central energies
+    quiet  -- flag to suppress most output
+    roi_dir -- center of the ROI
+    sources -- ROImodel object, managing the source list
+    selected -- list of selected bands
+
+    likelihood-related functions
+    ----------------------------
+    fit  -- perform a fit
+    gradient -- return the gradient
+    hessian -- return the hessian, a n x n matrix
+    log_like -- value of the log likelihood
+    summarize -- a table of free parameters, values, errors, gradient
+
+
+    source-related functions
+    ------------------------
+      All of these take the name of a source, which is an optional parameter: if a source has 
+      already been selected, it will be used
+    TS -- TS for current source
+    add_source -- add a new source
+    band_ts -- band TS 
+    del_source -- delete a source
+    find_associations -- find associations for current source
+    get_model -- the the model
+    get_sed -- return SED information for the current source
+    get_source -- select and return a source
+    freeze -- freeze a parameter
+    set_model -- change the spectral model for a source
+    thaw -- thaw (unfreeze) a parameter
+
+
+    plot/print
+    ----------
     plot_counts
+    plot_sed
+    plot_tsmap
     print_summary
-    find_associations
-    add_source
-    del_source
-    zero_source
-    unzero_source
-    freeze
-    thaw
-    set_model
+
+    change bands
+    ------------
+    select -- select a subset of the bands, which will be used subsequently to define likelihood functions
     """
+    
+    defaults = (
+        ('quiet', True, 'set to suppress output'),
+    )
+
+    @keyword_options.decorate(defaults)
     def __init__(self, config_dir, roi_index, **kwargs):
-        config = configuration.Configuration(config_dir, quiet=True, postpone=True)
+        """Start pointlike v2 (like2) in the specified ROI
+        
+        parameters
+        ----------
+        config_dir : string
+            file path to a folder containing a file config.txt
+        roi_index : integer or (ra,dec) tuple.
+            
+        """
+        keyword_options.process(self, kwargs)
+        config = configuration.Configuration(config_dir, quiet=self.quiet, postpone=True)
         ecat = extended.ExtendedCatalog(config.extended)
         roi_sources = roimodel.ROImodel(config, ecat=ecat, roi_index=roi_index)
         roi_bands = bands.BandSet(config, roi_index)
         roi_bands.load_data()
-        super(ROI_user, self).__init__( roi_bands, roi_sources)
+        super(ROI, self).__init__( roi_bands, roi_sources)
 
-    def fit(self, select=None, exclude=None,  summarize=True, quiet=True, **kwargs):
+    def fit(self, select=None, exclude=None,  summarize=True,  **kwargs):
         """ Perform fit, return fitter object to examine errors, or refit
         
         Parameters
@@ -136,18 +181,24 @@ class ROI_user(views.LikelihoodViews):
              source.ts  = fv.ts()
         return source.ts
 
-    def get_sed(self, source_name=None, event_type=None, update=False, **kwargs):
+    def get_sed(self, source_name=None, event_type=None, update=False, tol=0.1):
         """ return the SED recarray for the source
         source_name : string
             Name of a source in the ROI, with possible wildcards
         event_type : None, or integer, 0/1 for front/back
+        update : bool
+            set True to force recalculation of sed recarray
         """
         source = self.sources.find_source(source_name)
         if not hasattr(source, 'sedrec') or update:
-            with sedfuns.SED(self, source.name, **kwargs) as sf:
-                source.sedrec = sf.sed_rec(event_type=event_type)
+            with sedfuns.SED(self, source.name) as sf:
+                source.sedrec = sf.sed_rec(event_type=event_type, tol=tol)
         return source.sedrec
 
+    def band_ts(self, source_name=None, update=False):
+        sedrec = self.get_sed(source_name, update=update)
+        return sedrec.ts.sum()
+    
     @tools.decorate_with(plotting.sed.stacked_plots)    
     def plot_sed(self, source_name=None, **kwargs):
         source = self.sources.find_source(source_name)
@@ -208,82 +259,32 @@ class ROI_user(views.LikelihoodViews):
             print 'Failed to find associations for %s: %s' % (source.name, msg)
             
         
-#    def add_source(self, **kwargs):
-#        """ add a source to the ROI
-#        keywords:
-#            name : string
-#            model
-#            skydir
-#        """
-#        newsource = sources.PointSource(**kwargs)
-#        self.sources.add_source(newsource)
-#        for band in self.all_bands:
-#            band.add_source(newsource)
-#        self.initialize()
-#        return self.get_source(newsource.name)
-#        
-#    def del_source(self, source_name):
-#        """ delete the specifiec source (which can be expressed with wildcards """
-#        source = self.sources.del_source(source_name)
-#        for band in self.all_bands:
-#            band.del_source(source)
-#        self.initialize()
-#        
-#    def zero_source(self, source_name=None, **kwargs):
-#        model = self.get_model(source_name)
-#        model.zero()
-#        self.initialize()
-#        
-#    def unzero_source(self, source_name=None, **kwargs):
-#        model = self.get_model(source_name)
-#        model.unzero()
-#        self.initialize()
-#    
-#    def freeze(self, parname, source_name=None, value=None):
-#        """ freeze the parameter, optionally set the value
-#        
-#        parname : name or index
-#        source_name: None or string
-#            if None, use currently selected source
-#        value : float or None
-#            if float, set the value
-#        """
-#        model = self.get_model(source_name)
-#        model.freeze(parname)
-#        if value is not None: model.setp(parname, value)
-#        self.initialize()
-#        
-#    def thaw(self, parname, source_name=None):
-#        """ thaw the parameter
-#        
-#        parname : name or index
-#            if a string with an underscore, interpret as source_parname
-#        source_name: None or string
-#            if None, use currently selected source
-#        """
-#        if parname.find('_')>0 and source_name is None:
-#            source_name, parname = parname.split('_')
-#        model = self.get_model(source_name)
-#        model.freeze(parname, freeze=False)
-#        self.initialize()
-#        
-#    def set_model(self, model, source_name=None):
-#        """ replace the current model, return reference to previous
-#        
-#        model : string, or like.Models.Model object
-#            if string, evaluate. Note that 'PowerLaw(1e-11,2.0)' will work. Also supported:
-#            ExpCutoff, PLSuperExpCutoff, LogParabola, each with all parameters required.
-#        source_name: None or string
-#            if None, use currently selected source
-#        """
-#        from sources import ExpCutoff, PLSuperExpCutoff, LogParabola, PowerLaw
-#        src = self.get_source(source_name)
-#        old_model = src.spectral_model
-#        if type(model)==types.StringType:
-#            model = eval(model) 
-#        #assert model.isinstance(Models.Model), 'model must inherit from Model class'
-#        sourcelist.set_default_bounds(model)
-#        src.spectral_model = model
-#        self.initialize()
-#        return old_model
+        
+    def freeze(self, parname, source_name=None, value=None):
+        """ freeze the parameter, optionally set the value
+        
+        parname : name or index
+        source_name: None or string
+            if None, use currently selected source
+        value : float or None
+            if float, set the value
+        """
+        source = self.get_source(source_name)
+        source.freeze(parname, value)
+        self.sources.initialize()
+       
+    def thaw(self, parname, source_name=None):
+        """ thaw the parameter
+        
+        parname : name or index
+            if a string with an underscore, interpret as source_parname
+        source_name: None or string
+            if None, use currently selected source
+        """
+        if parname.find('_')>0 and source_name is None:
+            source_name, parname = parname.split('_')
+        source = self.get_source(source_name)
+        source.freeze(parname)
+        self.sources.initialize()
+        
         

@@ -1,7 +1,7 @@
 """
 Extended source code
 Much of this adapts and utilizes 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.4 2013/11/12 00:39:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.5 2013/11/18 03:51:12 burnett Exp $
 
 """
 import os, copy
@@ -41,6 +41,7 @@ class ExtendedCatalog( roi_catalogs.ExtendedSourceCatalog):
         """ initialize by also filling an array with all source spectral models"""
         self.alias = kwargs.pop('alias', dict())
         self.quiet = kwargs.pop('quiet', True)
+        self.catname = extended_catalog_name
         extended_catalog_name = \
             os.path.expandvars(os.path.join('$FERMI','catalog',extended_catalog_name))
         if not os.path.exists(extended_catalog_name):
@@ -58,6 +59,8 @@ class ExtendedCatalog( roi_catalogs.ExtendedSourceCatalog):
                 #print 'converting mappers for model for source %s, model %s' % (source.name, model.name)
                 source.model = eval('Models.%s(p=%s)' % (model.name, list(model.get_all_parameters())))
 
+    def __repr__(self):
+        return '%s.%s: %s' % (self.__module__, self.__class__.__name__, self.catname)
     def realname(self, cname):
         """ cname was truncated"""
         if cname in self.names: return cname

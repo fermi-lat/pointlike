@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.35 2013/11/27 14:59:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.36 2013/11/28 19:36:05 burnett Exp $
 
 """
 import os, copy
@@ -17,7 +17,9 @@ def PLSuperExpCutoff(*pars, **kw): return Models.PLSuperExpCutoff(p=pars, **kw)
 def Constant(*pars, **kw):   return Models.Constant(p=pars, **kw)
 def FBconstant(f,b, **kw): return Models.FrontBackConstant(f,b, **kw)
     
-    
+def ismodel(model):
+    """ check that model is an instance of Models.Model"""
+    return isinstance(model, Models.Model)
 
 class Source(object):
     """ base class for various sources

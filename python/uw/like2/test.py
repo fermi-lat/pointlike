@@ -1,6 +1,6 @@
 """
 All like2 testing code goes here, using unittest
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.21 2013/11/27 14:59:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.22 2013/11/28 19:37:50 burnett Exp $
 """
 import os, sys, unittest
 import numpy as np
@@ -39,21 +39,27 @@ def setup(name):
     assert name in globals() and name in gnames
     if config is None :
         config =  configuration.Configuration(config_dir, quiet=True, postpone=True)
+        print '\n****config:', config
     if ecat is None:
         ecat = extended.ExtendedCatalog(config.extended)
+        print '\n****ecat:', ecat
     if (name=='roi_sources' or name=='blike' or name=='likeviews') and roi_sources is None:
         roi_sources = roimodel.ROImodel(config, ecat=ecat, roi_index=roi_index)
+        print '\n****roi_sources:' , roi_sources
     if (name=='roi_bands' or name=='blike' or name=='likeviews') and roi_bands is None:
         roi_bands = bands.BandSet(config, roi_index)
+        print '\n****roi_bands:', roi_bands
     if name=='blike' and blike is None:
         assert roi_bands is not None and roi_sources is not None
         roi_bands.load_data()
         blike = bandlike.BandLikeList(roi_bands, roi_sources)
+        print '\n****blike', blike
     if name=='likeviews' and likeviews is None:
         assert roi_bands is not None and roi_sources is not None
         if roi_bands.pixels==0:
             roi_bands.load_data()
         likeviews = views.LikelihoodViews(roi_bands, roi_sources)
+        print '\n****like_views:', likeviews
     if name=='roi' and roi is None:
         roi = main.ROI(config_dir, roi_index)
     return eval(name)
@@ -77,16 +83,14 @@ class TestConfig(TestSetup):
         self.assertEquals(133, psf.energy)
         self.assertAlmostEqual(81.0904920, psf(0)[0], msg='value expected with IRF for pass 7')
         
-    def test_exposure(self):
-        """check exposure"""
-        exposure = self.config.exposureman(1, 1000)
+    def test_exposure(self):        exposure = self.config.exposureman(1, 1000)
         self.assertDictContainsSubset(dict(et=1, energy=1000), exposure.__dict__, 'full dict: %s'%exposure.__dict__)
         exposure.setEnergy(133)
         self.assertEquals(133, exposure.energy)
         self.assertAlmostEqual(2.1604e10 , exposure(self.skydir), delta=1e8)
         
     def test_exposure_integral(self, expect=921.5):
-        """test the exposure integral at a point
+        """-->test the exposure integral at a point
         """
         emin, e, emax = np.logspace(2, 2.25, 3)
         exp = self.config.exposureman(1, e)
@@ -99,7 +103,6 @@ class TestConfig(TestSetup):
         # need to check value print f2, f(model.gradient), (f(sources.PowerLaw(1.1e-11,2))-f(model))
         
     def test_bandlite(self):
-        """ check bandlite"""
         band = bands.Bandlite(self.skydir, self.config)
         self.assertDictContainsSubset(dict(radius=5, event_type=1), band.__dict__, str(band.__dict__))
 
@@ -111,7 +114,6 @@ class TestDiffuse(TestSetup):
         self.front_band = bands.Bandlite(self.skydir,self.config, event_type=0)
         
     def test_factory(self):
-        """test the factory setup """
         for t in ['junk.txt', ('junk.txt','t'),'tst_PowerLaw(1e-11, c )', 
                       dict(file='template_4years_P7_v15_repro_v2_4bpd.zip'),
                   ]:
@@ -137,7 +139,7 @@ class TestDiffuse(TestSetup):
         
         
     def test_isotrop(self):
-        """istropic source with constant model"""
+        """-->istropic source with constant model"""
         source = sources.GlobalSource(name='isotrop', skydir=None,
             model=sources.Constant(1.0),
             dmodel=diffuse.diffuse_factory(['isotrop_4years_P7_V15_repro_v2_source_%s.txt'%s 
@@ -147,7 +149,7 @@ class TestDiffuse(TestSetup):
         self.assertAlmostEquals(193864, resp(resp.roicenter), delta=10)
 
     def test_cached_galactic(self):
-        """cached galactic source"""
+        """-->cached galactic source"""
         source = sources.GlobalSource(name='ring', skydir=None,
                 model=sources.Constant(1.0),
                 dmodel = diffuse.diffuse_factory(dict(filename='template_4years_P7_v15_repro_v2_4bpd.zip'))
@@ -162,13 +164,13 @@ class TestDiffuse(TestSetup):
                 )
         
     def test_map_cube(self):
-        """a MapCube source"""
+        """-->a MapCube source"""
         source = self.load_map_cube()
         resp= source.response( self.back_band)
         self.response_check(resp, (742, 1381, 56876))
 
     def test_map_cube_front(self):
-        """a MapCube source"""
+        """-->a MapCube source, front response"""
         source = self.load_map_cube()
         resp= source.response( self.front_band)
         self.response_check(resp, (618, 1151, 46894))
@@ -190,19 +192,19 @@ class TestDiffuse(TestSetup):
         self.assertAlmostEquals(expect[2], resp(resp.roicenter), delta = 100)
 
     def test_healpix(self):
-        """a Healpix source"""
+        """-->a Healpix source - back"""
         source = self.load_healpix()
         self.resp =resp= source.response(self.back_band)
         self.response_check(resp, (722, 1344, 55354))
 
     def test_healpix_front(self):
-        """a Healpix source"""
+        """-->a Healpix source--front"""
         source = self.load_healpix()
         self.resp =resp= source.response(self.front_band)
         self.response_check(resp, (602, 1120,  45657))
         
     def test_limb(self):
-        """The PowerLaw limb -- not understood yet"""
+        """-->The PowerLaw limb -- not understood yet"""
         source = sources.GlobalSource(name='limb', skydir=None,
             model = sources.FBconstant(2.0, 1.0),
             dmodel=diffuse.diffuse_factory('limb_PowerLaw(1e-11, 4.0)'))
@@ -218,7 +220,7 @@ class TestPoint(TestSetup):
   
     
     def test_point(self):
-        """response of point source at the center"""
+        """-->response of point source at the center"""
         ptsrc =sources.PointSource(name='test', skydir=self.skydir, 
                                            model=sources.PowerLaw(1e-11, 2.0))
         self.resp =resp = ptsrc.response(self.back_band)
@@ -345,6 +347,15 @@ class TestROImodel(TestSetup):
             parset.set_covariance(cov1)
             cov2 = parset.get_covariance()
             self.assertTrue(np.all(cov2==cov1))
+            
+    def xtest_change_model(self, source_name='*2722'):
+        """--> change a model, check it, change it back"""
+        rs = roi_sources
+        npar = len(rs.parameters)
+        src, oldm = rs.set_model('PowerLaw(1e-11,2.0)', source_name)
+        self.assertEquals(npar-1, len(rs.parameters))
+        rs.set_model(oldm)
+        self.assertEquals(npar, len(rs.parameters))
 
     
 class TestBands(TestSetup):
@@ -371,7 +382,7 @@ class TestLikelihood(TestSetup):
         self.assertAlmostEquals(0.092, self.bl[0].make_unweight().round(3))
         self.assertAlmostEquals(0.033, self.bl[1].make_unweight().round(3))
     def test_weights(self):
-        'check weights for band 1'
+        '--> check weights for band 1'
         b1 = self.bl[1]
         weights = b1.data / b1.model_pixels
         self.assertAlmostEquals(0.98, weights.mean(), delta=0.01)
@@ -397,10 +408,30 @@ class TestLikelihood(TestSetup):
         bl.selected= bl
         total = bl.log_like()
         self.assertAlmostEquals(total, parta+partb)
+    def test_change_model(self):
+        """--> change a model, then back; check likelihood changed"""
+        m = blike.set_model('PowerLaw(1e-11, 2.0)', '*2722')
+        self.assertAlmostEquals(697486, blike.log_like(), delta=1)
+        blike.set_model(m)
+        
+    
+class TestAddRemoveSource(TestSetup):
+    def setUp(self):
+        self.bl = setup('blike')
+
+    def test(self, sourcename='P7R42722'):
+        """--> remove a source, check that likelihood changed; put it back"""
+        before = blike.log_like()
+        removed = blike.del_source(sourcename)
+        self.assertAlmostEquals(-400.2, blike.log_like()-before, delta=0.5)
+        blike.add_source(removed)
+        self.assertAlmostEquals(before, blike.log_like())
+        
         
 class TestFitterView(TestSetup):
     def setUp(self):
         setup('likeviews')
+        self.assertAlmostEquals(697607., blike.log_like(), delta=1)
         
     def test_ts(self, sourcename='P7R42722', expect=800):
         """--> set up a subset fitter view, use it to checka TS value"""
@@ -497,6 +528,7 @@ test_cases = (
     TestROImodel, 
     TestBands, 
     TestLikelihood,
+    # changes fitter test? TestAddRemoveSource,
     TestFitterView,
     TestSED,
     TestLocalization,
