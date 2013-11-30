@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Fri Nov 29 16:40:16 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	bandlike.py bands.py extended.py main.py roimodel.py 
+	sources.py test.py views.py 
+Log Message:
+docstrings
+    *
+------------------------------------------------------------
 User: burnett  Thu Nov 28 11:37:50 PST 2013
 pointlike/python/uw/like2
 
