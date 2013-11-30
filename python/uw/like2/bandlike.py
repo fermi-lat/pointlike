@@ -1,7 +1,7 @@
 """
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.43 2013/11/25 17:45:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.44 2013/11/26 15:57:58 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -76,7 +76,7 @@ class BandLike(object):
             raise Exception('Source "%s" not found in band sources' %i)
         return self.bandsources[i]
         
-    def initialize(self, free):
+    def initialize(self, free=None):
         """ should only call if free array changes.
             Saves the combined prediction from the models with fixed parameters
         """
@@ -85,7 +85,7 @@ class BandLike(object):
         self.counts = self.fixed_counts = sum([b.counts for b in self.bandsources[ ~ self.free]])
         if not self.band.has_pixels: return # no data, should quit?
         self.fixed_pixels = np.zeros(self.pixels)
-        for m in self.bandsources[ ~ free]:
+        for m in self.bandsources[ ~ self.free]:
             self.fixed_pixels += m.pix_counts
         self.model_pixels = self.fixed_pixels.copy()
         for m in self.free_sources:
@@ -270,6 +270,47 @@ class BandLikeList(list):
         """
         return self.sources.free
     
+    def add_source(self, newsource=None, **kwargs):
+        """ add a source to the ROI
+        
+        parameters
+        ----------
+        newsource : PointSource object or None
+            if None, expect source to be defined by the keywords
+        keywords:
+            name : string
+            model
+            skydir
+        """
+        source = self.sources.add_source(newsource, **kwargs)
+        for band in self:
+            band.add_source(source)
+        self.initialize()
+        return source
+        
+    def del_source(self, source_name):
+        """ delete the specific source (which can be expressed with wildcards 
+        returns the source object
+        """
+        source  = self.sources.del_source(source_name)
+        for b in self:
+            b.del_source(source)
+        self.initialize()
+        return source
+        
+    def set_model(self, model, source_name=None):
+        """ replace the current model, return reference to previous
+        
+        model : string, or like.Models.Model object
+            if string, evaluate. Note that 'PowerLaw(1e-11,2.0)' will work. Also supported:
+            ExpCutoff, PLSuperExpCutoff, LogParabola, each with all parameters required.
+        source_name: None or string
+            if None, use currently selected source
+        """
+        source, old_model = self.sources.set_model(model, source_name=source_name)
+        self.initialize()
+        return old_model
+
     @property
     def energies(self):
         return  np.sort(list(set([ sm.band.energy for sm in self._selected])))
@@ -288,11 +329,14 @@ class BandLikeList(list):
             self.sources, sel, len(self.sources.parameters), 
             sum(self.free_sources),  len(self.free_sources))
 
-    def initialize(self, sourcename):
+    def initialize(self, sourcename=None):
         """ initialize the specifed source in  all selected bands
             and update the band"""
         for b in self._selected:
-            b[sourcename].initialize()
+            if sourcename is not None:
+                b[sourcename].initialize()
+            else:
+                b.initialize()
             b.update()
         
     # the following methods sum over the current set of bands

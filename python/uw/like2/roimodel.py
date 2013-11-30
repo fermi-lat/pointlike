@@ -1,7 +1,7 @@
 """
 Set up and manage the model for all the sources in an ROI
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.9 2013/11/27 14:59:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.10 2013/11/28 19:36:55 burnett Exp $
 
 """
 import os ,zipfile, pickle, types
@@ -11,6 +11,8 @@ from .. utilities import keyword_options
 from . import (sources, 
               diffuse,
       )
+from . sources import (PowerLaw, PLSuperExpCutoff, LogParabola)
+
 class ROImodelException(Exception):pass
 
 def set_default_bounds( model, force=False):
@@ -456,17 +458,53 @@ class ROImodel(list):
             self.selected_source = None
             not_found()
 
-    def add_source(self, source):
-        """Add a point source
-        Must be a sources.PointSource object
-        """
+    def add_source(self, newsource=None, **kw):
+        """ add a source to the ROI
         
-        if source.name in self.source_names:
-            raise ROImodelException('Attempt to add source "%s": a source with that name already exists' % source.name)
-        set_default_bounds(source.model)
-        self.append(source)
+        parameters
+        ----------
+        newsource : Source object or None
+            if None, expect source to be defined as a PointSource by the keywords
+            
+        keywords:
+            name : string
+            model : uw.like.Models object
+            skydir : skymaps.SkyDir object | (ra,dec) 
+        """
+        if newsource is not None:
+            assert isinstance(newsource, sources.Source)
+        else:
+            newsource = source.PointSource(**kw)
+            
+        if newsource.name in self.source_names:
+            raise ROImodelException('Attempt to add source "%s": a source with that name already exists' % newsource.name)
+        set_default_bounds(newsource.model)
+        self.append(newsource)
+        return newsource
  
     def del_source(self, source_name):
+        """ remove a source from the model for this ROI
+        """
         source = self.find_source(source_name) # first get it
         self.remove(source)
         return source
+        
+    def set_model(self, model, source_name=None):
+        """ replace the current model, return reference to previous
+        
+        model : string, or like.Models.Model object
+            if string, evaluate. Note that 'PowerLaw(1e-11,2.0)' will work. Also supported:
+            ExpCutoff, PLSuperExpCutoff, LogParabola, each with all parameters required.
+        source_name: None or string
+            if None, use currently selected source
+        """
+        src = self.find_source(source_name)
+        old_model = src.model
+        if isinstance(model, str): 
+            model = eval(model) 
+        assert sources.ismodel(model), 'model must inherit from Model class'
+        src.model = model
+        src.changed = True
+        set_default_bounds(model)
+        self.initialize()
+        return src, old_model

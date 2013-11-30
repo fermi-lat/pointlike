@@ -1,7 +1,7 @@
 """
 Code to plot TS maps
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/tsmap.py,v 1.9 2013/04/11 22:02:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/tsmap.py,v 1.10 2013/11/26 14:55:53 burnett Exp $
 
 """
 import math, os
@@ -71,7 +71,7 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
         sigma = np.sqrt(loc[2]*loc[3]) #loc['a']*loc['b']) #?? scale factor needed?
         qual = loc[5] #'qual']
         if sigma<1 and qual <50:
-            tsp.overplot(loc, sigma)
+            tsp.overplot(loc)
         else:
             print 'bad fit sigma %g, >1 or qual %.1f >50' % (sigma, qual)
     tsp.show(colorbar=False)

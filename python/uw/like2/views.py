@@ -4,7 +4,7 @@ classes presenting views of the likelihood engine in the module bandlike
 Each has a mixin to allow the with ... as ... construction, which should restore the BandLikeList
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.6 2013/11/26 14:56:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.7 2013/11/27 14:59:56 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -152,6 +152,8 @@ class FitterMixin(object):
         if not quiet: print 'using optimize.fmin_l_bfgs_b with parameter bounds %s\n, kw= %s'% (
                             self.bounds, kwargs)
         parz = self.get_parameters()
+        winit = self.log_like()
+        assert len(parz)==len(self.gradient()), 'tracking a bug'
         ret = optimize.fmin_l_bfgs_b(self, parz, 
                 bounds=self.bounds,  fprime=self.gradient, **kwargs)
         if ret[2]['warnflag']>0: 

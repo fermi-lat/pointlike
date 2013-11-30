@@ -1,11 +1,13 @@
 """
 manage band classes
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bands.py,v 1.2 2013/11/13 06:36:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bands.py,v 1.3 2013/11/26 15:57:58 burnett Exp $
 """
 import os
 import numpy as np
 import skymaps
+
+energybins = np.logspace(2,5.5,15) # default 100 MeV to 3.16 GeV, 4/decade
   
 class Bandlite(object):
     """ Combine three concepts:
@@ -75,9 +77,17 @@ class BandSet(list):
     """ manage the list of bands
     """
     def __init__(self, config, roi_index, max=None):
-        """fill the list at the nside=12 indes"""
+        """create a list of energy bands
+        
+        config : configuration.Configuration object
+        roi_index : int | (float,float)
+            specify direction, either as nside=12 index, or an (ra,dec) pair
+            the actual center is the center of the corresponding 
+        """
         self.config = config
-        energybins = np.logspace(2,5.5,15) # default 100 MeV to 3.16 GeV
+        if hasattr(roi_index,'__iter__') and len(roi_index)==2:
+            dir = skymaps.SkyDir(*roi_index)
+            roi_index = Band(12).index(dir)
         self.roi_index = roi_index
         for emin, emax  in zip(energybins[:-1], energybins[1:]):
             for et in range(2):

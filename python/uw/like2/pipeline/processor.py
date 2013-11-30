@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.69 2013/10/01 14:23:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.70 2013/10/11 16:37:05 burnett Exp $
 """
 import os, time, sys, types, glob
 import cPickle as pickle
@@ -12,69 +12,52 @@ from uw.like import srcid
 from uw.utilities import image
 from . import associate
 from ..plotting import sed, counts 
-from .. import localization, sedfuns
+from .. import localization, sedfuns, tools
 #np.seterr(invalid='raise', divide='raise', over='raise')
 np.seterr(invalid='raise', divide='raise', over='ignore')
 def isextended(source):
     return source.__dict__.get(  'spatial_model', None) is not None
-  
-class OutputTee(object):
-    def __init__(self, logfile):
-        self.logstream = open(logfile, 'a')
-        self.stdout = sys.stdout
-        sys.stdout = self
-    def write(self, stuff):
-        self.logstream.write(stuff)
-        self.stdout.write(stuff)
-    def close(self):
-        sys.stdout =self.stdout
-        self.logstream.close()
-    def flush(self):
-        self.stdout.flush()
-    def set_parent(self, parent):
-        self.stdout.set_parent(parent) #needed??
-        
-def fix_beta(roi, bts_min=20, qual_min=15,):
+          
+def fix_beta(roi, ts_min=20, qual_min=15,poisson_tolerance=0.2):
     """ invoked by process() if fix_beta flag set, but can be run standalone for testing
     if beta=0.001, it has not been tested.
     if beta<0.01 or error exists and  >0.1
     """
     refit=candidate=False
-    print 'checking for beta fit: minTS %s, min qual %s...'% (bts_min, qual_min)
+    print 'checking for beta fit: minTS %s, min qual %s...'% (ts_min, qual_min)
     models_to_fit=[]
     for source in roi.sources:
         model = source.spectral_model
         which = source.name
         if not np.any(model.free) or model.name!='LogParabola': continue
         if not candidate:
-            print 'name                      beta         band_ts  fitqual'
+            print 'name                 beta               ts   fitqual'
         candidate=True
         beta = model[2]
         try:
             beta_unc = np.sqrt(model.get_cov_matrix()[2,2])
         except:
             beta_unc=0
-        band_ts, ts = roi.band_ts(which), roi.TS(which)
-        sbeta = '%5.3f+/-%5.3f' % (beta, beta_unc) if beta_unc>0 else '%5.3f        '%beta
-        print '%-20s %s %10.1f %10.1f ' %(which, sbeta, band_ts, band_ts-ts),
+        ts = roi.TS(which)
+        fit_qual = roi.get_sed(source.name, tol=poisson_tolerance).delta_ts.sum()
+        sbeta = ' '*13
+        if beta_unc>0:
+            sbeta = '%5.3f+/-%5.3f' % (beta, beta_unc) 
+        elif beta>0:
+            sbeta ='%5.3f        '%beta
+        print '%-20s %s %8.0f %8.0f ' %(which, sbeta, ts, fit_qual),
         # beta is free: is it a good fit? check value, error if any
-        if model.free[3]: # shouldn't be free
-           model.free[3]=False
-           model.internal_cov_matrix[3,:]=0
-           model.internal_cov_matrix[:,3]=0
-           print 'freezing E_break' ,
-           refit=True
         if model.free[2] or beta>0.001:
             # free: is the fit ok?
             if beta>0.001 and beta_unc>0.001 and beta > 2*beta_unc:
-                print ' fit is ok'
+                print 'ok'
                 if not model.free[2]:
-                    model.free[2]=True # make sure free, since was once.
+                    source.thaw('beta') # make sure free, since was once.
                     refit=True
                 continue
             else:
                 print '<--- reseting to PowerLaw' 
-                model.free[2]=False
+                source.freeze('beta')
                 # this should be done by the freeze? dangerous direct access, oh well.
                 model.internal_cov_matrix[2,:]=0
                 model.internal_cov_matrix[:,2]=0
@@ -89,16 +72,19 @@ def fix_beta(roi, bts_min=20, qual_min=15,):
             model.internal_cov_matrix[:,2]=0
             continue
 
-        if beta>=3.0: print 'beta>1 too large'; continue
-        if beta==0: print 'frozen previously'; continue
-        if band_ts<bts_min: print 'band_ts< %.1f'%bts_min; continue # not significant
-        if band_ts-ts < qual_min and beta<=0.01:print 'qual<%.1f' %qual_min; continue # already a good fit
+        if beta>=3.0: print 'beta>3 too large'; continue
+        #if beta==0: print 'frozen previously'; continue
+        if ts< ts_min: print 'ts< %.1f'%ts_min; continue # not significant
+        if fit_qual < qual_min and beta<=0.01:
+            print 'qual<%.1f' %qual_min; 
+            continue # already a good fit
         print '<-- select to free beta' # ok, modify
-        model.free[2]=True
+        source.thaw('beta')
         models_to_fit.append(model) # save for later check
         refit = True
     if refit:    
         print 'start refit with beta(s) freed or refixed...'
+        roi.sources.initialize()
         roi.fit()
         roi.print_summary(title='after freeing one or more beta parameters')
         # now check for overflow
@@ -107,7 +93,7 @@ def fix_beta(roi, bts_min=20, qual_min=15,):
             beta = model[2]
             if beta < 3.0: continue
             print 'reseting model: beta =%.1f too large' % model[2]
-            model.free[2]=False
+            model.freeze('beta')
             model[0:3]=(1e-15, 2.0, 3.0) #reset everything
             model.cov_matrix[:]=0 
             refit=True
@@ -325,7 +311,7 @@ def process(roi, **kwargs):
         counts_dir = os.path.join(outdir,counts_dir)
         logpath = os.path.join(outdir, 'log')
         if not os.path.exists(logpath): os.mkdir(logpath)
-        outtee = OutputTee(os.path.join(logpath, roi.name+'.txt'))
+        outtee = tools.OutputTee(os.path.join(logpath, roi.name+'.txt'))
         print  '='*80
         print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (roi.name,))
     else: outtee=None
@@ -447,7 +433,7 @@ def localize(roi, **kwargs):
     logpath = os.path.join(outdir, 'log')
     locdir = kwargs.pop('locdir', 'localization')
     tsmap_dir = 'tsmap_fail' #kwargs.get('tsmap_dir', None)
-    outtee = OutputTee(os.path.join(logpath, roi.name+'.txt'))
+    outtee = tools.OutputTee(os.path.join(logpath, roi.name+'.txt'))
     print  '='*80
     print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (roi.name,))
     poor_loc = kwargs.pop('poor_loc', 'poorly_localized.csv')
@@ -494,7 +480,7 @@ def table_processor(roi, **kwargs):
     outdir = kwargs.get('outdir')
     tables = kwargs.get('tables')
     logpath = os.path.join(outdir, 'log')
-    outtee = OutputTee(os.path.join(logpath, roi.name+'.txt'))
+    outtee = tools.OutputTee(os.path.join(logpath, roi.name+'.txt'))
     print  '='*80
     print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (roi.name,))
     tables(roi)
@@ -680,7 +666,7 @@ def roi_refit_processor(roi, **kwargs):
     if not os.path.exists(fit_dir): os.mkdir(fit_dir)
     if not os.path.exists(plot_dir): os.mkdir(plot_dir)
     logpath = os.path.join(outdir, 'log')
-    outtee = OutputTee(os.path.join(logpath, roi.name+'.txt'))
+    outtee = tools.OutputTee(os.path.join(logpath, roi.name+'.txt'))
     print  '='*80
     print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (roi.name,))
 
@@ -727,7 +713,7 @@ def limb_processor(roi, **kwargs):
     """ report on limb fit, perhaps refit"""
     outdir= kwargs.get('outdir')
     logpath = os.path.join(outdir, 'log')
-    outtee = OutputTee(os.path.join(logpath, roi.name+'.txt'))
+    outtee = tools.OutputTee(os.path.join(logpath, roi.name+'.txt'))
     print  '='*80
     print '%4d-%02d-%02d %02d:%02d:%02d - %s limb processor' %(time.localtime()[:6]+ (roi.name,))
 
@@ -761,7 +747,7 @@ def sunmoon_processor(roi, **kwargs):
     """ report on sunmon refit """
     outdir= kwargs.get('outdir')
     logpath = os.path.join(outdir, 'log')
-    outtee = OutputTee(os.path.join(logpath, roi.name+'.txt'))
+    outtee = tools.OutputTee(os.path.join(logpath, roi.name+'.txt'))
     print  '='*80
     print '%4d-%02d-%02d %02d:%02d:%02d - %s sunmoon processor' %(time.localtime()[:6]+ (roi.name,))
 
@@ -800,7 +786,7 @@ def check_seeds(roi, **kwargs):
     if not os.path.exists(seedcheck_dir): os.mkdir(seedcheck_dir)
     associator= kwargs.pop('associate', None)
     logpath = os.path.join(outdir, 'log')
-    outtee = OutputTee(os.path.join(logpath, roi.name+'.txt'))
+    outtee = tools.OutputTee(os.path.join(logpath, roi.name+'.txt'))
     print  '='*80
     print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (roi.name,))
     print 'Checking seeds, if any'
@@ -1085,7 +1071,7 @@ def flux_correlations(roi, **kwargs):
     if not os.path.exists(flux_corr_dir): os.mkdir(flux_corr_dir)
     
     logpath = os.path.join(outdir, 'log')
-    outtee = OutputTee(os.path.join(logpath, roi.name+'.txt'))
+    outtee = tools.OutputTee(os.path.join(logpath, roi.name+'.txt'))
     print  '='*80
     print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (roi.name,))
     diffuse=kwargs.get('diffuse', 'ring')
