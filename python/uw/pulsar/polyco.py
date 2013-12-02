@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.14 2013/06/30 01:24:53 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.15 2013/11/27 07:05:23 kerrm Exp $
 
 Mange polycos from tempo2.
 
@@ -209,9 +209,12 @@ class Polyco:
         '''Returns the polyco entry corresponding to time t (in MJD)'''
         if use_keys:
             idx = np.searchsorted(self.keys,t)
-            if np.any(idx == len(self.keys)) or np.any(idx==0):
-                print 'Could not find a valid entry for MJD(s)...'
+            if np.any(idx == len(self.keys)):
+                print 'The following MJDS were beyond the end of the polyco validity (%s):'%(self.keys[-1])
                 print t[idx == len(self.keys)] if type(t) is type(np.array([1])) else t
+                raise IndexError
+            if np.any(idx==0):
+                print 'The following MJDS were before the start of the polyco validity (%s):'%(self.keys[0])
                 print t[idx == 0] if type(t) is type(np.array([1])) else t
                 raise IndexError
             return self.entries[idx-1]
