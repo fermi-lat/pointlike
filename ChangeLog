@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sun Dec  1 18:40:40 PST 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	polyco.py 
+Log Message:
+Make bounds check error output more useful.
+
+    *
+------------------------------------------------------------
 User: burnett  Fri Nov 29 16:40:17 PST 2013
 pointlike/python/uw/like2/plotting
 
