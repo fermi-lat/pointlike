@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.50 2013/10/24 06:10:25 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.51 2013/11/27 07:05:41 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -971,7 +971,7 @@ def add_phase(tim,abs_phase,output=None):
     abs_phase = [int(x) for x in abs_phase]
     add_flag(tim,'pn',abs_phase,output=output)
 
-def mask_tim(tim,mask,output=None):
+def mask_tim(tim,mask,output=None,verbose=False):
     output = output or tim
     lines = file(tim).readlines()
     new_lines = deque()
@@ -981,8 +981,9 @@ def mask_tim(tim,mask,output=None):
         if line[0] != ' ':
             continue
         if mask[counter]:
-            print 'Masking line:'
-            print line
+            if verbose:
+                print 'Masking line:'
+                print line
             new_lines.pop()
             toks = line.split()
             toks[3] = '1e7'
