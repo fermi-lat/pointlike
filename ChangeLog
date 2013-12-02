@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sun Dec  1 18:40:57 PST 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+Quiet output of TOA masking.
+
+    *
+------------------------------------------------------------
 User: kerrm  Sun Dec  1 18:40:40 PST 2013
 pointlike/python/uw/pulsar
 
