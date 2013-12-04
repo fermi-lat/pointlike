@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.20 2013/11/25 01:27:46 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.21 2013/11/28 19:34:04 burnett Exp $
 
 """
 import os
@@ -170,42 +170,7 @@ class Localization(object):
             print len(p)*'%10.4f' % tuple(p)
 
 
-        
-  
-def make_association(source, tsf, associate, quiet=False):
-    if not quiet: print ' %s association(s) ' % source.name,
-    try:    ell = source.ellipse
-    except: ell = None
-    if ell is None:
-        if not quiet: print '...no localization'
-        source.adict = None
-        return
-    assert len(ell)>6, 'invalid ellipse for source %s' % source.name
-    try:
-        adict = associate(source.name, SkyDir(ell[0],ell[1]), ell[2:5]) 
-    except srcid.SrcidError, msg:
-        if not quiet: print 'Association error for %s: %s' % (source.name, msg)
-        adict=None
-    except Exception, msg:
-        if not quiet: print 'Exception associating %s: %s' %( source.name, msg)
-        adict=None
-        raise
-    source.adict = adict 
-    if adict is not None:
-    
-        ts_local_max=tsf( SkyDir(ell[0],ell[1]) )
-        adict['deltats'] = [ts_local_max-tsf(d) for d in adict['dir']]
-        if not quiet: print '\n   cat         name                  ra        dec         ang     prob    Delta TS'
-        #       15 Mrk 501               253.4897   39.7527    0.0013      0.41
-        fmt = '   %-11s %-20s%10.4f%10.4f%10.4f%8.2f%8.1f' 
-        for i,id_name in enumerate(adict['name']):
-            tup = (adict['cat'][i], id_name, adict['ra'][i], adict['dec'][i], adict['ang'][i], 
-                    adict['prob'][i],adict['deltats'][i])
-            if not quiet: print fmt % tup
-    else:
-        if not quiet: print '...None  found'
-      
-
+       
 def localize_all(roi, **kwargs):
     """ localize all variable local sources in the roi, make TSmaps and associations if requested 
         ignore if extended -- has 'spatial_model'
