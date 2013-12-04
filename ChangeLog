@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Dec  3 21:21:54 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	localization.py 
+Log Message:
+move association to association module
+    *
+------------------------------------------------------------
 User: burnett  Tue Dec  3 21:21:21 PST 2013
 pointlike/python/uw/like2
 
