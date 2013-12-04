@@ -1,37 +1,13 @@
 """
 Extended source code
 Much of this adapts and utilizes 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.5 2013/11/18 03:51:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.6 2013/11/30 00:40:16 burnett Exp $
 
 """
 import os, copy
 import numpy as np
 from uw.like import roi_catalogs, Models
 from . import sources, response
-
-
-class ExtendedSource(sources.Source):
-
-    def __str__(self):
-        return self.name + ' '+ self.model.name \
-                +  (' (free)' if np.any(self.model.free) else ' (fixed)')  
-  
-    def near(self, otherdir, distance=10):
-        return self.skydir.difference(otherdir) < np.radians(distance)
-        
-    def copy(self):
-        """ return a new ExtendSource object, with a copy of the model object"""
-        ret = ExtendedSource(**self.__dict__)
-        ret.model = self.model.copy()
-        if ret.model.name=='LogParabola':
-            ret.model.free[-1]=False # make sure Ebreak is frozen
-        return ret
-         
-    def response(self, band, **kwargs):
-        """ return a Respose object, which, given a band, can create a convolved image
-        and calculate expected counts
-        """
-        return response.ExtendedResponse(self, band, **kwargs)
 
 
 class ExtendedCatalog( roi_catalogs.ExtendedSourceCatalog):
@@ -87,11 +63,9 @@ class ExtendedCatalog( roi_catalogs.ExtendedSourceCatalog):
         if model.mappers[0].__class__.__name__== 'LimitMapper':
             print 'wrong mappers: converting model for source %s, model %s' % (name, model.name)
             model = eval('Models.%s(p=%s)' % (model.name, list(model.get_all_parameters())))
-        extsource= ExtendedSource(name=self.realname(aname), 
+        extsource= sources.ExtendedSource(name=self.realname(aname), 
             skydir=source.skydir,
             model = model, 
-            #spatial_model = source.spatial_model,
-            #smodel= model,      # these reference copies needed
             dmodel= source.spatial_model
             )
         if extsource.model.name=='LogParabola': extsource.free[-1]=False # E_break not free

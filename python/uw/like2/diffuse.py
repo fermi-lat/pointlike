@@ -1,13 +1,12 @@
 """
 Manage the diffuse sources
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.30 2013/11/27 14:59:56 burnett Exp $
 
 author:  Toby Burnett
 """
 import os, types, pyfits, collections, zipfile, pickle
 import numpy as np
-#import pandas as pd 
 import skymaps #from Science Tools: for SkyDir, DiffuseFunction, IsotropicSpectrum
 
 from .pub import healpix_map #make this local in future
@@ -208,11 +207,12 @@ class DiffuseList(list):
         """return the diffuse class name implementing the global source"""
         return self[0].__class__.__name__
                 
-def diffuse_factory(value):
+def diffuse_factory(value, event_type_names=('front', 'back')):
     """
     Create a DiffuseList object from a text specification
     value : [string | list | dict ]
-        if string: a single filename to apply to all event types
+        if string: a single filename to apply to all event types; if contains a '*', expand it
+            to a list with the list of event type names, e.g., front, back
         if list: a set of filesnames corresponding to the list of event types
         if dict: must have keyword "filename", may have "type" to specify the type, 
             which must be the name of a class in this module inheriting from DiffuseBase
@@ -224,7 +224,10 @@ def diffuse_factory(value):
     A special case is ')' : IsotropicSpectralFunction
     """
     isdict = issubclass(value.__class__, dict)
-    if  not hasattr(value, '__iter__') or isdict:
+    if isinstance(value, str) and  '*' in value:
+        value = [value.replace('*',et) for et in event_type_names]
+        
+    elif  not hasattr(value, '__iter__') or isdict:
         value  = (value,)
     
     if isdict:
@@ -273,58 +276,3 @@ def diffuse_factory(value):
     return DiffuseList(diffuse_source)
 
 
-class DiffuseDict(collections.OrderedDict):
-    """ create a dictionary of global diffuse objects
-        key:   a string defined by the filename following an underscore, or key in input to init
-        value: (both,) or (front,back) or (...) of  diffuse objects determined by the extension:
-            txt: IsotropicSpectrum
-            fit or fits: DiffuseFunction
-            ): IsotropicSpectralFunction
-            none: expect that the key is an expression to be evaluated to create a spectral model function
-    
-    Also maintain a list of spectral models for each ROI: the attribute models
-    """
-    def __init__(self, modeldir='.'):
-        """
-        modeldir : string 
-            folder containing a file config.txt
-        """
-        try:
-            self.spec=eval(open(os.path.join(modeldir, 'config.txt')).read()
-                #.replace('dict(','collections.OrderedDict(')
-                )['diffuse']
-        except Exception, msg:
-            print 'Failed to open model at %s: %s' % (modeldir, msg)
-            raise
-        super(DiffuseDict, self).__init__()
-        for key, value in self.spec.items():
-            #print key,value
-            self[key] = diffuse_factory(value) 
-        self.models=[dict() for i in range(1728)] # list of spectral models for each ROI
-
-    def __repr__(self):
-        r = self.__class__.__name__ + ':'
-        for key, values in self.items():
-            r += '\n    '+key
-            for value in values:
-                r += '\n\t' + str(value)
-        return r
-        
-    def add_model(self, index, name, model):
-        """ add a model to the dict with ROI index index
-        """
-        assert name in self.keys()
-        model.background=True # for printing
-        self.models[index][name]=model
-        
-    def get_sources(self, index, GlobalSource):
-        """ return a list of GlobalSource objects for the given index
-        """
-        global_sources = []
-        for name in self.keys():
-            model = self.models[index].get(name, None)
-            if model is None: continue
-            s = GlobalSource(name=name, model=model, skydir=None, index=index) 
-            s.dmodel = self[name]
-            global_sources.append(s)
-        return global_sources
