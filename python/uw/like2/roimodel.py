@@ -1,45 +1,17 @@
 """
 Set up and manage the model for all the sources in an ROI
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.10 2013/11/28 19:36:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.11 2013/11/30 00:40:16 burnett Exp $
 
 """
 import os ,zipfile, pickle, types
 import numpy as np
 import skymaps
 from .. utilities import keyword_options
-from . import (sources, 
-              diffuse,
-      )
+from . import (sources,  diffuse, extended  )
 from . sources import (PowerLaw, PLSuperExpCutoff, LogParabola)
 
 class ROImodelException(Exception):pass
-
-def set_default_bounds( model, force=False):
-    """
-    Handy utility to set bounds for a model from like.Models
-    force=True to override previously set bounds.
-    """
-    if not force and hasattr(model, 'bounds'):
-        # model has bounds. Were they set? check to see if all are None
-        notset =  np.all(np.array([np.all(b ==[None,None]) for b in model.bounds]))
-        if not notset: return
-    bounds=[]
-    def to_internal(fun, values):
-        return [fun(value) if value is not None else None for value in values]
-    for pname, mp in zip(model.param_names, model.mappers):
-        plim = (None,None)
-        try:
-            plim = dict(
-                Index=(-0.5, 5), 
-                Norm=(10**-16, 10**-7),
-                Scale=(0.001, 4.0),
-                beta=(-0.1, 5.), 
-                Cutoff=(100., 1e5),
-                )[pname.split('_')[0]]
-        except: pass
-        bounds.append( to_internal(mp.tointernal, plim) )
-    model.bounds = np.array(bounds) # convert to array so can mask with free
 
 class ParameterSet(object):
     """ Manage the free parameters in the model, as a virtual array
@@ -294,16 +266,10 @@ class ParSubSet(ParameterSet):
         t = super(ParSubSet, self).model_parameters
         return t[self.mask]
 
-#    @property
-#    def uncertainties(self):
-#        """ return relative uncertainties 
-#        """
-#        return super(ParSubSet, self).uncertainties #mask applied in superclass
-#
         
 
 class ROImodel(list):
-    """ construct the model, or list of sources, for an ROI, reading the zipped pickle format
+    """ Manage the model, or list of sources, for an ROI
     """
     defaults = (
         ('quiet', True, 'set False for info'),
@@ -317,21 +283,17 @@ class ROImodel(list):
             ROI index, from 0 to 1727
         """
         keyword_options.process(self, kwargs)
-        self.pickle_file = os.path.join(config.modeldir, 'pickle.zip')
-        if not os.path.exists(self.pickle_file):
-            raise Exception('Expected file "pickle.zip" not found in %s' % config.configdir)
         self.config = config
-        self.index = roi_index
-        self._z = zipfile.ZipFile(os.path.expandvars(self.pickle_file))
         if self.ecat is None: #speed up if already loaded
             self.ecat = extended.ExtendedCatalog(self.config.extended, quiet=self.quiet)
+
+        # sources loaded by a subclass that must implement this function
         self.load_sources(roi_index)
-        for neighbor_index in self.neighbors():
-            self.load_sources(neighbor_index, neighbors=True)
+        
         self.selected_source = None
         self.initialize()
 
-     
+    
     def initialize(self, **kw):
         """For fast parameter access: must be called if any source changes
         """
@@ -342,57 +304,6 @@ class ROImodel(list):
         """
         return ParSubSet(self, select, exclude)
         
-    def __repr__(self):
-        return '%s.%s : %d global, %d local, %d total sources for ROI %d' \
-            % (self.__module__, self.__class__.__name__, self.global_count,self.local_count,  
-            len(self), self.index)
-            
-        
-    def load_sources(self, index, neighbors=False):
-        """ select and add sources in the given HEALPix to self.
-        Tags each with an index property
-        if neigbors is True, add only local sources.
-        also set the free list to False for neighbors. (The Source constructor sets it as a 
-        copy of the model's free list)
-        """
-
-        def load_local_source(name, rec):
-            if not rec['isextended']:
-                src = sources.PointSource(name=name, skydir=rec['skydir'], model=rec['model'])
-                
-            else:
-                src = self.ecat.lookup(name)
-                src.model = rec['model']
-            if neighbors: src.free[:]=False # not sure this is necessary
-            src.index = index
-            src.model.free = src.free # Don't think I still need this second copy of free
-            # set parameter bounds, ignoring equivalent code in like.Models
-            set_default_bounds( src.model )
-            return src
-        
-        def load_global_source(name, rec):
-            if not self.quiet: print 'Loading global source %s for %d' % (name, index)
-            gsrc = sources.GlobalSource(name=name, skydir=None, model=rec,
-                dmodel = diffuse.diffuse_factory(self.config.diffuse[name]))
-            gsrc.index =index
-            return gsrc
-
-        p = pickle.load(self._z.open('pickle/HP12_%04d.pickle' % index))
-        if not neighbors:
-            global_sources = [load_global_source(name, rec) for name, rec \
-                in zip(p['diffuse_names'], p['diffuse']) if name not in self.ecat.names]
-            self.global_count = len(global_sources)
-            for s in global_sources: self.append(s)
-        local_sources = [load_local_source(name, rec) for name,rec in p['sources'].items()]
-        if not neighbors: self.local_count = len(local_sources)
-        for s in local_sources: self.append(s)
-        
-    def neighbors(self):
-        from pointlike import IntVector
-        b12 = skymaps.Band(12)
-        v = IntVector()
-        b12.findNeighbors(int(self.index),v) 
-        return list(v)
     
     # note that the following properties are dynamic, in case sources or their models change interactively
     @property
@@ -423,14 +334,21 @@ class ROImodel(list):
     def find_source(self, source_name):
         """ Search for the source with the given name
         
-        source_name : string or None
+        source_name : [string | None | sources.Source instance ]
             if the first or last character is '*', perform a wild card search, return first match
             if None, and a source has been selected, return it
+            if an instance, and in the list, just select it and return it
         """
         if source_name is None:
             if self.selected_source is None:
                 raise ROImodelException('No source is selected')
             return self.selected_source
+        elif isinstance(source_name, sources.Source):
+            if source_name in self.sources:
+                self.selected_source = source_name
+                return self.selected_source
+            not_found()
+            
         names = [s.name for s in self]
         def not_found():
             self.selected_source_index =-1
@@ -478,7 +396,6 @@ class ROImodel(list):
             
         if newsource.name in self.source_names:
             raise ROImodelException('Attempt to add source "%s": a source with that name already exists' % newsource.name)
-        set_default_bounds(newsource.model)
         self.append(newsource)
         return newsource
  
@@ -505,6 +422,6 @@ class ROImodel(list):
         assert sources.ismodel(model), 'model must inherit from Model class'
         src.model = model
         src.changed = True
-        set_default_bounds(model)
+        sources.set_default_bounds(model)
         self.initialize()
         return src, old_model
