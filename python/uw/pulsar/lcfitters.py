@@ -9,7 +9,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.49 2013/08/19 02:00:26 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.50 2013/10/29 06:47:37 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -174,7 +174,10 @@ class UnweightedLCFitter(object):
             self.loglikelihood = self.binned_loglikelihood
             self.gradient = self.binned_gradient
          
-    def fit(self,quick_fit_first=False, unbinned=True, use_gradient=True, positions_first=False, estimate_errors=False,prior=None, unbinned_refit=True, try_bootstrap=True):
+    def fit(self,quick_fit_first=False, unbinned=True, use_gradient=True, 
+            overall_position_first=False, positions_first=False, 
+            estimate_errors=False, prior=None, 
+            unbinned_refit=True, try_bootstrap=True):
         # NB use of priors currently not supported by quick_fit, positions first, etc.
         self._set_unbinned(unbinned)
         if (prior is not None) and (len(prior) > 0):
@@ -183,6 +186,22 @@ class UnweightedLCFitter(object):
         else:
             fit_func = self.loglikelihood
             grad_func = self.gradient
+
+        if overall_position_first:
+            """ do a brute force scan over profile down to <1mP."""
+            def logl(phase):
+                self.template.set_overall_phase(phase)
+                return self.loglikelihood(self.template.get_parameters())
+            # coarse grained
+            dom = np.linspace(0,1,101)
+            cod = map(logl,0.5*(dom[1:]+dom[:-1]))
+            idx = np.argmin(cod)
+            # fine grained
+            dom = np.linspace(dom[idx],dom[idx+1],101)
+            cod = map(logl,dom)
+            # set to best fit phase shift
+            ph0 = dom[np.argmin(cod)]
+            self.template.set_overall_phase(ph0)
 
         if positions_first:
             print 'Running positions first'
