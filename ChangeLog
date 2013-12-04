@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Dec  3 21:31:04 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	to_xml.py 
+Log Message:
+add from_roi to generate XML from an ROI
+    *
+------------------------------------------------------------
 User: burnett  Tue Dec  3 21:29:59 PST 2013
 pointlike/python/uw/like2/plotting
 
