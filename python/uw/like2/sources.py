@@ -1,6 +1,6 @@
 """
-Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.36 2013/11/28 19:36:05 burnett Exp $
+Source classes
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.37 2013/11/30 00:40:16 burnett Exp $
 
 """
 import os, copy
@@ -20,6 +20,32 @@ def FBconstant(f,b, **kw): return Models.FrontBackConstant(f,b, **kw)
 def ismodel(model):
     """ check that model is an instance of Models.Model"""
     return isinstance(model, Models.Model)
+
+def set_default_bounds( model, force=False):
+    """
+    Handy utility to set bounds for a model from like.Models
+    force=True to override previously set bounds.
+    """
+    if not force and hasattr(model, 'bounds'):
+        # model has bounds. Were they set? check to see if all are None
+        notset =  np.all(np.array([np.all(b ==[None,None]) for b in model.bounds]))
+        if not notset: return
+    bounds=[]
+    def to_internal(fun, values):
+        return [fun(value) if value is not None else None for value in values]
+    for pname, mp in zip(model.param_names, model.mappers):
+        plim = (None,None)
+        try:
+            plim = dict(
+                Index=(-0.5, 5), 
+                Norm=(10**-16, 10**-7),
+                Scale=(0.001, 4.0),
+                beta=(-0.1, 5.), 
+                Cutoff=(100., 1e5),
+                )[pname.split('_')[0]]
+        except: pass
+        bounds.append( to_internal(mp.tointernal, plim) )
+    model.bounds = np.array(bounds) # convert to array so can mask with free
 
 class Source(object):
     """ base class for various sources
@@ -74,6 +100,9 @@ class Source(object):
         if not hasattr(self.model, 'npar'):
             raise Exception('model %s for source %s was not converted to new format'\
                     % (self.model.name, self.name))
+        # finally, add bounds to the models object, ignoring similar capability in Models.
+        set_default_bounds( self.model )
+           
             
     def get_spectral_model(self):
         return self.model
@@ -98,6 +127,10 @@ class Source(object):
                 +  (' (free)' if np.any(self.model.free) else ' (fixed)')
     def __repr__(self):
         return '%s.%s: %s' % (self.__module__,self.__class__.__name__ , self.name)
+        
+    @property
+    def isextended(self):
+        return hasattr(self, 'dmodel')
 
 class PointSource(Source):
     def __init__(self, **kwargs):
@@ -112,7 +145,32 @@ class PointSource(Source):
         return ret
     def response(self, band, **kwargs):
         return response.PointResponse(self, band, **kwargs)
+
+class ExtendedSource(Source):
+
+    def __str__(self):
+        return self.name + ' '+ self.model.name \
+                +  (' (free)' if np.any(self.model.free) else ' (fixed)')  
+  
+    def near(self, otherdir, distance=10):
+        return self.skydir.difference(otherdir) < np.radians(distance)
         
+    def copy(self):
+        """ return a new ExtendSource object, with a copy of the model object"""
+        ret = ExtendedSource(**self.__dict__)
+        ret.model = self.model.copy()
+        if ret.model.name=='LogParabola':
+            ret.model.free[-1]=False # make sure Ebreak is frozen
+        return ret
+         
+    def response(self, band, **kwargs):
+        """ return a Respose object, which, given a band, can create a convolved image
+        and calculate expected counts
+        """
+        return response.ExtendedResponse(self, band, **kwargs)
+
+        
+
 class GlobalSource(Source):
     def __init__(self, **kwargs):
         super(GlobalSource, self).__init__(**kwargs)
@@ -141,59 +199,3 @@ class GlobalSource(Source):
         return resp_class(self,band, **kwargs) 
     
 
-class GlobalSourceList(list):
-    """ a list, indexed by ROI number, of GLobalSource lists
-        each element is a list if the GlobalSource objects, includeing Models, in the ROI
-    """
-    def __repr__(self):
-        return '%s.%s: %d elements' % (self.__module__, self.__class__.__name__, len(self))
-
-  
-def validate( ps, nside, filter):
-    """ validate a Source: if not OK, reset to standard parameters, disable all but small flux level
-    """
-    if filter is not None:
-        ret = filter(ps)
-        if not ret: 
-            print 'SkyModel: removed source %s' % ps.name
-            return ret
-    model = ps.model
-    assert hasattr(model, 'npar'), 'no npar: %s ' % model.__dict__
-    if '_p' not in model.__dict__:
-        model.__dict__['_p'] = model.__dict__.pop('p')  # if loaded from old representation
-    hpindex = lambda x: Band(nside).index(x)
-    if model.name=='LogParabola':
-        norm, alpha, beta, eb = model.get_all_parameters() #10**model.p
-        #if norm<1e-18: model[0]=1e-18 #quietly prevent too small
-        if beta<0.01: # linear
-            check =  norm< 1e-4 and alpha>-0.5 and alpha<=5 
-            if check: return True
-            print 'SkyModel warning for %-20s(%d): out of range, norm,alpha=%.2e %.2f' %(ps.name, hpindex(ps.skydir),norm,alpha)
-            #assert False, 'debug'
-            #model[:]= [1e-15, 2.4, 1e-3, 1000]
-            #ps.free[1:] = False
-            #model.cov_matrix[:] = 0 
-        else: #log parabola
-            check =  alpha>=-0.5 and alpha<100 and beta<100
-            if check: return True
-            print 'SkyModel warning for %-20s(%d): out of range, norm,alpha,beta=%.2e %.2f %.2f %.2f'\
-                    %(ps.name, hpindex(ps.skydir),norm,alpha,beta, eb)
-            #ps.free[1:] = False
-            #model.cov_matrix[:] = 0 
-        
-    elif model.name=='PLSuperExpCutoff':
-        norm, gamma, ec, b = model.get_all_parameters() #10**model.p
-        #if np.any(np.diag(model.cov_matrix)<0): model.cov_matrix[:]=0 
-        if norm<1e-18: model[0]=1e-18 #quietly prevent too small
-        check =  gamma>=-0.5 and gamma<5 and ec>100
-        if check: return True
-        print 'SkyModel warning for %-20s(%d): out of range, norm, gamma,ec %s' %(ps.name, hpindex(ps.skydir),model.get_all_parameters())
-        #model[:] = [1e-15, 2.2, 2000.]
-        #model.cov_matrix[:] = 0 
-    else:
-        print 'Skymodel warning: model name %s for source %s not recognized'%(model.name, ps.name)
-    if np.any(np.diag(ps.model.internal_cov_matrix)<0):
-        print 'SkyModel warning for %-20s: invalid cov matrix ' %ps.name
-        #ps.model.cov_matrix[:] = 0 
-    return True
-  
