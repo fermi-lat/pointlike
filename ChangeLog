@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Dec  3 21:24:29 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	sources.py 
+Log Message:
+remove unused code; add ExtendedSource to this module
+    *
+------------------------------------------------------------
 User: burnett  Tue Dec  3 21:23:02 PST 2013
 pointlike/python/uw/like2
 
