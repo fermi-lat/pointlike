@@ -1,7 +1,7 @@
 """
 Manage the analysis configuration
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.8 2013/11/12 15:28:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.9 2013/11/28 19:32:04 burnett Exp $
 
 """
 import os, sys, types
@@ -16,13 +16,13 @@ class Configuration(object):
     Manage an analysis configuration: the IRF, exposure and data
     """
     defaults =(
-        ('event_class_names', ('front', 'back'), 'names to describe event classes'),
+        ('event_type_names', ('front', 'back'), 'names to describe event classes'),
         ('bins_per_decade', 4, 'number of bins per decade'),
         ('irf', None,  'Set to override value in config.txt : may find in custom_irf_dir'),
         ('extended', None, 'Set to override value in config.txt'),
         ('nocreate', True, 'Do not allow creation of a binned photon file'),
         ('quiet', False, 'set to suppress most output'),
-        ('postpone', False, 'set true to postpone loading data'),
+        ('postpone', False, 'set true to postpone loading data until requested'),
         )
 
     @keyword_options.decorate(defaults)
@@ -34,7 +34,10 @@ class Configuration(object):
         It is a Python dictionary, and must have the keys:
             irf : a text string name for the IRF
             diffuse: a dict defining the diffuse components
+                see diffuse.DIffuseDict
             datadict: a dict with at least a key 'dataname'
+            extended: string which is the path to the extended folder
+                see extended.ExtendedCatalog
             
         If there is a key 'input_model' and the file 'pickle.zip' does not exist in the directory
         will look in input_model['path'] folder
@@ -99,8 +102,6 @@ class Configuration(object):
             if not os.path.exists(self.modeldir):
                 raise Exception('No soure model file found')
             
-        
-      
     def __repr__(self):
         return '%s.%s: %s' %(self.__module__, self.__class__.__name__, self.configdir)
         
@@ -108,7 +109,6 @@ class Configuration(object):
         return self.get_bands(skymaps.Band(12).dir(index), minROI=5)
     
     def get_bands(self, roi_dir, **kwargs):
-    
         """ return a list of dataset.ROIband objexts for an ROI
         """
         dset = self.dataset
@@ -126,54 +126,4 @@ class Configuration(object):
                 roi_dir, radius))
         return np.asarray(bandlist)
  
-#class ROIBand(object):
-#    """Data access class
-#        indludes the appropriate PSF and exposure functions for this energy band
-#    """
-#
-#    def __init__(self, cband, psf, exposure,  skydir, radius):
-#        """ cband : SWIG-wrapped skymaps::Band C++ object
-#        """
-#    
-#        self.psf, self.exposure, self.skydir = psf, exposure, skydir
-#        self.radius       = radius
-#        self.event_type   = cband.event_class()
-#        self.emin         = cband.emin()
-#        self.emax         = cband.emax()
-#        self.energy       = 0
-#        self.set_energy(np.sqrt(self.emin * self.emax))
-#        self.integrator   = self.exposure.integrator(self.skydir, self.emin, self.emax)
-#        #self.exposureint  = self.exposure(self.sd, self.energy)*(self.emax-self.emin) ### FIXME
-#        ## data stuff
-#        self.wsdl = skymaps.WeightedSkyDirList(cband, skydir, self.radius_in_rad,False)
-#        self.pix_counts   = np.asarray([x.weight() for x in self.wsdl]) if len(self.wsdl)>0 else []
-#        self.npix         = self.wsdl.total_pix()
-#        self.has_pixels   = self.wsdl.counts()>0
-#        self.pixel_area   = cband.pixelArea()
-#        self.solid_angle  = self.npix*self.pixel_area #ragged edge
-#    @property
-#    def radius_in_rad(self):
-#        return np.radians(self.radius) 
-#    @property
-#    def sd(self): # deprecated
-#        return self.skydir
-#        
-#    def __repr__(self):
-#        return '%s.%s: %s, %d photons' \
-#            % (self.__module__,self.__class__.__name__, self.title, np.sum(self.pix_counts))
-#        
-#    def set_energy(self, energy):
-#        """set the energy for the psf and exposure objects
-#        """
-#        if energy==self.energy: return
-#        self.energy=energy
-#        self.psf.setEnergy(energy)
-#        self.exposure.setEnergy(energy)
-#    def solid_angle(self):
-#        return np.pi*self.radius_in_rad**2 
-#    @property
-#    def title(self):
-#        return '%.0f-%.0f MeV event_type %d' % (self.emin, self.emax, self.event_type)
-#
-
  
