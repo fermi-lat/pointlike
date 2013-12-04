@@ -1,6 +1,6 @@
 """
 All like2 testing code goes here, using unittest
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.23 2013/11/30 00:40:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.24 2013/12/04 05:28:59 burnett Exp $
 """
 import os, sys, unittest
 import numpy as np
@@ -14,6 +14,8 @@ from uw.like2 import ( configuration,
     exposure,
     extended,
     roimodel,
+    from_healpix,
+    to_xml, from_xml,
     dataset,
     bandlike,
     views,
@@ -23,7 +25,7 @@ from uw.like2 import ( configuration,
     )
 
 # globals: references set by setUp methods in classes as needed
-config_dir = os.path.expandvars('$HOME/test') #skymodels/P202/uw29')
+config_dir = '/tmp/like2' # os.path.expandvars('$HOME/test') #skymodels/P202/uw29')
 config = None
 ecat = None
 roi_index = 840
@@ -32,19 +34,44 @@ roi_bands = None
 blike = None
 likeviews = None
 roi = None
+config_file='''{
+'input_model': dict( path= '$HOME/skymodels/P202/uw29'),
 
+'datadict': {'dataname': 'P7_P202',},
+
+'irf': 'P7REP_SOURCE_V15',
+
+'diffuse': dict(
+	ring    =  dict(filename='template_4years_P7_v15_repro_v2_4bpd.zip',
+			correction='galactic_correction_uw26a_v2.csv', systematic=0.0316), 
+	isotrop = 'isotrop_4years_P7_V15_repro_v2_source_*.txt', 
+	SunMoon = 'SunMoon_4years_zmax100.fits', 
+	limb    = 'limb_PowerLaw(1e-11, 4.0)',
+	),
+
+'extended': 'Extended_archive_v13',
+
+'comment': """test loading from input
+	""",
+}
+'''
 def setup(name):
     global config, ecat, roi_sources, roi_bands, blike, likeviews, roi
     gnames = 'config ecat roi_sources roi_bands blike likeviews roi'.split()
     assert name in globals() and name in gnames
     if config is None :
+        if not os.path.exists(config_dir):
+            os.makedirs(config_dir)
+        with open(os.path.join(config_dir,'config.txt'), 'w') as cf:
+            cf.write(config_file)
         config =  configuration.Configuration(config_dir, quiet=True, postpone=True)
         print '\n****config:', config
+
     if ecat is None:
         ecat = extended.ExtendedCatalog(config.extended)
         print '\n****ecat:', ecat
     if (name=='roi_sources' or name=='blike' or name=='likeviews') and roi_sources is None:
-        roi_sources = roimodel.ROImodel(config, ecat=ecat, roi_index=roi_index)
+        roi_sources = from_healpix.ROImodelFromHealpix(config, ecat=ecat, roi_index=roi_index)
         print '\n****roi_sources:' , roi_sources
     if (name=='roi_bands' or name=='blike' or name=='likeviews') and roi_bands is None:
         roi_bands = bands.BandSet(config, roi_index)
@@ -204,7 +231,7 @@ class TestDiffuse(TestSetup):
         self.response_check(resp, (602, 1120,  45657))
         
     def test_limb(self):
-        """-->The PowerLaw limb -- not understood yet"""
+        """-->The PowerLaw limb """
         source = sources.GlobalSource(name='limb', skydir=None,
             model = sources.FBconstant(2.0, 1.0),
             dmodel=diffuse.diffuse_factory('limb_PowerLaw(1e-11, 4.0)'))
@@ -356,6 +383,21 @@ class TestROImodel(TestSetup):
         self.assertEquals(npar-1, len(rs.parameters))
         rs.set_model(oldm)
         self.assertEquals(npar, len(rs.parameters))
+
+class TestXML(TestSetup):
+    def setUp(self):
+        setup('roi_sources')
+        
+    def test(self):
+        """-->writing a file, reading it back"""
+        pars = roi_sources.parameters[:]
+        filename = os.path.join(config_dir, 'ROI_%04d.xml' % roi_index)
+        roi_sources.to_xml(filename)
+        roi_xml = from_xml.ROImodelFromXML(config, filename)
+        npars = roi_xml.parameters[:]
+        maxdev = np.abs(pars-npars).max()
+        #print 'Max deviation', maxdev
+        self.assertTrue( maxdev<1e-8)
 
     
 class TestBands(TestSetup):
@@ -526,6 +568,7 @@ test_cases = (
     # currently disabled due to low energy coverage
     # TestExtended, 
     TestROImodel, 
+    TestXML,
     TestBands, 
     TestLikelihood,
     # changes fitter test? TestAddRemoveSource,
