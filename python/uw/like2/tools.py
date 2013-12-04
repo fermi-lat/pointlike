@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.15 2013/11/25 01:27:46 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.16 2013/11/28 19:31:29 burnett Exp $
 
 """
 import os
@@ -58,5 +58,17 @@ class OutputTee(object):
     def set_parent(self, parent):
         self.stdout.set_parent(parent) #needed??
         
+class RecArray(object):
+    def __init__(self, names, dtype=None):
+        self.names = names
+        self.fields=list([list() for i in range(len(names))])
+        self.dtype=dtype
+
+    def append(self,*arg):
+        for i,x in enumerate(arg):
+            self.fields[i].append(x)
+    def __call__(self):
+        """ return finished recarray"""
+        return np.rec.fromarrays(self.fields, names=self.names, dtype=self.dtype)
     
       
