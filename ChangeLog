@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Dec  3 21:18:03 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	associate.py 
+Log Message:
+move association code to here
+    *
+------------------------------------------------------------
 User: kerrm  Tue Dec  3 18:00:01 PST 2013
 pointlike/python/uw/pulsar
 
