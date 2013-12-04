@@ -1,13 +1,14 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.44 2013/11/27 14:59:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.45 2013/11/30 00:40:16 burnett Exp $
 
 """
+import types
 import numpy as np
 from uw.utilities import keyword_options
-from . import (views,  configuration, extended,  roimodel, bands,  
-                localization, sedfuns, tools,
+from . import (views,  configuration, extended,  roimodel, from_xml, from_healpix,
+                bands,  localization, sedfuns, tools,
                 plotting, associate, printing
         )
 
@@ -38,7 +39,7 @@ class ROI(views.LikelihoodViews):
 
     source-related functions
     ------------------------
-      All of these take the name of a source, which is an optional parameter: if a source has 
+      All of these but add_source take the name of a source, which is an optional parameter: if a source has 
       already been selected, it will be used
     TS -- TS for current source
     add_source -- add a new source
@@ -70,20 +71,31 @@ class ROI(views.LikelihoodViews):
     )
 
     @keyword_options.decorate(defaults)
-    def __init__(self, config_dir, roi_index, **kwargs):
+    def __init__(self, config_dir, roi_spec, **kwargs):
         """Start pointlike v2 (like2) in the specified ROI
         
         parameters
         ----------
         config_dir : string
             file path to a folder containing a file config.txt
-        roi_index : integer or (ra,dec) tuple.
+            see configuration.Configuration
+        roi_index : integer or TODO (ra,dec) tuple, name of an xml file
             
         """
         keyword_options.process(self, kwargs)
         config = configuration.Configuration(config_dir, quiet=self.quiet, postpone=True)
         ecat = extended.ExtendedCatalog(config.extended)
-        roi_sources = roimodel.ROImodel(config, ecat=ecat, roi_index=roi_index)
+        if isinstance(roi_spec, int):
+            roi_sources = from_healpix.ROImodelFromHealpix(config, ecat=ecat, roi_index=roi_spec)
+            roi_index = roi_spec
+            self.name = 'HP12_%04d' % roi_index
+        elif isinstance(roi_spec, str):
+            roi_sources =from_xml.ROImodelFromXML(config, ecat=ecat, roi_index=roi_spec)
+            roi_index = roi_sources.index
+            self.name = roi_spec
+        else:
+            raise Exception('Did not recoginze roi_spec: %s' %roi_spec)
+        
         roi_bands = bands.BandSet(config, roi_index)
         roi_bands.load_data()
         super(ROI, self).__init__( roi_bands, roi_sources)
@@ -243,20 +255,17 @@ class ROI(views.LikelihoodViews):
         t = printing.print_summary(self, **kwargs)
         self.sources.selected_source=selected_source
 
-    def find_associations(self, source_name=None, classes='all', quiet=True):
+    def find_associations(self, source_name=None, classes='all_but_gammas', quiet=True):
         """ find associations, using srcid object.
         Expect to find files at $FERMI/catalog.
         """
         source = self.sources.find_source(source_name)
-        try:
-            if not hasattr(source,'srcid'):
-                self.srcid=associate.SrcId('$FERMI/catalog',classes, quiet=quiet)
-            with localization.Localization(self, source.name, quiet=quiet) as loc:
-                if not hasattr(source, 'ellipse'):
-                    loc.localize()
-                localization.make_association(source, loc.TSmap, self.srcid)
-        except Exception, msg:
-            print 'Failed to find associations for %s: %s' % (source.name, msg)
+        if not hasattr(self, 'srcid'):
+            self.srcid=associate.SrcId('$FERMI/catalog',classes, quiet=quiet)
+        if not hasattr(source, 'ellipse'):
+            self.localize()
+        with self.tsmap_view(source_name) as tsv:
+            associate.make_association(source, tsv, self.srcid)
             
         
         
@@ -287,4 +296,4 @@ class ROI(views.LikelihoodViews):
         source.freeze(parname)
         self.sources.initialize()
         
-        
+    
