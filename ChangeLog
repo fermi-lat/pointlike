@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Dec  4 12:12:30 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	roimodel.py 
+Log Message:
+add to_xml function
+    *
+------------------------------------------------------------
 User: burnett  Tue Dec  3 21:31:04 PST 2013
 pointlike/python/uw/like2
 
