@@ -1,7 +1,7 @@
 """
 Classes to compute response from various sources
  
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.6 2013/11/12 00:39:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.7 2013/11/18 00:03:24 burnett Exp $
 author:  Toby Burnett
 """
 import os, pickle
@@ -93,6 +93,7 @@ class PointResponse(Response):
         """
         model = self.spectral_model
         self.expected = self.band.integrator(model)
+        assert not np.isinf(self.expected), 'model integration failure'
         self.counts =  self.expected * self.overlap
         self.model_grad = self.band.integrator( model.gradient)[model.free] #* self.exposure_ratio
         if self.band.has_pixels:
@@ -196,7 +197,9 @@ class DiffuseResponse(Response):
             if dfun.kw['correction'] is not None:
                 if not self.quiet:print '\t%s loading corrections for source %s from %s.kw:' \
                     % (self.__class__.__name__, self.source.name,  dfun.__class__.__name__)
-                corr_file = dfun.kw['correction']
+                print '\t%s loading corrections for source %s from %s.kw:' \
+                    % (self.__class__.__name__, self.source.name,  dfun.__class__.__name__)
+                corr_file = os.path.expandvars(dfun.kw['correction'])
                 if not os.path.exists(corr_file):
                     corr_file = os.path.expandvars(os.path.join('$FERMI','diffuse', corr_file))
                 try:
@@ -271,6 +274,12 @@ class IsotropicResponse(DiffuseResponse):
         keyword_options.process(self, kwargs)
         super(IsotropicResponse, self).__init__(source, band, **kwargs)
         
+    def evaluate(self):
+        # deal with FrontBackConstant case, which uses different conatants for front/back
+        if hasattr(self.source.model, 'ct'): # bit ugly
+            self.source.model.ct=self.band.event_type
+        super(IsotropicResponse, self).evaluate()
+            
     def fill_grid(self):
         # fill the grid for evaluating counts integral over ROI, individual pixel predictions
         grid = self.grid
