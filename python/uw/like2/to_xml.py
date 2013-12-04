@@ -1,16 +1,14 @@
 """
-Generate the XML representation of a skymodel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.11 2013/07/11 17:42:17 burnett Exp $
+Generate the XML representation of a list of sources
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.12 2013/09/04 12:34:58 burnett Exp $
 
 """
 import os, collections, argparse, types, glob, pyfits
 import numpy as np
 import pandas as pd
-from uw.like2 import skymodel
-from uw.utilities import keyword_options
 from uw.like import Models
 from skymaps import SkyDir
-
+from . import ( sources, extended)
 from uw.utilities import xml_parsers
 from collections import OrderedDict
 
@@ -19,7 +17,7 @@ class Element(object):
     """
     level=0
     stream=None
-    def __init__(self, element_name,  **kw):
+    def __init__(self, element_name,  ignore=(), **kw):
         """
         To write to a file, set Element.stream to the open file. Otherwise to standard out
         
@@ -32,10 +30,18 @@ class Element(object):
                 SimpleElement('C', ctest=9):
         
         """
-        # if there is a name in the keywords, put if first for readability
-        name = kw.pop('name', None)
-        self.kw=OrderedDict( kw.items() if name is None else [('name',name)]+kw.items() )
+        # if there is a name and/or type in the keywords, put them first for readability
+        items = []
+        for first in ('title', 'name', 'type'):
+            t = kw.pop(first, None)
+            if t is not None:
+                items.append((first, t))
+        self.kw=OrderedDict( items + [k for k in kw.items() if (k[0] not in ignore) and (k[0][0]!='_') ])
         self.name =element_name
+        self.finish()
+        
+    def finish(self): # for SimpleElement to override
+        pass
     def __str__(self):
         return ' '.join('%s="%s"'%item  for item in self.kw.items()) 
     def text(self, text):
@@ -53,9 +59,8 @@ class Element(object):
 
 class SimpleElement(Element):
     """ An element not containing text."""
-    def __init__(self, element_name, **kw):
-        self.kw=OrderedDict(**kw)
-        self.text('<%s %s/>'% (element_name, self))
+    def finish(self):
+        self.text('<%s %s/>'% (self.name, self))
 
 
 def pmodel(source):
@@ -96,9 +101,49 @@ def pmodel(source):
     return model
         
 
+def from_roi(roimodel, title=None, stream=None, strict=True, maxi=None):
+    """
+    Create an XML file describing the complete data model for an ROI
+    
+    roimodel : roimodel.ROImodel object
+        Expect a list of sources.Source objects
+    """
+    Element.stream = stream
+    m2x = xml_parsers.Model_to_XML(strict=strict)
+    if title is None:
+        title = 'Sources from roi %04d' % roimodel.index
+        
+    with Element('source_library', title=title,  
+        ignore=('selected_source','quiet'), **roimodel.__dict__) as sl:
+    
+        for source in roimodel:
+            stype = source.__class__.__name__
+
+            with Element('source',  type=stype, ignore=('model','sedrec', 'free', 'changed', 'spatial_model'),
+                        **source.__dict__) as src:
+                # insert model, a spectrum element. Uses class from xml_parsers
+                m2x.process_model(source.model)
+                src.text(m2x.getXML(tablevel=0))
+                
+                # insert spatial model depending on source type
+                if stype=='PointSource':
+                    src.text(xml_parsers.makePSSpatialModel(source.skydir, tablevel=0))
+                elif stype=='ExtendedSource':
+                    with Element('spatialModel', type=source.dmodel.name, 
+                            file="%s"%source.dmodel.file) as sm:
+                        SimpleElement('parameter', name='Prefactor', value=1.0, free=0, max=1e3,min=1e-3, scale=1.0)
+                elif stype=='GlobalSource':
+                    SimpleElement('spatialModel', type=source.dmodel[0].__class__.__name__,
+                        ignore=('spectral_function'), **source.dmodel[0].__dict__)
+            if maxi is not None and i>maxi: break
+
+
 def source_library(source_list, title='sources', stream=None, strict=False, maxi=None):
     """ Generate sources in XML format 
+    
     source_list : pandas.DataFrame
+    stream : output stream
+        if None, to console
     
     """
     Element.stream = stream
@@ -113,9 +158,10 @@ def source_library(source_list, title='sources', stream=None, strict=False, maxi
         raise Exception('Failed to find the Extended archive: %s' %msg)
 
     with Element('source_library', title=title) as sl:
-        for i,source in source_list.iterrows():
-            stype = 'DiffuseSource' if np.isnan(source['locqual']) else 'PointSource'
-            with Element('source', type=stype, **source) as src:
+        for name,source in source_list.iterrows():
+            stype = 'ExtendedSource' if np.isnan(source['locqual']) else 'PointSource'
+            with Element('source', type=stype, name=name, ignore=('model','sedrec', 'free'),
+                        **source) as src:
                 m2x = xml_parsers.Model_to_XML(strict=strict)
                 m2x.process_model(pmodel(source))
                 src.text(m2x.getXML(tablevel=0))
@@ -124,7 +170,7 @@ def source_library(source_list, title='sources', stream=None, strict=False, maxi
                     ns +=1
                 else:
                     with Element('spatialModel', type='SpatialMap', 
-                            file="%s" % extended.ix[source['name']]['Spatial_Filename'].strip() ) as sm:
+                            file="%s" % extended.ix[name]['Spatial_Filename'].strip() ) as sm:
                         SimpleElement('parameter', name='Prefactor', value=1.0, free=0, max=1e3,min=1e-3, scale=1.0)
                     ne += 1
             if maxi is not None and i>maxi: break
