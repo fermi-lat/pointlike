@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Dec  3 21:26:59 PST 2013
+pointlike/python/uw/like2
+
+Added Files:
+	from_healpix.py from_xml.py 
+Log Message:
+new module to load sources
+    *
+------------------------------------------------------------
 User: burnett  Tue Dec  3 21:25:51 PST 2013
 pointlike/python/uw/like2
 
