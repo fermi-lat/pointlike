@@ -1,6 +1,6 @@
 """
 Code to generate an ROI counts plot 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.7 2013/11/26 04:39:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.8 2013/11/27 14:52:52 burnett Exp $
 
 Authors M. Kerr, T. Burnett
 
@@ -11,29 +11,28 @@ import pylab as plt
 from matplotlib import font_manager
 
 
-def get_counts(roi, event_class=None, tsmin=10):
+def get_counts(roi, event_type=None, tsmin=10):
     """
     return a dictionary with counts information for plotting
     
     roi : an ROIstat object
-    event_class : None or integer
+    event_type : None or integer
         if integer, 0/1 for front/back
     tsmin : float
         used to select sources if bandts info in sedrec exists
         the bandts values are in the dict, None if no info
     """
     bands = roi.selected
-    if event_class is not None:
-        bands = [b for b in bands if b.band.ec==event_class]
+    if event_type is not None:
+        bands = [b for b in bands if b.band.event_type==event_type]
     assert len(bands)>0, 'get_counts: no bands found'
     all_sources = np.array(roi.sources)
     global_mask = np.array([s.skydir is None for s in roi.sources])
     free_mask = np.array([s.skydir is not None and np.any(s.model.free) for s in roi.sources])
     
-    global_sources = np.array([ s for s in roi.sources if s.skydir is None])
+    global_sources = all_sources[global_mask]
     free_sources = all_sources[free_mask] 
-    strong_filter= lambda s: s.sedrec.ts.sum()>tsmin if hasattr(s,'sedrec')\
-            else True if s in free_sources else False
+    strong_filter= lambda s: (s.sedrec.ts.sum()>tsmin if hasattr(s,'sedrec') else True) and s in free_sources
     strong_mask = np.array([strong_filter(s) for s in all_sources])
     weak_mask = free_mask * (~strong_mask)
     
@@ -64,7 +63,7 @@ def get_counts(roi, event_class=None, tsmin=10):
         names=names, total=total, bandts=bandts, chisq=chisq)
     
 
-def plot_counts(roi,fignum=1, event_class=None, outfile=None,
+def plot_counts(roi,fignum=1, event_type=None, outfile=None,
         max_label=10, #merge_non_free=True,
         #merge_all=False,
         axes = None,
@@ -160,7 +159,7 @@ def plot_counts(roi,fignum=1, event_class=None, outfile=None,
         fig, axes = plt.subplots(1,2, sharex=True, num=fignum, figsize=(12,6))
 
     tsmin = kwargs.pop('tsmin', 10)
-    count_data = get_counts(roi, event_class, tsmin=tsmin
+    count_data = get_counts(roi, event_type, tsmin=tsmin
     ) #, integral=integral, merge_non_free=merge_non_free, merge_all=merge_all)
 
     plot_counts_and_models(axes[0], count_data)
