@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Dec  3 18:00:01 PST 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py 
+Log Message:
+Add ability to fit overall phase first.
+
+    *
+------------------------------------------------------------
 User: kerrm  Sun Dec  1 18:40:57 PST 2013
 pointlike/python/uw/pulsar
 
