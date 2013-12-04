@@ -1,6 +1,6 @@
 """
 All like2 testing code goes here, using unittest
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.22 2013/11/28 19:37:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.23 2013/11/30 00:40:16 burnett Exp $
 """
 import os, sys, unittest
 import numpy as np
@@ -23,7 +23,7 @@ from uw.like2 import ( configuration,
     )
 
 # globals: references set by setUp methods in classes as needed
-config_dir = os.path.expandvars('$HOME/skymodels/P202/uw29')
+config_dir = os.path.expandvars('$HOME/test') #skymodels/P202/uw29')
 config = None
 ecat = None
 roi_index = 840
@@ -123,7 +123,7 @@ class TestDiffuse(TestSetup):
                 ('isotrop_4years_P7_V15_repro_v2_source_front.txt', 
                     'isotrop_4years_P7_V15_repro_v2_source_back.txt'),
                 dict(filename='template_4years_P7_v15_repro_v2_4bpd.zip',
-                        correction='../../P202/uw29/galactic_correction_uw26a_v2.csv', 
+                        correction='galactic_correction_uw26a_v2.csv', 
                         systematic=0.0316),
                 'template_4years_P7_v15_repro_v2.fits',
                 'limb_PowerLaw(1e-11, 4.0)',
@@ -143,7 +143,7 @@ class TestDiffuse(TestSetup):
         source = sources.GlobalSource(name='isotrop', skydir=None,
             model=sources.Constant(1.0),
             dmodel=diffuse.diffuse_factory(['isotrop_4years_P7_V15_repro_v2_source_%s.txt'%s 
-                                            for s in self.config.event_class_names]))
+                                            for s in self.config.event_type_names]))
         self.resp =resp=source.response(self.back_band)
         self.assertAlmostEquals(4626, resp.counts, delta=1) # warning: seems to be 4850 in old version
         self.assertAlmostEquals(193864, resp(resp.roicenter), delta=10)
@@ -209,7 +209,7 @@ class TestDiffuse(TestSetup):
             model = sources.FBconstant(2.0, 1.0),
             dmodel=diffuse.diffuse_factory('limb_PowerLaw(1e-11, 4.0)'))
         self.resp_back = source.response(self.back_band)
-        self.assertAlmostEquals(2545, self.resp_back.counts, delta=10)
+        self.assertAlmostEquals(1272, self.resp_back.counts, delta=10)
         self.resp_front = source.response(self.front_band)
         self.assertAlmostEquals(2136, self.resp_front.counts, delta=10)
     
