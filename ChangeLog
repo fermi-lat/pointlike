@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Dec  3 21:28:13 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	main.py 
+Log Message:
+implement xml or healpix input; fix association
+    *
+------------------------------------------------------------
 User: burnett  Tue Dec  3 21:26:59 PST 2013
 pointlike/python/uw/like2
 
