@@ -1,6 +1,6 @@
 """
 Implementation of various roi printing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/printing.py,v 1.6 2013/02/10 23:19:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/printing.py,v 1.7 2013/11/27 14:52:18 burnett Exp $
 """
 import os
 import numpy as np
@@ -67,10 +67,22 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
         freeflag = map(makefreeflag, model.free, sigpar)
         values = (ps.name.strip(), dist) +loc+ (ts,)+( model.i_flux(e_weight=1, emax=1e5)*1e6, freeflag[0], )
         
-        for i in index_order: # parameters beyond flux
-            #if expcutoff and i==npar-1: fmt+=9*' '# gap if ExpCutoff to line up with cutoff 
-            fmt    += '%8.2f%1s' 
-            values += (par[i], freeflag[i]) 
+        #index
+        fmt += '%8.2f%1s' 
+        j = index_order[0]
+        values += (par[j], freeflag[j])
+        #energy
+        j = index_order[1]
+        fmt += '%8.0f%1s'
+        values += (par[j], freeflag[j])
+        # beta or b
+        j = index_order[2]
+        if (par[j]==1) or abs(par[j])<0.01:
+            fmt+='%5.0f'; values += (par[j],)
+        else:
+            fmt+='%8.2f%1s'
+            values += (par[j], freeflag[j])
+        
         print fmt % values
         
     print 90*'-','\n\tDiffuse sources\n',90*'-'

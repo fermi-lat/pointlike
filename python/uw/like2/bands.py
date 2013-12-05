@@ -1,7 +1,7 @@
 """
 manage band classes
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bands.py,v 1.3 2013/11/26 15:57:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bands.py,v 1.4 2013/11/30 00:40:16 burnett Exp $
 """
 import os
 import numpy as np
@@ -9,7 +9,7 @@ import skymaps
 
 energybins = np.logspace(2,5.5,15) # default 100 MeV to 3.16 GeV, 4/decade
   
-class Bandlite(object):
+class EnergyBand(object):
     """ Combine three concepts:
     * definition of the binning in solid angle and energy
     * PSF and exposure for the given configuration, appropriate to this band
@@ -74,7 +74,7 @@ class Bandlite(object):
         return ret
         
 class BandSet(list):
-    """ manage the list of bands
+    """ manage the list of EnergyBand objects
     """
     def __init__(self, config, roi_index, max=None):
         """create a list of energy bands
@@ -82,7 +82,7 @@ class BandSet(list):
         config : configuration.Configuration object
         roi_index : int | (float,float)
             specify direction, either as nside=12 index, or an (ra,dec) pair
-            the actual center is the center of the corresponding 
+            the actual center is the center of the corresponding nside=12 HEALPix pixel
         """
         self.config = config
         if hasattr(roi_index,'__iter__') and len(roi_index)==2:
@@ -91,7 +91,7 @@ class BandSet(list):
         self.roi_index = roi_index
         for emin, emax  in zip(energybins[:-1], energybins[1:]):
             for et in range(2):
-                self.append(Bandlite(None, config, roi_index, event_type=et, emin=emin,emax=emax))
+                self.append(EnergyBand(None, config, roi_index, event_type=et, emin=emin,emax=emax))
         self.has_data = False
         self.roi_dir = skymaps.Band(12).dir(roi_index) # could be defined otherwise
     

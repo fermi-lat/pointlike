@@ -5,7 +5,7 @@ Manage a SED plot
             sf an SourceFlux object, 
         Plot(sf)()
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.17 2013/10/26 15:41:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.18 2013/11/26 04:25:48 burnett Exp $
 """
 import os, types
 import numpy as np
@@ -220,21 +220,31 @@ def sed_table(roi, source_name=None):
                 index=np.array(np.sqrt(si.elow*si.ehigh),int), columns='flux lflux uflux mflux TS pull'.split())
                 
 
-def stacked_plots(sed,  outdir=None, fignum=6, **kwargs):
+def stacked_plots(sed,  outdir=None,  **kwargs):
     """ 
     Make stacked plots
         
-        roi : A ROIstat object
+        sed : an EnergyFluxView object
             Uses the name as a title unless title specified
         outdir : None or the name of a folder
             In the folder case, makes a file name from the ROI name
             
-        Creates the two Axes objects, and returns them
+    Creates the two Axes objects, and returns figure containing them
     """
-    plt.close(fignum)
+    source = sed.func.source
     oldlw = plt.rcParams['axes.linewidth']
     plt.rcParams['axes.linewidth'] = 2
-    fig, axes = plt.subplots(2,1, sharex=True, num=fignum, figsize=(4,5),dpi=100)
+    
+    # if an axes object passed in, use it for the SED only
+    ax = kwargs.pop('axes', None)
+    kw = dict(energy_flux_unit=kwargs.pop('energy_flux_unit', 'eV'))
+
+    if ax is not None:
+        Plot(source, **kw)(axes=ax)
+        plt.rcParams['axes.linewidth'] = oldlw
+        return ax.figure
+        
+    fig, axes = plt.subplots(2,1, sharex=True,  figsize=(4,5),dpi=100)
     fig.subplots_adjust(hspace=0)
     axes[0].tick_params(labelbottom='off')
     left, bottom, width, height = (0.15, 0.10, 0.75, 0.85)
@@ -242,10 +252,8 @@ def stacked_plots(sed,  outdir=None, fignum=6, **kwargs):
 
     axes[0].set_position([left, bottom+(1-fraction)*height, width, fraction*height])
     axes[1].set_position([left, bottom, width, (1-fraction)*height])
-    source = sed.func.source
     #if not hasattr(source, 'sedrec'):
     #    roi.get_sed(source_name)
-    kw = dict(energy_flux_unit=kwargs.pop('energy_flux_unit', 'eV'))
     p = Plot(source, **kw)
     kwargs.update(outdir=None)
     suffix = kwargs.pop('suffix', '_sed')
@@ -269,5 +277,5 @@ def stacked_plots(sed,  outdir=None, fignum=6, **kwargs):
     
     if outdir is not None:
         p.savefig( outdir, suffix)
-    return axes
+    return fig
 

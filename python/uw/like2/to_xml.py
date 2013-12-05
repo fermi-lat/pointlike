@@ -1,6 +1,6 @@
 """
 Generate the XML representation of a list of sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.13 2013/12/04 05:31:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.14 2013/12/04 20:13:11 burnett Exp $
 
 """
 import os, collections, argparse, types, glob, pyfits
@@ -106,7 +106,7 @@ def from_roi(roimodel, title=None, stream=None, strict=True, maxi=None):
     Create an XML file describing the complete data model for an ROI
     
     roimodel : roimodel.ROImodel object
-        Expect a list of sources.Source objects
+        Expect to be a list of sources.Source objects
     """
     Element.stream = stream
     m2x = xml_parsers.Model_to_XML(strict=strict)

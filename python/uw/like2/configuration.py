@@ -1,7 +1,7 @@
 """
 Manage the analysis configuration
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.9 2013/11/28 19:32:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.10 2013/12/04 05:18:44 burnett Exp $
 
 """
 import os, sys, types
@@ -14,6 +14,8 @@ from uw.utilities import keyword_options
 class Configuration(object):
     """
     Manage an analysis configuration: the IRF, exposure and data
+    This is used by the band class EnergyBand to set up the PSF and exposure for the energy 
+    range and sky position.
     """
     defaults =(
         ('event_type_names', ('front', 'back'), 'names to describe event classes'),

@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.70 2013/10/11 16:37:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.71 2013/11/30 00:40:16 burnett Exp $
 """
 import os, time, sys, types, glob
 import cPickle as pickle
@@ -156,17 +156,17 @@ def pickle_dump(roi, fit_sources, pickle_dir, dampen, failed=False, **kwargs):
         
     sources=dict()
     output['sources']= sources
-    def getit(s, key, savekey=None):
-        """ key: current key
-            savekey: key to save, expect to find in saved pickle
-        """
-        if savekey is None: savekey=key
-        t = s.__dict__.get(key, None)
-        if t is None and s.name in oldsrc:
-            t = oldsrc[s.name].get(savekey, None)
-            if t is not None:
-                print 'ROI pickle: keeping previous calculation of %s for %s' % (savekey, s.name)
-        return t
+    #def getit(s, key, savekey=None):
+    #    """ key: current key
+    #        savekey: key to save, expect to find in saved pickle
+    #    """
+    #    if savekey is None: savekey=key
+    #    t = s.__dict__.get(key, None)
+    #    if t is None and s.name in oldsrc:
+    #        t = oldsrc[s.name].get(savekey, None)
+    #        if t is not None:
+    #            print 'ROI pickle: keeping previous calculation of %s for %s' % (savekey, s.name)
+    #    return t
     def getit(s, key, savekey=None):
         """ key: current key
             savekey: key to save, expect to find in saved pickle
