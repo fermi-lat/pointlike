@@ -1,7 +1,7 @@
 """
 Manage the analysis configuration
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.11 2013/12/05 21:16:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.12 2013/12/05 22:05:12 burnett Exp $
 
 """
 import os, sys, types
@@ -105,6 +105,7 @@ class Configuration(object):
                 t = os.path.expandvars(os.path.join('$FERMI', self.modeldir))
                 if not os.path.exists(t):
                     raise Exception('No source model file found in %s' %(self.modeldir, t) )
+                self.modeldir=t
             
     def __repr__(self):
         return '%s.%s: %s' %(self.__module__, self.__class__.__name__, self.configdir)
