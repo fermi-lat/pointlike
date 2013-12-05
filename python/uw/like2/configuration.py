@@ -1,7 +1,7 @@
 """
 Manage the analysis configuration
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.10 2013/12/04 05:18:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.11 2013/12/05 21:16:33 burnett Exp $
 
 """
 import os, sys, types
@@ -102,7 +102,9 @@ class Configuration(object):
         if not os.path.exists(os.path.join(self.configdir, 'pickle.zip')) and input_model is not None:
             self.modeldir = os.path.expandvars(input_model['path'])
             if not os.path.exists(self.modeldir):
-                raise Exception('No soure model file found')
+                t = os.path.expandvars(os.path.join('$FERMI', self.modeldir))
+                if not os.path.exists(t):
+                    raise Exception('No source model file found in %s' %(self.modeldir, t) )
             
     def __repr__(self):
         return '%s.%s: %s' %(self.__module__, self.__class__.__name__, self.configdir)
