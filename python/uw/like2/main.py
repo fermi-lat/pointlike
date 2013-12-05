@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.45 2013/11/30 00:40:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.46 2013/12/04 05:28:13 burnett Exp $
 
 """
 import types
@@ -86,7 +86,7 @@ class ROI(views.LikelihoodViews):
         config = configuration.Configuration(config_dir, quiet=self.quiet, postpone=True)
         ecat = extended.ExtendedCatalog(config.extended)
         if isinstance(roi_spec, int):
-            roi_sources = from_healpix.ROImodelFromHealpix(config, ecat=ecat, roi_index=roi_spec)
+            roi_sources = from_healpix.ROImodelFromHealpix(config, roi_spec, ecat=ecat,)
             roi_index = roi_spec
             self.name = 'HP12_%04d' % roi_index
         elif isinstance(roi_spec, str):
@@ -215,11 +215,11 @@ class ROI(views.LikelihoodViews):
     def plot_sed(self, source_name=None, **kwargs):
         source = self.sources.find_source(source_name)
         showts = kwargs.pop('showts', True)
-        if kwargs.get('update', True):
+        if kwargs.pop('update', False):
             self.get_sed(update=True)
         annotation =(0.04,0.88, 'TS=%.0f' % source.ts ) if showts and hasattr(source, 'ts') else None 
         kwargs.update(galmap=self.roi_dir, annotate=annotation)
-        with sedfuns.SED(self, source_name) as sf:
+        with sedfuns.SED(self, source.name) as sf:
             t = plotting.sed.stacked_plots(sf, **kwargs)
         return t
 
@@ -233,7 +233,7 @@ class ROI(views.LikelihoodViews):
         """
         source = self.sources.find_source(source_name)
         plot_kw = dict(size=0.25, pixelsize=0.25/15, outdir=None, 
-            assoc=getattr(source, 'adict', None) ) 
+            assoc=getattr(source, 'associations', None) ) 
         plot_kw.update(kwargs)
         with self.tsmap_view(source_name) as tsm:
 
@@ -247,7 +247,7 @@ class ROI(views.LikelihoodViews):
             except Exception, e:
                 print 'Failed localization for source %s: %s' % (source.name, e)
             tsp = plotting.tsmap.plot(loc, **plot_kw)
-        return tsp
+        return tsp.axes.figure # might want access to TSplot.
         
     @tools.decorate_with(printing.print_summary)
     def print_summary(self, **kwargs):
@@ -264,7 +264,7 @@ class ROI(views.LikelihoodViews):
             self.srcid=associate.SrcId('$FERMI/catalog',classes, quiet=quiet)
         if not hasattr(source, 'ellipse'):
             self.localize()
-        with self.tsmap_view(source_name) as tsv:
+        with self.tsmap_view(source.name) as tsv:
             associate.make_association(source, tsv, self.srcid)
             
         

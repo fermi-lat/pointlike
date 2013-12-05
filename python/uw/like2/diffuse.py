@@ -1,7 +1,7 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.30 2013/11/27 14:59:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.31 2013/12/04 05:19:33 burnett Exp $
 
 author:  Toby Burnett
 """
@@ -170,7 +170,7 @@ class CachedMapCube(DiffuseBase):
         if len(t)==1729: # if ziped with foldername
             t = t[1:]
         self.files = sorted(t) 
-        assert len(self.files)==1728, 'wrong number of files: expected 1728, found %d' % len(files)
+        assert len(self.files)==1728, 'wrong number of files: expected 1728, found %d' % len(self.files)
         self.opener = z.open
 
     def __repr__(self):

@@ -4,7 +4,7 @@ classes presenting views of the likelihood engine in the module bandlike
 Each has a mixin to allow the with ... as ... construction, which should restore the BandLikeList
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.7 2013/11/27 14:59:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.8 2013/11/30 00:40:16 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -12,7 +12,7 @@ import sys, types
 import numpy as np
 from scipy import misc, optimize
 from skymaps import SkyDir
-from . import (roimodel, bandlike, tools)
+from . import (roimodel, bandlike, tools, parameterset)
 
 class FitterSummaryMixin(object):
     """mixin to summarize variables"""
@@ -292,7 +292,7 @@ class FitterView(FitPlotMixin, FitterMixin, FitterSummaryMixin, tools.WithMixin)
         return self.parameters.mask
              
 
-class SubsetFitterView(roimodel.ParSubSet, FitPlotMixin, FitterMixin, FitterSummaryMixin,tools.WithMixin):
+class SubsetFitterView(parameterset.ParSubSet, FitPlotMixin, FitterMixin, FitterSummaryMixin,tools.WithMixin):
 
     def __init__(self, blike, select=None, exclude=None):
         self.blike = blike
@@ -404,7 +404,11 @@ class EnergyFluxView(tools.WithMixin):
         return -self.func([par])        
 class LikelihoodViews(bandlike.BandLikeList):
 
-    """Subclass of BandLikeList with  methods to return views for specific analyses
+    """Subclass of BandLikeList with  methods to return views for specific analyses.
+    
+    * fits: fitter_view, return a FitterView or SubsetFitterView
+    * SED : energy_flux_view, a fitterView with a source selected
+    * TSmap : tsmap_view : a FitterView with the source flux selected which can have the position changed.
     """
     
     def fitter_view(self, select=None, **kwargs):

@@ -1,7 +1,7 @@
 """
 Classes to compute response from various sources
  
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.7 2013/11/18 00:03:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.8 2013/12/04 05:22:22 burnett Exp $
 author:  Toby Burnett
 """
 import os, pickle
@@ -25,15 +25,17 @@ extended_grid_defaults = [
         ]
 
 class Response(object):
-    """ base class for classes that manage the response of a source, in total counts 
-    or count density for any position within the ROI.   
+    """ Base class for classes that manage the response of a source, in total counts 
+    or count density for any position within the ROI. Created by the response function of each source.  
+    The constructor for the appropriate subclass is invoked by the source's "response" function, with an 
+    EnergyBand as argument. 
     """
     def __init__(self, source, band, **kwargs):
         """
         source : Source object, inherit from sources.Source
             skydir : position of source, or None if global
-            model : associated specral model
-        band : ROIband object
+            model : associated spectral model
+        band : EnergyBand object
             psf, exposure functions for the event type
             skydir, radius : location, size of ROI
             emin, emax : energy range
@@ -196,8 +198,6 @@ class DiffuseResponse(Response):
             # Manage keywords found in the 
             if dfun.kw['correction'] is not None:
                 if not self.quiet:print '\t%s loading corrections for source %s from %s.kw:' \
-                    % (self.__class__.__name__, self.source.name,  dfun.__class__.__name__)
-                print '\t%s loading corrections for source %s from %s.kw:' \
                     % (self.__class__.__name__, self.source.name,  dfun.__class__.__name__)
                 corr_file = os.path.expandvars(dfun.kw['correction'])
                 if not os.path.exists(corr_file):

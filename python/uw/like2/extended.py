@@ -1,7 +1,7 @@
 """
 Extended source code
 Much of this adapts and utilizes 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.6 2013/11/30 00:40:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.7 2013/12/04 05:21:21 burnett Exp $
 
 """
 import os, copy
@@ -102,43 +102,3 @@ def make_pictures(config_dir='.', image_folder = 'extended_images'):
 
 
 
-def test(source_name='LMC', config_dir='.',   event_type=1, energy=133 , roi=None):
-    """Test and demonstrate interface
-    
-    """
-    from uw.like2 import configuration
-    import skymaps
-    print '============== testing source %s ===================' % source_name
-    cf = configuration.Configuration(config_dir, quiet=True, postpone=True)
-    ecat = ExtendedCatalog(cf.extended)
-    source = ecat.lookup(source_name)
-    b12 = skymaps.Band(12);
-    if roi is not None:
-        roi_index=roi
-    else:
-         roi_index = b12.index(source.skydir)
-    roi_dir = b12.dir(roi_index) 
-    difference = np.degrees(roi_dir.difference(source.skydir))
-    print 'Using ROI #%d, distance=%.2f deg' %( roi_index, difference)
-    class Bandlite(object):
-        def __init__(self, roi_dir=roi_dir, event_type=event_type, energy =energy):
-            self.event_type=event_type
-            self.energy=energy
-            self.sd=roi_dir
-            self.psf=cf.psfman(event_type,energy)
-            self.exposure = cf.exposureman(event_type,energy)
-            self.radius = 5
-        def set_energy(self, energy): self.psf.setEnergy(energy); self.exposure.setEnergy(energy)
-    band = Bandlite()
-    print 'Testing source "%s" with band parameters\n' %source
-    #print 'pixelsize=%.2f' % pixelsize
-    for item in band.__dict__.items():
-        print '\t%-10s %s' % item
-    convolver = source.convolver(band)# pixelsize=pixelsize, npix=npix)
-    convolver.create_grid()
-    print convolver
-    convolver.convolve()
-    print 'overlap: %.3f,  exposure_ratio: %.3f' %( convolver.overlap(),convolver.exposure_ratio())
-    print 'PSF overlap: %.3f' % band.psf.cpsf.overlap_circle(band.sd, np.radians(band.radius), source.skydir)
-    return convolver.show_all() #(title='%s: %.0f MeV etype %d' % (source_name, energy, event_type)) # return a figure showing convolution
-    

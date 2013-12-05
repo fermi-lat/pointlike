@@ -1,6 +1,6 @@
 """
 Code to generate an ROI counts plot 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.8 2013/11/27 14:52:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.9 2013/12/04 05:29:59 burnett Exp $
 
 Authors M. Kerr, T. Burnett
 
@@ -195,7 +195,6 @@ def stacked_plots(roi, counts_dir=None, fignum=6, title=None, **kwargs):
 
     axes[0].set_xlabel('') 
     axes[0].set_ylim(ymin=0.3)
-    #axes[1].set_ylabel('fract. dev')
     if title is None:
         if hasattr(roi,'name'): fig.suptitle(roi.name)
     else: fig.suptitle(title)
@@ -206,4 +205,4 @@ def stacked_plots(roi, counts_dir=None, fignum=6, title=None, **kwargs):
             fout = counts_dir
         fig.savefig(fout)
         print 'saved counts plot to %s' % fout
-    return axes
+    return fig

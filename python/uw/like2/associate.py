@@ -1,6 +1,6 @@
 """
  Manage associations
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/associate.py,v 1.1 2013/11/25 01:28:16 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/associate.py,v 1.2 2013/12/04 05:18:03 burnett Exp $
  author: T. Burnett <tburnett@uw.edu>
 """
 import os, glob
@@ -11,7 +11,7 @@ from uw.like import srcid  # gtsrcid work-alike from Eric
 
 class SrcId(srcid.SourceAssociation):
     """
-    adapter to simplify source association
+    adapter to Eric Wallace's source association code
     """
     def __init__(self, catalog_path='$FERMI/catalog/', classes='all_but_gammas', quiet=True):
         """ 
