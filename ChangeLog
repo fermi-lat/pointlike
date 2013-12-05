@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Thu Dec  5 13:16:33 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	associate.py bands.py configuration.py diffuse.py extended.py 
+	loglikelihood.py main.py printing.py response.py roimodel.py 
+	sources.py test.py to_xml.py views.py 
+Log Message:
+docs for release
+    *
+------------------------------------------------------------
 User: burnett  Wed Dec  4 12:13:35 PST 2013
 pointlike/python/uw/like2
 
