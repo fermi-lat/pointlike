@@ -1,7 +1,7 @@
 """
 Comparison with a gtlike model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gtlikecomparison.py,v 1.7 2013/09/20 12:41:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gtlikecomparison.py,v 1.8 2013/09/20 13:17:04 burnett Exp $
 
 """
 
@@ -24,7 +24,10 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         gllcats = sorted(glob.glob(os.path.expandvars(os.path.join('$FERMI','catalog', catpat))))
         assert len(gllcats)>0, 'No gtlike catalogs found'
         cat = gllcats[-1]
-        super(GtlikeComparison, self).setup(cat=cat, catname='v7' ) #cat.split('_')[-1].split('.')[0], **kw)
+        catname= os.path.split(cat)[-1]
+        super(GtlikeComparison, self).setup(cat=cat, catname=catname ) #cat.split('_')[-1].split('.')[0], **kw)
+        cat_version = (catname.split('_')[2]).lower()
+        assert cat_version[0]=='v', 'expected version in 3rd token of %s' %catname
         self.plotfolder = 'comparison_%s' % self.catname
         
         # make copy of the df  index with no blanks in names, for comparison, combination
@@ -94,7 +97,7 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
     def compare_fits(self):
         """ Compare spectral quantities for sources common to both models
         <br><b>Left: </b> Gtlike TS distribution.
-        <br><b>Center:</b> Gtlike TS vs. pointlike TS, showing the hig latitude subset.
+        <br><b>Center:</b> Gtlike TS vs. pointlike TS, showing the high latitude subset.
         <br><b>Right: </b> Comparison of the pivot energies.
         
         """
