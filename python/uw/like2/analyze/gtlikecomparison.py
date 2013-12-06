@@ -1,13 +1,14 @@
 """
 Comparison with a gtlike model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gtlikecomparison.py,v 1.8 2013/09/20 13:17:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gtlikecomparison.py,v 1.9 2013/12/06 13:19:40 burnett Exp $
 
 """
 
 import os, pickle, glob
 import numpy as np
 import pylab as plt
+import matplotlib.gridspec as gridspec
 import pandas as pd
 
 from uw.utilities import makepivot
@@ -28,7 +29,7 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         super(GtlikeComparison, self).setup(cat=cat, catname=catname ) #cat.split('_')[-1].split('.')[0], **kw)
         cat_version = (catname.split('_')[2]).lower()
         assert cat_version[0]=='v', 'expected version in 3rd token of %s' %catname
-        self.plotfolder = 'comparison_%s' % self.catname
+        self.plotfolder = 'comparison_%s' % cat_version
         
         # make copy of the df  index with no blanks in names, for comparison, combination
         cname = [n.replace(' ','') for n in self.df.index]
@@ -74,7 +75,7 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
 
         s  = html_table(self.cat.ix[added]['ra dec ts'.split()], 
              dict(ts='TS, gtlike TS', ra='RA,', dec='Dec,'), 
-             heading = '\n<h4>Sources added to gtlike</h4>',
+             heading = '\n<h4>Sources in gtlike not in pointlike</h4>',
              float_format=FloatFormat(2), maxlines=50)
              
         cut50 = (df.no_gtlike)*((df.ts>50)+df.psr*(df.ts>10)) 
@@ -96,12 +97,14 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         
     def compare_fits(self):
         """ Compare spectral quantities for sources common to both models
-        <br><b>Left: </b> Gtlike TS distribution.
-        <br><b>Center:</b> Gtlike TS vs. pointlike TS, showing the high latitude subset.
-        <br><b>Right: </b> Comparison of the pivot energies.
+        <br><b>Top Left: </b> Gtlike TS distribution.
+        <br><b>Top center:</b> Gtlike TS vs. pointlike TS, showing the high latitude subset.
+        <br><b>Top right: </b> Comparison of the pivot energies.
+        <br><b>Bottom: </b>Ratio of pointlike differential flux at gtlike pivot energy, vs ptlike flux.
         
         """
         df = self.dfx
+        cat = self.cat
         lowlat = np.abs(df.glat)<5
         psr = df.modelname=='PLSuperExpCutoff'
 
@@ -125,10 +128,31 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
             plt.setp(ax, xlim=xylim, ylim=xylim, xlabel='gtlike pivot', ylabel='pointlike pivot')
             ax.plot(xylim, xylim, '--g')
             ax.grid();
+            
+        def plot_flux_ratio(ax):
+            df['pivot_gt'] = cat['pivot']
+            df['flux_gt'] = cat.flux
+            df['modflux'] =[m(e) for (m, e ) in zip(df.model, df.pivot_gt)]
+            ax.loglog(df.modflux, df.modflux/df.flux_gt, '.')
+            ax.loglog(df.modflux[lowlat], (df.modflux/df.flux_gt)[lowlat], '.r', label='|b|<5')
+            plt.setp(ax, ylim=(0.5,2.0), xlim=(1e-15, 2e-9), xlabel='ptlike flux at gtlike pivot', ylabel='pt/gt flux ratio')
+            ax.axhline(1, color='gray')
+            for u in (0.95,1.05): 
+                ax.axhline(u, ls='--', color='orange')
+            ax.set_yticks((0.5, 0.8, 1.0, 1.25, 2.0))
+            ax.set_yticklabels('0.5 0.8 1.0 1.25 2.0'.split())
+            ax.legend()
+            ax.grid()
+
+        gs = gridspec.GridSpec(2,3)
+        gs.update(wspace=0.3, hspace=0.3)
+        fig = plt.figure(figsize=(12,8))
+        axx = [plt.subplot(gs[0,col]) for col in range(3)]
+        axx.append(plt.subplot(gs[1,:]) )
         
-        fig, ax = plt.subplots(1,3, figsize=(14,6))
-        plt.subplots_adjust(wspace=0.3, left=0.1)
-        for f, ax in zip([plot1,plot2,plot_pivot,], ax): f(ax)
+        toplot = [plot1, plot2, plot_pivot, plot_flux_ratio]
+        for f, ax in zip(toplot, axx):
+            f(ax)
         return fig
 
     def delta_ts(self, dmax=10, dmin=-1):
