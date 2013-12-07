@@ -1,7 +1,7 @@
 """
 Comparison with a gtlike model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gtlikecomparison.py,v 1.9 2013/12/06 13:19:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gtlikecomparison.py,v 1.10 2013/12/06 20:03:03 burnett Exp $
 
 """
 
@@ -60,6 +60,12 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         df['ts_gt'] = df.other_ts
         df['ts_pt'] = df.ts
         df['no_gtlike'] = pd.isnull(df.ts_gtlike) * (~np.isinf(df.ts_gtlike))
+        
+        df['pivot_gt'] = self.cat['pivot']
+        df['flux_gt'] = self.cat.flux
+        df['modflux'] =[m(e) for (m, e ) in zip(df.model, df.pivot_gt)]
+        df['flux_ratio']= df.modflux/df.flux_gt
+
         
         # finally, restore the blanks in the index for self.dfx
         df.index = [gtname_dict[n] for n in df.index]
@@ -155,10 +161,20 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
             f(ax)
         return fig
 
-    def delta_ts(self, dmax=10, dmin=-1):
+    def delta_ts(self, dmax=10, dmin=-1, pivotit=True):
         """ Delta TS
-        Plots of the TS for the gtlike fit spectra determined with the pointlike analysis, compared with the pointlike value.<br>
+        Plots of the TS for the gtlike fit spectra determined with the pointlike analysis, 
+        compared with the pointlike value.<br>
         Mismatches: %(over_ts)d with gtlike worse by %(dmax)d; %(under_ts)d with pointlike worse by %(dmin)d.<br>
+        <br><b>Top left</b>": Scatter plot of $\Delta$ TS with the pointlike TS.
+        <br><b>Top middle</b>: Histogram of $\Delta$ TS.
+        <br><b>Top right</b>: Distribution with respect to galactic latitude, with the 
+        subset with discrepancies shown.
+        <br><b>Bottom left</b>
+        <br><b>Bottom middle</b> For strong sources, this checks the possibilty that the origin of
+        discrepancies for the gtlike fits applied to the pointlike data is a consequence of a exposure 
+        bias. If so, there would be a correlation of the ratio of fluxes at the gtlike pivot 
+        energy with $\Delta$ TS.
         <br>%(mismatch_table)s
         <br>%(pivot_info)s
        """
@@ -166,7 +182,8 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         delta = df.ts_delta
         mismatch = (delta>dmax)+(delta<dmin)
         self.dmax = dmax; self.dmin=dmin
-        fixme = df[mismatch]['name ts ts_gtlike glat plane fitqual ts_delta ts_gt ts_pt freebits beta roiname'.split()].sort_index(by='roiname')
+        df['logflux'] = np.log10(np.asarray(df.flux,float))
+        fixme = df[mismatch]['name ts ts_gtlike glat plane fitqual ts_delta ts_gt ts_pt logflux flux_ratio freebits beta roiname'.split()].sort_index(by='roiname')
         fixme.index = fixme.name
         fixme.index.name='name'
         self.mismatch_table=html_table( fixme, columns={}, name=self.plotfolder+'/mismatch', 
@@ -175,13 +192,16 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         fixme.to_csv('gtlike_mismatch.csv')
         print 'wrote %d entries to gtlike_mismatch.csv' % len(fixme)
         version = os.path.split(os.getcwd())[-1]
-        try:
-            pc=makepivot.MakeCollection('gtlike mismatch %s/%s'% (version, self.catname), 'gtlike/sed', 'gtlike_mismatch.csv', refresh=True)
-            self.pivot_info="""<p> These can be examined with a 
-        <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>,
-        which requires Silverlight. """% pc.cId
-        except Exception, msg:
-            self.pivot_info = '<p>No pivot output; job failed %s' %msg
+        if pivotit:
+            try:
+                pc=makepivot.MakeCollection('gtlike mismatch %s/%s'% (version, self.catname), 'gtlike/sed', 'gtlike_mismatch.csv', refresh=True)
+                self.pivot_info="""<p> These can be examined with a 
+            <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>,
+            which requires Silverlight. """% pc.cId
+            except Exception, msg:
+                self.pivot_info = '<p>No pivot output; job failed %s' %msg
+        else:
+            self.pivot_info = '<p>(no pivot)'
         delta = self.delta
         x = np.array(delta, float).clip(dmin,dmax) # avoid histogram problem
         cut = (~np.isnan(x))#*(df.ts>10)
@@ -209,9 +229,25 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
             ax.grid()
             ax.legend(prop = dict(size=10))
 
-        fig, ax = plt.subplots(1,3, figsize=(14,5))
+        def plot4(ax, dmax=25,cut=(~np.isnan(x)) & (df.ts>1e3)):
+            bins = np.linspace(dmin,dmax,4*(dmax-dmin)+1)
+            x = np.array(delta, float).clip(dmin,dmax) # avoid histogram problem
+            ax.hist( x[cut], bins)
+            ax.hist(x[hilat*cut], bins, color='red', label='|b|<5')
+            plt.setp(ax, xlabel='TS diff', xlim=(dmin, dmax))
+            ax.grid(); ax.legend(prop = dict(size=10))
+        def plot5(ax, dmax=25):
+            cut= df.logflux>-11
+            ax.plot(df.ts_delta[cut], df.flux_ratio[cut],'.', label='flux>1e-11')
+            plt.setp(ax, xlim=(-5, 25), ylim=(0.8, 1.2),xlabel='delta TS',ylabel='flux ratio')
+            ax.legend(prop = dict(size=10))
+            ax.axhline(1.0,color='gray')
+        
+        fig, ax = plt.subplots(2,3, figsize=(14,10))
         plt.subplots_adjust(left=0.1)
-        for f, ax in zip([plot1,plot2,plot3], ax): f(ax)
+        for f, ax in zip([plot1,plot2,plot3, plot4, plot5,None], ax.flatten()): 
+            if f is not None: f(ax)
+            else: ax.set_visible(False)
         return fig
     
     def missing(self, tsmax=50):
