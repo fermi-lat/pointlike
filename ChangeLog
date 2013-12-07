@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Dec  7 11:12:04 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	test.py 
+Log Message:
+fix wired-in constants to agree with current
+    *
+------------------------------------------------------------
 User: burnett  Fri Dec  6 17:21:32 PST 2013
 pointlike/python/uw/like2/analyze
 
