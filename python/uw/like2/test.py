@@ -1,6 +1,6 @@
 """
 All like2 testing code goes here, using unittest
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.25 2013/12/04 20:13:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.26 2013/12/05 21:16:33 burnett Exp $
 """
 import os, sys, unittest
 import numpy as np
@@ -76,12 +76,12 @@ def setup(name):
     if (name=='roi_bands' or name=='blike' or name=='likeviews') and roi_bands is None:
         roi_bands = bands.BandSet(config, roi_index)
         print '\n****roi_bands:', roi_bands
-    if name=='blike' and blike is None:
+    if (name=='blike'  or name=='likeviews') and blike is None:
         assert roi_bands is not None and roi_sources is not None
         roi_bands.load_data()
         blike = bandlike.BandLikeList(roi_bands, roi_sources)
         print '\n****blike', blike
-    if name=='likeviews' and likeviews is None:
+    if name=='likeviews'  or name=='likeviews'and likeviews is None:
         assert roi_bands is not None and roi_sources is not None
         if roi_bands.pixels==0:
             roi_bands.load_data()
@@ -427,7 +427,7 @@ class TestLikelihood(TestSetup):
         '--> check weights for band 1'
         b1 = self.bl[1]
         weights = b1.data / b1.model_pixels
-        self.assertAlmostEquals(0.98, weights.mean(), delta=0.01)
+        self.assertAlmostEquals(0.992, weights.mean(), delta=0.01)
         self.assertAlmostEquals(0.032, weights.std(), delta=0.002)
     def test_hessian(self):
         bl = self.bl
@@ -450,10 +450,10 @@ class TestLikelihood(TestSetup):
         bl.selected= bl
         total = bl.log_like()
         self.assertAlmostEquals(total, parta+partb)
-    def test_change_model(self):
+    def test_change_model(self, expect=697448):
         """--> change a model, then back; check likelihood changed"""
         m = blike.set_model('PowerLaw(1e-11, 2.0)', '*2722')
-        self.assertAlmostEquals(697486, blike.log_like(), delta=1)
+        self.assertAlmostEquals(expect, blike.log_like(), delta=1)
         blike.set_model(m)
         
     
@@ -471,12 +471,13 @@ class TestAddRemoveSource(TestSetup):
         
         
 class TestFitterView(TestSetup):
-    def setUp(self):
+    def setUp(self, expect=697567):
         setup('likeviews')
-        self.assertAlmostEquals(697607., blike.log_like(), delta=1)
+        self.init = blike.log_like()
+        self.assertAlmostEquals(expect, self.init, delta=1)
         
-    def test_ts(self, sourcename='P7R42722', expect=800):
-        """--> set up a subset fitter view, use it to checka TS value"""
+    def test_ts(self, sourcename='P7R42722', expect=786):
+        """--> set up a subset fitter view, use it to check a TS value"""
         with likeviews.fitter_view(sourcename) as fv:
             self.assertAlmostEquals(expect, fv.ts(), delta=1)
             
@@ -486,8 +487,8 @@ class TestFitterView(TestSetup):
             a = t()
             self.assertEquals(t.log_like(), -a)
             b, g, sig = t.maximize()
-            self.assertAlmostEquals(-697607., a, delta=1)
-            self.assertAlmostEquals(-697645., b, delta=1)
+            self.assertAlmostEquals(-self.init, a, delta=1)
+            self.assertAlmostEquals(-697628.9,  b, delta=1)
         
 class TestSED(TestSetup):
     def setUp(self):
@@ -497,7 +498,7 @@ class TestSED(TestSetup):
     def tearDown(self):
         self.assertAlmostEquals(self.init, likeviews.log_like())
 
-    def test_sourceflux(self, sourcename='W28', checks=(61.695, 63.816, 4889, 5025)):
+    def test_sourceflux(self, sourcename='W28', checks=(61.664, 63.736, 5139, 5292)):
         """-->create and check the SED object"""
         with sedfuns.SED(likeviews, sourcename) as sf:
             poiss = sf.full_poiss
@@ -520,7 +521,7 @@ class TestLocalization(TestSetup):
         init = likeviews.log_like()
         with likeviews.tsmap_view('P7R42722') as tsm:
             self.assertEquals(0, tsm())
-            self.assertAlmostEquals(-0.297, tsm((266.6, -28.86)), delta=0.1)
+            self.assertAlmostEquals(-0.045, tsm((266.6, -28.86)), delta=0.1)
         self.assertAlmostEquals(init, likeviews.log_like(), delta=0.1)
         
 class TestROI(TestSetup):
