@@ -3,8 +3,8 @@ Python support for source association, equivalent to the Fermi Science Tool gtsr
 author:  Eric Wallace <wallacee@uw.edu>
 """
 
-__version__ = "$Revision: 1.36 $"
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.36 2013/09/26 17:35:55 burnett Exp $
+__version__ = "$Revision: 1.37 $"
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.37 2013/12/07 22:49:40 burnett Exp $
 
 import os
 import sys
@@ -310,7 +310,7 @@ class Catalog(object):
         """Find and return HDU with catalog information."""
         #First check for HDUS with CAT-NAME or EXTNAME in header.
         for hdu in fits_cat:
-            cards = pf.CardList(self.hdu.header.cards) ## replaced this function: ascardlist()
+            cards = pf.CardList(hdu.header.cards) ## replaced this function: ascardlist()
             try:
                 self.cat_name = cards['CAT-NAME'].value
                 return hdu
@@ -363,8 +363,10 @@ class Catalog(object):
         """Find columns containing position info and return a list of SkyDirs"""
 
         cards = pf.CardList(self.hdu.header.cards) #ascardlist()
-        ucds = cards.filterList('TBUCD*')
-        ttypes = cards.filterList('TTYPE*')
+        #ucds = cards.filterList('TBUCD*')
+        #ttypes = cards.filterList('TTYPE*')
+        ucds = cards.filter_list('TBUCD*')
+        ttypes = cards.filter_list('TTYPE*')
         lon_key = lat_key = ''
         if not lon_key:
             if 'POS_EQ_RA_MAIN' in ucds.values():
