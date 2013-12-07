@@ -1,7 +1,7 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.31 2013/12/04 05:19:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.32 2013/12/05 21:16:33 burnett Exp $
 
 author:  Toby Burnett
 """
@@ -113,7 +113,7 @@ class Healpix(DiffuseBase):
         self.fits = pyfits.open(self.filename)
         table = self.fits[1]
         self.columns = table.data
-        self.col_names = [t.name for t in table.get_coldefs()]
+        self.col_names = [t.name for t in table.columns]
         self.energies = self.fits[2].data.field('MeV')
 
     def setEnergy(self, energy):
