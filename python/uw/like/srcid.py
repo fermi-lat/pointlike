@@ -3,8 +3,8 @@ Python support for source association, equivalent to the Fermi Science Tool gtsr
 author:  Eric Wallace <wallacee@uw.edu>
 """
 
-__version__ = "$Revision: 1.35 $"
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.35 2013/09/25 12:49:53 burnett Exp $
+__version__ = "$Revision: 1.36 $"
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.36 2013/09/26 17:35:55 burnett Exp $
 
 import os
 import sys
@@ -12,6 +12,7 @@ import math
 import re
 import operator
 import glob
+
 
 import numpy as np
 import pyfits as pf
@@ -309,7 +310,7 @@ class Catalog(object):
         """Find and return HDU with catalog information."""
         #First check for HDUS with CAT-NAME or EXTNAME in header.
         for hdu in fits_cat:
-            cards = hdu.header.ascardlist()
+            cards = pf.CardList(self.hdu.header.cards) ## replaced this function: ascardlist()
             try:
                 self.cat_name = cards['CAT-NAME'].value
                 return hdu
@@ -329,7 +330,9 @@ class Catalog(object):
     def _get_ids(self):
         """Find source name information and return as a list."""
         name_key = ''
-        cards = self.hdu.header.ascardlist()
+        # deprecated, removed at 3.2
+        #cards = self.hdu.header.ascardlist()
+        cards = pf.CardList(self.hdu.header.cards)
         #First check for UCD in header
         for card in cards:
             if card.key[:5]=='TBUCD' and card.value in ['ID_MAIN','meta.id;meta.main']:
@@ -337,7 +340,7 @@ class Catalog(object):
                 break
             #Sometimes UCDs are declared in comments
             #May be fragile - depends on specific format for comments as in gamma-egr catalog
-            value_comment = card.ascardimage().split('/')
+            value_comment = card.image.split('/') ##ascardimage().split('/')
             if len(value_comment)>1:
                 comment = value_comment[1]
                 ucd_string = comment[comment.find('UCD'):].split()
@@ -359,7 +362,7 @@ class Catalog(object):
     def _get_positions(self):
         """Find columns containing position info and return a list of SkyDirs"""
 
-        cards = self.hdu.header.ascardlist()
+        cards = pf.CardList(self.hdu.header.cards) #ascardlist()
         ucds = cards.filterList('TBUCD*')
         ttypes = cards.filterList('TTYPE*')
         lon_key = lat_key = ''
