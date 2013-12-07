@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Dec  7 15:27:33 PST 2013
+pointlike/python/uw/like
+
+Modified Files:
+	srcid.py 
+Log Message:
+make compatible with pyfits 3.2
+    *
+------------------------------------------------------------
 User: burnett  Sat Dec  7 14:49:40 PST 2013
 pointlike/python/uw/like
 
