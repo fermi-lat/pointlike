@@ -1,6 +1,6 @@
 """
 All like2 testing code goes here, using unittest
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.27 2013/12/07 19:12:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.28 2013/12/07 20:33:21 burnett Exp $
 """
 import os, sys, unittest
 import numpy as np
@@ -81,7 +81,7 @@ def setup(name):
         roi_bands.load_data()
         blike = bandlike.BandLikeList(roi_bands, roi_sources)
         print '\n****blike', blike
-    if name=='likeviews'  or name=='likeviews'and likeviews is None:
+    if name=='likeviews' and likeviews is None:
         assert roi_bands is not None and roi_sources is not None
         if roi_bands.pixels==0:
             roi_bands.load_data()

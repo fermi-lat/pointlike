@@ -1,7 +1,7 @@
 """
 Set up and manage the model for all the sources in an ROI
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.13 2013/12/04 20:12:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.14 2013/12/05 21:16:33 burnett Exp $
 
 """
 import os 
@@ -14,7 +14,7 @@ class ROImodelException(Exception):pass
         
 
 class ROImodel(list):
-    """ Manage the model, or list of sources, for an ROI. Not that it inherits from list.
+    """ Manage the model, or list of sources, for an ROI. Note that it inherits from list.
     
     In particular, provide an interface to serialize the set of free parameters, or define a subset thereof.
     This is delegated to the classes ParameterSet and ParSubSet in the module parameterset
