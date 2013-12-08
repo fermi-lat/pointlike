@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Sat Dec  7 17:25:25 PST 2013
+pointlike/python/uw/thb_roi
+
+Removed Files:
+	.cvsignore 
+Log Message:
+clean up
+
+    *
+------------------------------------------------------------
 User: burnett  Sat Dec  7 17:23:19 PST 2013
 pointlike/python/uw/pipeline/pub
 
