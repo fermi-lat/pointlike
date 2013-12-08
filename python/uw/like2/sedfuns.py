@@ -1,12 +1,12 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.23 2013/11/28 19:34:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.24 2013/12/04 05:23:02 burnett Exp $
 
 """
 import os, pickle
 import numpy as np
-from uw.utilities import (makerec, keyword_options)
+from uw.utilities import ( keyword_options)
 from . import ( plotting, tools, loglikelihood)
 
        

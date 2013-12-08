@@ -1,13 +1,13 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.21 2013/11/28 19:34:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.22 2013/12/04 05:21:54 burnett Exp $
 
 """
 import os
 import numpy as np
 from skymaps import SkyDir
-from uw.like import quadform, srcid
+from uw.like import quadform
 from uw.utilities import keyword_options
 from . import (sources, plotting )
 
