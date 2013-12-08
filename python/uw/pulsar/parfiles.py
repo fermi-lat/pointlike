@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.51 2013/11/27 07:05:41 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.52 2013/12/02 02:40:57 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -25,9 +25,10 @@ def ra2dec(s): return sex2dec(s,mode='ra')
 def decl2dec(s): return sex2dec(s,mode='decl')
 def dec2sex(d,mode='ra'):
     """ Convert decimal degree to column separated format."""
+    d = np.float128(d)
     scale = 15. if mode=='ra' else 1. # scale to deg to hour (ra) or deg
     sign = '' if mode=='ra' else ('-' if d < 0 else '+')
-    d = float(abs(d))
+    d = np.float128(abs(d))
     dg = int(d/scale)
     mi = int((d/scale-dg)*60.)
     ss = ((d/scale-dg)*60-mi)*60
@@ -730,7 +731,7 @@ class TimFile(object):
             if toks[0] == 'EFAC':
                 efac = float(toks[1])
                 continue
-            if line[0] == ' ':
+            if id_toa_line(line):
                 # is a TOA
                 toa =   {
                         'TEL':str(toks[0]),
@@ -755,6 +756,22 @@ class TimFile(object):
         if output is not None:
             file(output,'w').write('FORMAT 1\n'+''.join(toa_lines))
 
+def add_key(par,key,val):
+    """ Shortcut method for adjusting an ephemeris."""
+    pf = ParFile(par)
+    pf.add_key(key,val)
+    pf.write(par)
+
+def copy_tzr(par1,par2):
+    """ Update the TZR parameters of par2 with those of par1."""
+    keys = ['TZRMJD','TZRFRQ','TZRSITE']
+    pf1 = ParFile(par1)
+    pf2 = ParFile(par2)
+    for key in keys:
+        if key in pf1.keys():
+            pf2.add_key(key,pf1.get(key))
+    pf2.write(par2)
+        
 def get_bats_etc(par,tim,output=None,full_output=False,binary=False):
     """ Use the tempo2 general plugin to compute the bats and absolute
         phases of a set of TOAs."""
@@ -902,6 +919,22 @@ def tim_faker(tim,tim_shifts,thresh=5,output=None):
             continue
     file(output,'w').write(''.join(new_lines))
 
+def id_toa_line(line):
+    """ Determine if the line from a .tim file corresponds to an (uncommented)
+        TOA.
+        
+        Primarily, check to see if the third column is consistent with an MJD.
+    """
+    if line[0]=='#' or line[0]=='C':
+        return False
+    toks = line.split()
+    if len(toks) < 3:
+        return False
+    mjd = toks[2].split('.')
+    if len(mjd)==2 and len(mjd[0])==5:
+        return True
+    return False
+
 def add_flag(tim,flag,vals,output=None):
     """ Add a flag to the TOAs in an output file with the specified value.
         If the flag is already present, the value is replaced.
@@ -921,7 +954,7 @@ def add_flag(tim,flag,vals,output=None):
         one2one = True
     for iline,line in enumerate(lines):
         new_lines.append(line)
-        if line[0] != ' ':
+        if not id_toa_line(line):
             continue
         new_lines.pop()
         ph = str(vals[counter])
@@ -947,7 +980,7 @@ def del_flag(tim,flag,output=None):
         flag = '-%s'%flag
     for iline,line in enumerate(lines):
         new_lines.append(line)
-        if line[0] != ' ':
+        if not id_toa_line(line):
             continue
         new_lines.pop()
         toks = line.split()
@@ -978,7 +1011,7 @@ def mask_tim(tim,mask,output=None,verbose=False):
     counter = 0
     for iline,line in enumerate(lines):
         new_lines.append(line)
-        if line[0] != ' ':
+        if not id_toa_line(line):
             continue
         if mask[counter]:
             if verbose:
@@ -1004,7 +1037,7 @@ def cut_tim(tim,tmin=None,tmax=None,output=None):
         raise ValueError('Cannot parse non-tempo2 style TOA files.')
     for line in lines:
         tim_strings.append(line)
-        if line[0]==' ':
+        if id_toa_line(line):
             mjd = float(line.split()[2])
             if not((mjd >= tmin) and (mjd < tmax)):
                 tim_strings.pop()
@@ -1034,20 +1067,56 @@ def merge_tim(timfiles,output,tmin=None,tmax=None):
     tim_strings = ''.join(map(g,timfiles))
     file(output,'w').write('FORMAT 1\n%s'%(tim_strings))
 
-def compute_jump(par,tim,flags,vals,tmin=None,tmax=None,add_jumps=False):
+def delete_jumps(par,flags,vals):
+    """ Delete one or more JUMP parameter from an ephemeris matching the
+        arguments.  E.g., flags=['-i'],vals=['parkes_20cm'] would remove
+        JUMP -i parkes_20cm XXXXXX
+    """
+    pf = ParFile(par)
+    if 'JUMP' not in pf.keys():
+        return
+    flags = map(lambda x: x if x[0]=='-' else '-'+x,flags)
+    # read all of the jumps into a list
+    jumps = [pf['JUMP']]
+    if 'JUMP' in pf.duplicates.keys():
+        for x in pf.duplicates['JUMP']:
+            jumps.append(x)
+    pf.delete_key('JUMP')
+    new_jumps = []
+    for jump in jumps:
+        ok = True
+        for f,v in zip(flags,vals):
+            if jump[0]==f and jump[1]==v:
+                ok = False
+                break
+        if ok:
+            new_jumps.append(jump)
+    for jump in new_jumps:
+        pf.add_key('JUMP',' '.join(jump),allow_duplicates=True)
+    pf.write(par)
+
+def compute_jump(par,tim,flags,vals,tmin=None,tmax=None,add_jumps=False,
+    clear_jumps=False):
     """ Compute the jump parameter (microseconds) by computing the mean
         (error-weighted) offset of the residuals.
         
         How this will work -- we have a .par file and a merged TOA file,
         and each TOA to be included must have a flag/value pair to allow
         us to select on them.  By default, all jumps are computed relative
-        to the first flag/value pair."""
+        to the first flag/value pair.
+        
+        add_jumps -- add the resulting jumps to the .par file
+        clear_jumps -- clear any conflicting jumps from the .par file
+    """
     if not os.path.isfile(par):
         raise IOError('Ephemeris %s is not a valid file!'%par)
     if not os.path.isfile(tim):
         raise IOError('TOA collection %s is not a valid file!'%tim)
     if len(flags)<2:
         return 0
+    
+    if clear_jumps:
+        delete_jumps(par,flags,vals)
     # construct a temporary TOA file to handle case of MWL files with TOAs
     # extending before/beyond the domain of validity
     tf = tempfile.mkstemp()
@@ -1069,7 +1138,7 @@ def compute_jump(par,tim,flags,vals,tmin=None,tmax=None,add_jumps=False):
             valfunc = lambda s: True
         mask = flag_filter(fname,flags[i],valfunc)
         if not np.any(mask):
-            means[i] = np.isnan
+            means[i] = np.nan
         else:
             means[i] = np.average(resi[mask],weights=(errs**-2)[mask])
     jumps = [means[0]-means[i] for i in xrange(1,len(means))]
@@ -1078,15 +1147,16 @@ def compute_jump(par,tim,flags,vals,tmin=None,tmax=None,add_jumps=False):
         # Add the parameters to the .par file.
         pf = ParFile(par)
         for i in xrange(1,len(flags)):
-            if np.isnan(jumps[i-1]):
+            # don't write bad values or re-write 0 JUMPs
+            if np.isnan(jumps[i-1]) or (jumps[i-1]<1e-9):
                 continue
             flag = str(flags[i])
             if flag[0] != '-':
                 flag = '-'+flag
             val = str(vals[i] or 1)
             t = [flag,val,'%.8f'%jumps[i-1]]
-            pf.add_key('JUMP',[flag,val,'%.8f'%jumps[i-1]],
-                allow_duplicates=True)
+            print 'Adding %s.'%(' '.join(t))
+            pf.add_key('JUMP',' '.join(t),allow_duplicates=True)
         pf.write(par)
     return jumps
 
@@ -1097,7 +1167,7 @@ def parkes2tempo2(tim,output):
     """ VERY crude conversion of a Parkes-style TOA file to tempo2 format.
         Currently ignores everything but crucial data and is only tested
         on Ryan's P574 TOAs."""
-    toa_strings = filter(lambda l: l[0]==' ',file(tim).readlines())
+    toa_strings = filter(id_toa_line,file(tim).readlines())
     new_strings = deque()
     for toa in toa_strings:
         toks = toa.split()
