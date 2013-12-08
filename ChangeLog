@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Sat Dec  7 16:58:58 PST 2013
+pointlike/python/uw/pipeline/pub
+
+Removed Files:
+	__init__.py combine_figures.py deepzoom.py display_map.py 
+	dz_collection.py healpix_map.py makecat.py pivot.py 
+	print_roi.py publish.py roi_pivot.py source_pivot.py 
+Log Message:
+remove obsolete stuff
+    *
+------------------------------------------------------------
 User: burnett  Sat Dec  7 16:58:17 PST 2013
 pointlike/python/uw/thb_roi
 
