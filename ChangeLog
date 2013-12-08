@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Dec  7 17:21:23 PST 2013
+pointlike/python/uw/pipeline/analysis
+
+Removed Files:
+	__init__.py chisq_analysis.py residuals.py 
+Log Message:
+clean out
+    *
+------------------------------------------------------------
 User: burnett  Sat Dec  7 17:21:22 PST 2013
 pointlike/python/uw/pipeline
 
