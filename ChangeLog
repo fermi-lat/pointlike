@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Sat Dec  7 16:58:17 PST 2013
+pointlike/python/uw/thb_roi
+
+Removed Files:
+	__init__.py associate.py config.py findsource.py limits.py 
+	myroi.py pipeline.py pivot.py roi_factory.py roi_setup.py 
+	roidisplay.py source_pickle.py variation.py 
+Log Message:
+remove obsolete stuff
+    *
+------------------------------------------------------------
 User: burnett  Sat Dec  7 16:48:01 PST 2013
 pointlike/python/uw/like2
 
