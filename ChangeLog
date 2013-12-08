@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sun Dec  8 03:54:19 PST 2013
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+More functionality, esp. for MWL TOAs.
+
+    *
+------------------------------------------------------------
 User: burnett  Sat Dec  7 17:25:25 PST 2013
 pointlike/python/uw/thb_roi
 
