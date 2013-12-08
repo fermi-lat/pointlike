@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Sat Dec  7 16:59:16 PST 2013
+pointlike/python/uw/pipeline
+
+Removed Files:
+	__init__.py associate.py catrec.py dataspec.py maps.py pipe.py 
+	plot_sed.py processor.py skyanalysis.py skymodel.py sources.py 
+Log Message:
+remove obsolete stuff
+    *
+------------------------------------------------------------
 User: burnett  Sat Dec  7 16:58:58 PST 2013
 pointlike/python/uw/pipeline/pub
 
