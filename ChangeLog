@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Sat Dec  7 16:48:01 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	localization.py roimodel.py sedfuns.py test.py 
+Removed Files:
+	catrec.py read_xml.py 
+Log Message:
+clean up
+    *
+------------------------------------------------------------
 User: burnett  Sat Dec  7 15:27:33 PST 2013
 pointlike/python/uw/like
 
