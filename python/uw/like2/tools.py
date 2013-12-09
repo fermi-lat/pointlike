@@ -1,10 +1,10 @@
 """
 Tools for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.16 2013/11/28 19:31:29 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.17 2013/12/04 05:25:51 burnett Exp $
 
 """
-import os
+import os, sys
 import numpy as np
 
 def ufunc_decorator(f): # this adapts a bound function
