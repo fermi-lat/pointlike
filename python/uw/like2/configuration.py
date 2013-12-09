@@ -1,7 +1,7 @@
 """
 Manage the analysis configuration
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.13 2013/12/05 22:08:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.14 2013/12/07 19:32:06 burnett Exp $
 
 """
 import os, sys, types
@@ -55,13 +55,18 @@ class Configuration(object):
         
         if not os.path.exists(self.configdir):
             raise Exception( 'Configuration folder %s not found' % self.configdir)
-        if not self.quiet: print 'Defining configuration in folder: %s' % self.configdir
+        if not os.path.exists(os.path.join(self.configdir, 'config.txt')):
+            raise Exception('Configuration file "config.txt" not found in %s' % self.configdir)
+        if not self.quiet: print 'Using configuration file "config.txt" in folder: %s' % self.configdir
         
         # extract parameters config
-        config = eval(open(os.path.expandvars(self.configdir+'/config.txt')).read())
+        try:
+            config = eval(open(self.configdir+'/config.txt').read())
+        except Exception, msg:
+            raise Exception('Failed to evaluate config file: %s' % msg)
         for key in 'extended irf'.split():
             if self.__dict__.get(key, None) is None: 
-                if not self.quiet:
+                if not self.quiet and kwargs.get(key) is not None:
                     print '%s : override config.txt, "%s" => "%s"' %(key, kwargs.get(key,None), config.get(key,None))
                 self.__dict__[key]=config.get(key, None)
 
