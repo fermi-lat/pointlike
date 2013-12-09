@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Dec  8 17:15:40 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	configuration.py 
+Log Message:
+better checking for config.txt
+    *
+------------------------------------------------------------
 User: burnett  Sun Dec  8 17:15:02 PST 2013
 pointlike/python/uw/like2
 
