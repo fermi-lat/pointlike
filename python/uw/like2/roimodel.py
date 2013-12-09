@@ -1,7 +1,7 @@
 """
 Set up and manage the model for all the sources in an ROI
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.14 2013/12/05 21:16:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.15 2013/12/08 00:48:01 burnett Exp $
 
 """
 import os 
@@ -41,6 +41,10 @@ class ROImodel(list):
         if self.ecat is None: #speed up if already loaded
             self.ecat = extended.ExtendedCatalog(self.config.extended, quiet=self.quiet)
 
+        # clear if called again
+        while len(self)>0:
+            self.pop()
+            
         # sources loaded by a subclass that must implement this function
         self.load_sources(roi_spec)
         
