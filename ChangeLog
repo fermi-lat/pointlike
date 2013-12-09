@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Dec  8 17:17:32 PST 2013
+pointlike/python/uw/like2
+
+Added Files:
+	process.py 
+Log Message:
+move logic from pipeline for generic batch processing
+    *
+------------------------------------------------------------
 User: burnett  Sun Dec  8 17:16:58 PST 2013
 pointlike/python/uw/like2
 
