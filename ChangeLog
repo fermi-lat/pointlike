@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Dec  8 17:15:02 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	sources.py 
+Log Message:
+define isglobal, make isextended compatible wiht previous
+    *
+------------------------------------------------------------
 User: burnett  Sun Dec  8 17:14:04 PST 2013
 pointlike/python/uw/like2
 
