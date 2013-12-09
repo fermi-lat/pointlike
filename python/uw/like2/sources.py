@@ -1,6 +1,6 @@
 """
 Source classes
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.38 2013/12/04 05:24:29 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.39 2013/12/05 21:16:33 burnett Exp $
 
 """
 import os, copy
@@ -143,7 +143,11 @@ class Source(object):
         
     @property
     def isextended(self):
-        return hasattr(self, 'dmodel')
+        return hasattr(self, 'dmodel') and not self.isglobal
+
+    @property
+    def isglobal(self):
+        return self.skydir is None
 
 class PointSource(Source):
     def __init__(self, **kwargs):
