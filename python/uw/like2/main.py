@@ -1,15 +1,15 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.46 2013/12/04 05:28:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.47 2013/12/05 21:16:33 burnett Exp $
 
 """
-import types
+import types, time
 import numpy as np
 from uw.utilities import keyword_options
 from . import (views,  configuration, extended,  roimodel, from_xml, from_healpix,
                 bands,  localization, sedfuns, tools,
-                plotting, associate, printing
+                plotting, associate, printing, to_healpix
         )
 
 
@@ -266,8 +266,6 @@ class ROI(views.LikelihoodViews):
             self.localize()
         with self.tsmap_view(source.name) as tsv:
             associate.make_association(source, tsv, self.srcid)
-            
-        
         
     def freeze(self, parname, source_name=None, value=None):
         """ freeze the parameter, optionally set the value
@@ -296,4 +294,29 @@ class ROI(views.LikelihoodViews):
         source.freeze(parname)
         self.sources.initialize()
         
+    def to_healpix(self, pickle_dir, dampen=1, **kwargs):
+        to_healpix.pickle_dump(self, pickle_dir, dampen=1, **kwargs)
+
+class MultiROI(ROI):
+    """ROI subclass that will perform a fixed analysis on multiple ROIs
+    Intended for subclasses to override the process function
+    """
     
+    def __init__(self, config_dir, roi_list, quiet=False):
+        """
+        """
+        config = configuration.Configuration(config_dir, quiet=quiet, postpone=False)
+        ecat = extended.ExtendedCatalog(config.extended)
+        
+        for roi_index in roi_list:
+            roi_bands = bands.BandSet(config, roi_index)
+            roi_bands.load_data()
+            roi_sources = from_healpix.ROImodelFromHealpix(config, roi_index, ecat=ecat,)
+            self.name = 'HP12_%04d' % roi_index
+
+            self.setup( roi_bands, roi_sources)
+            self.proc()
+            
+    def proc(self):
+        print  '='*80
+        print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (self.name,))
