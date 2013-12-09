@@ -1,7 +1,7 @@
 """
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.44 2013/11/26 15:57:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.45 2013/11/30 00:40:15 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -83,7 +83,9 @@ class BandLike(object):
         self.free = free if free is not None else np.ones(len(self.bandsources), bool)
         self.free_sources = self.bandsources[self.free]
         self.counts = self.fixed_counts = sum([b.counts for b in self.bandsources[ ~ self.free]])
-        if not self.band.has_pixels: return # no data, should quit?
+        if not self.band.has_pixels: 
+            self.model_pixels=self.fixed_pixels = np.array([])
+            return
         self.fixed_pixels = np.zeros(self.pixels)
         for m in self.bandsources[ ~ self.free]:
             self.fixed_pixels += m.pix_counts
@@ -97,7 +99,11 @@ class BandLike(object):
         reset: bool, optional
             if True, need to reinitialize variable source(s), for change of position or shape
         """
-        if self.band.has_pixels: self.model_pixels[:]=self.fixed_pixels
+        if not self.band.has_pixels: 
+            self.weights = np.array([])
+            return
+            
+        self.model_pixels[:]=self.fixed_pixels
         self.counts = self.fixed_counts
         force = kwargs.get('force', False) # set to defeat
         for bandsource in self.free_sources:
@@ -124,7 +130,7 @@ class BandLike(object):
     def gradient(self):
         """ gradient of the likelihood with resepect to the free parameters
         """
-        if not self.band.has_pixels: return None
+        #if not self.band.has_pixels: return np.array([])
         return self.unweight * np.concatenate(
                 [m.grad(self.weights, self.exposure_factor) for m in self.free_sources]
             )
@@ -220,9 +226,16 @@ class BandLikeList(list):
         roi_sources :  sourcelist.SourceList object
             a list of Source objects 
         """
-
+        self.setup(roi_bands, roi_sources)
+        
+    def setup(self, roi_bands, roi_sources):
+        """ initialize from bands and sources. 
+        If called again, remove current set of BandLike objects
+        """
         self.sources = roi_sources
         self.bands = roi_bands
+        while len(self)>0:
+            self.pop()
         for band in roi_bands:
             self.append( BandLike(band, self.sources, self.sources.free) )
             
@@ -268,7 +281,7 @@ class BandLikeList(list):
     def free_sources(self):
         """ list of sources with currently free parameters
         """
-        return self.sources.free
+        return np.array(self.sources)[self.sources.free]
     
     def add_source(self, newsource=None, **kwargs):
         """ add a source to the ROI
@@ -327,7 +340,7 @@ class BandLikeList(list):
         return '%s.%s: \n\t%s\n\t%s\n\tParameters: %d in %d/%d free sources' % (
             self.__module__, self.__class__.__name__,
             self.sources, sel, len(self.sources.parameters), 
-            sum(self.free_sources),  len(self.free_sources))
+            len(self.free_sources),  len(self.sources))
 
     def initialize(self, sourcename=None):
         """ initialize the specifed source in  all selected bands
