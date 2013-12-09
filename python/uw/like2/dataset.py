@@ -1,11 +1,11 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.27 2013/10/29 14:09:17 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.28 2013/11/08 04:30:05 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.27 $'.split()[1]
+version='$Revision: 1.28 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np
@@ -186,7 +186,7 @@ class DataSet(dataman.DataSpec):
                                 % (pyfile, interval, msg))
             else: gti_mask=None
             if dataset in ldict: 
-                if not quiet: print 'found dataset %s in %s' % (dataset, folder)
+                if not quiet: print 'Opening dataset %s from key in %s' % (dataset, dict_file)
                 # translate event class name to appropriate bit
                 ddict=ldict[dataset]
                 #ddict['event_class_bit']= 4 ######FOR PASS8 now 
