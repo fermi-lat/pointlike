@@ -1,7 +1,7 @@
 """
 Basic analyis of source spectra
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.12 2013/09/26 17:40:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.13 2013/10/11 16:34:00 burnett Exp $
 
 """
 
@@ -36,7 +36,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                     free = np.zeros(4, bool)
                     n = model.len()
                     pars[:n] = model.parameters
-                    free[:n] = model.free
+                    free[:len(model.free)] = model.free
                     try:
                         d = np.diag(model.get_cov_matrix()).copy()
                         d[d<0] =0
@@ -92,6 +92,8 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             df['ra'] = ra
             df['dec'] = dec
             self.df = df.sort_index(by='ra')
+            self.df['hassed'] = np.array([self.df.ix[i]['sedrec'] is not None for i in range(len(self.df))])
+
             self.df.save(filename) ###to_pickle(filename)
             print 'saved %s' % filename
 
@@ -439,7 +441,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         print 'fit quality averages:', self.fit_quality_average
 
         # Make table of the poor fits
-        s['pull0'] = np.array([x.pull[0] for x in s.sedrec])
+        s['pull0'] = np.array([x.pull[0] if x is not None else np.nan for x in s.sedrec ])
         t =s.ix[((s.fitqual>30) | (np.abs(s.pull0)>3))*(s.ts>10) ]['ra dec glat fitqual pull0 ts modelname freebits index2 roiname'.split()].sort_index(by='roiname')
         #poorfit_csv = 'poor_spectral_fits.csv'
         #t.to_csv(poorfit_csv)
@@ -547,11 +549,14 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         
         These plots show the consistency of the lowest energy band with the spectrum
         defined by the full fit. <br>
-        Left: distribution of the "pull" <br>
-        Center: data/model ratio with errors, vs. the model flux.<br>
-        Right: position in the sky of flagged sources <br>
+        <b>Left</b>: distribution of the "pull" <br>
+        <b>Center</b>: data/model ratio with errors, vs. the model flux.<br>
+        <b>Right</b>: position in the sky of flagged sources <br>
         """
-        cut=self.df.ts>25
+        hassed = np.array([self.df.ix[i]['sedrec'] is not None for i in range(len(self.df))])
+        if sum(~hassed)>0:
+            print '+++Warning: %d sources without sed info' % sum(~hassed)
+        cut= (self.df.ts>25) & hassed
         s = self.df[cut]
         fdata = np.array([s.ix[i]['sedrec'].flux[0] for i in range(len(s))])
         udata = np.array([s.ix[i]['sedrec'].uflux[0] for i in range(len(s))])
