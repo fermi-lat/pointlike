@@ -1,7 +1,7 @@
 """
 Comparison with a gtlike model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gtlikecomparison.py,v 1.10 2013/12/06 20:03:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gtlikecomparison.py,v 1.11 2013/12/07 01:21:32 burnett Exp $
 
 """
 
@@ -12,6 +12,7 @@ import matplotlib.gridspec as gridspec
 import pandas as pd
 
 from uw.utilities import makepivot
+from uw.like import Models
 from . import sourcecomparison
 from . analysis_base import html_table, FloatFormat
 
@@ -58,6 +59,7 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         df['ts_gtlike']= self.cat.ts ## should be the TS from the catalog
         df['ts_delta'] = self.delta
         df['ts_gt'] = df.other_ts
+        df['index_gt'] = [m['Index'] if isinstance(m, Models.Model) else np.nan for m in self.dfx.othermodel]
         df['ts_pt'] = df.ts
         df['no_gtlike'] = pd.isnull(df.ts_gtlike) * (~np.isinf(df.ts_gtlike))
         
@@ -161,6 +163,61 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
             f(ax)
         return fig
 
+    def galactic_distortion(self):
+        """Galactic plane distortion
+        Check for distortion of the spectral fits to moderate strength sources near the galactic plane.
+        Sources were selected with flux to the range $10^{-13}$ to $10^{-11}$.
+        </br>
+        <b>Top row:</b> Histograms of the ratio of fluxes, spectral indeces, and the correlation.
+        <br>
+        <b>Bottom row:</b> Histogram of the TS difference, and that compared with the flux ratio for galactic sources.
+        """
+        df = self.dfx
+        cut1 = (df.modflux>1e-13) & (df.modflux<1e-11) 
+        cut2 = cut1 & (np.abs(df.glat)<10)
+        cut2_label='|b|<10'
+        
+        def plot1(ax): 
+            ax.hist((df.modflux/df.flux_gt)[cut1], np.linspace(0,2))
+            ax.hist((df.modflux/df.flux_gt)[cut2], np.linspace(0,2), color='orange',label=cut2_label)
+            plt.setp(ax, xlabel='pt/gt flux ratio')
+            ax.legend(prop=dict(size=10)); ax.grid()
+        
+        def plot2(ax, space=np.linspace(0.75, 1.25)): 
+            ax.hist((df.pindex/df.index_gt)[cut1], space)
+            ax.hist((df.pindex/df.index_gt)[cut2], space, color='orange', label=cut2_label)
+            plt.setp(ax, xlabel='pt/gt index ratio')
+            ax.legend(prop=dict(size=10)); ax.grid()
+        
+        def plot3(ax):
+            ax.plot((df.modflux/df.flux_gt)[cut2], (df.pindex/df.index_gt)[cut2], '.', color='blue')
+            plt.setp(ax, xlim=(0,2), xlabel='flux ratio', ylim=(0.75, 1.25), ylabel='index ratio')
+            ax.grid()
+        
+        tdlim=(-50,50); tsdiff_label='TS_pt-TS_gtlike'
+        tsdiff =(df.ts_pt-df.ts_gtlike).clip(*tdlim) 
+        tdspace=np.linspace(*tdlim)
+
+        def plot4(ax):
+            ax.hist(tsdiff[cut1], tdspace)
+            ax.hist(tsdiff[cut2], tdspace, color='orange', label=cut2_label)
+            ax.grid(); ax.legend(prop=dict(size=10))
+            plt.setp(ax, xlabel=tsdiff_label, xlim=tdlim)
+        
+        def plot5(ax):
+            ax.plot( (df.modflux/df.flux_gt)[cut2], tsdiff[cut2], '.')
+            plt.setp(ax, xlim=(0.,2.0), xlabel='flux_ratio', ylim=tdlim, ylabel=tsdiff_label)
+            ax.grid()
+        
+        fig, axx = plt.subplots(2,3, figsize=(12,8))
+        plt.subplots_adjust(wspace=0.3)
+        toplot = [plot1, plot2, plot3, plot4, plot5, None]
+        for f, ax in zip(toplot, axx.flatten()):
+            if f is not None: 
+                f(ax)
+            else: ax.set_visible(False)
+        return fig
+        
     def delta_ts(self, dmax=10, dmin=-1, pivotit=True):
         """ Delta TS
         Plots of the TS for the gtlike fit spectra determined with the pointlike analysis, 
@@ -270,4 +327,4 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         return fig
 
     def all_plots(self):
-        self.runfigures([self.check_contents, self.missing, self.compare_fits,  self.delta_ts,  ])
+        self.runfigures([self.check_contents, self.missing, self.compare_fits,  self.delta_ts, self.galactic_distortion  ])
