@@ -1,6 +1,6 @@
 """
 Output the ROI info to as a pickle file.
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_healpix.py,v 1.1 2013/12/09 01:17:47 burnett Exp $
 """
 import os, pickle, time
 import numpy as np
@@ -12,6 +12,7 @@ def pickle_dump(roi,  pickle_dir, dampen=1, **kwargs):
     name = roi.name.strip()
     fname = kwargs.pop('fname', name)
     filename=os.path.join(pickle_dir,fname+'.pickle')
+    
     if os.path.exists(filename):
         # if the file exists
         output=pickle.load(open(filename))
@@ -26,7 +27,8 @@ def pickle_dump(roi,  pickle_dir, dampen=1, **kwargs):
         print 'updating pickle file: log likelihood history:', \
              ''.join(map(lambda x: '%.1f, '%x, prev_logl)) 
     else:
-        output = dict()
+        # first save: start with last log like from previous series
+        output = dict(prev_logl=roi.prev_logl[-1:] if hasattr(roi,'prev_logl') else [],)
         oldsrc = dict()
     diffuse_sources =  [s for s in roi.sources if s.isglobal or s.isextended]
     
@@ -37,7 +39,8 @@ def pickle_dump(roi,  pickle_dir, dampen=1, **kwargs):
     output['diffuse_names'] = [s.name for s in diffuse_sources]  #roi.dsm.names
     output['parameters'] = roi.sources.parameters[:] 
     output['gradient'] = np.asarray(roi.gradient(), np.float32)
-    output['time'] = time.asctime()        
+    output['time'] = time.asctime()   
+    output['logl'] = roi.log_like()
     sources=dict()
     output['sources']= sources
     def getit(s, key, savekey=None):

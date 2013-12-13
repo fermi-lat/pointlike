@@ -1,42 +1,45 @@
 """
 Classes for pipeline processing
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.1 2013/12/09 01:17:31 burnett Exp $
 
 """
 import os, sys, time
 import numpy as np
 from uw.utilities import keyword_options
-from . import (main, tools, sedfuns, localization, )
-from . plotting import (counts,)
-
+from uw.like2 import (main, tools)
 
 class Process(main.MultiROI):
+
     defaults=(
-        ('outdir', None, 'output folder'),
-        ('localize', False, 'perform localiation'),
-        ('localize_kw', {}, 'keywords for localization'),
-        ('repivot_flag', False, 'repivot the sources'),
-        ('betafix_flag', False, 'check betas, refit if needed'),
-        ('dampen', 1.0, 'damping factor: set <1 to dampen, 0 to not fit'),
-        ('counts_dir', 'counts_dir', 'folder for the counts plots'),
-        ('norms_first', False, 'initial fit to norms only'),
+        ('outdir',        None,  'output folder'),
+        ('localize_flag', False, 'perform localiation'),
+        ('localize_kw',   {},    'keywords for localization'),
+        ('repivot_flag',  False, 'repivot the sources'),
+        ('betafix_flag',  False, 'check betas, refit if needed'),
+        ('dampen',        1.0,   'damping factor: set <1 to dampen, 0 to not fit'),
+        ('counts_dir',    'counts_dir', 'folder for the counts plots'),
+        ('norms_first',   False, 'initial fit to norms only'),
         ('countsplot_tsmin', 100, 'minimum for souces in counts plot'),
-        ('source_name', None, 'for localization?'),
-        ('fit_kw', {}, 'extra parameters for fit'),
-        ('associate', True, 'run association'),
-        ('tsmap_dir', None, 'folder for TS maps'),
-        ('sedfig_dir', None, 'folder for sed figs'),
-        ('quiet', True, 'Set false '),
+        ('source_name',   None,   'for localization?'),
+        ('fit_kw',        {},     'extra parameters for fit'),
+        ('associate',     True,   'run association'),
+        ('tsmap_dir',     None,   'folder for TS maps'),
+        ('sedfig_dir',    None,   'folder for sed figs'),
+        ('quiet',         True,   'Set false for summary output'),
     )
     
     @keyword_options.decorate(defaults)
-    def __init__(self, config_dir, roi_list, **kwargs):
+    def __init__(self, config_dir, roi_list=None, **kwargs):
         """ process the roi object after being set up
         """
         keyword_options.process(self, kwargs)
-        super(Process,self).__init__(config_dir, roi_list)
+        super(Process,self).__init__(config_dir,)
+        if roi_list is not None:
+            for index in roi_list:
+                self.process_roi(index)
         
-    def proc(self):
+    def process_roi(self, index):
+        self.setup_roi(index)
         roi=self
         dampen=self.dampen 
         outdir = self.outdir
@@ -90,17 +93,15 @@ class Process(main.MultiROI):
         sedfig_dir = getdir(self.sedfig_dir)
         if sedfig_dir is not None:
             skymodel_name = os.path.split(outdir)[-1]
-            sedfuns.makesed_all(roi, sedfig_dir=sedfig_dir, suffix='_sed_%s'%skymodel_name, )
-        if self.localize:
+            roi.plot_sed('all', sedfig_dir=sedfig_dir, suffix='_sed_%s'%skymodel_name, )
+        if self.localize_flag:
             print 'localizing and associating all sources with variable...'
-            q, roi.quiet = roi.quiet,False
             tsmap_dir = getdir(self.tsmap_dir)
-            localization.localize_all(roi, tsmap_dir=tsmap_dir)
-            roi.quiet=q
+            roi.localize('all', tsmap_dir=tsmap_dir)
 
         if True: #try:
-            fig = counts.stacked_plots(roi, None, tsmin=self.countsplot_tsmin)
-            cts = counts.get_counts(roi)
+            fig = roi.plot_counts( tsmin=self.countsplot_tsmin)
+            cts = roi.get_counts()
             chisq = cts['chisq']
             print 'chisquared for counts plot: %.1f'% chisq
             counts_dir = getdir(self.counts_dir)
@@ -122,12 +123,11 @@ class Process(main.MultiROI):
         if outtee is not None: outtee.close() 
         return True
     
-    def repivot(self, roi, fit_sources=None, min_ts = 10, max_beta=3.0, emin=200, emax=20000.):
-        """ invoked by process() if repivot flag set; can be run separately to test
-        
+    def repivot(self, fit_sources=None, min_ts = 10, max_beta=3.0, emin=200, emax=20000.):
+        """ invoked  if repivot flag set;
         returns True if had to refit, allowing iteration
         """
-        
+        roi = self
         print '\ncheck need to repivot sources with TS>%.0f, beta<%.1f: \n'\
         'source                     TS        e0      pivot' % (min_ts, max_beta)
         need_refit =False
@@ -171,13 +171,14 @@ class Process(main.MultiROI):
             roi.fit()
         return need_refit
         
-    def betafix(roi, ts_min=20, qual_min=15,poisson_tolerance=0.2):
+    def betafix(self, ts_min=20, qual_min=15,poisson_tolerance=0.2):
         """ invoked  if betafix flag set, 
         if beta=0.001, it has not been tested.
         if beta<0.01 or error exists and  >0.1
         """
+        roi = self
         refit=candidate=False
-        print 'checking for beta fit: minTS %s, min qual %s...'% (ts_min, qual_min)
+        print 'checking for beta fit: minTS %.1f, min qual %.1f ...' % (ts_min, qual_min)
         models_to_fit=[]
         for source in roi.sources:
             model = source.spectral_model
@@ -258,4 +259,21 @@ class Process(main.MultiROI):
             print 'none found'
         return refit    
 
-
+class BatchJob(Process):
+    """special interface to be called from uwpipelien
+    """
+    def __init__(self, **kwargs):
+        config_dir= kwargs.pop('config_dir', '.')
+        roi_list = kwargs.pop('roi_list', range(1,3)) 
+        kwargs['outdir']= '.'
+        super(BatchJob, self).__init__(config_dir, **kwargs)
+        
+    def __call__(self, roi_index):
+        self.process_roi(roi_index)
+    
+#### TODO
+#def run(rois, **kw):
+#    Process('.', rois, **kw )
+#    
+#if __name__=='__main__':
+#    run()
