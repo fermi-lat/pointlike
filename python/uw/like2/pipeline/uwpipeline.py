@@ -1,15 +1,12 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.31 2013/10/11 16:26:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.32 2013/11/27 14:59:57 burnett Exp $
 """
-import os, argparse, logging, datetime, subprocess
+import os, argparse,  datetime
 import numpy as np
-from uw.like2.pipeline import check_data
-from uw.like2.pipeline import pipeline_job
-from uw.like2.pipeline import check_converge
-from uw.like2.pipeline import pipe
-from uw.like2.pipeline import processor
+from uw.like2 import process
+from uw.like2.pipeline import (check_data, pipeline_job, check_converge)
 from uw.like2.analyze import app
 
 class StartStream(object):
@@ -23,10 +20,12 @@ class StartStream(object):
                 job_list = stagenames[stage]['job_list']
             cmd=pipeline+' -D "stage=%s, SKYMODEL_SUBDIR=%s, job_list=%s" UWpipeline' \
                 %(stage, args.skymodel, job_list)
-            print '-->' , cmd
             if not args.test:
+                print '-->' , cmd
                 os.system(cmd)
-                #print subprocess.check_output(cmd)
+            else:
+                print 'Test mode: would have submitted \n\t%s'%cmd
+
 
 class Summary(object):
     def get_stage(self, args):
@@ -77,7 +76,7 @@ procnames = dict(
     # start actually launches a stream
     start      = Proc(StartStream(), help='start a stream: assumed if no proc is specified'),
     check_data = Proc(CheckData(),     help='check that required data files are present'),
-    job_proc   = Proc(JobProc(),     help='run a parallel pipeline job'),
+    job        = Proc(JobProc(),     help='run a parallel pipeline job'),
     check_jobs = Proc(CheckJobs(),   help='check for convergence, combine results, possibly submit new stream'),
     summary_plots= Proc(Summary(),   help='Generate summary plots, depending on stage name'),
     )
@@ -90,42 +89,46 @@ class Stage(dict):
         self['help']=help
         self['job_list']=job_list
     def setup(self):
-        return self['proc'](**self['pars'])
+        try:
+            return self['proc'](**self['pars'])
+        except Exception, msg:
+            print 'Fail to run %s with paramameters %s: %s'% (self['proc'] , self['pars'], msg)
+            raise
 
 stagenames = dict(
     # List of possible stages, with proc to run, parameters for it,  summary string
     # list is partly recognized by check_converge.py, TODO to incoprorate it here, especially the part that may start a new stream
-    create      =  Stage(pipe.Create,  sum='environment counts menu', help='Create a new skymodel, follow with update_full',),
-    update_full =  Stage(pipe.Update, dict( dampen=1.0,),sum='config counts',help='refit, full update' ),
-    update      =  Stage(pipe.Update, dict( dampen=0.5,),sum='config counts',help='refit, half update' ),
-    update_beta =  Stage(pipe.Update, dict( dampen=1.0, fix_beta=True),sum='sourceinfo',help='check beta', ),
-    update_pivot=  Stage(pipe.Update, dict( dampen=1.0, repivot=True), sum='sourceinfo',help='update pivot', ), 
-    update_only =  Stage(pipe.Update, dict( dampen=1.0), sum='config counts sourceinfo', help='update, no additional stage', ), 
-    finish      =  Stage(pipe.Finish,  sum='sourceinfo localization',help='perform localization', ),
-    tables      =  Stage(pipe.Tables,  sum='hptables', job_list='joblist8.txt', help='create HEALPix tables: ts kde counts', ),
-    sedinfo     =  Stage(pipe.Update, dict( processor='processor.full_sed_processor',sedfig_dir='"sedfig"',), sum='frontback',
-                            help='process SED information' ),
-    galspectra  =  Stage(pipe.Update, dict( processor='processor.roi_refit_processor'), sum='galacticspectra', help='Refit the galactic component' ),
-    isospectra  =  Stage(pipe.Update, dict( processor='processor.iso_refit_processor'), sum='isotropicspectra', help='Refit the isotropic component'),
-    limb        =  Stage(pipe.Update, dict( processor='processor.limb_processor'),     sum='limbrefit', help='Refit the limb component, usually fixed' ),
-    sunmoon     =  Stage(pipe.Update, dict( processor='processor.sunmoon_processor'), sum='sunmoonrefit', help='Refit the SunMoon component, usually fixed' ),
-    fluxcorr    =  Stage(pipe.Update, dict( processor='processor.flux_correlations'), sum='fluxcorr', ),
-    fluxcorrgal =  Stage(pipe.Update, dict( processor='processor.flux_correlations'), sum='flxcorriso', ),
-    fluxcorriso =  Stage(pipe.Update, dict( processor='processor.flux_correlations(diffuse="iso*", fluxcorr="fluxcorriso")'), ),
-    pulsar_table=  Stage(pipe.PulsarLimitTables,),
-    localize    =  Stage(pipe.Update, dict( processor='processor.localize(emin=1000.)'), help='localize with energy cut' ),
-    seedcheck   =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="SEED")',auxcat="seeds.txt"), sum='seedcheck',
-                                                                       help='Evaluate a set of seeds: fit, localize with position update, fit again'),
-    seedcheck_MRF =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="MRF")', auxcat="4years_SeedSources-MRF.txt"), help='refit MRF seeds'),
-    seedcheck_PGW =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="PGW")', auxcat="4years_SeedSources-PGW.txt"), help='refit PGW seeds'),
-    pseedcheck  =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="PSEED")',auxcat="pseeds.txt"), help='refit pulsar seeds'),
-    fglcheck    =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="2FGL")',auxcat="2fgl_lost.csv"), help='check 2FGL'),
-    pulsar_detection=Stage(pipe.PulsarDetection, job_list='joblist8.txt', sum='pts', help='Create ts tables for pulsar detection'),
-    gtlike_check=  Stage(pipe.Finish, dict(processor='processor.gtlike_compare()',), sum='gtlikecomparison', help='Compare with gtlike analysis of same sources'),
-    uw_compare =  Stage(pipe.Finish, dict(processor='processor.UW_compare(other="uw26")',), sum='uw_comparison', help='Compare with another UW model'),
-    tsmap_fail =  Stage(pipe.Update, dict(processor='processor.localize()',), sum='localization', help='tsmap_fail'),
-    covariance =  Stage(pipe.Finish, dict(processor='processor.covariance',),  help='covariance matrices'),
-    diffuse_info= Stage(pipe.Update, dict(processor='processor.diffuse_info',), help='extract diffuse information'),
+    create      =  Stage(process.BatchJob, dict(), sum='environment counts menu', help='Create a new skymodel, follow with update_full',),
+    update_full =  Stage(process.BatchJob, dict(), sum='config counts',help='refit, full update' ),
+    update      =  Stage(process.BatchJob, dict( dampen=0.5,), sum='config counts',help='refit, half update' ),
+    update_beta =  Stage(process.BatchJob, dict( betafix_flag=True), sum='sourceinfo',help='check beta', ),
+    update_pivot=  Stage(process.BatchJob, dict( repivot_flag=True), sum='sourceinfo',help='update pivot', ), 
+    update_only =  Stage(process.BatchJob, dict(), sum='config counts sourceinfo', help='update, no additional stage', ), 
+    finish      =  Stage(process.BatchJob, dict(localize_flag=True,sedfig_dir='sedfig',dampen=0,), sum='sourceinfo localization',help='perform localization', ),
+    #tables      =  Stage(pipe.Tables,  sum='hptables', job_list='joblist8.txt', help='create HEALPix tables: ts kde counts', ),
+    #sedinfo     =  Stage(pipe.Update, dict( processor='processor.full_sed_processor',sedfig_dir='"sedfig"',), sum='frontback',
+    #                        help='process SED information' ),
+    #galspectra  =  Stage(pipe.Update, dict( processor='processor.roi_refit_processor'), sum='galacticspectra', help='Refit the galactic component' ),
+    #isospectra  =  Stage(pipe.Update, dict( processor='processor.iso_refit_processor'), sum='isotropicspectra', help='Refit the isotropic component'),
+    #limb        =  Stage(pipe.Update, dict( processor='processor.limb_processor'),     sum='limbrefit', help='Refit the limb component, usually fixed' ),
+    #sunmoon     =  Stage(pipe.Update, dict( processor='processor.sunmoon_processor'), sum='sunmoonrefit', help='Refit the SunMoon component, usually fixed' ),
+    #fluxcorr    =  Stage(pipe.Update, dict( processor='processor.flux_correlations'), sum='fluxcorr', ),
+    #fluxcorrgal =  Stage(pipe.Update, dict( processor='processor.flux_correlations'), sum='flxcorriso', ),
+    #fluxcorriso =  Stage(pipe.Update, dict( processor='processor.flux_correlations(diffuse="iso*", fluxcorr="fluxcorriso")'), ),
+    #pulsar_table=  Stage(pipe.PulsarLimitTables,),
+    #localize    =  Stage(pipe.Update, dict( processor='processor.localize(emin=1000.)'), help='localize with energy cut' ),
+    #seedcheck   =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="SEED")',auxcat="seeds.txt"), sum='seedcheck',
+    #                                                                   help='Evaluate a set of seeds: fit, localize with position update, fit again'),
+    #seedcheck_MRF =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="MRF")', auxcat="4years_SeedSources-MRF.txt"), help='refit MRF seeds'),
+    #seedcheck_PGW =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="PGW")', auxcat="4years_SeedSources-PGW.txt"), help='refit PGW seeds'),
+    #pseedcheck  =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="PSEED")',auxcat="pseeds.txt"), help='refit pulsar seeds'),
+    #fglcheck    =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="2FGL")',auxcat="2fgl_lost.csv"), help='check 2FGL'),
+    #pulsar_detection=Stage(pipe.PulsarDetection, job_list='joblist8.txt', sum='pts', help='Create ts tables for pulsar detection'),
+    #gtlike_check=  Stage(pipe.Finish, dict(processor='processor.gtlike_compare()',), sum='gtlikecomparison', help='Compare with gtlike analysis of same sources'),
+    #uw_compare =  Stage(pipe.Finish, dict(processor='processor.UW_compare(other="uw26")',), sum='uw_comparison', help='Compare with another UW model'),
+    #tsmap_fail =  Stage(pipe.Update, dict(processor='processor.localize()',), sum='localization', help='tsmap_fail'),
+    #covariance =  Stage(pipe.Finish, dict(processor='processor.covariance',),  help='covariance matrices'),
+    #diffuse_info= Stage(pipe.Update, dict(processor='processor.diffuse_info',), help='extract diffuse information'),
 ) 
 keys = stagenames.keys()
 stage_help = '\nstage name, or sequential stages separaged by ":" names are\n\t' \
@@ -143,7 +146,10 @@ def check_environment(args):
     cwd = os.getcwd()
     assert os.path.exists('config.txt'), 'expect this folder (%s) to have a file config.txt'%cwd
     m = cwd.find('skymodels')
-    assert m>0, 'did not find "skymodels" in path to cwd, which is %s' %cwd
+    if m<0:
+        print 'WARNING: did not find "skymodels" in path to cwd, which is %s' %cwd
+        pointlike_dir=cwd
+    else: pointlike_dir=cwd[:m]
     if args.stage[0] is None :
         pass #    raise Exception( 'No stage specified: either command line or os.environ')
     else:
@@ -173,7 +179,13 @@ def main( args ):
     #tee = processor.OutputTee('summary_log.txt')
     print '\n'+ str(datetime.datetime.today())[:16]
     print '--> %s for %s'%(proc, args.stage)
-    procnames[proc](args)
+    if proc not in procnames:
+        print 'proc name "%s" not recognized: expect one of %s' % (proc, sorted(procnames))
+        return
+    try:
+        procnames[proc](args)
+    except Exception, msg:
+        print msg
     #tee.close()
 
 if __name__=='__main__':

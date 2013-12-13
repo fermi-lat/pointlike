@@ -1,13 +1,13 @@
 """
 setup and run pointlike all-sky analysis for subset of ROIs
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.12 2013/05/04 14:47:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.13 2013/05/14 15:35:15 burnett Exp $
 """
 import os, sys, logging
 from collections import OrderedDict
 
 import numpy as np
-from uw.like2.pipeline import pipe
+#from uw.like2 import main
 
 
 ### Set variables corresponding to the environment
@@ -16,18 +16,18 @@ from uw.like2.pipeline import pipe
 # if None, must be set
 
 defaults=OrderedDict([
-	('HOSTNAME', '?'),
-	('PIPELINE_STREAMPATH', '-1'),
-	('PIPELINE_STREAM', '-1'),
-    
+    ('HOSTNAME', '?'),
+    ('PIPELINE_STREAMPATH', '-1'),
+    ('PIPELINE_STREAM', '-1'),
     ('POINTLIKE_DIR','.'),
     ('SKYMODEL_SUBDIR','.'),
     ('stage', '?'),
     ('begin_roi','2'), # defaults for test: #2 has one source
     ('end_roi', '4'),
-    ('roi_list', '2,'), # comma-delimited list, to replace begin_roi, end_roi if present
+    ('roi_list', ''), # comma-delimited list, to replace begin_roi, end_roi if present
+
     ])
- 
+
 def main( update=None):
 
     print '\npointlike skymodel configuration'
@@ -36,15 +36,15 @@ def main( update=None):
         exec('%s="%s"'%item)
         print '\t%-20s: %s' % item
     if update is not None:
-        print '--> executing:\n', update.setup()
-        g = update.g()
+        print '--> executing process_roi in %s' % update.__class__.__name__
+        g = update
     else: 
         print 'Test execution'
         def g(n):
             print 'Would process roi %d' % n
     np.seterr(invalid='warn', divide='warn')
     
-    if roi_list == '':
+    if roi_list =='':
         roi_list = range(int(begin_roi), int(end_roi))
     else:
         if roi_list.endswith(','):
@@ -85,7 +85,10 @@ def main( update=None):
 
     for s in roi_list[roi_list.index(first_roi):] :
         logging.info('Start roi %d' % s )
-        g(s)
+        try:
+            g(s)
+        except Exception, msg:
+            print '***Exception raised for roi %d, "%s'  %(s,msg)
         tprev, tnow= tnow, logging.time.time()
         logging.info('Finish: elapsed= %.1f (total %.1f)' % ( tnow-tprev, tnow-tzero ))
         sys.stdout.flush()
