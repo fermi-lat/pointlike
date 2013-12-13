@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.47 2013/12/05 21:16:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.48 2013/12/09 01:16:58 burnett Exp $
 
 """
 import types, time
@@ -68,6 +68,7 @@ class ROI(views.LikelihoodViews):
     
     defaults = (
         ('quiet', True, 'set to suppress output'),
+        ('load_kw', {}, 'a dict specific for the loading'),
     )
 
     @keyword_options.decorate(defaults)
@@ -86,7 +87,7 @@ class ROI(views.LikelihoodViews):
         config = configuration.Configuration(config_dir, quiet=self.quiet, postpone=True)
         ecat = extended.ExtendedCatalog(config.extended)
         if isinstance(roi_spec, int):
-            roi_sources = from_healpix.ROImodelFromHealpix(config, roi_spec, ecat=ecat,)
+            roi_sources = from_healpix.ROImodelFromHealpix(config, roi_spec, ecat=ecat,load_kw=self.load_kw)
             roi_index = roi_spec
             self.name = 'HP12_%04d' % roi_index
         elif isinstance(roi_spec, str):
@@ -152,9 +153,9 @@ class ROI(views.LikelihoodViews):
                 pfit = fv.parameters[:] 
                 cov  = fv.covariance
                 fv.modify(update_by)
-            except FloatingPointError, e:
-                if not ignore_exception: raise
-            except Exception:
+            except Exception, msg:
+                print 'Failure %s: check parameters' %msg
+                fv.summary() # 
                 if ignore_exception: return 
                 else: raise
         return wfit, pfit, cov
@@ -167,6 +168,9 @@ class ROI(views.LikelihoodViews):
     def localize(self, source_name=None, update=False, **kwargs):
         """ localize the source, return elliptical parameters 
         """
+        if source_name=='all':
+            localization.localize_all(self, **kwargs)
+            return
         with self.tsmap_view(source_name, **kwargs) as tsm:
             loc = localization.Localization(tsm, **kwargs)
             try: 
@@ -193,6 +197,9 @@ class ROI(views.LikelihoodViews):
              source.ts  = fv.ts()
         return source.ts
 
+    def get_counts(self):
+        return plotting.counts.get_counts(self)
+        
     def get_sed(self, source_name=None, event_type=None, update=False, tol=0.1):
         """ return the SED recarray for the source
         source_name : string
@@ -213,6 +220,10 @@ class ROI(views.LikelihoodViews):
     
     @tools.decorate_with(plotting.sed.stacked_plots)    
     def plot_sed(self, source_name=None, **kwargs):
+        if source_name=='all':
+            #flag to do them all
+            sedfuns.makesed_all(self, **kwargs)
+            return
         source = self.sources.find_source(source_name)
         showts = kwargs.pop('showts', True)
         if kwargs.pop('update', False):
@@ -299,24 +310,19 @@ class ROI(views.LikelihoodViews):
 
 class MultiROI(ROI):
     """ROI subclass that will perform a fixed analysis on multiple ROIs
-    Intended for subclasses to override the process function
+    Intended for subclasses to override the proc function
     """
     
-    def __init__(self, config_dir, roi_list, quiet=False):
+    def __init__(self, config_dir,  quiet=False):
         """
         """
-        config = configuration.Configuration(config_dir, quiet=quiet, postpone=False)
-        ecat = extended.ExtendedCatalog(config.extended)
+        self.config = configuration.Configuration(config_dir, quiet=quiet, postpone=False)
+        self.ecat = extended.ExtendedCatalog(self.config.extended)
         
-        for roi_index in roi_list:
-            roi_bands = bands.BandSet(config, roi_index)
-            roi_bands.load_data()
-            roi_sources = from_healpix.ROImodelFromHealpix(config, roi_index, ecat=ecat,)
-            self.name = 'HP12_%04d' % roi_index
-
-            self.setup( roi_bands, roi_sources)
-            self.proc()
             
-    def proc(self):
-        print  '='*80
-        print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (self.name,))
+    def setup_roi(self, roi_index):
+        roi_bands = bands.BandSet(self.config, roi_index)
+        roi_bands.load_data()
+        roi_sources = from_healpix.ROImodelFromHealpix(self.config, roi_index, ecat=self.ecat,)
+        self.name = 'HP12_%04d' % roi_index
+        self.setup( roi_bands, roi_sources)
