@@ -1,5 +1,5 @@
 """  A module to handle finding irfs
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pycaldb.py,v 1.8 2011/05/02 20:45:47 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pycaldb.py,v 1.9 2012/02/12 20:20:19 burnett Exp $
 
     author: Joshua Lande """
 import os
@@ -23,7 +23,8 @@ class CALDBManager(object):
         ('psf_irf',None,'specify a different IRF to use for the PSF'),
         ('CALDB',None,'override the CALDB specified by the env. variable or by py_facilities'),
         ('custom_irf_dir',None,'override the irf dir specified by the env. variable CUSTOM_IRF_DIR'),
-    )
+        ('quiet', True, 'set false for output'),
+   )
 
     @keyword_options.decorate(defaults)
     def __init__(self,irf,**kwargs):
@@ -40,7 +41,7 @@ class CALDBManager(object):
                     os_environ = py_facilities.commonUtilities_getEnvironment
                     self.CALDB=os_environ('CALDB')
                 except:
-                    raise Exception('Environment variable must be set, or findable by py_facilities package')
+                    raise Exception('Environment variable CALDB must be set, or findable by py_facilities package')
 
         if self.custom_irf_dir is not None:
             if not os.path.exists(self.custom_irf_dir):
@@ -48,7 +49,7 @@ class CALDBManager(object):
         else:
             self.custom_irf_dir = os.environ.get('CUSTOM_IRF_DIR', None)
         if self.custom_irf_dir is not None:
-            print 'CALDBManager: using custom irf: %s' % self.custom_irf_dir
+            if not self.quiet: print 'CALDBManager: using custom irf: %s' % self.custom_irf_dir
             
         self.bcf = join(self.CALDB,'bcf')
 
@@ -84,7 +85,7 @@ class CALDBManager(object):
         if self.psf_irf is None:
             irf=self.irf
         else:
-            print 'Overriding default PSF; using %s'%(self.psf_irf)
+            if not self.quiet: print 'Overriding default PSF; using %s'%(self.psf_irf)
             irf=self.psf_irf
 
         # see if the psf name is directly in the filename.
@@ -102,17 +103,19 @@ class CALDBManager(object):
             psfs=self.irf_files[front[0]],self.irf_files[back[0]]
             self.psf_files = [join(self.bcf,'psf',x) for x in psfs]
 
-            if os.path.exists(self.psf_files[0]) and os.path.exists(self.psf_files[0]):
+            if os.path.exists(self.psf_files[0]) and os.path.exists(self.psf_files[1]):
                 return
+            print 'caldb.indx: did not find both %s' %self.psf_files
             
         # try the cusom_irf_dir
         if self.custom_irf_dir is not None:
             if not os.path.exists(self.custom_irf_dir):
-                raise Exception("custom_irf_dir does not exist.")
+                raise Exception("custom_irf_dir '%s' does not exist." % self.custom_irf_dir)
             self.psf_files = [join(self.custom_irf_dir,'psf_%s_%s.fits' % (irf,i)) for i in ['front','back']]
 
-            if os.path.exists(self.psf_files[0]) and os.path.exists(self.psf_files[0]):
+            if os.path.exists(self.psf_files[0]) and os.path.exists(self.psf_files[1]):
                 return
+            print 'Custom irf_dir: did not find both %s ' %self.psf_files
 
         raise Exception("Unable to find the irf %s." % irf)
     
