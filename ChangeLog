@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Dec 13 11:16:30 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	main.py roimodel.py from_healpix.py 
+Log Message:
+implement rings in healpix
+    *
+------------------------------------------------------------
 User: burnett  Fri Dec 13 11:14:15 PST 2013
 pointlike/python/uw/like2
 
