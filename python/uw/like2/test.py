@@ -1,6 +1,6 @@
 """
 All like2 testing code goes here, using unittest
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.28 2013/12/07 20:33:21 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.29 2013/12/08 00:48:01 burnett Exp $
 """
 import os, sys, unittest
 import numpy as np
@@ -29,6 +29,7 @@ config_dir = '/tmp/like2' # os.path.expandvars('$HOME/test') #skymodels/P202/uw2
 config = None
 ecat = None
 roi_index = 840
+rings_to_load=2
 roi_sources = None
 roi_bands = None
 blike = None
@@ -71,7 +72,8 @@ def setup(name):
         ecat = extended.ExtendedCatalog(config.extended)
         print '\n****ecat:', ecat
     if (name=='roi_sources' or name=='blike' or name=='likeviews') and roi_sources is None:
-        roi_sources = from_healpix.ROImodelFromHealpix(config, roi_index, ecat=ecat,)
+        roi_sources = from_healpix.ROImodelFromHealpix(config, roi_index, ecat=ecat, 
+            load_kw=dict(rings=rings_to_load))
         print '\n****roi_sources:' , roi_sources
     if (name=='roi_bands' or name=='blike' or name=='likeviews') and roi_bands is None:
         roi_bands = bands.BandSet(config, roi_index)
@@ -88,7 +90,7 @@ def setup(name):
         likeviews = views.LikelihoodViews(roi_bands, roi_sources)
         print '\n****like_views:', likeviews
     if name=='roi' and roi is None:
-        roi = main.ROI(config_dir, roi_index)
+        roi = main.ROI(config_dir, roi_index,  load_kw=dict(rings=rings_to_load))
     return eval(name)
         
 class TestSetup(unittest.TestCase):
@@ -327,8 +329,7 @@ class TestROImodel(TestSetup):
     def test_properties(self):
         rs = roi_sources
         self.assertEquals(14, sum(rs.free))
-        self.assertEquals(82, len(rs.free))
-        self.assertEquals(82, len(rs.source_names))
+        self.assertEquals([82,153][rings_to_load-1], len(rs.free))
         self.assertEquals(35, len(rs.parameter_names))
         self.assertEquals(35, len(rs.bounds))
         
@@ -429,8 +430,8 @@ class TestLikelihood(TestSetup):
         '--> check weights for band 1'
         b1 = self.bl[1]
         weights = b1.data / b1.model_pixels
-        self.assertAlmostEquals(0.992, weights.mean(), delta=0.01)
-        self.assertAlmostEquals(0.032, weights.std(), delta=0.002)
+        self.assertAlmostEquals(0.985, weights.mean(), delta=0.01)
+        self.assertAlmostEquals(0.0335, weights.std(), delta=0.005)
     def test_hessian(self):
         bl = self.bl
         hess = bl.hessian()
@@ -452,11 +453,14 @@ class TestLikelihood(TestSetup):
         bl.selected= bl
         total = bl.log_like()
         self.assertAlmostEquals(total, parta+partb)
-    def test_change_model(self, expect=697448):
+    def test_change_model(self, expect=-118.8):
         """--> change a model, then back; check likelihood changed"""
+        prev = blike.log_like()
         m = blike.set_model('PowerLaw(1e-11, 2.0)', '*2722')
-        self.assertAlmostEquals(expect, blike.log_like(), delta=1)
+        diff = blike.log_like() - prev
         blike.set_model(m)
+        self.assertAlmostEquals(expect, diff, delta=1)
+        self.assertAlmostEquals(blike.log_like(), prev,delta=0.1)
         
     
 class TestAddRemoveSource(TestSetup):
@@ -473,10 +477,10 @@ class TestAddRemoveSource(TestSetup):
         
         
 class TestFitterView(TestSetup):
-    def setUp(self, expect=697567):
+    def setUp(self, expect=697568):
         setup('likeviews')
         self.init = blike.log_like()
-        self.assertAlmostEquals(expect, self.init, delta=1)
+        self.assertAlmostEquals(expect, self.init, delta=2)
         
     def test_ts(self, sourcename='P7R42722', expect=786):
         """--> set up a subset fitter view, use it to check a TS value"""
@@ -500,7 +504,7 @@ class TestSED(TestSetup):
     def tearDown(self):
         self.assertAlmostEquals(self.init, likeviews.log_like())
 
-    def test_sourceflux(self, sourcename='W28', checks=(61.664, 63.736, 5139, 5292)):
+    def test_sourceflux(self, sourcename='W28', checks=(61.664, 63.736, 5139, 5285)):
         """-->create and check the SED object"""
         with sedfuns.SED(likeviews, sourcename) as sf:
             poiss = sf.full_poiss
@@ -508,10 +512,10 @@ class TestSED(TestSetup):
             pp = sf.all_poiss()
             bandts = np.array([x.ts for x in pp]).sum()
             print 'errors, TS, bandts: %.3f, %.3f %.3f %.3f' % (tuple(errors)+(poiss.ts,bandts)),
-            self.assertAlmostEquals(checks[0], errors[0], delta=1e-2)
-            self.assertAlmostEquals(checks[1], errors[1], delta=1e-2)
+            self.assertAlmostEquals(checks[0], errors[0], delta=1e-1)
+            self.assertAlmostEquals(checks[1], errors[1], delta=1e-1)
             self.assertAlmostEquals(checks[2], poiss.ts, delta=100.)
-            self.assertAlmostEquals(checks[3], bandts, delta=1.0)
+            self.assertAlmostEquals(checks[3], bandts, delta=10.0) # beware!
 
 class TestLocalization(TestSetup):
     def setUp(self):
@@ -535,17 +539,17 @@ class TestROI(TestSetup):
         self.assertAlmostEquals(self.init, roi.log_like())
 
     def test_fit(self, selects=(0, '_Norm', None), 
-            expects=(697608.2, 697617.7 ,697645.4)):
+            expects=(9.2, 17.4, 60.0)):
         for select, expect in zip(selects, expects):
             wfit, pfit, conv = roi.fit(select, summarize=False, update_by=0.)
-            self.assertAlmostEquals(expect, wfit, delta=0.1)
+            self.assertAlmostEquals(expect, wfit-self.init, delta=1.0)
 
     def test_localization(self, source_name='P7R42722'):
         t = roi.localize(source_name, quiet=True)
         self.assertAlmostEquals(0.0062, t['a'], delta=1e-3)
-        self.assertAlmostEquals(0.210, t['qual'], delta=1e-3)
+        self.assertAlmostEquals(0.215, t['qual'], delta=1e-3)
  
-    def testTS(self, source_name='P7R42722', expect=800):
+    def testTS(self, source_name='P7R42722', expect=785.9):
         """-->compute a Test Statistic"""
         ts = roi.TS(source_name)
         self.assertAlmostEquals(expect, ts, delta=1)
