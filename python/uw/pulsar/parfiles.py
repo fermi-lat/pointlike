@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.52 2013/12/02 02:40:57 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.53 2013/12/08 11:54:19 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -649,6 +649,12 @@ class ParFile(dict):
         self.sort_glitches()
         return glphase
 
+    def delete_glitches(self):
+        for key in self.ordered_keys[:]:
+            if key[:2] == 'GL':
+                self.pop(key)
+                self.ordered_keys.remove(key)
+
     def get_glepochs(self,unique=True):
         glepochs = []
         for key in self.keys():
@@ -664,6 +670,12 @@ class ParFile(dict):
     def num_waves(self):
         f = lambda s: s.startswith('WAVE') and s[-1].isdigit()
         return len(filter(f,self.keys()))
+
+    def delete_waves(self):
+        for key in self.ordered_keys[:]:
+            if ('WAVE' in key):
+                self.pop(key)
+                self.ordered_keys.remove(key)
 
     def get_wave_string(self,epoch=None):
         """ Return a sting suitable for appending to an ephemeris giving
@@ -719,6 +731,18 @@ class ParFile(dict):
         for key in self.keys():
             if hasattr(self[key],'__iter__') and (len(self[key])>1) and self[key][1]=='1':
                 self[key][1] = '0'
+        return self # for chaining
+
+    def delete_smooth(self):
+        keys = filter(lambda x: 'IFUNC' in x, self.ordered_keys)
+        for key in keys:
+            self.delete_key(key)
+        return self # for chaining
+
+    def set_smooth(self,on=False):
+        if 'SIFUNC' in self.ordered_keys:
+            self['SIFUNC'][0] = '2' if on else '0'
+        return self
 
 class TimFile(object):
 
@@ -756,6 +780,14 @@ class TimFile(object):
         if output is not None:
             file(output,'w').write('FORMAT 1\n'+''.join(toa_lines))
 
+def parfunc(par,func):
+    """ Instantiate a temporary ParFile and execute the function,
+        then write it out.
+    """
+    pf = ParFile(par)
+    eval('pf.%s()'%func)
+    pf.write(par)
+
 def add_key(par,key,val):
     """ Shortcut method for adjusting an ephemeris."""
     pf = ParFile(par)
@@ -784,9 +816,9 @@ def get_bats_etc(par,tim,output=None,full_output=False,binary=False):
     if binary:
         cmd = cmd.replace('bat','bbat')
     proc = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE)
-    toks = [line.split('\t')[1:] for line in proc.stdout if line[:7]=='onerous']
-    #toks = [x[1:] for x in toks if x[0]=='onerous']
-    #print toks[0],toks[-1]
+    toks = map(lambda l:l.split('\t')[1:],
+        filter(lambda l:l[:7]=='onerous',proc.stdout))
+    #toks = [line.split('\t')[1:] for line in proc.stdout if line[:7]=='onerous']
     bats = np.array([x[0] for x in toks],dtype=np.float128)
     errs = np.array([x[1] for x in toks],dtype=np.float128)*(1e-6/86400)
     phas = np.array([x[2] for x in toks],dtype=np.float128)
@@ -1001,6 +1033,10 @@ def del_flag(tim,flag,output=None):
 def add_phase(tim,abs_phase,output=None):
     """ Add an absolute phase flag to a TOA file.  abs_phase is a vector
         containing the (integer) pulse number for each TOA."""
+    if type(abs_phase)==type(''):
+        # phase is an ephemeris
+        bats,errs,abs_phase,offs,sats = get_bats_etc(
+            abs_phase,tim,full_output=True)
     abs_phase = [int(x) for x in abs_phase]
     add_flag(tim,'pn',abs_phase,output=output)
 
