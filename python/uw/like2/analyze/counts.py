@@ -1,7 +1,7 @@
 """
 Count plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.1 2013/08/20 14:29:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.2 2013/10/11 16:35:01 burnett Exp $
 
 """
 
@@ -43,7 +43,7 @@ class CountPlots(analysis_base.AnalysisBase):
                 glat = r['skydir'].b(),
                 chisq = r['counts']['chisq'],
                 chisq10= chisq10(r['counts']),
-                last_diff= r['logl']-r['prev_logl'][-1] if 'prev_logl' in r else np.nan,
+                last_diff= r['logl']-r['prev_logl'][-1] if 'prev_logl' in r  and len(r['prev_logl'])>0 else np.nan,
                 n_iter = int(len(r['prev_logl'])+1 if 'prev_logl' in r else 0),
                 )
         self.rois = pd.DataFrame(rdict).transpose()
@@ -89,8 +89,9 @@ class CountPlots(analysis_base.AnalysisBase):
             t = []
             for j,p in enumerate(self.pkls):
                 if key in p['diffuse_names']:
-                    y=p['counts']['models'][i]
-                    assert y[0]==key, 'wrong key, roi %d: %s!=%s; list is %s'% (j,key, y[0], p['diffuse_names'])
+                    k =  p['diffuse_names'].index(key) 
+                    y=p['counts']['models'][k]
+                    assert y[0]==key, 'bad key, roi %d: %s!=%s; list is %s'% (j,key, y[0], p['diffuse_names'])
                     t.append(y[1])
                 else:
                     t.append(np.zeros(len(self.energy)))
