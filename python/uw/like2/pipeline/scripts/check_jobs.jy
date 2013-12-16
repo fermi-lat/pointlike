@@ -1,0 +1,6 @@
+## Run by check_converge task of UWpipeline
+
+import os
+print 'checking status of %s/%s' % (POINTLIKE_DIR, SKYMODEL_SUBDIR)
+rc = os.system('python '+POINTLIKE_DIR+'/check_converge.py '+ SKYMODEL_SUBDIR)
+print 'updated ok' if rc==0 else 'Failed: %d ' % rc
