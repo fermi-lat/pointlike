@@ -1,12 +1,12 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.1 2013/12/09 01:17:31 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.2 2013/12/13 19:18:23 burnett Exp $
 
 """
 import os, sys, time
 import numpy as np
 from uw.utilities import keyword_options
-from uw.like2 import (main, tools)
+from uw.like2 import (main, tools,)
 
 class Process(main.MultiROI):
 
@@ -82,8 +82,7 @@ class Process(main.MultiROI):
                     if not self.betafix(roi):
                         print 'betafix requested, but no refit needed, quitting'
             except Exception, msg:
-                print '============== fit failed, aborting!! %s'%msg
-                return False
+                print '============== fit failed, no update!! %s'%msg
         
         def getdir(x ):
             if x is None or outdir is None: return None
