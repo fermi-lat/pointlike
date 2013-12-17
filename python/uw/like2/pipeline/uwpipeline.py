@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.33 2013/12/13 21:41:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.34 2013/12/16 16:15:07 burnett Exp $
 """
 import os, argparse,  datetime
 import numpy as np
@@ -21,7 +21,7 @@ class StartStream(object):
             if job_list is None or job_list=='None':
                 job_list = stagenames[stage]['job_list']
             cmd=pipeline+' -D "stage=%s, POINTLIKE_DIR=%s, SKYMODEL_SUBDIR=%s, job_list=%s" UWpipeline' \
-                %(stage, args.pointlike, args.skymodel, job_list)
+                %(stage, args.script_folder, args.skymodel, job_list)
             if not args.test:
                 print '-->' , cmd
                 os.system(cmd)
@@ -145,6 +145,26 @@ keys = stagenames.keys()
 stage_help = '\nstage name, or sequential stages separaged by ":" names are\n\t' \
     +  '\n\t'.join(['%-15s: %s' % (key,stagenames[key]['help'])  for key in sorted(stagenames.keys())])
 
+def find_script_folder(cwd):
+    """ look for folder with scripts: expect to be in folder containing skymodels or scripts
+    cwd : string, current folder
+        """
+    m = cwd.find('skymodels')
+    if m<0:
+        print 'WARNING: did not find "skymodels" in path to cwd, which is %s' %cwd
+        script_folder=cwd
+    else: script_folder=cwd[:m]
+    if not os.path.exists(os.path.join(script_folder, 'configure.sh')):
+        # try scripts folder
+        test = os.path.join(script_folder, 'scripts')
+        if os.path.exists(test):
+            if not os.path.exists(os.path.join(test, 'configure.sh')):
+                raise Exception('Script "configure.sh" not  found in %s or %s' % (script_folder, test) )
+            script_folder = test
+        else:
+            raise Exception('Script "configure.sh" not  found in %s ' % (script_folder,) )
+    return script_folder  
+  
 def check_environment(args):
     if 'SKYMODEL_SUBDIR' not in os.environ:
         os.environ['SKYMODEL_SUBDIR'] = os.getcwd()
@@ -156,21 +176,21 @@ def check_environment(args):
         os.chdir(skymodel)
     cwd = os.getcwd()
     assert os.path.exists('config.txt'), 'expect this folder (%s) to have a file config.txt'%cwd
-    m = cwd.find('skymodels')
-    if m<0:
-        print 'WARNING: did not find "skymodels" in path to cwd, which is %s' %cwd
-        pointlike_dir=cwd
-    else: pointlike_dir=cwd[:m]
-    if args.pointlike is None or not os.path.exists(args.pointlike):
-        raise Exception( 'SCRIPT folder %s not found' % args.pointlike)
-        
-    if args.stage[0] is None :
-        pass #    raise Exception( 'No stage specified: either command line or os.environ')
+    
+    if args.scripts is None:
+        script_folder = find_script_folder(cwd)
     else:
+        it not os.path.exists(args.scripts) :
+            raise Exception( 'SCRIPT folder %s not found' % args.scripts) 
+        if not os.path.exists(os.path.join(args.scripts, 'configure.sh')):
+            raise Exception('File "configure.sh" not found in folder %s' % args.scripts)
+        script_folder = args.scripts
+    
+    if args.stage[0] is not None :
         os.environ['stage']=args.stage[0]
 
-    # add these to the Namespace object for convenience
-    args.__dict__.update(skymodel=cwd, pointlike_dir=cwd[:m])
+    # add these to the Namespace object 
+    args.__dict__.update(skymodel=cwd, pointlike_dir=script_folder, script_folder=script_folder)
 
 def check_names(stage, proc):
     if len(stage)==0:
@@ -214,8 +234,8 @@ if __name__=='__main__':
     parser.add_argument('-p', '--proc', default=os.environ.get('PIPELINE_PROCESS', 'start'), 
             help='proc name,  default: "%(default)s"')
     parser.add_argument('--job_list', default=os.environ.get('job_list', None), help='file used to allocate jobs, default "%(default)s"')
-    parser.add_argument('--pointlike', default=os.environ.get('POINTLIKE', '/phys/users/tburnett/python/uw/like2/pipeline/scripts'), 
-        help='script folder, default %(default)s')
+    parser.add_argument('--scripts', default=None), 
+        help='script folder for batch, must be writeable default %(default)s')
     parser.add_argument('--rois', default='', help='allow setting of list for special job'),
     parser.add_argument('--stream', default=os.environ.get('PIPELINE_STREAM', -1), help='pipeline stream number, default %(default)s')
     parser.add_argument('--test', action='store_true', help='Do not run' )
