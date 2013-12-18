@@ -1,6 +1,6 @@
 """
 Output the ROI info to as a pickle file.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_healpix.py,v 1.1 2013/12/09 01:17:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_healpix.py,v 1.2 2013/12/13 19:18:50 burnett Exp $
 """
 import os, pickle, time
 import numpy as np
@@ -18,6 +18,7 @@ def pickle_dump(roi,  pickle_dir, dampen=1, **kwargs):
         output=pickle.load(open(filename))
         # update history of previous runs
         prev_logl = output.get('prev_logl', [])
+        streams  = output.get('streams', [])
         if prev_logl is None or len(prev_logl)==0 or prev_logl[0] is None: prev_logl = []
         if dampen>0 : # update list only if a new fit
             last_logl = output.get('logl')
@@ -30,6 +31,8 @@ def pickle_dump(roi,  pickle_dir, dampen=1, **kwargs):
         # first save: start with last log like from previous series
         output = dict(prev_logl=roi.prev_logl[-1:] if hasattr(roi,'prev_logl') else [],)
         oldsrc = dict()
+        streams = []
+    output['streams'] = streams + [kwargs.get('stream','-1')] #stream -1 for interactive or unknown
     diffuse_sources =  [s for s in roi.sources if s.isglobal or s.isextended]
     
     output['name'] = name
