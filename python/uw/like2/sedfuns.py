@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.24 2013/12/04 05:23:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.25 2013/12/08 00:48:01 burnett Exp $
 
 """
 import os, pickle
@@ -25,7 +25,9 @@ class SED(tools.WithMixin):
         self.func = self.rs.energy_flux_view(source_name)
         self.source_name = source_name
         self.full_poiss = self.select(None).poiss
-        self.energies = self.rs.energies # the original list
+        # make a list of energies with data; only have info if there is data in the ROI
+        hasdata = np.array([b.pixels>0 for b in self.rs])
+        self.energies = self.rs.energies[hasdata[0::2] | hasdata[1::2]] ## note assumption about energies 
     
     def __repr__(self):
         return '%s.%s : %d bands selected for source, %s energy range %.0f-%.0f'% (
@@ -53,6 +55,7 @@ class SED(tools.WithMixin):
             assert len(energies)==1
             energy = self.rs.energies[0]
             self.func.set_energy(energy)
+            assert self.func(0) != self.func(1), 'Function not variable? energy %.0f' % energy
         pf = loglikelihood.PoissonFitter(self.func, tol=poisson_tolerance)
         return pf
 
