@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.34 2013/12/16 16:15:07 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.35 2013/12/17 14:34:47 burnett Exp $
 """
 import os, argparse,  datetime
 import numpy as np
@@ -171,7 +171,6 @@ def check_environment(args):
     else:
         skymodel = os.environ['SKYMODEL_SUBDIR']
         print 'skymodel:' , skymodel
-        skymodel = skymodel.replace('/a/wain025/g.glast.u55/', '/afs/slac/g/glast/groups/')
         assert os.path.exists(skymodel), 'Bad path for skymodel folder: %s' %skymodel
         os.chdir(skymodel)
     cwd = os.getcwd()
@@ -180,7 +179,7 @@ def check_environment(args):
     if args.scripts is None:
         script_folder = find_script_folder(cwd)
     else:
-        it not os.path.exists(args.scripts) :
+        if not os.path.exists(args.scripts) :
             raise Exception( 'SCRIPT folder %s not found' % args.scripts) 
         if not os.path.exists(os.path.join(args.scripts, 'configure.sh')):
             raise Exception('File "configure.sh" not found in folder %s' % args.scripts)
@@ -219,7 +218,7 @@ def main( args ):
     try:
         procnames[proc](args)
     except Exception, msg:
-        print 'Exception tring to execute procnames[%s](%s):%s' ( proc,args, msg)
+        print 'Exception tring to execute procnames[%s](%s):%s' % ( proc,args, msg)
     #tee.close()
 
 if __name__=='__main__':
@@ -234,8 +233,7 @@ if __name__=='__main__':
     parser.add_argument('-p', '--proc', default=os.environ.get('PIPELINE_PROCESS', 'start'), 
             help='proc name,  default: "%(default)s"')
     parser.add_argument('--job_list', default=os.environ.get('job_list', None), help='file used to allocate jobs, default "%(default)s"')
-    parser.add_argument('--scripts', default=None), 
-        help='script folder for batch, must be writeable default %(default)s')
+    parser.add_argument('--scripts', default=None,    help='script folder for batch, must be writeable default %(default)s')
     parser.add_argument('--rois', default='', help='allow setting of list for special job'),
     parser.add_argument('--stream', default=os.environ.get('PIPELINE_STREAM', -1), help='pipeline stream number, default %(default)s')
     parser.add_argument('--test', action='store_true', help='Do not run' )
