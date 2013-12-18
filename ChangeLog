@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Dec 18 10:14:45 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	loglikelihood.py 
+Log Message:
+fix infinite loop
+    *
+------------------------------------------------------------
 User: burnett  Wed Dec 18 07:12:17 PST 2013
 pointlike/python/uw/like2/pipeline
 
