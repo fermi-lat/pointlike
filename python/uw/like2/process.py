@@ -1,6 +1,6 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.2 2013/12/13 19:18:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.3 2013/12/16 16:13:47 burnett Exp $
 
 """
 import os, sys, time
@@ -33,7 +33,8 @@ class Process(main.MultiROI):
         """ process the roi object after being set up
         """
         keyword_options.process(self, kwargs)
-        super(Process,self).__init__(config_dir,)
+        super(Process,self).__init__(config_dir,quiet=self.quiet)
+        self.stream = os.environ.get('PIPELINE_STREAMPATH', 'interactive')
         if roi_list is not None:
             for index in roi_list:
                 self.process_roi(index)
@@ -49,7 +50,7 @@ class Process(main.MultiROI):
             if not os.path.exists(logpath): os.mkdir(logpath)
             outtee = tools.OutputTee(os.path.join(logpath, roi.name+'.txt'))
             print  '='*80
-            print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (roi.name,))
+            print '%4d-%02d-%02d %02d:%02d:%02d - %s - %s' %(time.localtime()[:6]+ (roi.name,)+(self.stream,))
         else: outtee=None
 
         if self.counts_dir is not None and not os.path.exists(self.counts_dir) :
@@ -118,6 +119,7 @@ class Process(main.MultiROI):
             roi.to_healpix( pickle_dir, dampen, 
                 initial_logl=init_log_like, 
                 counts=cts,
+                stream=self.stream,
                 )
         if outtee is not None: outtee.close() 
         return True
@@ -259,12 +261,13 @@ class Process(main.MultiROI):
         return refit    
 
 class BatchJob(Process):
-    """special interface to be called from uwpipelien
+    """special interface to be called from uwpipeline
+    Expect current dir to be output dir.
     """
     def __init__(self, **kwargs):
         config_dir= kwargs.pop('config_dir', '.')
         roi_list = kwargs.pop('roi_list', range(1,3)) 
-        kwargs['outdir']= '.'
+        kwargs['outdir']= os.getcwd()
         super(BatchJob, self).__init__(config_dir, **kwargs)
         
     def __call__(self, roi_index):
