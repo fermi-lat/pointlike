@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.50 2013/12/16 16:13:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.51 2013/12/18 21:52:11 burnett Exp $
 
 """
 import types, time
@@ -329,4 +329,5 @@ class MultiROI(ROI):
         roi_bands = bands.BandSet(self.config, roi_index)
         roi_bands.load_data()
         roi_sources = from_healpix.ROImodelFromHealpix(self.config, roi_index, ecat=self.ecat,)
+        self.name = 'HP12_%04d' % roi_index
         self.setup( roi_bands, roi_sources)
