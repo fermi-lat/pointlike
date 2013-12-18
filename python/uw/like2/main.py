@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.49 2013/12/13 19:16:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.50 2013/12/16 16:13:18 burnett Exp $
 
 """
 import types, time
@@ -84,7 +84,7 @@ class ROI(views.LikelihoodViews):
             
         """
         keyword_options.process(self, kwargs)
-        config = configuration.Configuration(config_dir, quiet=self.quiet, postpone=True)
+        self.config=config = configuration.Configuration(config_dir, quiet=self.quiet, postpone=True)
         ecat = extended.ExtendedCatalog(config.extended)
         if isinstance(roi_spec, int):
             roi_sources = from_healpix.ROImodelFromHealpix(config, roi_spec, ecat=ecat,load_kw=self.load_kw)
@@ -102,7 +102,10 @@ class ROI(views.LikelihoodViews):
         super(ROI, self).__init__( roi_bands, roi_sources)
     
     def __repr__(self):
-        return '%s.%s : %s' % (self.__module__, self.__class__.__name__, self.config)
+        if hasattr(self, 'sources'):
+            return '%s.%s :\n\t%s\n\t%s' % (self.__module__, self.__class__.__name__, self.config, self.sources)
+        else:
+            return '%s.%s :\n\t %s\n\t%s' % (self.__module__, self.__class__.__name__, self.config, 'No sources')
         
     def fit(self, select=None, exclude=None,  summarize=True,  **kwargs):
         """ Perform fit, return fitter object to examine errors, or refit
@@ -321,11 +324,9 @@ class MultiROI(ROI):
         """
         self.config = configuration.Configuration(config_dir, quiet=quiet, postpone=False)
         self.ecat = extended.ExtendedCatalog(self.config.extended)
-        
             
     def setup_roi(self, roi_index):
         roi_bands = bands.BandSet(self.config, roi_index)
         roi_bands.load_data()
         roi_sources = from_healpix.ROImodelFromHealpix(self.config, roi_index, ecat=self.ecat,)
-        self.name = 'HP12_%04d' % roi_index
         self.setup( roi_bands, roi_sources)
