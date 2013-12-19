@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.51 2013/12/18 21:52:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.52 2013/12/18 22:29:33 burnett Exp $
 
 """
 import types, time
@@ -143,7 +143,6 @@ class ROI(views.LikelihoodViews):
         fit_kw = dict(use_gradient=True, estimate_errors=True)
         fit_kw.update(kwargs)
 
-        wfit = None; pfit=None
         with self.fitter_view(select, exclude=exclude) as fv:
             try:
                 fv.maximize(**fit_kw)
@@ -151,19 +150,18 @@ class ROI(views.LikelihoodViews):
                 if summarize:
                     print '%d calls, function value, improvement: %.0f, %.1f'\
                         % (fv.calls, w, w - fv.initial_likelihood)
-                if fit_kw['estimate_errors'] :
-                    pass
-                    #self.sources.set_covariance_matrix(mm.cov_matrix, selected)
-                if summarize: fv.summary()
-                wfit = fv.log_like()
-                pfit = fv.parameters[:] 
-                cov  = fv.covariance
+                self.fit_info = dict(
+                    loglike = fv.log_like(),
+                    pars = fv.parameters[:], 
+                    covariance  = fv.covariance,)
                 fv.modify(update_by)
+                fv.save_covariance()
+                if summarize: fv.summary()
+                
             except Exception, msg:
-                print 'Failure %s: check parameters' %msg
+                print 'Fit Failure %s: check parameters' %msg
                 fv.summary() # 
-                if ignore_exception: return 
-                else: raise
+                if not ignore_exception: raise
         return # wfit, pfit, cov
     
     def summarize(self, select=None, exclude=None):

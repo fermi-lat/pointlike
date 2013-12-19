@@ -1,9 +1,9 @@
 """Tools for parameterizing log likelihood curves.
 
 Author(s): Eric Wallace, Matthew Kerr, Toby Burnett
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.14 2013/12/18 18:14:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.15 2013/12/18 21:52:34 burnett Exp $
 """
-__version__ = "$Revision: 1.14 $"
+__version__ = "$Revision: 1.15 $"
 
 import numpy as np
 from scipy import optimize, special, polyfit, stats
@@ -251,10 +251,13 @@ class PoissonFitter(object):
             s_high*=2
         s_high = optimize.brentq(func,self.smax,s_high, xtol=xtol)
         if not np.all(np.isreal([s_low,s_high])):
-            print '%s.find_delta Failed to find two roots!' % self.__class__.__name__
-            return None
+            msg = '%s.find_delta Failed to find two roots!' % self.__class__.__name__
+            print msg
+            raise Exception( msg)
         if s_high==s_low:
-            print '%s.find_delta Failed to find high root with delta=%.1f: %s' % (self.__class__.__name__,delta_logl,s_high)
+            msg= '%s.find_delta Failed to find high root with delta=%.1f: %s' % (self.__class__.__name__,delta_logl,s_high)
+            print msg
+            raise Exception(msg)
         return (s_low,s_high)
 
     def fit(self, mu=30, beta=5):
