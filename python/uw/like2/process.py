@@ -1,6 +1,6 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.3 2013/12/16 16:13:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.4 2013/12/18 21:52:34 burnett Exp $
 
 """
 import os, sys, time
@@ -41,6 +41,9 @@ class Process(main.MultiROI):
         
     def process_roi(self, index):
         self.setup_roi(index)
+        self.process()
+        
+    def process(self):
         roi=self
         dampen=self.dampen 
         outdir = self.outdir
