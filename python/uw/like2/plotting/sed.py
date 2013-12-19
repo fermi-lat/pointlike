@@ -5,7 +5,7 @@ Manage a SED plot
             sf an SourceFlux object, 
         Plot(sf)()
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.18 2013/11/26 04:25:48 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.19 2013/12/05 21:16:34 burnett Exp $
 """
 import os, types
 import numpy as np
@@ -256,7 +256,9 @@ def stacked_plots(sed,  outdir=None,  **kwargs):
     #    roi.get_sed(source_name)
     p = Plot(source, **kw)
     kwargs.update(outdir=None)
-    suffix = kwargs.pop('suffix', '_sed')
+    suffix = kwargs.pop('suffix', None)
+    if suffix is None:
+        suffix = '_sed_' + '_'.join(os.getcwd().split('/')[-4:])
     p(axes=axes[0],  **kwargs)
     axes[0].set_xlabel('') 
 
