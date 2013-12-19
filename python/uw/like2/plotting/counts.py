@@ -1,6 +1,6 @@
 """
 Code to generate an ROI counts plot 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.9 2013/12/04 05:29:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.10 2013/12/05 21:16:34 burnett Exp $
 
 Authors M. Kerr, T. Burnett
 
@@ -32,7 +32,7 @@ def get_counts(roi, event_type=None, tsmin=10):
     
     global_sources = all_sources[global_mask]
     free_sources = all_sources[free_mask] 
-    strong_filter= lambda s: (s.sedrec.ts.sum()>tsmin if hasattr(s,'sedrec') else True) and s in free_sources
+    strong_filter= lambda s: (s.sedrec.ts.sum()>tsmin if hasattr(s,'sedrec') and s.sedrec is not None else True) and s in free_sources
     strong_mask = np.array([strong_filter(s) for s in all_sources])
     weak_mask = free_mask * (~strong_mask)
     
