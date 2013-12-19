@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Dec 19 09:41:36 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	loglikelihood.py main.py parameterset.py process.py views.py 
+Log Message:
+fixes for rerunning
+    *
+------------------------------------------------------------
 User: burnett  Wed Dec 18 14:29:33 PST 2013
 pointlike/python/uw/like2
 
