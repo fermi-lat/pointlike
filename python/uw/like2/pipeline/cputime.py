@@ -1,9 +1,9 @@
 """
 Analyze CPU times for batch execution, make diagnostic plots
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/cputime.py,v 1.1 2013/12/20 21:50:30 burnett Exp $
 """
-import os, glob, re,  pandas as pd, numpy as np
+import os, glob, re, argparse, pandas as pd, numpy as np
 import matplotlib.pylab as plt
 import matplotlib.gridspec as gridspec
 
@@ -18,12 +18,26 @@ class CPUtime(object):
             location of the streamlogs file
         """
         self.stream=stream
+        if not os.path.exists(os.path.join(path, 'streamlogs')):
+            print 'No streamlogs folder in path %s' % path
+            return
         streamlogs=sorted(glob.glob(os.path.join(path,'streamlogs','stream%s.*.log'%stream)))
         if len(streamlogs)==0:
             print 'no logs found for stream %s' %stream
             streamlogs=glob.glob(os.path.join(path,'streamlogs','*.log'))
-            streams = set([re.search(r'logs/stream(.*)\.\d', s).group(1) for s in streamlogs])
-            print 'found streams %s' % list(streams)
+            if len(streamlogs)==0:
+                print 'No stream logs in %s' % path
+                return
+            streams =[]
+            for s in streamlogs:
+                t = re.search(r'logs/stream(.*)\.\d', s)
+                if t is not None:
+                    streams.append(t.group(1))
+                    
+            if len(streams)==0:
+                print 'Did not find any streams'
+            else:
+                print 'found streams %s' % sorted(map(int,list(set(streams))))
             return    
             
         print 'found %d logs for stream %s' % (len(streamlogs), stream)
@@ -98,8 +112,9 @@ class CPUtime(object):
         ax.set_title('Stream %d'% self.stream, size=14)
         return ax.figure
 
-    def all(self,tsmax=50, tmax=100, jobmax=2000,):
+    def plots(self,tsmax=50, tmax=100, jobmax=2000,):
         """combine all plots in a 2x3 grid"""
+        
         gs = gridspec.GridSpec(2,3)
         gs.update(wspace=0.3, hspace=0.3)
         fig = plt.figure(figsize=(12,8))
@@ -109,4 +124,24 @@ class CPUtime(object):
         self.scats(tmax, ax=axx[3])
         fig.text(0.05, 0.02, self.model_version, size=8)
         return fig
+
+def main(stream=None, path='.', plotto=None):
+    ct = CPUtime(stream, path)
+    if plotto is not None:
+        fig = ct.all()
+        if plotto.find('.')<0:
+            plotto +='.png'
+        plt.savefig(plotto)
+
+
+if __name__=='__main__':
+    parser = argparse.ArgumentParser(
+            description="""Analyze a streaminfo folder
+    """)
+    parser.add_argument('stream', nargs='*', default=None, help='stream to process')
+    parser.add_argument('--path', default=os.getcwd(), help='path to skymodel folder,  default: "%(default)s"')
+    parser.add_argument('--plotto', default=None, help='name for plot, default "%(default)s"')
+    args = parser.parse_args()
+    main(int(args.stream[0]),args.path, args.plotto)
+    
 
