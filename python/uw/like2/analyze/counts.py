@@ -1,7 +1,7 @@
 """
 Count plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.2 2013/10/11 16:35:01 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.3 2013/12/16 16:24:18 burnett Exp $
 
 """
 
@@ -26,31 +26,42 @@ class CountPlots(analysis_base.AnalysisBase):
         files, pkls = self.load_pickles()
         self.pkls = pkls # for development
         assert len(pkls)==1728, 'expect to find 1728 pickled roi files'
-        #sdirs = [r['skydir'] for r in pkls]
-        #glon = np.array([r['skydir'].l() for r in pkls]); 
-        #glon[glon>180]-=360
-        #glat = np.array([r['skydir'].b() for r in pkls])
-        #singlat = np.sin(np.radians(glat))
-        #self.roinames=roinames = [p['name'] for p in pkls]
         def chisq10(counts):
             total, observed = counts['total'], counts['observed']
             return ((observed-total)**2/total)[:8].sum()
         def lat180(l): return l if l<180 else l-360
         rdict = dict()
         for r in pkls:
+            history = r.get('history', None)
+            if history is not None:
+                ## new history format
+                n_iter= len(history)
+                logl_list = np.array([h['logl'] for h in history])
+                logl = logl_list[-1]
+            else:
+                logl = r.get('logl', 0)
+                logl_list = np.array(r.get('prev_logl', [0]) + [logl])
+            diffs = logl_list[1:]-logl_list[0:-1]
             rdict[r['name']]=dict(
                 glon = lat180(r['skydir'].l()),
                 glat = r['skydir'].b(),
                 chisq = r['counts']['chisq'],
                 chisq10= chisq10(r['counts']),
-                last_diff= r['logl']-r['prev_logl'][-1] if 'prev_logl' in r  and len(r['prev_logl'])>0 else np.nan,
-                n_iter = int(len(r['prev_logl'])+1 if 'prev_logl' in r else 0),
+                last_diff= diffs[-1], 
+                diffs = diffs,
+                n_iter = len(logl_list), 
+                logl = logl,
+                logl_list = logl_list
                 )
         self.rois = pd.DataFrame(rdict).transpose()
-        self.rois['singlat'] = np.sin(np.radians(self.rois.glat))
+        self.rois['singlat'] = np.sin(np.radians(np.asarray(self.rois.glat,float)))
+        self.rois['glon'] = np.asarray(self.rois.glon, float)
+        #self.iteration_info()
+        
+    def iteration_info(self):
         # dict of dataframes with count info. columns are energies
-        self.energy = pkls[0]['counts']['energies'] # extract list from first pickle
-        counts = [p['counts'] for p in pkls]
+        self.energy = self.pkls[0]['counts']['energies'] # extract list from first pickle
+        counts = [p['counts'] for p in self.pkls]
         self.counts=dict()
         for key in ['observed', 'total']:
             self.counts[key]= pd.DataFrame([x[key] for x in counts], index=self.rois.index)
@@ -58,31 +69,31 @@ class CountPlots(analysis_base.AnalysisBase):
             self.add_model_info()
         except Exception, msg:
             print msg
-        iters = self.rois.n_iter #np.array([ len(p['prev_logl']) for p  in self.pkls])
-        logl = np.array([p['prev_logl']+[p['logl']] if 'prev_logl' in p else 0 for p  in self.pkls])
-        def logsum(n):
-            return sum([x[n] if n<len(x) else x[-1] for x in logl])
-        k = int(iters.max())
-        t=np.array(map(logsum, range(k)))
-        def log_delta(n):
-            return np.array([x[n]-x[n-1] if n<len(x) else 0 for x in logl])
-        rois = np.histogram(self.rois.n_iter, range(k))[0]
-        rois[rois==0]=1728; 
+        diffs =self.rois.diffs
+        n_iter = self.rois.n_iter
+        ll = self.rois.logl_list
+        max_iter = n_iter.max() 
+        def sumx(i):
+            return sum(w[i] if i<len(w)-1 else w[-1] for w in ll)
+        x = np.array(map( sumx, range(max_iter)))
+        ss = x[1:] - x[:-1]
+        itdict = dict()
+        for i in range(max_iter-1):
+            diffx = diffs[n_iter>i+1]
+            t = np.array([d[i] for d in diffx] )
+            itdict[i+1] = dict(nroi=len(diffx),delta_min=min(t), delta_max=max(t), 
+                gt10=sum(np.abs(t)>10), delta_sum=ss[i])
+        itdf =pd.DataFrame(itdict, index='nroi gt10 delta_sum delta_min delta_max'.split()).T
+        itdf.index.name='iteration'
+   
+            
         config = eval(open('config.txt').read()) 
-        ihist = str((t[1:]-t[:-1]).round(1))
-        ihist = pd.DataFrame(dict( loglike=t,  rois=rois, delta_sum=list(t[1:]-t[:-1]), 
-                                  delta_min= [log_delta(i).min() for i in range(1,k)],
-                                  delta_max= [log_delta(i).max() for i in range(1,k)],
-                    ), 
-                columns='rois delta_min delta_max delta_sum'.split(),
-                index=range(1,k))
-        ihist.index.name='iteration'
         input_model=config['input_model']['path']
         self.iteration_info = """<p>Input model: <a href="../../%s/plots/index.html?skipDecoration">%s</a>
-        <p>Minimum, maximum numbers of iterations: %d %d 
+        <p>Minimum, maximum numbers of iterations: %d, %d 
         <p>Iteration history: log likelihood change for each step: \n%s
-        """ % (input_model,input_model, iters.min(), iters.max(), 
-                ihist.T.to_html(float_format=FloatFormat(1)) )
+        """ % (input_model,input_model, n_iter.min(), n_iter.max(), 
+                itdf.to_html(float_format=FloatFormat(1)) )
     
     def add_model_info(self):
         for i,key in enumerate(['ring','isotrop', 'SunMoon', 'limb',]): # the expected order
