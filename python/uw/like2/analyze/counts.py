@@ -1,7 +1,7 @@
 """
 Count plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.3 2013/12/16 16:24:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.4 2013/12/21 21:41:22 burnett Exp $
 
 """
 
@@ -56,7 +56,7 @@ class CountPlots(analysis_base.AnalysisBase):
         self.rois = pd.DataFrame(rdict).transpose()
         self.rois['singlat'] = np.sin(np.radians(np.asarray(self.rois.glat,float)))
         self.rois['glon'] = np.asarray(self.rois.glon, float)
-        #self.iteration_info()
+        self.iteration_info()
         
     def iteration_info(self):
         # dict of dataframes with count info. columns are energies
