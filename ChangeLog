@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Dec 21 13:41:22 PST 2013
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	counts.py 
+Log Message:
+fixes for new pickle format
+    *
+------------------------------------------------------------
 User: burnett  Fri Dec 20 17:11:52 PST 2013
 pointlike/python/uw/like2
 
