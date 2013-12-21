@@ -1,6 +1,6 @@
 """
 Output the ROI info to as a pickle file.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_healpix.py,v 1.2 2013/12/13 19:18:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_healpix.py,v 1.3 2013/12/18 21:51:12 burnett Exp $
 """
 import os, pickle, time
 import numpy as np
@@ -13,51 +13,33 @@ def pickle_dump(roi,  pickle_dir, dampen=1, **kwargs):
     fname = kwargs.pop('fname', name)
     filename=os.path.join(pickle_dir,fname+'.pickle')
     
-    if os.path.exists(filename):
-        # if the file exists
-        output=pickle.load(open(filename))
-        # update history of previous runs
-        prev_logl = output.get('prev_logl', [])
-        streams  = output.get('streams', [])
-        if prev_logl is None or len(prev_logl)==0 or prev_logl[0] is None: prev_logl = []
-        if dampen>0 : # update list only if a new fit
-            last_logl = output.get('logl')
-            if last_logl is not None: prev_logl.append(last_logl)
-            output['prev_logl'] = prev_logl
-        oldsrc = output.get('sources', dict())
-        print 'updating pickle file: log likelihood history:', \
-             ''.join(map(lambda x: '%.1f, '%x, prev_logl)) 
-    else:
-        # first save: start with last log like from previous series
-        output = dict(prev_logl=roi.prev_logl[-1:] if hasattr(roi,'prev_logl') else [],)
-        oldsrc = dict()
-        streams = []
-    output['streams'] = streams + [kwargs.get('stream','-1')] #stream -1 for interactive or unknown
-    diffuse_sources =  [s for s in roi.sources if s.isglobal or s.isextended]
-    
+    # start output record, a dict
+    output = dict()
     output['name'] = name
     output['skydir']  = roi.roi_dir
-    # add extended sources to diffuse for backwards compatibilty: extended are also in the sources dict.
-    output['diffuse'] = [s.spectral_model for s in diffuse_sources] #roi.dsm.models
-    output['diffuse_names'] = [s.name for s in diffuse_sources]  #roi.dsm.names
     output['parameters'] = roi.sources.parameters[:] 
     output['gradient'] = np.asarray(roi.gradient(), np.float32)
-    output['time'] = time.asctime()   
-    output['logl'] = roi.log_like()
+
+    # add a record to the history read in originally
+    history = roi.sources.history if hasattr(roi.sources, 'history') else []
+    history.append( 
+        dict(stream=kwargs.get('stream', '-1'),
+            time=time.asctime(),
+            logl=roi.log_like(),
+            dampen= dampen,
+            )
+        )
+    output['history'] = history
+    
+    # add diffuse and extended info
+    diffuse_sources =  [s for s in roi.sources if s.isglobal or s.isextended]
+    
+    output['diffuse'] = [s.spectral_model for s in diffuse_sources] #roi.dsm.models
+    output['diffuse_names'] = [s.name for s in diffuse_sources]  #roi.dsm.names
+
+    # a dict for all variable sources
     sources=dict()
     output['sources']= sources
-    def getit(s, key, savekey=None):
-        """ key: current key
-            savekey: key to save, expect to find in saved pickle
-        """
-        if savekey is None: savekey=key
-        t = s.__dict__.get(key, None)
-        if t is not None: return t #use a new version
-        if s.name in oldsrc: #was it measured before?
-            t = oldsrc[s.name].get(savekey, None)
-            if t is not None: #yes, make a note and return it
-                print 'ROI pickle: keeping previous calculation of %s for %s' % (key, s.name)
-        return t
     
     for s in roi.free_sources:
         if s.isglobal: continue # skip globals
@@ -81,8 +63,8 @@ def pickle_dump(roi,  pickle_dir, dampen=1, **kwargs):
             band_ts=0 if sedrec is None else sedrec.ts.sum(),
             pivot_energy = pivot_energy,
             # if ellipse or adict not done, but already in pickle, keep them
-            ellipse= getit(s, 'ellipse'), #s.__dict__.get('ellipse', None), 
-            associations = getit(s, 'adict', 'associations'), #s.__dict__.get('adict',None),
+            ellipse= s.__dict__.get('ellipse', None), 
+            associations = s.__dict__.get('adict',None),
             )
     output.update(kwargs) # add additional entries from kwargs
     with open(filename,'wb') as f:  #perhaps overwrite
