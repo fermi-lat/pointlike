@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Dec 21 17:17:26 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	to_healpix.py 
+Log Message:
+fix dampen
+    *
+------------------------------------------------------------
 User: burnett  Sat Dec 21 17:16:51 PST 2013
 pointlike/python/uw/like2
 
