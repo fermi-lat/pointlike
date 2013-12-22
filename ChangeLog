@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Dec 22 07:37:36 PST 2013
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	check_converge.py pipeline_job.py uwpipeline.py 
+Log Message:
+fixes for finish stage
+    *
+------------------------------------------------------------
 User: burnett  Sun Dec 22 07:36:20 PST 2013
 pointlike/python/uw/like2
 
