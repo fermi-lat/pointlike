@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Dec 22 12:05:21 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	sedfuns.py 
+Log Message:
+take out call to full poiss from init
+    *
+------------------------------------------------------------
 User: burnett  Sun Dec 22 10:20:01 PST 2013
 pointlike/python/uw/like2
 
