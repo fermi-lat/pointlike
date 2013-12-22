@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Dec 22 07:36:20 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	loglikelihood.py main.py process.py sedfuns.py 
+Log Message:
+fixes for finish stage
+    *
+------------------------------------------------------------
 User: kerrm  Sun Dec 22 04:16:22 PST 2013
 pointlike/python/uw/pulsar
 
