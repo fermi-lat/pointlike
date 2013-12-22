@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.52 2013/12/18 22:29:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.53 2013/12/19 17:41:36 burnett Exp $
 
 """
 import types, time
@@ -69,6 +69,7 @@ class ROI(views.LikelihoodViews):
     defaults = (
         ('quiet', True, 'set to suppress output'),
         ('load_kw', {}, 'a dict specific for the loading'),
+        ('postpone', False, 'Set True to not load data until requested'),
     )
 
     @keyword_options.decorate(defaults)
@@ -84,7 +85,7 @@ class ROI(views.LikelihoodViews):
             
         """
         keyword_options.process(self, kwargs)
-        self.config=config = configuration.Configuration(config_dir, quiet=self.quiet, postpone=True)
+        self.config=config = configuration.Configuration(config_dir, quiet=self.quiet, postpone=self.postpone)
         ecat = extended.ExtendedCatalog(config.extended)
         if isinstance(roi_spec, int):
             roi_sources = from_healpix.ROImodelFromHealpix(config, roi_spec, ecat=ecat,load_kw=self.load_kw)
@@ -309,8 +310,8 @@ class ROI(views.LikelihoodViews):
         source.freeze(parname)
         self.sources.initialize()
         
-    def to_healpix(self, pickle_dir, dampen=1, **kwargs):
-        to_healpix.pickle_dump(self, pickle_dir, dampen=1, **kwargs)
+    def to_healpix(self, pickle_dir, dampen, **kwargs):
+        to_healpix.pickle_dump(self, pickle_dir, dampen=dampen, **kwargs)
 
 class MultiROI(ROI):
     """ROI subclass that will perform a fixed analysis on multiple ROIs

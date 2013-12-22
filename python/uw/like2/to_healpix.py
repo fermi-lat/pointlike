@@ -1,11 +1,11 @@
 """
 Output the ROI info to as a pickle file.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_healpix.py,v 1.3 2013/12/18 21:51:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_healpix.py,v 1.4 2013/12/21 01:11:52 burnett Exp $
 """
 import os, pickle, time
 import numpy as np
 
-def pickle_dump(roi,  pickle_dir, dampen=1, **kwargs):
+def pickle_dump(roi,  pickle_dir, dampen, **kwargs):
     """ dump the source information from an ROI constructed from the sources here
     """
     assert os.path.exists(pickle_dir), 'output folder not found: %s' %pickle_dir
