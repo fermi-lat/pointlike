@@ -1,7 +1,7 @@
 """
 Count plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.4 2013/12/21 21:41:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.5 2013/12/21 21:44:31 burnett Exp $
 
 """
 
@@ -32,33 +32,16 @@ class CountPlots(analysis_base.AnalysisBase):
         def lat180(l): return l if l<180 else l-360
         rdict = dict()
         for r in pkls:
-            history = r.get('history', None)
-            if history is not None:
-                ## new history format
-                n_iter= len(history)
-                logl_list = np.array([h['logl'] for h in history])
-                logl = logl_list[-1]
-            else:
-                logl = r.get('logl', 0)
-                logl_list = np.array(r.get('prev_logl', [0]) + [logl])
-            diffs = logl_list[1:]-logl_list[0:-1]
             rdict[r['name']]=dict(
                 glon = lat180(r['skydir'].l()),
                 glat = r['skydir'].b(),
                 chisq = r['counts']['chisq'],
                 chisq10= chisq10(r['counts']),
-                last_diff= diffs[-1], 
-                diffs = diffs,
-                n_iter = len(logl_list), 
-                logl = logl,
-                logl_list = logl_list
                 )
         self.rois = pd.DataFrame(rdict).transpose()
         self.rois['singlat'] = np.sin(np.radians(np.asarray(self.rois.glat,float)))
         self.rois['glon'] = np.asarray(self.rois.glon, float)
-        self.iteration_info()
         
-    def iteration_info(self):
         # dict of dataframes with count info. columns are energies
         self.energy = self.pkls[0]['counts']['energies'] # extract list from first pickle
         counts = [p['counts'] for p in self.pkls]
@@ -69,6 +52,51 @@ class CountPlots(analysis_base.AnalysisBase):
             self.add_model_info()
         except Exception, msg:
             print msg
+            
+        if 'history' in pkls[0].keys():
+            self.history_table()
+        else:
+            self.iteration_info=''
+
+    def history_table(self):
+        # make a dictionary of dictionaries: stream, then roi; save logl and dampen
+        hd = dict()
+        for i,r in enumerate(self.pkls):
+            hh = r['history']
+            for h in hh:
+                stream = int(h['stream'].split('.')[0])
+                if stream not in hd.keys():
+                    hd[stream]=dict()
+                hd[stream][i]=dict(logl=h['logl'], dampen=h['dampen'])
+                
+        # now add a delta key to streams after the first (zero if previous was not run)
+        for k,stream in enumerate(hd.keys()[1:]):
+            prevstr = hd.keys()[k]
+            for key,value in hd[stream].items():
+                if key in hd[prevstr].keys():
+                    delta = value['logl']- hd[prevstr][key]['logl']
+                else: delta=0
+                hd[stream][key]['delta'] = delta   
+        delta_sum = [sum(value['delta'] for value in hd[k].values()) for k in hd.keys()[1:]]
+        delta_min = [min(value['delta'] for value in hd[k].values()) for k in hd.keys()[1:]]
+        delta_max = [max(value['delta'] for value in hd[k].values()) for k in hd.keys()[1:]]
+        nroi = [len(hd[k].values()) for k in hd.keys()[1:]]
+        gt10 = [sum( np.abs(value['delta'])>10 for value in hd[k].values()) for k in hd.keys()[1:]]
+        itdf = pd.DataFrame([nroi, gt10, delta_sum, delta_min, delta_max],
+                     index='nroi gt10 delta_sum delta_min delta_max'.split(), columns=hd.keys()[1:]).T
+        itdf.index.name='stream'
+        
+        config = eval(open('config.txt').read()) 
+        input_model=config['input_model']['path']
+        self.iteration_info = """<p>Input model: <a href="../../%s/plots/index.html?skipDecoration">%s</a>
+        <p>Iteration history: log likelihood change for each step: \n%s
+        """ % (input_model,input_model, 
+                itdf.to_html(float_format=FloatFormat(1)) )
+
+
+    def iteration_info(self):
+        """ make a table summarizing the iterations
+        """
         diffs =self.rois.diffs
         n_iter = self.rois.n_iter
         ll = self.rois.logl_list
