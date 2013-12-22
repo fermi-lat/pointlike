@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.53 2013/12/08 11:54:19 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.54 2013/12/14 01:00:21 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -515,16 +515,22 @@ class ParFile(dict):
     def is_binary(self):
         return 'BINARY' in self.keys()
 
-    def add_key(self,key,val,allow_duplicates=False):
+    def add_key(self,key,val,allow_duplicates=False,stringify=True):
         """ Insert a key, placed at bottom of file.  If key already
             present, update its entry.  NB will NOT make a duplicate."""
         if key not in self.ordered_keys:
             self.ordered_keys.append(key)
-            self[key] = str(val)
+            if stringify:
+                self[key] = str(val)
+            else:
+                self[key] = val
         elif allow_duplicates:
             self.duplicates[key].append(val)
         else:
-            self[key] = str(val)
+            if stringify:
+                self[key] = str(val)
+            else:
+                self[key] = val
 
     def delete_key(self,key):
         try:
