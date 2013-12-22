@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.26 2013/12/18 21:52:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.27 2013/12/22 01:18:39 burnett Exp $
 
 """
 import os, pickle
@@ -147,7 +147,7 @@ def makesed_all(roi, **kwargs):
     for source in sources:
         with SED(roi, source.name, ) as sf:
             try:
-                source.sedrec = sf.sed_rec(tol=poisson_tolerance)
+                source.sedrec = sf.sed_rec( tol=poisson_tolerance)
                 source.ts = roi.TS(source.name)
                 qual = sum(source.sedrec.pull**2)
                 pval = 1.- stats.chi2.cdf(qual, ndf)

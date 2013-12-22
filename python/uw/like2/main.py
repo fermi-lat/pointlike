@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.53 2013/12/19 17:41:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.54 2013/12/22 01:16:51 burnett Exp $
 
 """
 import types, time
@@ -214,7 +214,7 @@ class ROI(views.LikelihoodViews):
             set True to force recalculation of sed recarray
         """
         source = self.sources.find_source(source_name)
-        if not hasattr(source, 'sedrec') or update:
+        if not hasattr(source, 'sedrec') or source.sedrec is None or update:
             with sedfuns.SED(self, source.name) as sf:
                 source.sedrec = sf.sed_rec(event_type=event_type, tol=tol)
         return source.sedrec
@@ -273,15 +273,26 @@ class ROI(views.LikelihoodViews):
 
     def find_associations(self, source_name=None, classes='all_but_gammas', quiet=True):
         """ find associations, using srcid object.
+        If source was not localized, run that first
         Expect to find files at $FERMI/catalog.
         """
-        source = self.sources.find_source(source_name)
         if not hasattr(self, 'srcid'):
             self.srcid=associate.SrcId('$FERMI/catalog',classes, quiet=quiet)
-        if not hasattr(source, 'ellipse'):
-            self.localize()
-        with self.tsmap_view(source.name) as tsv:
-            associate.make_association(source, tsv, self.srcid)
+
+        def find_one(source):
+            if not hasattr(source, 'ellipse'):
+                self.localize(source.name)
+            with self.tsmap_view(source.name) as tsv:
+                associate.make_association(source, tsv, self.srcid)
+
+        if source_name=='all':
+            sources = [s for s in self.sources if s.skydir is not None and np.any(s.spectral_model.free)]
+            for source in sources:
+                find_one(source)
+        else:
+            source = self.sources.find_source(source_name)
+            find_one(source)
+            
         
     def freeze(self, parname, source_name=None, value=None):
         """ freeze the parameter, optionally set the value
