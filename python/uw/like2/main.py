@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.54 2013/12/22 01:16:51 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.55 2013/12/22 15:36:20 burnett Exp $
 
 """
 import types, time
@@ -286,7 +286,7 @@ class ROI(views.LikelihoodViews):
                 associate.make_association(source, tsv, self.srcid)
 
         if source_name=='all':
-            sources = [s for s in self.sources if s.skydir is not None and np.any(s.spectral_model.free)]
+            sources = filter(lambda s: np.any(s.model.free) and not s.isglobal and not s.isextended, self.sources)
             for source in sources:
                 find_one(source)
         else:
