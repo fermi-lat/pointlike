@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.28 2013/12/22 15:36:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.29 2013/12/22 18:20:00 burnett Exp $
 
 """
 import os, pickle
@@ -24,11 +24,17 @@ class SED(tools.WithMixin):
         self.rs.quiet=quiet
         self.func = self.rs.energy_flux_view(source_name)
         self.source_name = source_name
-        self.full_poiss = self.select(None).poiss
         # make a list of energies with data; only have info if there is data in the ROI
         hasdata = np.array([b.pixels>0 for b in self.rs])
         self.energies = self.rs.energies[hasdata[0::2] | hasdata[1::2]] ## note assumption about energies 
     
+    def full(self):
+        try:
+            self.full_poiss = self.select(None).poiss
+        except Exception, msg:
+            print 'Failed poisson fit to source %s: "%s"' % (source_name, msg)
+            raise
+
     def __repr__(self):
         return '%s.%s : %d bands selected for source, %s energy range %.0f-%.0f'% (
                     self.__module__, self.__class__.__name__,len(self.rs.selected), self.source_name, 
@@ -166,53 +172,3 @@ def makesed_all(roi, **kwargs):
         'makesed_all: unexpected change in roi state after spectral analysis, from %.1f to %.1f' %(initw, curw)
 
 
-#def test_model(roi, model, source_name=None, **kwargs): 
-#    """
-#    
-#    """
-#    figdir,seddir = [kwargs.pop(x, None) for x in ('figdir', 'seddir')]
-#    for x in figdir,seddir:
-#        if x is not None and not os.path.exists(x):
-#            os.mkdir(x)
-#            
-#    alternate = kwargs.pop('alternate', 'alternate')
-#   
-#    sedrec = roi.get_sed(source_name)
-#    fitqual=sum(sedrec.delta_ts)
-#    source = roi.get_source()    
-#    plx = plotting.sed.Plot(source, gev_scale=True, energy_flux_unit='eV')
-#    plx( galmap=source.skydir, fit_kwargs=dict(color='r', lw=2, label='best fit (%.1f)' % fitqual),
-#                    **kwargs)
-#    old_model = roi.set_model(model)
-#    with SourceFlux(roi, source_name) as sf:
-#        tsedrec = SED(sf).rec
-#    alt_fitqual = sum(tsedrec.delta_ts)
-#    plx.plot_model(model, color='green', lw=2,  ls='--', label='%s (+%.1f)' %(alternate,alt_fitqual-fitqual) )
-#    plx.axes.legend(loc='upper left', prop=dict(size=8) )
-#    if figdir is not None:
-#        plx.savefig(figdir)
-#    if seddir is not None:
-#        pickle.dump(tsedrec, open(os.path.join(seddir, 
-#            source.name.replace(' ','_').replace('+','p')+'.pickle'), 'w'))
-#    roi.set_model(old_model)
-#    return alt_fitqual
-    
-#def sed_table(roi, source_name=None, emax=1e6, **kwargs):
-#    """
-#    Return a pandas DataFrame with spectral information for the source
-#    Columns, with energy fluxes in eV units, are:
-#        flux, lflux, uflux : measured flux, lower and upper uncertainty, or 0,0, 95% limit
-#        mflux : predicted flux for this bin
-#        TS : Test Statistic for the signal
-#        pull : signed square root of the TS difference for the model
-#    Index is mean energy in MeV
-#    """
-#    import pandas as pd
-#
-#    sedrec = roi.get_sed(source_name, **kwargs)
-#    si = sedrec[sedrec.elow<emax]
-#    pull = np.sign(si.flux-si.mflux) * np.sqrt( si.delta_ts.clip(0,100) )
-#    return pd.DataFrame(dict(flux=si.flux.round(1), TS=si.ts.round(1), lflux=si.lflux.round(1), 
-#        uflux=si.uflux.round(1), model=si.mflux.round(1), pull=pull.round(2) ),
-#            index=np.array(np.sqrt(si.elow*si.ehigh),int), columns='flux lflux uflux model TS pull'.split())
-    
