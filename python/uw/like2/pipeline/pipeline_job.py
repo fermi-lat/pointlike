@@ -1,7 +1,7 @@
 """
 setup and run pointlike all-sky analysis for subset of ROIs
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.14 2013/12/13 21:41:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.15 2013/12/16 16:14:41 burnett Exp $
 """
 import os, sys, logging
 from collections import OrderedDict
@@ -89,6 +89,8 @@ def main( factory=None, **args):
             g(s)
         except Exception, msg:
             print '***Exception raised for roi %d, "%s'  %(s,msg)
+            with open('failed_rois.txt', 'wa') as bad:
+                bad.write('s')
         tprev, tnow= tnow, logging.time.time()
         logging.info('Finish: elapsed= %.1f (total %.1f)' % ( tnow-tprev, tnow-tzero ))
         print 'Elapsed time: %.1f' % (tnow-tprev)

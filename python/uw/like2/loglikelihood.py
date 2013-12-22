@@ -1,9 +1,9 @@
 """Tools for parameterizing log likelihood curves.
 
 Author(s): Eric Wallace, Matthew Kerr, Toby Burnett
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.15 2013/12/18 21:52:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.16 2013/12/19 17:41:36 burnett Exp $
 """
-__version__ = "$Revision: 1.15 $"
+__version__ = "$Revision: 1.16 $"
 
 import numpy as np
 from scipy import optimize, special, polyfit, stats
@@ -227,10 +227,8 @@ class PoissonFitter(object):
         r= optimize.fmin(lambda s: -self.func(s), scale, ftol=0.01, xtol=0.01, 
                 disp=False, full_output=True, retall=True)
         t = r[0][0]
-        if t==scale:
-            print self.func(0), self.func(scale)
-            raise Exception('Failure to find max value: %s' % list(r))
-            
+        #if t==scale:
+        #    raise Exception('Failure to find max value: %s' % list(r))
         return t if t>0 else 0
     
     def find_delta(self, delta_logl=.5, scale=1.0, xtol=1e-5):

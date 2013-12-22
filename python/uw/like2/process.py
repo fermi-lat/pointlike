@@ -1,6 +1,6 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.4 2013/12/18 21:52:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.5 2013/12/19 17:41:36 burnett Exp $
 
 """
 import os, sys, time
@@ -17,12 +17,12 @@ class Process(main.MultiROI):
         ('repivot_flag',  False, 'repivot the sources'),
         ('betafix_flag',  False, 'check betas, refit if needed'),
         ('dampen',        1.0,   'damping factor: set <1 to dampen, 0 to not fit'),
-        ('counts_dir',    'counts_dir', 'folder for the counts plots'),
+        ('counts_dir',    None,  'folder for the counts plots'),
         ('norms_first',   False, 'initial fit to norms only'),
         ('countsplot_tsmin', 100, 'minimum for souces in counts plot'),
         ('source_name',   None,   'for localization?'),
         ('fit_kw',        {},     'extra parameters for fit'),
-        ('associate',     True,   'run association'),
+        ('associate_flag',False,  'run association'),
         ('tsmap_dir',     None,   'folder for TS maps'),
         ('sedfig_dir',    None,   'folder for sed figs'),
         ('quiet',         True,   'Set false for summary output'),
@@ -40,21 +40,27 @@ class Process(main.MultiROI):
                 self.process_roi(index)
         
     def process_roi(self, index):
+        """ special for batch: manage the log file, make sure an exception closes it
+        """
         self.setup_roi(index)
-        self.process()
+        if self.outdir is not None: 
+            counts_dir = os.path.join(self.outdir,self.counts_dir)
+            logpath = os.path.join(self.outdir, 'log')
+            if not os.path.exists(logpath): os.mkdir(logpath)
+            outtee = tools.OutputTee(os.path.join(logpath, self.name+'.txt'))
+        else: outtee=None
+        try:
+            self.process()
+        finally:
+            if outtee is not None: outtee.close()
+        
         
     def process(self):
         roi=self
         dampen=self.dampen 
         outdir = self.outdir
-        if self.outdir is not None: 
-            counts_dir = os.path.join(outdir,self.counts_dir)
-            logpath = os.path.join(outdir, 'log')
-            if not os.path.exists(logpath): os.mkdir(logpath)
-            outtee = tools.OutputTee(os.path.join(logpath, roi.name+'.txt'))
-            print  '='*80
-            print '%4d-%02d-%02d %02d:%02d:%02d - %s - %s' %(time.localtime()[:6]+ (roi.name,)+(self.stream,))
-        else: outtee=None
+        print  '='*80
+        print '%4d-%02d-%02d %02d:%02d:%02d - %s - %s' %(time.localtime()[:6]+ (roi.name,)+(self.stream,))
 
         if self.counts_dir is not None and not os.path.exists(self.counts_dir) :
             try: os.makedirs(self.counts_dir) # in case some other process makes it
@@ -64,7 +70,7 @@ class Process(main.MultiROI):
         roi.print_summary(title='before fit, logL=%0.f'% init_log_like)
         fit_sources = [s for s in roi.free_sources if not s.isglobal]
         if len(roi.sources.parameters[:])==0 or dampen==0:
-            print '===================== nothing to fit========================'
+            print '===================== no fit ========================'
         else:
             fit_kw = self.fit_kw
             try:
@@ -95,37 +101,42 @@ class Process(main.MultiROI):
             return t
         sedfig_dir = getdir(self.sedfig_dir)
         if sedfig_dir is not None:
-            skymodel_name = os.path.split(outdir)[-1]
+            print '------------ creating seds, figures ---------------'
+            skymodel_name = os.path.split(os.getcwd())[-1]
             roi.plot_sed('all', sedfig_dir=sedfig_dir, suffix='_sed_%s'%skymodel_name, )
+        
         if self.localize_flag:
-            print 'localizing and associating all sources with variable...'
+            print '------localizing all local sources------'
             tsmap_dir = getdir(self.tsmap_dir)
             roi.localize('all', tsmap_dir=tsmap_dir)
+        
+        if self.associate_flag:
+            print '-------- running associations --------'
+            self.find_associations('all')
 
-        if True: #try:
-            fig = roi.plot_counts( tsmin=self.countsplot_tsmin)
-            cts = roi.get_counts()
-            chisq = cts['chisq']
-            print 'chisquared for counts plot: %.1f'% chisq
-            counts_dir = getdir(self.counts_dir)
-            if counts_dir is not None and dampen>0:
+        counts_dir = getdir(self.counts_dir)
+        cts=None
+        if counts_dir is not None:
+            print '------- generating counts, saving figure ------'
+            try:
+                fig = roi.plot_counts( tsmin=self.countsplot_tsmin)
+                cts = roi.get_counts()
+                chisq = cts['chisq']
+                print 'chisquared for counts plot: %.1f'% chisq
                 fout = os.path.join(counts_dir, ('%s_counts.png'%roi.name) )
                 fig.savefig(fout, dpi=60)
                 print 'saved counts plot to %s' % fout
-        else: #except Exception,e:
-            print 'Failed to analyze counts for roi %s: %s' %(roi.name,e)
-            chisq = -1
+            except Exception,e:
+                print '***Failed to analyze counts for roi %s: %s' %(roi.name,e)
+                chisq = -1
         
         if outdir is not None:  
             pickle_dir = os.path.join(outdir, 'pickle')
             if not os.path.exists(pickle_dir): os.makedirs(pickle_dir)
             roi.to_healpix( pickle_dir, dampen, 
-                initial_logl=init_log_like, 
                 counts=cts,
                 stream=self.stream,
                 )
-        if outtee is not None: outtee.close() 
-        return True
     
     def repivot(self, fit_sources=None, min_ts = 10, max_beta=3.0, emin=200, emax=20000.):
         """ invoked  if repivot flag set;

@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.36 2013/12/18 15:12:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.37 2013/12/19 17:43:52 burnett Exp $
 """
 import os, argparse,  datetime
 import numpy as np
@@ -112,7 +112,7 @@ stagenames = dict(
     update_beta =  StageBatchJob( dict( betafix_flag=True),  sum='sourceinfo',help='check beta', ),
     update_pivot=  StageBatchJob( dict( repivot_flag=True),  sum='sourceinfo',help='update pivot', ), 
     update_only =  StageBatchJob( dict(),                   sum='config counts sourceinfo', help='update, no additional stage', ), 
-    finish      =  StageBatchJob( dict(localize_flag=True,sedfig_dir='sedfig',dampen=0,associate=True,), 
+    finish      =  StageBatchJob( dict(localize_flag=True,sedfig_dir='sedfig',dampen=0,associate=True,counts_dir='countfig'), 
                     sum='sourceinfo localization', help='localize, associations, sedfigs', ),
     )
 disabled="""
@@ -142,7 +142,7 @@ disabled="""
     diffuse_info= Stage(pipe.Update, dict(processor='processor.diffuse_info',), help='extract diffuse information'),
 """ 
 keys = stagenames.keys()
-stage_help = '\nstage name, or sequential stages separaged by ":" names are\n\t' \
+stage_help = '\nstage name, or sequential stages separated by ":" names are\n\t' \
     +  '\n\t'.join(['%-15s: %s' % (key,stagenames[key]['help'])  for key in sorted(stagenames.keys())])
 
 def find_script_folder(cwd):
