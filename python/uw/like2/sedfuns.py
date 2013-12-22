@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.25 2013/12/08 00:48:01 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.26 2013/12/18 21:52:34 burnett Exp $
 
 """
 import os, pickle
@@ -140,13 +140,14 @@ def makesed_all(roi, **kwargs):
     ndf = kwargs.pop('ndf', 10) 
     if sedfig_dir is not None and not os.path.exists(sedfig_dir): os.mkdir(sedfig_dir)
     showts = kwargs.pop('showts', True)
+    poisson_tolerance = kwargs.pop('poisson_tolerance', 0.25)
     initw = roi.log_like()
 
     sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
     for source in sources:
         with SED(roi, source.name, ) as sf:
             try:
-                source.sedrec = sf.sed_rec()
+                source.sedrec = sf.sed_rec(tol=poisson_tolerance)
                 source.ts = roi.TS(source.name)
                 qual = sum(source.sedrec.pull**2)
                 pval = 1.- stats.chi2.cdf(qual, ndf)
@@ -157,8 +158,8 @@ def makesed_all(roi, **kwargs):
                             annotate=annotation, **kwargs)
                         
             except Exception,e:
-                print 'source %s failed flux measurement: %s' % (source.name, e)
-                raise
+                print '***Warning: source %s failed flux measurement: %s' % (source.name, e)
+                #raise
                 source.sedrec=None
     curw= roi.log_like()
     assert abs(initw-curw)<0.1, \
