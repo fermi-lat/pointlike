@@ -1,9 +1,9 @@
 """Tools for parameterizing log likelihood curves.
 
 Author(s): Eric Wallace, Matthew Kerr, Toby Burnett
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.16 2013/12/19 17:41:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.17 2013/12/22 15:36:20 burnett Exp $
 """
-__version__ = "$Revision: 1.16 $"
+__version__ = "$Revision: 1.17 $"
 
 import numpy as np
 from scipy import optimize, special, polyfit, stats
@@ -185,7 +185,7 @@ class PoissonFitter(object):
     array([ 50.,   1.,  10.])
     
     """
-    def __init__(self, func, scale=1., tol=0.05):
+    def __init__(self, func, scale=1., tol=0.05, delta=0.01):
         """
         parameters
         ----------
@@ -196,21 +196,31 @@ class PoissonFitter(object):
             absolute tolerance in probability amplitude for fit, within default domain out to delta L of 4
         """
         self.func = func
-        self.smax = self.find_max(scale)
+        #first check derivative at zero flux - delta is sensitive
+        s = self.wprime = (func(delta)-func(0))/delta
+        self.smax = self.find_max(scale) if s>0 else 0.
         # determine values of the function corresponding to delta L of 0.5, 1, 2, 4
         # depending on how peaked the function is, this will be from 5 to 8 
         # The Poisson will be fit to this set of values
-        dom = set()
-        for delta in (0.5, 1.0, 2.0, 4.0):
-            a,b = self.find_delta(delta, scale, xtol=tol*1e-2)
-            dom.add(a); dom.add(b)
-        self.dom = np.array(sorted(list(dom)))
-        self.fit()
+        dlist = np.array([0.5, 1.0, 2.0, 4.0])
+        if s < -10:
+            # large negative derivative: this will be just an exponential
+            if s < -100: s=-100. #cut off for nwo
+            self.dom = - dlist/s
+            self._poiss= Poisson([-1, -s, 1])
+            return #no test in this case
+        else:
+            dom = set()
+            for delta in dlist:
+                a,b = self.find_delta(delta, scale, xtol=tol*1e-2)
+                dom.add(a); dom.add(b)
+            self.dom = np.array(sorted(list(dom)))
+            self.fit()
         self.maxdev=self.check(tol)[0]
         
     def __repr__(self):
-        return '%s.%s : %s' % (self.__module__,self.__class__.__name__, 
-            str(self._poiss))
+        return '%s.%s : wprime=%.3e maxdev=%.2f, %s' % (self.__module__,self.__class__.__name__,
+            self.wprime, self.maxdev,  str(self._poiss))
     
     @property
     def poiss(self):
@@ -224,6 +234,8 @@ class PoissonFitter(object):
     def find_max(self, scale):
         """Return the flux value that maximizes the likelihood.
         """
+        if self.func(0) > self.func(scale/10.):
+            return 0
         r= optimize.fmin(lambda s: -self.func(s), scale, ftol=0.01, xtol=0.01, 
                 disp=False, full_output=True, retall=True)
         t = r[0][0]
@@ -255,6 +267,7 @@ class PoissonFitter(object):
         if s_high==s_low:
             msg= '%s.find_delta Failed to find high root with delta=%.1f: %s' % (self.__class__.__name__,delta_logl,s_high)
             print msg
+            print 'wprime: %.3e' % self.wprime
             raise Exception(msg)
         return (s_low,s_high)
 
@@ -315,7 +328,8 @@ class PoissonFitter(object):
         pfmax = self(self.smax)
         ax.plot(x, np.exp(self(x)-pfmax), '-', label='Input')
         ax.plot(xp, np.exp(self._poiss(xp)), 'o', label='approx')
-        ax.legend(prop =dict(size=8) )        ax.grid()
+        ax.legend(prop =dict(size=8) )        ax.set_xticks([0, xp[-1]])
+        ax.grid()
         return fig
         
 
