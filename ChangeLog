@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Dec 26 08:29:13 PST 2013
+pointlike/python/uw/like2
+
+Modified Files:
+	loglikelihood.py sedfuns.py 
+Log Message:
+tweak likelihood fitting
+    *
+------------------------------------------------------------
 User: burnett  Sun Dec 22 12:05:21 PST 2013
 pointlike/python/uw/like2
 
