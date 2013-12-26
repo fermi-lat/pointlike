@@ -1,9 +1,9 @@
 """Tools for parameterizing log likelihood curves.
 
 Author(s): Eric Wallace, Matthew Kerr, Toby Burnett
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.17 2013/12/22 15:36:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.18 2013/12/26 16:29:13 burnett Exp $
 """
-__version__ = "$Revision: 1.17 $"
+__version__ = "$Revision: 1.18 $"
 
 import numpy as np
 from scipy import optimize, special, polyfit, stats
@@ -205,9 +205,10 @@ class PoissonFitter(object):
         dlist = np.array([0.5, 1.0, 2.0, 4.0])
         if s < -10:
             # large negative derivative: this will be just an exponential
-            if s < -100: s=-100. #cut off for nwo
+            if s < -100: s=-100. #cut off for now
             self.dom = - dlist/s
             self._poiss= Poisson([-1, -s, 1])
+            self.maxdev=0
             return #no test in this case
         else:
             dom = set()
