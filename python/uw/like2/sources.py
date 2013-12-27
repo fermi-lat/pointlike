@@ -1,6 +1,6 @@
 """
 Source classes
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.39 2013/12/05 21:16:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.40 2013/12/09 01:15:02 burnett Exp $
 
 """
 import os, copy
@@ -100,6 +100,7 @@ class Source(object):
                 raise
             self.model.free[2:]=False
         elif self.model.name=='LogParabola':
+            if hasattr(self, 'free') and len(self.free)>3: self.free[3]=False
             self.model.free[-1]=False # make sure Ebreak is always frozen (bug in handling extended sources?)
             #assert not self.model.free[3], 'LogParabola model for source %s hae Ebreak free' % self.name
             if False: ##########TURN OFF FOR NOW not self.model.free[2] and self.model[2]!=0.:
