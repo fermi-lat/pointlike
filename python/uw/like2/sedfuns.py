@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.30 2013/12/22 20:05:21 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.31 2013/12/26 16:29:13 burnett Exp $
 
 """
 import os, pickle
@@ -75,7 +75,7 @@ class SED(tools.WithMixin):
                 pp.append(pf.poiss)
                 if debug: print pf
             except Exception, msg:
-                print msg
+                print 'Fail poiss fit for %.0f MeV: %s ' % (e,msg)
                 pp.append(None)
                 
         self.restore()
@@ -93,7 +93,10 @@ class SED(tools.WithMixin):
         names = 'elow ehigh flux lflux uflux ts mflux delta_ts pull maxdev'.split()
         rec = tools.RecArray(names, dtype=dict(names=names, formats=['>f4']*len(names)) )
         for i,energy in enumerate(self.energies):
-            pf = self.select(i, event_type=event_type, poisson_tolerance=tol)
+            try:
+                pf = self.select(i, event_type=event_type, poisson_tolerance=tol)
+            except Exception, msg:
+                print 'Fail poiss fit for %.0f MeV: %s ' % (energy,msg)
             w = pf.poiss
             err = pf.maxdev
             xlo,xhi = self.rs.emin,self.rs.emax
@@ -154,7 +157,7 @@ def makesed_all(roi, **kwargs):
     ndf = kwargs.pop('ndf', 10) 
     if sedfig_dir is not None and not os.path.exists(sedfig_dir): os.mkdir(sedfig_dir)
     showts = kwargs.pop('showts', True)
-    poisson_tolerance = kwargs.pop('poisson_tolerance', 0.25)
+    poisson_tolerance = kwargs.pop('poisson_tolerance', 0.50)
     initw = roi.log_like()
 
     sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
