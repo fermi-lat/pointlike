@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.56 2013/12/22 17:23:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.57 2013/12/27 16:09:58 burnett Exp $
 
 """
 import types, time
@@ -231,7 +231,7 @@ class ROI(views.LikelihoodViews):
             return
         source = self.sources.find_source(source_name)
         showts = kwargs.pop('showts', True)
-        if kwargs.pop('update', False) or not hasattr(self.'sedrec') or self.sedrec is None:
+        if kwargs.pop('update', False) or not hasattr(self,'sedrec') or self.sedrec is None:
             self.get_sed(update=True)
         annotation =(0.04,0.88, 'TS=%.0f' % source.ts ) if showts and hasattr(source, 'ts') else None 
         kwargs.update(galmap=self.roi_dir, annotate=annotation)
