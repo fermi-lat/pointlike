@@ -1,7 +1,7 @@
 """
 Basic analyis of source spectra
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.13 2013/10/11 16:34:00 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.14 2013/12/12 14:51:13 burnett Exp $
 
 """
 
@@ -556,6 +556,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         hassed = np.array([self.df.ix[i]['sedrec'] is not None for i in range(len(self.df))])
         if sum(~hassed)>0:
             print '+++Warning: %d sources without sed info' % sum(~hassed)
+            print self.df[~hassed]['ts roiname'.split()][:min(20, sum(~hassed))]
         cut= (self.df.ts>25) & hassed
         s = self.df[cut]
         fdata = np.array([s.ix[i]['sedrec'].flux[0] for i in range(len(s))])
