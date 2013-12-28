@@ -1,9 +1,9 @@
 """Tools for parameterizing log likelihood curves.
 
 Author(s): Eric Wallace, Matthew Kerr, Toby Burnett
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.18 2013/12/26 16:29:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.19 2013/12/26 17:32:13 burnett Exp $
 """
-__version__ = "$Revision: 1.18 $"
+__version__ = "$Revision: 1.19 $"
 
 import numpy as np
 from scipy import optimize, special, polyfit, stats
@@ -185,7 +185,7 @@ class PoissonFitter(object):
     array([ 50.,   1.,  10.])
     
     """
-    def __init__(self, func, scale=1., tol=0.05, delta=0.01):
+    def __init__(self, func, scale=1., tol=0.05, delta=0.1, dd=-0.1):
         """
         parameters
         ----------
@@ -203,7 +203,7 @@ class PoissonFitter(object):
         # depending on how peaked the function is, this will be from 5 to 8 
         # The Poisson will be fit to this set of values
         dlist = np.array([0.5, 1.0, 2.0, 4.0])
-        if s < -10:
+        if s < dd:
             # large negative derivative: this will be just an exponential
             if s < -100: s=-100. #cut off for now
             self.dom = - dlist/s
