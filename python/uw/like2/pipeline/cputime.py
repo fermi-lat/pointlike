@@ -1,7 +1,7 @@
 """
 Analyze CPU times for batch execution, make diagnostic plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/cputime.py,v 1.1 2013/12/20 21:50:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/cputime.py,v 1.2 2013/12/20 22:56:59 burnett Exp $
 """
 import os, glob, re, argparse, pandas as pd, numpy as np
 import matplotlib.pylab as plt
@@ -45,21 +45,31 @@ class CPUtime(object):
         print 'model: %s' % self.model_version
         roi_info = dict()
         job_info = dict()
+        
+            
         def parse_logfile(fn):
+ 
+            def search( pattern, text):
+                x = re.search(pattern, text)
+                if x is None:
+                   print 'Processing %s:\n\t Failed to find "%s" in "%s"' % (fn, pattern, text)
+                   return 0
+                return x.group(1)
+
             text = open(fn).read()
             lines = text.split('\n')
             hc = lines[0].split()[-1][:4]
             j = 0
             while lines[j].find('Start setup')>0 and lines[j+1].find('elapsed=')<0: j+=1
-            setup = re.search(r'elapsed=(.*) \(',lines[j+1]).group(1)
-            total = re.search(r'total (.*)\)', lines[-2]).group(1)
+            setup = search(r'elapsed=(.*) \(',lines[j+1])
+            total = search(r'total (.*)\)', lines[-2])
             job_info[fn]=dict(host=hc, setup=float(setup), total=float(total))
             n=0
             for j,line in enumerate(lines[:-1]):
                 if line.find('Start roi')>0 and lines[j+1].find('Finish: elapsed=')>0:
                     next = lines[j+1]
-                    roi = re.search(r'Start roi (.*)$', line).group(1)
-                    elapsed = re.search(r'elapsed=(.*) \(',next).group(1)
+                    roi = search(r'Start roi (.*)$', line)
+                    elapsed = search(r'elapsed=(.*) \(',next)
                     roi_info[int(roi)] = dict(host=hc, time=float(elapsed), n=n)
                     n+=1
         for fn in streamlogs:
@@ -128,7 +138,7 @@ class CPUtime(object):
 def main(stream=None, path='.', plotto=None):
     ct = CPUtime(stream, path)
     if plotto is not None:
-        fig = ct.all()
+        fig = ct.plots()
         if plotto.find('.')<0:
             plotto +='.png'
         plt.savefig(plotto)

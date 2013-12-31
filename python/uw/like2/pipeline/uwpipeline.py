@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.37 2013/12/19 17:43:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.38 2013/12/22 15:37:36 burnett Exp $
 """
 import os, argparse,  datetime
 import numpy as np
@@ -65,6 +65,10 @@ class CheckJobs(Summary):
 class CheckData(Summary):
     def main(self, args):
         stage = self.get_stage(args)
+        if os.path.exists('failed_rois.txt'):
+           os.remove('failed_rois.txt')
+           print 'Removed file with failed rois'
+        
         check_data.main(args)
  
 class Proc(dict):
@@ -112,7 +116,7 @@ stagenames = dict(
     update_beta =  StageBatchJob( dict( betafix_flag=True),  sum='sourceinfo',help='check beta', ),
     update_pivot=  StageBatchJob( dict( repivot_flag=True),  sum='sourceinfo',help='update pivot', ), 
     update_only =  StageBatchJob( dict(),                   sum='config counts sourceinfo', help='update, no additional stage', ), 
-    finish      =  StageBatchJob( dict(localize_flag=True,sedfig_dir='sedfig',dampen=0,associate=True,counts_dir='countfig'), 
+    finish      =  StageBatchJob( dict(localize_flag=True,sedfig_dir='sedfig',dampen=0,associate_flag=True,counts_dir='countfig', tsmap_dir='tsmap_fail'), 
                     sum='sourceinfo localization', help='localize, associations, sedfigs', ),
     )
 disabled="""
@@ -218,7 +222,8 @@ def main( args ):
     try:
         procnames[proc](args)
     except Exception, msg:
-        print 'Exception tring to execute procnames[%s](%s):%s' % ( proc,args, msg)
+        print 'Exception trying to execute procnames[%s](%s):\n\t%s' % ( proc,args, msg)
+        raise
     #tee.close()
 
 if __name__=='__main__':
