@@ -1,6 +1,6 @@
 """
 Output the ROI info to as a pickle file.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_healpix.py,v 1.4 2013/12/21 01:11:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_healpix.py,v 1.5 2013/12/22 01:17:25 burnett Exp $
 """
 import os, pickle, time
 import numpy as np
@@ -64,7 +64,7 @@ def pickle_dump(roi,  pickle_dir, dampen, **kwargs):
             pivot_energy = pivot_energy,
             # if ellipse or adict not done, but already in pickle, keep them
             ellipse= s.__dict__.get('ellipse', None), 
-            associations = s.__dict__.get('adict',None),
+            associations = s.__dict__.get('associations',None),
             )
     output.update(kwargs) # add additional entries from kwargs
     with open(filename,'wb') as f:  #perhaps overwrite
