@@ -1,7 +1,7 @@
 """
 Analyze CPU times for batch execution, make diagnostic plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/cputime.py,v 1.2 2013/12/20 22:56:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/cputime.py,v 1.3 2013/12/31 04:45:14 burnett Exp $
 """
 import os, glob, re, argparse, pandas as pd, numpy as np
 import matplotlib.pylab as plt
@@ -58,7 +58,7 @@ class CPUtime(object):
 
             text = open(fn).read()
             lines = text.split('\n')
-            hc = lines[0].split()[-1][:4]
+            hc = lines[0].split()[-1][:-4]
             j = 0
             while lines[j].find('Start setup')>0 and lines[j+1].find('elapsed=')<0: j+=1
             setup = search(r'elapsed=(.*) \(',lines[j+1])
