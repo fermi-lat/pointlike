@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.42 2012/06/24 14:12:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.43 2013/05/14 20:56:35 burnett Exp $
 
 """
-version = '$Revision: 1.42 $'.split()[1]
+version = '$Revision: 1.43 $'.split()[1]
 
 import sys, pylab, types
 import math
@@ -305,7 +305,7 @@ class AIT(object):
                       (self.projector.sph2pix( 0,90)[1]-self.center[1])/90)
 
         if skyfun is not None: 
-            self.skyimage.fill(skyfun)
+            self.fill(skyfun)
             self.setup_image(self.earth)
         else:
             # special case: want to set pixels by hand
@@ -960,11 +960,12 @@ class TSplot(object):
         #axes.set_xlim((0,nx)); axes.set_ylim((0,ny))
         #print 'after reset', axes.get_xlim(), axes.get_ylim()
         if self.scalebar:
-            if self.size< 0.03:
-                self.zea.scale_bar(1/120.,  '30"', color='w')
-            elif self.size<0.6:
+            t = 3
+            if self.size< 0.03*t:
+                self.zea.scale_bar(1/60.,  "1'", color='w')
+            elif self.size<0.6*t:
                 self.zea.scale_bar(0.1, "$0.1^o$", color='w')
-            elif self.size<1.1:
+            elif self.size<1.1*t:
                 self.zea.scale_bar(0.5, "$0.5^o$", color='w')
             else:
                 self.zea.scale_bar(1.0, '$1^o$', color='w')
