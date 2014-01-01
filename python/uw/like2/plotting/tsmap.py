@@ -1,7 +1,7 @@
 """
 Code to plot TS maps
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/tsmap.py,v 1.10 2013/11/26 14:55:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/tsmap.py,v 1.11 2013/11/30 00:40:17 burnett Exp $
 
 """
 import math, os
@@ -18,6 +18,7 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
         assoc = None,
         notitle = False,
         nolegend = False,
+        nooverplot = False,
         markercolor='blue', markersize=8,
         primary_markercolor='green', primary_markersize=12,
          **kwargs):
@@ -42,7 +43,8 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
       galactic    [False] -- plot using galactic coordinates
       assoc       [None] -- if set, a list of tuple of associated sources 
       notitle     [False] -- set to turn off (allows setting the current Axes object title)
-      nolegend    [False]
+      nolegend    [False] -- set to turn off legend
+      nooverplot  [False] -- set to turn off overplot of fit, source positions
       markersize  [10]   -- set 0 to not plot nearby sources in the model
       markercolor [blue]
       tsfits      [False] -- set True to also create a FITS-format file with the image
@@ -66,7 +68,7 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
     tsp = image.TSplot(localizer.TSmap, sdir, size, 
                 pixelsize=pixelsize if pixelsize is not None else size/20. , 
                 axes=axes, galactic=galactic, galmap=galmap, galpos=galpos, **kwargs)
-    if hasattr(source, 'ellipse'): 
+    if hasattr(source, 'ellipse') and not nooverplot: 
         loc = source.ellipse
         sigma = np.sqrt(loc[2]*loc[3]) #loc['a']*loc['b']) #?? scale factor needed?
         qual = loc[5] #'qual']
@@ -79,24 +81,25 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
         tsp.cross(sdir, catsig, lw=2, color='grey')
         
     # plot the primary source, any nearby from the fit
-    x,y = tsp.zea.pixel(sdir)
-    tsp.zea.axes.plot([x],[y], '*', color=primary_markercolor, label=name, markersize=primary_markersize)
-    marker = 'ov^<>1234sphH'; i=k=0
-    if markersize!=0:
-        # plot nearby sources in the ROI 
-        for ps in localizer.tsm.blike.sources: 
+    i=k=0
+    marker = 'ov^<>1234sphH'
+    if not nooverplot:
+        x,y = tsp.zea.pixel(sdir)
+        tsp.zea.axes.plot([x],[y], '*', color=primary_markercolor, label=name, markersize=primary_markersize)
+        if markersize!=0:
+            # plot nearby sources in the ROI 
+            for ps in localizer.tsm.blike.sources: 
 
-            if ps.skydir is None: continue
-            x,y = tsp.zea.pixel(ps.skydir)
-            if ps.name==name or x<0 or x>tsp.zea.nx or y<0 or y>tsp.zea.ny: continue
-            tsp.zea.axes.plot([x],[y], marker[k%12], color=markercolor, label=ps.name, markersize=markersize)
-            if hasattr(ps, 'ellipse'):
-                # this draws a line, perhaps shaded
-                tsp.zea.ellipse(ps.skydir, ps.ellipse[2:5])
-            k+=1
+                if ps.skydir is None: continue
+                x,y = tsp.zea.pixel(ps.skydir)
+                if ps.name==name or x<0 or x>tsp.zea.nx or y<0 or y>tsp.zea.ny: continue
+                tsp.zea.axes.plot([x],[y], marker[k%12], color=markercolor, label=ps.name, markersize=markersize)
+                if hasattr(ps, 'ellipse'):
+                    # this draws a line, perhaps shaded
+                    tsp.zea.ellipse(ps.skydir, ps.ellipse[2:5])
+                k+=1
     
     tsp.plot(tsp.tsmaxpos, symbol='+', color='k') # at the maximum
-    if not notitle: plt.title( name, fontsize=24)
 
     if assoc is not None:
         # eventually move this to image.TSplot
@@ -123,13 +126,12 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
     if not nolegend: tsp.zea.axes.legend(loc=2, numpoints=1, bbox_to_anchor=(-0.15,1.0))
     plt.rcParams['font.size'] = fs
 
-    if hasattr(localizer,'qform') and localizer.qform is not None:
-        tsp.overplot(localizer.qform)
-    tsp.zea.axes.set_title('%s'% name, fontsize=16)  # big title
+    if not notitle:
+        tsp.zea.axes.set_title('%s'% name, fontsize=16)  # big title
     if outdir is not None:
         filename = name.replace(' ','_').replace('+','p')
         fout = os.path.join(outdir, ('%s_tsmap.png'%filename) )
-        plt.savefig(fout)
+        plt.savefig(fout, bbox_inches='tight', padinches=0.2) #cuts off outherwise
         print 'saved tsplot to %s' % fout 
         if tsfits: 
             fitsname = os.path.join(outdir, '%s_tsmap.fits' % filename)
