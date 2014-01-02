@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jan  2 07:20:16 PST 2014
+pointlike/python/uw/like2
+
+Modified Files:
+	localization.py main.py views.py 
+Log Message:
+fix tsmap issue
+    *
+------------------------------------------------------------
 User: burnett  Wed Jan  1 10:19:11 PST 2014
 pointlike/python/uw/utilities
 
