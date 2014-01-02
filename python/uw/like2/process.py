@@ -1,6 +1,6 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.5 2013/12/19 17:41:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.6 2013/12/22 15:36:20 burnett Exp $
 
 """
 import os, sys, time
@@ -26,6 +26,7 @@ class Process(main.MultiROI):
         ('tsmap_dir',     None,   'folder for TS maps'),
         ('sedfig_dir',    None,   'folder for sed figs'),
         ('quiet',         True,   'Set false for summary output'),
+        ('finish',        False,  'set True to turn on all "finish" output flags'),
     )
     
     @keyword_options.decorate(defaults)
@@ -33,6 +34,9 @@ class Process(main.MultiROI):
         """ process the roi object after being set up
         """
         keyword_options.process(self, kwargs)
+        if self.finish:
+            self.__dict__.update(localize_flag=True,sedfig_dir='sedfig',dampen=0,associate_flag=True,
+                counts_dir='countfig', tsmap_dir='tsmap_fail')
         super(Process,self).__init__(config_dir,quiet=self.quiet)
         self.stream = os.environ.get('PIPELINE_STREAMPATH', 'interactive')
         if roi_list is not None:
