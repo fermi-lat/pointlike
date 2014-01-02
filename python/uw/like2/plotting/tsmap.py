@@ -1,7 +1,7 @@
 """
 Code to plot TS maps
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/tsmap.py,v 1.11 2013/11/30 00:40:17 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/tsmap.py,v 1.12 2014/01/01 17:04:09 burnett Exp $
 
 """
 import math, os
@@ -68,7 +68,7 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
     tsp = image.TSplot(localizer.TSmap, sdir, size, 
                 pixelsize=pixelsize if pixelsize is not None else size/20. , 
                 axes=axes, galactic=galactic, galmap=galmap, galpos=galpos, **kwargs)
-    if hasattr(source, 'ellipse') and not nooverplot: 
+    if hasattr(source, 'ellipse') and source.ellipse is not None and not nooverplot: 
         loc = source.ellipse
         sigma = np.sqrt(loc[2]*loc[3]) #loc['a']*loc['b']) #?? scale factor needed?
         qual = loc[5] #'qual']
@@ -94,7 +94,7 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
                 x,y = tsp.zea.pixel(ps.skydir)
                 if ps.name==name or x<0 or x>tsp.zea.nx or y<0 or y>tsp.zea.ny: continue
                 tsp.zea.axes.plot([x],[y], marker[k%12], color=markercolor, label=ps.name, markersize=markersize)
-                if hasattr(ps, 'ellipse'):
+                if hasattr(ps, 'ellipse') and ps.ellipse is not None:
                     # this draws a line, perhaps shaded
                     tsp.zea.ellipse(ps.skydir, ps.ellipse[2:5])
                 k+=1
