@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.22 2013/12/04 05:21:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.23 2013/12/08 00:48:01 burnett Exp $
 
 """
 import os
@@ -17,9 +17,6 @@ class Localization(object):
     Implements a minimization interface
     see also the localize function, which uses the eliptical fitter
    
-    Note that it supports the context manager interface, and should be used in a with construction
-    to guarantee that the reset function is called to restore the ROI state.
-    
     """
     defaults = (
         ('tolerance',1e-2),
@@ -36,6 +33,8 @@ class Localization(object):
     def __init__(self, tsm, **kwargs):
         """ 
         tsm : a TSmap object, with a source selected
+            It defines a function that returns the TS, or 2x the likelihood ratio of a position with respect to the 
+            source position
         """
         keyword_options.process(self, kwargs)
         
@@ -48,21 +47,9 @@ class Localization(object):
             self.skydir = self.seedpos
         self.name = self.tsm.source.name
     
-    #def __enter__(self):
-    #    """ supports the 'with' construction, guarantees that reset is called to restore the ROI
-    #    example:
-    #    -------
-    #    with Localize(roi, name) as loc
-    #        # use loc.TSmap ...
-    #    """
-    #    return self
-    #    
-    #def __exit__(self, type, value, traceback):
-    #    self.reset()
-
     def log_like(self, skydir=None):
         """ return log likelihood at the given position"""
-        return self.tsm(skydir)
+        return self.tsm(skydir)/2
    
     def TSmap(self, skydir):
         """ return the TS at given position, or 
@@ -71,7 +58,7 @@ class Localization(object):
         val= 2*(self.log_like(skydir)-self.maxlike)
         return val
 
-    
+    # the following 3 functions are for a minimizer
     def get_parameters(self):
         return np.array([self.tsm.skydir.ra(), self.tsm.skydir.dec()])
     
@@ -80,6 +67,7 @@ class Localization(object):
         self.tsm.skydir = self.tsm.set_dir(self.skydir)
         
     def __call__(self, par):
+        # for a minimizer
         return -self.TSmap(SkyDir(par[0],par[1]))
     
     def reset(self):
@@ -93,7 +81,7 @@ class Localization(object):
     def errorCircle(self):
         return 0.05 #initial guess
 
-    def spatialLikelihood(self, sd, update=False):
+    def spatialLikelihood(self, sd): #negative for legacy code below
         return -self.log_like(sd)
         
     def localize(self):

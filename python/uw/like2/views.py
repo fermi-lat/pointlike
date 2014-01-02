@@ -4,7 +4,7 @@ classes presenting views of the likelihood engine in the module bandlike
 Each has a mixin to allow the with ... as ... construction, which should restore the BandLikeList
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.10 2013/12/13 19:17:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.11 2013/12/19 17:41:36 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -406,7 +406,7 @@ class TSmapView(tools.WithMixin):
         self.wzero = func.log_like()
     
     def __repr__(self):
-        return '%s.%s: source %s' % self.source.name
+        return '%s.%s: source %s' % (self.__module__, self.__class__.__name__, self.source.name)
         
     def set_dir(self, skydir):
         self.source.skydir = skydir
