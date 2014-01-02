@@ -1,12 +1,13 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.58 2013/12/27 16:12:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.59 2014/01/01 17:04:42 burnett Exp $
 
 """
 import types, time
 import numpy as np
 from uw.utilities import keyword_options
+from skymaps import SkyDir
 from . import (views,  configuration, extended,  roimodel, from_xml, from_healpix,
                 bands,  localization, sedfuns, tools,
                 plotting, associate, printing, to_healpix
@@ -176,7 +177,7 @@ class ROI(views.LikelihoodViews):
         if source_name=='all':
             localization.localize_all(self, **kwargs)
             return
-        with self.tsmap_view(source_name, **kwargs) as tsm:
+        with self.tsmap_view(source_name) as tsm:
             loc = localization.Localization(tsm, **kwargs)
             try: 
                 loc.localize()
@@ -251,7 +252,7 @@ class ROI(views.LikelihoodViews):
         plot_kw = dict(size=0.25, pixelsize=0.25/15, outdir=None, 
             assoc=getattr(source, 'associations', None) ) 
         plot_kw.update(kwargs)
-        with self.tsmap_view(source_name) as tsm:
+        with self.tsmap_view(source.name) as tsm:
 
             loc = localization.Localization(tsm)
             try: 
