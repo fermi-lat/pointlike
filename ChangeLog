@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jan  2 09:35:17 PST 2014
+pointlike/python/uw/like2/plotting
+
+Modified Files:
+	tsmap.py 
+Log Message:
+fix ellipse not set
+    *
+------------------------------------------------------------
 User: burnett  Thu Jan  2 07:21:35 PST 2014
 pointlike/python/uw/like2
 
