@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jan  2 20:11:19 PST 2014
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	uwpipeline.py 
+Log Message:
+adjust when counts is done
+    *
+------------------------------------------------------------
 User: burnett  Thu Jan  2 20:10:47 PST 2014
 pointlike/python/uw/like2/analyze
 
