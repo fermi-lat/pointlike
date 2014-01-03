@@ -1,7 +1,7 @@
 """
 Count plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.5 2013/12/21 21:44:31 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.6 2013/12/22 01:37:38 burnett Exp $
 
 """
 
@@ -54,16 +54,27 @@ class CountPlots(analysis_base.AnalysisBase):
             print msg
             
         if 'history' in pkls[0].keys():
-            self.history_table()
+            itdf = self.history_table()
+            config = eval(open('config.txt').read()) 
+            input_model=config['input_model']['path']
+            self.iteration_info = """<p>Input model: <a href="../../%s/plots/index.html?skipDecoration">%s</a>
+            <p>Iteration history: log likelihood change for each step: \n%s
+            """ % (input_model,input_model, 
+                    itdf.to_html(float_format=FloatFormat(1)) )
+
         else:
             self.iteration_info=''
 
     def history_table(self):
         # make a dictionary of dictionaries: stream, then roi; save logl and dampen
         hd = dict()
+        interactive = 0
         for i,r in enumerate(self.pkls):
             hh = r['history']
             for h in hh:
+                if h['stream']=='interactive': 
+                    interactive +=1
+                    continue
                 stream = int(h['stream'].split('.')[0])
                 if stream not in hd.keys():
                     hd[stream]=dict()
@@ -85,13 +96,7 @@ class CountPlots(analysis_base.AnalysisBase):
         itdf = pd.DataFrame([nroi, gt10, delta_sum, delta_min, delta_max],
                      index='nroi gt10 delta_sum delta_min delta_max'.split(), columns=hd.keys()[1:]).T
         itdf.index.name='stream'
-        
-        config = eval(open('config.txt').read()) 
-        input_model=config['input_model']['path']
-        self.iteration_info = """<p>Input model: <a href="../../%s/plots/index.html?skipDecoration">%s</a>
-        <p>Iteration history: log likelihood change for each step: \n%s
-        """ % (input_model,input_model, 
-                itdf.to_html(float_format=FloatFormat(1)) )
+        return itdf 
 
 
     def iteration_info(self):
