@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jan  3 15:17:13 PST 2014
+pointlike/python/uw/like2
+
+Modified Files:
+	process.py 
+Log Message:
+raise exception if fit fails
+    *
+------------------------------------------------------------
 User: burnett  Fri Jan  3 14:41:53 PST 2014
 pointlike/python/uw/like2/pub
 
