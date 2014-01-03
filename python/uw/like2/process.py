@@ -1,6 +1,6 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.6 2013/12/22 15:36:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.7 2014/01/02 17:36:23 burnett Exp $
 
 """
 import os, sys, time
@@ -48,7 +48,6 @@ class Process(main.MultiROI):
         """
         self.setup_roi(index)
         if self.outdir is not None: 
-            counts_dir = os.path.join(self.outdir,self.counts_dir)
             logpath = os.path.join(self.outdir, 'log')
             if not os.path.exists(logpath): os.mkdir(logpath)
             outtee = tools.OutputTee(os.path.join(logpath, self.name+'.txt'))
@@ -97,6 +96,7 @@ class Process(main.MultiROI):
                         print 'betafix requested, but no refit needed, quitting'
             except Exception, msg:
                 print '============== fit failed, no update!! %s'%msg
+                raise
         
         def getdir(x ):
             if x is None or outdir is None: return None
