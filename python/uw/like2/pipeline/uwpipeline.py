@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.38 2013/12/22 15:37:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.39 2013/12/31 04:45:14 burnett Exp $
 """
 import os, argparse,  datetime
 import numpy as np
@@ -110,14 +110,13 @@ class StageBatchJob(Stage):
 stagenames = dict(
     # List of possible stages, with proc to run, parameters for it,  summary string
     # list is partly recognized by check_converge.py, TODO to incoprorate it here, especially the part that may start a new stream
-    create      =  StageBatchJob( dict(),     sum='environment counts menu',  help='Create a new skymodel, follow with update_full',),
-    update_full =  StageBatchJob( dict(),     sum='config counts',            help='refit, full update' ),
-    update      =  StageBatchJob( dict( dampen=0.5,), sum='config counts',    help='refit, half update' ),
+    create      =  StageBatchJob( dict(),     sum='environment menu',  help='Create a new skymodel, follow with update_full',),
+    update_full =  StageBatchJob( dict(),     sum='config',            help='refit, full update' ),
+    update      =  StageBatchJob( dict( dampen=0.5,), sum='config',    help='refit, half update' ),
     update_beta =  StageBatchJob( dict( betafix_flag=True),  sum='sourceinfo',help='check beta', ),
     update_pivot=  StageBatchJob( dict( repivot_flag=True),  sum='sourceinfo',help='update pivot', ), 
-    update_only =  StageBatchJob( dict(),                   sum='config counts sourceinfo', help='update, no additional stage', ), 
-    finish      =  StageBatchJob( dict(localize_flag=True,sedfig_dir='sedfig',dampen=0,associate_flag=True,counts_dir='countfig', tsmap_dir='tsmap_fail'), 
-                    sum='sourceinfo localization', help='localize, associations, sedfigs', ),
+    update_only =  StageBatchJob( dict(),                   sum='config  sourceinfo', help='update, no additional stage', ), 
+    finish      =  StageBatchJob( dict(finish=True),     sum='counts sourceinfo localization associations', help='localize, associations, sedfigs', ),
     )
 disabled="""
     tables      =  Stage(pipe.Tables,  sum='hptables', job_list='joblist8.txt', help='create HEALPix tables: ts kde counts', ),
