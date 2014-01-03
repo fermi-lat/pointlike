@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jan  3 14:41:53 PST 2014
+pointlike/python/uw/like2/pub
+
+Modified Files:
+	healpix_map.py 
+Log Message:
+work around 180 deg bug
+    *
+------------------------------------------------------------
 User: burnett  Thu Jan  2 20:11:19 PST 2014
 pointlike/python/uw/like2/pipeline
 
