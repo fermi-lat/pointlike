@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.59 2014/01/01 17:04:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.60 2014/01/02 15:20:15 burnett Exp $
 
 """
 import types, time
@@ -135,40 +135,52 @@ class ROI(views.LikelihoodViews):
                 if set, run the fit in a try block and return None
         update_by : float
             set to zero to not change parameters, or a number between 0 and 1 to make a partial update
+        tolerance : float, default 0.1
+            If current fit quality, an estimate of potential improvent of the log likelihood, which is
+            based on gradient and hessian is less than this, do not fit
             
             others passed to the fitter minimizer command. defaults are
                 estimate_errors = True
                 use_gradient = True
+                
         """
         ignore_exception = kwargs.pop('ignore_exception', False)
         update_by = kwargs.pop('update_by', 1.0)
+        tolerance = kwargs.pop('tolerance', 0.1)
+        
         fit_kw = dict(use_gradient=True, estimate_errors=True)
         fit_kw.update(kwargs)
 
         with self.fitter_view(select, exclude=exclude) as fv:
+            qual = fv.delta_w()
+            if qual < tolerance:
+                if summarize:
+                    print 'Not fitting, estimated improvement, %.2f, is less than tolerance= %.1f' % (qual, tolerance)
+                return
             try:
                 fv.maximize(**fit_kw)
                 w = fv.log_like()
                 if summarize:
-                    print '%d calls, function value, improvement: %.0f, %.1f'\
-                        % (fv.calls, w, w - fv.initial_likelihood)
+                    print '%d calls, function value, improvement, quality: %.1f, %.2f, %.2f'\
+                        % (fv.calls, w, w - fv.initial_likelihood, fv.delta_w())
                 self.fit_info = dict(
                     loglike = fv.log_like(),
                     pars = fv.parameters[:], 
-                    covariance  = fv.covariance,)
+                    covariance  = fv.covariance,
+                    qual = qual,)
                 fv.modify(update_by)
                 fv.save_covariance()
                 if summarize: fv.summary()
                 
             except Exception, msg:
-                print 'Fit Failure %s: check parameters' %msg
+                print 'Fit Failure %s: quality: %.2f' % (msg, qual)
                 fv.summary() # 
                 if not ignore_exception: raise
-        return # wfit, pfit, cov
+        return 
     
     def summarize(self, select=None, exclude=None):
         with self.fitter_view(select, exclude=exclude) as fv:
-            print 'current likelihood: %.1f' % fv.log_like()
+            print 'current likelihood, est. diff to peak: %.1f, %.2f' % (fv.log_like(), fv.delta_w())
             fv.summary()
             
     def localize(self, source_name=None, update=False, **kwargs):
