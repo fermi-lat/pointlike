@@ -4,7 +4,7 @@ classes presenting views of the likelihood engine in the module bandlike
 Each has a mixin to allow the with ... as ... construction, which should restore the BandLikeList
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.11 2013/12/19 17:41:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.12 2014/01/02 15:20:15 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -56,6 +56,18 @@ class FitterSummaryMixin(object):
             if gradient:
                 fmt +='%10.1f'; tup += (grad[index],)
             print >>out,  fmt % tup
+    
+    def delta_w(self):
+        """ estimate change in log likelihood from current gradient 
+        """
+        try:
+            gm = np.matrix(self.gradient())
+            H = self.hessian()
+            return (gm * H.I * gm.T)[0,0]/4
+        except Exception, msg:
+            print 'Failed log likelihood estimate, returning 99.: %s' % msg
+            return 99.
+
 
 class FitPlotMixin(object):
     """mixin  for likelihood function to generate a plot, or set of all plots"""
