@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Jan  4 09:21:38 PST 2014
+pointlike/python/uw/like2
+
+Modified Files:
+	main.py views.py 
+Log Message:
+code to estimate improvement in fit, use to avoid fit if not needed
+    *
+------------------------------------------------------------
 User: burnett  Fri Jan  3 15:17:13 PST 2014
 pointlike/python/uw/like2
 
