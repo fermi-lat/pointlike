@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sat Jan 11 22:20:52 PST 2014
+pointlike/python/uw/pulsar
+
+Modified Files:
+	toagen.py 
+Log Message:
+Use a flat error (10s) for TOA nondetections.
+
+    *
+------------------------------------------------------------
 User: burnett  Sat Jan  4 09:21:38 PST 2014
 pointlike/python/uw/like2
 
