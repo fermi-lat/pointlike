@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.54 2013/12/14 01:00:21 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.55 2013/12/22 12:16:22 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -23,7 +23,7 @@ def sex2dec(s,mode='ra'):
 
 def ra2dec(s): return sex2dec(s,mode='ra')
 def decl2dec(s): return sex2dec(s,mode='decl')
-def dec2sex(d,mode='ra'):
+def dec2sex(d,mode='ra',places=6):
     """ Convert decimal degree to column separated format."""
     d = np.float128(d)
     scale = 15. if mode=='ra' else 1. # scale to deg to hour (ra) or deg
@@ -32,11 +32,14 @@ def dec2sex(d,mode='ra'):
     dg = int(d/scale)
     mi = int((d/scale-dg)*60.)
     ss = ((d/scale-dg)*60-mi)*60
-    return '%s%02d:%02d:%.6f'%(sign,dg,mi,ss)
-def pad(s,n):
+    ssi = int(ss)
+    ssf = int(round(10**places*(ss-ssi)))
+    ssfs = str(ssf)+'0'*(places-len(str(ssf)))
+    return '%s%02d:%02d:%02d.%s'%(sign,dg,mi,ssi,ssfs)
+def pad(s,n,c=' '):
     if len(s) >= n:
-        return s + ' ' # always have a trailing space!
-    return s + ' '*(n-len(s))
+        return s + c # always have a trailing space!
+    return s + c*(n-len(s))
 def pad26(s): 
     """ Specialized version to handle single bit (free/fixed) flags."""
     if len(s)==1:
@@ -191,7 +194,12 @@ class ParFile(dict):
             
             If the epoch is provided, and the source has a proper motion,
             then correct the position to given epoch and add the errors
-            in quadrature."""
+            in quadrature.
+            
+            NB that for tempo2, the both PMRA and PMDEC are physical scales,
+            so PMRA shoud be divided by cos(DEC) to get the "coordinate
+            speed".
+        """
         ra = ra2dec(self.get('RAJ'))
         de = decl2dec(self.get('DECJ'))
         idx = 1 if (len(self['RAJ'])==2) else 2
@@ -203,11 +211,12 @@ class ParFile(dict):
             dt = (epoch - self.get('POSEPOCH',type=float))/365.24
             if 'PMRA' in self.keys():
                 pmra = self.get('PMRA',type=float)/1000/3600 # deg
+                cdec = np.cos(np.radians(de))
                 idx = 1 if (len(self['PMRA'])==2) else 2
                 pmrae = float(self['PMRA'][idx])/1000/3600 # deg
                 print pmra,pmra*dt,pmrae,pmrae*dt
-                ra += pmra * dt
-                rae = (rae**2 + (pmrae*dt)**2)**0.5
+                dra = pmra*dt/cdec
+                rae = (rae**2 + (pmrae*dt/cdec)**2)**0.5
             if 'PMDEC' in self.keys():
                 pmde = self.get('PMDEC',type=float)/1000/3600 # deg
                 idx = 1 if (len(self['PMDEC'])==2) else 2
@@ -710,6 +719,8 @@ class ParFile(dict):
             # from Dodson et al. VLBI
             RAJ    08:35:20.61149  0.00002
             DECJ   -45:10:34.8751  0.00030
+
+            NB this WILL clobber the ephemeris file.
             
         """
         if block is None:
