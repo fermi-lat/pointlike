@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.55 2013/12/22 12:16:22 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.56 2014/01/13 13:50:09 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -203,25 +203,23 @@ class ParFile(dict):
         ra = ra2dec(self.get('RAJ'))
         de = decl2dec(self.get('DECJ'))
         idx = 1 if (len(self['RAJ'])==2) else 2
-        rae = float(self['RAJ'][idx]) * (15./3600)
+        rae = float(self['RAJ'][idx]) * (15./3600) # deg
         idx = 1 if (len(self['DECJ'])==2) else 2
-        dee = float(self['DECJ'][idx]) * (1./3600)
+        dee = float(self['DECJ'][idx]) * (1./3600) # deg
         
         if epoch is not None:
             dt = (epoch - self.get('POSEPOCH',type=float))/365.24
             if 'PMRA' in self.keys():
-                pmra = self.get('PMRA',type=float)/1000/3600 # deg
                 cdec = np.cos(np.radians(de))
+                pmra = self.get('PMRA',type=float)/1000/3600./cdec # deg
                 idx = 1 if (len(self['PMRA'])==2) else 2
                 pmrae = float(self['PMRA'][idx])/1000/3600 # deg
-                print pmra,pmra*dt,pmrae,pmrae*dt
-                dra = pmra*dt/cdec
-                rae = (rae**2 + (pmrae*dt/cdec)**2)**0.5
+                ra += pmra*dt
+                rae = (rae**2 + (pmrae*dt)**2)**0.5
             if 'PMDEC' in self.keys():
                 pmde = self.get('PMDEC',type=float)/1000/3600 # deg
                 idx = 1 if (len(self['PMDEC'])==2) else 2
                 pmdee = float(self['PMDEC'][idx])/1000/3600 # deg
-                print pmde,pmde*dt,pmdee,pmdee*dt
                 de += pmde * dt
                 dee = (dee**2 + (pmdee*dt)**2)**0.5
         return [ra,rae,de,dee]
@@ -577,15 +575,16 @@ class ParFile(dict):
 
     def delete_val(self,val):
         """ Attempt to remove an entry by value."""
-        vals = [self[k] for k in self.ordered_keys]
-        try:
-            idx = vals.index(val) 
-            key = self.ordered_keys.pop(idx)
-            self.pop(key)
-            if key in self.duplicates.keys():
-                self.duplicates.pop(key)
-        except ValueError:
-            pass
+        while True:
+            try:
+                vals = [self[k] for k in self.ordered_keys]
+                idx = vals.index(val) 
+                key = self.ordered_keys.pop(idx)
+                self.pop(key)
+                if key in self.duplicates.keys():
+                    self.duplicates.pop(key)
+            except ValueError:
+                return
 
     def has_glitches(self):
         for key in self.keys():
@@ -725,11 +724,12 @@ class ParFile(dict):
         """
         if block is None:
             return
+        lines = block.split('\n')
         # remove all duplicate keys
-        keys = [l.split()[0] for l in block.split('\n') if l[0] != '#']
+        keys = [l.split()[0] for l in lines if l[0] != '#']
         map(self.delete_key,keys)
         # remove duplicate comments (e.g. if this has been done before)
-        comm = [l[1:] for l in block.split('\n') if l[0] == '#']
+        comm = [l.strip()[1:] for l in lines if l[0] == '#']
         map(self.delete_val,comm)
 
         output = output or self.parfile
