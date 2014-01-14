@@ -1,7 +1,7 @@
 """
 Comparison with a gtlike model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gtlikecomparison.py,v 1.11 2013/12/07 01:21:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gtlikecomparison.py,v 1.12 2013/12/12 14:52:08 burnett Exp $
 
 """
 
@@ -18,7 +18,7 @@ from . analysis_base import html_table, FloatFormat
 
 class GtlikeComparison(sourcecomparison.SourceComparison):
     """Results of comparison with glike 
-    Gtlike version:  %(catname)s Compare the two lists of sources and spectral parameters, assuming that the skymodel names 
+    Gtlike version:  %(catname)s <br>Compare the two lists of sources and spectral parameters, assuming that the skymodel names 
     correspond to the "NickName" field in the gtlike-generated FITS file.
     Assume that a special run has been made to evaluate the likelihoods for the gtlike models.
     """
@@ -71,6 +71,48 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         
         # finally, restore the blanks in the index for self.dfx
         df.index = [gtname_dict[n] for n in df.index]
+        
+    def pulsar_candidates(self, mints=16):
+        """Pulsar candidate selection
+        Only choose those that are NOT in the gtlike list
+        %(pulsar_pivot_info)s
+        """
+        df = self.dfx
+        cut = cut = (df.no_gtlike) & (np.abs(df.glat)>5) & (df.ts>mints)
+        sedrec = self.dfx['sedrec']
+        tflow = []
+        tfmed = []
+        for sr in sedrec:
+            ts = sum(sr.ts)
+            low, middle, high = [sum(sr.ts[i:i+4]/ts).round(2) for i in (0,4,8)]
+            tflow.append(low)
+            tfmed.append(middle)
+        self.dfx['tflow']=tflow
+        self.dfx['tfmed']=tfmed
+        
+        pcand = df[cut & (df.tfmed>0.6) & (df.locqual<5)]['ra dec glat glon ts tflow tfmed a locqual'.split()]; print len(pcand)
+        pcand.index.name='name'
+        pcand.to_csv('weak_pulsar_candidate.csv')
+        try:
+            pc=makepivot.MakeCollection('weak pulsar candidates', 'sedfig', 'weak_pulsar_candidate.csv', refresh=True)
+            self.pulsar_pivot_info="""<p> These can be examined with a 
+            <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>,
+            which requires Silverlight. """% pc.cId
+        except Exception, msg:
+                self.pulsar_pivot_info = '<p>No pivot output; job failed %s' %msg
+
+        fig, axx = plt.subplots(1,2, figsize=(10,4))
+        
+        def scat_low_med(ax):
+            ax.plot(df[cut]['tflow'], df[cut]['tfmed'], '.')
+            plt.setp(ax, xlabel='low TS fraction', ylabel='medium TS fraction', 
+                xlim=(-0.02,1), ylim=(-0.02, 1))
+         
+        def hist_med(ax):
+            ax.hist(df[cut]['tfmed'], np.linspace(0,1,26))
+            plt.setp(ax, xlabel='medium TS fraction')
+        hist_med(axx[0]); scat_low_med(axx[1])
+        return fig
         
     def check_contents(self):
         """Contents of the two lists
@@ -310,9 +352,10 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
     def missing(self, tsmax=50):
         """ Sources in skymodel missing from gtlike       
         Examine pointlike TS and positions for sources in the model that were rejected by the gtlike analysis, mostly by the gtlike TS>25 requirement.
+        <br><b>Center</b>: Photon index for sources with |b|>5 and TS>16.
         """
         df = self.dfx
-        fig, ax = plt.subplots(1,2, figsize=(10,4))
+        fig, ax = plt.subplots(1,3, figsize=(12,4))
         plt.subplots_adjust(left=0.1)
         ts = df.ts[df.no_gtlike & (df.ts>10)]
         ts25=df.ts[df.no_gtlike & (df.ts>25)]
@@ -323,7 +366,14 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
             ax.grid()
         def plot2(ax):
             self.skyplot( ts25, ax=ax, vmin=25, vmax=tsmax, cbtext='pointlike TS')
-        for f, ax in zip([plot1,plot2,], ax): f(ax)
+        def plot_index(ax):
+            cut = (df.no_gtlike) & (np.abs(df.glat)>5) & (df.ts>16)
+            ax.hist(df[cut]['pindex'], np.linspace(1,3, 26))
+            plt.setp(ax,xlabel='photon index')
+            ax.grid()
+            
+        
+        for f, ax in zip([plot1,plot_index, plot2,], ax): f(ax)
         return fig
 
     def all_plots(self):
