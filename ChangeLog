@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Jan 14 00:18:12 PST 2014
+pointlike/python/uw/pulsar
+
+Modified Files:
+	toagen.py 
+Log Message:
+Put in a sanity check for phase->TOA conversion.
+
+    *
+------------------------------------------------------------
 User: kerrm  Mon Jan 13 18:28:49 PST 2014
 pointlike/python/uw/pulsar
 
