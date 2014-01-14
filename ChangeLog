@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Jan 13 18:28:49 PST 2014
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+Fix bug with comments in replace_astrometry.
+
+    *
+------------------------------------------------------------
 User: kerrm  Mon Jan 13 05:50:09 PST 2014
 pointlike/python/uw/pulsar
 
