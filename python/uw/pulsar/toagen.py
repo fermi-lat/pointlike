@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.19 2013/08/11 21:09:44 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.20 2014/01/12 06:20:52 kerrm Exp $
 
 Calculate TOAs with a variety of methods.
 
@@ -66,6 +66,9 @@ class TOAGenerator(object):
             pe   = self.polyco.getentry(tmid)
             freq = pe.evalfreq(tmid)
             period = 1.0/freq
+            if period < 0:
+                raise ValueError(
+                    'Something went horribly wrong with the folding period.')
 
             # Compute phase at start of observation or at midpoint
             phase_time = tmid if use_midpoint else mjdstart
