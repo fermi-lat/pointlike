@@ -1,7 +1,7 @@
 """
 Comparison with another UW model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/uwsourcecomparison.py,v 1.4 2013/07/12 03:49:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/uwsourcecomparison.py,v 1.5 2013/07/12 13:37:17 burnett Exp $
 
 """
 
@@ -18,7 +18,7 @@ class UWsourceComparison(sourceinfo.SourceInfo):
     <br>Ratios are %(skymodel)s/%(othermodel)s.
     
     """
-    def setup(self, othermodel='uw26'):
+    def setup(self, othermodel='uw29'):
         super(UWsourceComparison,self).setup()
         self.plotfolder = 'comparison_%s' % othermodel
 
@@ -38,7 +38,7 @@ class UWsourceComparison(sourceinfo.SourceInfo):
 
     def check_missing(self):
         """Missing sources, and possible replacements
-        The following table has source names from %(othermodel)s that do not appear in %(skymodel)s,
+        The following table has %(nmiss)d source names from %(othermodel)s that do not appear in %(skymodel)s,
         with closest %(skymodel)s source name and distance to it.
         %(missing_html)s
         """
@@ -51,13 +51,14 @@ class UWsourceComparison(sourceinfo.SourceInfo):
             return
         print '%d missing sources' %len(missed)
         self.missing = self.odf.ix[missed]
+        self.nmiss = len(self.missing)
         t = map(self.find_nearest_to, self.missing['skydir'].values)
         self.missing['nearest']=[x[0] for x in t]
         self.missing['distance']=[x[1] for x in t]
         self.missing['nearest_ts']=self.df.ix[self.missing.nearest.values]['ts'].values
         
         self.missing_html=self.missing[self.missing.ts>10]['ts ra dec nearest nearest_ts distance roiname'.split()]\
-            .sort_index(by='distance').to_html(float_format=FloatFormat(2))
+            .sort_index(by='roiname').to_html(float_format=FloatFormat(2))
         
     def check_moved(self, tol=(2, 0.02)):
         r"""Sources in old and new lists, which apparently moved
