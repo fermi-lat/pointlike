@@ -1,7 +1,7 @@
 """
 Comparison with another UW model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/uwsourcecomparison.py,v 1.5 2013/07/12 13:37:17 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/uwsourcecomparison.py,v 1.6 2014/01/14 21:20:50 burnett Exp $
 
 """
 
@@ -18,7 +18,7 @@ class UWsourceComparison(sourceinfo.SourceInfo):
     <br>Ratios are %(skymodel)s/%(othermodel)s.
     
     """
-    def setup(self, othermodel='uw29'):
+    def setup(self, othermodel='uw29', **kw):
         super(UWsourceComparison,self).setup()
         self.plotfolder = 'comparison_%s' % othermodel
 
@@ -41,10 +41,12 @@ class UWsourceComparison(sourceinfo.SourceInfo):
         The following table has %(nmiss)d source names from %(othermodel)s that do not appear in %(skymodel)s,
         with closest %(skymodel)s source name and distance to it.
         %(missing_html)s
+        <br><b>Left</b>: Test statistic distribution
+        <br><b>Right</b>: Locations.
         """
         oldindex = set(self.odf.index)
         newindex = set(self.df.index)
-        missed = oldindex.difference(newindex)
+        self.missed =missed = oldindex.difference(newindex)
         if len(missed)==0:
             self.missing_html='<br>No missing sources!'
             print 'no missing sources'
@@ -59,6 +61,17 @@ class UWsourceComparison(sourceinfo.SourceInfo):
         
         self.missing_html=self.missing[self.missing.ts>10]['ts ra dec nearest nearest_ts distance roiname'.split()]\
             .sort_index(by='roiname').to_html(float_format=FloatFormat(2))
+        def ts_hist(ax, tsmax=100):
+            ax.hist(self.missing.ts.clip(0,tsmax), np.linspace(0,tsmax,26))
+            ax.grid()
+            plt.setp(ax, xlabel='TS')
+        def skyplot(ax):
+            df = self.missing
+            self.skyplot(df.ts, df=df,ax=ax, s=40, vmin=10, vmax=100)
+
+        fig, axx= plt.subplots(1,2, figsize=(12,5))
+        for f,a in zip((ts_hist, skyplot), axx): f(a)
+        return fig
         
     def check_moved(self, tol=(2, 0.02)):
         r"""Sources in old and new lists, which apparently moved
@@ -71,10 +84,14 @@ class UWsourceComparison(sourceinfo.SourceInfo):
         skydir_old = self.df.skydir_old.values
         self.df['moved']=[np.degrees(a.difference(b)) if b is not np.nan else np.nan for a,b in zip(skydir, skydir_old)]
         moved_cut=(self.df.moved>tol[0]*self.df.a) *(self.df.moved>tol[1])
+        self.moved_html = '<br>%d sources moved'%sum(self.df.moved>0)
         if sum(moved_cut)>0:
-            self.moved_html = self.df[moved_cut]['ts_old ts ra dec a locqual moved roiname'.split()]\
+            self.moved_html += self.df[moved_cut]['ts_old ts ra dec a locqual moved roiname'.split()]\
                 .sort_index(by='moved').to_html(float_format=FloatFormat(2))
-        else: self.moved_html = '<br>No sources satisfy move criteron'
+        else: self.moved_html += '<br>No sources satisfy move criteron'
+        fig, ax = plt.subplots(1,1, figsize=(5,5))
+        self.skyplot(self.df.ts[moved], ax=ax)
+        return fig
 
     
     def compare(self, scat=True):

@@ -1,7 +1,7 @@
 """
 Comparison with the 2FGL catalog
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourcecomparison.py,v 1.2 2013/08/03 18:09:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourcecomparison.py,v 1.3 2013/09/13 08:20:54 burnett Exp $
 
 """
 
@@ -39,7 +39,8 @@ class SourceComparison(sourceinfo.SourceInfo):
         index = [x.strip() for x in ft.NickName] #Source_Name 
         self.cat = pd.DataFrame(dict(name3=ft.Source_Name, ra=ft.RAJ2000,dec= ft.DEJ2000, ts=ft.Test_Statistic, 
                 skydir=cat_skydirs,
-                glat=glat, glon=glon, pivot=ft.Pivot_Energy, flux=ft.Flux_Density, modelname=ft.SpectrumType, id_prob=id_prob), 
+                glat=glat, glon=glon, pivot=ft.Pivot_Energy, flux=ft.Flux_Density, 
+                modelname=ft.SpectrumType, id_prob=id_prob), 
             columns = 'name3 ra dec glat glon skydir ts pivot flux modelname id_prob'.split(), # this to order them
             index=index, )
         self.cat.index.name='name'

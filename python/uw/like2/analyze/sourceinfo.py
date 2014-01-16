@@ -1,7 +1,7 @@
 """
 Basic analyis of source spectra
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.14 2013/12/12 14:51:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.15 2013/12/28 04:31:15 burnett Exp $
 
 """
 
@@ -115,7 +115,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
  
         self.energy = np.sqrt( self.df.ix[0]['sedrec'].elow * self.df.ix[0]['sedrec'].ehigh )
             
-    def skyplot(self, values, proj=None, ax=None, ecliptic=False,
+    def skyplot(self, values, proj=None, ax=None, ecliptic=False, df=None,
                 labels=True, title='', colorbar=True, cbtext='', **scatter_kw):
         """ 
         Make a sky plot of some quantity for a selected set of sources
@@ -126,11 +126,17 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             proj: None, or a function to map values to colors
             s : float
                 size of dot to plot
+                
+            df : None | DataFrame
+                if None, use self.df to look up glat and glon
         """
         assert hasattr(values, 'index'), 'skyplot: values arg must have index attribute'
         
+        if df is None:
+            df = self.df
+        assert len(set(values.index).intersection(df.index))==len(values), 'skyplot: index values unknown'
         # generate arrays of glon and singlat using index 
-        sd = self.df.ix[values.index, ['glat', 'glon']] # see page 101
+        sd = df.ix[values.index, ['glat', 'glon']] # see page 101
         glon = sd.glon
         glon[glon>180]-=360
         singlat = np.sin(np.radians(list(sd.glat)))
