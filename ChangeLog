@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jan 17 14:29:19 PST 2014
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	pipe.py 
+Log Message:
+allow for no counts
+    *
+------------------------------------------------------------
 User: burnett  Thu Jan 16 11:37:28 PST 2014
 pointlike/python/uw/like2/analyze
 
