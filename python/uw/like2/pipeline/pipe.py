@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.43 2013/12/22 15:38:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.44 2014/01/17 22:29:19 burnett Exp $
 """
 import os, types, glob, pickle
 import numpy as np
@@ -58,15 +58,13 @@ def roirec(outdir, check=False):
     bad = []
     for fname in roi_files:
         p = pickle.load(open(fname))
-        if 'counts' not in p.keys():
-            bad.append(fname)
-            continue
-        counts = p['counts']
-        if counts is None: 
-           bad.append(fname)
-           continue
-        obs,mod = counts['observed'], counts['total']
-        chisq =  ((obs-mod)**2/mod).sum()
+        if 'counts' in p.keys() and p['counts'] is not None:
+            # this available if count plots made
+            counts = p['counts']
+            obs,mod = counts['observed'], counts['total']
+            chisq =  ((obs-mod)**2/mod).sum()
+        else:
+            chisq = 0
         history = p.get('history', None)
         if history is not None:
             # new format
