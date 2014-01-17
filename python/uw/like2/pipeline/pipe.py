@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.42 2013/12/18 15:12:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.43 2013/12/22 15:38:28 burnett Exp $
 """
 import os, types, glob, pickle
 import numpy as np
@@ -62,6 +62,9 @@ def roirec(outdir, check=False):
             bad.append(fname)
             continue
         counts = p['counts']
+        if counts is None: 
+           bad.append(fname)
+           continue
         obs,mod = counts['observed'], counts['total']
         chisq =  ((obs-mod)**2/mod).sum()
         history = p.get('history', None)
