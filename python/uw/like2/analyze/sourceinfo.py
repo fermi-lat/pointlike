@@ -1,7 +1,7 @@
 """
 Basic analyis of source spectra
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.17 2014/01/19 16:00:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.18 2014/01/19 17:51:52 burnett Exp $
 
 """
 
@@ -469,9 +469,9 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         Selection: fitqual>30 or |pull|>3
         """
         s = self.df
-        s['pull0'] = np.array([x.pull[0] for x in s.sedrec])
+        s['pull0'] = np.array([x.pull[0] if x is not None else 0 for x in s.sedrec])
         poor = ( (s.fitqual>30) | (np.abs(s.pull0)>3))*(s.ts>10) 
-        return self.skyplot(s.fitqual[poor], vmin=30, vmax=100)
+        return self.skyplot(s.fitqual[poor], vmin=30, vmax=100, cbtext='TS')
         
     def pivot_vs_e0(self, xylim=(100, 4e4)):
         """ pivot vs e0
@@ -559,11 +559,11 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         <b>Center</b>: data/model ratio with errors, vs. the model flux.<br>
         <b>Right</b>: position in the sky of flagged sources <br>
         """
-        hassed = np.array([self.df.ix[i]['sedrec'] is not None for i in range(len(self.df))]) \
-            & (self.df.ts>10)
-        if sum(~hassed)>0:
-            print '+++Warning: %d TS>10 sources without sed info' % sum(~hassed)
-            print self.df[~hassed]['ts roiname'.split()][:min(20, sum(~hassed))]
+        hassed = np.array([self.df.ix[i]['sedrec'] is not None for i in range(len(self.df))]) 
+        nosed = (self.df.ts>10) & ! hassed
+        if sum(nosed)>0:
+            print '+++Warning: %d TS>10 sources without sed info' % sum(nosed)
+            print self.df[~hassed]['ts roiname'.split()][:min(20, sum(nosed))]
         cut= (self.df.ts>25) & hassed
         s = self.df[cut]
         fdata = np.array([s.ix[i]['sedrec'].flux[0] for i in range(len(s))])
