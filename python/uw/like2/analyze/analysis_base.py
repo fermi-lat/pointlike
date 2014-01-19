@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.14 2014/01/19 16:20:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.15 2014/01/19 16:23:25 burnett Exp $
 
 """
 
@@ -43,7 +43,7 @@ def html_table( df, columns={}, name='temp', heading='', href=True, maxlines=10,
     
     if href:
         for n in df.index:
-            fnpat = 'sedfig/' + n.replace(' ','_').replace('+','p') + '*.png'
+            fnpat = 'sedfig/' + n.replace(' ','_').replace('+','p') + '_sed*.png'
             q = glob.glob(fnpat)
             if len(q) !=1: 
                 print '**File %s not found' % fnpat
