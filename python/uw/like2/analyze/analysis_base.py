@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.12 2013/11/27 14:59:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.13 2014/01/19 16:00:40 burnett Exp $
 
 """
 
@@ -43,11 +43,12 @@ def html_table( df, columns={}, name='temp', heading='', href=True, maxlines=10,
     
     if href:
         for n in df.index:
-            fn = 'sedfig/' + n.replace(' ','_').replace('+','p') + '_sed.png'
-            if not os.path.exists(fn):
-                print '**File %s not found' % fn
+            fnpat = 'sedfig/' + n.replace(' ','_').replace('+','p') + '*_sed.png'
+            q = glob.glob(fnpat)
+            if len(q) !=1: 
+                print '**File %s not found' % fnpat
                 continue
-            t = t.replace('>'+n+'<', '><a href="../../%s">%s<' %(fn,n))
+            t = t.replace('>'+n+'<', '><a href="../../%s">%s<' %(q[0],n))
     if len(df)<maxlines:
         return t
     # long table: make document and return link to it
