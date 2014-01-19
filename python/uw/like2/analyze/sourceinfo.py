@@ -1,7 +1,7 @@
 """
 Basic analyis of source spectra
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.15 2013/12/28 04:31:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.16 2014/01/16 19:36:43 burnett Exp $
 
 """
 
@@ -647,7 +647,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         for x in (0, 10, 25):
             census[x] = [count(prefix, x) for prefix in prefixes]
         self.census_data=pd.DataFrame(census, index=prefixes)
-        self.census_html = '\n<h4>Prefixes</h4>\n'+html_table(self.census_data)
+        self.census_html = '\n<h4>Prefixes</h4>\n'+html_table(self.census_data, href=False)
         
         # now check suffixes
         self.primary_prefix=primary_prefix
@@ -656,7 +656,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         scounts = lambda  r : int(sum([c[x] for x in r if x in c.keys()]))
         suffixranges = ('ABCDEF', 'GHIJKL', 'MNO', 'PQRSTUVW', 'XYZ')
         sdict = dict([(r[0]+'-'+r[-1], [scounts(r)]) for r in suffixranges])
-        self.census_html += '\n<h4>Suffixes</h4>\n'+html_table(pd.DataFrame(sdict, index=['freq']).T)
+        self.census_html += '\n<h4>Suffixes</h4>\n'+html_table(pd.DataFrame(sdict, index=['freq']).T, href=False)
 
     def all_plots(self):
         version = os.path.split(os.getcwd())[-1]

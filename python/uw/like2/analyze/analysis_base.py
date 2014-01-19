@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.11 2013/10/16 13:59:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.12 2013/11/27 14:59:57 burnett Exp $
 
 """
 
@@ -16,7 +16,7 @@ class FloatFormat(): #simple formatting functor for to_html!
     def __init__(self, n): self.fmt = '%%.%df' % n
     def __call__(self, x): return self.fmt % x
     
-def html_table( df, columns={}, name='temp', heading='heading', href=True, maxlines=10, **kw):
+def html_table( df, columns={}, name='temp', heading='', href=True, maxlines=10, **kw):
     """ utility to create and reformat a pandas-generated html table
     df : a DataFrame
     columns : dict
@@ -42,10 +42,12 @@ def html_table( df, columns={}, name='temp', heading='heading', href=True, maxli
         t = t.replace('>'+h+'<', ' title="%s">%s<'% (title, newhead if newhead!='' else h))
     
     if href:
-       for n in df.index:
-           fn = 'sedfig/' + n.replace(' ','_').replace('+','p') + '_sed.png'
-           if not os.path.exists(fn): continue
-           t = t.replace('>'+n+'<', '><a href="../../%s">%s<' %(fn,n))
+        for n in df.index:
+            fn = 'sedfig/' + n.replace(' ','_').replace('+','p') + '_sed.png'
+            if not os.path.exists(fn):
+                print '**File %s not found' % fn
+                continue
+            t = t.replace('>'+n+'<', '><a href="../../%s">%s<' %(fn,n))
     if len(df)<maxlines:
         return t
     # long table: make document and return link to it
