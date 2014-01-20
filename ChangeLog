@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Jan 20 12:15:05 PST 2014
+pointlike/python/uw/like2
+
+Modified Files:
+	to_xml.py 
+Log Message:
+protection against sources with no localizaiton
+    *
+------------------------------------------------------------
 User: kerrm  Sun Jan 19 23:34:56 PST 2014
 pointlike/python/uw/pulsar
 
