@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.56 2014/01/13 13:50:09 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.57 2014/01/14 02:28:49 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -797,6 +797,9 @@ class TimFile(object):
         if output is not None:
             file(output,'w').write('FORMAT 1\n'+''.join(toa_lines))
 
+    def get_frqs(self):
+        return np.asarray([toa['FREQ'] for toa in self.toas],dtype=float)
+
 def parfunc(par,func):
     """ Instantiate a temporary ParFile and execute the function,
         then write it out.
@@ -851,9 +854,10 @@ def get_bats_etc(par,tim,output=None,full_output=False,binary=False):
     else:
         return bats,errs,phas
 
-def get_resids(par,tim,emax=None,phase=False,get_mjds=False,latonly=False):
-    """ Use the tempo2 general2 plugin to obtain residuals.  By default, the
-        residuals and the errors are given in microseconds.
+def get_resids(par,tim,emax=None,phase=False,get_mjds=False,latonly=False,
+    jitter=None):
+    """ Use the tempo2 general2 plugin to obtain residuals.  By default, 
+        the residuals and the errors are given in microseconds.
 
         phase -- convert residuals and errors to phase units
         get_mjds -- return the site arrival times in MJD too
@@ -876,6 +880,12 @@ def get_resids(par,tim,emax=None,phase=False,get_mjds=False,latonly=False):
     errs = np.array([x[0] for x in toks],dtype=np.float128)[m]
     resi = np.array([x[1] for x in toks],dtype=np.float128)[m]*1e6
     mjds = np.array([x[2] for x in toks],dtype=np.float128)[m]
+    # add any jitter noise if specified
+    if jitter is not None:
+        # get observation lengths
+        tobs = np.asarray(map(lambda x: float(x) if len(x)>0 else 1e6,
+            flag_values(tim,'length')))
+        errs = (errs**2 + (1e6*jitter)**2/tobs)**0.5
     # if we are restricting large error bars, remove their contribution
     # to the RMS
     if phase:
@@ -1113,6 +1123,23 @@ def flag_filter(tim,flag,valfunc=lambda x: True):
             return False
     return np.argwhere(map(f,toa_strings)).flatten()
 
+def flag_values(tim,flag):
+    """ Return the "argument" of a flag if present in a TOA, else an
+        empty string."""
+    if flag[0] != '-':
+        flag = '-'+flag
+    toa_strings = get_toa_strings(tim)
+    def f(s):
+        s = s.split()
+        try:
+            idx = s.index(flag)
+            if idx >= (len(s)-1):
+                return ''
+            return s[idx+1]
+        except ValueError:
+            return ''
+    return map(f,toa_strings)
+
 def merge_tim(timfiles,output,tmin=None,tmax=None):
     """ Merge TOA files, applying time cuts if desired."""
     f = lambda x: 'FORMAT' not in x
@@ -1201,7 +1228,7 @@ def compute_jump(par,tim,flags,vals,tmin=None,tmax=None,add_jumps=False,
         pf = ParFile(par)
         for i in xrange(1,len(flags)):
             # don't write bad values or re-write 0 JUMPs
-            if np.isnan(jumps[i-1]) or (jumps[i-1]<1e-9):
+            if np.isnan(jumps[i-1]) or (abs(jumps[i-1])<1e-9):
                 continue
             flag = str(flags[i])
             if flag[0] != '-':
