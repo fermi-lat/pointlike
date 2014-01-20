@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sun Jan 19 23:34:56 PST 2014
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+Limited support for jitter noise, primarily.
+
+    *
+------------------------------------------------------------
 User: burnett  Sun Jan 19 10:13:21 PST 2014
 pointlike/python/uw/like2/analyze
 
