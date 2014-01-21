@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.57 2014/01/14 02:28:49 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.58 2014/01/20 07:34:56 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -885,7 +885,8 @@ def get_resids(par,tim,emax=None,phase=False,get_mjds=False,latonly=False,
         # get observation lengths
         tobs = np.asarray(map(lambda x: float(x) if len(x)>0 else 1e6,
             flag_values(tim,'length')))
-        errs = (errs**2 + (1e6*jitter)**2/tobs)**0.5
+        x = (errs**2 + (1e6*jitter)**2/tobs)**0.5
+        errs = x
     # if we are restricting large error bars, remove their contribution
     # to the RMS
     if phase:
@@ -896,7 +897,6 @@ def get_resids(par,tim,emax=None,phase=False,get_mjds=False,latonly=False,
     # apply emax *after* phase correction to be consistent
     if emax is not None:
         mask = errs < emax
-        resi -= np.average(resi[mask],weights=1./errs[mask]**2)
         dof = mask.sum()
     else:
         dof = len(resi)
@@ -904,6 +904,8 @@ def get_resids(par,tim,emax=None,phase=False,get_mjds=False,latonly=False,
     if not np.any(mask):
         chi2 = 0
     else:
+        # I think we always want to subtract the weighted mean
+        resi -= np.average(resi[mask],weights=1./errs[mask]**2)
         chi2 = ((resi[mask]/errs[mask])**2).sum()
     if get_mjds:
         return resi,errs,chi2,dof,mjds,frqs
