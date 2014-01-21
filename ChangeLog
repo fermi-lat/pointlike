@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Jan 20 22:55:37 PST 2014
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+Different baseline subtraction in residuals.
+
+    *
+------------------------------------------------------------
 User: burnett  Mon Jan 20 12:15:05 PST 2014
 pointlike/python/uw/like2
 
