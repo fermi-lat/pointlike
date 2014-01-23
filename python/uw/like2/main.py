@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.60 2014/01/02 15:20:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.61 2014/01/04 17:21:38 burnett Exp $
 
 """
 import types, time
@@ -153,7 +153,7 @@ class ROI(views.LikelihoodViews):
 
         with self.fitter_view(select, exclude=exclude) as fv:
             qual = fv.delta_w()
-            if qual < tolerance:
+            if qual < tolerance and qual>0:
                 if summarize:
                     print 'Not fitting, estimated improvement, %.2f, is less than tolerance= %.1f' % (qual, tolerance)
                 return
