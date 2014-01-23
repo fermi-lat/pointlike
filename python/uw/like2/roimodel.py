@@ -1,7 +1,7 @@
 """
 Set up and manage the model for all the sources in an ROI
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.17 2013/12/13 19:16:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.18 2013/12/19 21:13:12 burnett Exp $
 
 """
 import os 
@@ -156,7 +156,7 @@ class ROImodel(list):
         if newsource.name in self.source_names:
             raise ROImodelException('Attempt to add source "%s": a source with that name already exists' % newsource.name)
         self.append(newsource)
-        self.initilize()
+        self.initialize()
         return newsource
  
     def del_source(self, source_name):
