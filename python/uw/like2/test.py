@@ -1,6 +1,6 @@
 """
 All like2 testing code goes here, using unittest
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.29 2013/12/08 00:48:01 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/test.py,v 1.30 2013/12/13 19:19:11 burnett Exp $
 """
 import os, sys, unittest
 import numpy as np
@@ -243,6 +243,19 @@ class TestDiffuse(TestSetup):
         self.assertAlmostEquals(1272, self.resp_back.counts, delta=10)
         self.resp_front = source.response(self.front_band)
         self.assertAlmostEquals(2136, self.resp_front.counts, delta=10)
+        
+    def test_healpixcube(self):
+        """-->a Healpix spectral source- back"""
+        source = sources.GlobalSource(name='ring2', skydir=None,
+            model=sources.Constant(1.0),
+            dmodel = diffuse.diffuse_factory(dict(
+                filename='model7_renorm_HE_skymap_512_nobug.fits',
+                type='HealpixCube',  ))
+            )
+
+        self.resp =resp= source.response(self.back_band)
+        self.response_check(resp, (744, 1386, 57037))
+
     
 class TestPoint(TestSetup):
     def setUp(self, **kwargs):
@@ -504,11 +517,12 @@ class TestSED(TestSetup):
     def tearDown(self):
         self.assertAlmostEquals(self.init, likeviews.log_like())
 
-    def test_sourceflux(self, sourcename='W28', checks=(61.664, 63.736, 5139, 5285)):
+    def test_sourceflux(self, sourcename='W28', checks=(61.664, 63.736, 5139, 5299)):
         """-->create and check the SED object"""
         with sedfuns.SED(likeviews, sourcename) as sf:
+            sf.full()
             poiss = sf.full_poiss
-            errors =poiss.errors
+            errors = poiss.errors
             pp = sf.all_poiss()
             bandts = np.array([x.ts for x in pp]).sum()
             print 'errors, TS, bandts: %.3f, %.3f %.3f %.3f' % (tuple(errors)+(poiss.ts,bandts)),

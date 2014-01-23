@@ -1,7 +1,7 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.32 2013/12/05 21:16:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.33 2013/12/07 20:33:35 burnett Exp $
 
 author:  Toby Burnett
 """
@@ -96,6 +96,80 @@ class MapCube(DiffuseBase, skymaps.DiffuseFunction):
             #print 'loading diffuse file %s: warning, not interpolating' %self.filename
         super(MapCube,self).__init__(self.filename, 1000., interpolate)
 
+class HealpixCube(DiffuseBase):
+    """ Jean-Marc's vector format, or the column version
+    """
+    def __init__(self,filename):
+        """ filename : string
+                Name of a FITS file, perhaps a gz. Either vector or column format
+        """
+        if not self.__dict__.get('loaded', False):
+            self.setupfile( filename)
+            
+    def load(self):
+        try:
+            hdus = pyfits.open(self.filename)
+            self.energies = hdus[2].data.field(0)
+            self.vector_mode = len(hdus[1].columns)==1
+            if self.vector_mode:
+                # one vector column, expect 2d array with shape (12*nside**2, len(energies))
+                self.spectra = hdus[1].data.field(0)
+                self.nside = int(np.sqrt(self.spectra.shape[0]/12.))
+                assert self.spectra.shape[1]==len(self.energies), 'shape inconsistent with number of energies'
+            else:
+                # one column per energy: expect len(energies) columns
+                hdu1 = hdus[1]
+                assert len(hdu1.columns)==len(self.energies) , 'wrong number of columns'
+                self.data = hdu1.data
+                self.nside = int(np.sqrt(self.data.field(0).flatten().shape[0]/12.))
+                
+            self.loaded=True
+            self.indexfun = skymaps.Band(self.nside).index
+        except Exception, msg:
+            print 'bad file or unexpected FITS format, file %s: %s' % (self.filename, msg)
+            raise
+        self.logeratio = np.log(self.energies[1]/self.energies[0])
+        self.setEnergy(1000.)
+        
+    
+    def __call__(self, skydir, energy=None):
+        if energy is not None and energy!=self.energy: 
+            self.setEnergy(energy)
+        skyindex = self.indexfun(skydir)
+        a = self.energy_interpolation
+        return np.exp(np.log(self.eplane1[skyindex]) *(1- a) + np.log(self.eplane2[skyindex]) * a )
+
+    def setEnergy(self, energy): 
+        # set up logarithmic interpolation
+        self.energy=energy
+        r = np.log(energy/self.energies[0])/self.logeratio
+        self.energy_index = i = max(0, min(int(r), len(self.energies)-2))
+        self.energy_interpolation = r-i
+        if self.vector_mode:
+            self.eplane1 = self.spectra[:,i]
+            self.eplane2 = self.spectra[:,i+1]
+        else:
+            self.eplane1 = np.ravel(self.data.field(i))
+            self.eplane2 = np.ravel(self.data.field(i+1))
+            
+    def plot_spectra(self, glat=0, glon=(0,10, -10, 30, -30,90, -90)):
+        """ debug plot """
+        from matplotlib import pylab as plt
+        ee = np.logspace(1.5,6,101)
+        fig, ax = plt.subplots(1,1, figsize=(6,6))
+        for x in (0,2, -2, 30, -30,90, -90):
+            sd = skymaps.SkyDir(glat,x, skymaps.SkyDir.GALACTIC)
+            ax.loglog(ee, map(lambda e: e**2*self(sd,e), ee), label='b=%.0f'%x)
+            et = self.energies
+            ax.loglog(et, map(lambda e: e**2*self(sd,e), et), 'o')
+        
+        ax.grid(); ax.legend(loc='lower left', prop=dict(size=10))
+        plt.setp(ax, xlabel='Energy (MeV)', ylabel='Energy flux (Mev/cm**2/s/sr)',
+            title='Galactic diffuse at l=%.0f'%glat)
+        return fig
+
+
+    
 class Healpix(DiffuseBase):
     """Diffuse map using HEALPix representation.
     Presumes that columns have eneregies (found in hdu#3) which exactly
