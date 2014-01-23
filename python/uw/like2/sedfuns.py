@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.32 2013/12/27 16:09:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.33 2013/12/28 19:19:20 burnett Exp $
 
 """
 import os, pickle
@@ -93,13 +93,15 @@ class SED(tools.WithMixin):
         names = 'elow ehigh flux lflux uflux ts mflux delta_ts pull maxdev'.split()
         rec = tools.RecArray(names, dtype=dict(names=names, formats=['>f4']*len(names)) )
         for i,energy in enumerate(self.energies):
+            xlo,xhi = self.rs.emin,self.rs.emax
             try:
                 pf = self.select(i, event_type=event_type, poisson_tolerance=tol)
             except Exception, msg:
                 print 'Fail poiss fit for %.0f MeV: %s ' % (energy,msg)
+                rec.append(xlo, xhi, 0, 0, np.nan, 0, np.nan, np.nan, np.nan, np.nan )
+                continue
             w = pf.poiss
             err = pf.maxdev
-            xlo,xhi = self.rs.emin,self.rs.emax
             lf,uf = w.errors
             maxl  = w.flux
             mf    = self.func.eflux
