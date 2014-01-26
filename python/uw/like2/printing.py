@@ -1,6 +1,6 @@
 """
 Implementation of various roi printing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/printing.py,v 1.7 2013/11/27 14:52:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/printing.py,v 1.8 2013/12/05 21:16:33 burnett Exp $
 """
 import os
 import numpy as np
@@ -127,4 +127,5 @@ def band_summary(roi, event_type=0):
         d[index/2]= models
     df = pd.DataFrame(d, index =snames).T
     return df
+        
         

@@ -1,11 +1,13 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.33 2013/12/28 19:19:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.34 2014/01/23 01:23:22 burnett Exp $
 
 """
 import os, pickle
 import numpy as np
+import pandas as pd
+
 from uw.utilities import ( keyword_options)
 from . import ( plotting, tools, loglikelihood)
 
@@ -93,9 +95,9 @@ class SED(tools.WithMixin):
         names = 'elow ehigh flux lflux uflux ts mflux delta_ts pull maxdev'.split()
         rec = tools.RecArray(names, dtype=dict(names=names, formats=['>f4']*len(names)) )
         for i,energy in enumerate(self.energies):
-            xlo,xhi = self.rs.emin,self.rs.emax
             try:
                 pf = self.select(i, event_type=event_type, poisson_tolerance=tol)
+                xlo,xhi = self.rs.emin,self.rs.emax
             except Exception, msg:
                 print 'Fail poiss fit for %.0f MeV: %s ' % (energy,msg)
                 rec.append(xlo, xhi, 0, 0, np.nan, 0, np.nan, np.nan, np.nan, np.nan )
@@ -139,7 +141,24 @@ class SED(tools.WithMixin):
             ax.set_title('%s@ %d MeV' %( self.source_name, int(self.func.energy),), size=10)
         self.restore()
         return fig
-        
+ 
+def sed_table(roi, source_name=None):
+    """
+    """
+    si = roi.get_sed(source_name)
+    r =pd.DataFrame(dict(flux=si.flux.round(1), TS=si.ts.round(1), lflux=si.lflux.round(1),
+            uflux=si.uflux.round(1), mflux=si.mflux.round(1), pull=si.pull.round(1)), 
+                index=np.array(np.sqrt(si.elow*si.ehigh),int), columns='flux lflux uflux mflux TS pull'.split())
+    r.index.name='energy'
+    return r
+    
+def print_sed(roi, source_name=None):
+    source = roi.get_source(source_name)
+    t = pd.get_option('display.float_format')
+    pd.set_option('display.float_format', lambda x: '%.1f'%x)
+    print sed_table(roi, source_name)
+    pd.set_option('display.float_format', t)
+               
 
 def makesed_all(roi, **kwargs):
     """ add sed information to each free local source

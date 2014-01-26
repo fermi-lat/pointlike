@@ -1,7 +1,7 @@
 """
 Manage the analysis configuration
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.15 2013/12/09 01:15:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.16 2013/12/13 19:14:15 burnett Exp $
 
 """
 import os, sys, types
@@ -111,7 +111,9 @@ class Configuration(object):
                 if not os.path.exists(t):
                     raise Exception('No source model file found in %s or %s' %(self.modeldir, t) )
                 self.modeldir=t
-        if not self.quiet:
+        if not os.path.exists(os.path.join(self.modeldir, 'pickle.zip')):
+            print 'WARNING: pickle.zip not found in %s: no model to load' % self.modeldir
+        elif not self.quiet:
             print 'Will load healpix sources from %s/pickle.zip' % self.modeldir
             
     def __repr__(self):
@@ -137,5 +139,24 @@ class Configuration(object):
             bandlist.append( ROIBand(band, self.psfman(event_type,energy), self.exposureman(event_type,energy), 
                 roi_dir, radius))
         return np.asarray(bandlist)
+        
+    def select_event_type(self, which):
+        """convenience function for selecting an event type index
+        which : None, int, or string
+            if None, return None to indicate all
+        
+        returns None or the index of the selected event type
+        """
+        if which is None or which=='all': return None
+        etnames = self.event_type_names
+        try:
+            if type(which)==str:
+                return etnames.index(which)
+            t = etnames[which]
+            return which
+        except Exception, msg:
+            print 'Bad event type, "%s": %s\nMust be one of %s or a valid index' % (which, msg, etnames)
+            raise
+
  
  

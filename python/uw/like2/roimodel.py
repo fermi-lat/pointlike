@@ -1,7 +1,7 @@
 """
 Set up and manage the model for all the sources in an ROI
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.18 2013/12/19 21:13:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.19 2014/01/23 01:22:34 burnett Exp $
 
 """
 import os 
@@ -151,7 +151,7 @@ class ROImodel(list):
         if newsource is not None:
             assert isinstance(newsource, sources.Source)
         else:
-            newsource = source.PointSource(**kw)
+            newsource = sources.PointSource(**kw)
             
         if newsource.name in self.source_names:
             raise ROImodelException('Attempt to add source "%s": a source with that name already exists' % newsource.name)

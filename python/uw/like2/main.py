@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.61 2014/01/04 17:21:38 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.62 2014/01/23 01:25:53 burnett Exp $
 
 """
 import types, time
@@ -36,18 +36,19 @@ class ROI(views.LikelihoodViews):
     hessian -- return the hessian, a n x n matrix
     log_like -- value of the log likelihood
     summarize -- a table of free parameters, values, errors, gradient
+    delta_loglike -- estimate of possible improvement.
 
 
     source-related functions
     ------------------------
-      All of these but add_source take the name of a source, which is an optional parameter: if a source has 
-      already been selected, it will be used
+      All of these but add_source take the name of a source, which is an optional parameter: 
+      if a source has already been selected, it will be used
     TS -- TS for current source
     add_source -- add a new source
     band_ts -- band TS 
     del_source -- delete a source
     find_associations -- find associations for current source
-    get_model -- the the model
+    get_model -- the model
     get_sed -- return SED information for the current source
     get_source -- select and return a source
     freeze -- freeze a parameter
@@ -60,7 +61,9 @@ class ROI(views.LikelihoodViews):
     plot_counts
     plot_sed
     plot_tsmap
+    plot_roi_position
     print_summary
+    print_sed
 
     change bands
     ------------
@@ -93,7 +96,7 @@ class ROI(views.LikelihoodViews):
             roi_index = roi_spec
             self.name = 'HP12_%04d' % roi_index
         elif isinstance(roi_spec, str):
-            roi_sources =from_xml.ROImodelFromXML(config, ecat=ecat, roi_index=roi_spec)
+            roi_sources =from_xml.ROImodelFromXML(config, roi_spec)
             roi_index = roi_sources.index
             self.name = roi_spec
         else:
@@ -152,7 +155,7 @@ class ROI(views.LikelihoodViews):
         fit_kw.update(kwargs)
 
         with self.fitter_view(select, exclude=exclude) as fv:
-            qual = fv.delta_w()
+            qual = fv.delta_loglike()
             if qual < tolerance and qual>0:
                 if summarize:
                     print 'Not fitting, estimated improvement, %.2f, is less than tolerance= %.1f' % (qual, tolerance)
@@ -162,7 +165,7 @@ class ROI(views.LikelihoodViews):
                 w = fv.log_like()
                 if summarize:
                     print '%d calls, function value, improvement, quality: %.1f, %.2f, %.2f'\
-                        % (fv.calls, w, w - fv.initial_likelihood, fv.delta_w())
+                        % (fv.calls, w, w - fv.initial_likelihood, fv.delta_loglike())
                 self.fit_info = dict(
                     loglike = fv.log_like(),
                     pars = fv.parameters[:], 
@@ -179,8 +182,11 @@ class ROI(views.LikelihoodViews):
         return 
     
     def summarize(self, select=None, exclude=None):
+        """construct a summary of the parameters, or subset thereof
+        
+        """
         with self.fitter_view(select, exclude=exclude) as fv:
-            print 'current likelihood, est. diff to peak: %.1f, %.2f' % (fv.log_like(), fv.delta_w())
+            print 'current likelihood, est. diff to peak: %.1f, %.2f' % (fv.log_like(), fv.delta_loglike())
             fv.summary()
             
     def localize(self, source_name=None, update=False, **kwargs):
@@ -199,7 +205,6 @@ class ROI(views.LikelihoodViews):
                 return None
         if update:
             tsm.source.skydir = skymaps.SkyDir(t['ra'], t['dec'])
-        return t
     
     def get_model(self, source_name=None):
         return self.sources.find_source(source_name).spectral_model
@@ -277,13 +282,30 @@ class ROI(views.LikelihoodViews):
                 print 'Failed localization for source %s: %s' % (source.name, e)
             tsp = plotting.tsmap.plot(loc, **plot_kw)
         return tsp.axes.figure # might want access to TSplot.
-        
+    
+    def plot_roi_position(self, ax=None):
+        """ define an Axes with a grid showing the position of this ROI """
+        from uw.utilities import image
+        from matplotlib import pyplot as plt
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(2,1))
+        else:
+            fig  = ax.figure
+        ag = image.AIT_grid(axes=ax, labels=False)
+        ag.plot([self.roi_dir], c='r', s=30)
+        return fig
+    
     @tools.decorate_with(printing.print_summary)
     def print_summary(self, **kwargs):
         selected_source= self.sources.selected_source
         t = printing.print_summary(self, **kwargs)
         self.sources.selected_source=selected_source
 
+    def print_sed(self, source_name=None):
+        """print a formated table of SED info"""
+        sedfuns.print_sed(self, source_name)
+        
+        
     def find_associations(self, source_name=None, classes='all_but_gammas', quiet=True):
         """ find associations, using srcid object.
         If source was not localized, run that first
@@ -319,6 +341,7 @@ class ROI(views.LikelihoodViews):
         source = self.get_source(source_name)
         source.freeze(parname, value)
         self.sources.initialize()
+        self.initialize()
        
     def thaw(self, parname, source_name=None):
         """ thaw the parameter
@@ -331,11 +354,18 @@ class ROI(views.LikelihoodViews):
         if parname.find('_')>0 and source_name is None:
             source_name, parname = parname.split('_')
         source = self.get_source(source_name)
-        source.freeze(parname)
+        source.thaw(parname)
         self.sources.initialize()
+        self.initialize()
         
     def to_healpix(self, pickle_dir, dampen, **kwargs):
         to_healpix.pickle_dump(self, pickle_dir, dampen=dampen, **kwargs)
+        
+    
+    def to_xml(self, filename):
+        """Save the current ROI to an XML file
+        """
+        return self.sources.to_xml(filename)
 
 class MultiROI(ROI):
     """ROI subclass that will perform a fixed analysis on multiple ROIs
