@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Sun Jan 26 12:07:56 PST 2014
+pointlike/python/uw/like2
+
+Modified Files:
+	bandlike.py bands.py configuration.py dataset.py main.py 
+	parameterset.py printing.py roimodel.py sedfuns.py sources.py 
+	to_xml.py views.py 
+Log Message:
+fix or enhancement for notebook docs
+    *
+------------------------------------------------------------
 User: burnett  Thu Jan 23 19:21:01 PST 2014
 pointlike/python/uw/like2/notebooks
 
