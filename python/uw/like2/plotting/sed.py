@@ -5,7 +5,7 @@ Manage a SED plot
             sf an SourceFlux object, 
         Plot(sf)()
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.19 2013/12/05 21:16:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.20 2013/12/19 17:42:59 burnett Exp $
 """
 import os, types
 import numpy as np
@@ -237,6 +237,7 @@ def stacked_plots(sed,  outdir=None,  **kwargs):
     
     # if an axes object passed in, use it for the SED only
     ax = kwargs.pop('axes', None)
+    figsize = kwargs.pop('figsize', (3,4))
     kw = dict(energy_flux_unit=kwargs.pop('energy_flux_unit', 'eV'))
 
     if ax is not None:
@@ -244,7 +245,7 @@ def stacked_plots(sed,  outdir=None,  **kwargs):
         plt.rcParams['axes.linewidth'] = oldlw
         return ax.figure
         
-    fig, axes = plt.subplots(2,1, sharex=True,  figsize=(4,5),dpi=100)
+    fig, axes = plt.subplots(2,1, sharex=True,  figsize=figsize,dpi=100)
     fig.subplots_adjust(hspace=0)
     axes[0].tick_params(labelbottom='off')
     left, bottom, width, height = (0.15, 0.10, 0.75, 0.85)
@@ -271,6 +272,7 @@ def stacked_plots(sed,  outdir=None,  **kwargs):
     nlow = sum(pull<-3)
     if nlow >0:  axes[1].plot(energy[pull<-3], [-3]*nlow, 'vr', markersize=10) 
     axes[1].axhline(0, color='k')
+    axes[1].set_yticks([-2,0,2])
     axes[1].grid()
     
     plt.rcParams['axes.linewidth'] = oldlw

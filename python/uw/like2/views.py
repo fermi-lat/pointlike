@@ -4,7 +4,7 @@ classes presenting views of the likelihood engine in the module bandlike
 Each has a mixin to allow the with ... as ... construction, which should restore the BandLikeList
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.12 2014/01/02 15:20:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.13 2014/01/04 17:21:38 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -52,12 +52,12 @@ class FitterSummaryMixin(object):
             prev = sname
             fmt = '%-21s%6d%10.4g%10s'
             psig = '%.1f'%(rsig*100) if rsig>0 and not np.isnan(rsig) else '***'
-            tup = (name,index_array[index], value,psig)
+            tup = (name, index_array[index], value,psig)
             if gradient:
                 fmt +='%10.1f'; tup += (grad[index],)
             print >>out,  fmt % tup
     
-    def delta_w(self):
+    def delta_loglike(self):
         """ estimate change in log likelihood from current gradient 
         """
         try:
@@ -120,27 +120,32 @@ class FitPlotMixin(object):
         ax.set_title('#%d: %s' %(j,self.parameter_names[index]), size=10)
         ax.text( -2,-8, 'par %.3f\nsig %.3f' % (pz,sig), size=10)
         ax.axvline(0, color='k', ls = ':')
-        
-        ax2 = ax.twinx()
-        gradvals = -sig*np.array(map(gradf, x))
-        ax2.plot(xsig, gradvals, '-r')
-        ax2.axhline(0, color='r', ls=':')
-        ax2.set_ylim( y2lim)
-        if not nolabels: ax2.set_ylabel('derivative (sig units)')
-        else: ax2.set_yticklabels([])
+        if not np.isnan(sig):
+            ax2 = ax.twinx()
+            gradvals = -sig*np.array(map(gradf, x))
+            ax2.plot(xsig, gradvals, '-r')
+            ax2.axhline(0, color='r', ls=':')
+            ax2.set_ylim( y2lim)
+            if not nolabels: 
+                ax2.set_ylabel('derivative (sig units)')
+                ax.set_xlabel('value (sig units)')
+            else: ax2.set_yticklabels([])
         
         self.set_parameters(parz) # restore when done
         return fig
     
-    def plot_all(self, perrow=5, figsize=(12,12)):
+    def plot_all(self, perrow=5, figsize=None): 
         """
         """
         import matplotlib.pyplot as plt
         n = len(self.parameters)
         if n==1:
-            return self.plot_fit(0)
+            return self.plot(0)
         estimate = self.estimate_solution()
-        fig, axx = plt.subplots((n+perrow-1)/perrow,perrow, 
+        rows = (n+perrow-1)/perrow
+        if figsize is None:
+            figsize = (12, 3*rows)
+        fig, axx = plt.subplots(rows,perrow, 
             figsize=figsize, sharex=True, sharey=True)
         for i, ax in enumerate(axx.flatten()):
             if i>=n: 
@@ -519,3 +524,12 @@ class LikelihoodViews(bandlike.BandLikeList):
         except Exception, msg:
             raise Exception('could not create tsmap function for source %s;%s' %(source_name, msg))
         return TSmapView(self, func, **kw)
+
+def make_views(roi_index, rings=2):
+    """convenience function to return a LikelihoodViews object for testing
+    """
+    from . import (configuration, bands, from_healpix)
+    config = configuration.Configuration(quiet=True)
+    roi_bands = bands.BandSet(config, roi_index, load=True)
+    roi_sources = from_healpix.ROImodelFromHealpix(config, roi_index, load_kw=dict(rings=rings))
+    return LikelihoodViews(roi_bands, roi_sources)

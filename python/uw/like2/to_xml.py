@@ -1,6 +1,6 @@
 """
 Generate the XML representation of a list of sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.15 2013/12/05 21:16:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.16 2014/01/20 20:15:05 burnett Exp $
 
 """
 import os, collections, argparse, types, glob, pyfits
@@ -158,7 +158,7 @@ def source_library(source_list, title='sources', stream=None, strict=False, maxi
         raise Exception('Failed to find the Extended archive: %s' %msg)
 
     with Element('source_library', title=title) as sl:
-        for name,source in source_list.iterrows():
+        for i,source in source_list.iterrows():
             stype = 'ExtendedSource' if np.isnan(source['locqual']) else 'PointSource'
             with Element('source', type=stype,  ignore=('model','sedrec', 'free'),
                         **source) as src:

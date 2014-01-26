@@ -1,7 +1,7 @@
 """
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.45 2013/11/30 00:40:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.46 2013/12/09 01:13:00 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -215,6 +215,8 @@ class BandLike(object):
        
          
 class BandLikeList(list):
+    """Manage a list of BandLike objects
+    """
     
     def __init__(self, roi_bands, roi_sources):
         """ create a list, one per band, of BandLike objects for a given ROI 
@@ -261,20 +263,20 @@ class BandLikeList(list):
         ----------
         index: None or integer
             an index into the list of energies; if None, select all bands
-            and use the current spectral model, otherwise a powerlaw to 
-            represent an model-independent flux over the band.
-        event_type : None or integer
-            if None, select both front and back, otherwise 0/1 for front/back
+        event_type : None, integer, or name
+            if None or 'all', select all
                 
         """
-        if index==None: #select all (initially selected) bands, use input model
+        etindex = self.config.select_event_type(event_type)
+        if index is None and etindex is None: #select all (initially selected) bands
             selected_bands = self[:]
         else:
-            energy = self.all_energies[index]
-            type_select = lambda x : True if event_type is None else x==event_type
-            selected_bands = filter(lambda b: abs(b.band.energy-energy)<1 and type_select(b.band.event_type), self)
+            energy = self.all_energies[index] if index is not None else None
+            energy_select = lambda x : True if energy is None else abs(x-energy)<1
+            type_select = lambda x : True if etindex is None else x==etindex
+            selected_bands = filter(lambda b: energy_select(b.band.energy) and type_select(b.band.event_type), self)
             if len(selected_bands)==0:
-                raise Exception( 'did not find any bands for energy %.1f: %s are available' %( energy, self.energies))
+                raise Exception( 'did not find any bands for energy %.1f and event_type %s: %s are available' %( energy, etindex, self.energies))
         self.selected = selected_bands
 
     @property
@@ -292,8 +294,9 @@ class BandLikeList(list):
             if None, expect source to be defined by the keywords
         keywords:
             name : string
-            model
-            skydir
+            model : optional, string or like.Models.Model object
+                A string will be evaluated, e.g. 'PowerLaw(1e-14, 2.0)'
+            skydir : either an (ra,dec) tuple, or skymaps.SkyDir object
         """
         source = self.sources.add_source(newsource, **kwargs)
         for band in self:
@@ -374,13 +377,13 @@ class BandLikeList(list):
         This makes a numerical derivative of the analytic gradient, so not exactly
         symmetric, but the the result must be (nearly) symmetric.
         
-        mask : [None, array of bool]
+        mask : [None | array of bool]
             If present, must have dimension of the parameters, will generate a sub matrix
         
         For sigmas and correlation coefficients, invert to covariance
                 cov =  self.hessian().I
                 sigs = np.sqrt(cov.diagonal())
-                corr = hess / np.outer(sigs,sigs)
+                corr = cov / np.outer(sigs,sigs)
         """
         # get the source parameter management object
         parameters = self.sources.parameters
@@ -407,5 +410,25 @@ class BandLikeList(list):
         assert abs(fzero-self.log_like())<1e-2
         return hess 
        
+    def delta_loglike(self):
+        """ estimate change in log likelihood from current gradient 
+        """
+        try:
+            gm = np.matrix(self.gradient())
+            H = self.hessian()
+            return (gm * H.I * gm.T)[0,0]/4
+        except Exception, msg:
+            print 'Failed log likelihood estimate, returning 99.: %s' % msg
+            return 99.
+
+    def parameter_summary(self, out=None):
+        """formatted summary of parameters, values, gradient
+        out : None or open stream
+        """
+        print >>out, 'log likelihood: %.1f' % self.log_like()
+        print >>out,'\n%-21s %8s %8s' % ('parameter', 'value', 'gradient')
+        print >>out,  '%-21s %8s %8s' % ('---------', '-----', '--------')
+        for u in zip(self.sources.parameter_names, self.sources.parameters, self.gradient()):
+            print >>out, '%-21s %8.2f %8.1f' % u
        
     

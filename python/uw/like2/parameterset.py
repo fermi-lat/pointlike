@@ -1,7 +1,7 @@
 """
 Manage a set of parameters
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/parameterset.py,v 1.1 2013/12/05 21:31:08 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/parameterset.py,v 1.2 2013/12/19 17:41:36 burnett Exp $
 
 """
 import os, types 
@@ -133,6 +133,16 @@ class ParameterSet(object):
             for pname in np.array(source.model.param_names)[source.model.free]:
                 names.append(source.name.strip()+'_'+pname)                
         return np.array(names)
+        
+    def parameter_summary(self, out=None):
+        """formatted summary of parameter names, values, gradient
+        out : None or open stream
+        """
+        print >>out,'\n%-21s %8s %8s' % ('parameter', 'value', 'gradient')
+        print >>out,  '%-21s %8s %8s' % ('---------', '-----', '--------')
+        for u in zip(self.parameter_names, self.get_parameters(), self.gradient()):
+            print >>out, '%-21s %8.2f %8.1f' % u
+
 
 class ParSubSet(ParameterSet):
     """ adapt ParameterSet to implement a subset

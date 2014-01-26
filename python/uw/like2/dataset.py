@@ -1,11 +1,11 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.28 2013/11/08 04:30:05 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.29 2013/12/09 01:14:04 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.28 $'.split()[1]
+version='$Revision: 1.29 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np
@@ -51,6 +51,8 @@ class DataSpecification(object):
 
     def __str__(self):
         return self.data_name
+    def __repr__(self):
+        return '%s.%s: %s' % (self.__module__, self.__class__.__name__, self.data_name)
         
 class Interval(dict):
     """ dictionary for looking up an interval
@@ -149,24 +151,24 @@ class DataSet(dataman.DataSpec):
     
 
     def _process_dataset(self, dataset, interval=None, month=None, quiet=False):
-        """ Parse the dataset as either a DataSpecification object, a dict, or a string lookup key.
+        """ Parse the dataset as a string lookup key.
             interval: string
                 name of a 
             month: sub spec.
         """
-        self.name= ''
-        if hasattr(dataset,'binfile'): # dataset is DataSpecification instance
-            return dataset
-        if hasattr(dataset,'pop'): # dataset is a dict
-            if 'data_name' not in dataset.keys():
-                dataset['data_name'] = 'Custom Dataset %d'%id(dataset)
-            dataman.DataSpec.datasets[id(dataset)] = dataset
-            return dataman.DataSpec(id(dataset),month=month)
+        #self.name= ''
+        #if hasattr(dataset,'binfile'): # dataset is DataSpecification instance
+        #    return dataset
+        #if hasattr(dataset,'pop'): # dataset is a dict
+        #    if 'data_name' not in dataset.keys():
+        #        dataset['data_name'] = 'Custom Dataset %d'%id(dataset)
+        #    dataman.DataSpec.datasets[id(dataset)] = dataset
+        #    return dataman.DataSpec(id(dataset),month=month)
         # it is a string, check dictionary in ., then $FERMI/data
         self.name=dataset
         folders = ['.'] + glob.glob( os.path.join(os.path.expandvars('$FERMI'),'data'))
         for folder in folders :
-            dict_file=os.path.join(folder, 'dataspec.py')
+            self.dict_file = dict_file=os.path.join(folder, 'dataspec.py')
             if not os.path.exists(dict_file):
                 continue
             try:
@@ -261,7 +263,7 @@ class DataSet(dataman.DataSpec):
         s.append('Livetime cube: {0}'.format(self.ltcube))
         s.append(self.gti.__str__())
         s.append(self.dss_info())
-        return 'dataset "%s":\n  '%self.name+'\n  '.join(s)
+        return 'dataset "%s", found in %s:\n  '%(self.name, self.dict_file ) +'\n  '.join(s)
     def __repr__(self):
         return self.__str__()
 
