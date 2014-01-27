@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.219 2013/10/11 16:38:16 burnett Exp $
+$Id: release.notes,v 1.220 2013/10/14 15:13:11 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-09-00-00 26-Jan-2014 burnett alpha release of like2
  pointlike-08-03-01 14-Oct-2013 burnett small diffuse processing fix
  pointlike-08-03-00 11-Oct-2013 burnett after diffuse refactor, all up to date
  pointlike-08-02-00 11-Oct-2013 burnett just before diffuse refactor
