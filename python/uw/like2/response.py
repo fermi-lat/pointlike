@@ -1,11 +1,12 @@
 """
 Classes to compute response from various sources
  
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.8 2013/12/04 05:22:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.9 2013/12/05 21:16:33 burnett Exp $
 author:  Toby Burnett
 """
 import os, pickle
 import numpy as np
+import pandas as pd
 import skymaps
 from uw.utilities import keyword_options
 from . import convolution
@@ -219,6 +220,43 @@ class DiffuseResponse(Response):
         #cache this result in the diffuse object
         self.source.corr = self.corr 
         self.source.systematic = self.systematic
+
+class DiffuseCorrection(object):
+    """load, and provide access to a diffuse correction file
+    """
+    from uw.like2.pub import healpix_map as hm
+
+    def __init__(self, filename):
+        """ filename : str
+                expect the name of a file in csv format, with 1728 rows and 8 columns
+        """
+        corr_file = os.path.expandvars(filename)
+        if corr_file[0]!='/' and not os.path.exists(corr_file):
+            corr_file = os.path.expandvars(os.path.join('$FERMI','diffuse', corr_file))
+        try:
+            self.correction = pd.read_csv(corr_file, index_col=0) 
+        except Exception, msg:
+            raise Exception('Error loading correction file %s: %s'% (corr_file,msg))
+            
+    def plot_ait(self, energy_index= 0, **kwargs):
+        """ make an AIT plot, return the figure
+        """
+        t = self.hm.HParray('band%d'%energy_index,self[energy_index])
+        ait= t.plot(vmin=0.9, vmax=1.1, cbtext='correction')
+        ait.axes.set_title('corrections for band %d'%energy_index, size=12)
+        return ait.axes.figure
+        
+    def __getitem__(self,energy_index):
+        """return array of correction factors for given energy index"""
+        return np.asarray(self.correction[str(energy_index)])
+        
+    def to_fits(self, filename, nside=256):
+        """convert to a FITS file, resampling at the given nside for display in Aladin"""
+        t = []
+        for i in range(8):
+            x = self.hm.HParray('band%d'%i,self[i])
+            t.append( self.hm.HPresample(x, nside=nside) )
+        self.hm.HEALPixFITS(t).write(filename)
 
         
 class CachedDiffuseResponse(DiffuseResponse):
