@@ -1,7 +1,7 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.33 2013/12/07 20:33:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.34 2014/01/23 01:22:05 burnett Exp $
 
 author:  Toby Burnett
 """
@@ -65,6 +65,30 @@ class DiffuseBase(object):
         ait.imshow(title=self.name if title is None else title, scale=scale)
         return ait.axes.figure
        
+    def plot_spectra(self, glat=0, glon=(0, 2,-2,  30, -30, 90, -90)):
+        """ show spectral for give glat, various glon values """
+        from matplotlib import pylab as plt
+        if not self.loaded: self.load()
+        ee = np.logspace(1.5,6,101)
+        fig, ax = plt.subplots(1,1, figsize=(5,5))
+        for x in glon:
+            sd = skymaps.SkyDir(glat,x, skymaps.SkyDir.GALACTIC)
+            ax.loglog(ee, map(lambda e: e**2*self(sd,e), ee), label='b=%.0f'%x)
+            et = self.energies
+            ax.loglog(et, map(lambda e: e**2*self(sd,e), et), 'o')
+        
+        ax.grid(); ax.legend(loc='lower left', prop=dict(size=10))
+        plt.setp(ax, xlabel='Energy (MeV)', ylabel='Energy flux (Mev/cm**2/s/sr)')
+        ax.set_title('Galactic diffuse at l=%.0f'%glat, size=12)
+        return fig
+        
+    def plot_map(self, energy=1000, title=None, cbtext=''):
+        """show a map at the given energy"""
+        self.setEnergy(energy)
+        if not self.loaded: self.load()
+        fig = self.show(cbtext='log10(flux)')
+        fig.axes[0].set_title('%.0f MeV'%self.energy if title is None else title, size=12)
+        return fig
 
 class Isotropic(DiffuseBase, skymaps.IsotropicSpectrum):
     """Implement the isotropic diffuse, by wrapping skymaps.IsotopicSpectrum
@@ -108,7 +132,7 @@ class HealpixCube(DiffuseBase):
             
     def load(self):
         try:
-            hdus = pyfits.open(self.filename)
+            hdus = pyfits.open(self.fullfilename)
             self.energies = hdus[2].data.field(0)
             self.vector_mode = len(hdus[1].columns)==1
             if self.vector_mode:
@@ -126,7 +150,7 @@ class HealpixCube(DiffuseBase):
             self.loaded=True
             self.indexfun = skymaps.Band(self.nside).index
         except Exception, msg:
-            print 'bad file or unexpected FITS format, file %s: %s' % (self.filename, msg)
+            print 'bad file or unexpected FITS format, file %s: %s' % (self.fullfilename, msg)
             raise
         self.logeratio = np.log(self.energies[1]/self.energies[0])
         self.setEnergy(1000.)
@@ -152,23 +176,6 @@ class HealpixCube(DiffuseBase):
             self.eplane1 = np.ravel(self.data.field(i))
             self.eplane2 = np.ravel(self.data.field(i+1))
             
-    def plot_spectra(self, glat=0, glon=(0,10, -10, 30, -30,90, -90)):
-        """ debug plot """
-        from matplotlib import pylab as plt
-        ee = np.logspace(1.5,6,101)
-        fig, ax = plt.subplots(1,1, figsize=(6,6))
-        for x in (0,2, -2, 30, -30,90, -90):
-            sd = skymaps.SkyDir(glat,x, skymaps.SkyDir.GALACTIC)
-            ax.loglog(ee, map(lambda e: e**2*self(sd,e), ee), label='b=%.0f'%x)
-            et = self.energies
-            ax.loglog(et, map(lambda e: e**2*self(sd,e), et), 'o')
-        
-        ax.grid(); ax.legend(loc='lower left', prop=dict(size=10))
-        plt.setp(ax, xlabel='Energy (MeV)', ylabel='Energy flux (Mev/cm**2/s/sr)',
-            title='Galactic diffuse at l=%.0f'%glat)
-        return fig
-
-
     
 class Healpix(DiffuseBase):
     """Diffuse map using HEALPix representation.
