@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.62 2014/01/23 01:25:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.63 2014/01/26 20:07:56 burnett Exp $
 
 """
 import types, time
@@ -72,7 +72,7 @@ class ROI(views.LikelihoodViews):
     
     defaults = (
         ('quiet', True, 'set to suppress output'),
-        ('load_kw', {}, 'a dict specific for the loading'),
+        ('load_kw', {'rings':2}, 'a dict specific for the loading'),
         ('postpone', False, 'Set True to not load data until requested'),
     )
 
