@@ -1,7 +1,7 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.34 2014/01/23 01:22:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.35 2014/01/30 16:18:56 burnett Exp $
 
 author:  Toby Burnett
 """
@@ -65,7 +65,7 @@ class DiffuseBase(object):
         ait.imshow(title=self.name if title is None else title, scale=scale)
         return ait.axes.figure
        
-    def plot_spectra(self, glat=0, glon=(0, 2,-2,  30, -30, 90, -90)):
+    def plot_spectra(self, glat=0, glon=(0, 2,-2,  30, -30, 90, -90), title=None):
         """ show spectral for give glat, various glon values """
         from matplotlib import pylab as plt
         if not self.loaded: self.load()
@@ -77,9 +77,11 @@ class DiffuseBase(object):
             et = self.energies
             ax.loglog(et, map(lambda e: e**2*self(sd,e), et), 'o')
         
-        ax.grid(); ax.legend(loc='lower left', prop=dict(size=10))
+        ax.grid(); 
+        if len(glon)>0:
+            ax.legend(loc='lower left', prop=dict(size=10))
         plt.setp(ax, xlabel='Energy (MeV)', ylabel='Energy flux (Mev/cm**2/s/sr)')
-        ax.set_title('Galactic diffuse at l=%.0f'%glat, size=12)
+        ax.set_title('Galactic diffuse at l=%.0f'%glat if title is None else title, size=12)
         return fig
         
     def plot_map(self, energy=1000, title=None, cbtext=''):
@@ -90,16 +92,39 @@ class DiffuseBase(object):
         fig.axes[0].set_title('%.0f MeV'%self.energy if title is None else title, size=12)
         return fig
 
-class Isotropic(DiffuseBase, skymaps.IsotropicSpectrum):
-    """Implement the isotropic diffuse, by wrapping skymaps.IsotopicSpectrum
+class Isotropic(DiffuseBase): 
+    """Implement the isotropic diffuse
     """
     def __init__(self, filename):
-        self.filename=filename
-        super(Isotropic, self).__init__(filename)
+        self.setupfile(filename)
+        try:
+            t = np.loadtxt(self.fullfilename)
+        except Exception,msg:
+            raise Exception('Fail to load file %s: %s' % (self.fullfilename, msg))
+        self.energies=t[:,0]
+        self.spectrum = t[:,1]
         self.loaded=True
+        self.logeratio = np.log(self.energies[1]/self.energies[0])
+        self.setEnergy(1000.)
+
         
     def load(self):
         pass
+
+    def setEnergy(self, energy): 
+        # set up logarithmic interpolation
+        self.energy=energy
+        r = np.log(energy/self.energies[0])/self.logeratio
+        self.energy_index = i = max(0, min(int(r), len(self.energies)-2))
+        self.energy_interpolation = r-i
+
+    def __call__(self, skydir, energy=None):
+        if energy is not None and energy!=self.energy: 
+            self.setEnergy(energy)
+        a,i = self.energy_interpolation, self.energy_index
+        return np.exp(    np.log(self.spectrum[i])   * (1-a) 
+                        + np.log(self.spectrum[i+1]) * a     ) 
+
 
 
 class MapCube(DiffuseBase, skymaps.DiffuseFunction):
@@ -161,7 +186,9 @@ class HealpixCube(DiffuseBase):
             self.setEnergy(energy)
         skyindex = self.indexfun(skydir)
         a = self.energy_interpolation
-        return np.exp(np.log(self.eplane1[skyindex]) *(1- a) + np.log(self.eplane2[skyindex]) * a )
+        return np.exp( np.log(self.eplane1[skyindex]) * (1-a) 
+                     + np.log(self.eplane2[skyindex]) * a      )
+
 
     def setEnergy(self, energy): 
         # set up logarithmic interpolation
@@ -232,7 +259,9 @@ class IsotropicSpectralFunction(DiffuseBase):
         except Exception, msg:
             print 'Failure to evaluate IsotropicSpectralFunction %s : %s' % (self.expression, msg)
             raise
+        self.energies=np.logspace(2,5,13) # only for plot_spectra
         self.energy=1000
+        self.loaded=True
     def __repr__(self):
         return '%s: %s' % (self.__class__.__name__, self.expression )
     def __call__(self, skydir, energy=None):
