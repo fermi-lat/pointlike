@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_healpix.py,v 1.3 2013/12/21 01:11:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_healpix.py,v 1.4 2014/01/02 15:21:35 burnett Exp $
 """
 import os, pickle, zipfile
 import numpy as np
@@ -42,6 +42,8 @@ class ROImodelFromHealpix(roimodel.ROImodel):
         self.pickle_file = os.path.join(self.config.modeldir, 'pickle.zip')
         if not os.path.exists(self.pickle_file):
             raise Exception('Expected file "pickle.zip" not found in %s' % config.configdir)
+        if hasattr(roi_index, '__len__'):
+            roi_index = skymaps.Band(12).dir(skymaps.SkyDir(*roi_index))
         self.index = roi_index
         self.roi_dir = skymaps.Band(12).dir(roi_index)
         self.name = 'HP12_%04d' % roi_index

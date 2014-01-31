@@ -1,7 +1,7 @@
 """
 Analyze CPU times for batch execution, make diagnostic plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/cputime.py,v 1.3 2013/12/31 04:45:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/cputime.py,v 1.4 2013/12/31 04:49:30 burnett Exp $
 """
 import os, glob, re, argparse, pandas as pd, numpy as np
 import matplotlib.pylab as plt
@@ -78,6 +78,9 @@ class CPUtime(object):
             except Exception,msg:
                 print 'Failed to parse file %s: %s' % (fn, msg)
         self.tdf, self.jdf = pd.DataFrame(roi_info).T, pd.DataFrame(job_info).T
+        # correct for appent setup in first ROI per job
+        self.tdf['tcorr'] = self.tdf.time
+        self.tdf.tcorr[self.tdf.n==0] -= 15
         print 'Times: number  mean  minimum maximum'
         fmt = ' %-5s'+ '%6d'+'%8.1f'*3
         for label, ser in zip(('setup','ROI', 'Job'), (self.jdf.setup,self.tdf.time, self.jdf.total)):
@@ -134,6 +137,31 @@ class CPUtime(object):
         self.scats(tmax, ax=axx[3])
         fig.text(0.05, 0.02, self.model_version, size=8)
         return fig
+        
+    def make_list(self, cmax=250, outfile='joblist.txt'):
+        i = 0
+        cum= 999
+        cums= []
+        start=[]
+        end = []
+        while i<1728:
+            t = self.tdf.tcorr[i]
+            if cum+t < cmax:
+                cum += t
+            else:
+                start.append(i)
+                if cum!=999: 
+                    cums.append(cum)
+                    end.append(i)
+                cum = 45 + t
+            i+=1
+        cums.append(cum)
+        end.append(1728)
+        if outfile is not None:
+            with open(outfile,'w') as f:
+                f.write('\n'.join(['%04d %04d'% t for t in zip(start,end)]))
+        return start, cums
+
 
 def main(stream=None, path='.', plotto=None):
     ct = CPUtime(stream, path)
