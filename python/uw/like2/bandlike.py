@@ -1,7 +1,7 @@
 """
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.46 2013/12/09 01:13:00 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.47 2014/01/26 20:07:56 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -19,7 +19,7 @@ class BandLike(object):
     @keyword_options.decorate(defaults)
     def __init__(self, band, sources, free=None, **kwargs):
         """
-           band    : ROIband object
+           band    : bands.EnergyBand object
            sources : list of sources.Source objects
            free    : [array of bool | None]
                 to select models with variable parameters
@@ -41,7 +41,6 @@ class BandLike(object):
          
     def make_unweight(self):
         """ return an unweighting factor <=1.0 to use to multiply the log likelihood
-        assume that first BandSource object has the galactic diffuse
         
         systematic : float
             a fraction representing the relative systematic uncertainty in the galactic diffuse

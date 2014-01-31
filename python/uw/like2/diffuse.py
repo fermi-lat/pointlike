@@ -1,7 +1,7 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.35 2014/01/30 16:18:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.36 2014/01/30 21:39:24 burnett Exp $
 
 author:  Toby Burnett
 """
@@ -74,11 +74,12 @@ class DiffuseBase(object):
         for x in glon:
             sd = skymaps.SkyDir(glat,x, skymaps.SkyDir.GALACTIC)
             ax.loglog(ee, map(lambda e: e**2*self(sd,e), ee), label='b=%.0f'%x)
-            et = self.energies
-            ax.loglog(et, map(lambda e: e**2*self(sd,e), et), 'o')
+            if hasattr(self, 'energies'):
+                et = self.energies
+                ax.loglog(et, map(lambda e: e**2*self(sd,e), et), 'o')
         
         ax.grid(); 
-        if len(glon)>0:
+        if len(glon)>1:
             ax.legend(loc='lower left', prop=dict(size=10))
         plt.setp(ax, xlabel='Energy (MeV)', ylabel='Energy flux (Mev/cm**2/s/sr)')
         ax.set_title('Galactic diffuse at l=%.0f'%glat if title is None else title, size=12)
@@ -259,7 +260,6 @@ class IsotropicSpectralFunction(DiffuseBase):
         except Exception, msg:
             print 'Failure to evaluate IsotropicSpectralFunction %s : %s' % (self.expression, msg)
             raise
-        self.energies=np.logspace(2,5,13) # only for plot_spectra
         self.energy=1000
         self.loaded=True
     def __repr__(self):
