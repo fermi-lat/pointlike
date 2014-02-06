@@ -2,7 +2,7 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.33 2012/11/20 20:36:07 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.34 2012/11/20 23:41:05 kerrm Exp $
 author: M. Kerr
 
 """
@@ -99,7 +99,7 @@ class CALDBPsf(Psf):
 
         h = self.CALDBhandles # tuple with handles to front and back CALDB
         ne,nc = len(self.e_los),len(self.c_his)
-        self.newstyle = 'SCORE' in [x.name for x in h[0][1].get_coldefs()]
+        self.newstyle = 'SCORE' in [x.name for x in h[0][1].columns] ### changed from get_columns()
 
         def proc(ct,pname):
             """ Return the parameters from CALDB for conversion type
