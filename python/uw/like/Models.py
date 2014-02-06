@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.144 2013/09/28 20:33:26 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.145 2013/10/24 06:12:47 kerrm Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -642,8 +642,11 @@ class Model(object):
                 En. Flux  : 1.11e-10 (DERIVED)
 
         """
-        p,hi_p,lo_p = self.statistical(absolute=absolute,two_sided=True)
-        if not self.background:
+        try:
+            p, hi_p, lo_p = self.statistical(absolute=absolute,two_sided=True)
+        except:
+            p, hi_p, lo_p = self.get_all_parameters(), [0]*self.npar, [0]*self.npar
+        if not self.background and hi_p is not None:
             if not np.all(self.internal_cov_matrix==0):
                 f,fhi,flo    = self.i_flux(e_weight=0,emax=3e5,two_sided=True,cgs=True,error=True)
                 e,ehi,elo    = self.i_flux(e_weight=1,emax=3e5,two_sided=True,cgs=True,error=True)
