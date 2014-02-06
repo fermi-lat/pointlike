@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Feb  6 08:17:22 PST 2014
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+graceful recovery from statistical failure
+    *
+------------------------------------------------------------
 User: burnett  Wed Feb  5 14:53:40 PST 2014
 pointlike/python/uw/like2/notebooks
 
