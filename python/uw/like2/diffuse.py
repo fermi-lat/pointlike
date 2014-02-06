@@ -1,7 +1,7 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.36 2014/01/30 21:39:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.37 2014/01/31 14:56:10 burnett Exp $
 
 author:  Toby Burnett
 """
@@ -65,31 +65,35 @@ class DiffuseBase(object):
         ait.imshow(title=self.name if title is None else title, scale=scale)
         return ait.axes.figure
        
-    def plot_spectra(self, glat=0, glon=(0, 2,-2,  30, -30, 90, -90), title=None):
+    def plot_spectra(self, ax=None, glat=0, glon=(0, 2,-2,  30, -30, 90, -90), title=None, label=None):
         """ show spectral for give glat, various glon values """
         from matplotlib import pylab as plt
         if not self.loaded: self.load()
         ee = np.logspace(1.5,6,101)
-        fig, ax = plt.subplots(1,1, figsize=(5,5))
+        if ax is None:
+            fig, ax = plt.subplots(1,1, figsize=(5,5))
+        else:
+            fig = ax.figure
         for x in glon:
             sd = skymaps.SkyDir(glat,x, skymaps.SkyDir.GALACTIC)
-            ax.loglog(ee, map(lambda e: e**2*self(sd,e), ee), label='b=%.0f'%x)
+            ax.loglog(ee, map(lambda e: e**2*self(sd,e), ee), 
+                        label='b=%.0f'%x if label is None else label)
             if hasattr(self, 'energies'):
                 et = self.energies
-                ax.loglog(et, map(lambda e: e**2*self(sd,e), et), 'o')
+                ax.loglog(et, map(lambda e: e**2*self(sd,e), et), '+k')
         
         ax.grid(); 
         if len(glon)>1:
             ax.legend(loc='lower left', prop=dict(size=10))
-        plt.setp(ax, xlabel='Energy (MeV)', ylabel='Energy flux (Mev/cm**2/s/sr)')
+        plt.setp(ax, xlabel=r'$\mathrm{Energy\ [MeV]}$', ylabel=r'$\mathrm{E^2\ dN/dE\ [Mev\ cm^{-2}\ s^{-1}\ sr^{-1}]}$')
         ax.set_title('Galactic diffuse at l=%.0f'%glat if title is None else title, size=12)
         return fig
         
-    def plot_map(self, energy=1000, title=None, cbtext=''):
+    def plot_map(self, energy=1000, title=None, cbtext='', **kwargs):
         """show a map at the given energy"""
         self.setEnergy(energy)
         if not self.loaded: self.load()
-        fig = self.show(cbtext='log10(flux)')
+        fig = self.show(cbtext='log10(flux)', **kwargs)
         fig.axes[0].set_title('%.0f MeV'%self.energy if title is None else title, size=12)
         return fig
 
@@ -300,9 +304,10 @@ class CachedMapCube(DiffuseBase):
 class DiffuseList(list):
     """A list of  event type list of DiffuseBase objects. If only one, applied to all
     """
-    def __init__(self, inlist):
+    def __init__(self, inlist, event_type_names):
         super(DiffuseList,self).__init__(inlist)
         self.gg = None
+        self.event_type_names = event_type_names
     def __repr__(self):
         return  '%s.%s\n\t' % (self.__module__, self.__class__.__name__) + '\n\t'.join([t.__repr__() for t in self])
         
@@ -316,6 +321,16 @@ class DiffuseList(list):
     def type(self):
         """return the diffuse class name implementing the global source"""
         return self[0].__class__.__name__
+        
+    def plot_spectra(self, glat=0, glon=(0, 2,-2,  30, -30, 90, -90), title=None):
+        import pylab as plt
+        fig,ax = plt.subplots(1,1, figsize=(5,5))
+        for i,ds in enumerate(self):
+            ds.plot_spectra(ax=ax, glat=glat, glon=glon, label=self.event_type_names[i], title=title)
+        ax.grid()
+        ax.legend(prop=dict(size=10))
+        return fig
+
                 
 def diffuse_factory(value, event_type_names=('front', 'back')):
     """
@@ -342,13 +357,13 @@ def diffuse_factory(value, event_type_names=('front', 'back')):
     
     if isdict:
         try:
-            files = DiffuseList([val['filename'] for val in value])
+            files = DiffuseList([val['filename'] for val in value], event_type_names)
         except KeyError:
             raise DiffuseException('expected "filename" key in dict')
         type = value[0].pop('type', None)
         kws = value
     else:
-        files = DiffuseList(value)
+        files = DiffuseList(value,event_type_names)
         kws = type = None
 
     # checking only first element, and only upto a comma, if not with '('
@@ -383,6 +398,6 @@ def diffuse_factory(value, event_type_names=('front', 'back')):
     if kws is not None:
         for x,kw in zip(diffuse_source, kws):
             x.kw = kw
-    return DiffuseList(diffuse_source)
+    return DiffuseList(diffuse_source, event_type_names=event_type_names)
 
 
