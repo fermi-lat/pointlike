@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Feb  8 18:04:47 PST 2014
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	counts.py 
+Log Message:
+allow missing counts
+    *
+------------------------------------------------------------
 User: burnett  Sat Feb  8 08:28:38 PST 2014
 pointlike/python/uw/like2
 
