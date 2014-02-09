@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Sun Feb  9 11:22:16 PST 2014
+pointlike/python/uw/like2
+
+Modified Files:
+	bandlike.py diffuse.py loglikelihood.py main.py roimodel.py 
+	sedfuns.py sources.py views.py 
+Log Message:
+limb updated, sed stuff
+    *
+------------------------------------------------------------
 User: burnett  Sat Feb  8 18:04:47 PST 2014
 pointlike/python/uw/like2/analyze
 
