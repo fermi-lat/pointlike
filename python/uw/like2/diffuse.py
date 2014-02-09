@@ -1,7 +1,7 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.37 2014/01/31 14:56:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.38 2014/02/06 16:22:12 burnett Exp $
 
 author:  Toby Burnett
 """
@@ -33,6 +33,10 @@ class DiffuseBase(object):
             #print 'diffuse: loaded ', filename
         return cls._instance_dict[filename]
     
+    @classmethod
+    def clear(self):
+        self._instance_dict = {}
+        
     def setupfile(self, filename):
         """ filename: string 
         """
@@ -40,7 +44,7 @@ class DiffuseBase(object):
         self.fullfilename = os.path.expandvars(filename)
         if not os.path.exists(self.fullfilename):
             self.fullfilename = os.path.expandvars(os.path.join('$FERMI','diffuse',self.filename))
-        assert os.path.exists(self.fullfilename), 'DiffuseFunction file "%s" not found' % self.fullfilename
+        assert os.path.exists(self.fullfilename), 'Diffuse data file "%s" not found' % self.fullfilename
         self.loaded =  False
 
     def load(self): 
@@ -61,8 +65,10 @@ class DiffuseBase(object):
         """make an AIT image for testing
         """
         from uw.utilities import image
+        vmin = kwargs.pop('vmin', None)
+        vmax = kwargs.pop('vmax', None)
         ait = image.AIT(self, **kwargs)
-        ait.imshow(title=self.name if title is None else title, scale=scale)
+        ait.imshow(title=self.name if title is None else title, scale=scale, vmin=vmin, vmax=vmax)
         return ait.axes.figure
        
     def plot_spectra(self, ax=None, glat=0, glon=(0, 2,-2,  30, -30, 90, -90), title=None, label=None):
@@ -89,12 +95,13 @@ class DiffuseBase(object):
         ax.set_title('Galactic diffuse at l=%.0f'%glat if title is None else title, size=12)
         return fig
         
-    def plot_map(self, energy=1000, title=None, cbtext='', **kwargs):
+    def plot_map(self, energy=1000, title=None, cbtext='log10(flux)', **kwargs):
         """show a map at the given energy"""
-        self.setEnergy(energy)
         if not self.loaded: self.load()
-        fig = self.show(cbtext='log10(flux)', **kwargs)
-        fig.axes[0].set_title('%.0f MeV'%self.energy if title is None else title, size=12)
+        self.setEnergy(energy)
+        if kwargs.get('scale', '')=='linear': cbtext='flux'
+        fig = self.show(cbtext=cbtext, **kwargs)
+        fig.axes[0].set_title('%.0f MeV'%energy if title is None else title, size=12)
         return fig
 
 class Isotropic(DiffuseBase): 
@@ -273,6 +280,80 @@ class IsotropicSpectralFunction(DiffuseBase):
     def setEnergy(self, energy): self.energy=energy
 
 
+class PieceWise(object):
+    def __init__(self, u):
+        a,b = u
+        self.a, self.b =a,b
+        self.n = len(a)
+        self.s = [(b[i+1]-b[i])/(a[i+1]-a[i]) for i in range(self.n-1)]
+    def __call__(self, x):
+        if x<=self.a[0]: return self.b[0]
+        for i in range(self.n-1):
+            if x<self.a[i+1]:
+                return self.b[i]+(x-self.a[i])*self.s[i]
+        return self.b[-1]
+
+class AziLimb(IsotropicSpectralFunction):
+    """ Azimuthally symmetric Limb function
+    """
+    def __init__(self, filename):
+        """ file ia a dict like:
+        {
+            'spectrum' : 'PowerLaw(1e-11, 4.0)',
+            'pieces' : [[-1., -0.4, 0.4, 1.0], [0.75, 0, 0, 0.75]],
+        }
+        
+        """
+        self.setupfile(filename)
+        try:
+            txt =open(self.fullfilename).read()
+            self.loaded=True
+            adict = eval(txt)
+            self.loaded=True
+            self.energy=100
+        except Exception, msg:
+            raise Exception('Failure to interpret Limb parameter file "%s": %s'\
+                            %(self.fullfilename, msg))
+        self.limbfun = PieceWise(adict['pieces'])
+        super(AziLimb, self).__init__(adict['spectrum'])
+
+    def load(self): pass
+    
+    def __repr__(self):
+        return '%s: %s, North,South=%.1f,%.1f' % (self.__class__.__name__, self.expression, self.limbfun(1),self.limbfun(-1) )
+        
+    def __call__(self, skydir, energy=None):
+        spec = self.spectral_function(self.energy if energy is None else energy)
+        dec = skydir.dec() # only depends on DEC
+        return spec * self.limbfun( np.sin(np.radians(dec))  ) 
+
+#class Limb(IsotropicSpectralFunction):
+#
+#    def __init__(self, expression, event_type='front'):
+#        self.event_type = event_type
+#        super(Limb, self).__init__(expression)
+#        
+#    def __call__(self, skydir, energy=None):
+#        spec = self.spectral_function(self.energy if energy is None else energy)
+#        class PieceWise(object):
+#            def __init__(self, a,b):
+#                self.a, self.b =a,b
+#                self.n = len(a)
+#                self.s = [(b[i+1]-b[i])/(a[i+1]-a[i]) for i in range(self.n-1)]
+#            def __call__(self, x):
+#                if x<=self.a[0]: return self.b[0]
+#                for i in range(self.n-1):
+#                    if x<self.a[i+1]:
+#                        return self.b[i]+(x-self.a[i])*self.s[i]
+#                return self.b[-1]
+#                
+#        limbfun = dict(front =PieceWise([-1., -0.4, 0.4, 1.0],[0.75, 0, 0, 0.75]),
+#                        back= PieceWise([-1., -0.7, -0.5, 0.5, 0.7, 0.85, 1.0],
+#                                        [2.0,  0.5, 0,    0,   0.5,  1.2, 0.9])    )
+#        dec = skydir.dec() # only depends on DEC
+#        return spec * limbfun[self.event_type](np.sin(np.radians(dec))  ) 
+
+
 class CachedMapCube(DiffuseBase):
     """ for compatibility with previous models"""
     def __init__(self, zipfilename):
@@ -349,10 +430,14 @@ def diffuse_factory(value, event_type_names=('front', 'back')):
     A special case is ')' : IsotropicSpectralFunction
     """
     isdict = issubclass(value.__class__, dict)
-    if isinstance(value, str) and  '*' in value:
-        value = [value.replace('*',et) for et in event_type_names]
+    type = None
+    if isinstance(value, str):
+        if ':' in value:
+            type,value = value.split(':')
+        if '*' in value:
+            value = [value.replace('*',et) for et in event_type_names]
         
-    elif  not hasattr(value, '__iter__') or isdict:
+    if not hasattr(value, '__iter__') or isdict:
         value  = (value,)
     
     if isdict:
@@ -364,7 +449,9 @@ def diffuse_factory(value, event_type_names=('front', 'back')):
         kws = value
     else:
         files = DiffuseList(value,event_type_names)
-        kws = type = None
+        kws =  None
+        print files
+    print value    
 
     # checking only first element, and only upto a comma, if not with '('
     f = files[0].split(',')[0] if files[0].find('(')<0 else files[0]
