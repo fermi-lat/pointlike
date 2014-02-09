@@ -1,7 +1,7 @@
 """
 Count plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.6 2013/12/22 01:37:38 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.7 2014/01/03 04:10:47 burnett Exp $
 
 """
 
@@ -17,6 +17,7 @@ class CountPlots(analysis_base.AnalysisBase):
     """Count plots
     <br> Plots generated after each iteration, checking quality of counts histogram
     %(iteration_info)s
+    %(missing_info)s
     """ 
     require='pickle.zip'
     def setup(self, **kwargs):
@@ -31,27 +32,36 @@ class CountPlots(analysis_base.AnalysisBase):
             return ((observed-total)**2/total)[:8].sum()
         def lat180(l): return l if l<180 else l-360
         rdict = dict()
+        skipped = 0
         for r in pkls:
+            if 'counts' not in r or r['counts'] is None:
+                print '***No counts in %s: skipping' % r['name']
+                skipped +=1
+                continue
             rdict[r['name']]=dict(
                 glon = lat180(r['skydir'].l()),
                 glat = r['skydir'].b(),
                 chisq = r['counts']['chisq'],
                 chisq10= chisq10(r['counts']),
                 )
+        if skipped>0:
+            self.missing_info = '<p>%d missing ROIS' % skipped
+            print '***Skipped %d ROIs' % skipped
+        else: self.missing_info = ''
         self.rois = pd.DataFrame(rdict).transpose()
         self.rois['singlat'] = np.sin(np.radians(np.asarray(self.rois.glat,float)))
         self.rois['glon'] = np.asarray(self.rois.glon, float)
         
         # dict of dataframes with count info. columns are energies
         self.energy = self.pkls[0]['counts']['energies'] # extract list from first pickle
-        counts = [p['counts'] for p in self.pkls]
+        counts = [p['counts'] for p in self.pkls if p['counts'] is not None]
         self.counts=dict()
         for key in ['observed', 'total']:
             self.counts[key]= pd.DataFrame([x[key] for x in counts], index=self.rois.index)
-        try:
-            self.add_model_info()
-        except Exception, msg:
-            print msg
+        #try:
+        self.add_model_info()
+        #except Exception, msg:
+        #    print msg
             
         if 'history' in pkls[0].keys():
             itdf = self.history_table()
@@ -132,6 +142,7 @@ class CountPlots(analysis_base.AnalysisBase):
         for i,key in enumerate(['ring','isotrop', 'SunMoon', 'limb',]): # the expected order
             t = []
             for j,p in enumerate(self.pkls):
+                if p['counts'] is None: continue
                 if key in p['diffuse_names']:
                     k =  p['diffuse_names'].index(key) 
                     y=p['counts']['models'][k]
