@@ -1,14 +1,14 @@
 """
 Set up and manage the model for all the sources in an ROI
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.19 2014/01/23 01:22:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.20 2014/01/26 20:07:56 burnett Exp $
 
 """
 import os 
 import numpy as np
 from  uw.utilities import keyword_options
 from . import (sources, parameterset, diffuse, extended, to_xml)
-from . sources import (PowerLaw, PLSuperExpCutoff, LogParabola)
+from . sources import (PowerLaw, PLSuperExpCutoff, LogParabola, Constant)
 
 class ROImodelException(Exception):pass
         

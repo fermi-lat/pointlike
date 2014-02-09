@@ -1,9 +1,9 @@
 """Tools for parameterizing log likelihood curves.
 
 Author(s): Eric Wallace, Matthew Kerr, Toby Burnett
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.19 2013/12/26 17:32:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.20 2013/12/28 19:19:20 burnett Exp $
 """
-__version__ = "$Revision: 1.19 $"
+__version__ = "$Revision: 1.20 $"
 
 import numpy as np
 from scipy import optimize, special, polyfit, stats
@@ -198,7 +198,7 @@ class PoissonFitter(object):
         self.func = func
         #first check derivative at zero flux - delta is sensitive
         s = self.wprime = (func(delta)-func(0))/delta
-        self.smax = self.find_max(scale) if s>0 else 0.
+        self.smax = self.find_max(scale) if s>=0 else 0.
         # determine values of the function corresponding to delta L of 0.5, 1, 2, 4
         # depending on how peaked the function is, this will be from 5 to 8 
         # The Poisson will be fit to this set of values
@@ -322,14 +322,14 @@ class PoissonFitter(object):
         """Return a figure showing the fit"""
         import matplotlib.pyplot as plt
         xp = self.dom
-        x = np.linspace(0, xp[-1])
+        x = np.linspace(0, xp[-1]*1.05)
         if ax is None:
             fig, ax = plt.subplots(figsize=(3,3))
         else: fig = ax.figure
         pfmax = self(self.smax)
         ax.plot(x, np.exp(self(x)-pfmax), '-', label='Input')
         ax.plot(xp, np.exp(self._poiss(xp)), 'o', label='approx')
-        ax.legend(prop =dict(size=8) )        ax.set_xticks([0, xp[-1]])
+        ax.legend(loc='lower left', prop =dict(size=8) )        ax.set_xticks([0, xp[-1]])
         ax.grid()
         return fig
         

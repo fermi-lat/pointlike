@@ -4,7 +4,7 @@ classes presenting views of the likelihood engine in the module bandlike
 Each has a mixin to allow the with ... as ... construction, which should restore the BandLikeList
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.13 2014/01/04 17:21:38 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.14 2014/01/26 20:07:56 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -451,7 +451,7 @@ class EnergyFluxView(tools.WithMixin):
         self.blike=blike
         self.source = source = self.func.source
         self.model=model = source.spectral_model
-        assert model[0]==model['norm']
+        #assert model[0]==model['norm']
         self.norm = model[0]
         self.tointernal = model.mappers[0].tointernal
         self.bound = model.bounds[0][0]
@@ -479,6 +479,40 @@ class EnergyFluxView(tools.WithMixin):
         else:
             par = max(self.bound, self.tointernal(eflux*self.ratio))
         return -self.func([par])        
+class NormalizationView(tools.WithMixin):
+    """Manage a view defining a function of the normalization factor for a source
+    
+    """
+    def __init__(self, blike, source_name):
+        self.blike = blike
+        source = blike.sources.find_source(source_name)
+        self.model = model= source.model
+        self.par = model[0]
+        parname = model.param_names[0]
+        if not model.free[0]:
+            self.freed = (parname, source_name)
+            blike.thaw(parname, source_name)
+        else: self.freed=None
+        self.func = blike.fitter_view(source_name + '_' + parname)
+
+        self.tointernal = model.mappers[0].tointernal
+        self.bound = model.bounds[0][0]
+    
+    @tools.ufunc_decorator
+    def __call__(self, norm):
+        if norm <=0:
+            par = self.bound
+        else:
+            par = max(self.bound, self.tointernal(norm*self.par))
+        return -self.func([par])
+    
+    def restore(self):
+        """If had to thaw, restore"""
+        self.func.restore()
+        if self.freed is not None and self.model.free[0]:
+            self.blike.freeze(*self.freed)
+        
+
 class LikelihoodViews(bandlike.BandLikeList):
 
     """Subclass of BandLikeList with  methods to return views for specific analyses.
@@ -507,7 +541,9 @@ class LikelihoodViews(bandlike.BandLikeList):
             if None, use the reference energy e0
         """
         try:
-            func = self.fitter_view(source_name+'_Norm')
+            source = self.sources.find_source(source_name)
+            model = source.model
+            func = self.fitter_view(source_name + '_' + model.param_names[0])
         except Exception, msg:
             raise Exception('could not create energy flux function for source %s;%s' %(source_name, msg))
         return EnergyFluxView(self, func, energy, **kw)
@@ -524,6 +560,9 @@ class LikelihoodViews(bandlike.BandLikeList):
         except Exception, msg:
             raise Exception('could not create tsmap function for source %s;%s' %(source_name, msg))
         return TSmapView(self, func, **kw)
+        
+    def normalization_view(self, source_name):
+        return NormalizationView(self, source_name)
 
 def make_views(roi_index, rings=2):
     """convenience function to return a LikelihoodViews object for testing

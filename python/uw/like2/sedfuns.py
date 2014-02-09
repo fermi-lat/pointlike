@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.35 2014/01/26 20:07:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.36 2014/02/08 16:28:38 burnett Exp $
 
 """
 import os, pickle
@@ -204,3 +204,24 @@ def makesed_all(roi, **kwargs):
         'makesed_all: unexpected change in roi state after spectral analysis, from %.1f to %.1f' %(initw, curw)
 
 
+def normalization_poiss(roi, source_name, event_type=None):
+    """ return a list of Poisson objects for each energy band
+    
+    parameters
+    ----------
+    source_name : str
+        name of a source
+    event_type : [None | int]
+        None for all, int to select, say, front or back
+        
+    """
+    roi.select()
+    energies = roi.energies
+    poiss_list = []
+    with roi.normalization_view(source_name) as nv:
+        for i,energy  in enumerate(energies):
+            roi.select(i, event_type)
+            p = loglikelihood.PoissonFitter(nv, tol=0.25).poiss
+            poiss_list.append(p)
+    roi.select()
+    return poiss_list
