@@ -1,7 +1,7 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.38 2014/02/06 16:22:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.39 2014/02/09 19:22:16 burnett Exp $
 
 author:  Toby Burnett
 """
@@ -434,7 +434,9 @@ def diffuse_factory(value, event_type_names=('front', 'back')):
     if isinstance(value, str):
         if ':' in value:
             type,value = value.split(':')
-        if '*' in value:
+        if '**' in value:
+            value = [value.replace('**', et.upper()) for et in event_type_names]
+        elif '*' in value:
             value = [value.replace('*',et) for et in event_type_names]
         
     if not hasattr(value, '__iter__') or isdict:
