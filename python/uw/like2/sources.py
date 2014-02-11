@@ -1,6 +1,6 @@
 """
 Source classes
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.43 2014/01/26 20:07:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.44 2014/02/09 19:22:16 burnett Exp $
 
 """
 import os, copy
@@ -221,6 +221,7 @@ class GlobalSource(Source):
                 HealpixCube = response.DiffuseResponse,
                 IsotropicSpectralFunction = response.IsotropicResponse,
                 AziLimb = response.IsotropicResponse,
+                GulliLimb = response.IsotropicResponse,
                 )[self.dmodel.type]
         except Exception, msg:
             raise Exception('Could not find a response class for source %s:"%s"' %(self,msg))

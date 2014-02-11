@@ -1,13 +1,14 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.39 2014/02/09 19:22:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.40 2014/02/11 04:17:12 burnett Exp $
 
 author:  Toby Burnett
 """
 import os, types, pyfits, collections, zipfile, pickle
 import numpy as np
 import skymaps #from Science Tools: for SkyDir, DiffuseFunction, IsotropicSpectrum
+import pandas as pd
 
 from .pub import healpix_map #make this local in future
 from . import (response, sources    )
@@ -327,31 +328,42 @@ class AziLimb(IsotropicSpectralFunction):
         dec = skydir.dec() # only depends on DEC
         return spec * self.limbfun( np.sin(np.radians(dec))  ) 
 
-#class Limb(IsotropicSpectralFunction):
-#
-#    def __init__(self, expression, event_type='front'):
-#        self.event_type = event_type
-#        super(Limb, self).__init__(expression)
-#        
-#    def __call__(self, skydir, energy=None):
-#        spec = self.spectral_function(self.energy if energy is None else energy)
-#        class PieceWise(object):
-#            def __init__(self, a,b):
-#                self.a, self.b =a,b
-#                self.n = len(a)
-#                self.s = [(b[i+1]-b[i])/(a[i+1]-a[i]) for i in range(self.n-1)]
-#            def __call__(self, x):
-#                if x<=self.a[0]: return self.b[0]
-#                for i in range(self.n-1):
-#                    if x<self.a[i+1]:
-#                        return self.b[i]+(x-self.a[i])*self.s[i]
-#                return self.b[-1]
-#                
-#        limbfun = dict(front =PieceWise([-1., -0.4, 0.4, 1.0],[0.75, 0, 0, 0.75]),
-#                        back= PieceWise([-1., -0.7, -0.5, 0.5, 0.7, 0.85, 1.0],
-#                                        [2.0,  0.5, 0,    0,   0.5,  1.2, 0.9])    )
-#        dec = skydir.dec() # only depends on DEC
-#        return spec * limbfun[self.event_type](np.sin(np.radians(dec))  ) 
+class GulliLimb(DiffuseBase):
+    """Implement the (internal?) text version of Gulli's RA-independent diffuse
+    """
+
+    def __init__(self, filename):
+        self.setupfile(filename)
+        colnames='lower_dec   upper_dec   prefactor   index   beta   prefactor_error  index_error  beta_error'.split()
+        try:
+            df = pd.read_table(self.fullfilename, sep=r'\s*',skiprows=1, header=None, 
+                 names=colnames)
+            assert len(df)==90, 'Expect 90 rows, 2-degree increments'
+            self.dec_index = lambda dec: max(0, min(89, (int((dec+90.)/2.))))
+            
+            class Spectrum(object):
+                """ log-parabola """
+                def __init__(self, i):
+                    self.pref,self.index,self.beta = df.prefactor[i], df['index'][i], df.beta[i]
+                def __call__(self, e100):
+                    return self.pref * e100 ** (self.index + self.beta*np.log(e100))
+            self.spec_fun = map(Spectrum, range(90))
+
+        except Exception, msg:
+            raise Exception('Failure to interpret Limb parameter file "%s": %s'\
+                            %(self.fullfilename, msg))
+        self.energy=1000
+        self.loaded=True
+
+    def setEnergy(self, energy):
+        self.energy = energy
+    def load(self): pass
+    
+    def __call__(self, skydir, energy=None):
+        dindex = self.dec_index(skydir.dec())
+        if energy is None: energy=self.energy
+        spec = self.spec_fun[dindex]( energy /100.)
+        return spec 
 
 
 class CachedMapCube(DiffuseBase):
@@ -452,8 +464,6 @@ def diffuse_factory(value, event_type_names=('front', 'back')):
     else:
         files = DiffuseList(value,event_type_names)
         kws =  None
-        print files
-    print value    
 
     # checking only first element, and only upto a comma, if not with '('
     f = files[0].split(',')[0] if files[0].find('(')<0 else files[0]
