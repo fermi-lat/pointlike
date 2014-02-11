@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Feb 10 20:17:43 PST 2014
+pointlike/python/uw/like2
+
+Modified Files:
+	configuration.py loglikelihood.py process.py sedfuns.py 
+Log Message:
+implement residuals
+    *
+------------------------------------------------------------
 User: burnett  Mon Feb 10 20:17:12 PST 2014
 pointlike/python/uw/like2
 
