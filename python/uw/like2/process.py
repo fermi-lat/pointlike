@@ -1,12 +1,12 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.7 2014/01/02 17:36:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.8 2014/01/03 23:17:13 burnett Exp $
 
 """
-import os, sys, time
+import os, sys, time, pickle
 import numpy as np
 from uw.utilities import keyword_options
-from uw.like2 import (main, tools,)
+from uw.like2 import (main, tools, sedfuns,)
 
 class Process(main.MultiROI):
 
@@ -27,6 +27,7 @@ class Process(main.MultiROI):
         ('sedfig_dir',    None,   'folder for sed figs'),
         ('quiet',         True,   'Set false for summary output'),
         ('finish',        False,  'set True to turn on all "finish" output flags'),
+        ('residual_flag', False,   'set True for special residual run; all else ignored'),
     )
     
     @keyword_options.decorate(defaults)
@@ -65,6 +66,10 @@ class Process(main.MultiROI):
         print  '='*80
         print '%4d-%02d-%02d %02d:%02d:%02d - %s - %s' %(time.localtime()[:6]+ (roi.name,)+(self.stream,))
 
+        if self.residual_flag:
+            self.residuals()
+            return
+        
         if self.counts_dir is not None and not os.path.exists(self.counts_dir) :
             try: os.makedirs(self.counts_dir) # in case some other process makes it
             except: pass
@@ -277,6 +282,16 @@ class Process(main.MultiROI):
         else:
             print 'none found'
         return refit    
+
+    def residuals(self, tol=0.3):
+        print 'Creating tables of residuals'
+        if not os.path.exists('residuals'):
+            os.mkdir('residuals')
+        resids = sedfuns.residual_tables(self, tol)
+        filename = 'residuals/%s_resids.pickle' %self.name
+        with open(filename, 'w') as out:
+            pickle.dump(resids, out)
+            print 'wrote file %s' %filename
 
 class BatchJob(Process):
     """special interface to be called from uwpipeline

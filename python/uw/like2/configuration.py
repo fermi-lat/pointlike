@@ -1,7 +1,7 @@
 """
 Manage the analysis configuration
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.16 2013/12/13 19:14:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.17 2014/01/26 20:07:56 burnett Exp $
 
 """
 import os, sys, types
@@ -151,6 +151,7 @@ class Configuration(object):
         etnames = self.event_type_names
         try:
             if type(which)==str:
+                which = which.lower()
                 return etnames.index(which)
             t = etnames[which]
             return which

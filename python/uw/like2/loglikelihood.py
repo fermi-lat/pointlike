@@ -1,9 +1,9 @@
 """Tools for parameterizing log likelihood curves.
 
 Author(s): Eric Wallace, Matthew Kerr, Toby Burnett
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.20 2013/12/28 19:19:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.21 2014/02/09 19:22:16 burnett Exp $
 """
-__version__ = "$Revision: 1.20 $"
+__version__ = "$Revision: 1.21 $"
 
 import numpy as np
 from scipy import optimize, special, polyfit, stats
@@ -332,7 +332,32 @@ class PoissonFitter(object):
         ax.legend(loc='lower left', prop =dict(size=8) )        ax.set_xticks([0, xp[-1]])
         ax.grid()
         return fig
-        
+
+    def normalization_summary(self, nominal=1.0):
+        """return a dict with useful stuff for normalization check
+        """
+        poiss = self.poiss
+        lower, upper = poiss.errors
+        maxl = poiss.flux
+        err = self.maxdev
+        mf =self(nominal)
+        delta_ts = 2.*(self(maxl) - mf )
+        if lower>0:
+            pull = np.sign(maxl-mf) * np.sqrt(max(0, delta_ts))
+            return dict(
+                maxl=maxl,
+                lower=lower, upper=upper,
+                ts=poiss.ts,
+                delta_ts=delta_ts,
+                pull=pull, err=err,
+                )
+        else:
+            # just an upper limit
+            pull = -np.sqrt(max(0, delta_ts))
+            return dict(maxl=0,lower=0, upper=poiss.cdfinv(0.05), ts=0, 
+                delta_ts=delta_ts, pull=pull, err=err,
+                )
+   
 
  
 class MultiPoiss(object):

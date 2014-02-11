@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.36 2014/02/08 16:28:38 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.37 2014/02/09 19:22:16 burnett Exp $
 
 """
 import os, pickle
@@ -118,6 +118,16 @@ class SED(tools.WithMixin):
         self.restore()
         return rec()
 
+    def data_frame(self, event_type=None, tol=0.1):
+        """DataFrame summary of the sed_rec"""
+        si = self.sed_rec(event_type,tol)
+        r =pd.DataFrame(dict(flux=si.flux.round(1), TS=si.ts.round(1), lflux=si.lflux.round(1),
+        uflux=si.uflux.round(1), mflux=si.mflux.round(1), pull=si.pull.round(1)), 
+            index=np.array(np.sqrt(si.elow*si.ehigh),int), columns='flux lflux uflux mflux TS pull'.split())
+        r.index.name='energy'
+        return r
+
+        
     def restore(self):
         self.rs.select()
         self.func.restore()
@@ -142,16 +152,69 @@ class SED(tools.WithMixin):
         self.restore()
         return fig
  
-def sed_table(roi, source_name=None):
+def sed_table(roi, source_name=None, event_type=None, tol=0.1):
     """
+    Return a DataFrame
     """
-    si = roi.get_sed(source_name)
-    r =pd.DataFrame(dict(flux=si.flux.round(1), TS=si.ts.round(1), lflux=si.lflux.round(1),
-            uflux=si.uflux.round(1), mflux=si.mflux.round(1), pull=si.pull.round(1)), 
-                index=np.array(np.sqrt(si.elow*si.ehigh),int), columns='flux lflux uflux mflux TS pull'.split())
-    r.index.name='energy'
-    return r
+    source = roi.sources.find_source(source_name)
     
+    if isinstance(event_type,str):
+        etname = event_type.lower()
+        if etname=='all': event_type=None
+        elif etname in roi.config.event_type_names:
+            event_type = roi.config.event_type_names.index(etname)
+        else:
+            raise Exception('event type name %s not recognized' %event_type_name)
+            
+    with SED(roi, source.name) as sf:
+        return sf.data_frame(event_type=event_type, tol=tol)
+
+
+def norm_table(roi, source_name=None, event_type=None, tol=0.1):
+    """
+    Return a DataFrame 
+    """
+    source = roi.sources.find_source(source_name)
+    
+    roi.select()
+    energies = roi.energies
+    poiss_list = dict()
+    with roi.normalization_view(source_name) as nv:
+        for i,energy  in enumerate(energies):
+            roi.select(i, event_type)
+            try:
+                p = loglikelihood.PoissonFitter(nv, tol=0.25)
+                poiss_list[int(energy)] = p.normalization_summary()
+            except Exception, msg:
+                print 'Fail for %.f: %s' % (energy, msg)
+                poiss_list[int(energy)]= {}
+    roi.select()
+    return pd.DataFrame(poiss_list, index='maxl lower upper ts pull err'.split() ).T
+                
+def residual_tables(roi, tol=0.3):
+    """ make residual tables for global and local sources
+    """
+    types = ['all']+ list(roi.config.event_type_names)
+    globals = filter(lambda s: s.isglobal,roi.sources)
+    residuals = dict()
+    for source in globals:
+        yy = residuals[source.name] = dict()
+        yy['model'] = source.model    
+        for et in types:
+            print source.name, et
+            yy[et] = norm_table(roi, source.name,et, tol)
+            
+    locals = filter(lambda s: np.any(s.model.free) and not s.isglobal, roi.sources);locals
+    for source in locals:
+        yy = residuals[source.name] = dict()
+        yy['model'] = source.model    
+        for et in ('all', 'front', 'back'):
+            print source.name, et
+            yy[et] = sed_table(roi, source.name, et, tol)
+    return residuals
+
+
+
 def print_sed(roi, source_name=None):
     source = roi.get_source(source_name)
     t = pd.get_option('display.float_format')
