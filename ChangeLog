@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Feb 10 20:18:02 PST 2014
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	uwpipeline.py 
+Log Message:
+implement residuals
+    *
+------------------------------------------------------------
 User: burnett  Mon Feb 10 20:17:43 PST 2014
 pointlike/python/uw/like2
 
