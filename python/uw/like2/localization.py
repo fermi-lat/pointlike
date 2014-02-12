@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.23 2013/12/08 00:48:01 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.24 2014/01/02 15:20:15 burnett Exp $
 
 """
 import os
@@ -180,8 +180,9 @@ def localize_all(roi, **kwargs):
     else:
         vpsources = filter(filt, roi.sources)
     tsmap_dir = kwargs.pop('tsmap_dir', None)
-    if tsmap_dir is not None and tsmap_dir[0]=='$':
-        tsmap_dir = os.path.expandvars(tsmap_dir)
+    if tsmap_dir is not None:
+        if tsmap_dir[0]=='$':
+            tsmap_dir = os.path.expandvars(tsmap_dir)
         if not os.path.exists(tsmap_dir):
             os.makedirs(tsmap_dir)
     associator = kwargs.pop('associator', None)
@@ -222,7 +223,8 @@ def localize_all(roi, **kwargs):
                 if tsmap_dir.endswith('fail') and not bad: continue
                 pixelsize= tsize/15.;
                 #try:
-                tsm=plotting.tsmap.plot(loc, source.name, center=source.skydir, 
+
+                tsm=plotting.tsmap.plot(loc, source.name, center=tsm.saved_skydir,
                     outdir=tsmap_dir, catsig=0, size=tsize, 
                     pixelsize= pixelsize, # was 14: desire to have central pixel
                     # todo: fix this
