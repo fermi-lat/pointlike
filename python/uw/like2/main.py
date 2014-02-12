@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.64 2014/01/30 16:20:31 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.65 2014/02/09 19:22:16 burnett Exp $
 
 """
 import types, time
@@ -195,7 +195,8 @@ class ROI(views.LikelihoodViews):
         if source_name=='all':
             localization.localize_all(self, **kwargs)
             return
-        with self.tsmap_view(source_name) as tsm:
+        source = self.sources.find_source(source_name)
+        with self.tsmap_view(source.name) as tsm:
             loc = localization.Localization(tsm, **kwargs)
             try: 
                 loc.localize()
@@ -328,36 +329,7 @@ class ROI(views.LikelihoodViews):
             source = self.sources.find_source(source_name)
             find_one(source)
             
-        
-    #def freeze(self, parname, source_name=None, value=None):
-    #    """ freeze the parameter, optionally set the value
-    #    
-    #    parname : name or index
-    #    source_name: None or string
-    #        if None, use currently selected source
-    #    value : float or None
-    #        if float, set the value
-    #    """
-    #    source = self.get_source(source_name)
-    #    source.freeze(parname, value)
-    #    self.sources.initialize()
-    #    self.initialize()
-    #   
-    #def thaw(self, parname, source_name=None):
-    #    """ thaw the parameter
-    #    
-    #    parname : name or index
-    #        if a string with an underscore, interpret as source_parname
-    #    source_name: None or string
-    #        if None, use currently selected source
-    #    """
-    #    if parname.find('_')>0 and source_name is None:
-    #        source_name, parname = parname.split('_')
-    #    source = self.get_source(source_name)
-    #    source.thaw(parname)
-    #    self.sources.initialize()
-    #    self.initialize()
-        
+                
     def to_healpix(self, pickle_dir, dampen, **kwargs):
         to_healpix.pickle_dump(self, pickle_dir, dampen=dampen, **kwargs)
         
