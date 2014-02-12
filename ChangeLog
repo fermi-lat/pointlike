@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Wed Feb 12 10:53:34 PST 2014
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	__init__.py 
+Added Files:
+	residuals.py 
+Log Message:
+new component
+    *
+------------------------------------------------------------
 User: burnett  Tue Feb 11 15:05:53 PST 2014
 pointlike/python/uw/like2
 
