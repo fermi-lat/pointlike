@@ -1,7 +1,7 @@
 """
 Residual plots
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.1 2014/02/12 18:53:34 burnett Exp $
 
 """
 
@@ -42,7 +42,9 @@ class Residuals(roi_info.ROIinfo):
         return np.array([p[source_name][event_type][column_name] if source_name in p else empty for p in self.pkls])
 
     def norm_plot(self, name='isotrop', ax=None, ylim=(0.5,1.5)):
-        """Isotropic Normalization vs Dec"""
+        """Isotropic Normalization vs Dec
+        Only the isotropic component is allowed to vary; this is the resulting value.
+        """
         lnorms =np.array([m[0] if m is not None else np.nan for m in self.diffuse_models(name)])
         high = np.abs(self.df.glat)>10
         if ax is None:
@@ -119,19 +121,31 @@ class Residuals(roi_info.ROIinfo):
         
     @tools.decorate_with(maxl_plots, append=True)
     def maxl_plots_isotrop_back(self):
-        """Isotropic back
+        """Max Likelihood for Isotropic back
         """
         return self.maxl_plots(event_type='back', bands=4)
         
     @tools.decorate_with(maxl_plots, append=True)
     def maxl_plots_isotrop_front(self):
-        """Isotropic front
+        """Max Likelihood for Isotropic front
         """
         return self.maxl_plots(event_type='front', bands=4)
         
+    @tools.decorate_with(maxl_plots, append=True)
+    def maxl_plots_limb_back(self):
+        """Max Likelihood for Limb back
+        """
+        return self.maxl_plots('limb', event_type='back', bands=2)
+        
+    @tools.decorate_with(maxl_plots, append=True)
+    def maxl_plots_limb_front(self):
+        """Max Likelihood for Limb front 
+        """
+        return self.maxl_plots('limb', event_type='front', bands=2)
     def all_plots(self):
        self.runfigures([
             self.pull_maps_ring, self.pull_maps_isotrop, 
             self.norm_plot,
             self.maxl_plots_isotrop_front, self.maxl_plots_isotrop_back,
+            self.maxl_plots_limb_front, self.maxl_plots_limb_back,
             ])

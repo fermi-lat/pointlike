@@ -1,6 +1,6 @@
 """    Description here
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.6 2013/08/03 18:09:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.7 2013/08/29 06:12:40 burnett Exp $
 
 """
 
@@ -80,10 +80,10 @@ class Localization(sourceinfo.SourceInfo):
         
     def localization_quality(self, maxqual=10, mints=10, tscut=25):
         """Localization quality plots
-            Left: histogram of the fit quality. This is a measure of the difference between the sampled
+            <br><b>Left</b>: histogram of the fit quality. This is a measure of the difference between the sampled
             TS map points and the prediction of the quadratic model. <br>
-            Center: scatter plot of the quality vs. TS. <br>
-            Right: locations of poorly-fit sources, see the <a href="poorly_localized_table.html?skipDecoration">table</a>.
+            <br><b>Center</b>: scatter plot of the quality vs. TS. <br>
+            <br><b>Right</b>: locations of poorly-fit sources, see the <a href="poorly_localized_table.html?skipDecoration">table</a>.
         """
         bins=np.linspace(0,maxqual,26)
         fig, axxx = self.subplot_array( hsize=(1.0, 0.6, 1.0, 0.2, 2.0, 0.5), figsize=(13,5))
