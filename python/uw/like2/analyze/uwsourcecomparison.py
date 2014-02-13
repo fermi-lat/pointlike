@@ -1,7 +1,7 @@
 """
 Comparison with another UW model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/uwsourcecomparison.py,v 1.6 2014/01/14 21:20:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/uwsourcecomparison.py,v 1.7 2014/01/16 19:36:43 burnett Exp $
 
 """
 
@@ -90,11 +90,11 @@ class UWsourceComparison(sourceinfo.SourceInfo):
                 .sort_index(by='moved').to_html(float_format=FloatFormat(2))
         else: self.moved_html += '<br>No sources satisfy move criteron'
         fig, ax = plt.subplots(1,1, figsize=(5,5))
-        self.skyplot(self.df.ts[moved], ax=ax)
+        self.skyplot(self.df.ts[moved_cut], ax=ax)
         return fig
 
     
-    def compare(self, scat=True):
+    def compare(self, scat=True, ts_lim=(0.5,2.0), r95_lim=(0.25,1.25)):
         """Ratios of values of various fit parameters
         """
         odf, df = self.odf, self.df
@@ -117,8 +117,9 @@ class UWsourceComparison(sourceinfo.SourceInfo):
                     yerr = [t.std()/np.sqrt(len(t)) if len(t)>1 else 0 for t in ybinned] 
                     ax.errorbar(x*offset, ymean, yerr=yerr, fmt=fmt, label=label)
                 sy = lambda y: 1+(y-1)/4.
-                plt.setp(ax, xlim=(10,1e4), ylim=(sy(ylim[0]),sy(ylim[1])), ylabel=ylabel, xscale='log')
-            ax.axhline(1, color='k')
+                plt.setp(ax, xlim=(10,1e4), ylabel=ylabel, xscale='log')
+                #plt.setp(ax, ylim=(sy(ylim[0]),sy(ylim[1])), )
+            ax.axhline(1, color='g', ls='--')
             ax.legend(prop=dict(size=10))
             ax.grid()
             yhigh = y[cut*(df.ts>200)]
@@ -129,7 +130,7 @@ class UWsourceComparison(sourceinfo.SourceInfo):
             y = df.pindex/df.pindex_old
             plot_ratio(ax, y, cut, ylim, 'index')
             ax.set_xlabel('TS')
-        def plot_ts(ax, rdts=(0.5,1.5)):
+        def plot_ts(ax, rdts=ts_lim):
             y = df.ts/(df.ts_old +0.1)
             cut=df.ts>10
             plot_ratio(ax, y, cut, rdts,  'TS')
@@ -138,14 +139,14 @@ class UWsourceComparison(sourceinfo.SourceInfo):
             cut = df.ts>10
             plot_ratio(ax, y, cut, ylim, 'Eflux')
             
-        def plot_semimajor(ax, ylim=(0.5,1.5)):
+        def plot_semimajor(ax, ylim=r95_lim):
             y = df.a/df.a_old
             cut = df.ts>10
             plot_ratio(ax, y, cut, ylim, 'r95')
             
         fig, ax = plt.subplots(4,1, figsize=(10,12), sharex=True)
-        plt.subplots_adjust(hspace=0.05, left=0.1, bottom=0.1)
-        for f, ax in zip((plot_ts, plot_flux, plot_pindex,plot_semimajor,), ax.flatten()): f(ax)
+        plt.subplots_adjust(hspace=0.075, left=0.1, bottom=0.1)
+        for f, ax in zip((plot_ts, plot_semimajor, plot_flux, plot_pindex,), ax.flatten()): f(ax)
         fig.text(0.5, 0.05, 'TS', ha='center')
         return fig
     
@@ -199,4 +200,6 @@ class UWsourceComparison(sourceinfo.SourceInfo):
         return fig
         
     def all_plots(self):
-        self.runfigures([self.check_missing, self.check_moved, self.compare, self.compare_profile, self.band_compare, self.quality_comparison ])
+        self.runfigures([self.check_missing, self.check_moved, self.compare, self.compare_profile, 
+            # not working? self.band_compare, 
+            self.quality_comparison ])
