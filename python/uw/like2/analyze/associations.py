@@ -1,7 +1,7 @@
 """
 Association analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.11 2013/10/11 16:35:39 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.12 2014/02/13 18:30:41 burnett Exp $
 
 """
 import os, glob, sys, pyfits
@@ -160,6 +160,7 @@ class Associations(sourceinfo.SourceInfo):
         self.atable += html_table(latsel,
                     dict(ts='TS,Test Statistic', ROI_index='ROI Index,Index of the ROI, a HEALPix ring index'),
                     heading = '<p>%d LAT catalog entries not in the model (TS shown as NaN), or too weak.' % sum(missing),
+                    name=self.plotfolder+'/missing', maxlines=20,
                     float_format=(FloatFormat(2)))
         far = lat.delta>0.25
         if sum(far)>0:
