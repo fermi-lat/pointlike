@@ -1,7 +1,7 @@
 """
 Association analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.10 2013/09/26 17:41:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.11 2013/10/11 16:35:39 burnett Exp $
 
 """
 import os, glob, sys, pyfits
@@ -21,7 +21,7 @@ class Associations(sourceinfo.SourceInfo):
     were used for 2FGL, except that the latest LAT pulsar catalog is used. Note that priors are not recalculated,
     we use the values determined for 2FGL. The method is explained in the <a href="http://arxiv.org/pdf/1002.2280v1.pdf">1FGL paper</a>, see Appendix B.
     <p>
-    <p>Note that Jurgen's pipeline now has the Planck catalogs.
+    <p>Note that Jurgen's pipeline now has the Planck and WISE catalogs.
     """
     
     def setup(self, **kw):
@@ -39,7 +39,7 @@ class Associations(sourceinfo.SourceInfo):
         probfun = lambda x: x['prob'][0] if not pd.isnull(x) else 0
         self.df['aprob'] = np.array([ probfun(assoc) for  assoc in associations])
         self.df['acat']  = np.array([ assoc['cat'][0] if not pd.isnull(assoc) else 'unid' for  assoc in associations])
-        self.df['aname']  = np.array([ assoc['name'][0] if not pd.isnull(assoc) else 'unid' for  assoc in associations])
+        self.df['aname'] = np.array([ assoc['name'][0] if not pd.isnull(assoc) else 'unid' for  assoc in associations])
         self.df['aang']  = np.array([ assoc['ang'][0] if not pd.isnull(assoc) else np.nan for  assoc in associations])
 
         self.df['adeltats'] = np.array([assoc['deltats'][0] if not pd.isnull(assoc) else np.nan for assoc in associations])
@@ -125,7 +125,6 @@ class Associations(sourceinfo.SourceInfo):
         """LAT pulsar check
         %(atable)s
         """
-        self.atable=''      
         # compare with LAT pulsar catalog     
         tt = set(self.df.name[self.df.psr])
         pulsar_lat_catname = sorted(glob.glob(os.path.expandvars('$FERMI/catalog/srcid/cat/obj-pulsar-lat_*')))[-1]
@@ -145,19 +144,30 @@ class Associations(sourceinfo.SourceInfo):
         dc2names =set(pp.Source_Name)
         print 'sources with exp cutoff not in LAT catalog:', list(tt.difference(dc2names))
         print 'Catalog entries not found:', list(dc2names.difference(tt))
-        missing = [ np.isnan(x) or x<10. for x in lat.ts]
+        missing = np.array([ np.isnan(x) or x<10. for x in lat.ts])
         
-        self.atable += '<h4>Compare with LAT pulsar catalog: %s</h4>' % os.path.split(pulsar_lat_catname)[-1]
+        # this used to work but now generates 'endian' message
+        #latsel = lat[missing]['RAJ2000 DEJ2000 ts ROI_index'.split()]
+        missing_names = lat.index[missing]
+        cols = 'RAJ2000 DEJ2000 ts ROI_index'.split()
+        latsel = pd.DataFrame( np.array([lat[id][missing] for id in cols]), index=cols, columns=missing_names).T
+
+        psrx = np.array([x in 'pulsar_fom pulsar_low msp pulsar_big'.split() for x in self.df.acat])
+        print '%d sources found in other pulsar catalogs' % sum(psrx)
+
+        self.atable = '<h4>Compare with LAT pulsar catalog: %s</h4>' % os.path.split(pulsar_lat_catname)[-1]
         self.atable += '<p>Sources fit with exponential cutoff not in catalog %s' %list(tt.difference(dc2names))
-        self.atable += html_table(lat[missing]['RAJ2000 DEJ2000 ts ROI_index'.split()],
+        self.atable += html_table(latsel,
                     dict(ts='TS,Test Statistic', ROI_index='ROI Index,Index of the ROI, a HEALPix ring index'),
                     heading = '<p>%d LAT catalog entries not in the model (TS shown as NaN), or too weak.' % sum(missing),
                     float_format=(FloatFormat(2)))
-        if sum(lat.delta>0.25)>0:
+        far = lat.delta>0.25
+        if sum(far)>0:
+            far_names = lat.index[far]
+            cols = 'ts delta'.split()
+            latfar = pd.DataFrame( np.array([lat[id][far] for id in cols]),index=cols, columns=far_names).T
             self.atable += '<p>Pulsars located > 0.25 deg from nominal'\
-                    + lat[lat.delta>0.25]['ts delta'.split()].to_html(float_format=FloatFormat(2))
-        psrx = np.array([x in 'pulsar_fom pulsar_low msp pulsar_big'.split() for x in self.df.acat])
-        print '%d sources found in other pulsar catalogs' % sum(psrx)
+                    + latfar.to_html(float_format=FloatFormat(2))
         if sum(psrx)>0:
             self.atable+= html_table(self.df[psrx]['aprob acat aname aang ts delta_ts locqual'.split()],
                           dict(name='Source Name,click for link to SED',
@@ -176,7 +186,7 @@ class Associations(sourceinfo.SourceInfo):
                           name=self.plotfolder+'/atable',
                           maxlines=50)        
         
-    def localization_check(self, tsmin=10, dtsmax=9):
+    def localization_check(self, tsmin=10, dtsmax=9, qualmax=5):
         r"""Localization resolution test
         
         The association procedure records the likelihood ratio for consistency of the associated location with the 
@@ -199,7 +209,7 @@ class Associations(sourceinfo.SourceInfo):
         x = np.linspace(0,dtsmax,4*dtsmax+1)
         plt.subplots_adjust(left=0.1)
         def all_plots(ax, select, label):
-            cut = select*(self.df.aprob>0.8)*(self.df.ts>tsmin)*(self.df.locqual<5)*(self.df.adeltats<dtsmax)
+            cut = select*(self.df.aprob>0.8)*(self.df.ts>tsmin)*(self.df.locqual<qualmax)*(self.df.adeltats<dtsmax)
             y = self.df[cut].adeltats
             ax.hist(y, x , log=False)
             beta = y.mean()*(c1)/c2
