@@ -1,6 +1,6 @@
 """    Description here
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.7 2013/08/29 06:12:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.8 2014/02/13 04:11:16 burnett Exp $
 
 """
 
@@ -50,7 +50,7 @@ class Localization(sourceinfo.SourceInfo):
             print self.df.ix[unloc]['ra dec ts roiname'.split()]
             print 'Wrote file "unlocalized_sources.csv"'
 
-    def localization(self, maxdelta=9, mints=10):
+    def localization(self, maxdelta=9, mints=10, maxqual=5):
         """Localization plots
         The 'finish' stage of creating a model runs the localization code to check that the current position is 
         still appropriate. This is measured by the change in the value of the TS at the best fit position. The position is only 
@@ -66,7 +66,7 @@ class Localization(sourceinfo.SourceInfo):
         cut = self.df.ts>mints
         ax=axx[0]
         for tcut in (mints, 100):
-            t = np.sqrt(wp.delta_ts[self.df.ts>tcut].clip(0,maxdelta))
+            t = np.sqrt(wp.delta_ts[(self.df.ts>tcut) & (self.df.locqual<maxqual)].clip(0,maxdelta))
             ax.hist(t, bins, label='ts>%d: mean=%.2f'%(tcut, t.mean()) )
         #ax.hist(np.sqrt(wp.delta_ts[self.df.ts>100].clip(0,maxdelta)), bins,label='TS>100\nmean:%f.1'%wp.delta)
         ax.legend(prop=dict(size=10))
