@@ -1,7 +1,7 @@
 """
 Plots involving the 1728 ROIs
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/roi_info.py,v 1.5 2013/11/27 14:59:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/roi_info.py,v 1.6 2014/02/13 04:11:16 burnett Exp $
 
 """
 
@@ -50,7 +50,6 @@ class ROIinfo(analysis_base.AnalysisBase):
         else:
             print 'loading %s' % filename
             self.df = pd.load(filename)
-        if True: return    
         # move this into refresh?
         rois = self.df
         rx = rois['ra dec glat glon'.split()] 
