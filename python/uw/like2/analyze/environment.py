@@ -1,7 +1,7 @@
 """
 Environment plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.13 2013/08/05 03:26:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.14 2013/10/14 21:01:39 burnett Exp $
 
 """
 
@@ -13,6 +13,7 @@ from scipy import integrate, misc, optimize
 #from skymaps import SkyDir #?
 
 from . import roi_info
+from .. import (configuration, diffuse)
 
 class Environment(roi_info.ROIinfo):
     """ Environment plots"""
@@ -21,7 +22,7 @@ class Environment(roi_info.ROIinfo):
     def setup(self, **kw):
         super(Environment, self).setup(**kw)
         self.plotfolder='environment'
-        self.config = eval(open('config.txt').read())
+        self.config = configuration.Configuration('.',postpone=True, quiet=True)
         s=[]
         for sname in ['ring', 'isotrop']:
             z=[]
@@ -76,7 +77,7 @@ class Environment(roi_info.ROIinfo):
      
     def get_psf(self, irfname=None, ):
         from uw.like import pypsf, pycaldb
-        if irfname is None: irfname=self.config['irf']
+        if irfname is None: irfname=self.config.irf
         cdm = pycaldb.CALDBManager(irf=irfname)
         self.psf_files=cdm.get_psf()
         return pypsf.CALDBPsf(cdm)
@@ -168,9 +169,11 @@ the second when there is small background, above a few GeV.
         <br>Files for front/back: %(idfiles)s
         """
         # look up filenames used to define the isotropic spectrum: either new or old diffuse spec; list or dict
-        diffuse=self.config['diffuse']
-        isokey = 'isotrop' if type(diffuse)==types.DictType else 1
-        self.idfiles = [os.path.join(os.environ['FERMI'],'diffuse',diffuse[isokey][i]) for i in (0,1)]
+        #diffuse=self.config['diffuse']
+        #isokey = 'isotrop' if type(diffuse)==types.DictType else 1
+        #self.idfiles = [os.path.join(os.environ['FERMI'],'diffuse',diffuse[isokey][i]) for i in (0,1)]
+        df=diffuse.diffuse_factory(self.config.diffuse['isotrop'])
+        self.idfiles = [x.fullfilename for x in df]
         nf,nb = map(np.loadtxt, self.idfiles)
         energies = nf[:,0]; front,back = nf[:,1],nb[:,1]
         fig, axs = plt.subplots(1,2, figsize=(10,5), dpi=50)
