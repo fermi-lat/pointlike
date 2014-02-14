@@ -1,7 +1,7 @@
 """
 Comparison with another UW model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/uwsourcecomparison.py,v 1.7 2014/01/16 19:36:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/uwsourcecomparison.py,v 1.8 2014/02/13 18:30:04 burnett Exp $
 
 """
 
@@ -11,7 +11,7 @@ import pylab as plt
 import pandas as pd
 
 from . import sourceinfo
-from . diagnostics import FloatFormat
+from . analysis_base import FloatFormat, html_table
 
 class UWsourceComparison(sourceinfo.SourceInfo):
     r"""Comparision with another UW model: %(othermodel)s
@@ -20,7 +20,7 @@ class UWsourceComparison(sourceinfo.SourceInfo):
     """
     def setup(self, othermodel='uw29', **kw):
         super(UWsourceComparison,self).setup()
-        self.plotfolder = 'comparison_%s' % othermodel
+        self.plotfolder = 'comparison_%s' % othermodel.split('/')[-1]
 
         otherfilename = '../%s/sources.pickle' %othermodel
         self.othermodel=othermodel
@@ -59,8 +59,9 @@ class UWsourceComparison(sourceinfo.SourceInfo):
         self.missing['distance']=[x[1] for x in t]
         self.missing['nearest_ts']=self.df.ix[self.missing.nearest.values]['ts'].values
         
-        self.missing_html=self.missing[self.missing.ts>10]['ts ra dec nearest nearest_ts distance roiname'.split()]\
-            .sort_index(by='roiname').to_html(float_format=FloatFormat(2))
+        self.missing_html=html_table(
+            self.missing[self.missing.ts>10]['ts ra dec nearest nearest_ts distance roiname'.split()]\
+            .sort_index(by='roiname'), float_format=FloatFormat(2),name=self.plotfolder+'/missing')
         def ts_hist(ax, tsmax=100):
             ax.hist(self.missing.ts.clip(0,tsmax), np.linspace(0,tsmax,26))
             ax.grid()
@@ -86,8 +87,9 @@ class UWsourceComparison(sourceinfo.SourceInfo):
         moved_cut=(self.df.moved>tol[0]*self.df.a) *(self.df.moved>tol[1])
         self.moved_html = '<br>%d sources moved'%sum(self.df.moved>0)
         if sum(moved_cut)>0:
-            self.moved_html += self.df[moved_cut]['ts_old ts ra dec a locqual moved roiname'.split()]\
-                .sort_index(by='moved').to_html(float_format=FloatFormat(2))
+            self.moved_html += html_table(
+             self.df[moved_cut]['ts_old ts ra dec a locqual moved roiname'.split()]\
+                .sort_index(by='moved'), float_format=FloatFormat(2), name=self.plotfolder+'/moved')
         else: self.moved_html += '<br>No sources satisfy move criteron'
         fig, ax = plt.subplots(1,1, figsize=(5,5))
         self.skyplot(self.df.ts[moved_cut], ax=ax)
@@ -120,6 +122,7 @@ class UWsourceComparison(sourceinfo.SourceInfo):
                 plt.setp(ax, xlim=(10,1e4), ylabel=ylabel, xscale='log')
                 #plt.setp(ax, ylim=(sy(ylim[0]),sy(ylim[1])), )
             ax.axhline(1, color='g', ls='--')
+            ax.axvline(25, color='r', ls='--')
             ax.legend(prop=dict(size=10))
             ax.grid()
             yhigh = y[cut*(df.ts>200)]
