@@ -1,7 +1,7 @@
 """
 Environment plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.14 2013/10/14 21:01:39 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.15 2014/02/14 18:46:59 burnett Exp $
 
 """
 
@@ -195,6 +195,31 @@ the second when there is small background, above a few GeV.
         print 'wrote file %s' % os.path.join(self.plotfolder, 'isotropic.csv')
         return fig
 
+    def limb_map(self, energy=100):
+        """Limb plots
+        """
+        df=diffuse.diffuse_factory(config.diffuse['limb'])
+
+        [dd.plot_map(energy, scale='linear', cbtext='flux', title='Limb %s, %d MeV'%(name,energy))\
+            for dd,name in zip(df, self.config.event_type_names)]
+    
+    def limb_flux(self, energy=100, ra=0):
+        """Limb flux 
+        Note assume indpenent of RA: this is for RA=0.
+        """
+        from skymaps import SkyDir
+        df=diffuse.diffuse_factory(self.config.diffuse['limb'])
+        names = self.config.event_type_names
+        sindec = np.linspace(-1,1,501)
+        dec = np.degrees(np.arcsin(sindec));
+        fig, ax = plt.subplots(figsize=(8,5))
+        for i in range(len(df)):
+            flux = np.array([df[i](SkyDir(ra,d), energy) for d in dec])
+            ax.plot(sindec, flux, lw=2, label=names[i])
+        ax.legend(); ax.grid();
+        plt.setp(ax, xlabel='sin(Dec)', ylabel='flux', title='Limb flux @ %.0f MeV' %energy)
+        return fig
+    
     def get_background(self, roi):
         roiname='HP12_%04d' % roi
         return [t.ix[roiname] for t in self.bdf]
@@ -218,5 +243,6 @@ the second when there is small background, above a few GeV.
         
         
     def all_plots(self, **kw):
-        self.runfigures([self.psf_plot, self.exposure_plots, self.isotropic_spectrum,self.diffuse_flux, ])
+        self.runfigures([self.psf_plot, self.exposure_plots, 
+            self.isotropic_spectrum,self.diffuse_flux, self.limb_flux, ])
     
