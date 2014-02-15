@@ -1,7 +1,7 @@
 """
 Association analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.12 2014/02/13 18:30:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.13 2014/02/13 18:43:38 burnett Exp $
 
 """
 import os, glob, sys, pyfits
@@ -197,39 +197,64 @@ class Associations(sourceinfo.SourceInfo):
         from a point source, $f=1$. For 1FGL and 2FGL we assumed 1.1. The plots show the results for AGN, LAT pulsars, and
         all other associations. They are cut off at 9, corresponding to 95 percent containment.
         """
-        c1 = 0.95 # for 3 sigma
-        r = -np.log(1-c1)
-        c2= 1-(1-c1)*(r+1)
+        
         t = self.df.acat
         agn = np.array([x in 'crates bzcat agn bllac'.split() for x in t])
         psr = np.array([x in 'pulsar_lat'.split() for x in t])
         unid= np.array([x in 'unid'.split() for x in t])
         otherid=~(agn | psr | unid)
 
-        fig, axx = plt.subplots(1,3, figsize=(14,5))
-        x = np.linspace(0,dtsmax,4*dtsmax+1)
-        plt.subplots_adjust(left=0.1)
-        def all_plots(ax, select, label):
-            cut = select*(self.df.aprob>0.8)*(self.df.ts>tsmin)*(self.df.locqual<qualmax)*(self.df.adeltats<dtsmax)
-            y = self.df[cut].adeltats
-            ax.hist(y, x , log=False)
-            beta = y.mean()*(c1)/c2
-            factor = np.sqrt(beta/2)
-            print label,'total %d, mean: %.2f factor %.2f' % (len(y), beta, factor)
-            alpha = len(y)/beta/c1*(x[1]-x[0])
-            ax.plot(x, alpha*np.exp(-x/beta), '-r', lw=2, label='factor=%.2f'% factor)
-            plt.setp(ax, ylim=(1,1.2*alpha), xlabel=r'$\Delta TS$')
-            ax.grid(); ax.legend(prop=dict(size=10))
-            ax.text(1.5, alpha, '%d %s'%(len(y),label), fontsize=12)
-        def agns(ax):
-            all_plots(ax,agn, 'AGNs')
-
-        def pulsars(ax):
-            all_plots(ax, psr, 'LAT pulsars')
-        def other(ax): all_plots(ax, otherid, 'other associations')
+        def select(sel,  df = self.df, tsmin=tsmin, qualmax=qualmax):
+            cut = sel * (df.aprob>0.8) * (df.ts>tsmin) * (df.locqual<qualmax)
+            return df[cut].adeltats
             
-        for f,ax in zip((agns, pulsars, other,), axx.flatten()): f(ax)
-        return fig
+        fig, axx = plt.subplots(1,3, figsize=(14,5))
 
-    def all_plots(self):    
-        self.runfigures([self.summary, self.pulsar_check, self.association_vs_ts, self.localization_check,])
+        for sel, name, ax in zip((agn, psr,otherid), ('AGN','LAT pulsars', 'other ids'), axx):
+            z = FitExponential(select(sel), name)
+            z.plot(ax, xlabel=r'$\Delta TS$')
+            print '%s: localization factor=%.2f' %(name, z.factor)
+
+
+
+class FitExponential(object):
+    """manage the fit to an exponential distribution, with no background
+    """
+    
+    def __init__(self, v, label, vmax=9,  binsize=0.25):
+        from scipy import optimize
+
+        self.vmax, self.binsize, self.label = vmax, binsize, label
+        self.vcut=vcut = v[v<vmax]
+        self.vmean = vmean = vcut.mean() 
+        # find factor that has same average over the interval
+        self.factor = optimize.brentq( lambda x : self.cfactors(x)[3]-self.vmean, 1.0, 1.2)
+        beta, c0, c1, r = self.cfactors(self.factor)
+        self.alpha = len(vcut) / c0 * binsize
+        self.beta=beta
+        
+    def cfactors(self, f):
+        """for factor f, return beta, c0, c1, and c1/c0
+        where c0 and c1 are integrals(o,vmax) of exp(-x/beta) and x*exp(-x/beta)
+        Thus c1/c0 is <x> over the interval
+        """
+        beta = 2 * f**2
+        u = self.vmax/beta
+        c0 = beta * (1 - np.exp(-u))
+        c1 = beta**2 * (1 - np.exp(-u) * (1+u)) 
+        return beta, c0, c1, c1/c0
+    
+    def plot(self, ax=None, xlabel=''):
+        if ax is None:
+            fig,ax = plt.subplots(figsize=(5,5))
+        else:fig = ax.figure
+        x = np.linspace(0, self.vmax, int(self.vmax/self.binsize)+1) 
+        ax.hist( self.vcut, x, label='%d %s'%(len(self.vcut),self.label))
+        ax.set_ylim(ymin=0)
+        ax.plot(x, self(x), '-r', lw=2,  label='factor=%.2f'% self.factor)
+        ax.grid(); ax.legend()
+        plt.setp(ax, ylim=(0, 1.1*self.alpha), xlabel=xlabel)
+
+    def __call__(self, x):
+        return self.alpha * np.exp(-x/self.beta)
+
