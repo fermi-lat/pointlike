@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.15 2014/01/19 16:23:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.16 2014/01/19 16:34:24 burnett Exp $
 
 """
 
@@ -69,7 +69,7 @@ def load_pickles_from_zip(zipfilename='pickle.zip'):
     """
     pkls = []
     
-    assert os.path.exists(zipfilename)
+    assert os.path.exists(zipfilename), 'Zip File not found: %s' % zipfilename
     print 'unpacking file %s ...' % (os.getcwd()+'/'+zipfilename ,),
     z = zipfile.ZipFile(zipfilename)
     files = sorted( filter( lambda n:  n.endswith('.pickle'), z.namelist() ) ) 

@@ -1,7 +1,7 @@
 """
 Residual plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.1 2014/02/12 18:53:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.2 2014/02/13 04:11:16 burnett Exp $
 
 """
 
@@ -9,6 +9,7 @@ import pickle
 import numpy as np
 import pylab as plt
 import pandas as pd
+import matplotlib.gridspec as gridspec
 
 from . import (roi_info,  analysis_base)
 from .. import tools
@@ -102,6 +103,38 @@ class Residuals(roi_info.ROIinfo):
 
         return fig
 
+    def front_back_ridge(self):
+        """front/back galactic residual ratio on ridge
+        Ridge is within 10 degrees in latitude, 60 degrees in longitude.
+        <br>Top three rows: histograms
+        <br>Bottom plat: average
+        """
+        fb = [self.resid_array('ring', 'maxl', et) for et in ['front', 'back']]
+        fbr = fb[0]/fb[1]; 
+        ridge = (np.abs(self.df.glat)<10) & (np.abs(self.df.glon)<60); 
+        fbrr = fbr[ridge]
+
+        fig =plt.figure(figsize=(12,9))
+        gs1 = gridspec.GridSpec(3,4, bottom=0.35)
+        axx = np.array([[plt.subplot(gs1[i,j]) for i in range(3)] for j in range(4)])
+
+        gs2 = gridspec.GridSpec(1,1, top=0.3, right=0.6)
+        axb = plt.subplot(gs2[0,0])
+        means = []
+        for i,ax in enumerate(axx.flatten()):
+            u = fbrr[:,i]
+            uok = u[np.isfinite(u)]; means.append(uok.mean());
+            ax.hist(u.clip(0.5,1.5), np.linspace(0.5, 1.5, 51));
+            ax.axvline(1.0, color='b', ls='--')
+            ax.text(0.1, 0.9, '%.0f MeV' % self.energy[i], size=10,  transform = ax.transAxes)
+            
+        ax=axb
+        ax.semilogx(self.energy[:12], means, 'o-')
+        ax.axhline(1.0, color='b', ls='--')
+        ax.grid()
+        plt.setp(ax, ylim=(0.85,1.15), xlabel='Energy [MeV]', ylabel='front/back ratio')
+        return fig
+        
     @tools.decorate_with(pull_maps, append=True)
     def pull_maps_ring(self):
         """Pull plots for galactic diffuse
@@ -146,6 +179,7 @@ class Residuals(roi_info.ROIinfo):
        self.runfigures([
             self.pull_maps_ring, self.pull_maps_isotrop, 
             self.norm_plot,
+            self.front_back_ridge,
             self.maxl_plots_isotrop_front, self.maxl_plots_isotrop_back,
             self.maxl_plots_limb_front, self.maxl_plots_limb_back,
             ])
