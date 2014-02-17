@@ -1,11 +1,11 @@
 """
 Residual plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.2 2014/02/13 04:11:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.3 2014/02/16 13:49:23 burnett Exp $
 
 """
 
-import pickle
+import os, glob, pickle
 import numpy as np
 import pylab as plt
 import pandas as pd
@@ -107,7 +107,7 @@ class Residuals(roi_info.ROIinfo):
         """front/back galactic residual ratio on ridge
         Ridge is within 10 degrees in latitude, 60 degrees in longitude.
         <br>Top three rows: histograms
-        <br>Bottom plat: average
+        <br>Bottom plot: average
         """
         fb = [self.resid_array('ring', 'maxl', et) for et in ['front', 'back']]
         fbr = fb[0]/fb[1]; 
@@ -116,23 +116,57 @@ class Residuals(roi_info.ROIinfo):
 
         fig =plt.figure(figsize=(12,9))
         gs1 = gridspec.GridSpec(3,4, bottom=0.35)
-        axx = np.array([[plt.subplot(gs1[i,j]) for i in range(3)] for j in range(4)])
-
+        axt = []; first=True
+        for i in range(3):
+            for j in range(4):
+                axt.append(plt.subplot(gs1[i,j], sharex=None if first else axt[0] ))
+                first=False
+        
         gs2 = gridspec.GridSpec(1,1, top=0.3, right=0.6)
         axb = plt.subplot(gs2[0,0])
         means = []
-        for i,ax in enumerate(axx.flatten()):
+        for i,ax in enumerate(axt):
             u = fbrr[:,i]
             uok = u[np.isfinite(u)]; means.append(uok.mean());
             ax.hist(u.clip(0.5,1.5), np.linspace(0.5, 1.5, 51));
             ax.axvline(1.0, color='b', ls='--')
             ax.text(0.1, 0.9, '%.0f MeV' % self.energy[i], size=10,  transform = ax.transAxes)
-            
+        plt.setp(axt[0] , xlim=(0.5,1.5))
+   
         ax=axb
         ax.semilogx(self.energy[:12], means, 'o-')
         ax.axhline(1.0, color='b', ls='--')
         ax.grid()
         plt.setp(ax, ylim=(0.85,1.15), xlabel='Energy [MeV]', ylabel='front/back ratio')
+        return fig
+        
+    def front_back_strong(self):
+        """Front/back ratio for strongest sources
+        """
+        filename = glob.glob('sources_*.csv')[0]
+        assert os.path.exists(filename), 'sources csv file not found'
+        sdf = pd.read_csv(filename, index_col=0)
+        t =sdf.sort_index(by='ts')
+        strong_names = t.ts[-4:].index
+        print 'selected strong names: %s' % list(strong_names)
+        roinames = [sdf.ix[sn]['roiname'] for sn in strong_names]
+        rois = map(lambda s: int(s[-4:]), roinames)
+        
+        rdict = {}; edict={}
+        for roi,name in zip(rois, strong_names):
+            t = self.pkls[roi][name]
+            u =np.array([t[et]['flux'] for et in ('front','back')]); 
+            du = np.array([ t[et]['uflux']-t[et]['flux'] for et in ('front', 'back')]) 
+            rdict[name] = u[0,:8]/u[1,:8]
+            edict[name] = np.sqrt((du[0,:8]/u[0,:8])**2 +
+                                  (du[1,:8]/u[1,:8])**2 )
+
+        fig, axx = plt.subplots(2,2, figsize=(10,10), sharex=True, sharey=True)
+        for (key, values), errors, ax  in zip(rdict.items(),edict.values(), axx.flatten()):
+            ax.errorbar(x=self.energy[:8],y=values,yerr=errors, fmt='o')
+            ax.grid()
+            ax.axhline(1.0, color='k', ls ='--')
+            plt.setp(ax, xlabel='Energy [MeV]', xscale='log', title=key, ylim=(0.85,1.15));
         return fig
         
     @tools.decorate_with(pull_maps, append=True)
@@ -179,7 +213,7 @@ class Residuals(roi_info.ROIinfo):
        self.runfigures([
             self.pull_maps_ring, self.pull_maps_isotrop, 
             self.norm_plot,
-            self.front_back_ridge,
+            self.front_back_ridge, self.front_back_strong,
             self.maxl_plots_isotrop_front, self.maxl_plots_isotrop_back,
             self.maxl_plots_limb_front, self.maxl_plots_limb_back,
             ])
