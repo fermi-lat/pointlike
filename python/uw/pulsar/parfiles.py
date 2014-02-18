@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.58 2014/01/20 07:34:56 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.59 2014/01/21 06:55:37 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -867,7 +867,7 @@ def get_resids(par,tim,emax=None,phase=False,get_mjds=False,latonly=False,
         raise IOError('Ephemeris %s is not a valid file!'%par)
     if not os.path.isfile(tim):
         raise IOError('TOA collection %s is not a valid file!'%tim)
-    cmd = """tempo2 -output general2 -s "onerous\t{err}\t{post}\t{bat}\t{freq}\n" -f %s %s"""%(par,tim)
+    cmd = """tempo2 -output general2 -s "onerous\t{err}\t{post}\t{bat}\t{freq}\n" -f %s %s -nofit"""%(par,tim)
     proc = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE)
     toks = [line.split('\t')[1:] for line in proc.stdout if line[:7]=='onerous']
     # NB -- both residuals and errors in microseconds
@@ -885,6 +885,7 @@ def get_resids(par,tim,emax=None,phase=False,get_mjds=False,latonly=False,
         # get observation lengths
         tobs = np.asarray(map(lambda x: float(x) if len(x)>0 else 1e6,
             flag_values(tim,'length')))
+        print errs.shape,jitter,tobs.shape
         x = (errs**2 + (1e6*jitter)**2/tobs)**0.5
         errs = x
     # if we are restricting large error bars, remove their contribution
@@ -913,10 +914,10 @@ def get_resids(par,tim,emax=None,phase=False,get_mjds=False,latonly=False,
 
 def get_toa_strings(tim):
     """ Return a list of strings for all TOA entries."""
-    lines = filter(lambda x: x[0]!='C' and x[0]!='#',file(tim).readlines())
+    lines = file(tim).readlines()
     if not lines[0].startswith('FORMAT 1'):
         raise ValueError('Cannot parse non-tempo2 style TOA files.')
-    lines = filter(lambda x: x[0] == ' ',lines)
+    lines = filter(id_toa_line,lines)
     if (len(lines)>0) and (not lines[-1].endswith('\n')):
         lines[-1] = lines[-1] + '\n'
     return lines
@@ -980,13 +981,22 @@ def tim_faker(tim,tim_shifts,thresh=5,output=None):
             continue
     file(output,'w').write(''.join(new_lines))
 
+def strip_radio(tim,output=None):
+    """ Remove non-LAT TOAs from a file based on frequency."""
+    toas = filter(lambda toa: int(float(toa.split()[1]))==0,
+        get_toa_strings(tim))
+    output = output or tim
+    file(output,'w').write(''.join(toas))
+
 def id_toa_line(line):
-    """ Determine if the line from a .tim file corresponds to an (uncommented)
-        TOA.
+    """ Determine if the line from a .tim file corresponds to an 
+        (uncommented) TOA.
         
         Primarily, check to see if the third column is consistent with an MJD.
     """
     if line[0]=='#' or line[0]=='C':
+        return False
+    if 'FORMAT' in line:
         return False
     toks = line.split()
     if len(toks) < 3:
@@ -1195,6 +1205,7 @@ def compute_jump(par,tim,flags,vals,tmin=None,tmax=None,add_jumps=False,
     if not os.path.isfile(tim):
         raise IOError('TOA collection %s is not a valid file!'%tim)
     if len(flags)<2:
+        print 'Fewer than two flags.'
         return 0
     
     if clear_jumps:
