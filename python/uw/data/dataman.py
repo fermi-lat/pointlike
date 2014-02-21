@@ -4,8 +4,8 @@ Module implements classes and functions to specify data for use in pointlike ana
 author(s): Matthew Kerr, Eric Wallace
 """
 
-__version__ = '$Revision: 1.24 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.24 2013/09/27 17:07:35 burnett Exp $
+__version__ = '$Revision: 1.25 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.25 2013/09/27 17:09:00 burnett Exp $
 
 import os, sys
 import collections
@@ -44,6 +44,7 @@ def get_pass(ft1):
     v = h.get('PASS_VER')
     if (v is not None):
         if str(v).strip()[:2]=='P7': return 7
+        if str(v).strip()[:2]=='P8': return 8
     if 'CTBCLASSLEVEL' in h.keys(): return 6
     return 7
 

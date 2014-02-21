@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.65 2014/02/09 19:22:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.66 2014/02/12 22:38:14 burnett Exp $
 
 """
 import types, time
@@ -97,6 +97,11 @@ class ROI(views.LikelihoodViews):
             self.name = 'HP12_%04d' % roi_index
         elif isinstance(roi_spec, str):
             roi_sources =from_xml.ROImodelFromXML(config, roi_spec)
+            #this will not work : index expects an integer. We are missing a function retrieving roi_dir from FT1 and
+            #passing it down to the code where it is needed  
+            #roi_index = roi_sources.index(eval(config.dataset.dss[0]["VAL"].strip('CIRCLE')[:-4]+')'))
+            #the line below does not work for ROImodelFromXML as .index is a function, not a parameter. So there is an API
+            #mismatch between ROImodelFromXML and ROImodelFromHealpix
             roi_index = roi_sources.index
             self.name = roi_spec
         else:
