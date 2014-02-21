@@ -1,7 +1,7 @@
 """
 Residual plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.3 2014/02/16 13:49:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.4 2014/02/17 15:12:45 burnett Exp $
 
 """
 
@@ -42,6 +42,23 @@ class Residuals(roi_info.ROIinfo):
         empty = [np.nan]*len(self.energy)
         return np.array([p[source_name][event_type][column_name] if source_name in p else empty for p in self.pkls])
 
+    def update_correction(self, vin, vout=None):
+        """ update the Galactic Diffuse correction factor array with new residuals"""
+        if vout is None: vout = vin+1
+        # get current residual array, replace any nan's with 1.0
+        t = self.resid_array('ring', 'maxl')
+        ra = t[:,:8] # only upto 10 GeV
+        ra[~np.isfinite(ra)]=1.0
+        # read in input correction array
+        infile = os.path.expandvars('$FERMI/diffuse/galactic_correction_v%d.csv'%vin)
+        assert os.path.exists(infile), 'File %s not found' %infile
+        cv_old = pd.read_csv(infile, index_col=0)
+        # multiply input corrections by residuals ane write it out
+        cv_new = ra * cv_old
+        outfile = os.path.expandvars('$FERMI/diffuse/galactic_correction_v%d.csv'%vout)
+        cv_new.to_csv(outfile)
+        print 'wrote new diffuse correction file %s' % outfile
+    
     def norm_plot(self, name='isotrop', ax=None, ylim=(0.5,1.5)):
         """Isotropic Normalization vs Dec
         Only the isotropic component is allowed to vary; this is the resulting value.
@@ -79,7 +96,7 @@ class Residuals(roi_info.ROIinfo):
         fig.text(0.5, 0.95, 'pulls for %s, %s events'%(source_name, event_type), ha='center', size=12)
         return fig
         
-    def maxl_plots(self, source_name='isotrop', event_type='all', bands=8,bcut=5, ylim=(0.5,1.5)):
+    def maxl_plots(self, source_name='isotrop', event_type='all', bands=8,bcut=5, ylim=(0.5,1.5), nocolorbar=False):
         """Refit normalizations per band. The peak values for the individual likelihood functions.
         """
         maxl = self.resid_array(source_name,'maxl', event_type=event_type)
@@ -92,6 +109,7 @@ class Residuals(roi_info.ROIinfo):
             scat=ax.scatter(self.sindec[hilat], maxl[:,k][hilat].clip(*ylim), c=abs(glat)[hilat], edgecolor='none');
             plt.setp(ax, ylim=ylim, xlim=(-1,1), title='%d MeV'%self.energy[k])
             ax.grid()
+        if nocolorbar: return fig
         #put colorbar at right        
         cbax = fig.add_axes((0.92, 0.15, 0.02, 0.7) )
         cb=plt.colorbar(scat, cbax, orientation='vertical')
@@ -169,6 +187,21 @@ class Residuals(roi_info.ROIinfo):
             plt.setp(ax, xlabel='Energy [MeV]', xscale='log', title=key, ylim=(0.85,1.15));
         return fig
         
+    def isotropic_hists(self, bmin=10, xlim=(0.4,1.6), etnames = ('front', 'back', 'all') ):
+        """Isotropic normalization hists
+        Maximum likelihood values for normalization for front (green) and back (red), all (black)
+        """
+        maxl = [self.resid_array('isotrop', 'maxl', et) for et in etnames ]
+        gcut = abs(self.df.glat)>bmin; 
+        fig,axx = plt.subplots(2,4, figsize=(12,8), sharex=True)
+        for i, ax in enumerate(axx.flatten()):
+            z = [maxl[j][gcut,i].clip(*xlim) for j in range(len(etnames))]
+            ax.hist(z, np.linspace( *xlim), histtype='step', color=('g','r', 'k'), label=etnames);
+            ax.axvline(1.0, ls = '--')
+            plt.setp(ax, xlabel='normalization factor')
+        return fig
+
+        
     @tools.decorate_with(pull_maps, append=True)
     def pull_maps_ring(self):
         """Pull plots for galactic diffuse
@@ -214,6 +247,7 @@ class Residuals(roi_info.ROIinfo):
             self.pull_maps_ring, self.pull_maps_isotrop, 
             self.norm_plot,
             self.front_back_ridge, self.front_back_strong,
+            self.isotropic_hists,
             self.maxl_plots_isotrop_front, self.maxl_plots_isotrop_back,
             self.maxl_plots_limb_front, self.maxl_plots_limb_back,
             ])
