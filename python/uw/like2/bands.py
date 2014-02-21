@@ -1,7 +1,7 @@
 """
 manage band classes
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bands.py,v 1.5 2013/12/05 21:16:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bands.py,v 1.6 2014/01/26 20:07:56 burnett Exp $
 """
 import os
 import numpy as np
@@ -21,6 +21,7 @@ class EnergyBand(object):
         
         """
         # define bin boundaries
+
         self.skydir=roi_dir if roi_dir is not None else  skymaps.Band(12).dir(roi_index)
         self.radius =5
         self.event_type = event_type
@@ -89,7 +90,7 @@ class BandSet(list):
         self.config = config
         if hasattr(roi_index,'__iter__') and len(roi_index)==2:
             dir = skymaps.SkyDir(*roi_index)
-            roi_index = Band(12).index(dir)
+            roi_index = skymaps.Band(12).index(dir)
         self.roi_index = roi_index
         for emin, emax  in zip(energybins[:-1], energybins[1:]):
             for et in range(2):

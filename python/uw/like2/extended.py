@@ -1,7 +1,7 @@
 """
 Extended source code
 Much of this adapts and utilizes 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.8 2013/12/05 21:16:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.9 2014/01/01 17:17:25 burnett Exp $
 
 """
 import os, copy
@@ -18,8 +18,11 @@ class ExtendedCatalog( roi_catalogs.ExtendedSourceCatalog):
         self.alias = kwargs.pop('alias', dict())
         self.quiet = kwargs.pop('quiet', True)
         self.catname = extended_catalog_name
-        extended_catalog_name = \
-            os.path.expandvars(os.path.join('$FERMI','catalog',extended_catalog_name))
+        if os.path.isabs(self.catname):
+            extended_catalog_name = self.catname
+        else:
+            extended_catalog_name = \
+                os.path.expandvars(os.path.join('$FERMI','catalog',extended_catalog_name))
         if not os.path.exists(extended_catalog_name):
             raise Exception('extended source folder "%s" not found' % extended_catalog_name)
         if not self.quiet:
