@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: cohen  Fri Feb 21 09:32:19 PST 2014
+pointlike/src
+
+Modified Files:
+	EventList.cxx 
+Log Message:
+first attempt at gtlike-style input setup
+    *
+------------------------------------------------------------
 User: cohen  Fri Feb 21 09:32:18 PST 2014
 pointlike/python/uw/like2
 
