@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.66 2014/02/12 22:38:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.67 2014/02/21 17:32:18 cohen Exp $
 
 """
 import types, time
@@ -77,7 +77,7 @@ class ROI(views.LikelihoodViews):
     )
 
     @keyword_options.decorate(defaults)
-    def __init__(self, config_dir, roi_spec, **kwargs):
+    def __init__(self, config_dir, roi_spec=None, **kwargs):
         """Start pointlike v2 (like2) in the specified ROI
         
         parameters
@@ -85,25 +85,22 @@ class ROI(views.LikelihoodViews):
         config_dir : string
             file path to a folder containing a file config.txt
             see configuration.Configuration
-        roi_spec : integer or TODO (ra,dec) tuple, name of an xml file
+        roi_spec : [None |integer | TODO (ra,dec) tuple | name of an xml file]
+            If None, require that the input_model dict has a key 'xml_file'
             
         """
         keyword_options.process(self, kwargs)
         self.config=config = configuration.Configuration(config_dir, quiet=self.quiet, postpone=self.postpone)
         ecat = extended.ExtendedCatalog(config.extended)
-        if isinstance(roi_spec, int):
+        
+        if roi_spec is None or isinstance(roi_spec, str):
+            roi_sources =from_xml.ROImodelFromXML(config, roi_spec)
+            roi_index = roi_sources.index
+            self.name = roi_spec
+        elif isinstance(roi_spec, int):
             roi_sources = from_healpix.ROImodelFromHealpix(config, roi_spec, ecat=ecat,load_kw=self.load_kw)
             roi_index = roi_spec
             self.name = 'HP12_%04d' % roi_index
-        elif isinstance(roi_spec, str):
-            roi_sources =from_xml.ROImodelFromXML(config, roi_spec)
-            #this will not work : index expects an integer. We are missing a function retrieving roi_dir from FT1 and
-            #passing it down to the code where it is needed  
-            #roi_index = roi_sources.index(eval(config.dataset.dss[0]["VAL"].strip('CIRCLE')[:-4]+')'))
-            #the line below does not work for ROImodelFromXML as .index is a function, not a parameter. So there is an API
-            #mismatch between ROImodelFromXML and ROImodelFromHealpix
-            roi_index = roi_sources.index
-            self.name = roi_spec
         else:
             raise Exception('Did not recoginze roi_spec: %s' %roi_spec)
         

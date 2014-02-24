@@ -1,17 +1,160 @@
 """
 Extended source code
 Much of this adapts and utilizes 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.9 2014/01/01 17:17:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.10 2014/02/21 17:32:18 cohen Exp $
 
 """
-import os, copy
+import os, copy, glob
 import numpy as np
-from uw.like import roi_catalogs, Models
+from skymaps import SkyDir
+from uw.like import  Models
+from uw.like.SpatialModels import Disk,EllipticalDisk,Gaussian,EllipticalGaussian,SpatialMap
+
 from . import sources, response
 
 
-class ExtendedCatalog( roi_catalogs.ExtendedSourceCatalog):
-    """ subclass to add this lookup function """
+class ExtendedSourceCatalog(object):
+    """ Object to read in spatially extended sources from Elizabeth Ferrara suggested
+        table of extended sources.
+
+        The input to this object is the directory contaning the extended source table
+        and a folder for xml descriptions and templates of extended sources.
+
+        For a description of the format of these sources, see:
+
+            https://confluence.slac.stanford.edu/x/Qw2JBQ
+        Copied from like.roi_catalogs.py since no longer supported there
+
+    '"""
+
+    def __init__(self,archive_directory, force_map=False):
+        self.force_map=force_map
+        self.__open_catalog__(archive_directory)
+
+    def __open_catalog__(self,archive_directory):
+        """ Parses the LAT_extended_sources.fit table 
+            to get a list of the extended sources. """
+        self.archive_directory = archive_directory
+
+        import pyfits
+        filename=os.path.join(self.archive_directory,"LAT_extended_sources*.fit*")
+        filename=glob.glob(filename)
+        if len(filename)!=1: raise Exception("Unable to find LAT_extended_sources.fit archive file.")
+        filename=filename[0]
+        f = pyfits.open(filename)
+        self.names = f[1].data.field('Source_Name')
+        ras   = f[1].data.field('RAJ2000')
+        decs  = f[1].data.field('DEJ2000')
+        form = f[1].data.field('Model_Form')
+        major = f[1].data.field('Model_SemiMajor')
+        minor = f[1].data.field('Model_SemiMinor')
+        posang = f[1].data.field('Model_PosAng')
+
+        # The xml filename for the extended sources.
+        self.xmls      = f[1].data.field('Spectral_Filename').astype(str)
+        self.templates = f[1].data.field('Spatial_Filename').astype(str)
+
+        self.dirs    = map(SkyDir,np.asarray(ras).astype(float),np.asarray(decs).astype(float))
+
+        if self.archive_directory in [ "Extended_archive_v01", "Extended_archive_v02", 
+                                       "Extended_archive_jbb02", "Extended_archive_jbb03" ]:
+
+            # old style archives
+            os.environ["LATEXTDIR"]=os.path.join(self.archive_directory,'Templates')
+        else:
+            os.environ["LATEXTDIR"]=self.archive_directory
+
+
+        # build up a list of the analytic extended source shapes (when applicable)
+        self.spatial_models = []
+        for i in range(len(self.names)):
+            if self.force_map:
+                self.spatial_models.append(
+                    SpatialMap(file=self.templates[i].replace(' ', '')))
+            elif form[i] == 'Disk':
+                if major[i] == minor[i] and posang[i] == 0:
+                    self.spatial_models.append(Disk(p=[major[i]],center=self.dirs[i]))
+                else:
+                    self.spatial_models.append(EllipticalDisk(p=[major[i],minor[i],posang[i]],center=self.dirs[i]))
+            elif form[i] == '2D Gaussian':
+                if major[i] == minor[i] and posang[i] == 0:
+                    self.spatial_models.append(Gaussian(p=[major[i]/Gaussian.x68],center=self.dirs[i]))
+                else:
+                    self.spatial_models.append(
+                        EllipticalGaussian(p=[major[i]/Gaussian.x68,minor[i]/Gaussian.x68,posang[i]],
+                                           center=self.dirs[i]))
+            else:
+                self.spatial_models.append(
+                    SpatialMap(file=self.templates[i])
+                )
+            #remember the fits file template in case the XML needs to be saved out.
+            self.spatial_models[-1].original_template = self.templates[i]
+            self.spatial_models[-1].original_parameters = self.spatial_models[-1].p.copy()
+
+
+        self.spatial_models = np.asarray(self.spatial_models)
+
+    def get_sources(self,skydir,radius=15):
+        """ Returns a list of ExtendedSource objects from the extended source
+            catalog that have a center withing a distance radius of the
+            position skydir. 
+           
+        Note that if there are none, it returns an empty list.   
+        """
+
+        from uw.utilities.xml_parsers import parse_sources
+
+        diffs    = np.degrees(np.asarray([skydir.difference(d) for d in self.dirs]))
+        mask     = diffs < radius
+        if sum(mask)==0: return []
+        diffs    = diffs[mask]
+        sorting = np.argsort(diffs)
+
+        names     = self.names[mask][sorting]
+        xmls      = self.xmls[mask][sorting]
+        spatials  = self.spatial_models[mask][sorting]
+
+        sources = []
+        for name,xml,spatial in zip(names,xmls,spatials):
+
+            full_xml=os.path.join(self.archive_directory,'XML',os.path.basename(xml))
+
+            # Use the built in xml parser to load the extended source.
+            ps,ds=parse_sources(xmlfile=full_xml.replace(' ', ''))
+            if len(ps) > 0: 
+                raise Exception("A point source was found in the extended source file %s" % xmlfile)
+            if len(ds) > 1: 
+                raise Exception("No diffuse sources were found in the extended soruce file %s" % xmlfile)
+            if len(ds) < 1: 
+                raise Exception("More than one diffuse source was found in the extended source file %s" % xmlfile)
+
+            source=ds[0]
+            if False: # don't support analytic maps  spatial is not None:
+                # replace the SpatialMap extended source with an analytic one.
+                analytic_source = ExtendedSource(name=source.name,model=source.model,
+                                                 spatial_model=spatial)
+                analytic_source.original_template = source.spatial_model.file # for reference
+                sources.append(analytic_source)
+            else:
+                sources.append(source)
+
+        return sources
+
+    def merge_lists(self,skydir,radius=15,user_point_list=[],user_diffuse_list=[]):
+        """ Get a list of extended sources from the  catalog and merge it with 
+            and already existin glist of point and diffuse sources.
+
+            Unlike the FermiCatalog, no source pruning is done. """
+
+        cat_list = self.get_sources(skydir,radius)
+
+        return user_point_list,user_diffuse_list+cat_list
+
+
+class ExtendedCatalog( ExtendedSourceCatalog):
+    """ subclass to add this lookup function 
+    TODO: merge, keeping only needed features
+    """
 
     def __init__(self, extended_catalog_name, **kwargs):
         """ initialize by also filling an array with all source spectral models"""

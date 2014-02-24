@@ -1,11 +1,11 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.29 2013/12/09 01:14:04 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.30 2014/01/26 20:07:56 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.29 $'.split()[1]
+version='$Revision: 1.30 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np
@@ -29,24 +29,18 @@ class DataSpecification(object):
         Note: if interval found, modify the binfile and ltcube name to include
         """
         if folder=='.': folder = os.getcwd()
-        if 'pickle' in data:
-            print 'found pickle %s' % data['pickle']
-            t = pickle.load(open(data['pickle']))
-            #print t.__dict__
-            self.__dict__.update(t.__dict__)
-        else:
-            for key in 'ft1files ft2files binfile ltcube'.split():
-                if key in data and data[key] is not None:
-                    data[key]=os.path.expandvars(data[key]) 
-                    if not os.path.isabs(key):
-                        data[key] = os.path.join(folder,data[key])
-                    # need a check, but will fail if need to glob
-                    #assert os.path.exists(data[key]), 'DataSpec: file %s not found' % data[key]
-            interval = data.get('interval', None)
-            if interval is not None:
-                for name in ('binfile', 'ltcube'):
-                    data[name]=data[name].replace('.fit', '_%s.fit'%interval)
-            self.__dict__.update(data)
+        for key in 'ft1files ft2files binfile ltcube'.split():
+            if key in data and data[key] is not None:
+                data[key]=os.path.expandvars(data[key]) 
+                if not os.path.isabs(key):
+                    data[key] = os.path.join(folder,data[key])
+                # need a check, but will fail if need to glob
+                #assert os.path.exists(data[key]), 'DataSpec: file %s not found' % data[key]
+        interval = data.get('interval', None)
+        if interval is not None:
+            for name in ('binfile', 'ltcube'):
+                data[name]=data[name].replace('.fit', '_%s.fit'%interval)
+        self.__dict__.update(data)
         if not quiet: print 'data spec:\n', str(self.__dict__)
 
     def __str__(self):
@@ -93,9 +87,7 @@ class DataSet(dataman.DataSpec):
         ('bins',  None,  ''),
         ('interval', None, 'Name for a specific time period: key in a dictionary to (start, stop)'),
 
-        ' new feature',
-        ('pickle', None, 'pickled dataspec'),
-        ('legacy', False, 'set True to read old files'),
+        ('legacy', True, 'needed to allow no DSS in livetime cubes'),
         
         'keywords controlling instrument response',
         ('irf',None,'Which IRF to use'),
@@ -151,20 +143,18 @@ class DataSet(dataman.DataSpec):
     
 
     def _process_dataset(self, dataset, interval=None, month=None, quiet=False):
-        """ Parse the dataset as a string lookup key.
+        """ Parse the dataset as a string lookup key, or a dict
             interval: string
                 name of a 
             month: sub spec.
         """
-        #self.name= ''
-        #if hasattr(dataset,'binfile'): # dataset is DataSpecification instance
-        #    return dataset
-        #if hasattr(dataset,'pop'): # dataset is a dict
-        #    if 'data_name' not in dataset.keys():
-        #        dataset['data_name'] = 'Custom Dataset %d'%id(dataset)
-        #    dataman.DataSpec.datasets[id(dataset)] = dataset
-        #    return dataman.DataSpec(id(dataset),month=month)
-        # it is a string, check dictionary in ., then $FERMI/data
+
+        if isinstance(dataset, dict):
+            dataset['event_class_bit']=dict(source=2, clean=3, extraclean=4)[dataset.get('event_class','source').lower()]
+            self.name = dataset.get('data_name', '(noname)')
+            self.dict_file = 'config.txt'
+            return DataSpecification(os.path.expandvars('$FERMI/data'),  interval=None, gti_mask=None, **dataset)
+            
         self.name=dataset
         folders = ['.'] + glob.glob( os.path.join(os.path.expandvars('$FERMI'),'data'))
         for folder in folders :
