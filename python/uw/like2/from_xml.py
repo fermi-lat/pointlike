@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_xml.py,v 1.1 2013/12/04 05:26:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_xml.py,v 1.2 2014/02/21 17:32:18 cohen Exp $
 """
 import numpy as np
 from uw.utilities import  xml_parsers
@@ -8,14 +8,13 @@ from . import (roimodel, sources, diffuse, extended)
 class ROImodelFromXML(roimodel.ROImodel):
     
     def load_sources(self, xmlfile):
+        if xmlfile is None:
+            xmlfile = self.config.input_xml
         self.filename = xmlfile
         handler = xml_parsers.parse_sourcelib(xmlfile)
         self.source_library = handler.outerElements[0]
         # get the HEALPix index from the source_library element
-        try:
-            self.index = int(self.source_library['index'])
-        except KeyError:
-            pass
+        self.index = int(self.source_library.get('index',-1))
         if self.ecat is None: #speed up if already loaded
             self.ecat = extended.ExtendedCatalog(self.config.extended, quiet=self.quiet)
         

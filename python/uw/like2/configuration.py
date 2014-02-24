@@ -1,7 +1,7 @@
 """
 Manage the analysis configuration
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.18 2014/02/11 04:17:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.19 2014/02/21 17:32:18 cohen Exp $
 
 """
 import os, sys, types
@@ -22,7 +22,7 @@ class Configuration(object):
         ('bins_per_decade', 4, 'number of bins per decade'),
         ('irf', None,  'Set to override value in config.txt : may find in custom_irf_dir'),
         ('extended', None, 'Set to override value in config.txt'),
-        ('nocreate', True, 'Do not allow creation of a binned photon file'),
+        ('nocreate', False, 'Set True to prevent creation of a binned photon file'),
         ('quiet', False, 'set to suppress most output'),
         ('postpone', False, 'set true to postpone loading data until requested'),
         )
@@ -81,36 +81,52 @@ class Configuration(object):
         
         self.diffuse = config['diffuse']
         
-        # set up dataset
+        # set up dataset -- either datadict with a key to $FERMI/data/dataspec.py, or 'dataspec', with value the dict
         
-        datadict = config.get('datadict',None)
-        assert isinstance(datadict, dict), 'Did not find datadict dictionary in config.txt'
-        self.dataset = dataset.DataSet(datadict['dataname'], interval=datadict.get('interval',None),
-                nocreate = self.nocreate,
-                irf = irf,
-                quiet = self.quiet,
-                postpone=self.postpone,
-                )
+        datadict = config.get('datadict', None)
+        dataspec = config.get('dataspec', None)
+        if datadict is not None:
+            self.dataset = dataset.DataSet(datadict['dataname'], interval=datadict.get('interval',None),
+                    nocreate = self.nocreate,
+                    irf = irf,
+                    quiet = self.quiet,
+                    postpone=self.postpone,
+                    )
+        elif dataspec is not None:
+            self.dataset = dataset.DataSet(dataspec, irf=irf, quiet=self.quiet, nocreate=False)
+        
+        else:
+            raise Exception('Neither datadict nor dataspec keys in config.txt')
+            
         if not self.quiet:  print self.dataset
         
         # use dataset to extract psf and exposure, set up respective managers
         
-        exposure_correction=datadict.pop('exposure_correction', None)        
+        exposure_correction=datadict.pop('exposure_correction', None) if datadict is not None else None        
         self.exposureman = exposure.ExposureManager(self.dataset, exposure_correction=exposure_correction)
         
         self.psfman = psf.PSFmanager(self.dataset)
         
         # check location of model
+        # currently expect to find pickle.zip -- need to allow for an ROI xml
         
         input_model = config.get('input_model', None)
         self.modeldir = self.configdir
         if not os.path.exists(os.path.join(self.configdir, 'pickle.zip')) and input_model is not None:
-            self.modeldir = os.path.expandvars(input_model['path'])
-            try:
-                self.modelname = input_model['file']
-            except KeyError:
-                self.modelname = 'pickle.zip'
-            if not os.path.exists(self.modeldir):
+            input_xml   = input_model.get('xml_file', None)
+
+            # no pickle.zip in config: check path if set
+            self.modeldir = input_model.get('path', None)
+            if self.modeldir is None:
+                if input_xml is  None: 
+                    raise Exception('Expected either to have access to a all-sky pickle file or a xml_file ')
+                if not os.path.exists(os.path.expandvars(input_xml)):
+                    raise Exception('Specified XML file, "%s", not found' % input_xml)
+                self.input_xml = os.path.expandvars(input_xml)
+                if not self.quiet:
+                    print 'will load sources from  file %s' % self.input_xml
+                return
+            elif not os.path.exists(self.modeldir):
                 t = os.path.expandvars(os.path.join('$FERMI', self.modeldir))
                 if not os.path.exists(t):
                     raise Exception('No source model file found in %s or %s' %(self.modeldir, t) )
