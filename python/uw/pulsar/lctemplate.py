@@ -1,7 +1,7 @@
 """
 A module implementing a mixture model of LCPrimitives to form a
 normalized template representing directional data.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.19 2013/07/27 00:54:54 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.20 2013/08/01 01:54:35 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -323,6 +323,17 @@ class LCTemplate(object):
         nprims = [deepcopy(prims[i]) for i in xrange(len(prims)) if i!=index]
         nnorms = np.asarray([norms()[i] for i in xrange(len(prims)) if i!= index])
         norms_free = [norms.free[i] for i in xrange(len(prims)) if i!=index]
+        lct = LCTemplate(nprims,nnorms*norms().sum()/nnorms.sum())
+        lct.norms.free[:] = norms_free
+        return lct
+
+    def add_primitive(self,prim,norm=0.1):
+        """ [Convenience] -- return a new LCTemplate with the specified
+            LCPrimitive added and renormalized."""
+        norms,prims = self.norms,self.primitives
+        nprims = [prim] + [deepcopy(prims[i]) for i in xrange(len(prims))]
+        nnorms = np.asarray([norm]+[norms()[i] for i in xrange(len(prims))])
+        norms_free = [True]+[norms.free[i] for i in xrange(len(prims))]
         lct = LCTemplate(nprims,nnorms*norms().sum()/nnorms.sum())
         lct.norms.free[:] = norms_free
         return lct
