@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.59 2014/01/21 06:55:37 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.60 2014/02/18 10:07:55 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -767,7 +767,9 @@ class TimFile(object):
         efac = 1
         self.toas = toas = []
         self.toa_lines = toa_lines = []
-        for line in file(timfile):
+        lines = filter(lambda x:len(x) > 0,
+            map(str.strip,file(timfile).readlines()))
+        for line in lines:
             toks = line.strip().split()
             if toks[0] == 'EFAC':
                 efac = float(toks[1])
@@ -914,7 +916,7 @@ def get_resids(par,tim,emax=None,phase=False,get_mjds=False,latonly=False,
 
 def get_toa_strings(tim):
     """ Return a list of strings for all TOA entries."""
-    lines = file(tim).readlines()
+    lines = map(str.strip,file(tim).readlines())
     if not lines[0].startswith('FORMAT 1'):
         raise ValueError('Cannot parse non-tempo2 style TOA files.')
     lines = filter(id_toa_line,lines)
@@ -1268,15 +1270,3 @@ def parkes2tempo2(tim,output):
             toks[0],toks[3],toks[4],toks[6],toks[7]))
     file(output,'w').write('FORMAT 1\n'+''.join(new_strings)) 
 
-def plot_resids_hist(par,tim,fignum=2):
-    """ Plot the normalized distribution of residuals."""
-    resids,errs,chi2,dof = get_resids(par,tim)
-    pulls = resids/errs
-    binwidth = 0.5
-    g = lambda x: (2*np.pi)**-0.5*np.exp(-0.5*x**2)
-    import pylab as pl
-    pl.figure(fignum); pl.clf()
-    pl.hist(pulls,bins=np.arange(-5,5+binwidth,binwidth),histtype='step',
-        color='blue',normed=False);
-    dom = np.linspace(-5,5,101)
-    pl.plot(dom,g(dom)*len(resids)*binwidth,color='red')
