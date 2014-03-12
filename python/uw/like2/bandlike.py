@@ -1,7 +1,7 @@
 """
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.48 2014/01/31 14:56:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.49 2014/02/09 19:22:16 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -239,7 +239,9 @@ class BandLikeList(list):
         while len(self)>0:
             self.pop()
         for band in roi_bands:
-            self.append( BandLike(band, self.sources, self.sources.free) )
+            bl = BandLike(band, self.sources, self.sources.free) 
+            print bl ####################
+            self.append( bl)
             
         self.set_selected(self)# set selected for a subset?
         self.all_energies = self.energies[:]
@@ -267,7 +269,7 @@ class BandLikeList(list):
             if None or 'all', select all
                 
         """
-        etindex = self.config.select_event_type(event_type)
+        etindex = self.bands.config.select_event_type(event_type)
         if index is None and etindex is None: #select all (initially selected) bands
             selected_bands = self[:]
         else:

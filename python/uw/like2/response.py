@@ -1,7 +1,7 @@
 """
 Classes to compute response from various sources
  
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.9 2013/12/05 21:16:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.10 2014/01/30 16:21:12 burnett Exp $
 author:  Toby Burnett
 """
 import os, pickle
@@ -235,6 +235,7 @@ class DiffuseCorrection(object):
             corr_file = os.path.expandvars(os.path.join('$FERMI','diffuse', corr_file))
         try:
             self.correction = pd.read_csv(corr_file, index_col=0) 
+            print self.correction
         except Exception, msg:
             raise Exception('Error loading correction file %s: %s'% (corr_file,msg))
             

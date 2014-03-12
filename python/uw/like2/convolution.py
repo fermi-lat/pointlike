@@ -3,7 +3,7 @@ Convolution interface for like2
 Extends classes from uw.utilities 
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/convolution.py,v 1.4 2013/11/10 04:27:27 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/convolution.py,v 1.5 2013/11/10 20:05:08 burnett Exp $
 author:  Toby Burnett
 """
 import os, pickle, zipfile 
@@ -54,6 +54,7 @@ class FillMixin(object):
         # check for nans, replace with zeros if not full ROI
         nans = np.isnan(self.bg_vals)
         if np.all(nans):
+            if dm is None: raise Exception('Cache entry has all nans: %s'%cache)
             raise Exception('Diffuse source %s has no overlap with ROi' % dm.filename)
         if np.any(nans) and ignore_nan:
             self.bg_vals[nans]=0

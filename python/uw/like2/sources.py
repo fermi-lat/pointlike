@@ -1,6 +1,6 @@
 """
 Source classes
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.44 2014/02/09 19:22:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.45 2014/02/11 23:05:53 burnett Exp $
 
 """
 import os, copy
@@ -85,11 +85,13 @@ class Source(object):
                 raise
             self.model=t
                 
-        self.free = self.model.free.copy()
         if self.model.name=='PowerLaw':
+            # convert from PowerLaw to LogParabola
             par,sig = self.model.statistical()
+            free = self.model.free[:]
             self.model = LogParabola(*(list(par)+[0, self.model.e0]))
-            self.model.free[2:]=False
+            self.model.free[:2] = free
+            self.model.free[2:] = False
  
         elif self.model.name=='ExpCutoff':
             try:
@@ -110,15 +112,10 @@ class Source(object):
         elif self.model.name=='LogParabola':
             if hasattr(self, 'free') and len(self.free)>3: self.free[3]=False
             self.model.free[-1]=False # make sure Ebreak is always frozen (bug in handling extended sources?)
-            #assert not self.model.free[3], 'LogParabola model for source %s hae Ebreak free' % self.name
-            if False: ##########TURN OFF FOR NOW not self.model.free[2] and self.model[2]!=0.:
-                oldbeta=self.model[2]
-                self.model[2]=0
-                self.model.internal_cov_matrix[2,:]=0
-                self.model.internal_cov_matrix[:,2]=0
-                print 'Warning: set fixed beta=0 for source %s, beta was %.2f' %(self.name, oldbeta)
         if self.model.name not in ['LogParabola','PLSuperExpCutoff','ExpCutoff', 'Constant']:
             raise Exception('model %s not supported' % self.model.name)
+        self.free = self.model.free.copy()
+
         if not hasattr(self.model, 'npar'):
             raise Exception('model %s for source %s was not converted to new format'\
                     % (self.model.name, self.name))

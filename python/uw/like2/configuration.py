@@ -1,16 +1,54 @@
 """
 Manage the analysis configuration
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.19 2014/02/21 17:32:18 cohen Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.20 2014/02/24 20:00:26 burnett Exp $
 
 """
 import os, sys, types
 import numpy as np
-from . import ( dataset, exposure, psf)
+from . import ( dataset, exposure, psf, from_xml)
 import skymaps
 from uw.utilities import keyword_options
         
 
+class ROIspec(object):
+    """ define an ROI specification
+    """
+    def __init__(self, healpix_index=None, pos=None, radius=5, radius_factor=0.5):
+        """
+        parameters
+        ---------
+        healpix_index : [None | int ]
+        pos : [None | tuple of float]
+        radius : float
+        radius_factor : float
+            Factor to apply to define the ROI size for extraction of data to fit.
+            This is needed to allow enough size to perform the convolution using a square grid
+        """
+        if healpix_index is not None:
+            self.index = healpix_index
+            self.pos = skymaps.Band(12).dir(self.index)
+            self.radius=radius
+            self.name = 'HP12_%04d' % self.index
+        elif pos is not None:
+            self.index=None
+            self.pos=skymaps.SkyDir(*pos[:2])
+            self.radius = pos[2]*radius_factor if len(pos)>2 else radius
+            self.name = 'ROI(%.3f,%.3f, %.1f)' % ( self.pos.ra(),self.pos.dec(), self.radius)
+        else:
+            # no explicit index or position
+            self.name = None
+            pass
+
+    def __repr__(self):
+        s = '%s.%s:' %  (self.__module__, self.__class__.__name__)
+        if self.index is None and self.pos is not None:
+            return s + ' position, radius= (%.3f,%.3f), %.1f' % ( self.pos.ra(),self.pos.dec(), self.radius)
+        elif self.index is not None and self.index>=0:
+            return s + 'HEALPix index: %d -> dir(%.3f,%.3f), radius %.1f' % (self.index, self.pos.ra(), self.pos.dec(), self.radius)
+        else:
+            return s + 'unspecified HEALPix'
+        
 class Configuration(object):
     """
     Manage an analysis configuration: the IRF, exposure and data
@@ -37,10 +75,16 @@ class Configuration(object):
             irf : a text string name for the IRF
             diffuse: a dict defining the diffuse components
                 see diffuse.DIffuseDict
-            datadict: a dict with at least a key 'dataname'
             extended: string which is the path to the extended folder
                 see extended.ExtendedCatalog
-            
+        A data source must be specified: one of two keys must be present:
+            datadict: a dict with at least a key 'dataname', its value a key in $FERMI/data/datadict.py
+            dataspec: a dict 
+        The ROI can be specified with a key
+            position: a dict with keys ra, dec, radius.
+        The model, or list of sources, is specified in one of the following ways:
+            a key input_model
+        
         If there is a key 'input_model' and the file 'pickle.zip' does not exist in the directory
         will look in input_model['path'] folder
         """
@@ -64,6 +108,8 @@ class Configuration(object):
             config = eval(open(self.configdir+'/config.txt').read())
         except Exception, msg:
             raise Exception('Failed to evaluate config file: %s' % msg)
+            
+        # check for override from kwargs
         for key in 'extended irf'.split():
             if self.__dict__.get(key, None) is None: 
                 if not self.quiet and kwargs.get(key) is not None:
@@ -71,6 +117,7 @@ class Configuration(object):
                 self.__dict__[key]=config.get(key, None)
 
         # set up IRF
+        # ----------
         
         irf = config['irf']
         if 'CUSTOM_IRF_DIR' not in os.environ and os.path.exists(os.path.expandvars('$FERMI/custom_irfs')):
@@ -78,10 +125,12 @@ class Configuration(object):
         custom_irf_dir = os.environ['CUSTOM_IRF_DIR']
         
         # define diffuse dictionary for constucting spatial models
+        # --------------------------------------------------------
         
         self.diffuse = config['diffuse']
         
         # set up dataset -- either datadict with a key to $FERMI/data/dataspec.py, or 'dataspec', with value the dict
+        # --------------
         
         datadict = config.get('datadict', None)
         dataspec = config.get('dataspec', None)
@@ -108,11 +157,15 @@ class Configuration(object):
         self.psfman = psf.PSFmanager(self.dataset)
         
         # check location of model
-        # currently expect to find pickle.zip -- need to allow for an ROI xml
+        # possibilites are the all-sky pickle.zip, from which any ROI can be extraccted, or a specific set of
+        #   sources in an XML file, which is either external or generated from a HEALPix ROI
+        # in the latter case, 
         
         input_model = config.get('input_model', None)
+            
         self.modeldir = self.configdir
-        if not os.path.exists(os.path.join(self.configdir, 'pickle.zip')) and input_model is not None:
+        self.modelname='pickle.zip'
+        if not os.path.exists(os.path.join(self.configdir, self.modelname)) and input_model is not None:
             input_xml   = input_model.get('xml_file', None)
 
             # no pickle.zip in config: check path if set
@@ -123,9 +176,29 @@ class Configuration(object):
                 if not os.path.exists(os.path.expandvars(input_xml)):
                     raise Exception('Specified XML file, "%s", not found' % input_xml)
                 self.input_xml = os.path.expandvars(input_xml)
+                self.xml_parser = from_xml.XMLparser(self.input_xml)
+                dss_pos = self.dataset.dss.roi_info()
+                config_pos = config.get('position', None)
+                xml_pos = self.xml_parser.get('position', None)
                 if not self.quiet:
                     print 'will load sources from  file %s' % self.input_xml
+                    print 'ROI definitions: using the first listed'
+                    print '\tconfig: %s' % (list(config_pos) if config_pos is not None else None)
+                    print '\tXML:    %s' % xml_pos
+                    print '\tDSS:    %s' % dss_pos
+
+                if config_pos is not None:
+                    pos = config_pos
+                elif xml_pos is not None:
+                    pos = xml_pos
+                elif dss_pos is not None:
+                    pos = dss_pos
+                else:
+                    raise Exception('No ROI configuration specified, either in config, the XML, or FT1')
+                assert len(pos)==3, 'Expected ROI pos to be a list of (ra,dec,radius)'
+                self.roi_spec = ROIspec(pos=pos)
                 return
+                
             elif not os.path.exists(self.modeldir):
                 t = os.path.expandvars(os.path.join('$FERMI', self.modeldir))
                 if not os.path.exists(t):
