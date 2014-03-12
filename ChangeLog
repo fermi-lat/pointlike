@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Wed Mar 12 08:52:09 PDT 2014
+pointlike/python/uw/like2
+
+Modified Files:
+	bandlike.py bands.py configuration.py convolution.py 
+	from_xml.py localization.py main.py parameterset.py 
+	response.py roimodel.py sources.py test.py 
+Log Message:
+implementation of external XML model description
+    *
+------------------------------------------------------------
 User: kerrm  Tue Mar  4 21:46:50 PST 2014
 pointlike/python/uw/pulsar
 
