@@ -1,28 +1,40 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_xml.py,v 1.2 2014/02/21 17:32:18 cohen Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_xml.py,v 1.3 2014/02/24 20:00:26 burnett Exp $
 """
-import numpy as np
+import os, numpy as np
 from uw.utilities import  xml_parsers
 from . import (roimodel, sources, diffuse, extended)
 
+class XMLparser(dict):
+    """ manage the XML file 
+    Assume an enclosing element 'source_library' containing 'source' elements.
+    This class is a subclass of dict, containing the attributes of source_library.
+    The attribute 'sources' is a list of source elements
+    """
+    def __init__(self, xmlfile):
+        if not os.path.isabs(xmlfile):
+            xmlfie = os.path.expandvars(xmlfile)
+            
+        self.handler = xml_parsers.parse_sourcelib(xmlfile)
+        self.update(self.handler.outerElements[0])
+        self.sources = self.handler.sources
+
+
 class ROImodelFromXML(roimodel.ROImodel):
     
-    def load_sources(self, xmlfile):
-        if xmlfile is None:
-            xmlfile = self.config.input_xml
-        self.filename = xmlfile
-        handler = xml_parsers.parse_sourcelib(xmlfile)
-        self.source_library = handler.outerElements[0]
-        # get the HEALPix index from the source_library element
-        self.index = int(self.source_library.get('index',-1))
-        if self.ecat is None: #speed up if already loaded
-            self.ecat = extended.ExtendedCatalog(self.config.extended, quiet=self.quiet)
+    def load_sources(self, roi_spec=None):
+        """
+        """
+        if roi_spec is not None:
+            handler = XMLparser(roi_spec)
+        else:
+            handler = self.config.xml_parser
         
         xtm = xml_parsers.XML_to_Model()
         for src in handler.sources:
             name, stype = str(src['name']), src['type']
             
-            # get the gtlike-style model constructed by Josn's code and create a default version
+            # get the gtlike-style model constructed by Josh's code and create a default version
             spec = src.getChild('spectrum')
             mx  = xtm.get_model(spec,name)
             p, free = mx.get_all_parameters(), mx.free
@@ -63,7 +75,7 @@ class ROImodelFromXML(roimodel.ROImodel):
                 )
             else:
                 raise Exception('unrecognized type %s for source %s' % (stype, name))
-                
+    
     def __repr__(self):
-        return '%s.%s: file %s' % (self.__module__, self.__class__.__name__, self.filename)
+        return '%s.%s: file %s' % (self.__module__, self.__class__.__name__, self.config.xml_parser)
     

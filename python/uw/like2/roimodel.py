@@ -1,7 +1,7 @@
 """
 Set up and manage the model for all the sources in an ROI
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.20 2014/01/26 20:07:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.21 2014/02/09 19:22:16 burnett Exp $
 
 """
 import os 
@@ -50,6 +50,7 @@ class ROImodel(list):
         self.load_sources(roi_spec, **self.load_kw)
         
         self.selected_source = None
+
         self.initialize()
 
     

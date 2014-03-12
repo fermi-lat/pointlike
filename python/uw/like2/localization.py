@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.24 2014/01/02 15:20:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.25 2014/02/12 22:38:14 burnett Exp $
 
 """
 import os
@@ -187,6 +187,8 @@ def localize_all(roi, **kwargs):
             os.makedirs(tsmap_dir)
     associator = kwargs.pop('associator', None)
     tsfits = kwargs.pop('tsfits', True) 
+    if len(kwargs.keys())>0:
+        print 'Warning: unrecognized args to localize_all: %s' %kwargs
     initw = roi.log_like()
     
     for source in vpsources:

@@ -1,7 +1,7 @@
 """
 manage band classes
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bands.py,v 1.6 2014/01/26 20:07:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bands.py,v 1.7 2014/02/21 17:32:18 cohen Exp $
 """
 import os
 import numpy as np
@@ -15,15 +15,15 @@ class EnergyBand(object):
     * PSF and exposure for the given configuration, appropriate to this band
     * The pixel data extracted from the binned photon data
     """
-    def __init__(self, roi_dir, config,  roi_index=None, 
+    def __init__(self, config,  roi_dir, 
             radius=5, event_type=1, emin=10**2, emax=10**2.25):
         """
         
         """
         # define bin boundaries
 
-        self.skydir=roi_dir if roi_dir is not None else  skymaps.Band(12).dir(roi_index)
-        self.radius =5
+        self.skydir=roi_dir 
+        self.radius =radius
         self.event_type = event_type
         self.emin, self.emax = emin, emax
         self.energy = energy =  np.sqrt(emin*emax)
@@ -77,26 +77,29 @@ class EnergyBand(object):
 class BandSet(list):
     """ manage the list of EnergyBand objects
     """
-    def __init__(self, config, roi_index, load=False):
+    def __init__(self, config, roi_index, load=False, radius=5):
         """create a list of energy bands
         
         config : configuration.Configuration object
-        roi_index : int | (float,float)
-            specify direction, either as nside=12 index, or an (ra,dec) pair
-            the actual center is the center of the corresponding nside=12 HEALPix pixel
+        roi_index : int | None
+            specify direction, either as nside=12 index, or from config.roi_spec
         load : bool
             if False, do not load data into the pixels
         """
         self.config = config
-        if hasattr(roi_index,'__iter__') and len(roi_index)==2:
-            dir = skymaps.SkyDir(*roi_index)
-            roi_index = skymaps.Band(12).index(dir)
-        self.roi_index = roi_index
+        if roi_index is None:
+            self.roi_dir = config.roi_spec.pos
+            self.radius = config.roi_spec.radius
+            roi_index = None
+        else:
+            ### HEALPix case
+            self.roi_index = roi_index
+            self.roi_dir = skymaps.Band(12).dir(roi_index) # could be defined otherwise
+            self.radius=radius
         for emin, emax  in zip(energybins[:-1], energybins[1:]):
             for et in range(2):
-                self.append(EnergyBand(None, config, roi_index, event_type=et, emin=emin,emax=emax))
+                self.append(EnergyBand(config, self.roi_dir,  event_type=et, radius=self.radius, emin=emin,emax=emax))
         self.has_data = False
-        self.roi_dir = skymaps.Band(12).dir(roi_index) # could be defined otherwise
         
         if load:
             self.load_data()
