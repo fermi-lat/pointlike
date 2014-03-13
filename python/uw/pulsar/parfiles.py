@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.61 2014/03/05 00:20:59 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.62 2014/03/05 05:46:50 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -34,8 +34,10 @@ def dec2sex(d,mode='ra',places=6):
     ss = ((d/scale-dg)*60-mi)*60
     ssi = int(ss)
     ssf = int(round(10**places*(ss-ssi)))
-    ssfs = str(ssf)+'0'*(places-len(str(ssf)))
-    return '%s%02d:%02d:%02d.%s'%(sign,dg,mi,ssi,ssfs)
+    ssfs = '0'*(places-len(str(ssf)))+str(ssf)
+    s = '%s%02d:%02d:%02d.%s'%(sign,dg,mi,ssi,ssfs)
+    assert(abs(sex2dec(s,mode=mode)-d)<1e-3/3600)
+    return s
 def pad(s,n,c=' '):
     if len(s) >= n:
         return s + c # always have a trailing space!
