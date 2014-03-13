@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.40 2014/01/03 04:11:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.41 2014/02/11 04:18:02 burnett Exp $
 """
 import os, argparse,  datetime
 import numpy as np
@@ -117,7 +117,8 @@ stagenames = dict(
     update_pivot=  StageBatchJob( dict( repivot_flag=True),  sum='sourceinfo',help='update pivot', ), 
     update_only =  StageBatchJob( dict(),                   sum='config  sourceinfo', help='update, no additional stage', ), 
     finish      =  StageBatchJob( dict(finish=True),     sum='counts sourceinfo localization associations', help='localize, associations, sedfigs', ),
-    residuals   =  StageBatchJob( dict(residual_flag=True),      help='generate residual tables for all sources', ),
+    residuals   =  StageBatchJob( dict(residual_flag=True), sum='residuals',  help='generate residual tables for all sources', ),
+    counts      =  StageBatchJob( dict(counts_dir='counts_dir', dampen=0, outdir='.'), sum='counts',  help='generate counts info, plots', ), 
     )
 disabled="""
     tables      =  Stage(pipe.Tables,  sum='hptables', job_list='joblist8.txt', help='create HEALPix tables: ts kde counts', ),
