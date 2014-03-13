@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.68 2014/02/24 20:00:26 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.69 2014/03/12 15:52:09 burnett Exp $
 
 """
 import types, time
@@ -99,6 +99,7 @@ class ROI(views.LikelihoodViews):
         elif isinstance(roi_spec, int):
             roi_sources = from_healpix.ROImodelFromHealpix(config, roi_spec, ecat=ecat,load_kw=self.load_kw)
             roi_index = roi_spec
+            config.roi_spec = configuration.ROIspec(healpix_index=roi_spec)
         else:
             raise Exception('Did not recoginze roi_spec: %s' %roi_spec)
         self.name = config.roi_spec.name
