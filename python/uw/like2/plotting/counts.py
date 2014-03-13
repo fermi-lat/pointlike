@@ -1,6 +1,6 @@
 """
 Code to generate an ROI counts plot 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.10 2013/12/05 21:16:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.11 2013/12/19 17:42:59 burnett Exp $
 
 Authors M. Kerr, T. Burnett
 
@@ -25,6 +25,9 @@ def get_counts(roi, event_type=None, tsmin=10):
     bands = roi.selected
     if event_type is not None:
         bands = [b for b in bands if b.band.event_type==event_type]
+        num_types = 1
+    else:
+        num_types = len(roi.config.event_type_names)
     assert len(bands)>0, 'get_counts: no bands found'
     all_sources = np.array(roi.sources)
     global_mask = np.array([s.skydir is None for s in roi.sources])
@@ -37,7 +40,7 @@ def get_counts(roi, event_type=None, tsmin=10):
     weak_mask = free_mask * (~strong_mask)
     
     names = np.array([s.name for s in np.hstack([global_sources,free_sources])])
-    bandts = np.array([s.sedrec.ts.sum() if hasattr(s,'sedrec') else None for s in free_sources])
+    bandts = np.array([s.sedrec.ts.sum() if hasattr(s,'sedrec') and s.sedrec is not None else None for s in free_sources])
     energies = roi.energies #sorted(list(set([b.energy for b in bands])))
     nume = len(energies)
     numsrc = sum(global_mask | strong_mask)
@@ -46,6 +49,8 @@ def get_counts(roi, event_type=None, tsmin=10):
     weak = np.zeros(nume)
     model_counts = np.zeros((nume, numsrc))
     total = np.zeros(nume)
+    utotal = np.zeros(nume)
+    uobserved = np.zeros(nume)
     for i, energy in enumerate(energies):
         for b in bands:
             if b.band.energy!=energy: continue
@@ -55,12 +60,17 @@ def get_counts(roi, event_type=None, tsmin=10):
             weak[i]  += sum(counts[weak_mask]) 
             model_counts[i,:]  += counts[global_mask | strong_mask]
             total[i] += b.counts
+            # model, photons with unweight
+            utotal[i] += b.unweight * b.counts
+            uobserved[i] += b.unweight * sum(b.data)
+            
     models = [(names[j] , model_counts[:,j]) for j in range(numsrc)]
     if sum(weak)>0: models.append( ('TS<%.0f'%tsmin, weak))
     models.append( ('(fixed)', fixed))
     chisq = ((observed-total)**2/total).sum()
+    uchisq= ((uobserved-utotal)**2/utotal).sum()
     return dict(energies=energies, observed=observed, models=models, 
-        names=names, total=total, bandts=bandts, chisq=chisq)
+        names=names, total=total, bandts=bandts, chisq=chisq, uchisq=uchisq, utotal=utotal, uobserved=uobserved)
     
 
 def plot_counts(roi,fignum=1, event_type=None, outfile=None,
@@ -117,7 +127,6 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
         ax.set_ylim(ymin=0.3)
         
     def plot_residuals(ax, count_data, 
-                ylabel='fract. dev',
                 plot_kw=dict( linestyle=' ', marker='o', color='black',),
                 show_chisq=True, plot_pulls=True,
                 ):
@@ -125,7 +134,8 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
         ax.set_xscale('log')
         if not plot_pulls:
             ax.errorbar(energy, (obs-tot)/(tot), yerr=tot**-0.5, **plot_kw)
-            ybound = min( 0.5, np.abs(np.array(ax.get_ylim())).max() )
+            ybound=0.1 # ybound = min( 0.5, np.abs(np.array(ax.get_ylim())).max() )
+            ylabel='fract. dev'
 
         else:
             ylabel = 'pull'
@@ -163,7 +173,9 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
     ) #, integral=integral, merge_non_free=merge_non_free, merge_all=merge_all)
 
     plot_counts_and_models(axes[0], count_data)
-    if len(axes>1): plot_residuals(axes[1], count_data, kwargs.pop('show_chisq', True))
+    if len(axes>1): plot_residuals(axes[1], count_data, 
+            show_chisq=kwargs.pop('show_chisq', True), 
+            plot_pulls=kwargs.pop('plot_pulls', True))
     if outfile is not None: plt.savefig(outfile)
 
 
