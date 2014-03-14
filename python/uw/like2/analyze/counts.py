@@ -1,7 +1,7 @@
 """
 Count plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.7 2014/01/03 04:10:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.8 2014/02/09 02:04:47 burnett Exp $
 
 """
 
@@ -43,6 +43,7 @@ class CountPlots(analysis_base.AnalysisBase):
                 glat = r['skydir'].b(),
                 chisq = r['counts']['chisq'],
                 chisq10= chisq10(r['counts']),
+                uchisq = r['counts']['uchisq'],
                 )
         if skipped>0:
             self.missing_info = '<p>%d missing ROIS' % skipped
@@ -196,18 +197,22 @@ class CountPlots(analysis_base.AnalysisBase):
         ax.grid()
         ax.axhline(0, color='k')
         
-    def chisq_plots(self, use10=False, hsize=(1.0, 0.8, 1.5, 0.5), vmin=0, vmax=50, bcut=10):
+    def chisq_plots(self, use10=False, unweight=True, hsize=(1.0, 0.7, 1.5, 0.5), vmin=0, vmax=50, bcut=10):
         """ chi squared plots
         chi squared distribution
+        <br>Note that this chi squared is modified by the unweighting factors.
         """
         #fig, axs = plt.subplots( 1,2, figsize=(8,3))
         #plt.subplots_adjust(wspace=0.3)
         fig, axs = self.subplot_array( hsize, figsize=(11,5))
-        chisq = self.rois.chisq if not use10 else self.rois.chisq10
+        if unweight:
+            chisq = self.rois.uchisq
+        else:
+            chisq = self.rois.chisq if not use10 else self.rois.chisq10
 
         def chisky(ax):
             self.basic_skyplot(ax, self.rois.glon, self.rois.singlat, chisq, 
-                s=60, vmin=vmin, vmax=vmax,  edgecolor='none', colorbar=True);
+                s=60, marker='D', vmin=vmin, vmax=vmax,  edgecolor='none', colorbar=True);
                 
         def chihist(ax):
             bins = np.linspace(0, vmax, 26)
@@ -275,6 +280,7 @@ class CountPlots(analysis_base.AnalysisBase):
         x = self.energy
         y = data/model-1
         yerr = 1/np.sqrt(model) # needs correlation factor
+        self.ridge_correction = pd.DataFrame(dict(energy=x, corr=y, error=yerr))
         ax.errorbar(x, y, yerr=yerr, fmt='o')
         plt.setp(ax, xscale='log')
         if not nolabels:
