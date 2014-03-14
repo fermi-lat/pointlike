@@ -1,7 +1,7 @@
 """
 Residual plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.4 2014/02/17 15:12:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.5 2014/02/21 00:02:12 burnett Exp $
 
 """
 
@@ -197,8 +197,9 @@ class Residuals(roi_info.ROIinfo):
         for i, ax in enumerate(axx.flatten()):
             z = [maxl[j][gcut,i].clip(*xlim) for j in range(len(etnames))]
             ax.hist(z, np.linspace( *xlim), histtype='step', color=('g','r', 'k'), label=etnames);
+            ax.text(0.1,0.9, '%d'%self.energy[i],  transform = ax.transAxes)
             ax.axvline(1.0, ls = '--')
-            plt.setp(ax, xlabel='normalization factor')
+        fig.text(0.5, 0.05, 'normalization factor', ha='center')
         return fig
 
         
