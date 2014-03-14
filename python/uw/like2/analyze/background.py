@@ -1,6 +1,6 @@
 """
 background analysis
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/background.py,v 1.9 2013/09/07 09:44:51 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/background.py,v 1.10 2013/11/27 14:59:57 burnett Exp $
 
 """
 import os, glob
@@ -10,7 +10,7 @@ import pylab as plt
 from scipy import integrate, optimize
 from skymaps import SkyDir
 from . import roi_info
-from . analysis_base import FloatFormat, html_table
+from . analysis_base import FloatFormat, html_table, load_pickles_from_zip
 
 class Background(roi_info.ROIinfo):
     r"""Background analysis, including corrections and sensitivity
@@ -61,7 +61,31 @@ class Background(roi_info.ROIinfo):
         # get the current PSF
         self.config = eval(open('config.txt').read())
         self.psf = self.get_psf()
-        
+       
+        # load the full sed info from residuals
+        files, self.pkls = load_pickles_from_zip('residuals.zip')
+        sdict={}
+        diffuse_names = ['limb','ring', 'isotrop', 'SunMoon']
+        for pkl  in self.pkls:
+            for name in pkl.keys():
+                if name in diffuse_names: continue
+                sdict[name] = dict()
+                for key in ('front','back','all'):
+                    sdict[name][key] = pkl[name][key]
+                
+        self.dfs = pd.DataFrame(sdict).T
+        self.dfs.index.name='name'
+ 
+        self.band_energy = np.zeros((28))
+        self.source_type = np.zeros((28))
+        e = self.dfs['all'].ix[0].index #np.array(np.sqrt(pkls[0]['elow']*pkls[0]['ehigh']),np.float32)
+        self.band_energy[0::2] =e
+        self.band_energy[1::2] =e
+        self.source_type[0::2]=0
+        self.source_type[1::2]=1
+        self.solid_angle = 2*np.pi*(1-np.cos(np.radians(5)))
+
+        return
         # Get the full sedinfo for all sources
         files, pkls = self.load_pickles('sedinfo')
         # extract source names from file names
@@ -174,8 +198,9 @@ class Background(roi_info.ROIinfo):
         return fig
             
     def source_info(self,  source_name):
-        return self.dfs.ix[source_name]
-        
+        t= self.dfs.ix[source_name]['all']
+        return pd.DataFrame(dict(flux =t['flux'], flux_unc=t['uflux']-t['flux']))
+
     def resolution(self, source_name, s=1):
         """ Return a data frame with resolution information
         s is a scale factor, to examine dependence on flux
