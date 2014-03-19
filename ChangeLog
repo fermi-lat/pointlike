@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Mar 19 15:34:03 PDT 2014
+pointlike/python/uw/like2
+
+Modified Files:
+	views.py 
+Log Message:
+implement estimate_errors
+    *
+------------------------------------------------------------
 User: burnett  Fri Mar 14 06:41:04 PDT 2014
 pointlike/python/uw/like2/analyze
 
