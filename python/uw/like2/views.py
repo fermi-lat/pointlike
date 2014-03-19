@@ -4,7 +4,7 @@ classes presenting views of the likelihood engine in the module bandlike
 Each has a mixin to allow the with ... as ... construction, which should restore the BandLikeList
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.14 2014/01/26 20:07:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.15 2014/02/09 19:22:16 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -200,8 +200,7 @@ class FitterMixin(object):
         quiet = kwargs.pop('quiet', True)
         if not kwargs.pop('use_gradient', True):
             print 'Warning: ignoring use_gradient=False'
-        if not kwargs.pop('estimate_errors', True):
-            print 'Warning: ignoing estimate_errors=False'
+        estimate_errors = kwargs.pop('estimate_errors', True)
         if not quiet: print 'using optimize.fmin_l_bfgs_b with parameter bounds %s\n, kw= %s'% (
                             self.bounds, kwargs)
         parz = self.get_parameters()
@@ -224,15 +223,17 @@ class FitterMixin(object):
         if not quiet:
             print ret[2]
         f = ret 
-        self.covariance = cov = self.hessian(f[0]).I
-        diag = np.array(cov.diagonal()).flatten()
-        bad = diag<0
-        if np.any(bad):
-            print 'Minimizer warning: bad errors for values %s'\
-                %np.asarray(self.parameter_names)[bad] 
-            diag[bad]=0
-        return f[1], f[0], np.sqrt(diag)
-    
+        if estimate_errors:
+            self.covariance = cov = self.hessian(f[0]).I
+            diag = np.array(cov.diagonal()).flatten()
+            bad = diag<0
+            if np.any(bad):
+                print 'Minimizer warning: bad errors for values %s'\
+                    %np.asarray(self.parameter_names)[bad] 
+                diag[bad]=0
+            return f[1], f[0], np.sqrt(diag)
+        else:
+            return f[1], f[0], np.nan
         
         
     def modify(self, fraction):
