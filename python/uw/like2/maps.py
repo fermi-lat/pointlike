@@ -1,6 +1,6 @@
 """
 Code to generate a set of maps for each ROI
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/maps.py,v 1.11 2013/03/11 18:19:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.1 2014/03/19 22:35:00 burnett Exp $
 
 """
 import os, sys,  pickle, types
@@ -240,6 +240,7 @@ class ROItables(object):
             skyfun = fun[0] if type(fun[0])!=types.StringType else eval(fun[0])
             self.process_table(skyfun(roi, **fun[2]), fun[1], pos_list, 
                 os.path.join(self.subdirs[i], roi.name+'.pickle'))
+
 
 class DisplayTable(object):
     """display the table from an ROI as an image

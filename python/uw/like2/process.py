@@ -1,17 +1,17 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.8 2014/01/03 23:17:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.9 2014/02/11 04:17:42 burnett Exp $
 
 """
 import os, sys, time, pickle
 import numpy as np
 from uw.utilities import keyword_options
-from uw.like2 import (main, tools, sedfuns,)
+from uw.like2 import (main, tools, sedfuns, maps,)
 
 class Process(main.MultiROI):
 
     defaults=(
-        ('outdir',        None,  'output folder'),
+        ('outdir',        '.',   'output folder'),
         ('localize_flag', False, 'perform localiation'),
         ('localize_kw',   {},    'keywords for localization'),
         ('repivot_flag',  False, 'repivot the sources'),
@@ -27,7 +27,8 @@ class Process(main.MultiROI):
         ('sedfig_dir',    None,   'folder for sed figs'),
         ('quiet',         True,   'Set false for summary output'),
         ('finish',        False,  'set True to turn on all "finish" output flags'),
-        ('residual_flag', False,   'set True for special residual run; all else ignored'),
+        ('residual_flag', False,  'set True for special residual run; all else ignored'),
+        ('tables_flag',   False,  'set True for tables run; all else ignored'),
     )
     
     @keyword_options.decorate(defaults)
@@ -70,6 +71,10 @@ class Process(main.MultiROI):
             self.residuals()
             return
         
+        if self.tables_flag:
+            self.tables()
+            return
+            
         if self.counts_dir is not None and not os.path.exists(self.counts_dir) :
             try: os.makedirs(self.counts_dir) # in case some other process makes it
             except: pass
@@ -292,6 +297,10 @@ class Process(main.MultiROI):
         with open(filename, 'w') as out:
             pickle.dump(resids, out)
             print 'wrote file %s' %filename
+            
+    def tables(self):
+        rt = maps.ROItables(self.outdir, 256)
+        rt(self)
 
 class BatchJob(Process):
     """special interface to be called from uwpipeline
