@@ -1,6 +1,6 @@
 """
 Code to generate a set of maps for each ROI
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.1 2014/03/19 22:35:00 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.2 2014/03/20 18:28:20 burnett Exp $
 
 """
 import os, sys,  pickle, types
@@ -164,8 +164,11 @@ class ResidualTS(object):
         self.roi.calls =0
         self.roi.initialize(self.sourcename)
         self.model[0]=1e-14 # initial value above limit
-        self.func.maximize(estimate_errors=False)
-        ts = self.roi.TS()
+        try:
+            self.func.maximize(estimate_errors=False)
+            ts = self.roi.TS()
+        except:
+            ts=0
         return max(0, ts)
         
     def __call__(self, v):
