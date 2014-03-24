@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.69 2014/03/12 15:52:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.70 2014/03/13 21:46:43 burnett Exp $
 
 """
 import types, time
@@ -207,7 +207,7 @@ class ROI(views.LikelihoodViews):
                 print 'Failed localization for source %s: %s' % (tsm.source.name, e)
                 return None
         if update:
-            tsm.source.skydir = skymaps.SkyDir(t['ra'], t['dec'])
+            tsm.source.skydir = SkyDir(t['ra'], t['dec'])
     
     def get_model(self, source_name=None):
         return self.sources.find_source(source_name).spectral_model
