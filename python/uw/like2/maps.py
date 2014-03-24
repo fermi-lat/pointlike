@@ -1,6 +1,6 @@
 """
 Code to generate a set of maps for each ROI
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.2 2014/03/20 18:28:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.3 2014/03/20 20:48:11 burnett Exp $
 
 """
 import os, sys,  pickle, types
@@ -9,6 +9,9 @@ from skymaps import Band, SkyDir, PySkyFunction, Hep3Vector, PythonUtilities
 from uw.like import Models
 from . import sources 
 from uw.utilities import image
+
+# the default nside
+nside=512
 
 # convenience adapters for ResidualTS model
 def LogParabola(*pars):
@@ -46,7 +49,7 @@ def make_index_table(nside, subnside, usefile=True):
 class CountsMap(dict):
     """ A map with counts per HEALPix bin """
     
-    def __init__(self, roi, emin=1000., nside=256):
+    def __init__(self, roi, emin=1000., nside=nside):
         """ roi : a region of interest object
             emin : float
                 minimum energy for constructing the counts map
@@ -212,7 +215,8 @@ class ROItables(object):
         self.subdirfun = Band(nside).dir
         self.skyfuns = kwargs.pop('skyfuns', 
               ( (ResidualTS, 'ts', dict(photon_index=2.2),) , 
-                #(KdeMap,    'kde', dict()),
+                (KdeMap,     'kde', dict()),
+                (CountsMap,     'counts', dict()),
               ),
             )
         self.subdirs = [os.path.join(outdir, name+'_table') for s, name, kw in self.skyfuns]
@@ -248,7 +252,7 @@ class ROItables(object):
 class DisplayTable(object):
     """display the table from an ROI as an image
     """
-    def __init__(self, table_name='kde', index=860, nside=256, **kwargs):
+    def __init__(self, table_name='kde', index=860, nside=nside, **kwargs):
         """
         table_name : 
         index :
