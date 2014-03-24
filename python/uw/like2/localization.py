@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.25 2014/02/12 22:38:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.26 2014/03/12 15:52:09 burnett Exp $
 
 """
 import os
@@ -167,6 +167,7 @@ def localize_all(roi, **kwargs):
     tsmin = kwargs.pop('tsmin',10)
     prefix = kwargs.pop('prefix', None)
     source_name = kwargs.pop('source_name', None)
+    update = kwargs.pop('update', False)
     def filt(s):
         ok = s.skydir is not None\
             and isinstance(s, sources.PointSource) \
@@ -198,6 +199,11 @@ def localize_all(roi, **kwargs):
             loc = Localization(tsm)
             try:
                 loc.localize()
+                if update:
+                    t = loc.ellipse
+                    prev = tsm.saved_skydir
+                    tsm.saved_skydir = SkyDir(t['ra'], t['dec'])
+                    print 'updated position: %s --> %s' % (prev, tsm.saved_skydir)
             except Exception, msg:
                 print 'Localization of %s failed: %s' % (source.name, msg)
             #source.ellipse = loc.qform.par[0:2]+loc.qform.par[3:7] +[loc.delta_ts] if hasattr(loc,'qform') else None
@@ -240,7 +246,7 @@ def localize_all(roi, **kwargs):
                 #    print 'Plot of %s failed: %s' % (source.name, msg)
                 #    raise
     curw= roi.log_like()
-    if abs(initw-curw)>1.0:
+    if abs(initw-curw)>1.0 and not update:
         print 'localize_all: unexpected change in roi state after localization, from %.1f to %.1f (%+.1f)'\
             %(initw, curw, curw-initw)
         return False
