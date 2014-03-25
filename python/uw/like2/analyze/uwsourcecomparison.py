@@ -1,7 +1,7 @@
 """
 Comparison with another UW model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/uwsourcecomparison.py,v 1.9 2014/02/14 03:17:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/uwsourcecomparison.py,v 1.10 2014/02/16 13:49:23 burnett Exp $
 
 """
 
@@ -18,7 +18,7 @@ class UWsourceComparison(sourceinfo.SourceInfo):
     <br>Ratios are %(skymodel)s/%(othermodel)s.
     
     """
-    def setup(self, othermodel='uw29', **kw):
+    def setup(self, othermodel='../P202_5years/uw700', **kw):
         super(UWsourceComparison,self).setup()
         self.plotfolder = 'comparison_%s' % othermodel.split('/')[-1]
 
@@ -34,6 +34,7 @@ class UWsourceComparison(sourceinfo.SourceInfo):
         self.df['eflux_old']=self.odf.eflux
         self.df['a_old'] = self.odf.a
         self.df['skydir_old'] = self.odf.skydir
+        self.df['sedrec_old'] = self.odf.sedrec
 
 
     def check_missing(self):
@@ -61,7 +62,8 @@ class UWsourceComparison(sourceinfo.SourceInfo):
         
         self.missing_html=html_table(
             self.missing[self.missing.ts>10]['ts ra dec nearest nearest_ts distance roiname'.split()]\
-            .sort_index(by='roiname'), float_format=FloatFormat(2),name=self.plotfolder+'/missing')
+            .sort_index(by='roiname'), float_format=FloatFormat(2),
+                name=self.plotfolder+'/missing')
         def ts_hist(ax, tsmax=100):
             ax.hist(self.missing.ts.clip(0,tsmax), np.linspace(0,tsmax,26))
             ax.grid()
@@ -89,7 +91,8 @@ class UWsourceComparison(sourceinfo.SourceInfo):
         if sum(moved_cut)>0:
             self.moved_html += html_table(
              self.df[moved_cut]['ts_old ts ra dec a locqual moved roiname'.split()]\
-                .sort_index(by='moved'), float_format=FloatFormat(2), name=self.plotfolder+'/moved')
+                .sort_index(by='moved'), float_format=FloatFormat(2), 
+                name=self.plotfolder+'/moved')
         else: self.moved_html += '<br>No sources satisfy move criteron'
         fig, ax = plt.subplots(1,1, figsize=(5,5))
         self.skyplot(self.df.ts[moved_cut], ax=ax)
@@ -150,6 +153,34 @@ class UWsourceComparison(sourceinfo.SourceInfo):
         plt.subplots_adjust(hspace=0.075, left=0.1, bottom=0.1)
         for f, ax in zip((plot_ts, plot_semimajor, plot_flux, plot_pindex,), ax.flatten()): f(ax)
         fig.text(0.5, 0.05, 'TS', ha='center')
+        return fig
+    
+    def bandfluxratio(self, error_max=0.5):
+        """Flux ratios by band
+        For all sources in common, show the ratio of the flux for each energy band.
+        Require that the relative error for the old one be less then 50%
+        """
+        flux_ratio=[]
+        fr_unc = []
+        for i in range(len(self.df)):
+            srn = self.df.sedrec[i]
+            sro = self.df.sedrec_old[i]
+            if type(srn)==float or type(sro)==float or len(srn.flux)!=14 or len(sro.flux)!=14:
+                t=u = [np.nan]*14
+            else:
+                t = srn.flux/sro.flux
+                u = sro.uflux/sro.flux-1
+            flux_ratio.append(t)
+            fr_unc.append(u)
+        z = np.array(flux_ratio); 
+        zu = np.array(fr_unc)
+        qcut = zu < error_max
+        fig, axx = plt.subplots(3,4, figsize=(14,9), sharex=True)
+        for i, ax in enumerate(axx.flatten()[:12]):
+            ax.hist(z[:,i][qcut[:,i]].clip(0.1,2.1), np.linspace(0.1,2.1,41));
+            ax.axvline(1.0, ls='--')
+            ax.text(0.1,0.9, '%.0f MeV'%self.energy[i],size=10,  transform = ax.transAxes) 
+            plt.setp(ax, xlim=(0.1,2.1))
         return fig
     
     def compare_profile(self):
