@@ -3,7 +3,7 @@ Run after a successful UWpipeline/job_task
 
 Summarize the execution,
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/summary_plots.py,v 1.2 2012/12/16 16:24:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/summary_plots.py,v 1.3 2012/12/23 20:19:11 burnett Exp $
 """
 import os, sys,  argparse
 
@@ -26,7 +26,7 @@ def main(args):
         stage, nextstage = t 
     else: stage,nextstage = t[0], None
 
-    if stage.split('_')[0]=='update':
+    if stage.split('_')[0]=='update' or stage=='counts':
         diagnostic_plots.main('counts');
 
     elif stage=='sedinfo':
