@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.41 2014/02/11 04:18:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.42 2014/03/13 20:42:25 burnett Exp $
 """
 import os, argparse,  datetime
 import numpy as np
@@ -119,9 +119,9 @@ stagenames = dict(
     finish      =  StageBatchJob( dict(finish=True),     sum='counts sourceinfo localization associations', help='localize, associations, sedfigs', ),
     residuals   =  StageBatchJob( dict(residual_flag=True), sum='residuals',  help='generate residual tables for all sources', ),
     counts      =  StageBatchJob( dict(counts_dir='counts_dir', dampen=0, outdir='.'), sum='counts',  help='generate counts info, plots', ), 
+    tables      =  StageBatchJob( dict(tables_flag=True, dampen=0), sum='hptables', job_list='joblist8.txt', help='Create tsmap and kde maps'),
     )
 disabled="""
-    tables      =  Stage(pipe.Tables,  sum='hptables', job_list='joblist8.txt', help='create HEALPix tables: ts kde counts', ),
     sedinfo     =  Stage(pipe.Update, dict( processor='processor.full_sed_processor',sedfig_dir='"sedfig"',), sum='frontback',
                             help='process SED information' ),
     galspectra  =  Stage(pipe.Update, dict( processor='processor.roi_refit_processor'), sum='galacticspectra', help='Refit the galactic component' ),
@@ -208,7 +208,7 @@ def check_names(stage, proc):
     for s in stage:
         for t in s.split(':'):
             if t not in keys:
-                raise Exception('"%s" not found in possible stage names, %s' %(t, keys))
+                raise Exception('stage "%s" not recognized: expect one of %s' %(t, sorted(keys)))
 
 def main( args ):
     check_environment(args)
