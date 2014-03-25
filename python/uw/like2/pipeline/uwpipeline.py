@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.42 2014/03/13 20:42:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.43 2014/03/25 18:31:57 burnett Exp $
 """
 import os, argparse,  datetime
 import numpy as np
@@ -120,6 +120,7 @@ stagenames = dict(
     residuals   =  StageBatchJob( dict(residual_flag=True), sum='residuals',  help='generate residual tables for all sources', ),
     counts      =  StageBatchJob( dict(counts_dir='counts_dir', dampen=0, outdir='.'), sum='counts',  help='generate counts info, plots', ), 
     tables      =  StageBatchJob( dict(tables_flag=True, dampen=0), sum='hptables', job_list='joblist8.txt', help='Create tsmap and kde maps'),
+    seedcheck   =  StageBatchJob( dict(seed_flag=True, dampen=0), sum='seedcheck', help='Check seeds'),
     )
 disabled="""
     sedinfo     =  Stage(pipe.Update, dict( processor='processor.full_sed_processor',sedfig_dir='"sedfig"',), sum='frontback',
