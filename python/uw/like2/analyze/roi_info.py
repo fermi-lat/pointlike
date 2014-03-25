@@ -1,7 +1,7 @@
 """
 Plots involving the 1728 ROIs
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/roi_info.py,v 1.6 2014/02/13 04:11:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/roi_info.py,v 1.7 2014/02/14 18:51:13 burnett Exp $
 
 """
 
@@ -53,7 +53,11 @@ class ROIinfo(analysis_base.AnalysisBase):
         # move this into refresh?
         rois = self.df
         rx = rois['ra dec glat glon'.split()] 
-        rx['chisq'] = [r['chisq'] for r in rois['counts']]
+        try:
+            rx['chisq'] = [r['chisq'] for r in rois['counts']]
+        except:
+            print '***Failed to find counts, skip creating rois.csv'
+            return
         rx['npar'] = [len(p) for p in rois.parameters]
         rx.index.name='name'
         ###
