@@ -1,12 +1,15 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.10 2014/03/20 18:28:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.11 2014/03/25 18:19:54 burnett Exp $
 
 """
 import os, sys, time, pickle
 import numpy as np
+import pandas as pd
+from skymaps import SkyDir, Band
 from uw.utilities import keyword_options
-from uw.like2 import (main, tools, sedfuns, maps,)
+from uw.like2 import (main, tools, sedfuns, maps, sources, localization, roimodel,)
+
 
 class Process(main.MultiROI):
 
@@ -29,6 +32,7 @@ class Process(main.MultiROI):
         ('finish',        False,  'set True to turn on all "finish" output flags'),
         ('residual_flag', False,  'set True for special residual run; all else ignored'),
         ('tables_flag',   False,  'set True for tables run; all else ignored'),
+        ('seed_flag',     False,  'set True for seed check run'),
     )
     
     @keyword_options.decorate(defaults)
@@ -67,12 +71,15 @@ class Process(main.MultiROI):
         print  '='*80
         print '%4d-%02d-%02d %02d:%02d:%02d - %s - %s' %(time.localtime()[:6]+ (roi.name,)+(self.stream,))
 
+        # special processing flags
         if self.residual_flag:
             self.residuals()
             return
-        
         if self.tables_flag:
             self.tables()
+            return
+        if self.seed_flag:
+            self.seeds()
             return
             
         if self.counts_dir is not None and not os.path.exists(self.counts_dir) :
@@ -299,8 +306,51 @@ class Process(main.MultiROI):
             print 'wrote file %s' %filename
             
     def tables(self, nside=512):
+        """ create a set of tables """
         rt = maps.ROItables(self.outdir, nside)
         rt(self)
+        
+    def seeds(self,seedfile='seeds.txt', model='PowerLaw(1e-15, 2.2)', 
+                prefix='SEED',
+                associator=None, tsmap_dir=None,
+                **kwargs):
+        """ add "seeds" from a text file 
+        """
+        repivot_flag = kwargs.pop('repivot', True)
+        seedcheck_dir = kwargs.get('seedcheck_dir', 'seedcheck')
+        if not os.path.exists(seedcheck_dir): os.mkdir(seedcheck_dir)
+        associator= kwargs.pop('associate', None)
+
+        seeds = pd.read_table(seedfile)
+        seeds['skydir'] = map(SkyDir, seeds.ra, seeds.dec)
+        seeds['hpindex'] = map( Band(12).index, seeds.skydir)
+        inside = seeds.hpindex==Band(12).index(self.roi_dir)
+        seednames=seeds.name[inside]
+        if sum(inside)==0:
+            print 'no seeds in ROI'
+            return
+        srclist = []
+        for i,s in seeds[inside].iterrows():
+            try:
+                srclist.append(self.add_source(sources.PointSource(name=s['name'], skydir=s['skydir'], model=model)))
+                print 'added %s at %s' % (s['name'], s['skydir'])
+            except roimodel.ROImodelException:
+                srclist.append(self.get_source(s['name']))
+                print 'updating existing %s at %s ' %(s['name'], s['skydir'])
+        # Fit only fluxes for each seed first
+        parnames = self.sources.parameter_names
+        seednorms = np.arange(len(parnames))[np.array([s.startswith(prefix) and s.endswith('_Norm') for s in parnames])]
+        self.fit(seednorms)
+        # now localize each, moving to new position
+        localization.localize_all(self, prefix=prefix, tsmap_dir=tsmap_dir, associator=associator, update=True, tsmin=10)
+        # fit full ROI 
+        self.fit()
+        # save pickled source object for each seed
+        for s in srclist:
+            s.ts = ts = self.TS(s.name)
+            sfile = os.path.join(seedcheck_dir, s.name+'.pickle')
+            pickle.dump(s, open(sfile, 'w'))
+            print 'wrote file %s' % sfile
 
 class BatchJob(Process):
     """special interface to be called from uwpipeline
