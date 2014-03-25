@@ -1,7 +1,7 @@
 """
 Association analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.15 2014/02/15 23:06:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.16 2014/02/16 13:49:23 burnett Exp $
 
 """
 import os, glob, sys, pyfits
@@ -214,6 +214,7 @@ class Associations(sourceinfo.SourceInfo):
             z = FitExponential(select(sel), name, vmax=dtsmax)
             z.plot(ax, xlabel=r'$\Delta TS$')
             print '%s: localization factor=%.2f' %(name, z.factor)
+        return fig
 
     def all_plots(self):    
         self.runfigures([self.summary, self.pulsar_check, self.association_vs_ts, self.localization_check,])

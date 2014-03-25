@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.37 2014/02/09 19:22:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.38 2014/02/11 04:17:42 burnett Exp $
 
 """
 import os, pickle
@@ -245,8 +245,10 @@ def makesed_all(roi, **kwargs):
     initw = roi.log_like()
 
     sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
+    print 'sources:', [s.name for s in sources]
     for source in sources:
         with SED(roi, source.name, ) as sf:
+            print source.name,':',
             try:
                 source.sedrec = sf.sed_rec( tol=poisson_tolerance)
                 source.ts = roi.TS(source.name)
