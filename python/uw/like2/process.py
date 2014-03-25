@@ -1,6 +1,6 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.9 2014/02/11 04:17:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.10 2014/03/20 18:28:20 burnett Exp $
 
 """
 import os, sys, time, pickle
@@ -298,8 +298,8 @@ class Process(main.MultiROI):
             pickle.dump(resids, out)
             print 'wrote file %s' %filename
             
-    def tables(self):
-        rt = maps.ROItables(self.outdir, 256)
+    def tables(self, nside=512):
+        rt = maps.ROItables(self.outdir, nside)
         rt(self)
 
 class BatchJob(Process):
