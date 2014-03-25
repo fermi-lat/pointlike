@@ -1,6 +1,6 @@
 """
 Check the residual TS maps for clusters
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_ts.py,v 1.3 2013/09/04 12:35:00 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_ts.py,v 1.4 2014/03/25 18:29:31 burnett Exp $
 
 """
 
@@ -22,7 +22,7 @@ class TSdata(object):
         assert len(self.rts)==12*(nside)**2, 'wrong nside in file %s: expect %d' %(filename, nside)
         self.glat= np.array([sdir(i).b() for i in range(len(self.rts))])
         self.glon= np.array([sdir(i).l() for i in range(len(self.rts))])
-        print 'read %s ok' %filename
+        #print 'read %s ok' %filename
     def select(self, ts_min=0, b_min=0):
         cut = (self.rts>ts_min)* (abs(self.glat)>b_min)
         return self.rts[cut]
@@ -106,6 +106,7 @@ def make_seeds(tsdata, rcut=10, bcut=5, out=None, rec=None, seedroot='SEED', min
         
     if rec is not None: rec.close()
     if out is not None: out.close()
+    return len(clusters)
  
 def main(args):
     print args
