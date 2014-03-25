@@ -1,6 +1,6 @@
 """
 Utilities for managing Healpix arrays
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.14 2014/01/30 16:34:51 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.15 2014/03/25 18:22:31 burnett Exp $
 """
 import os,glob,pickle, types, copy, zipfile
 import pylab as plt
@@ -336,7 +336,7 @@ def mapcube_to_healpix(inputfile,
     pyfits.HDUList(hdus).writeto(fulloutfile)
 
 
-def assemble_tables(table_names, outputfile=None, folder= '.'):
+def assemble_tables(table_names, outputfile=None, folder= '.', nside=512):
     """ assemble one or more healpix tables from individual ROIs into a single FITS file
     parameters
     ----------
@@ -347,7 +347,7 @@ def assemble_tables(table_names, outputfile=None, folder= '.'):
     folder : string
         path name, default current dir.
     """
-    tables = [HPtables(name, folder) for name in table_names]
+    tables = [HPtables(name, folder, nside=nside) for name in table_names]
     if outputfile is None:
         outputfile='hptables_'+'_'.join(table_names)+'.fits'
     f = HEALPixFITS(tables)
