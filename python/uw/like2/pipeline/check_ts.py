@@ -1,6 +1,6 @@
 """
 Check the residual TS maps for clusters
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_ts.py,v 1.2 2013/01/20 14:06:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_ts.py,v 1.3 2013/09/04 12:35:00 burnett Exp $
 
 """
 
@@ -83,7 +83,7 @@ class Cluster(object):
         self.sdir = SkyDir(float(wra), float(wdec))
         #print self.sdir
         
-def make_seeds(tsdata, rcut=10, bcut=5, out=None, rec=None, seedroot='SEED-46', minsize=2):
+def make_seeds(tsdata, rcut=10, bcut=5, out=None, rec=None, seedroot='SEED', minsize=2):
     """
     tsdata: object created by TSdata
     rec: open file to write tab-delimited file to
@@ -110,7 +110,7 @@ def make_seeds(tsdata, rcut=10, bcut=5, out=None, rec=None, seedroot='SEED-46', 
 def main(args):
     print args
     global nside
-    nside=args.nside
+    nside=int(args.nside)
     assert os.path.exists(args.files[0]), 'did not find file %s'%args.files[0]
     tsdata = TSdata('.', args.files[0], args.tsfield)
     rec = open(args.files[1], 'w')
@@ -123,7 +123,7 @@ if __name__=='__main__':
     parser.add_argument('--bmin',     help='minimum |b|',            default=5)
     parser.add_argument('--minsize',  help='minimum cluster size',   default=2)
     parser.add_argument('--seedroot', help='root for seed names',    default='SEED')
-    parser.add_argument('--nside',    help='nside for healpix map',  default=512)
+    parser.add_argument('--nside',    help='nside for healpix map',  default=nside)
     parser.add_argument('--tsfield',  help='name of field with TS data',  default='ts')
     
 
