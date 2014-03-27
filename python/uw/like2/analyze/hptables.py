@@ -1,7 +1,7 @@
 """
 Analyze the contents of HEALPix tables, especially the tsmap
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/hptables.py,v 1.1 2013/06/21 20:15:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/hptables.py,v 1.2 2014/03/25 18:21:03 burnett Exp $
 
 """
 
@@ -22,8 +22,9 @@ class HPtables(analysis_base.AnalysisBase):
     """
     require = 'ts_table' ## fix.
     def setup(self, **kw):
-        fnames = glob.glob('hptables_ts_*.fits')
-        assert len(fnames)==1, 'expect one hptable*.fits file'
+        nside = kw.pop('nside', 512)
+        fnames = glob.glob('hptables_*_%d.fits') % nside
+        assert len(fnames)==1, 'expect one hptable*%d.fits file' %nside
         self.fname=fnames[0]
         self.tables = pd.DataFrame(pyfits.open(self.fname)[1].data)
         self.plotfolder = 'hptables'
