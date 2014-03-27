@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Mar 27 13:54:21 PDT 2014
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	hptables.py seedcheck.py 
+Log Message:
+mods for table folder name
+    *
+------------------------------------------------------------
 User: burnett  Thu Mar 27 13:53:34 PDT 2014
 pointlike/python/uw/like2/pipeline
 
