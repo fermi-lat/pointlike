@@ -1,6 +1,6 @@
 """
 Code to generate a set of maps for each ROI
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.3 2014/03/20 20:48:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.4 2014/03/24 14:30:11 burnett Exp $
 
 """
 import os, sys,  pickle, types
@@ -165,8 +165,8 @@ class ResidualTS(object):
     def tsfun(self, skydir):
         self.source.skydir = skydir
         self.roi.calls =0
+        self.model[0]=1e-15 # initial value above limit
         self.roi.initialize(self.sourcename)
-        self.model[0]=1e-14 # initial value above limit
         try:
             self.func.maximize(estimate_errors=False)
             ts = self.roi.TS()
@@ -219,7 +219,7 @@ class ROItables(object):
                 (CountsMap,     'counts', dict()),
               ),
             )
-        self.subdirs = [os.path.join(outdir, name+'_table') for s, name, kw in self.skyfuns]
+        self.subdirs = [os.path.join(outdir, name+'_table_%d' %nside) for s, name, kw in self.skyfuns]
         for subdir in self.subdirs: 
             if not os.path.exists(subdir):  os.makedirs(subdir)
                     
@@ -259,13 +259,15 @@ class DisplayTable(object):
         nside :
         
         """
-        self.hmap = pickle.load(open('%s_table/HP12_%04d.pickle' % (table_name, index)))
+        folder = '%s_table_%d' % (table_name, nside)
+        assert os.path.exists(folder), 'Folder %s not found' % folder
+        self.hmap = pickle.load(open('%s/HP12_%04d.pickle' % (folder, index)))
         self.index = index
         self.hpindices = list(make_index_table(12,nside)[index])
         self.hpdict = dict((self.hpindices[i],self.hmap[i]) for i in range(len(self.hpindices)));
         self.center = Band(12).dir(index)
         self.indexfun = Band(nside).index
-        self.ZEA_kw = kwargs.pop('ZEA_kw', dict(galactic=True, size=10, pixelsize=0.1))
+        self.ZEA_kw = kwargs.pop('ZEA_kw', dict(galactic=True, size=10, pixelsize=0.05))
         self.imshow_kw=dict(interpolation='bilinear',  )
         self.scale = kwargs.pop('scale', lambda x: x)
         if type(self.scale) == types.StringTypes:

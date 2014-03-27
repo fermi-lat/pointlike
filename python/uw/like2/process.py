@@ -1,6 +1,6 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.11 2014/03/25 18:19:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.12 2014/03/25 23:28:26 burnett Exp $
 
 """
 import os, sys, time, pickle
@@ -32,6 +32,7 @@ class Process(main.MultiROI):
         ('finish',        False,  'set True to turn on all "finish" output flags'),
         ('residual_flag', False,  'set True for special residual run; all else ignored'),
         ('tables_flag',   False,  'set True for tables run; all else ignored'),
+        ('tables_nside',  256,    'nside to use for table generation'),
         ('seed_flag',     False,  'set True for seed check run'),
     )
     
@@ -305,9 +306,14 @@ class Process(main.MultiROI):
             pickle.dump(resids, out)
             print 'wrote file %s' %filename
             
-    def tables(self, nside=512):
+    def tables(self):
         """ create a set of tables """
-        rt = maps.ROItables(self.outdir, nside)
+        rt = maps.ROItables(self.outdir, nside=self.tables_nside,
+               skyfuns= ( 
+                (maps.ResidualTS, 'ts', dict(photon_index=2.2),) , 
+                #(maps.KdeMap,     'kde', dict()),
+              ),
+)
         rt(self)
         
     def seeds(self,seedfile='seeds.txt', model='PowerLaw(1e-15, 2.2)', 
