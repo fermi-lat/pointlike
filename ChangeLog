@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Mar 27 13:22:44 PDT 2014
+pointlike/python/uw/like2
+
+Modified Files:
+	maps.py process.py 
+Log Message:
+fixed residual maps
+    *
+------------------------------------------------------------
 User: burnett  Tue Mar 25 16:33:36 PDT 2014
 pointlike/python/uw/like2/pipeline
 
