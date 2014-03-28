@@ -1,10 +1,10 @@
 """
 Check the residual TS maps for clusters
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_ts.py,v 1.4 2014/03/25 18:29:31 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_ts.py,v 1.5 2014/03/25 19:56:06 burnett Exp $
 
 """
 
-import os,pickle, argparse
+import os,pickle, argparse, glob
 import pyfits
 from skymaps import Band, SkyDir
 import numpy as np
@@ -83,11 +83,19 @@ class Cluster(object):
         self.sdir = SkyDir(float(wra), float(wdec))
         #print self.sdir
         
-def make_seeds(tsdata, rcut=10, bcut=5, out=None, rec=None, seedroot='SEED', minsize=2):
+def make_seeds(tsdata, nside, fieldname='ts', rcut=10, bcut=5, out=None, rec=None, seedroot='SEED', minsize=2):
     """
     tsdata: object created by TSdata
     rec: open file to write tab-delimited file to
     """
+    if isinstance(tsdata, str):
+        ff = 'hptables_ts*_%d.fits' % nside
+        fn = glob.glob(ff)
+        assert len(fn)>0, 'Did not find any files with pattern %s' %ff
+        if len(fn)>1:
+            print 'found files %s: using first'
+        tsdata = TSdata(outdir='.', filename=fn[0], fieldname=fieldname)
+
     indices  = tsdata.indices(rcut,bcut)
     clusters = cluster(indices)
     cl = Cluster(tsdata.rts)
