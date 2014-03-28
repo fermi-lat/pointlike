@@ -1,10 +1,10 @@
 """
 Check the residual TS maps for clusters
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/ts_clusters.py,v 1.1 2011/12/16 13:38:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/ts_clusters.py,v 1.2 2012/09/27 14:23:18 burnett Exp $
 
 """
 
-import os,pickle
+import os,pickle, glob
 import pyfits
 from skymaps import Band, SkyDir
 import numpy as np
@@ -16,9 +16,7 @@ def sdir(index):
     return band.dir(int(index))
 
 class TSdata(object):
-    def __init__(self, outdir=None, filename='aladin512.fits', fieldname='ts'):
-        if outdir is None:
-            outdir = 'uw%02d' % int(open('version.txt').read())
+    def __init__(self, outdir, filename, fieldname='ts'):
         if not os.path.exists(os.path.join(outdir, filename)):
             project= os.path.split(os.getcwd())[-1]
             outdir = os.path.join('../..', 'pivot', '%s_%s' %(project, outdir))
@@ -86,10 +84,27 @@ class Cluster(object):
         self.sdir = SkyDir(float(wra), float(wdec))
         #print self.sdir
         
-def make_seeds(tsdata, rcut=10, bcut=5, out=None, rec=None, seedroot='SEED-46'):
+def make_seeds(tsdata, nside, fieldname='ts', rcut=10, bcut=0, out=None, rec=None, seedroot='SEED'):
     """
-    tsdata: object created by TSdata
+    tsdata: object created by TSdata or string
+    nside: int
+        must be 256 or 512
+    fieldname
+    rcut : float
+        lower bound for TS
+    bcut : float
+        lower bound for abs(b)
+    rec : None
+    
     """
+    if isinstance(tsdata, str):
+        ff = 'hptables_ts*_%d.fits' % nside
+        fn = glob.glob(ff)
+        assert len(fn)>0, 'Did not find any files with pattern %s' %ff
+        if len(fn)>1:
+            print 'found files %s: using first'
+        tsdata = TSdata(outdir='.', filename=fn[0], fieldname=fieldname)
+    
     indices  = tsdata.indices(rcut,bcut)
     clusters = cluster(indices)
     cl = Cluster(tsdata.rts)
@@ -107,6 +122,7 @@ def make_seeds(tsdata, rcut=10, bcut=5, out=None, rec=None, seedroot='SEED-46'):
         
     if rec is not None: rec.close()
     if out is not None: out.close()
+    return len(clusters)
     
 
     
