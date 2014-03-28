@@ -1,7 +1,7 @@
 """
 Analyze seeds
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/seedcheck.py,v 1.4 2013/07/30 22:59:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/seedcheck.py,v 1.5 2014/03/27 20:54:21 burnett Exp $
 
 """
 import os
@@ -10,16 +10,22 @@ import pylab as plt
 import pandas as pd
 import skymaps
 from . import sourceinfo, diagnostics, _html
-from ._html import HTMLindex
 from .analysis_base import FloatFormat
 
 b12index = skymaps.Band(12).index
 
 class SeedCheck(sourceinfo.SourceInfo):
     """Analysis of a set of seeds
+    <br>
+    <p>This is a second stage after a run that produced a residual TS map. The first pipeline run, "tables", generates nside=512 HEALPix 
+    tables of the residual TS and kde plots. The plot analysis "hptables" that follows it does a cluster analysis, generating a list of
+    seed positions in the file "seeds.txt". A second pipeline run, "seedcheck", for each ROI, adds seeds falling in the central pixel to the model, 
+    performing an inital fit to the flux only, then a localization, and finally a full fit. The fit and localization information are 
+    written to a set of pickle files in the folder "seedcheck" or the zip file "seedcheck.zip".
+    A selection is applied with there cuts: 
+    %(cut_summary)s
+    <br>and the remaining sources are analyzed here.
     """
-    #Cut summary: %(cut_summary)s
-    #"""
     require='seedcheck.zip'
     def setup(self, **kw):
         self.plotfolder = self.seedname='seedcheck'
@@ -139,7 +145,7 @@ class SeedCheck(sourceinfo.SourceInfo):
             f(a)
         return fig
 
-    def spectral_parameters(self, ax=None):
+    def spectral_parameters(self, ax=None, index_lim=(1.5,3.0), flux_lim=(0.05,5)):
         """ Spectral fit parameters
         Flux vs. spectral index for %(spectral_type)s fit
         <br>histograms of sin(glat) and sqrt(delta_ts) for all, TS>10, and TS>25
@@ -148,12 +154,12 @@ class SeedCheck(sourceinfo.SourceInfo):
         df = self.df_good
         good = df.ts>10
         super = df.ts>25
-        def flux_index(ax):
+        def flux_index(ax, ylim=index_lim, xlim=flux_lim):
             for cut, c,label in zip((good, super), ('.b', 'or'), ('TS>10', 'TS>25')):
-                ax.plot(df.eflux[cut], df.pindex[cut], c, label=label)
+                ax.plot(df.eflux[cut].clip(*xlim), df.pindex[cut].clip(*ylim), c, label=label)
             ax.grid()
-            ax.legend(prop=dict(size=10))
-            plt.setp(ax, ylim=(0.5,3.0), xlim=(0.1,10), xscale='log', ylabel='spectral index', xlabel='enegy flux (eV)')
+            ax.legend(loc='lower right', prop=dict(size=10))
+            plt.setp(ax, ylim=ylim, xlim=xlim, xscale='log', ylabel='spectral index', xlabel='Energy flux [eV]')
         def singlat(ax):
             v = np.sin(np.radians(list(df.glat))); bins=np.linspace(-1,1,26)
             self.histo(ax, v, bins)
@@ -169,7 +175,7 @@ class SeedCheck(sourceinfo.SourceInfo):
                 cut = df.ts>tsmin
                 ax.plot(cutoff[cut], df.pindex[cut],  marker, label='TS>%d'%tsmin)
             plt.setp(ax, ylabel='spectral index', xlabel='cutoff', ylim=(0.5,3.0), xlim=(0, 3000))
-            ax.grid(); ax.legend(prop=dict(size=10))
+            ax.grid(); ax.legend( prop=dict(size=10))
         for f, a in zip((flux_index,  singlat,), ax.flatten()):
             f(a)
             
@@ -177,9 +183,10 @@ class SeedCheck(sourceinfo.SourceInfo):
 
     def locations(self, vmin=10, vmax=50):
         """ Positions
-        Locations of the good candidates
+        Locations of the good candidates. Colors show TS value.
         """
-        return self.skyplot(self.df_good.ts, vmin=vmin, vmax=vmax, cbtext='TS')
+        fig, ax = plt.subplots(figsize=(10,8))
+        return self.skyplot(self.df_good.ts, ax=ax, vmin=vmin, vmax=vmax, cbtext='TS', s=50)
     
     def seed_list(self):
         """ Results of analysis of seeds
@@ -194,7 +201,7 @@ class SeedCheck(sourceinfo.SourceInfo):
         filename = 'good_seeds.html'
         html_file = self.plotfolder+'/%s' % filename
         htmldoc = diagnostics.html_table(t, float_format=diagnostics.FloatFormat(2))
-        open(html_file,'w').write('<head>\n'+ HTMLindex.style + '</head>\n<body>'+ htmldoc+'\n</body>')
+        open(html_file,'w').write('<head>\n'+ _html.style + '</head>\n<body>'+ htmldoc+'\n</body>')
 
         self.info = self.df['ts eflux pindex r95 locqual aprob'.split()].describe().to_html().replace('%', '%%')
         self.info += '<br><a href="%s?skipDecoration">Table of %d seeds</a>: '% (filename, len(t))
