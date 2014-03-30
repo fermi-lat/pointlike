@@ -1,6 +1,6 @@
 """
 Code to generate a set of maps for each ROI
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.4 2014/03/24 14:30:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.5 2014/03/27 20:22:43 burnett Exp $
 
 """
 import os, sys,  pickle, types
@@ -165,7 +165,7 @@ class ResidualTS(object):
     def tsfun(self, skydir):
         self.source.skydir = skydir
         self.roi.calls =0
-        self.model[0]=1e-15 # initial value above limit
+        self.model[0]=1e-13 # initial value 
         self.roi.initialize(self.sourcename)
         try:
             self.func.maximize(estimate_errors=False)
@@ -216,7 +216,6 @@ class ROItables(object):
         self.skyfuns = kwargs.pop('skyfuns', 
               ( (ResidualTS, 'ts', dict(photon_index=2.2),) , 
                 (KdeMap,     'kde', dict()),
-                (CountsMap,     'counts', dict()),
               ),
             )
         self.subdirs = [os.path.join(outdir, name+'_table_%d' %nside) for s, name, kw in self.skyfuns]
