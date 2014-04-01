@@ -1,7 +1,7 @@
 """
 Analyze seeds
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/seedcheck.py,v 1.5 2014/03/27 20:54:21 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/seedcheck.py,v 1.6 2014/03/28 22:19:23 burnett Exp $
 
 """
 import os
@@ -9,6 +9,7 @@ import numpy as np
 import pylab as plt
 import pandas as pd
 import skymaps
+from .. import associate
 from . import sourceinfo, diagnostics, _html
 from .analysis_base import FloatFormat
 
@@ -57,6 +58,7 @@ class SeedCheck(sourceinfo.SourceInfo):
             sdict[name] = dict(
                 ra =source.skydir.ra(), dec=source.skydir.dec(),
                 ts=source.ts,
+                ellipse=source.ellipse if has_ellipse else None,
                 delta_ts=source.ellipse[6] if has_ellipse else np.nan,
                 r95 = 2.6*source.ellipse[2] if has_ellipse else np.nan,
                 locqual=source.ellipse[5] if has_ellipse else np.nan,
@@ -80,12 +82,17 @@ class SeedCheck(sourceinfo.SourceInfo):
                 adict = source.adict if has_adict else None,
                 )
         self.df = pd.DataFrame(pd.DataFrame(sdict).transpose(), 
-            columns='ra dec glat glon ts delta_ts eflux eflux_unc pindex pindex_unc par2 par2_unc e0 r95 locqual aprob index'.split() 
+            columns='ra dec glat glon ts ellipse delta_ts eflux eflux_unc pindex pindex_unc par2 par2_unc e0 r95 locqual aprob index'.split() 
             )
         self.df.index.name='name'
         self.assoc = pd.DataFrame(assoc).transpose()
         self.assoc.index.name = 'name'
+        
         # analyze associations, make summary
+        if sum(self.assoc.aprob>0):
+            print "No associations found: running the standard logic"
+            self.association()
+            
         acat=list(self.assoc.ix[self.assoc.aprob>0.8]['acat'].values)
         sa = list(set(acat))
         t = np.zeros(len(sa),int)
@@ -98,6 +105,28 @@ class SeedCheck(sourceinfo.SourceInfo):
             % (len(sources), self.require, sum(self.good))
         print self.cut_summary
     
+    def association(self):
+        """ run the standard association logic 
+        """
+        srcid = associate.SrcId()
+        assoc={}
+
+        for name, s in self.df.iterrows():
+            ellipse = s['ellipse'] 
+            has_adict=  ellipse is not None
+            if has_adict: 
+                adict = srcid(name, skymaps.SkyDir(s['ra'],s['dec']), ellipse)
+                has_adict = adict is not None
+            assoc[name] = dict(
+                    acat =  adict['cat'][0] if has_adict else None,
+                    aname=  adict['name'][0] if has_adict else None,
+                    adelta_ts = adict['deltats'][0] if has_adict else None,
+                    aprob = adict['prob'][0] if has_adict else 0.,
+                    adict = adict if has_adict else None,
+                    )
+        
+        self.assoc = pd.DataFrame(assoc).transpose()
+        self.assoc.index.name = 'name'
     
     def seed_cumulative_ts(self, cut=None, label='all seeds'):
         """ Cumulative TS distribution for seeds 
@@ -203,7 +232,7 @@ class SeedCheck(sourceinfo.SourceInfo):
         htmldoc = diagnostics.html_table(t, float_format=diagnostics.FloatFormat(2))
         open(html_file,'w').write('<head>\n'+ _html.style + '</head>\n<body>'+ htmldoc+'\n</body>')
 
-        self.info = self.df['ts eflux pindex r95 locqual aprob'.split()].describe().to_html().replace('%', '%%')
+        self.info = self.df_good['ts eflux pindex r95 locqual aprob'.split()].describe().to_html().replace('%', '%%')
         self.info += '<br><a href="%s?skipDecoration">Table of %d seeds</a>: '% (filename, len(t))
         self.info += '<p>Association summary:' #\n<pre>%s\n</pre>' %self.assoc_sum
         self.info += '<table border="1"><thead><tr><th>Catalog</th><th>Sources</th></tr></thead>\n<tbody>'
