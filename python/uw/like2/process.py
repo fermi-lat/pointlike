@@ -1,6 +1,6 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.13 2014/03/27 20:22:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.14 2014/03/27 21:21:00 burnett Exp $
 
 """
 import os, sys, time, pickle
@@ -160,7 +160,7 @@ class Process(main.MultiROI):
                 stream=self.stream,
                 )
     
-    def repivot(self, fit_sources=None, min_ts = 10, max_beta=3.0, emin=200, emax=20000.):
+    def repivot(self, fit_sources=None, min_ts = 10, max_beta=3.0, emin=200, emax=20000., dampen=1.0):
         """ invoked  if repivot flag set;
         returns True if had to refit, allowing iteration
         """
@@ -203,7 +203,7 @@ class Process(main.MultiROI):
                 print 'converged'; continue
             print 'will refit'
             need_refit=True
-            model.set_e0(pivot)
+            model.set_e0(pivot*dampen+ e0*(1-dampen))
         if need_refit:
             roi.fit()
         return need_refit
@@ -357,6 +357,33 @@ class Process(main.MultiROI):
             sfile = os.path.join(seedcheck_dir, s.name+'.pickle')
             pickle.dump(s, open(sfile, 'w'))
             print 'wrote file %s' % sfile
+            
+    def add_sources(self, csv_file='plots/seedcheck/good_seeds.csv'):
+        """Add new sources from a csv file
+        Default assumes analysis by seedcheck
+        """
+        assert os.path.exists(csv_file), 'csv file %s not found' % csv_file
+        good_seeds = pd.read_csv(csv_file, index_col=0)
+        print 'Check %d sources from file %s: ' % (len(good_seeds), csv_file),
+        myindex = Band(12).index(self.roi_dir)
+        inside = good_seeds['index']==myindex
+        ni = sum(inside)
+        if ni>0:
+            print '%d inside ROI' % ni
+        else:
+            print 'No sources in ROI %04d' % myindex
+            return 
+        for name, s in good_seeds[inside].iterrows():
+            e0 = s['e0']
+            try: #in case already exists (debugging perhaps)
+                self.del_source(name)
+                print 'replacing source %s' % name 
+            except: pass
+            source=self.add_source(name=name, skydir=SkyDir(s['ra'],s['dec']), 
+                        model=sources.LogParabola(s['eflux']/e0**2/1e6, s['pindex'], s['par2'], e0, 
+                                                  free=[True,True,False,False]))
+        return good_seeds[inside]        
+    
 
 class BatchJob(Process):
     """special interface to be called from uwpipeline
