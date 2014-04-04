@@ -1,12 +1,14 @@
 """
 Set up and manage the model for all the sources in an ROI
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.21 2014/02/09 19:22:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.22 2014/03/12 15:52:09 burnett Exp $
 
 """
 import os 
 import numpy as np
+import pandas as pd
 from  uw.utilities import keyword_options
+from skymaps import Band, SkyDir
 from . import (sources, parameterset, diffuse, extended, to_xml)
 from . sources import (PowerLaw, PLSuperExpCutoff, LogParabola, Constant)
 
@@ -49,9 +51,13 @@ class ROImodel(list):
         # sources loaded by a subclass that must implement this function
         self.load_sources(roi_spec, **self.load_kw)
         
-        self.selected_source = None
-
+        if config.auxcat is not None:
+            print 'adding sources from %s' % config.auxcat
+            self.add_sources(config.auxcat)
+        else:
+            print 'finished adding sources'
         self.initialize()
+        self.selected_source = None
 
     
     def initialize(self, **kw):
@@ -159,7 +165,7 @@ class ROImodel(list):
         self.append(newsource)
         self.initialize()
         return newsource
- 
+     
     def del_source(self, source_name):
         """ remove a source from the model for this ROI
         """
@@ -196,4 +202,33 @@ class ROImodel(list):
         """
         with open(filename, 'w') as out:
             to_xml.from_roi(self, stream = out)
+            
+    def add_sources(self, auxcat='plots/seedcheck/good_seeds.csv'):
+        """Add new sources from a csv file
+        Default assumes analysis by seedcheck
+        """
+        assert os.path.exists(auxcat), 'auxcat file %s not found' % auxcat
+        if os.path.splitext(auxcat)[1] != '.csv':
+            raise Exception('Only support csv files, not %s' % auxcat)
+        good_seeds = pd.read_csv(auxcat, index_col=0)
+        print 'Check %d sources from file %s: ' % (len(good_seeds), auxcat),
+        myindex = Band(12).index(self.roi_dir)
+        inside = good_seeds['index']==myindex
+        ni = sum(inside)
+        if ni>0:
+            print '%d inside ROI' % ni
+        else:
+            print 'No sources in ROI %04d' % myindex
+            return 
+        for name, s in good_seeds[inside].iterrows():
+            e0 = s['e0']
+            try: #in case already exists (debugging perhaps)
+                self.del_source(name)
+                print 'replacing source %s' % name 
+            except: pass
+            source=self.add_source(name=name, skydir=SkyDir(s['ra'],s['dec']), 
+                        model=sources.LogParabola(s['eflux']/e0**2/1e6, s['pindex'], s['par2'], e0, 
+                                                  free=[True,True,False,False]))
+        return good_seeds[inside]        
+
 
