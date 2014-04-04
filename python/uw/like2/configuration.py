@@ -1,7 +1,7 @@
 """
 Manage the analysis configuration
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.21 2014/03/12 15:52:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.22 2014/04/04 14:04:02 burnett Exp $
 
 """
 import os, sys, types
@@ -165,7 +165,9 @@ class Configuration(object):
             
         self.modeldir = self.configdir
         self.modelname='pickle.zip'
-        if not os.path.exists(os.path.join(self.configdir, self.modelname)) and input_model is not None:
+        if os.path.exists(os.path.join(self.configdir, self.modelname)):
+            self.input_model = None
+        elif input_model is not None:
             if not isinstance(input_model, dict):
                 raise Exception('input_model must be a dictionary')
             model_keys = ['xml_file','path', 'auxcat']
@@ -260,7 +262,8 @@ class Configuration(object):
     @property
     def auxcat(self):
         """get the auxillary catalog, if any"""
-        acat = self.input_model.get('auxcat', None)
+        if self.input_model is None: return None
+        acat = self.input_model.get('auxcat', None) 
         if acat is None: return None
         if os.path.isabs(acat): return acat
         return os.path.join(self.modeldir, acat)
