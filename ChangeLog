@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Apr  4 07:04:02 PDT 2014
+pointlike/python/uw/like2
+
+Modified Files:
+	configuration.py process.py roimodel.py 
+Log Message:
+implement auxcat
+    *
+------------------------------------------------------------
 User: glastrm  Thu Apr  3 14:31:58 PDT 2014
 pointlike
 
