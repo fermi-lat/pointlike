@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.71 2014/03/24 14:28:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.72 2014/03/25 18:34:03 burnett Exp $
 
 """
 import types, time
@@ -93,16 +93,16 @@ class ROI(views.LikelihoodViews):
         self.config=config = configuration.Configuration(config_dir, quiet=self.quiet, postpone=self.postpone)
         ecat = extended.ExtendedCatalog(config.extended)
         
-        if roi_spec is None:
-            roi_sources =from_xml.ROImodelFromXML(config, None)
-            roi_index = None
+        if roi_spec is None or isinstance(roi_spec, str):
+            roi_sources =from_xml.ROImodelFromXML(config, roi_spec)
+            roi_index = roi_sources.index
         elif isinstance(roi_spec, int):
             roi_sources = from_healpix.ROImodelFromHealpix(config, roi_spec, ecat=ecat,load_kw=self.load_kw)
             roi_index = roi_spec
             config.roi_spec = configuration.ROIspec(healpix_index=roi_spec)
         else:
             raise Exception('Did not recoginze roi_spec: %s' %roi_spec)
-        self.name = config.roi_spec.name
+        self.name = config.roi_spec.name if config.roi_spec is not None else roi_spec
         
         roi_bands = bands.BandSet(config, roi_index)
         roi_bands.load_data()
