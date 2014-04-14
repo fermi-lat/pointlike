@@ -1,7 +1,7 @@
 """
 manage band classes
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bands.py,v 1.7 2014/02/21 17:32:18 cohen Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bands.py,v 1.8 2014/03/12 15:52:09 burnett Exp $
 """
 import os
 import numpy as np
@@ -87,7 +87,7 @@ class BandSet(list):
             if False, do not load data into the pixels
         """
         self.config = config
-        if roi_index is None:
+        if roi_index is None or roi_index<0:
             self.roi_dir = config.roi_spec.pos
             self.radius = config.roi_spec.radius
             roi_index = None
