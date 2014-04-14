@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Apr 14 10:46:44 PDT 2014
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	analysis_base.py 
+Log Message:
+improve error msg
+    *
+------------------------------------------------------------
 User: burnett  Mon Apr 14 10:44:30 PDT 2014
 pointlike/python/uw/like2
 
