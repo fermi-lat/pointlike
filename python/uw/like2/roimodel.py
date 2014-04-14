@@ -1,7 +1,7 @@
 """
 Set up and manage the model for all the sources in an ROI
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.22 2014/03/12 15:52:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.23 2014/04/04 14:04:02 burnett Exp $
 
 """
 import os 
@@ -52,14 +52,20 @@ class ROImodel(list):
         self.load_sources(roi_spec, **self.load_kw)
         
         if config.auxcat is not None:
-            print 'adding sources from %s' % config.auxcat
             self.add_sources(config.auxcat)
-        else:
-            print 'finished adding sources'
         self.initialize()
+        if len(self.parameters)==0:
+            print 'WARNING: there are no free parameters'
+        print self.summary()
         self.selected_source = None
 
-    
+    def summary(self):
+        ns = len(self)
+        n_ext = sum([ s.isextended for s in  self])
+        n_glob = sum([s.isglobal for s in self])
+        return '%d total sources: %d extended, %d global' % ( ns, n_ext, n_glob )
+
+        
     def initialize(self, **kw):
         """For fast parameter access: must be called if any source changes
         """
