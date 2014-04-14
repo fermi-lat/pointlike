@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Apr 14 10:47:40 PDT 2014
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	seedcheck.py 
+Log Message:
+fix test for no associations
+    *
+------------------------------------------------------------
 User: burnett  Mon Apr 14 10:46:44 PDT 2014
 pointlike/python/uw/like2/analyze
 
