@@ -1,6 +1,6 @@
 """
 Generate the XML representation of a list of sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.16 2014/01/20 20:15:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.17 2014/01/26 20:07:56 burnett Exp $
 
 """
 import os, collections, argparse, types, glob, pyfits
@@ -134,7 +134,8 @@ def from_roi(roimodel, title=None, stream=None, strict=True, maxi=None):
                         SimpleElement('parameter', name='Prefactor', value=1.0, free=0, max=1e3,min=1e-3, scale=1.0)
                 elif stype=='GlobalSource':
                     SimpleElement('spatialModel', type=source.dmodel[0].__class__.__name__,
-                        ignore=('spectral_function','files', 'opener'), **source.dmodel[0].__dict__)
+                        ignore=('spectral_function','files', 'opener','limbfun','energy', 'loaded'),
+                            **source.dmodel[0].__dict__)
             if maxi is not None and i>maxi: break
 
 

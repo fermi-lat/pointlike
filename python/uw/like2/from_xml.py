@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_xml.py,v 1.3 2014/02/24 20:00:26 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_xml.py,v 1.4 2014/03/12 15:52:09 burnett Exp $
 """
 import os, numpy as np
 from uw.utilities import  xml_parsers
@@ -13,7 +13,7 @@ class XMLparser(dict):
     """
     def __init__(self, xmlfile):
         if not os.path.isabs(xmlfile):
-            xmlfie = os.path.expandvars(xmlfile)
+            xmlfile = os.path.expandvars(xmlfile)
             
         self.handler = xml_parsers.parse_sourcelib(xmlfile)
         self.update(self.handler.outerElements[0])
@@ -27,9 +27,12 @@ class ROImodelFromXML(roimodel.ROImodel):
         """
         if roi_spec is not None:
             handler = XMLparser(roi_spec)
+            self.input_xml=roi_spec
         else:
             handler = self.config.xml_parser
-        
+            self.input_xml=self.config.input_xml
+        self.index = int(handler.get('index', -1))
+
         xtm = xml_parsers.XML_to_Model()
         for src in handler.sources:
             name, stype = str(src['name']), src['type']
@@ -77,5 +80,5 @@ class ROImodelFromXML(roimodel.ROImodel):
                 raise Exception('unrecognized type %s for source %s' % (stype, name))
     
     def __repr__(self):
-        return '%s.%s: file %s' % (self.__module__, self.__class__.__name__, self.config.xml_parser)
+        return '%s.%s: file %s' % (self.__module__, self.__class__.__name__, self.input_xml)
     
