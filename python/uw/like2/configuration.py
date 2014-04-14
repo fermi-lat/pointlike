@@ -1,7 +1,7 @@
 """
 Manage the analysis configuration
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.22 2014/04/04 14:04:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.23 2014/04/04 18:44:40 burnett Exp $
 
 """
 import os, sys, types
@@ -165,6 +165,7 @@ class Configuration(object):
             
         self.modeldir = self.configdir
         self.modelname='pickle.zip'
+        self.roi_spec = None
         if os.path.exists(os.path.join(self.configdir, self.modelname)):
             self.input_model = None
         elif input_model is not None:
@@ -178,6 +179,8 @@ class Configuration(object):
 
             # no pickle.zip in config: check path if set
             self.modeldir = input_model.get('path', None)
+            if self.modeldir is not None:
+                self.modeldir = os.path.expandvars(self.modeldir)
             if self.modeldir is None:
                 if input_xml is  None: 
                     raise Exception('Expected either to have access to a all-sky pickle file or a xml_file ')
