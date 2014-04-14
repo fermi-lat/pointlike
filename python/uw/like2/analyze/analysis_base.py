@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.16 2014/01/19 16:34:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.17 2014/02/16 13:49:23 burnett Exp $
 
 """
 
@@ -266,7 +266,7 @@ class AnalysisBase(object):
         try:
             text = htmldoc%self.__dict__
         except KeyError, msg:
-            print '*** failed filling %s:%s' % (title, msg)
+            print '*** failed header generation %s- missing key: %s' % (title, msg)
         except TypeError, msg:
             print '*** TypeError with string "%s": %s' % (htmldoc, msg)
         open(os.path.join(self.plotfolder,'index.html'), 'w').write(text)
