@@ -1,6 +1,6 @@
 """
 Source classes
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.45 2014/02/11 23:05:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.46 2014/03/12 15:52:09 burnett Exp $
 
 """
 import os, copy
@@ -58,7 +58,7 @@ class Source(object):
     * model, a Models.Model object
     * skydir : [skymaps.Skydir  | None]
         
-    Subclasses must implement a function response(band), which, given a BandLite parameter, 
+    Subclasses must implement a function response(band), which, given a EnergyBand parameter, 
         returns a Response object appropriate for the source. This provides the angular dependence 
         of the response specific the band energy and event type.
     
@@ -142,10 +142,10 @@ class Source(object):
         self.changed = True
 
     def __str__(self):
-        return self.name + ' '+ self.skydir.__str__() +' '+ self.model.name \
-                +  (' (free)' if np.any(self.model.free) else ' (fixed)')
+        return '\tname  : %s\n\tskydir: %s\n\tmodel : %s\n\t\t%s' %\
+    (self.name, self.skydir, self.model.name, self.model.__str__(indent='\t\t'))
     def __repr__(self):
-        return '%s.%s: %s' % (self.__module__,self.__class__.__name__ , self.name)
+        return '%s.%s: \n%s' % (self.__module__,self.__class__.__name__ , self.__str__())
         
     @property
     def isextended(self):
@@ -172,9 +172,13 @@ class PointSource(Source):
 
 class ExtendedSource(Source):
 
+    #def __str__(self):
+    #    return self.name + ' '+ self.model.name \
+    #            +  (' (free)' if np.any(self.model.free) else ' (fixed)') 
     def __str__(self):
-        return self.name + ' '+ self.model.name \
-                +  (' (free)' if np.any(self.model.free) else ' (fixed)')  
+        return '\tname  : %s\n\tskydir: %s\n\tfile  : %s\n\tmodel : %s\n\t\t%s' %\
+    (self.name, self.skydir, self.dmodel.file, self.model.name, self.model.__str__(indent='\t\t'))
+ 
   
     def near(self, otherdir, distance=10):
         return self.skydir.difference(otherdir) < np.radians(distance)
