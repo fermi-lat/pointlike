@@ -1,7 +1,7 @@
 """
 Basic analyis of source spectra
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.19 2014/01/19 18:12:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.20 2014/01/19 18:13:21 burnett Exp $
 
 """
 
@@ -387,10 +387,10 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         It should be distributed approximately as chi squared of at most 14-2 =12 degrees of freedom. 
         However, high energy bins usually do not contribute, so we compare with ndf=%(ndf)d.
         All sources with TS_bands>%(tsbandcut)d are shown.<br>
-        Left: Power-law fits. Tails in this distribution perhaps could be improved by converting to log parabola. 
-        <br>Center: Log parabola fits.
-        <br>Right: Fits for the pulsars, showing high latitude subset.
-        <br> Averages: %(fit_quality_average)s
+        <b>Left</b>: Power-law fits. Tails in this distribution perhaps could be improved by converting to log parabola. 
+        <br><b>Center</b>: Log parabola fits.
+        <br><b>Right</b>: Fits for the pulsars, showing high latitude subset.
+        <br><br> Averages: %(fit_quality_average)s
         %(badfit_check)s
         %(poorfit_table)s
 
@@ -400,12 +400,13 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         plt.subplots_adjust(left=0.1)
         s = self.df
         psr = np.asarray(s.psr, bool)
+        fq = np.array(s.fitqual, float)
         beta = s.beta
         logparabola = (~psr) * (beta>0.01)
         powerlaw = (~psr) * (beta.isnull() + (beta<0.01) )
 
         self.tsbandcut=tsbandcut
-        cut=s.band_ts>tsbandcut
+        cut=(s.band_ts>tsbandcut) & (fq>0)
         
         dom = np.linspace(xlim[0],xlim[1],26)
         d = np.linspace(xlim[0],xlim[1],51); delta=dom[1]-dom[0]
@@ -416,8 +417,8 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         for ax, label in zip(axx[:2], ('powerlaw', 'logparabola',)):
             mycut=cut*eval(label)
             count = sum(mycut)
-            ax.hist(s.fitqual[mycut].clip(*xlim), dom, label=label+' (%d)'%count)
-            self.average[i]=s.fitqual[mycut].mean(); i+=1
+            ax.hist(fq[mycut].clip(*xlim), dom, label=label+' (%d)'%count)
+            self.average[i] = fq[mycut].mean(); i+=1
             ax.plot(d, chi2(d)*count*delta/fudge, 'r', lw=2, label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
             ax.grid(); ax.set_xlabel('fit quality')
             ax.legend(prop=dict(size=10))
@@ -425,10 +426,10 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         def right(ax, label='PSR'):
             mycut = cut * (psr)
             count = sum(mycut)
-            ax.hist(s.fitqual[mycut].clip(*xlim), dom, label=label+' (%d)' %count)
-            ax.hist(s.fitqual[mycut*hilat].clip(*xlim), dom, label=label+' [|b|>5] (%d)' %sum(mycut*hilat))
-            self.average[i]=s.fitqual[mycut*hilat].mean()
-            self.average[i+1]=s.fitqual[mycut*(~hilat)].mean()
+            ax.hist(fq[mycut].clip(*xlim), dom, label=label+' (%d)' %count)
+            ax.hist(fq[mycut*hilat].clip(*xlim), dom, label=label+' [|b|>5] (%d)' %sum(mycut*hilat))
+            self.average[i]   = fq[mycut*hilat].mean()
+            self.average[i+1] = fq[mycut*(~hilat)].mean()
             ax.plot(d, chi2(d)*count*delta/fudge, 'r', lw=2, label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
             ax.grid();ax.set_xlabel('fit quality')
             ax.legend(loc='upper left', prop=dict(size=10))
@@ -439,7 +440,8 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         print '%d sources with bad fits' %len(t)
         if len(t)>0:
             self.badfit = t[['ts', 'errs', 'roiname']]
-            self.badfit_check = html_table(self.badfit, name=self.plotfolder+'/badfits', heading='<h4>Sources with missing errors</h4>', float_format=FloatFormat(1))
+            self.badfit_check = html_table(self.badfit, name=self.plotfolder+'/badfits', 
+                heading='<h4>%d Sources with missing errors</h4>' % len(t), float_format=FloatFormat(1))
         else: self.badfit_check = '<p>All sources fit ok.'
         self.fit_quality_average =  ', '.join( map(lambda x,n :'%s: %.1f' %(n,x) ,
                             self.average, 'powerlaw logparabola expcutoff(hilat) expcutoff(lolat)'.split()) )
