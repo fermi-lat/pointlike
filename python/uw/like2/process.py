@@ -1,6 +1,6 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.14 2014/03/27 21:21:00 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.15 2014/04/04 14:04:02 burnett Exp $
 
 """
 import os, sys, time, pickle
@@ -107,7 +107,7 @@ class Process(main.MultiROI):
                     # repivot, iterating a few times
                     n = 3
                     while n>0:
-                        if not self.repivot(roi, fit_sources): break
+                        if not self.repivot( fit_sources): break
                         n-=1
                 if self.betafix_flag:
                     if not self.betafix(roi):
