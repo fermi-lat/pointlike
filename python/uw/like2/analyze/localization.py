@@ -1,21 +1,16 @@
-"""    Description here
+"""   Analyze localization 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.8 2014/02/13 04:11:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.9 2014/02/14 18:48:21 burnett Exp $
 
 """
-
 import os, pickle, collections
 import numpy as np
 import pylab as plt
 import pandas as pd
-
 from uw.utilities import makepivot
 from . import (sourceinfo, _html)
-
 from . analysis_base import FloatFormat, html_table
-from . _html import HTMLindex
-
-
+#from . _html import HTMLindex
 
 class Localization(sourceinfo.SourceInfo):
     """Localization summary
@@ -43,12 +38,9 @@ class Localization(sourceinfo.SourceInfo):
                 (len(self.poorloc), self.qualcut,self.acut, self.delta_tscut)
             self.poorloc.to_csv('poorly_localized.csv')
             print 'wrote file "poorly_localized.csv"'
-        unloc = self.df.unloc * (self.df.ts>self.tscut)
+        self.unloc = unloc = self.df.unloc * (self.df.ts>self.tscut)
         if sum(unloc)>0:
             print '%d point sources (TS>10) without localization information' % sum(unloc)
-            self.df.ix[unloc]['ra dec ts roiname'.split()].to_csv('unlocalized_sources.csv')
-            print self.df.ix[unloc]['ra dec ts roiname'.split()]
-            print 'Wrote file "unlocalized_sources.csv"'
 
     def localization(self, maxdelta=9, mints=10, maxqual=5):
         """Localization plots
@@ -170,7 +162,7 @@ class Localization(sourceinfo.SourceInfo):
                 columns = 'source1 source2 distance tolerance'.split(),
             ), 
             name=self.plotfolder+'/close',
-            heading='<h4>Table of pairs of close sources</h4>',
+            heading='<h4>Table of %d pairs of close sources</h4>'%len(name1),
             float_format=FloatFormat(2), href=False) 
         return None
         
@@ -223,6 +215,23 @@ class Localization(sourceinfo.SourceInfo):
             ylabel='ratio of detected to expected')
         return fig
     
+    def unlocalized(self):
+        """Sources without localization
+        Check for sources which completely failed attempt at localization.<br>
+            %(unlocalized_sources)s
+            
+        """
+        unloc = self.unloc
+        if sum(unloc)>0:
+            unloc_table = self.df.ix[unloc]['ra dec ts roiname'.split()]
+            self.unlocalized_sources =html_table(unloc_table,
+                name=self.plotfolder+'/unlocalized',
+                heading='<h4>Table of %d unlocalized sources</h4>'%len(unloc_table),
+                href_pattern='tsmap_fail/%s*_tsmap*png',
+                float_format=FloatFormat(2))
+        else:
+            self.unlocalized_sources='<p>No unlocalized sources'
+        
     def poor_loc(self):
         """ Poorly localized sources
                 %(poorly_localized_table_check)s
@@ -257,4 +266,8 @@ class Localization(sourceinfo.SourceInfo):
             self.poorly_localized_table_check ='<p>No poorly localized sources!'
 
     def all_plots(self):
-        return self.runfigures([self.r95, self.localization,self.localization_quality,self.poor_loc,self.check_closeness,self.source_confusion])
+        return self.runfigures([self.r95, self.localization,self.localization_quality,
+            self.unlocalized, 
+            self.poor_loc,
+            self.check_closeness,self.source_confusion,
+            ])
