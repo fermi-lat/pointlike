@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.17 2014/02/16 13:49:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.18 2014/04/14 17:46:44 burnett Exp $
 
 """
 
@@ -16,7 +16,9 @@ class FloatFormat(): #simple formatting functor for to_html!
     def __init__(self, n): self.fmt = '%%.%df' % n
     def __call__(self, x): return self.fmt % x
     
-def html_table( df, columns={}, name='temp', heading='', href=True, maxlines=10, **kw):
+def html_table( df, columns={}, name='temp', heading='', href=True, 
+        href_pattern='sedfig/%s_sed*.png',
+        maxlines=10, **kw):
     """ utility to create and reformat a pandas-generated html table
     df : a DataFrame
     columns : dict
@@ -24,6 +26,7 @@ def html_table( df, columns={}, name='temp', heading='', href=True, maxlines=10,
         items - comma-delimited string, first field the title to use instead of the column name, rest an explanation
     href : bool
          if True, replace index names with link to sedrec
+    href_pattern : str
     maxlines : int
         maximum number of lines to return as an HTML table; if length of the table is greater, 
     """
@@ -43,7 +46,7 @@ def html_table( df, columns={}, name='temp', heading='', href=True, maxlines=10,
     
     if href:
         for n in df.index:
-            fnpat = 'sedfig/' + n.replace(' ','_').replace('+','p') + '_sed*.png'
+            fnpat = href_pattern %  n.replace(' ','_').replace('+','p') 
             q = glob.glob(fnpat)
             if len(q) !=1: 
                 print '**File %s not found' % fnpat
