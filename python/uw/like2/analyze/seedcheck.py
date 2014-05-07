@@ -1,7 +1,7 @@
 """
 Analyze seeds
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/seedcheck.py,v 1.8 2014/04/01 18:08:21 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/seedcheck.py,v 1.9 2014/04/14 17:47:40 burnett Exp $
 
 """
 import os
@@ -88,7 +88,7 @@ class SeedCheck(sourceinfo.SourceInfo):
         self.assoc.index.name = 'name'
         
         # analyze associations, make summary
-        if all(self.assoc.aprob)==0):
+        if all(self.assoc.aprob==0):
             print "No associations found: running the standard logic"
             self.association()
         else:
