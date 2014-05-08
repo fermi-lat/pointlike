@@ -1,6 +1,6 @@
 """
 Check that the data specification for this stream is valid, perhaps creating the intermediate files
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_data.py,v 1.7 2013/12/13 21:41:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_data.py,v 1.8 2013/12/31 04:45:14 burnett Exp $
 """
 import os, sys, glob, zipfile, logging, datetime
 import numpy as np
@@ -31,6 +31,9 @@ def main(args=None):
 
     current = str(datetime.datetime.today())[:16]
     print '\n%s stage %s stream %s model %s ' % (current, stage, stream,  absskymodel)
+
+    if 'CUSTOM_IRF_DIR' not in os.environ and os.path.exists(os.path.expandvars('$FERMI/custom_irfs')):
+        os.environ['CUSTOM_IRF_DIR'] = os.path.expandvars('$FERMI/custom_irfs')
 
     rc = dataset.validate(absskymodel, nocreate=nocreate)
     print 'Data is validated' if rc else 'NOT validated'
