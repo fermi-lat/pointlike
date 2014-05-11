@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.62 2014/03/05 05:46:50 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.63 2014/03/13 13:21:09 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -17,6 +17,8 @@ import time
 C = 29979245800.
 
 def sex2dec(s,mode='ra'):
+    """ Convert a colon-delimited sexagesimal string to decimal degrees.
+    """
     toks = s.split(':')
     multi = (-1 if '-' in s else 1) * (15 if mode == 'ra' else 1)
     return multi*sum( (60**(-i) * abs(float(toks[i])) for i in xrange(len(toks)) ) )
@@ -24,20 +26,32 @@ def sex2dec(s,mode='ra'):
 def ra2dec(s): return sex2dec(s,mode='ra')
 def decl2dec(s): return sex2dec(s,mode='decl')
 def dec2sex(d,mode='ra',places=6):
-    """ Convert decimal degree to column separated format."""
+    """ Convert decimal degree to column separated format.
+    
+    Strip out each entry (deg/min/sec) separately, then take fractional
+    seconds as a fixed precision string (specified by places kwarg).
+    """
     d = np.float128(d)
+    orig = np.float128(d)
     scale = 15. if mode=='ra' else 1. # scale to deg to hour (ra) or deg
-    sign = '' if mode=='ra' else ('-' if d < 0 else '+')
+    sign = '' if mode=='ra' else ('-' if orig < 0 else '+')
     d = np.float128(abs(d))
     dg = int(d/scale)
     mi = int((d/scale-dg)*60.)
     ss = ((d/scale-dg)*60-mi)*60
     ssi = int(ss)
     ssf = int(round(10**places*(ss-ssi)))
+    if ssf==10**places:
+        ssf = 0 # prevent overflow at this precision
+        ssi += 1
     ssfs = '0'*(places-len(str(ssf)))+str(ssf)
     s = '%s%02d:%02d:%02d.%s'%(sign,dg,mi,ssi,ssfs)
-    assert(abs(sex2dec(s,mode=mode)-d)<1e-3/3600)
+    # check the routine is inverse to sex2dec to indicated precision
+    precision = 2.0*scale/3600.*10**-places # prec. in deg. with 2x fudge
+    diff = abs(sex2dec(s,mode=mode)-orig)
+    assert(diff<precision)
     return s
+
 def pad(s,n,c=' '):
     if len(s) >= n:
         return s + c # always have a trailing space!
@@ -77,6 +91,9 @@ class StringFloat(object):
                 s = sl + sr + '0'*(places-len(sr))
         return s
 
+    def copy(self):
+        return StringFloat(self._s)
+
     def __str__(self):
         return self._s
 
@@ -84,20 +101,35 @@ class StringFloat(object):
         return float(self._s)
 
     def __add__(self,other):
+        if not hasattr(other,'places'):
+            other = StringFloat(str(other))
         if self.places==0 and other.places==0:
             return StringFloat(str(self._i+other._i))
         t = max(self.places,other.places)
         i1 = int(str(self._i) + '0'*(t-self.places))
         i2 = int(str(other._i) + '0'*(t-other.places))
-        s = str(i1+i2)
-        return StringFloat(s[:-t]+'.'+s[-t:])
+        s = i1+i2
+        sign = '-' if s < 0 else ''
+        s = str(abs(s))
+        return StringFloat(sign+s[:-t]+'.'+s[-t:])
 
     def __mul__(self,other):
+        if not hasattr(other,'places'):
+            other = StringFloat(str(other))
         if self.places==0 and other.places==0:
             return StringFloat(str(self._i*other._i))
         t = (self.places+other.places)
-        s = str(self._i*other._i)
-        return StringFloat(s[:-t]+'.'+s[-t:])
+        i = self._i*other._i
+        sign = '-' if i < 0 else ''
+        s = str(abs(i))
+        if t > len(s):
+            return StringFloat(sign+'0.'+'0'*(t-len(s))+s)
+        return StringFloat(sign+s[:-t]+'.'+s[-t:])
+
+    def __sub__(self,other):
+        if not hasattr(other,'places'):
+            other = StringFloat(str(other))
+        return self + other*StringFloat(-1)
 
 class ParFile(dict):
 
@@ -605,7 +637,7 @@ class ParFile(dict):
                     indices.append(int(key.split('_')[-1]))
         return indices
 
-    def zero_glitches(self,glepoch=None):
+    def zero_glitches(self,glepoch=None,transients_only=False):
         """ If glepoch is provided, only zero glitches near (within 1d) of
             that epoch.  Otherwise, remove all glitches."""
         no_glitches = True
@@ -613,10 +645,14 @@ class ParFile(dict):
         for key in self.keys():
             if (key[:2]=='GL') and (int(key.split('_')[-1]) in indices):
                 no_glitches = False
-                lab = key[2:4]
                 if key[2:4] != 'EP':
-                    self.set(key,0)
+                    if ((not transients_only) or 
+                        ((key[2:5]=='F0D') or (key[2:4]=='TD'))):
+                        self.set(key,0)
         return no_glitches
+
+    def zero_glitch_transients(self,glepoch=None):
+        self.zero_glitches(glepoch=glepoch,transients_only=True)
 
     def sort_glitches(self):
         """ Put glitch indices in time order."""
@@ -828,7 +864,8 @@ def copy_tzr(par1,par2):
             pf2.add_key(key,pf1.get(key))
     pf2.write(par2)
         
-def get_bats_etc(par,tim,output=None,full_output=False,binary=False):
+def get_bats_etc(par,tim,output=None,full_output=False,binary=False,
+    nofit=False):
     """ Use the tempo2 general plugin to compute the bats and absolute
         phases of a set of TOAs."""
     if not os.path.isfile(par):
@@ -839,6 +876,8 @@ def get_bats_etc(par,tim,output=None,full_output=False,binary=False):
     cmd = """tempo2 -output general2 -s "onerous\t{bat}\t{err}\t{npulse}\t{pre_phase}\t{sat}\n" -f %s %s"""%(par,tim)
     if binary:
         cmd = cmd.replace('bat','bbat')
+    if nofit:
+        cmd += ' -nofit'
     proc = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE)
     toks = map(lambda l:l.split('\t')[1:],
         filter(lambda l:l[:7]=='onerous',proc.stdout))
@@ -859,7 +898,7 @@ def get_bats_etc(par,tim,output=None,full_output=False,binary=False):
         return bats,errs,phas
 
 def get_resids(par,tim,emax=None,phase=False,get_mjds=False,latonly=False,
-    jitter=None):
+    jitter=None,select=None,nofit=True):
     """ Use the tempo2 general2 plugin to obtain residuals.  By default, 
         the residuals and the errors are given in microseconds.
 
@@ -871,7 +910,11 @@ def get_resids(par,tim,emax=None,phase=False,get_mjds=False,latonly=False,
         raise IOError('Ephemeris %s is not a valid file!'%par)
     if not os.path.isfile(tim):
         raise IOError('TOA collection %s is not a valid file!'%tim)
-    cmd = """tempo2 -output general2 -s "onerous\t{err}\t{post}\t{bat}\t{freq}\n" -f %s %s -nofit"""%(par,tim)
+    cmd = """tempo2 -output general2 -s "onerous\t{err}\t{post}\t{bat}\t{freq}\n" -f %s %s"""%(par,tim)
+    if nofit:
+        cmd += ' -nofit'
+    if select is not None:
+        cmd += ' -select %s'%select
     proc = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE)
     toks = [line.split('\t')[1:] for line in proc.stdout if line[:7]=='onerous']
     # NB -- both residuals and errors in microseconds
@@ -1015,8 +1058,9 @@ def add_flag(tim,flag,vals,output=None):
     """ Add a flag to the TOAs in an output file with the specified value.
         If the flag is already present, the value is replaced.
         
-        The user may specify either a single value for all TOAs (e.g. a flag
-        to specify a jump) or a value for each and every TOA."""
+        The user may specify either a single value for all TOAs (e.g. a 
+        flag to specify a jump) or a value for each and every TOA.
+    """
     lines = file(tim).readlines()
     new_lines = deque()
     counter = 0
@@ -1125,7 +1169,8 @@ def cut_tim(tim,tmin=None,tmax=None,output=None):
         file(output,'w').write(''.join(tim_strings))
     return tim_strings
 
-def flag_filter(tim,flag,valfunc=lambda x: True):
+def flag_filter(tim,flag,valfunc=lambda x: True,return_lines=False,
+    converse=False):
     """ Sort through a TOA file and return a mask containing those lines
         that have a flag with the correct value."""
     if flag[0] != '-':
@@ -1138,7 +1183,13 @@ def flag_filter(tim,flag,valfunc=lambda x: True):
             return idx==(len(s)-1) or valfunc(s[idx+1])
         except ValueError:
             return False
-    return np.argwhere(map(f,toa_strings)).flatten()
+    mask = np.argwhere(map(f,toa_strings)).flatten()
+    if converse:
+        mask = ~mask
+    if return_lines:
+        return [
+            toa_strings[i] for i in xrange(len(toa_strings)) if mask[i]]
+    return mask
 
 def flag_values(tim,flag):
     """ Return the "argument" of a flag if present in a TOA, else an
@@ -1156,6 +1207,19 @@ def flag_values(tim,flag):
         except ValueError:
             return ''
     return map(f,toa_strings)
+
+def flag_filter_tim(tim,flag,output,val=None,converse=False):
+    """ Write out a new .tim file with TOAs with the specified flag.
+
+    Optionally, require the flag to be set to a particular value.
+    """
+    if val is None:
+        flagfunc = lambda x: True
+    else:
+        flagfunc = lambda x: x == val
+    tim_strings = flag_filter(tim,flag,flagfunc,return_lines=True,
+        converse=converse)
+    file(output,'w').write('FORMAT 1\n%s'%(tim_strings))
 
 def merge_tim(timfiles,output,tmin=None,tmax=None):
     """ Merge TOA files, applying time cuts if desired."""
