@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.20 2014/01/12 06:20:52 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.21 2014/01/14 08:18:12 kerrm Exp $
 
 Calculate TOAs with a variety of methods.
 
@@ -225,7 +225,7 @@ class UnbinnedTOAGenerator(TOAGenerator):
         jump = False
         if self.plot_stem is not None:
             name = ('%3d'%(self.counter+1)).replace(' ','0')
-            plot_output = '%s%s.png'%(self.plot_stem,name)
+            plot_output = '%s%s.eps'%(self.plot_stem,name)
         else:
             plot_output = None
         # if the ephemeris is deemed good, we use it to track the 
@@ -470,37 +470,51 @@ def profile_analysis(logl,logl_args,pred_phase=None,nsamp=100,thresh=5,
     tau_err = (rt-lt)/4 # by 2 for average, by 2 again for 2->1 sigma
 
     if plot_output is not None:
+        pl.rcParams['xtick.labelsize'] = 'large'
+        pl.rcParams['ytick.labelsize'] = 'large'
         dom1 = dom
         cod1 = cod
         inset_delta = max(abs(rt),abs(lt))+0.01
         dom2 = np.linspace(tau-inset_delta,tau+inset_delta,30)
         cod2 = np.asarray(map(f,dom2))
         pl.figure(10); pl.clf();
-        ax1 = pl.gca()
-        ax1.axhline(0,color='k')
+        ax1 = pl.axes([0.10,0.10,0.88,0.87])
+        #ax1.axhline(0,color='k')
+        ax1.axhline(0,0,0.2,color='k') # hard hack for publn
         # calculate coordinates for inset; should use transAxes?
-        ax2 = pl.axes([0.2+0.4*(tau<0.5),0.60,0.25,0.25])
+        #ax2 = pl.axes([0.18+0.4*(tau<0.5),0.58,0.28,0.28])
+        ax2 = pl.axes([0.05+0.4*(tau<0.5),0.18,0.40,0.40])
         for i,(dom,cod,ax) in enumerate(zip([dom1,dom2],[cod1,cod2],[ax1,ax2])):
-            ax.plot(dom,cod)
-            ax.axvline(phi0,color='red',ls='--')
-            ax.axvline(tau,color='red')
-            ax.axvline(tau-tau_err,color='green',ls='-')
-            ax.axvline(tau+tau_err,color='green',ls='-')
-            if pred_phase is not None:
-                ax.axvline(pred_phase,color='k',ls='-')
+            if i != 1:
+                ax.plot(dom,cod,color='gray',lw=2)
+            # omit these lines for publication
+            #ax.axvline(phi0,color='red',ls='--')
+            #ax.axvline(tau,color='red')
+            #ax.axvline(tau-tau_err,color='green',ls='-')
+            #ax.axvline(tau+tau_err,color='green',ls='-')
+            #if pred_phase is not None:
+            #    ax.axvline(pred_phase,color='k',ls='-')
             if i==1:
+                y = cod-cod.min()
+                ax.plot(dom,y,color='gray',lw=2)
+                ax.axvline(phi0,color='salmon',ls='--',lw=2)
+                ax.axvline(tau,color='k',lw=2)
                 ax.xaxis.set_major_locator(pl.matplotlib.ticker.MaxNLocator(4))
-                ax.axis([dom[0],dom[-1],cod.min(),cod.min()+5])
-                ax.axhline(fmin+0.5,color='blue',ls='--')
-                ax.axhline(fmin+2.0,color='blue',ls='-.')
-                ax.axvline(tau-tau_err,color='green',ls='--')
-                ax.axvline(tau+tau_err,color='green',ls='--')
+                #ax.axis([dom[0],dom[-1],cod.min(),cod.min()+5])
+                ax.axis([dom[0],dom[-1],0,5])
+                #ax.axhline(fmin+0.5,color='blue',ls='--')
+                #ax.axhline(fmin+2.0,color='blue',ls='-.')
+                #ax.axhline(0.5,color='k',ls='-')
+                ax.axhline(2.0,color='k',ls='-')
+                ax.axvline(tau-tau_err,color='k',ls='-')
+                ax.axvline(tau+tau_err,color='k',ls='-')
                 #ax.axvline(xmin-2*tau_err,color='green',ls='-.')
                 #ax.axvline(xmin+2*tau_err,color='green',ls='-.')
-                pl.axvline(np.mod(rt+phi0,1),color='purple',ls='-')
-                pl.axvline(np.mod(lt+phi0,1),color='purple',ls='-')
-        ax1.set_xlabel('(Relative) Phase')
-        ax1.set_ylabel('Negative Log Likelihood')
+                #pl.axvline(np.mod(rt+phi0,1),color='purple',ls='-')
+                #pl.axvline(np.mod(lt+phi0,1),color='purple',ls='-')
+        ax1.set_xlabel('Rotational Phase',size='x-large')
+        ax1.set_ylabel('Negative Log Likelihood',size='x-large')
+        ax2.set_ylabel('Rel. Log Likelihood',size='large')
         pl.savefig(plot_output)
 
     if (m2.sum() == 0):

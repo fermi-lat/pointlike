@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/phasedata.py,v 1.6 2013/04/10 00:57:40 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/phasedata.py,v 1.7 2013/04/10 01:06:24 kerrm Exp $
 
 Handle loading of FT1 file and phase folding with polycos.
 
@@ -47,7 +47,9 @@ class PhaseData(object):
         self.process_ft1()
 
     def process_ft1(self):
-        mc = self.mc = METConverter(self.ft1file,ft2=self.ft2,ra=self.polyco.ra,dec=self.polyco.dec,bary=self.bary,noprocess=self.noprocess)
+        mc = self.mc = METConverter(self.ft1file,ft2=self.ft2,
+            ra=self.polyco.ra,dec=self.polyco.dec,bary=self.bary,
+            noprocess=self.noprocess)
         self.mjd_start = mc.MJDSTART; self.mjd_stop = mc.MJDSTOP
         f    = pyfits.open(self.ft1file)
         ens  = np.asarray(f['EVENTS'].data.field('ENERGY'))
