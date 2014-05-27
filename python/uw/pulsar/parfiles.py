@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.63 2014/03/13 13:21:09 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.64 2014/05/11 21:30:13 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -323,6 +323,18 @@ class ParFile(dict):
             binary_dict['PB'] *= 86400
             return binary_dict
         except: return None
+
+    def add_binary_model(self):
+        """ Add default binary parameters to model."""
+        if 'BINARY' in self.ordered_keys:
+            return
+        self.add_key('BINARY','T2')
+        self.add_key('PB','1e6')
+        self.add_key('A1','0')
+        epoch = self.get('PEPOCH')
+        self.add_key('T0',epoch)
+        self.add_key('ECC','0')
+        return self
 
     def comp_mass(self,m1=1.4,sini=0.866):
         from scipy.optimize import fsolve
@@ -827,6 +839,7 @@ class TimFile(object):
         return np.asarray([toa['MJD'] for toa in self.toas],dtype=np.float128)
 
     def get_errs(self,days=False):
+        """ days or microseconds"""
         if not days:
             return np.asarray([toa['ERR'] for toa in self.toas],dtype=float)
         return np.asarray([toa['ERR'] for toa in self.toas],dtype=np.float128)*(1./(86400*1e6))
@@ -959,6 +972,37 @@ def get_resids(par,tim,emax=None,phase=False,get_mjds=False,latonly=False,
         return resi,errs,chi2,dof,mjds,frqs
     return resi,errs,chi2,dof
 
+def set_sifuncs(par,tim):
+    """ Use interpolation to remove any residual.
+
+    The idea with this at the moment is simply to whiten a file with an
+    large red noise component.
+    """
+
+    # (1) get site arrival times and residuals
+    cmd = """tempo2 -output general2 -nofit -s "onerous\t{pre}\t{sat}\n" -f %s %s"""%(par,tim)
+    proc = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE)
+    toks = [l.split('\t')[1:] for l in proc.stdout if l[:7]=='onerous']
+    # NB -- both residuals and errors in microseconds
+    resi = np.array([x[0] for x in toks],dtype=np.float128)
+    sats = np.array([x[1] for x in toks],dtype=np.float128)
+
+    # clone end points to handle edge effects
+    sats = np.concatenate([[sats[0]-1],sats,[sats[-1]+1]])
+    resi = np.concatenate([[resi[0]],resi,[resi[-1]]])
+
+    pf = ParFile(par)
+    pf.add_key('SIFUNC','2 0') # tells tempo2 to do linear interp
+    for i in xrange(len(resi)):
+        if i==0:
+            sat = sats[i] - 1e-8/86400 # make 10ns early
+        elif i== len(resi)-1:
+            sat = sats[i] + 1e-8/86400 # make 10ns late
+        else:
+            sat = sats[i]
+        pf.add_key('IFUNC%d'%(i+1),'%.20f %.10f 0.0'%(sat,-resi[i]))
+    pf.write(par)
+
 def get_toa_strings(tim):
     """ Return a list of strings for all TOA entries."""
     lines = filter(lambda l: len(l) > 0,
@@ -1054,6 +1098,9 @@ def id_toa_line(line):
         return True
     return False
 
+def id_toa_comment(line):
+    return line[0]=='#' or line[0]=='C'
+
 def add_flag(tim,flag,vals,output=None):
     """ Add a flag to the TOAs in an output file with the specified value.
         If the flag is already present, the value is replaced.
@@ -1128,10 +1175,16 @@ def add_phase(tim,abs_phase,output=None):
     abs_phase = [int(x) for x in abs_phase]
     add_flag(tim,'pn',abs_phase,output=output)
 
-def mask_tim(tim,mask,output=None,verbose=False):
+def mask_tim(tim,mask,output=None,verbose=False,comment=False):
+    """ Make TOAs in a .tim file.  Two methods available:
+
+    (1) [default] set error to a large value
+    (2) comment out TOA
+    """
     output = output or tim
     lines = file(tim).readlines()
     new_lines = deque()
+    masked_lines = deque()
     counter = 0
     for iline,line in enumerate(lines):
         new_lines.append(line)
@@ -1141,9 +1194,37 @@ def mask_tim(tim,mask,output=None,verbose=False):
             if verbose:
                 print 'Masking line:'
                 print line
+            masked_lines.append(new_lines.pop())
+            if not comment:
+                toks = line.split()
+                toks[3] = '1e7'
+                nl = ' '+' '.join(toks)+'\n'
+            else:
+                nl = '#' + line
+            new_lines.append(nl)
+        counter += 1
+    file(output,'w').write(''.join(new_lines))
+    return masked_lines
+
+def replace_nondetections(tim,output=None):
+    """ Replace nondetections with errors drawn from rest of population."""
+    tf = TimFile(tim)
+    mask = tf.get_errs() < 1e6
+    errs = tf.get_errs()[tf.get_errs() < 1e6]
+    mask = ~mask
+
+    output = output or tim
+    lines = file(tim).readlines()
+    new_lines = deque()
+    counter = 0
+    for iline,line in enumerate(lines):
+        new_lines.append(line)
+        if not id_toa_line(line):
+            continue
+        if mask[counter]:
             new_lines.pop()
             toks = line.split()
-            toks[3] = '1e7'
+            toks[3] = '%.5f'%(errs[int(np.random.rand(1)*len(errs))])
             nl = ' '+' '.join(toks)+'\n'
             new_lines.append(nl)
         counter += 1
