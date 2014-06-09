@@ -1,48 +1,49 @@
 """
 Package containing source analysis code
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/__init__.py,v 1.12 2014/01/16 19:36:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/__init__.py,v 1.13 2014/02/12 18:53:34 burnett Exp $
 
 """
 # this is a list of modules in this package that have a class implementing an 'all_plots()' method.
 # see app.py, which has an "import *" to include all of them
+# (comment out those not relevant)
 __all__=[
  'associations',
 # 'components',
  'background', 
- 'counts',
- 'collection',
+ #'counts',
+ #'collection',
  'config',
  'cputime',
  'data',
- 'diffuse_info',
+ #'diffuse_info',
  'environment',
  'export',
  'find_peak',
- 'fluxcorr',
+ #'fluxcorr',
 # 'fluxcorriso',
- 'frontback',
- 'galactic',
- 'galacticspectra',
- 'gtlikecomparison',
+ #'frontback',
+ #'galactic',
+ #'galacticspectra',
+ #'gtlikecomparison',
  'hptables',
- 'isotropic',
- 'isotropicspectra',
- 'limb',
- 'limbrefit',
+ #'isotropic',
+ #'isotropicspectra',
+ #'limb',
+ #'limbrefit',
  'localization',
- 'localization1k',
+ #'localization1k',
 # 'pgwseedcheck',
  'maps',
- 'ptstable',
- 'pulsarseedcheck',
+ #'ptstable',
+ #'pulsarseedcheck',
  #'roi_info',
  'residuals',
  'seedcheck',
  'sourcecomparison',
  'sourceinfo',
- 'sourcetotal',
- 'sunmoon',
- 'sunmoonrefit',
+ #'sourcetotal',
+ #'sunmoon',
+ #'sunmoonrefit',
  'uwsourcecomparison',
  ]
 
