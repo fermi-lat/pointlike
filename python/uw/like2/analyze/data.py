@@ -1,7 +1,7 @@
 """
-Description here
+Summary of the data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/data.py,v 1.3 2013/08/04 14:55:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/data.py,v 1.4 2013/10/11 16:34:16 burnett Exp $
 
 """
 
