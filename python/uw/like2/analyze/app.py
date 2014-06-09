@@ -1,7 +1,7 @@
 """
 Application module, allowing command-line access to analysis/plotting tasks
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/app.py,v 1.14 2013/09/26 17:40:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/app.py,v 1.15 2013/10/11 16:34:43 burnett Exp $
 
 """
 _locs = locals().keys()
@@ -55,7 +55,7 @@ class AppMenu(dict):
         
     def __str__(self):
         s = '%-15s %s\n' % ('name', 'description')
-        return s+ '\n'.join(['%-15s %s' % (key, self[key]['title']) for key in sorted(self.keys())])  
+        return s+ '\n'.join(['  %-15s %s' % (key, self[key]['title']) for key in sorted(self.keys())])  
 
 menu = AppMenu(module_names)
         
@@ -105,12 +105,12 @@ def main(procs, args=None, update_top=False , raise_exception=False):
 if __name__=='__main__':
     import argparse
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
-        description=""" Run an analysis application \n """+menu.__str__()
+        description=""" Run one or more analysis applications for the sky model defined in the current folder. \nValid module names:\n """+menu.__str__()
     )
-    parser.add_argument('procs', nargs='+', help='processsor identifier(s): must be one of %s' %menu.keys())
+    parser.add_argument('module', nargs='+', help='module name: must be in the list of names in the table above')
     parser.add_argument('--args', default=None, help='argments for the processor')
     parser.add_argument('--update_top', action='store_true', help='Update the top level Web  menu')
-    parser.add_argument('--raise_exception', action='store_true', help ='set to catch exceptions')
+    parser.add_argument('--raise_exception', action='store_true', help ='set to catch exceptions, default is to ignore.')
     args = parser.parse_args()
-    if not main(args.procs, args=args.args, update_top=args.update_top, raise_exception=args.raise_exception):
+    if not main(args.module, args=args.args, update_top=args.update_top, raise_exception=args.raise_exception):
         sys.exit(1)
