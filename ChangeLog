@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jun 10 04:28:52 PDT 2014
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	check_converge.py uwpipeline.py 
+Log Message:
+change job_list handling
+    *
+------------------------------------------------------------
 User: burnett  Mon Jun  9 08:36:06 PDT 2014
 pointlike/python/uw/like2/analyze
 
