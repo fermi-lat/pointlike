@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Sun Jun 15 07:33:50 PDT 2014
+pointlike/python/uw/like2/pipeline/infrastructure
+
+Added Files:
+	UWpipeline.xml configure.sh joblist.txt joblist8.txt 
+	setup_jobs.jy uwpipeline.sh 
+Log Message:
+adding infrastructure folder, files
+    *
+------------------------------------------------------------
 User: burnett  Sun Jun 15 07:33:49 PDT 2014
 pointlike/python/uw/like2/pipeline
 
