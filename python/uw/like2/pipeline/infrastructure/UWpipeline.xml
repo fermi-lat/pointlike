@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- $Header$ -->
+<!-- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/infrastructure/UWpipeline.xml,v 1.1 2014/06/15 14:33:50 burnett Exp $ -->
 <pipeline xmlns="http://glast-ground.slac.stanford.edu/pipeline" xmlns:xs="http://www.w3.org/2001/XMLSchema-instance" xs:schemaLocation="http://glast-ground.slac.stanford.edu/pipeline http://glast-ground.slac.stanford.edu/Pipeline-II/schemas/2.0/pipeline.xsd">
 
-  <task name="UWpipeline" type="Data" version="9.0">
+  <task name="UWpipeline" type="Data" version="10.0">
     <notation>Implement the UW pointlike all-sky analysis</notation> 
     <variables>
       <!-- Default values that can be overridden at the command line. -->
       <var name="POINTLIKE_DIR">/afs/slac/g/glast/groups/catalog/pointlike</var>
       <var name="SKYMODEL_SUBDIR"></var>
-      <var name="job_list">joblist.txt</var> <!-- defines how rois are allocated to jobs -->
+      <var name="job_list"></var> <!-- defines how rois are allocated to jobs -->
       <var name="stage"></var> <!-- can be create, finish, tables, ...: for job_proc -->
     </variables>
 
@@ -17,7 +17,7 @@
          Check data configuration, creating the binned photon and livetime files if necessary
          Requires that the binned photon and livetime cube files exist when done
       -->
-      <job executable="${POINTLIKE_DIR}/uwpipeline.sh" batchOptions=" -q medium -R rhel60" />
+      <job executable="${POINTLIKE_DIR}/infrastructure/uwpipeline.sh" batchOptions=" -q medium -R rhel60" />
     </process>
 
 
@@ -32,7 +32,7 @@
       -->
       <script>
          <![CDATA[
-         execfile(POINTLIKE_DIR+"/setup_jobs.jy")
+         execfile(POINTLIKE_DIR+"/infrastructure/setup_jobs.jy")
          ]]>
       </script>
       <depends>      
@@ -48,7 +48,7 @@
         Run processing after jobs have been run successfully
 	submit new stream 
     -->
-     <job executable="${POINTLIKE_DIR}/uwpipeline.sh" batchOptions=" -q medium -R rhel60 "/>
+     <job executable="${POINTLIKE_DIR}/infrastructure/uwpipeline.sh" batchOptions=" -q medium -R rhel60 "/>
      <depends>
        <after process="job_task.job_proc" status="SUCCESS"/>
      </depends>
@@ -58,7 +58,7 @@
       <!--
 	Generate plots after the next stream(s), if any, have been started
        -->
-      <job executable="${POINTLIKE_DIR}/uwpipeline.sh" batchOptions=" -q medium -R rhel60"/>
+      <job executable="${POINTLIKE_DIR}/infrastructure/uwpipeline.sh" batchOptions=" -q medium -R rhel60"/>
      <depends>
        <after process="check_jobs" status="SUCCESS"/>
      </depends>
@@ -66,7 +66,7 @@
 
     </process>
 
-    <task name="job_task" version="0.2" type="Data">
+    <task name="job_task" version="1.0" type="Data">
       <!-- 
            Task that manages the setup of batch
            Each process runs a job, defined  by the value of stage,
@@ -83,7 +83,7 @@
             Note that it is designed to continue if failed (for time limit perhaps)
                 in the midst of an ROI
           -->
-         <job executable="${POINTLIKE_DIR}/uwpipeline.sh" batchOptions=" -q long -R rhel60"/>
+         <job executable="${POINTLIKE_DIR}/infrastructure/uwpipeline.sh" batchOptions=" -q long -R rhel60"/>
       </process>
 
     </task>
