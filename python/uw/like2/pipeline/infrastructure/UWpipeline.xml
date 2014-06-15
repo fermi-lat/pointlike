@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- $Header$ -->
+<pipeline xmlns="http://glast-ground.slac.stanford.edu/pipeline" xmlns:xs="http://www.w3.org/2001/XMLSchema-instance" xs:schemaLocation="http://glast-ground.slac.stanford.edu/pipeline http://glast-ground.slac.stanford.edu/Pipeline-II/schemas/2.0/pipeline.xsd">
+
+  <task name="UWpipeline" type="Data" version="9.0">
+    <notation>Implement the UW pointlike all-sky analysis</notation> 
+    <variables>
+      <!-- Default values that can be overridden at the command line. -->
+      <var name="POINTLIKE_DIR">/afs/slac/g/glast/groups/catalog/pointlike</var>
+      <var name="SKYMODEL_SUBDIR"></var>
+      <var name="job_list">joblist.txt</var> <!-- defines how rois are allocated to jobs -->
+      <var name="stage"></var> <!-- can be create, finish, tables, ...: for job_proc -->
+    </variables>
+
+    <process name="check_data" autoRetryMaxAttempts="1">
+      <!--
+         Check data configuration, creating the binned photon and livetime files if necessary
+         Requires that the binned photon and livetime cube files exist when done
+      -->
+      <job executable="${POINTLIKE_DIR}/uwpipeline.sh" batchOptions=" -q medium -R rhel60" />
+    </process>
+
+
+
+    <process name="setup_jobs">
+      <!--
+         Create the parallel jobs (sub streams) to be submitted
+         Implemented as a Jython script setup_jobs.jy that depends (maybe) on joblist or stage
+         Basically a loop of of
+             pipeline.createSubstream("job_task", n, begin_roi=n, end_roi=m)
+         which will create a set of jobs with subtask=n, to process rois n to m-1
+      -->
+      <script>
+         <![CDATA[
+         execfile(POINTLIKE_DIR+"/setup_jobs.jy")
+         ]]>
+      </script>
+      <depends>      
+          <after process="check_data" status="SUCCESS"/>
+      </depends>
+      <createsSubtasks>
+         <subtask>job_task</subtask>
+      </createsSubtasks>
+    </process>
+
+    <process name="check_jobs" >
+    <!--
+        Run processing after jobs have been run successfully
+	submit new stream 
+    -->
+     <job executable="${POINTLIKE_DIR}/uwpipeline.sh" batchOptions=" -q medium -R rhel60 "/>
+     <depends>
+       <after process="job_task.job_proc" status="SUCCESS"/>
+     </depends>
+    </process>
+
+    <process name="summary_plots" autoRetryMaxAttempts="0">
+      <!--
+	Generate plots after the next stream(s), if any, have been started
+       -->
+      <job executable="${POINTLIKE_DIR}/uwpipeline.sh" batchOptions=" -q medium -R rhel60"/>
+     <depends>
+       <after process="check_jobs" status="SUCCESS"/>
+     </depends>
+
+
+    </process>
+
+    <task name="job_task" version="0.2" type="Data">
+      <!-- 
+           Task that manages the setup of batch
+           Each process runs a job, defined  by the value of stage,
+           in the range(begin_roi,end_roi). 
+           A retry or rollback will start at the last started roi if stopped for time limit
+      -->
+      <prerequisites>
+         <prerequisite name="begin_roi" type="integer"/>
+         <prerequisite name="end_roi" type="integer"/>
+         <prerequisite name="stage"/>
+      </prerequisites>
+      <process name="job_proc"  autoRetryMaxAttempts="2">
+         <!-- a single batch job: process ROIs in range(begin_roi, end_roi)
+            Note that it is designed to continue if failed (for time limit perhaps)
+                in the midst of an ROI
+          -->
+         <job executable="${POINTLIKE_DIR}/uwpipeline.sh" batchOptions=" -q long -R rhel60"/>
+      </process>
+
+    </task>
+    
+  </task>
+</pipeline>

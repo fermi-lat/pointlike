@@ -1,0 +1,33 @@
+#
+# Jython script run by the setup_jobs process
+# creates substreams for job_task 
+# by reading list of begin_roi,end_roi pairs from the file job_list
+# Now (3/17/2013) also accept comma-delimeted entries 
+# $Header$
+
+import os
+task = pipeline.getStream()
+#kluge
+if job_list=='joblist.txt' : job_list=POINTLIKE_DIR+'/joblist.txt'
+
+print 'processing stream %s with joblist %s' %(task, job_list)
+roi_list =[]
+f = open(os.path.expandvars(job_list))
+njobs=0
+for line in f:
+    if line[0]=='#' or line=='': continue #comment or empty line
+    if line.find(',')>0:
+        roi_list = line
+        substream = int(roi_list.split(',')[0])
+    else:
+        toks = line.split()
+        #assert len(toks)==2 # old format
+        if len(toks)==1:
+            toks.append(str(int(toks[0])+1))
+        substream = int(toks[0])
+        roi_list = str(range(int(toks[0]), int(toks[1])))[1:-1]
+    args = 'roi_list="%s"' % roi_list
+    njobs=njobs+1
+
+    pipeline.createSubstream('job_task', substream, args)
+print 'Submitting %d jobs,  will run job_task for each one' % njobs
