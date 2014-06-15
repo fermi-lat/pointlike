@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.44 2014/03/25 23:33:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.45 2014/06/10 11:28:51 burnett Exp $
 """
 import os, argparse,  datetime
 import numpy as np
@@ -95,7 +95,7 @@ proc_help = '\nproc names\n\t' \
     +'\n\t'.join(['%-15s: %s' % (key, procnames[key]['help'])  for key in sorted(procnames.keys())])
     
 class Stage(dict):
-    def __init__(self, proc, pars={}, job_list='joblist.txt', help='', **kwargs):
+    def __init__(self, proc, pars={}, job_list='$POINTLIKE_DIR/joblist.txt', help='', **kwargs):
         super(Stage,self).__init__(proc=proc, pars=pars, help=help, **kwargs)
         self['help']=help
         self['job_list']=job_list
