@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.46 2014/06/15 14:33:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.47 2014/06/15 15:03:17 burnett Exp $
 """
 import os, argparse,  datetime
 import numpy as np
@@ -9,25 +9,61 @@ from uw.like2 import (process, tools, )
 from uw.like2.pipeline import (check_data, pipeline_job, check_converge)
 from uw.like2.analyze import app
 
+class PipelineStream(object):
+    """ manage starting streams
+    Assume that FERMI is defined, and that current directory is a skymodel
+    """
+    def __init__(self, fn='summary_log.txt'):
+        self.pointlike_dir=os.path.expandvars('$FERMI')
+        self.summary= os.path.join(self.pointlike_dir,fn)
+        self.fullskymodel = os.getcwd()
+        assert os.path.exists(self.pointlike_dir), 'File "%s" not found' % self.summary
+        assert os.path.exists('config.txt'), 'File config.txt not found in %s' %self.model
+        t =self.fullskymodel.split('/')
+        self.model = '/'.join(t[t.index('skymodels')+1:])
+        with open(self.summary, 'r') as slog:
+            lines = slog.read().split('\n')
+            last = lines[-1] if lines[-1] != '' else lines[-2] 
+            try:
+                self.stream_number = int(last.split()[0])
+            except:
+                print 'failed to interpret stream number from file %s: last=%s' % (self.summary,self.last)
+                raise
+            
+    def __call__(self,  stage, job_list, test=True):
+        """Submit a command to the Pipeline to create a stream
+        """
+        pipeline='/afs/slac/g/glast/ground/bin/pipeline -m PROD createStream --stream %d -D "%s" UWpipeline '
+
+        self.stream_number += 1
+        time = str(datetime.datetime.today())[:16]
+        line = '%5d  %s %-15s %-10s %s' % (self.stream_number, time, self.model, stage, job_list)
+        print line
+        with open(self.summary, 'a') as slog:
+            slog.write('\n'+line)
+        cmd=pipeline % (self.stream_number, 
+                "stage=%s, POINTLIKE_DIR=%s, SKYMODEL_SUBDIR=%s, job_list=%s"
+                    % (stage, self.pointlike_dir, self.fullskymodel, job_list)
+                )
+        if not test:
+            print '-->' , cmd
+            os.system(cmd)
+        else:
+            print 'Test mode: would have submitted \n\t%s'%cmd
+
 # Instances of these classes are in the procnames dictionary below. They must implement a main function which will
 # by run by the Proc
 class StartStream(object):
     """ setup, start a stream """
     def main(self, args):
-        pipeline='/afs/slac/g/glast/ground/bin/pipeline -m PROD createStream '
+        ps  = PipelineStream()
         for stage in args.stage:
             # note set job_list to the name of a local file in the pointlike folder -- needs better encapsulation
             job_list = args.job_list
             if job_list is None or job_list=='None':
                 job_list = stagenames[stage]['job_list']
-            cmd=pipeline+' -D "stage=%s, POINTLIKE_DIR=%s, SKYMODEL_SUBDIR=%s, job_list=%s" UWpipeline' \
-                %(stage, args.script_folder, args.skymodel, job_list)
-            if not args.test:
-                print '-->' , cmd
-                os.system(cmd)
-            else:
-                print 'Test mode: would have submitted \n\t%s'%cmd
-
+            ps(stage, job_list, test=True) #args.test)
+            
 class Summary(object):
     """ runs a sumamry job, via uw.like2.analyze.app"""
     def get_stage(self, args):
