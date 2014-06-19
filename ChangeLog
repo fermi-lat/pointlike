@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mdwood  Thu Jun 19 16:02:26 PDT 2014
+ScienceTools-scons/pointlike/src
+
+Modified Files:
+	EventList.cxx EventList.h 
+Log Message:
+Modified EventList class to handle bit array format of event class field in P301 files.
+    *
+------------------------------------------------------------
 User: burnett  Thu Jun 19 07:28:46 PDT 2014
 pointlike/python/uw/like2/pipeline
 
