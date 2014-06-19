@@ -1,7 +1,7 @@
 /** @file EventList.cxx 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.23 2012/04/27 02:19:12 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/src/EventList.cxx,v 1.24 2014/02/21 17:32:19 cohen Exp $
 */
 
 #include "EventList.h"
@@ -115,7 +115,7 @@ EventList::EventList(const std::string infile, bool selectid, bool use_mc_energy
                      : m_fits(true)
                      , m_selectid(selectid)
                      , m_use_mc_energy(use_mc_energy)
-                     , m_pass7(true)
+                     , m_pass7(true), m_evclass_bitarray(true)
 {
     if( infile.find(".root") != std::string::npos) {
         table_name = "MeritTuple"; 
@@ -136,6 +136,25 @@ EventList::EventList(const std::string infile, bool selectid, bool use_mc_energy
         } catch (const std::exception& ){}
     }
 
+    int evclsver(0);
+    
+    const tip::Header & header(m_table->getHeader());
+    try {
+      header["EVCLSVER"].get(evclsver);
+    } catch(tip::TipException) {
+      // keyword missing so use default value
+    }
+    std::string pass_ver;
+    try {
+      header["PASS_VER"].get(pass_ver);
+    } catch(tip::TipException) {
+      // keyword missing so use default value
+      pass_ver = "NONE";
+    }
+
+    if (pass_ver == "NONE" || pass_ver.substr(0, 2) == "P7") {
+      m_evclass_bitarray = false;
+    }
 }
 EventList::EventList()
 {
@@ -189,10 +208,15 @@ Photon EventList::Iterator::operator*()const
         zenith_angle=180.; // will be cut
     }
     (*m_it)[*names++].get(theta);
-    if (m_pass7) {
-        (*m_it)[*names++].get(ctbclasslevel);
-    } else {
-        (*m_it)["CTBCLASSLEVEL"].get(ctbclasslevel);
+
+    if (m_evclass_bitarray) {
+      tip::BitStruct tip_event_class;
+      (*m_it)[*names++].get(tip_event_class);
+      ctbclasslevel = static_cast<int>(tip_event_class);
+    } else if(m_pass7)  {
+      (*m_it)[*names++].get(ctbclasslevel);
+    } else  {
+      (*m_it)["CTBCLASSLEVEL"].get(ctbclasslevel);
     }
 
     if( m_selectid) { // check for source id only if requested
@@ -244,7 +268,7 @@ Photon EventList::Iterator::operator*()const
 
 EventList::Iterator EventList::begin()
 { 
-    return Iterator(m_itbegin, m_fits, m_selectid, m_use_mc_energy, m_pass7);
+  return Iterator(m_itbegin, m_fits, m_selectid, m_use_mc_energy, m_pass7, m_evclass_bitarray);
 }
 
 EventList::Iterator EventList::end()
