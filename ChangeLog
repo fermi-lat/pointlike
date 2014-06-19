@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jun 19 06:39:16 PDT 2014
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	check_converge.py 
+Log Message:
+convert to new createstream
+    *
+------------------------------------------------------------
 User: burnett  Wed Jun 18 07:53:03 PDT 2014
 pointlike/python/uw/like2/pipeline
 
