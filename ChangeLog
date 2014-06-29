@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mdwood  Sat Jun 28 23:47:59 PDT 2014
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Fixed unresolved reference to Models.IsotropicConstant in xml_parsers.py.
+    *
+------------------------------------------------------------
 User: mdwood  Mon Jun 23 16:11:51 PDT 2014
 pointlike/cmt
 
