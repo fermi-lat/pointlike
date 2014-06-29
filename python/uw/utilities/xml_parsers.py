@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.90 2013/01/24 17:38:42 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.91 2013/09/14 05:39:07 burnett Exp $
 
    author: Matthew Kerr
 """
@@ -1430,7 +1430,7 @@ def process_diffuse_source(ds,strict=False,convert_extended=False,
                         file=filename)
                     m2x.process_model(model,scaling=True, expand_env_vars=expand_env_vars)
 
-                elif isinstance(m, Models.IsotropicConstant):
+                elif isinstance(m,IsotropicConstant):
                     model = ds.smodel
                     m2x.process_model(model,scaling=False, expand_env_vars=expand_env_vars)
 
