@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Jun 30 08:27:33 PDT 2014
+pointlike/python/uw/like2
+
+Modified Files:
+	bandlike.py 
+Log Message:
+fix freeze/thaw
+    *
+------------------------------------------------------------
 User: burnett  Mon Jun 30 08:26:03 PDT 2014
 pointlike/python/uw/like2/analyze
 
