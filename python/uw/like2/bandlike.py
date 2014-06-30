@@ -1,7 +1,7 @@
 """
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.50 2014/03/12 15:52:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.51 2014/03/19 22:34:30 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -83,7 +83,7 @@ class BandLike(object):
         self.free_sources = self.bandsources[self.free]
         self.counts = self.fixed_counts = sum([b.counts for b in self.bandsources[ ~ self.free]])
         if not self.band.has_pixels: 
-            self.model_pixels=self.fixed_pixels = np.array([])
+            self.model_pixels=self.fixed_pixels = self.weights= np.array([])
             return
         self.fixed_pixels = np.zeros(self.pixels)
         for m in self.bandsources[ ~ self.free]:
@@ -92,29 +92,31 @@ class BandLike(object):
         for m in self.free_sources:
             self.model_pixels += m.pix_counts
         
-    def update(self, reset=False, **kwargs):
+    def update(self, reset=False, force=False, **kwargs):
         """ assume that parameters have changed. Update only contributions 
-        from models with free parameters. *must* be called before evaluating likelihood.
-        reset: bool, optional
+        from models with free parameters, with changed tag. 
+        *must* be called before evaluating likelihood.
+
+        reset: bool, default False
             if True, need to reinitialize variable source(s), for change of position or shape
+        force: bool, default False
+            Force update of response even if source unchanged.
         """
-        if not self.band.has_pixels: 
-            self.weights = np.array([])
-            return
-            
         self.model_pixels[:]=self.fixed_pixels
         self.counts = self.fixed_counts
-        force = kwargs.get('force', False) # set to defeat
         for bandsource in self.free_sources:
             if reset: 
                 bandsource.initialize()
                 bandsource.source.changed=False
             elif bandsource.source.changed or force:
                 bandsource.update()
-            if self.band.has_pixels: self.model_pixels += bandsource.pix_counts
-            self.counts+= bandsource.counts
+            if self.band.has_pixels: 
+                self.model_pixels += bandsource.pix_counts
+                self.counts+= bandsource.counts
  
-        self.weights = self.data / self.model_pixels
+        if self.band.has_pixels: 
+            self.weights = self.data / self.model_pixels
+ 
 
     def log_like(self):
         """ return the Poisson extended log likelihood """
@@ -436,15 +438,18 @@ class BandLikeList(list):
         """ freeze the parameter, optionally set the value
         
         parname : name or index
+            if a string with an underscore, interpret as source_parname
         source_name: None or string
             if None, use currently selected source
         value : float or None
             if float, set the value
         """
+        if parname.find('_')>0 and source_name is None:
+            source_name, parname = parname.split('_')
         source = self.get_source(source_name)
         source.freeze(parname, value)
         self.sources.initialize()
-        self.initialize()
+        self.update()
        
     def thaw(self, parname, source_name=None):
         """ thaw the parameter
@@ -459,6 +464,6 @@ class BandLikeList(list):
         source = self.get_source(source_name)
         source.thaw(parname)
         self.sources.initialize()
-        self.initialize()
+        self.update()
 
 
