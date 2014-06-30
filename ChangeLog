@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Jun 30 08:25:14 PDT 2014
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	check_converge.py stream.py uwpipeline.py 
+Log Message:
+implement new stream inteface
+    *
+------------------------------------------------------------
 User: mdwood  Sat Jun 28 23:54:54 PDT 2014
 pointlike/cmt
 
