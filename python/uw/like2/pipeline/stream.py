@@ -1,7 +1,7 @@
 """
 manage creating new PipelineII stream
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/stream.py,v 1.1 2014/06/19 14:28:46 burnett Exp $
 """
 import os, datetime
 import numpy as np
@@ -9,13 +9,13 @@ import numpy as np
 
 class PipelineStream(object):
     """ manage starting streams
-    Assume that FERMI is defined, and that current directory is a skymodel
+    Assume that POINTLIKE_DIR is defined, and that current directory is a skymodel
     """
     def __init__(self, fn='summary_log.txt'):
-        self.pointlike_dir=os.path.expandvars('$FERMI')
+        self.pointlike_dir=os.path.expandvars('$POINTLIKE_DIR')
         self.summary= os.path.join(self.pointlike_dir,fn)
         self.fullskymodel = os.getcwd()
-        assert os.path.exists(self.pointlike_dir), 'File "%s" not found' % self.summary
+        assert os.path.exists(self.summary), 'File "%s" not found' % self.summary
         assert os.path.exists('config.txt'), 'File config.txt not found in %s' %self.model
         t =self.fullskymodel.split('/')
         self.model = '/'.join(t[t.index('skymodels')+1:])
