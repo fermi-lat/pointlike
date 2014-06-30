@@ -5,7 +5,7 @@ Manage a SED plot
             sf an SourceFlux object, 
         Plot(sf)()
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.20 2013/12/19 17:42:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.21 2014/01/26 20:08:29 burnett Exp $
 """
 import os, types
 import numpy as np
@@ -203,9 +203,9 @@ class Plot(object):
     def savefig(self,outdir, suffix=''):
         if os.path.isdir(outdir):
             fname = self.name.replace(' ','_').replace('+','p') + suffix
-            outf = os.path.join(outdir,'%s.png'% fname)
-            plt.savefig(outf)
-            print 'saved sedfig to %s' %outf
+            outf = os.path.join(outdir,'%s.jpg'% fname)
+            print 'saving sedfig to %s...' %outf, sys.stdout.flush()
+            plt.savefig(outf); print
         else :
             plt.savefig(outdir)
             print 'saved sedfig to %s' %outdir
