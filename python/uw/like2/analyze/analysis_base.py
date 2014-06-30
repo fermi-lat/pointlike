@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.18 2014/04/14 17:46:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.19 2014/05/07 20:45:34 burnett Exp $
 
 """
 
@@ -165,7 +165,7 @@ class AnalysisBase(object):
             ax.set_axes_locator(divider.new_locator(nx=2*ix, ny=2*iy))
         return fig, axx
         
-    def savefigure(self, name, func=None, title=None, caption=None, section='', **kwargs):
+    def savefigure(self, name, func=None, title=None, caption=None, section='', ft='jpg', **kwargs):
         """ save a figure.
         name : string
             If name is the name of a function in the class, optionally define 
@@ -191,7 +191,7 @@ class AnalysisBase(object):
                 if title is None:     title = doclines[0]
             except Exception, msg:
                 print '*** docstring processing problem: %s' % msg
-        localfile = '%s_%s.png'%(name, self.skymodel.replace('/','_'))
+        localfile = '%s_%s.%s' % (name, self.skymodel.replace('/','_'), ft)
         savefile = os.path.join(self.plotfolder,localfile)
         if title is None: title = name.replace('_', ' ')
         htmldoc = '<a id="%.0f"><h3>%s %s</h3></a> ' % (float(section), section, title)
@@ -199,8 +199,9 @@ class AnalysisBase(object):
         if fig is not None:
             fig.text(0.02, 0.02, self.skymodel, fontsize=8)
             savefig_kw=dict(dpi=60, bbox_inches='tight', bbox_extra_artists=fig.texts, pad_inches=0.5) 
+            print 'Saving fig %s, kw=%s ...' % (name, savefig_kw),; sys.stdout.flush()
             plt.savefig(savefile, **savefig_kw)
-            print 'saved plot to %s' % savefile
+            print 'to %s' % savefile
             htmldoc += '\n<img src="%s" />\n <br> %s '% (localfile, caption if caption is not None else '')
         elif caption is not None:
             htmldoc += '\n <br>  %s' % ( caption )
