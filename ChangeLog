@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Jun 30 09:57:26 PDT 2014
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	analysis_base.py 
+Log Message:
+switch from png to jpg due to matplotlib bug
+    *
+------------------------------------------------------------
 User: burnett  Mon Jun 30 09:48:07 PDT 2014
 pointlike/python/uw/like2/analyze
 
