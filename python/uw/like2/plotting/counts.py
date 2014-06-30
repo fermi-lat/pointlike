@@ -1,6 +1,6 @@
 """
 Code to generate an ROI counts plot 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.11 2013/12/19 17:42:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.12 2014/03/13 22:26:34 burnett Exp $
 
 Authors M. Kerr, T. Burnett
 
@@ -215,6 +215,7 @@ def stacked_plots(roi, counts_dir=None, fignum=6, title=None, **kwargs):
             fout = os.path.join(counts_dir, ('%s_counts.png'%roi.name) )
         else:
             fout = counts_dir
+        print 'saving counts plot to %s ...' % fout, ; sys.stdout.flush()
         fig.savefig(fout)
-        print 'saved counts plot to %s' % fout
+        print 
     return fig
