@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.48 2014/06/18 14:53:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.49 2014/06/19 14:28:46 burnett Exp $
 """
 import os, argparse,  datetime
 import numpy as np
@@ -21,7 +21,7 @@ class StartStream(object):
             job_list = args.job_list
             if job_list is None or job_list=='None':
                 job_list = stagenames[stage]['job_list']
-            ps(stage, job_list, test=True) #args.test)
+            ps(stage, job_list, test=args.test)
             
 class Summary(object):
     """ runs a sumamry job, via uw.like2.analyze.app"""
