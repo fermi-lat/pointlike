@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.20 2014/06/30 16:48:07 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.21 2014/06/30 16:57:26 burnett Exp $
 
 """
 
@@ -17,7 +17,7 @@ class FloatFormat(): #simple formatting functor for to_html!
     def __call__(self, x): return self.fmt % x
     
 def html_table( df, columns={}, name='temp', heading='', href=True, 
-        href_pattern='sedfig/%s_sed*.png',
+        href_pattern='sedfig/%s_sed*.jpg',
         maxlines=10, **kw):
     """ utility to create and reformat a pandas-generated html table
     df : a DataFrame
