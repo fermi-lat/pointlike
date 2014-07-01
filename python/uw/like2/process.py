@@ -1,6 +1,6 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.15 2014/04/04 14:04:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.16 2014/05/01 18:08:52 burnett Exp $
 
 """
 import os, sys, time, pickle
@@ -28,7 +28,7 @@ class Process(main.MultiROI):
         ('associate_flag',False,  'run association'),
         ('tsmap_dir',     None,   'folder for TS maps'),
         ('sedfig_dir',    None,   'folder for sed figs'),
-        ('quiet',         True,   'Set false for summary output'),
+        ('quiet',         False,  'Set false for summary output'),
         ('finish',        False,  'set True to turn on all "finish" output flags'),
         ('residual_flag', False,  'set True for special residual run; all else ignored'),
         ('tables_flag',   False,  'set True for tables run; all else ignored'),
@@ -41,9 +41,15 @@ class Process(main.MultiROI):
         """ process the roi object after being set up
         """
         keyword_options.process(self, kwargs)
+        import matplotlib.pylab as plt
+        print 'Backend: %s' % plt.rcParams['backend']
         if self.finish:
-            self.__dict__.update(localize_flag=True,sedfig_dir='sedfig',dampen=0,associate_flag=True,
-                counts_dir='countfig', tsmap_dir='tsmap_fail')
+            self.__dict__.update(dampen=0,
+                                 localize_flag=True, associate_flag=True,
+                                 sedfig_dir='sedfig',
+                                 counts_dir='countfig', 
+                                 tsmap_dir='tsmap_fail',
+                                 )
         super(Process,self).__init__(config_dir,quiet=self.quiet)
         self.stream = os.environ.get('PIPELINE_STREAMPATH', 'interactive')
         if roi_list is not None:
@@ -53,12 +59,16 @@ class Process(main.MultiROI):
     def process_roi(self, index):
         """ special for batch: manage the log file, make sure an exception closes it
         """
+        print 'Setting up ROI #%04d ...' % index,
+        sys.stdout.flush()
         self.setup_roi(index)
         if self.outdir is not None: 
             logpath = os.path.join(self.outdir, 'log')
             if not os.path.exists(logpath): os.mkdir(logpath)
             outtee = tools.OutputTee(os.path.join(logpath, self.name+'.txt'))
         else: outtee=None
+        print 'Processing...'
+        sys.stdout.flush()
         try:
             self.process()
         finally:
@@ -86,12 +96,13 @@ class Process(main.MultiROI):
         if self.counts_dir is not None and not os.path.exists(self.counts_dir) :
             try: os.makedirs(self.counts_dir) # in case some other process makes it
             except: pass
-
+        sys.stdout.flush()
         init_log_like = roi.log_like()
         roi.print_summary(title='before fit, logL=%0.f'% init_log_like)
+        sys.stdout.flush()
         fit_sources = [s for s in roi.free_sources if not s.isglobal]
         if len(roi.sources.parameters[:])==0 or dampen==0:
-            print '===================== no fit ========================'
+            print '===================== not fitting ========================'
         else:
             fit_kw = self.fit_kw
             try:
@@ -123,31 +134,31 @@ class Process(main.MultiROI):
             return t
         sedfig_dir = getdir(self.sedfig_dir)
         if sedfig_dir is not None:
-            print '------------ creating seds, figures ---------------'
+            print '------------ creating seds, figures ---------------'; sys.stdout.flush()
             skymodel_name = os.path.split(os.getcwd())[-1]
             roi.plot_sed('all', sedfig_dir=sedfig_dir, suffix='_sed_%s'%skymodel_name, )
         
         if self.localize_flag:
-            print '------localizing all local sources------'
+            print '------localizing all local sources------'; sys.stdout.flush()
             tsmap_dir = getdir(self.tsmap_dir)
             roi.localize('all', tsmap_dir=tsmap_dir)
         
         if self.associate_flag:
-            print '-------- running associations --------'
+            print '-------- running associations --------'; sys.stdout.flush()
             self.find_associations('all')
 
+        print '-------- analyzing counts histogram, ',; sys.stdout.flush()
+        cts=roi.get_counts() # always do counts
+        print 'chisquared: %.1f ----'% cts['chisq']
+
         counts_dir = getdir(self.counts_dir)
-        cts=None
         if counts_dir is not None:
-            print '------- generating counts, saving figure ------'
+            print '------- saving counts figure ------'; sys.stdout.flush()
             try:
                 fig = roi.plot_counts( tsmin=self.countsplot_tsmin)
-                cts = roi.get_counts()
-                chisq = cts['chisq']
-                print 'chisquared for counts plot: %.1f'% chisq
-                fout = os.path.join(counts_dir, ('%s_counts.png'%roi.name) )
+                fout = os.path.join(counts_dir, ('%s_counts.jpg'%roi.name) )
+                print 'saving counts plot to %s' % fout ; sys.stdout.flush()
                 fig.savefig(fout, dpi=60)
-                print 'saved counts plot to %s' % fout
             except Exception,e:
                 print '***Failed to analyze counts for roi %s: %s' %(roi.name,e)
                 chisq = -1
