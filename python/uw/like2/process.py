@@ -1,6 +1,6 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.16 2014/05/01 18:08:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.17 2014/07/01 17:46:14 burnett Exp $
 
 """
 import os, sys, time, pickle
@@ -34,6 +34,8 @@ class Process(main.MultiROI):
         ('tables_flag',   False,  'set True for tables run; all else ignored'),
         ('tables_nside',  512,    'nside to use for table generation'),
         ('seed_flag',     False,  'set True for seed check run'),
+        ('update_positions_flag',False,  'set True to update positions before fitting'),
+        
     )
     
     @keyword_options.decorate(defaults)
@@ -98,8 +100,10 @@ class Process(main.MultiROI):
             except: pass
         sys.stdout.flush()
         init_log_like = roi.log_like()
+        if self.update_positions_flag:
+            self.update_positions()
+            
         roi.print_summary(title='before fit, logL=%0.f'% init_log_like)
-        sys.stdout.flush()
         fit_sources = [s for s in roi.free_sources if not s.isglobal]
         if len(roi.sources.parameters[:])==0 or dampen==0:
             print '===================== not fitting ========================'
@@ -393,7 +397,33 @@ class Process(main.MultiROI):
             source=self.add_source(name=name, skydir=SkyDir(s['ra'],s['dec']), 
                         model=sources.LogParabola(s['eflux']/e0**2/1e6, s['pindex'], s['par2'], e0, 
                                                   free=[True,True,False,False]))
-        return good_seeds[inside]        
+        return good_seeds[inside]   
+
+    def update_positions(self, tsmin=10, qualmax=5):
+        """ use the localization information associated with each source to update position
+            require ts>tsmin, qual<qualmax
+            
+        """
+        print '---Updating positions---'
+        sources = [s for s in self.sources if s.skydir is not None and np.any(s.spectral_model.free)]
+        #print 'sources:', [s.name for s in sources]
+        print '%-15s%6s%8s %8s' % ('name','TS','qual', 'delta_ts')
+        for source in sources:
+            print '%-15s %6.0f' % (source.name, source.ts) , 
+            if not hasattr(source, 'ellipse') or source.ellipse is None:
+                print ' no localization info'
+                continue
+            if source.ts<tsmin:
+                print '    TS<%.0f' % (tsmin)
+                continue
+            newdir = SkyDir(*source.ellipse[:2]); qual, delta_ts = source.ellipse[-2:]
+            print '%6.1f%6.1f' % (qual, delta_ts) ,
+            if qual>qualmax:
+                print ' qual>%.1f' % qualmax
+                continue
+            print ' %s -> %s, moved %.2f' % (source.skydir,newdir, np.degrees(newdir.difference(source.skydir)))
+            source.skydir = newdir
+
     
 
 class BatchJob(Process):
