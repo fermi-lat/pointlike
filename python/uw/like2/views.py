@@ -4,7 +4,7 @@ classes presenting views of the likelihood engine in the module bandlike
 Each has a mixin to allow the with ... as ... construction, which should restore the BandLikeList
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.15 2014/02/09 19:22:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.16 2014/03/19 22:34:03 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -523,10 +523,13 @@ class LikelihoodViews(bandlike.BandLikeList):
     * TSmap : tsmap_view : a FitterView with the source flux selected which can have the position changed.
     """
     
-    def fitter_view(self, select=None, **kwargs):
+    def fitter_view(self, select=None, setpars=None, **kwargs):
         """ return a object to use with a fitter.
             Two versions, one with full set of parameters, other if a subset is specified
         """
+        if setpars is not None: 
+            self.sources.parameters.setitems(setpars)
+
         if select is None:
             return FitterView(self, **kwargs)
         return SubsetFitterView(self, select, **kwargs)

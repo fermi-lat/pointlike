@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.17 2013/12/04 05:25:51 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.18 2013/12/09 01:13:32 burnett Exp $
 
 """
 import os, sys
@@ -42,7 +42,7 @@ class WithMixin(object):
     def __exit__(self, type, value, traceback):
         self.restore()
 
-class OutputTee(object):
+class OutputTee(WithMixin):
     def __init__(self, logfile):
         self.logstream = open(logfile, 'a')
         self.stdout = sys.stdout
@@ -57,6 +57,7 @@ class OutputTee(object):
         self.stdout.flush()
     def set_parent(self, parent):
         self.stdout.set_parent(parent) #needed??
+    def restore(self): self.close() #for with
         
 class RecArray(object):
     def __init__(self, names, dtype=None):

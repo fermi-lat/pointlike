@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.72 2014/03/25 18:34:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.73 2014/04/14 17:44:30 burnett Exp $
 
 """
 import types, time
@@ -114,7 +114,7 @@ class ROI(views.LikelihoodViews):
         else:
             return '%s.%s :\n\t %s\n\t%s' % (self.__module__, self.__class__.__name__, self.config, 'No sources')
         
-    def fit(self, select=None, exclude=None,  summarize=True,  **kwargs):
+    def fit(self, select=None, exclude=None,  summarize=True, setpars=None, **kwargs):
         """ Perform fit, return fitter object to examine errors, or refit
         
         Parameters
@@ -134,6 +134,11 @@ class ROI(views.LikelihoodViews):
         summarize : bool
             if True (default) call summary after succesful fit
 
+        setpars : dict | None
+            set a set of parameters by index: the dict has keys that are either the index, or the name of the variabe, and float values,
+            e.g. {1:1e-14, 2:2.1, 'Source_Index': 2.0}
+            Note that this uses *internal* variables
+
         kwargs 
         ------
         ignore_exception : bool
@@ -152,7 +157,10 @@ class ROI(views.LikelihoodViews):
         ignore_exception = kwargs.pop('ignore_exception', False)
         update_by = kwargs.pop('update_by', 1.0)
         tolerance = kwargs.pop('tolerance', 0.2)
-        
+       
+        if setpars is not None: 
+            self.sources.parameters.setitems(setpars)
+            
         fit_kw = dict(use_gradient=True, estimate_errors=True)
         fit_kw.update(kwargs)
 
@@ -343,7 +351,7 @@ class ROI(views.LikelihoodViews):
 
 class MultiROI(ROI):
     """ROI subclass that will perform a fixed analysis on multiple ROIs
-    Intended for subclasses to override the proc function
+    Intended for subclasses
     """
     
     def __init__(self, config_dir,  quiet=False):
