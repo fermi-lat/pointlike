@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Jul  2 08:53:56 PDT 2014
+pointlike/python/uw/like2
+
+Modified Files:
+	process.py 
+Log Message:
+implement update_positions
+    *
+------------------------------------------------------------
 User: burnett  Tue Jul  1 10:47:11 PDT 2014
 pointlike/python/uw/like2/analyze
 
