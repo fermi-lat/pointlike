@@ -1,7 +1,7 @@
 """
 Manage a set of parameters
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/parameterset.py,v 1.3 2014/01/26 20:07:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/parameterset.py,v 1.4 2014/03/12 15:52:09 burnett Exp $
 
 """
 import os, types 
@@ -10,9 +10,11 @@ import numpy as np
 class ParameterSet(object):
     """ Manage the free parameters in the ROI model, as a virtual array
     
-    Note that if a parameter in a source model is changed from its current value,
-    that source is marked; its 'changed' property is set True
-    
+    Notes:
+        if a parameter in a source model is changed from its current value,
+        that source is marked; its 'changed' property is set True
+        
+        The values of the paramters are *internal*
     """
     def __init__(self, sources, **kw):
         """sources : set of sources.Source objects
@@ -53,6 +55,26 @@ class ParameterSet(object):
         source.changed=True
         model.set_parameters(pars)
     
+    def setitems(self, set_dict):
+        """ set a set of items by index: the dict has keys that are either the index, or the name of the variabe, and float values,
+            e.g. {1:1e-14, 2:2.1, 'Source_Index': 2.0}
+        """
+        def par_index(self, i):
+            npar = self.__len__()
+            if isinstance(i,int):
+                if i<0 or i>=npar:
+                    raise Exception('Index, %d, out of range for %d parameters' % (i,npar ) )
+                return i
+            else:
+                try:
+                    return list(self.parameter_names).index(i)
+                except:
+                    raise Exception('Parameter name "%s" not found' % i)
+        for key,value in set_dict.items():
+            i = par_index(self,key)
+            print key, i, self[i], '-->', value
+            self[i]=value
+            
     def __len__(self):
         return self.index.shape[1]
         
