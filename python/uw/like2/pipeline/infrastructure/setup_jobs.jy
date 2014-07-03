@@ -3,14 +3,14 @@
 # creates substreams for job_task 
 # by reading list of begin_roi,end_roi pairs from the file job_list
 # Now (3/17/2013) also accept comma-delimeted entries 
-# $Header$
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/infrastructure/setup_jobs.jy,v 1.1 2014/06/15 14:33:50 burnett Exp $
 
 import os
 task = pipeline.getStream()
 #kluge
-if job_list=='joblist.txt' : job_list=POINTLIKE_DIR+'/joblist.txt'
+if job_list=='joblist.txt' or job_list=='' : job_list=POINTLIKE_DIR+'/joblist.txt'
 
-print 'processing stream %s with joblist %s' %(task, job_list)
+print 'processing stream %s with joblist "%s"' %(task, job_list)
 roi_list =[]
 f = open(os.path.expandvars(job_list))
 njobs=0
