@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.49 2014/06/19 14:28:46 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.50 2014/06/30 15:25:14 burnett Exp $
 """
 import os, argparse,  datetime
 import numpy as np
@@ -107,13 +107,13 @@ class StageBatchJob(Stage):
 stagenames = dict(
     # List of possible stages, with proc to run, parameters for it,  summary string
     # list is partly recognized by check_converge.py, TODO to incoprorate it here, especially the part that may start a new stream
-    create      =  StageBatchJob( dict(),     sum='environment menu',  help='Create a new skymodel, follow with update_full',),
-    update_full =  StageBatchJob( dict(),     sum='config',            help='refit, full update' ),
-    update      =  StageBatchJob( dict( dampen=0.5,), sum='config',    help='refit, half update' ),
+    create      =  StageBatchJob( dict(update_positions_flag=True),     sum='environment menu counts',  help='Create a new skymodel, follow with update_full',),
+    update_full =  StageBatchJob( dict(),     sum='config counts',            help='refit, full update' ),
+    update      =  StageBatchJob( dict( dampen=0.5,), sum='config counts',    help='refit, half update' ),
     update_beta =  StageBatchJob( dict( betafix_flag=True),  sum='sourceinfo',help='check beta', ),
     update_pivot=  StageBatchJob( dict( repivot_flag=True),  sum='sourceinfo',help='update pivot', ), 
-    update_only =  StageBatchJob( dict(),                   sum='config  sourceinfo', help='update, no additional stage', ), 
-    finish      =  StageBatchJob( dict(finish=True),     sum='counts sourceinfo localization associations', help='localize, associations, sedfigs', ),
+    update_only =  StageBatchJob( dict(),                   sum='config counts sourceinfo', help='update, no additional stage', ), 
+    finish      =  StageBatchJob( dict(finish=True),     sum='sourceinfo localization associations', help='localize, associations, sedfigs', ),
     residuals   =  StageBatchJob( dict(residual_flag=True), sum='residuals',  help='generate residual tables for all sources', ),
     counts      =  StageBatchJob( dict(counts_dir='counts_dir', dampen=0, outdir='.'), sum='counts',  help='generate counts info, plots', ), 
     tables      =  StageBatchJob( dict(tables_flag=True, dampen=0), sum='hptables', job_list='$POINTLIKE_DIR/infrastructure/joblist8.txt', help='Create tsmap and kde maps'),
