@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jul 10 09:17:23 PDT 2014
+pointlike/python/uw/like2
+
+Modified Files:
+	diffuse.py 
+Log Message:
+allow arbitrary array spacing
+    *
+------------------------------------------------------------
 User: burnett  Thu Jul  3 10:04:07 PDT 2014
 pointlike/python/uw/like2/analyze
 
