@@ -1,7 +1,7 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.40 2014/02/11 04:17:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.41 2014/02/11 23:05:53 burnett Exp $
 
 author:  Toby Burnett
 """
@@ -117,9 +117,8 @@ class Isotropic(DiffuseBase):
         self.energies=t[:,0]
         self.spectrum = t[:,1]
         self.loaded=True
-        self.logeratio = np.log(self.energies[1]/self.energies[0])
+        self.loge = np.log(self.energies)
         self.setEnergy(1000.)
-
         
     def load(self):
         pass
@@ -127,9 +126,11 @@ class Isotropic(DiffuseBase):
     def setEnergy(self, energy): 
         # set up logarithmic interpolation
         self.energy=energy
-        r = np.log(energy/self.energies[0])/self.logeratio
-        self.energy_index = i = max(0, min(int(r), len(self.energies)-2))
-        self.energy_interpolation = r-i
+        x = np.log(energy)
+        j = np.searchsorted(self.loge, x) 
+        self.energy_index = i = max(0, min(j-1, len(self.energies)-2))
+        a,b = self.loge[i:i+2]
+        self.energy_interpolation = (x-a)/(b-a)
 
     def __call__(self, skydir, energy=None):
         if energy is not None and energy!=self.energy: 
