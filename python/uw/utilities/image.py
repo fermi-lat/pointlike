@@ -5,17 +5,18 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.44 2014/01/01 18:19:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.45 2014/01/30 16:24:53 burnett Exp $
 
 """
-version = '$Revision: 1.44 $'.split()[1]
+version = '$Revision: 1.45 $'.split()[1]
 
 import sys, pylab, types
 import math
 import numpy as np
 import pylab as pl
 import pylab as plt
-from matplotlib import mpl, pyplot, ticker
+from matplotlib import pyplot, ticker
+import matplotlib as mpl
 from skymaps import SkyImage, SkyDir, double2, SkyProj,PySkyFunction,Hep3Vector
 from math import exp
 from numpy.fft import fft2,ifft2,fftshift
