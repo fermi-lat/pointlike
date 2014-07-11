@@ -1,22 +1,18 @@
-#
+#!/bin/bash
 # Setup to run pointlike in the catalog setup
 #
+# $Header$
 release=09-33-03
 #release=09-31-01
 build=redhat6-x86_64-64bit-gcc44
 
 catalog_dir=/afs/slac/g/glast/groups/catalog/
 pointlike=$catalog_dir/pointlike
-#mypython=/afs/slac/g/glast/users/burnett/python
+export POINTLIKE_DIR=$pointlike
 mypython=$pointlike/python
 
 # pointlike uses $FERMI to find default paths for data, diffuse, catalog files
 export FERMI=$pointlike/fermi
-
-# location of custom IRF files not found under CALDB structure
-# (this is now automatic with like2)
-# (oops, not yet in create stage)
-# export CUSTOM_IRF_DIR=$pointlike/custom_irfs
 
 # Define GLAST_EXT to externals linking
 export GLAST_EXT=/afs/slac/g/glast/ground/GLAST_EXT/$build
