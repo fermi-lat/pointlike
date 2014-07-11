@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jul 11 11:21:55 PDT 2014
+pointlike/python/uw/like2/pipeline/infrastructure
+
+Modified Files:
+	configure.sh 
+Log Message:
+set POINTLIKE_DIR
+    *
+------------------------------------------------------------
 User: burnett  Thu Jul 10 09:17:23 PDT 2014
 pointlike/python/uw/like2
 
