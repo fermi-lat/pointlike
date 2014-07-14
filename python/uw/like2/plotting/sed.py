@@ -5,9 +5,9 @@ Manage a SED plot
             sf an SourceFlux object, 
         Plot(sf)()
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.21 2014/01/26 20:08:29 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.22 2014/06/30 21:39:02 burnett Exp $
 """
-import os, types
+import os, types, sys
 import numpy as np
 import pylab as plt
 from uw.utilities import image

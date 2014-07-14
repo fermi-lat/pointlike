@@ -1,10 +1,10 @@
 """
 Code to plot TS maps
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/tsmap.py,v 1.13 2014/01/02 17:35:17 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/tsmap.py,v 1.14 2014/06/30 21:39:02 burnett Exp $
 
 """
-import math, os
+import math, os, sys
 import numpy as np
 from uw.utilities import image
 import pylab as plt
