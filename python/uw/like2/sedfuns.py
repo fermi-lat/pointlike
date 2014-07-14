@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.38 2014/02/11 04:17:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.39 2014/03/25 18:34:39 burnett Exp $
 
 """
 import os, pickle
@@ -170,7 +170,7 @@ def sed_table(roi, source_name=None, event_type=None, tol=0.1):
         return sf.data_frame(event_type=event_type, tol=tol)
 
 
-def norm_table(roi, source_name=None, event_type=None, tol=0.1):
+def norm_table(roi, source_name=None, event_type=None, tol=0.25, ignore_exception=True):
     """
     Return a DataFrame 
     """
@@ -183,10 +183,11 @@ def norm_table(roi, source_name=None, event_type=None, tol=0.1):
         for i,energy  in enumerate(energies):
             roi.select(i, event_type)
             try:
-                p = loglikelihood.PoissonFitter(nv, tol=0.25)
+                p = loglikelihood.PoissonFitter(nv, tol=tol)
                 poiss_list[int(energy)] = p.normalization_summary()
             except Exception, msg:
                 print 'Fail for %.f: %s' % (energy, msg)
+                if not ignore_exception: raise
                 poiss_list[int(energy)]= {}
     roi.select()
     return pd.DataFrame(poiss_list, index='maxl lower upper ts pull err'.split() ).T
