@@ -1,7 +1,7 @@
 """
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.51 2014/03/19 22:34:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.52 2014/06/30 15:27:33 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -348,14 +348,14 @@ class BandLikeList(list):
             self.sources, sel, len(self.sources.parameters), 
             len(self.free_sources),  len(self.sources))
 
-    def initialize(self, sourcename=None):
+    def initialize(self, free=None, sourcename=None):
         """ initialize the specifed source in  all selected bands
             and update the band"""
         for b in self._selected:
             if sourcename is not None:
                 b[sourcename].initialize()
             else:
-                b.initialize()
+                b.initialize(free)
             b.update()
         
     # the following methods sum over the current set of bands
@@ -369,7 +369,7 @@ class BandLikeList(list):
         
     def update(self, **kwargs):
         for b in self._selected: 
-            b.update(**kwargs)
+            b.update( **kwargs)
         self.sources.parameters.clear_changed()
         
     def gradient(self):
@@ -449,6 +449,7 @@ class BandLikeList(list):
         source = self.get_source(source_name)
         source.freeze(parname, value)
         self.sources.initialize()
+        self.initialize(free=self.sources.free)
         self.update()
        
     def thaw(self, parname, source_name=None):
@@ -464,6 +465,7 @@ class BandLikeList(list):
         source = self.get_source(source_name)
         source.thaw(parname)
         self.sources.initialize()
+        self.initialize(free=self.sources.free)
         self.update()
 
 
