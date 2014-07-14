@@ -1,11 +1,11 @@
 """
 Code to generate an ROI counts plot 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.12 2014/03/13 22:26:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.13 2014/06/30 21:39:01 burnett Exp $
 
 Authors M. Kerr, T. Burnett
 
 """
-import os
+import os, sys
 import numpy as np
 import pylab as plt
 from matplotlib import font_manager
@@ -176,7 +176,9 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
     if len(axes>1): plot_residuals(axes[1], count_data, 
             show_chisq=kwargs.pop('show_chisq', True), 
             plot_pulls=kwargs.pop('plot_pulls', True))
-    if outfile is not None: plt.savefig(outfile)
+    if outfile is not None: 
+       print 'saving counts plot to %s...' %outfile ; sys.stdout.flush()
+       plt.savefig(outfile)
 
 
 def stacked_plots(roi, counts_dir=None, fignum=6, title=None, **kwargs):
@@ -212,7 +214,7 @@ def stacked_plots(roi, counts_dir=None, fignum=6, title=None, **kwargs):
     else: fig.suptitle(title)
     if counts_dir is not None:
         if os.path.isdir(counts_dir) and hasattr(roi,'name'):
-            fout = os.path.join(counts_dir, ('%s_counts.png'%roi.name) )
+            fout = os.path.join(counts_dir, ('%s_counts.jpg'%roi.name) )
         else:
             fout = counts_dir
         print 'saving counts plot to %s ...' % fout, ; sys.stdout.flush()
