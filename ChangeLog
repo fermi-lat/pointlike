@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Jul 14 15:44:38 PDT 2014
+pointlike/python/uw/like2
+
+Modified Files:
+	bandlike.py sedfuns.py 
+Log Message:
+fix freeze/thaw when change number of free sources
+    *
+------------------------------------------------------------
 User: burnett  Fri Jul 11 14:38:17 PDT 2014
 pointlike/python/uw/utilities
 
