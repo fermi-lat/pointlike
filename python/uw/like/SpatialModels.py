@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.111 2012/10/01 22:24:42 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.112 2012/12/05 22:08:53 lande Exp $
 
    author: Joshua Lande
 
@@ -317,10 +317,10 @@ class SpatialModel(object):
         self.coordsystem = cs
         if cs  == SkyDir.EQUATORIAL:
             self.param_names[0:2] = ['RA','DEC']
-            self.p[0:2] = [center.ra(),center.dec()]
+            self.p[0:2] = [self.center.ra(),self.center.dec()]
         elif cs == SkyDir.GALACTIC:
             self.param_names[0:2] = ['L','B']
-            self.p[0:2] = [center.l(),center.b()]
+            self.p[0:2] = [self.center.l(),self.center.b()]
 
         # Errors are no longer valid, so reset cov matrix.
         self.cov_matrix = np.zeros([len(self.p),len(self.p)]) 
@@ -1769,7 +1769,7 @@ class SpatialMap(SpatialModel):
 
         # The skyfun is not normalized. The normaliztaion happens later, after
         # the convolution step.
-
+        
         self.skyfun=SkyImage(path.expand(self.file),self.extension,self.interpolate)
 
         projection = p = self.skyfun.projector()
