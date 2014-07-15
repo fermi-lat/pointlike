@@ -1,7 +1,7 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.42 2014/07/10 16:17:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.43 2014/07/14 22:45:50 burnett Exp $
 
 author:  Toby Burnett
 """
@@ -159,7 +159,7 @@ class MapCube(DiffuseBase, skymaps.DiffuseFunction):
         if not interpolate: 
             pass
             #print 'loading diffuse file %s: warning, not interpolating' %self.filename
-        super(MapCube,self).__init__(self.filename) #, 1000., interpolate)
+        super(MapCube,self).__init__(self.filename, 1000., interpolate)
 
 class HealpixCube(DiffuseBase):
     """ Jean-Marc's vector format, or the column version
