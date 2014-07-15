@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mdwood  Mon Jul 14 19:16:17 PDT 2014
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py roi_catalogs.py 
+Log Message:
+Fixed bug in BaseCatalog2FGL which prevented loading new-style catalog files (3FGL).
+    *
+------------------------------------------------------------
 User: burnett  Mon Jul 14 15:47:25 PDT 2014
 pointlike/python/uw/like2/plotting
 
