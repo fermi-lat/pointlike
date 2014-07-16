@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Jul 16 11:03:56 PDT 2014
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	residuals.py 
+Log Message:
+fix bug from pandas change
+    *
+------------------------------------------------------------
 User: burnett  Wed Jul 16 08:43:26 PDT 2014
 pointlike/python/uw/like2/analyze
 
