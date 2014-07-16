@@ -1,7 +1,7 @@
 """
 Residual plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.5 2014/02/21 00:02:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.6 2014/03/14 13:40:44 burnett Exp $
 
 """
 
@@ -40,8 +40,9 @@ class Residuals(roi_info.ROIinfo):
         
         """
         empty = [np.nan]*len(self.energy)
-        return np.array([p[source_name][event_type][column_name] if source_name in p else empty for p in self.pkls])
-
+        r= np.array([list(p[source_name][event_type][column_name]) if source_name in p else empty for p in self.pkls])
+        assert r.shape==(1728,14), 'Failed shape requirement'
+        return r
     def update_correction(self, vin, vout=None):
         """ update the Galactic Diffuse correction factor array with new residuals"""
         if vout is None: vout = vin+1
@@ -64,11 +65,11 @@ class Residuals(roi_info.ROIinfo):
         Only the isotropic component is allowed to vary; this is the resulting value.
         """
         lnorms =np.array([m[0] if m is not None else np.nan for m in self.diffuse_models(name)])
-        high = np.abs(self.df.glat)>10
+        high = np.array(np.abs(self.df.glat)>10, bool)
         if ax is None:
             fig,ax=plt.subplots(1,1, figsize=(10,5))
         else: fig=ax.figure
-        ax.plot(self.sindec,lnorms.clip(*ylim),  '.r' , label='|b|<10')
+        ax.plot(self.sindec,      lnorms.clip(*ylim),  '.r' , label='|b|<10')
         ax.plot(self.sindec[high],lnorms[high].clip(*ylim),  'og', label='|b|>10')
         plt.setp(ax, ylim=ylim, xlim=(-1,1), xlabel='sin(Dec)',
             ylabel='normalization factor', title='%s normalization vs sin(Dec)'%name)
@@ -161,7 +162,9 @@ class Residuals(roi_info.ROIinfo):
     def front_back_strong(self):
         """Front/back ratio for strongest sources
         """
-        filename = glob.glob('sources_*.csv')[0]
+        sources = glob.glob('sources_*.csv')
+        assert len(sources)>0, 'no sources_*.csv files fouind'
+        filename = sources[0]
         assert os.path.exists(filename), 'sources csv file not found'
         sdf = pd.read_csv(filename, index_col=0)
         t =sdf.sort_index(by='ts')
