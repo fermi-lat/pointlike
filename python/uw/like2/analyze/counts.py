@@ -1,7 +1,7 @@
 """
 Count plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.8 2014/02/09 02:04:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.9 2014/03/14 13:41:04 burnett Exp $
 
 """
 
@@ -65,6 +65,7 @@ class CountPlots(analysis_base.AnalysisBase):
         #    print msg
             
         if 'history' in pkls[0].keys():
+            print 'Extracting history info from the ROI analysies'
             itdf = self.history_table()
             config = eval(open('config.txt').read()) 
             input_model=config['input_model']['path']
@@ -107,7 +108,7 @@ class CountPlots(analysis_base.AnalysisBase):
         itdf = pd.DataFrame([nroi, gt10, delta_sum, delta_min, delta_max],
                      index='nroi gt10 delta_sum delta_min delta_max'.split(), columns=hd.keys()[1:]).T
         itdf.index.name='stream'
-        return itdf 
+        return itdf.sort_index()
 
 
     def iteration_info(self):
@@ -172,7 +173,7 @@ class CountPlots(analysis_base.AnalysisBase):
         subset for ridge (|b|<10, |l|<60) shown
         """
         fig,axx = plt.subplots(3,4, figsize=(12,12))
-        ridge = ( np.abs(self.rois.glat)<10) * ( np.abs(self.rois.glon)<60 )
+        ridge = ( np.abs(self.rois.glat)<10) & ( np.abs(self.rois.glon)<60 )
 
         for ib,ax in enumerate(axx.flatten()):
             resid = self.residual(ib)
