@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.222 2014/06/23 23:11:50 mdwood Exp $
+$Id: release.notes,v 1.223 2014/06/29 06:54:53 mdwood Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-09-00-03 19-Jul-2014 mdwood Minor bugfixes.
  pointlike-09-00-02 28-Jun-2014 mdwood Fixed unresolved reference in xml_parsers.
  pointlike-09-00-01 23-Jun-2014 mdwood Tag to partially support new FT1 format in P301.
  pointlike-09-00-00 26-Jan-2014 burnett alpha release of like2
