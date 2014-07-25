@@ -1,7 +1,7 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.29 2013/10/23 20:34:47 cohen Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_catalogs.py,v 1.30 2014/07/15 02:16:17 mdwood Exp $
 
 author: Joshua Lande
 """
@@ -68,8 +68,12 @@ class FermiCatalog(SourceCatalog):
         n0s  = f[1].data.field('FLUX_DENSITY')
         inds = f[1].data.field('SPECTRAL_INDEX')
         cutoffs = f[1].data.field('CUTOFF_ENERGY') if 'Cutoff_Energy' in colnames else None
-        betas = f[1].data.field('beta') if 'beta' in colnames else None
-        mask = np.ones(ras.shape,dtype='bool')
+        betas = f[1].data.field('beta') if 'beta' in colnames else None       
+        if "Ignore" in f[1].columns.names:
+            mask = f[1].data.field("Ignore") == False
+        else:
+            mask = np.ones(ras.shape,dtype='bool')
+        
         try:
             self.ts=np.asarray(f[1].data.field('TEST_STATISTIC'))
         except KeyError, er:
@@ -187,6 +191,8 @@ class BaseCatalog2FGL(SourceCatalog):
     def __init__(self,catalog,**kwargs):
         keyword_options.process(self, kwargs)
 
+        print "Opening catalog from %s"%catalog
+
         if self.latextdir is None:
             if (not os.environ.has_key('LATEXTDIR') or
                     not exists(path.expand(os.environ['LATEXTDIR']))):
@@ -214,7 +220,12 @@ class BaseCatalog2FGL(SourceCatalog):
 
         f = pyfits.open(path.expand(self.catalog))
         colnames = [x.name for x in f[1].get_coldefs()]
-        point = f['LAT_POINT_SOURCE_CATALOG'].data
+
+        if "Ignore" in colnames:
+            sourceMask = f['LAT_POINT_SOURCE_CATALOG'].data.field("Ignore") == False
+            point = f['LAT_POINT_SOURCE_CATALOG'].data[sourceMask]
+        else:
+            point = f['LAT_POINT_SOURCE_CATALOG'].data
         ras       = point.field('RAJ2000')
         decs      = point.field('DEJ2000')
         pens      = point.field('PIVOT_ENERGY')
@@ -263,7 +274,7 @@ class BaseCatalog2FGL(SourceCatalog):
                 model=PLSuperExpCutoff(norm=n0, index=ind, cutoff=cutoff, e0=pen)
             else:
                 raise Exception("Unkown spectral model %s for source %s" % (stype,name))
-
+            
             if self.limit_parameters:
                 model.set_default_limits(oomp_limits=True)
 
@@ -283,7 +294,12 @@ class BaseCatalog2FGL(SourceCatalog):
             from the catalog. """
 
         f = pyfits.open(path.expand(self.catalog))
-        extended = f['EXTENDEDSOURCES'].data
+
+        if "Ignore" in f['EXTENDEDSOURCES'].columns.names:
+            sourceMask = f['EXTENDEDSOURCES'].data.field("Ignore") == False
+            extended = f['EXTENDEDSOURCES'].data[sourceMask]
+        else:
+            extended = f['EXTENDEDSOURCES'].data
         #self.extended_names = np.char.strip(extended.field('Source_Name'))
         #self.extended_nicknames = np.char.replace(self.extended_names,' ','')
         self.extended_names = np.asarray([x.strip() for x in extended.field('Source_Name')])
