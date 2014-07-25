@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.145 2013/10/24 06:12:47 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.146 2014/02/06 16:17:22 burnett Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -2476,7 +2476,7 @@ class InterpConstants(Model):
         raise NotImplementedError("No way to set flux for InterpConstants spectral model")
 
 class FileFunction(Model):
-    r""" Defines a spectral model from an ascii file with the same
+    """ Defines a spectral model from an ascii file with the same
         convention as gtlike. Each point is connected with a power-law
         interpolation.
         
