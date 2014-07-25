@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: echarles  Thu Jul 24 18:08:25 PDT 2014
+pointlike/python/uw/like
+
+Modified Files:
+	roi_catalogs.py 
+Log Message:
+Allow for ignoring sources in source catalog
+    *
+------------------------------------------------------------
 User: echarles  Thu Jul 24 18:07:44 PDT 2014
 pointlike/python/uw/like
 
