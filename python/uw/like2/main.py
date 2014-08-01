@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.73 2014/04/14 17:44:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.74 2014/07/02 15:55:13 burnett Exp $
 
 """
 import types, time
@@ -284,7 +284,7 @@ class ROI(views.LikelihoodViews):
 
             loc = localization.Localization(tsm)
             try: 
-                if not hasattr(source,'ellipse'):
+                if not hasattr(source,'ellipse') or source.ellipse is None:
                     loc.localize()
                     loc.summary()
                 tsize = kwargs.pop('size', source.ellipse[2]*15.) # scale according to major axis s

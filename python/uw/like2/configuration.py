@@ -1,7 +1,7 @@
 """
 Manage the analysis configuration
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.23 2014/04/04 18:44:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.24 2014/04/14 17:41:40 burnett Exp $
 
 """
 import os, sys, types
@@ -240,7 +240,7 @@ class Configuration(object):
             if (emin + 1) < band_kwargs['emin'] or (emax - 1) >band_kwargs['emax']: continue
             #print int(emin), event_class
             energy= np.sqrt(emin*emax)
-            bandlist.append( ROIBand(band, self.psfman(event_type,energy), self.exposureman(event_type,energy), 
+            bandlist.append( bands.BandSet(band, self.psfman(event_type,energy), self.exposureman(event_type,energy), 
                 roi_dir, radius))
         return np.asarray(bandlist)
         
