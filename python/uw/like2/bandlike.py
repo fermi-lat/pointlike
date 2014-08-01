@@ -1,7 +1,7 @@
 """
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.52 2014/06/30 15:27:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.53 2014/07/14 22:44:37 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -75,11 +75,11 @@ class BandLike(object):
             raise Exception('Source "%s" not found in band sources' %i)
         return self.bandsources[i]
         
-    def initialize(self, free=None):
+    def initialize(self, free):
         """ should only call if free array changes.
             Saves the combined prediction from the models with fixed parameters
         """
-        self.free = free if free is not None else np.ones(len(self.bandsources), bool)
+        self.free = free #if free is not None else np.ones(len(self.bandsources), bool)
         self.free_sources = self.bandsources[self.free]
         self.counts = self.fixed_counts = sum([b.counts for b in self.bandsources[ ~ self.free]])
         if not self.band.has_pixels: 
