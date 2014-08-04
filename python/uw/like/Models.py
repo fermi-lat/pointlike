@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.146 2014/02/06 16:17:22 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.147 2014/07/25 01:07:44 echarles Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -716,7 +716,8 @@ class Model(object):
         """
 
         # check for a divergent flux
-        if 100*self(100) <= 1e5*self(1e5): emax = min(5e5,emax)
+        # ADW: This is very bad for hard sources...
+        #if 100*self(100) <= 1e5*self(1e5): emax = min(5e5,emax)
 
         try:
             func    = self if e_weight == 0 else lambda e: self(e)*e**e_weight
