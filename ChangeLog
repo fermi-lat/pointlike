@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Mon Aug  4 15:06:39 PDT 2014
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Removed line that truncates model integration at 500 GeV.
+    *
+------------------------------------------------------------
 User: burnett  Fri Aug  1 11:35:30 PDT 2014
 pointlike/python/uw/like2
 
