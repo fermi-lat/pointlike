@@ -1,6 +1,6 @@
 """ Dark Matter spectral models
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/darkmatter/spectral.py,v 1.14 2013/04/02 15:07:44 kadrlica Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/darkmatter/spectral.py,v 1.15 2013/08/12 19:15:00 kadrlica Exp $
 
     author: Alex Drlica-Wagner, Joshua Lande
 """
@@ -79,6 +79,8 @@ class DMFitFunction(Model):
     gammamc_dif = '$(INST_DIR)/data/Likelihood/gammamc_dif.dat'
     if not os.path.exists(path.expand(gammamc_dif)):
         gammamc_dif = '$(INST_DIR)/Likelihood/src/dmfit/gammamc_dif.dat'
+    if not os.path.exists(path.expand(gammamc_dif)):
+        gammamc_dif = '$(BASE_DIR)/data/Likelihood/gammamc_dif.dat'
     default_extra_attrs=OrderedDict((('file',gammamc_dif),))
 
     gtlike = dict(
