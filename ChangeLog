@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: echarles  Tue Aug  5 17:52:49 PDT 2014
+pointlike/python/uw/darkmatter
+
+Modified Files:
+	spectral.py 
+Log Message:
+Allow for DM fit file to be in BASE_DIR
+    *
+------------------------------------------------------------
 User: kadrlica  Mon Aug  4 15:06:39 PDT 2014
 pointlike/python/uw/like
 
