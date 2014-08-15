@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Aug 15 13:36:15 PDT 2014
+pointlike/python/uw/like2
+
+Modified Files:
+	diffuse.py from_healpix.py roimodel.py 
+Log Message:
+implement diffuse corrections
+    *
+------------------------------------------------------------
 User: burnett  Fri Aug 15 11:07:09 PDT 2014
 pointlike/python/uw/like2
 
