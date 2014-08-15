@@ -1,7 +1,7 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.43 2014/07/14 22:45:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.44 2014/07/15 21:25:01 burnett Exp $
 
 author:  Toby Burnett
 """
@@ -119,6 +119,7 @@ class Isotropic(DiffuseBase):
         self.energies=t[:,0]
         self.spectrum = t[:,1]
         self.loaded=True
+        self.kw = None
         self.loge = np.log(self.energies)
         self.setEnergy(1000.)
         
@@ -427,7 +428,35 @@ class DiffuseList(list):
         ax.legend(prop=dict(size=10))
         return fig
 
+class IsotropicList(DiffuseList):
+    def __init__(self, adict, event_type_names):
+        """ Create a list of Isotropic functions, one per entry in event_type_names
+            adict: dict
+                contains filename, correction, each with wildcards to be expanded
+            event_type_names : list of string
                 
+        """
+        try:
+            fn, corr = adict['filename'], adict['correction']
+        except Exception, msg:
+            print "Fail to create IsotropicList: adict=%s, %s" % (adict, msg)
+            raise
+        for et in event_type_names:
+            filename = fn.replace('*', et)
+            correction = corr.replace('*', et)
+            file_check([filename, correction])
+            iso = Isotropic(filename)
+            iso.kw = dict(correction =correction)
+            self.append(iso)
+        print self
+
+def file_check(files):
+    full_files = map( lambda f: os.path.expandvars(os.path.join('$FERMI','diffuse',f)), files)
+    check = map(lambda f: os.path.exists(f) or f[-1]==')', full_files) 
+    if not all(check):
+        raise DiffuseException('not all diffuse files %s found' % full_files)
+    
+
 def diffuse_factory(value, event_type_names=('front', 'back')):
     """
     Create a DiffuseList object from a text specification
@@ -444,6 +473,7 @@ def diffuse_factory(value, event_type_names=('front', 'back')):
         fit for fits : MapCube
     A special case is ')' : IsotropicSpectralFunction
     """
+    assert value is not None, 'oops'
     isdict = issubclass(value.__class__, dict)
     type = None
     if isinstance(value, str):
@@ -490,7 +520,11 @@ def diffuse_factory(value, event_type_names=('front', 'back')):
     
     if dfun==IsotropicSpectralFunction:
         diffuse_source = map(dfun,files)
+    elif dfun==IsotropicList:
+        # special code to handle Isotropic list in a dict with wild cards
+        return IsotropicList(value[0], event_type_names)
     else:
+        file_check(files)
         full_files = map( lambda f: os.path.expandvars(os.path.join('$FERMI','diffuse',f)), files)
         check = map(lambda f: os.path.exists(f) or f[-1]==')', full_files) 
         if not all(check):

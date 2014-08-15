@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.39 2014/03/25 18:34:39 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.40 2014/07/14 22:44:37 burnett Exp $
 
 """
 import os, pickle
@@ -190,13 +190,15 @@ def norm_table(roi, source_name=None, event_type=None, tol=0.25, ignore_exceptio
                 if not ignore_exception: raise
                 poiss_list[int(energy)]= {}
     roi.select()
-    return pd.DataFrame(poiss_list, index='maxl lower upper ts pull err'.split() ).T
+    ret = pd.DataFrame(poiss_list, index='maxl lower upper ts pull err'.split() ).T
+    ret.index.nam='energy'
+    return ret
                 
-def residual_tables(roi, tol=0.3):
+def residual_tables(roi, tol=0.3, types=None, globals=None, locals=None):
     """ make residual tables for global and local sources
     """
-    types = ['all']+ list(roi.config.event_type_names)
-    globals = filter(lambda s: s.isglobal,roi.sources)
+    if types is None: types = ['all']+ list(roi.config.event_type_names)
+    if globals is None: globals = filter(lambda s: s.isglobal,roi.sources)
     residuals = dict()
     for source in globals:
         yy = residuals[source.name] = dict()
@@ -205,7 +207,7 @@ def residual_tables(roi, tol=0.3):
             print source.name, et
             yy[et] = norm_table(roi, source.name,et, tol)
             
-    locals = filter(lambda s: np.any(s.model.free) and not s.isglobal, roi.sources);locals
+    if locals is None: locals = filter(lambda s: np.any(s.model.free) and not s.isglobal, roi.sources)
     for source in locals:
         yy = residuals[source.name] = dict()
         yy['model'] = source.model    
