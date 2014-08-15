@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Aug 15 11:07:09 PDT 2014
+pointlike/python/uw/like2
+
+Modified Files:
+	diffuse.py from_healpix.py response.py sedfuns.py 
+Log Message:
+implement diffuse corrections
+    *
+------------------------------------------------------------
 User: echarles  Wed Aug  6 10:07:58 PDT 2014
 pointlike/cmt
 
