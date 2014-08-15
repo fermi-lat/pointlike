@@ -1,7 +1,7 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.44 2014/07/15 21:25:01 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.45 2014/08/15 18:07:09 burnett Exp $
 
 author:  Toby Burnett
 """
@@ -492,7 +492,7 @@ def diffuse_factory(value, event_type_names=('front', 'back')):
             files = DiffuseList([val['filename'] for val in value], event_type_names)
         except KeyError:
             raise DiffuseException('expected "filename" key in dict')
-        type = value[0].pop('type', None)
+        type = value[0].get('type', None)
         kws = value
     else:
         files = DiffuseList(value,event_type_names)

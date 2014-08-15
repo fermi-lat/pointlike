@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_healpix.py,v 1.5 2014/01/31 14:56:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_healpix.py,v 1.6 2014/08/15 18:07:09 burnett Exp $
 """
 import os, pickle, zipfile
 import numpy as np
@@ -39,6 +39,7 @@ class ROImodelFromHealpix(roimodel.ROImodel):
     def load_sources( self, roi_index, rings=1):
         """ load sources from the roi and its neighbors in the pickle file found in modeldir
         """
+
         self.pickle_file = os.path.join(self.config.modeldir, 'pickle.zip')
         if not os.path.exists(self.pickle_file):
             raise Exception('Expected file "pickle.zip" not found in %s' % config.configdir)
@@ -93,6 +94,7 @@ class ROImodelFromHealpix(roimodel.ROImodel):
             return src
         
         def load_global_source(name, rec):
+
             if not self.quiet: print 'Loading global source %s for %d' % (name, index)
             df = self.config.diffuse[name]
             if df is None: 
@@ -101,6 +103,7 @@ class ROImodelFromHealpix(roimodel.ROImodel):
                 dmodel = diffuse.diffuse_factory( df, self.config.event_type_names))
             gsrc.index =index
             return gsrc
+
 
         p = pickle.load(self._z.open('pickle/HP12_%04d.pickle' % index[0]))
         if not neighbors:
