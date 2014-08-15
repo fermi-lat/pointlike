@@ -1,7 +1,7 @@
 """
 Classes to compute response from various sources
  
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.10 2014/01/30 16:21:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.11 2014/03/12 15:52:09 burnett Exp $
 author:  Toby Burnett
 """
 import os, pickle
@@ -226,18 +226,20 @@ class DiffuseCorrection(object):
     """
     from uw.like2.pub import healpix_map as hm
 
-    def __init__(self, filename):
+    def __init__(self, filename, elist=np.logspace(2.125,3.875,8).round()):
         """ filename : str
                 expect the name of a file in csv format, with 1728 rows and 8 columns
+            elist : list of float
         """
         corr_file = os.path.expandvars(filename)
         if corr_file[0]!='/' and not os.path.exists(corr_file):
             corr_file = os.path.expandvars(os.path.join('$FERMI','diffuse', corr_file))
         try:
             self.correction = pd.read_csv(corr_file, index_col=0) 
-            print self.correction
+            #print self.correction
         except Exception, msg:
             raise Exception('Error loading correction file %s: %s'% (corr_file,msg))
+        self.elist = list(elist)
             
     def plot_ait(self, energy_index= 0, **kwargs):
         """ make an AIT plot, return the figure
@@ -258,6 +260,14 @@ class DiffuseCorrection(object):
             x = self.hm.HParray('band%d'%i,self[i])
             t.append( self.hm.HPresample(x, nside=nside) )
         self.hm.HEALPixFITS(t).write(filename)
+        
+    def __call__(self, roi_index, energy):
+        try:
+            energy_index = self.elist.index(round(energy))
+        except:
+            if energy > self.elist[-1]: return 1.0
+            raise Exception('energy %f not found in list %s' % (round(energy), self.elist))
+        return self.correction.ix[roi_index][energy_index]
 
         
 class CachedDiffuseResponse(DiffuseResponse):
@@ -321,10 +331,15 @@ class IsotropicResponse(DiffuseResponse):
             
     def fill_grid(self):
         # fill the grid for evaluating counts integral over ROI, individual pixel predictions
+        roi_index = skymaps.Band(12).index(self.roicenter)
+        dmodel = self.dmodel
+        self.corr = 1.0
+        if hasattr(dmodel, 'kw') and dmodel.kw is not None and 'correction' in dmodel.kw:
+            dc = DiffuseCorrection(dmodel.kw['correction'])
+            self.corr = dc(roi_index, self.band.energy)
+            #print 'energy, correction: %.0f %.3f' % (self.band.energy, self.corr)
         grid = self.grid
-        #grid.bg_fill(self.band.exposure, None, cache=self.dmodel(band.skydir))
-        grid.cvals = grid.fill(self.band.exposure) * self.dmodel(self.band.skydir)
-        #grid.cvals = grid.bg_vals
+        grid.cvals = grid.fill(self.band.exposure) * dmodel(self.band.skydir) * self.corr
         
 
 class ExtendedResponse(DiffuseResponse):

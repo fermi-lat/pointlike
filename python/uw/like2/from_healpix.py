@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_healpix.py,v 1.4 2014/01/02 15:21:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_healpix.py,v 1.5 2014/01/31 14:56:10 burnett Exp $
 """
 import os, pickle, zipfile
 import numpy as np
@@ -94,8 +94,11 @@ class ROImodelFromHealpix(roimodel.ROImodel):
         
         def load_global_source(name, rec):
             if not self.quiet: print 'Loading global source %s for %d' % (name, index)
+            df = self.config.diffuse[name]
+            if df is None: 
+                return None
             gsrc = sources.GlobalSource(name=name, skydir=None, model=rec,
-                dmodel = diffuse.diffuse_factory(self.config.diffuse[name], self.config.event_type_names))
+                dmodel = diffuse.diffuse_factory( df, self.config.event_type_names))
             gsrc.index =index
             return gsrc
 
@@ -106,7 +109,8 @@ class ROImodelFromHealpix(roimodel.ROImodel):
             global_sources = [load_global_source(name, rec) for name, rec \
                 in zip(p['diffuse_names'], p['diffuse']) if name not in self.ecat.names]
             self.global_count = len(global_sources)
-            for s in global_sources: self.append(s)
+            for s in global_sources:
+                if s is not None: self.append(s)
         local_sources = [load_local_source(name, rec) for name,rec in p['sources'].items()]
         if not neighbors: self.local_count = len(local_sources)
         for s in local_sources: self.append(s)
