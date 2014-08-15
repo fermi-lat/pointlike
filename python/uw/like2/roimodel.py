@@ -1,7 +1,7 @@
 """
 Set up and manage the model for all the sources in an ROI
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.23 2014/04/04 14:04:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.24 2014/04/14 17:43:57 burnett Exp $
 
 """
 import os 
@@ -41,6 +41,8 @@ class ROImodel(list):
         """
         keyword_options.process(self, kwargs)
         self.config = config
+        self.config.diffuse = config.diffuse.copy() # since something changes??
+        
         if self.ecat is None: #speed up if already loaded
             self.ecat = extended.ExtendedCatalog(self.config.extended, quiet=self.quiet)
 
@@ -54,6 +56,7 @@ class ROImodel(list):
         if config.auxcat is not None:
             self.add_sources(config.auxcat)
         self.initialize()
+
         if len(self.parameters)==0:
             print 'WARNING: there are no free parameters'
         print self.summary()
