@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.75 2014/08/01 18:35:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.76 2014/08/18 20:10:18 burnett Exp $
 
 """
 import types, time
@@ -137,7 +137,8 @@ class ROI(views.LikelihoodViews):
             if True (default) call summary after succesful fit
 
         setpars : dict | None
-            set a set of parameters by index: the dict has keys that are either the index, or the name of the variabe, and float values,
+            set a set of parameters by index: the dict has keys that are either the index, 
+            or the name of the varialbe, and float values,
             e.g. {1:1e-14, 2:2.1, 'Source_Index': 2.0}
             Note that this uses *internal* variables
 
@@ -201,11 +202,11 @@ class ROI(views.LikelihoodViews):
             print 'current likelihood, est. diff to peak: %.1f, %.2f' % (fv.log_like(), fv.delta_loglike())
             fv.summary()
             
-    def localize(self, source_name=None, update=False, **kwargs):
+    def localize(self, source_name=None, update=False, ignore_exception=True, **kwargs):
         """ localize the source, return elliptical parameters 
         """
         if source_name=='all':
-            localization.localize_all(self, **kwargs)
+            localization.localize_all(self, ignore_exception=ignore_exception, **kwargs)
             return
         source = self.sources.find_source(source_name)
         with self.tsmap_view(source.name) as tsm:
@@ -215,7 +216,8 @@ class ROI(views.LikelihoodViews):
                 t = loc.ellipse
             except Exception, e:
                 print 'Failed localization for source %s: %s' % (tsm.source.name, e)
-                return None
+                if ignore_exception: return None
+                raise 
         if update:
             tsm.source.skydir = SkyDir(t['ra'], t['dec'])
     
