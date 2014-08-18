@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.74 2014/07/02 15:55:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.75 2014/08/01 18:35:30 burnett Exp $
 
 """
 import types, time
@@ -50,6 +50,8 @@ class ROI(views.LikelihoodViews):
     find_associations -- find associations for current source
     get_model -- the model
     get_sed -- return SED information for the current source
+    get_counts -- return array of counts per energy band
+    Npred -- return predicted total counts for current source
     get_source -- select and return a source
     freeze -- freeze a parameter
     set_model -- change the spectral model for a source
@@ -251,6 +253,18 @@ class ROI(views.LikelihoodViews):
     def band_ts(self, source_name=None, update=False):
         sedrec = self.get_sed(source_name, update=update)
         return sedrec.ts.sum()
+    
+    def get_counts(self, source_name=None):
+        """ return the array of predicted counts for the specified, or default source
+        """
+        source = self.sources.find_source(source_name)
+        z = plotting.counts.get_counts(self)
+        return dict(z['models'])[source.name]
+        
+    def Npred(self, source_name=None):
+        """ Return the total predicted counts for the specified, or default source
+        """
+        return sum(self.get_counts(source_name))
     
     @tools.decorate_with(plotting.sed.stacked_plots)    
     def plot_sed(self, source_name=None, **kwargs):
