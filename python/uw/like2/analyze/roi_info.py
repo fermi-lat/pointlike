@@ -1,7 +1,7 @@
 """
 Plots involving the 1728 ROIs
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/roi_info.py,v 1.7 2014/02/14 18:51:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/roi_info.py,v 1.8 2014/03/25 18:36:06 burnett Exp $
 
 """
 
@@ -45,11 +45,11 @@ class ROIinfo(analysis_base.AnalysisBase):
                 tdict.update(glon = glon, glat=glat, ra=ra, dec=dec )
                 rdict[pkl['name']] = tdict
             self.df = pd.DataFrame(rdict).transpose()
-            self.df.save(filename)
+            self.df.to_pickle(filename)
             print 'saved %s' % filename
         else:
             print 'loading %s' % filename
-            self.df = pd.load(filename)
+            self.df = pd.read_pickle(filename)
         # move this into refresh?
         rois = self.df
         rx = rois['ra dec glat glon'.split()] 
