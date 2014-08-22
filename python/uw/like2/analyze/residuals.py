@@ -1,7 +1,7 @@
 """
 Residual plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.6 2014/03/14 13:40:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.7 2014/07/16 18:03:55 burnett Exp $
 
 """
 
@@ -12,12 +12,23 @@ import pandas as pd
 import matplotlib.gridspec as gridspec
 
 from . import (roi_info,  analysis_base)
-from .. import tools
+from .. import (tools, configuration, response)
 
 class Residuals(roi_info.ROIinfo): 
-    """Residual plots
-    <br>Analysis of results from a measurement (using the uwpipeline task 'resid') of the nomalization likelihood
+    """<b>Residual plots</b>
+ <p>
+ Analysis of results from a measurement (using the uwpipeline task 'resid') of the nomalization likelihood
  functions performed for every source and every energy band. 
+ <p>
+ That pipeline analysis makes individual likelihood fits to the normalization of all the components of the model for each ROI, 
+ for each energy band, and separately for all event types. Event types are assumed to be front and back for now.
+ <p>
+ Each such fit is actually a measurement of the likelihood function, for which the maximum, plus and minus one sigma points, 
+ TS, and pull are recorded. The pull is the deviation of the fit value from the nominal, usually 1.0, in sigma units. 
+ <p>
+ Since the galactic diffuse and isotropic, separately for front and back have ROI-specific correction factors, summary
+ plots of these are shown.
+ 
     """ 
     require='residuals.zip'
     def setup(self, **kwargs):
@@ -28,6 +39,13 @@ class Residuals(roi_info.ROIinfo):
         self.energy = self.pkls[0]['ring']['all'].index
         self.sindec = np.sin(np.radians(np.asarray(self.df.dec,float)))
         self.singlat = np.sin(np.radians(np.array(self.df.glat, float)))
+        # expect to be in a skymodel folder
+        self.config = configuration.Configuration('.', postpone=True, quiet=True)
+        t = [self.config.diffuse['isotrop']['correction'].replace('*',etn)
+                for etn in self.config.event_type_names]
+        self.isofiles = t
+        self.galfile = self.config.diffuse['ring']['correction']
+
 
     def resid_array(self, source_name, column_name, event_type='all'):
         """ extract a component from the array of residuals
@@ -43,20 +61,67 @@ class Residuals(roi_info.ROIinfo):
         r= np.array([list(p[source_name][event_type][column_name]) if source_name in p else empty for p in self.pkls])
         assert r.shape==(1728,14), 'Failed shape requirement'
         return r
-    def update_correction(self, vin, vout=None):
+        
+    class ResidualArray(object):
+        """ manage access for plotting to component of the residual analysis"""
+        
+        def __init__(self, residual, column_name, source_name, event_type='all', vmin=-5, vmax=5):
+            self.vmin=vmin; self.vmax = vmax
+            self.cblabel='normalized residual' if column_name=='pull' else ''
+            self.title='%s for %s, %s events'%(column_name,source_name, event_type)
+            empty = [np.nan]*len(residual.energy)
+            r= np.array([list(p[source_name][event_type][column_name]) if source_name in p else empty for p in residual.pkls])
+            assert r.shape==(1728,14), 'Failed shape requirement'
+            
+            self.resid = r #residual.resid_array(source_name, colname, event_type=event_type)
+            
+        def __call__(self, iband):
+            return self.resid[:,iband]
+    
+    
+    def cartesian_map_array(self, fn, vmin=None, vmax=None, bands=8, nocolorbar=False):
+        """
+        Plot an array of cartesian maps
+        
+            fn : function object
+                fn(iband) returns nside=12 HEALPix array
+                has attributes vmin, vmax, title, cblabel
+        """
+        if vmin is None:vmin=fn.vmin
+        if vmax is None: vmax=fn.vmax
+        nrows, ncols = ((bands+1)//4, 4 ) if bands>=4 else (1, bands)
+        
+        fig, axx = plt.subplots(nrows, ncols, figsize=(3+3*ncols,1+3*nrows), sharex=True, sharey=True)
+        plt.subplots_adjust(right=0.9, hspace=0.15, wspace=0.1)
+
+        for iband,energy in enumerate(self.energy[:bands]):
+            ax = axx.flatten()[iband]
+            scat=self.basic_skyplot(ax, self.df.glon, self.singlat, fn(iband).clip(vmin,vmax),
+                 title='%d MeV'%energy,
+                vmin=vmin,vmax=vmax, s=30, edgecolor='none', colorbar=False, labels=False)
+        fig.text(0.5, 0.95, fn.title,  ha='center', size=12)
+        if nocolorbar: return fig
+        #put colorbar at right        
+        cbax = fig.add_axes((0.92, 0.15, 0.02, 0.7) )
+        cb=plt.colorbar(scat, cbax, orientation='vertical')
+        cb.set_label(fn.cblabel)
+        fig.text(0.5,0.05, 'galactic longitude', ha='center')
+        fig.text(0.05, 0.5, 'sin(latitude)', rotation='vertical', va='center')
+        return fig
+
+    def update_correction(self, vin, vout):
         """ update the Galactic Diffuse correction factor array with new residuals"""
-        if vout is None: vout = vin+1
         # get current residual array, replace any nan's with 1.0
         t = self.resid_array('ring', 'maxl')
         ra = t[:,:8] # only upto 10 GeV
         ra[~np.isfinite(ra)]=1.0
         # read in input correction array
-        infile = os.path.expandvars('$FERMI/diffuse/galactic_correction_v%d.csv'%vin)
+        infile = os.path.expandvars('$FERMI/diffuse/galactic_correction_%s.csv'%vin)
         assert os.path.exists(infile), 'File %s not found' %infile
         cv_old = pd.read_csv(infile, index_col=0)
         # multiply input corrections by residuals ane write it out
         cv_new = ra * cv_old
-        outfile = os.path.expandvars('$FERMI/diffuse/galactic_correction_v%d.csv'%vout)
+        outfile = os.path.expandvars('$FERMI/diffuse/galactic_correction_%s.csv'%vout)
         cv_new.to_csv(outfile)
         print 'wrote new diffuse correction file %s' % outfile
     
@@ -76,53 +141,7 @@ class Residuals(roi_info.ROIinfo):
         ax.grid(); ax.legend(prop=dict(size=10))
         return fig
 
-    def pull_maps(self, source_name='ring', event_type='all', vmin=-5, vmax=5, bands=8):
-        """ Maps of the residual pulls, or the normalized residuals for refitting this component alone.
-        """
-        nrows, ncols = ((bands+1)//4, 4 ) if bands>=4 else (1, bands)
-        fig, axx = plt.subplots(nrows, ncols, figsize=(3+3*ncols,1+3*nrows), sharex=True, sharey=True)
-        plt.subplots_adjust(right=0.9, hspace=0.15, wspace=0.1)
-        resid = self.resid_array(source_name, 'pull', event_type=event_type)
-        for ib,energy in enumerate(self.energy[:bands]):
-            ax = axx.flatten()[ib]
-            scat=self.basic_skyplot(ax, self.df.glon, self.singlat, resid[:,ib].clip(vmin,vmax),
-                 title='%d MeV'%energy,
-                vmin=vmin,vmax=vmax, s=15, edgecolor='none', colorbar=False, labels=False)
-        #put colorbar at right        
-        cbax = fig.add_axes((0.92, 0.15, 0.02, 0.7) )
-        cb=plt.colorbar(scat, cbax, orientation='vertical')
-        cb.set_label('normalized residual')
-        fig.text(0.5,0.05, 'galactic longitude', ha='center')
-        fig.text(0.05, 0.5, 'sin(latitude)', rotation='vertical', va='center')
-        fig.text(0.5, 0.95, 'pulls for %s, %s events'%(source_name, event_type), ha='center', size=12)
-        return fig
-        
-    def maxl_plots(self, source_name='isotrop', event_type='all', bands=8,bcut=5, ylim=(0.5,1.5), nocolorbar=False):
-        """Refit normalizations per band. The peak values for the individual likelihood functions.
-        """
-        maxl = self.resid_array(source_name,'maxl', event_type=event_type)
-        glat = np.array(self.df.glat,float)
-        hilat = np.abs(glat)>bcut
-        nrows, ncols = ((bands+1)//4, 4 ) if bands>=4 else (1, bands)
-        fig, axx = plt.subplots(nrows, ncols, figsize=(3+3*ncols,0.5+4*nrows), sharex=True, sharey=True)
-        plt.subplots_adjust(right=0.9, left=0.1, top=0.85, bottom=0.15,hspace=0.15, wspace=0.1)
-        for k,ax in enumerate(axx.flatten()):
-            scat=ax.scatter(self.sindec[hilat], maxl[:,k][hilat].clip(*ylim), c=abs(glat)[hilat], edgecolor='none');
-            plt.setp(ax, ylim=ylim, xlim=(-1,1), title='%d MeV'%self.energy[k])
-            ax.grid()
-        if nocolorbar: return fig
-        #put colorbar at right        
-        cbax = fig.add_axes((0.92, 0.15, 0.02, 0.7) )
-        cb=plt.colorbar(scat, cbax, orientation='vertical')
-        cb.set_label('abs(|b|')
-        fig.text(0.5,0.05, 'sin(Dec)', ha='center')
-        fig.text(0.05, 0.5, 'refit normalization', rotation='vertical', va='center')
-        fig.text(0.5, 0.95, 'normalizations for %s, %s events'%(source_name, event_type), ha='center', 
-                 size=14)
-
-        return fig
-
-    def front_back_ridge(self):
+    def front_back_ridge(self, xlim=(0.8, 1.2)):
         """front/back galactic residual ratio on ridge
         Ridge is within 10 degrees in latitude, 60 degrees in longitude.
         <br>Top three rows: histograms
@@ -147,10 +166,10 @@ class Residuals(roi_info.ROIinfo):
         for i,ax in enumerate(axt):
             u = fbrr[:,i]
             uok = u[np.isfinite(u)]; means.append(uok.mean());
-            ax.hist(u.clip(0.5,1.5), np.linspace(0.5, 1.5, 51));
+            ax.hist(u.clip(*xlim), np.linspace(xlim[0], xlim[1], 51));
             ax.axvline(1.0, color='b', ls='--')
             ax.text(0.1, 0.9, '%.0f MeV' % self.energy[i], size=10,  transform = ax.transAxes)
-        plt.setp(axt[0] , xlim=(0.5,1.5))
+        plt.setp(axt[0] , xlim=xlim)
    
         ax=axb
         ax.semilogx(self.energy[:12], means, 'o-')
@@ -176,8 +195,8 @@ class Residuals(roi_info.ROIinfo):
         rdict = {}; edict={}
         for roi,name in zip(rois, strong_names):
             t = self.pkls[roi][name]
-            u =np.array([t[et]['flux'] for et in ('front','back')]); 
-            du = np.array([ t[et]['uflux']-t[et]['flux'] for et in ('front', 'back')]) 
+            u =np.array([np.array(t[et]['flux']) for et in ('front','back')]); 
+            du = np.array([ np.array(t[et]['uflux']-t[et]['flux']) for et in ('front', 'back')]) 
             rdict[name] = u[0,:8]/u[1,:8]
             edict[name] = np.sqrt((du[0,:8]/u[0,:8])**2 +
                                   (du[1,:8]/u[1,:8])**2 )
@@ -206,52 +225,95 @@ class Residuals(roi_info.ROIinfo):
         return fig
 
         
-    @tools.decorate_with(pull_maps, append=True)
     def pull_maps_ring(self):
         """Pull plots for galactic diffuse
         """
-        return self.pull_maps('ring')
+        return self.cartesian_map_array( self.ResidualArray(self, 'pull', 'ring')); 
         
-    @tools.decorate_with(pull_maps, append=True)
-    def pull_maps_isotrop(self):
-        """Pull plots for isotropic
+    def pull_maps_isotrop_front(self):
+        """Pull plots for isotropic front
         """
-        return self.pull_maps('isotrop')
+        return self.cartesian_map_array( self.ResidualArray(self, 'pull', 'isotrop', 'front')); 
         
-    @tools.decorate_with(pull_maps, append=True)
-    def pull_maps_limb(self):
-        """Limb """
-        return self.pull_maps('limb', bands=2)
-        
-    @tools.decorate_with(maxl_plots, append=True)
+    def pull_maps_isotrop_back(self):
+        """Pull plots for isotropic back
+        """
+        return self.cartesian_map_array( self.ResidualArray(self, 'pull', 'isotrop', 'back')); 
+
     def maxl_plots_isotrop_back(self):
         """Max Likelihood for Isotropic back
         """
-        return self.maxl_plots(event_type='back', bands=4)
+        return self.cartesian_map_array( self.ResidualArray(self, 'maxl', 'isotrop', 'back', vmin=0.9, vmax=1.1), bands=4); 
         
-    @tools.decorate_with(maxl_plots, append=True)
     def maxl_plots_isotrop_front(self):
         """Max Likelihood for Isotropic front
         """
-        return self.maxl_plots(event_type='front', bands=4)
+        return self.cartesian_map_array( self.ResidualArray(self, 'maxl', 'isotrop', 'front', vmin=0.9, vmax=1.1), bands=4); 
         
-    @tools.decorate_with(maxl_plots, append=True)
-    def maxl_plots_limb_back(self):
-        """Max Likelihood for Limb back
-        """
-        return self.maxl_plots('limb', event_type='back', bands=2)
-        
-    @tools.decorate_with(maxl_plots, append=True)
-    def maxl_plots_limb_front(self):
-        """Max Likelihood for Limb front 
-        """
-        return self.maxl_plots('limb', event_type='front', bands=2)
+    def maxl_map_ring(self):
+        """Max likelihood for ring"""
+        return self.cartesian_map_array( self.ResidualArray(self, 'maxl', 'ring', vmin=0.9, vmax=1.1), ); 
+    
+    class GalacticCorrection():
+        def __init__(self, residual):
+            self.x = response.DiffuseCorrection(residual.config.diffuse['ring']['correction'])
+            self.title = 'Galactic correction'
+            self.cblabel='corection factor'
+            self.vmin=0.9; self.vmax=1.1
+            
+        def __call__(self, energy_index,):
+            return self.x[energy_index]
+
+    def galactic_correction(self):
+        """Galactic correction factor"""
+        return self.cartesian_map_array(self.GalacticCorrection(self))
+    
+    class IsotropicCorrection(object):
+        def __init__(self, residual, event_type_name):
+            event_type_index = residual.config.event_type_names.index(event_type_name)
+            self.x = response.DiffuseCorrection(residual.isofiles[event_type_index])
+            self.title='Isotropic correction for %s'% (event_type_name,)
+            self.cblabel = 'correction factor'
+            self.vmin=0.5; self.vmax=1.5
+            
+        def __call__(self, energy_index,):
+            return self.x[energy_index]
+
+    def isotropic_correction_front(self):
+        """Isotropic correction factor for front"""
+        return self.cartesian_map_array(self.IsotropicCorrection(self,'front'))
+
+    def isotropic_correction_back(self):
+        """Isotropic correction factor for back"""
+        return self.cartesian_map_array(self.IsotropicCorrection(self,'back'))
+
+   # def isotropic_correction_ait(self, nbands=5, vmin=0.5, vmax=1.5,):
+   #     """Isotropic correction plots
+   #     Analysis of the isotropic correction factors defined by the files %(isofiles)s
+   #     """
+   #     r = map(response.DiffuseCorrection, self.isofiles)
+   #     def corr_plot(corr,ax, energy_index,  etn):
+   #         title='%d MeV %s'% (self.energy[energy_index], etn)
+   #         #print title
+   #         ait_kw=dict(nocolorbar=True)
+   #         corr.plot_ait(energy_index=energy_index, ax=ax, vmin=vmin, vmax=vmax, title=title, ait_kw=ait_kw )
+   #     
+   #     fig, axx = plt.subplots(nbands,2, figsize=(12, 16))
+   #
+   #     for n in range(nbands):
+   #         for i, x in enumerate(r ):
+   #             corr_plot(x, axx[n,i], n, self.config.event_type_names[i]) 
+   #     fig.suptitle('isotropic correction factors')
+   #     return fig
+
     def all_plots(self):
-       self.runfigures([
-            self.pull_maps_ring, self.pull_maps_isotrop, 
-            self.norm_plot,
-            self.front_back_ridge, self.front_back_strong,
-            self.isotropic_hists,
+        self.runfigures([
+            self.pull_maps_ring, self.pull_maps_isotrop_front, self.pull_maps_isotrop_back, 
+            #self.norm_plot,
+            #self.isotropic_hists,
             self.maxl_plots_isotrop_front, self.maxl_plots_isotrop_back,
-            self.maxl_plots_limb_front, self.maxl_plots_limb_back,
+            self.maxl_map_ring,
+            #self.isotropic_correction_ait,
+            self.galactic_correction, self.isotropic_correction_front, self.isotropic_correction_back,
+            self.front_back_ridge, self.front_back_strong,
             ])
