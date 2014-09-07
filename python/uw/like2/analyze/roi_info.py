@@ -1,7 +1,7 @@
 """
 Plots involving the 1728 ROIs
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/roi_info.py,v 1.8 2014/03/25 18:36:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/roi_info.py,v 1.9 2014/08/22 22:41:24 burnett Exp $
 
 """
 
@@ -9,6 +9,7 @@ import os, pickle
 import numpy as np
 import pylab as plt
 import pandas as pd
+from skymaps import SkyDir
 
 from . import analysis_base #diagnostics
 
@@ -82,11 +83,14 @@ class ROIinfo(analysis_base.AnalysisBase):
             # note that different size might mean different marker size
             fig, ax = plt.subplots( 1,1, figsize=(6,5))
         else: fig = ax.figure
-        singlat=np.sin(np.radians(list(self.df.glat)))
         scat_default = dict(s=60, marker='D', vmin=None, vmax=None, edgecolor='none')
         scat_default.update(scatter_kw)
         
-        scat =self.basic_skyplot(ax, self.df.glon, singlat, c=values,
+        if ecliptic:
+            lon, sinlat = self.ecliptic_coords()
+        else:
+            lon, sinlat = self.df.glon, np.sin(np.radians(list(self.df.glat)))
+        scat =self.basic_skyplot(ax, lon, sinlat, c=values,
             labels=labels, colorbar=colorbar, cbtext=cbtext, **scat_default)
         
         return fig, scat # so can add colorbar later
@@ -130,6 +134,16 @@ class ROIinfo(analysis_base.AnalysisBase):
             if name not in m: return None
             return pkl['diffuse'][m.index(name)]
         return map(mdl, range(1728))
+
+    def ecliptic_coords(self):
+        """return cartesian arrays for roi positions in ecliptic coords"""
+        enp=SkyDir(270,90-23.439281) #ecliptic north pole
+        gdir = [SkyDir(l,b, SkyDir.GALACTIC) for l,b in zip(self.df.glon, self.df.glat)]
+        edir = np.array([ g.zenithCoords(enp) for g in gdir]); edir[0]
+        sinlat = np.sin(np.radians(edir[:,1]))
+        lon = edir[:,0]
+        lon[lon>180] -= 360
+        return lon, sinlat
 
     def counts_map(self,  hsize= (1.0, 1.7, 1.0, 1.4),  **kwargs):
         """ counts map for %(title)s
