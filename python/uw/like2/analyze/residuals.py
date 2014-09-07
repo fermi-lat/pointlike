@@ -10,7 +10,7 @@ import numpy as np
 import pylab as plt
 import pandas as pd
 import matplotlib.gridspec as gridspec
-
+from skymaps import SkyDir 
 from . import (roi_info,  analysis_base)
 from .. import (tools, configuration, response)
 
@@ -79,7 +79,25 @@ class Residuals(roi_info.ROIinfo):
             return self.resid[:,iband]
     
     
-    def cartesian_map_array(self, fn, vmin=None, vmax=None, bands=8, nocolorbar=False):
+    def ecliptic_coords(self):
+        enp=SkyDir(270,90-23.439281) #ecliptic north pole
+        gdir = [SkyDir(l,b, SkyDir.GALACTIC) for l,b in zip(self.df.glon, self.df.glat)]
+        edir = np.array([ g.zenithCoords(enp) for g in gdir]); edir[0]
+        sinlat = np.sin(np.radians(edir[:,1]))
+        lon = edir[:,0]
+        lon[lon>180] -= 360
+        return lon, sinlat
+
+    def equatorial_coords(self):
+        gdir = [SkyDir(l,b, SkyDir.GALACTIC) for l,b in zip(self.df.glon, self.df.glat)]
+        lon = np.array([x.ra() for x in gdir])
+        lat = np.array([x.dec() for x in gdir])
+        sinlat = np.sin(np.radians(lat))
+        lon[lon>180] -= 360
+        return lon, sinlat
+    
+    def cartesian_map_array(self, fn, vmin=None, vmax=None, bands=8, 
+            ecliptic=False, equatorial=False, nocolorbar=False):
         """
         Plot an array of cartesian maps
         
@@ -93,10 +111,16 @@ class Residuals(roi_info.ROIinfo):
         
         fig, axx = plt.subplots(nrows, ncols, figsize=(3+3*ncols,1+3*nrows), sharex=True, sharey=True)
         plt.subplots_adjust(right=0.9, hspace=0.15, wspace=0.1)
-
+        if ecliptic:
+            lon, sinlat = self.ecliptic_coords()
+        elif equatorial:
+            lon, sinlat = self.equatorial_coords()
+        else:
+            lon = self.df.glon
+            sinlat = self.singlat
         for iband,energy in enumerate(self.energy[:bands]):
             ax = axx.flatten()[iband]
-            scat=self.basic_skyplot(ax, self.df.glon, self.singlat, fn(iband).clip(vmin,vmax),
+            scat=self.basic_skyplot(ax, lon, sinlat, fn(iband).clip(vmin,vmax),
                  title='%d MeV'%energy,
                 vmin=vmin,vmax=vmax, s=30, edgecolor='none', colorbar=False, labels=False)
         fig.text(0.5, 0.95, fn.title,  ha='center', size=12)
@@ -105,7 +129,7 @@ class Residuals(roi_info.ROIinfo):
         cbax = fig.add_axes((0.92, 0.15, 0.02, 0.7) )
         cb=plt.colorbar(scat, cbax, orientation='vertical')
         cb.set_label(fn.cblabel)
-        fig.text(0.5,0.05, 'galactic longitude', ha='center')
+        fig.text(0.5, 0.05, 'longitude', ha='center')
         fig.text(0.05, 0.5, 'sin(latitude)', rotation='vertical', va='center')
         return fig
 

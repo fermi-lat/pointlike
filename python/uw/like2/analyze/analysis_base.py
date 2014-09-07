@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.21 2014/06/30 16:57:26 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.22 2014/07/01 17:47:11 burnett Exp $
 
 """
 
@@ -288,7 +288,7 @@ class AnalysisBase(object):
             note that with aspect=180, the aspect ratio is 1:1 in angular space at the equator
         """
         cb_kw = scatter_kw.pop('cb_kw', {}) 
-        ecliptic = scatter_kw.pop('ecliptic', False)
+        ecliptic = scatter_kw.pop('ecliptic', ecliptic)
         scat = ax.scatter(glon, singlat, c=c, **scatter_kw)
         if title:
             ax.set_title(title, fontsize='small')
@@ -303,7 +303,7 @@ class AnalysisBase(object):
         ax.set_xticks([180,90,0,-90,-180])
         ax.set_xticklabels([180,90,0,270, 180])
         if ecliptic:
-            self.draw_ecliptic(ax)
+            self.draw_ecliptic(ax) #### this not implemented???
         if colorbar:
             # supposed to be nice, didn't work with already-locatable?
             #http://matplotlib.org/mpl_toolkits/axes_grid/users/overview.html#colorbar-whose-height-or-width-in-sync-with-the-master-axes
