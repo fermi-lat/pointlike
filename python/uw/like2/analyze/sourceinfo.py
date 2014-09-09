@@ -1,7 +1,7 @@
 """
 Basic analyis of source spectra
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.21 2014/04/20 17:02:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.22 2014/08/22 22:42:11 burnett Exp $
 
 """
 
@@ -99,7 +99,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
 
         else:
             print 'loading %s' % filename
-            self.df = pd.load(filename) #read_pickle(filename)
+            self.df = pd.read_pickle(filename)
         #self.df['flux']    = [v[0] for v in self.df.pars.values]
         #self.df['flux_unc']= [v[0] for v in self.df.errs.values]
         localized = ~np.array(pd.isnull(self.df.delta_ts))
@@ -402,11 +402,11 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         psr = np.asarray(s.psr, bool)
         fq = np.array(s.fitqual, float)
         beta = s.beta
-        logparabola = (~psr) * (beta>0.01)
-        powerlaw = (~psr) * (beta.isnull() + (beta<0.01) )
+        logparabola = (~psr) & (beta>0.01)
+        powerlaw = (~psr) & (beta.isnull() | (beta<0.01) )
 
         self.tsbandcut=tsbandcut
-        cut=(s.band_ts>tsbandcut) & (fq>0)
+        cut = np.array((s.band_ts>tsbandcut) & (fq>0) , bool)
         
         dom = np.linspace(xlim[0],xlim[1],26)
         d = np.linspace(xlim[0],xlim[1],51); delta=dom[1]-dom[0]
@@ -414,8 +414,9 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         fudge = 1.0 # to scale, not sure why
         hilat = np.abs(self.df.glat)>5
         self.average = [0]*4; i=0
+        def tobool(a): return np.array(a, bool)
         for ax, label in zip(axx[:2], ('powerlaw', 'logparabola',)):
-            mycut=cut*eval(label)
+            mycut=tobool(cut&eval(label))
             count = sum(mycut)
             ax.hist(fq[mycut].clip(*xlim), dom, label=label+' (%d)'%count)
             self.average[i] = fq[mycut].mean(); i+=1
@@ -424,12 +425,12 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             ax.legend(prop=dict(size=10))
             
         def right(ax, label='PSR'):
-            mycut = cut * (psr)
+            mycut = cut & (psr)
             count = sum(mycut)
-            ax.hist(fq[mycut].clip(*xlim), dom, label=label+' (%d)' %count)
-            ax.hist(fq[mycut*hilat].clip(*xlim), dom, label=label+' [|b|>5] (%d)' %sum(mycut*hilat))
-            self.average[i]   = fq[mycut*hilat].mean()
-            self.average[i+1] = fq[mycut*(~hilat)].mean()
+            ax.hist(fq[tobool(mycut)].clip(*xlim), dom, label=label+' (%d)' %count)
+            ax.hist(fq[tobool(mycut&hilat)].clip(*xlim), dom, label=label+' [|b|>5] (%d)' %sum(mycut*hilat))
+            self.average[i]   = fq[tobool(mycut&hilat)].mean()
+            self.average[i+1] = fq[tobool(mycut&(~hilat))].mean()
             ax.plot(d, chi2(d)*count*delta/fudge, 'r', lw=2, label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
             ax.grid();ax.set_xlabel('fit quality')
             ax.legend(loc='upper left', prop=dict(size=10))
