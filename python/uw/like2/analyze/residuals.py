@@ -1,7 +1,7 @@
 """
 Residual plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.7 2014/07/16 18:03:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.9 2014/09/07 08:48:41 burnett Exp $
 
 """
 
@@ -311,25 +311,30 @@ class Residuals(roi_info.ROIinfo):
         """Isotropic correction factor for back"""
         return self.cartesian_map_array(self.IsotropicCorrection(self,'back'))
 
-   # def isotropic_correction_ait(self, nbands=5, vmin=0.5, vmax=1.5,):
-   #     """Isotropic correction plots
-   #     Analysis of the isotropic correction factors defined by the files %(isofiles)s
-   #     """
-   #     r = map(response.DiffuseCorrection, self.isofiles)
-   #     def corr_plot(corr,ax, energy_index,  etn):
-   #         title='%d MeV %s'% (self.energy[energy_index], etn)
-   #         #print title
-   #         ait_kw=dict(nocolorbar=True)
-   #         corr.plot_ait(energy_index=energy_index, ax=ax, vmin=vmin, vmax=vmax, title=title, ait_kw=ait_kw )
-   #     
-   #     fig, axx = plt.subplots(nbands,2, figsize=(12, 16))
-   #
-   #     for n in range(nbands):
-   #         for i, x in enumerate(r ):
-   #             corr_plot(x, axx[n,i], n, self.config.event_type_names[i]) 
-   #     fig.suptitle('isotropic correction factors')
-   #     return fig
+    def plot_region_averages(self):
+        """Special isotropic correction check
+        This shows the average correction factor as a function of energy for two 
+        high latitude regions, and all
+        """
+        lon, sinb = np.array(self.df.glon), self.singlat
+        regiona=(-30>lon) & (lon>-80) & (np.abs(sinb-0.8)<0.1)
+        regionb=(-100>lon) & (lon>-150) & (np.abs(sinb+0.8)<0.1)
 
+        fig,axx = plt.subplots(1,2, figsize=(12,6), sharex=True, sharey=True)
+        def plotit(ax, name):
+            iso = self.IsotropicCorrection(self,name)
+            fr = iso.x.correction
+            e = self.energy[:8]
+            total, ra, rb =fr.mean(), fr[regiona].mean(), fr[regionb].mean()
+            ax.plot(e,total, 'o--b', label='all');
+            ax.plot(e, ra, 'o--r', label='region A')
+            ax.plot(e, rb, 'o--g', label='region B')
+            ax.axhline(1.0, color='k')
+            plt.setp(ax, title=name, xlabel='Energy {MeV]',xscale='log', ylabel='Factor')
+            ax.legend(loc='lower left'); ax.grid()
+        map( plotit, axx, ('front', 'back'))
+        return fig
+  
     def all_plots(self):
         self.runfigures([
             self.pull_maps_ring, self.pull_maps_isotrop_front, self.pull_maps_isotrop_back, 
@@ -340,4 +345,5 @@ class Residuals(roi_info.ROIinfo):
             #self.isotropic_correction_ait,
             self.galactic_correction, self.isotropic_correction_front, self.isotropic_correction_back,
             self.front_back_ridge, self.front_back_strong,
+            self.plot_region_averages, 
             ])
