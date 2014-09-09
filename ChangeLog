@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Sep  9 09:01:10 PDT 2014
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	residuals.py 
+Log Message:
+allow for no iso correction file
+    *
+------------------------------------------------------------
 User: burnett  Tue Sep  9 08:59:30 PDT 2014
 pointlike/python/uw/like2/analyze
 
