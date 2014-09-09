@@ -1,7 +1,7 @@
 """
 Residual plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.9 2014/09/07 08:48:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.10 2014/09/09 15:59:29 burnett Exp $
 
 """
 
@@ -41,8 +41,11 @@ class Residuals(roi_info.ROIinfo):
         self.singlat = np.sin(np.radians(np.array(self.df.glat, float)))
         # expect to be in a skymodel folder
         self.config = configuration.Configuration('.', postpone=True, quiet=True)
-        t = [self.config.diffuse['isotrop']['correction'].replace('*',etn)
+        try:
+            t = [self.config.diffuse['isotrop']['correction'].replace('*',etn)
                 for etn in self.config.event_type_names]
+        except:
+            t = None
         self.isofiles = t
         self.galfile = self.config.diffuse['ring']['correction']
 
