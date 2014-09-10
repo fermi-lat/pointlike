@@ -1,7 +1,7 @@
 """
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.53 2014/07/14 22:44:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.54 2014/08/01 18:35:30 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -355,7 +355,7 @@ class BandLikeList(list):
             if sourcename is not None:
                 b[sourcename].initialize()
             else:
-                b.initialize(free)
+                b.initialize(free if free is not None else self.sources.free)
             b.update()
         
     # the following methods sum over the current set of bands
