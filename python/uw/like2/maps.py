@@ -1,6 +1,6 @@
 """
 Code to generate a set of maps for each ROI
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.5 2014/03/27 20:22:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.6 2014/03/30 18:25:39 burnett Exp $
 
 """
 import os, sys,  pickle, types
@@ -166,7 +166,7 @@ class ResidualTS(object):
         self.source.skydir = skydir
         self.roi.calls =0
         self.model[0]=1e-13 # initial value 
-        self.roi.initialize(self.sourcename)
+        self.roi.initialize(sourcename=self.sourcename)
         try:
             self.func.maximize(estimate_errors=False)
             ts = self.roi.TS()
