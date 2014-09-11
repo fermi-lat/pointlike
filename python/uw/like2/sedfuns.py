@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.40 2014/07/14 22:44:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.41 2014/08/15 18:07:09 burnett Exp $
 
 """
 import os, pickle
@@ -179,7 +179,7 @@ def norm_table(roi, source_name=None, event_type=None, tol=0.25, ignore_exceptio
     roi.select()
     energies = roi.energies
     poiss_list = dict()
-    with roi.normalization_view(source_name) as nv:
+    with roi.normalization_view(source.name) as nv:
         for i,energy  in enumerate(energies):
             roi.select(i, event_type)
             try:
