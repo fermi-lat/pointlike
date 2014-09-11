@@ -1,7 +1,7 @@
 """
 Classes to compute response from various sources
  
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.11 2014/03/12 15:52:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.12 2014/08/15 18:07:09 burnett Exp $
 author:  Toby Burnett
 """
 import os, pickle
@@ -241,12 +241,20 @@ class DiffuseCorrection(object):
             raise Exception('Error loading correction file %s: %s'% (corr_file,msg))
         self.elist = list(elist)
             
-    def plot_ait(self, energy_index= 0, **kwargs):
+    def plot_ait(self, energy_index= 0, title=None, ax=None, vmin=0.9, vmax=1.1, ait_kw={}, **kwargs):
         """ make an AIT plot, return the figure
         """
+        import matplotlib.pyplot as plt
+        if ax is None:
+            fig, ax = plt.subplots()
+        else:
+            fig = plt.gcf()
         t = self.hm.HParray('band%d'%energy_index,self[energy_index])
-        ait= t.plot(vmin=0.9, vmax=1.1, cbtext='correction')
-        ait.axes.set_title('corrections for band %d'%energy_index, size=12)
+        ait= t.plot(axes=ax, vmin=vmin, vmax=vmax, ait_kw=ait_kw, cbtext='correction')
+        if title is None:
+            ait.axes.set_title('corrections for band %d'%energy_index, size=12)
+        else:
+            ait.axes.set_title(title, size=10)
         return ait.axes.figure
         
     def __getitem__(self,energy_index):
