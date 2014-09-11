@@ -1,6 +1,6 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.17 2014/07/01 17:46:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.18 2014/07/02 15:53:56 burnett Exp $
 
 """
 import os, sys, time, pickle
@@ -152,16 +152,16 @@ class Process(main.MultiROI):
             self.find_associations('all')
 
         print '-------- analyzing counts histogram, ',; sys.stdout.flush()
-        cts=roi.get_counts() # always do counts
+        cts=roi.get_count_dict() # always do counts
         print 'chisquared: %.1f ----'% cts['chisq']
 
         counts_dir = getdir(self.counts_dir)
         if counts_dir is not None:
-            print '------- saving counts figure ------'; sys.stdout.flush()
+            print '------- saving counts plot ------'; sys.stdout.flush()
             try:
                 fig = roi.plot_counts( tsmin=self.countsplot_tsmin)
                 fout = os.path.join(counts_dir, ('%s_counts.jpg'%roi.name) )
-                print 'saving counts plot to %s' % fout ; sys.stdout.flush()
+                print '----> %s' % fout ; sys.stdout.flush()
                 fig.savefig(fout, dpi=60)
             except Exception,e:
                 print '***Failed to analyze counts for roi %s: %s' %(roi.name,e)
