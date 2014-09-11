@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Sep 11 01:13:46 PDT 2014
+pointlike/python/uw/like2
+
+Modified Files:
+	bandlike.py maps.py 
+Log Message:
+fix call to intialize
+    *
+------------------------------------------------------------
 User: burnett  Wed Sep 10 08:56:48 PDT 2014
 pointlike/python/uw/like2
 
