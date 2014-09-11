@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.76 2014/08/18 20:10:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.77 2014/08/18 20:11:48 burnett Exp $
 
 """
 import types, time
@@ -235,8 +235,10 @@ class ROI(views.LikelihoodViews):
              source.ts  = fv.ts()
         return source.ts
 
-    def get_counts(self):
-        return plotting.counts.get_counts(self)
+    def get_count_dict(self, event_type=None):
+        """ return the count analysis dict
+        """
+        return plotting.counts.get_counts(self, event_type=event_type)
         
     def get_sed(self, source_name=None, event_type=None, update=False, tol=0.1):
         """ return the SED recarray for the source
@@ -256,12 +258,15 @@ class ROI(views.LikelihoodViews):
         sedrec = self.get_sed(source_name, update=update)
         return sedrec.ts.sum()
     
-    def get_counts(self, source_name=None):
+    def get_counts(self, source_name=None, event_type=None):
         """ return the array of predicted counts for the specified, or default source
         """
+        z = plotting.counts.get_counts(self, event_type=event_type)['models']
+        
+        if source_name=='all': return z
+        
         source = self.sources.find_source(source_name)
-        z = plotting.counts.get_counts(self)
-        return dict(z['models'])[source.name]
+        return dict(z)[source.name]
         
     def Npred(self, source_name=None):
         """ Return the total predicted counts for the specified, or default source
