@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.26 2014/03/12 15:52:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.27 2014/03/24 14:28:37 burnett Exp $
 
 """
 import os
@@ -159,7 +159,7 @@ class Localization(object):
 
 
        
-def localize_all(roi, **kwargs):
+def localize_all(roi, ignore_exception=True, **kwargs):
     """ localize all variable local sources in the roi, make TSmaps and associations if requested 
         ignore if extended -- has 'spatial_model'
         kwargs can have prefix to select subset with name starting with the prefix, e.g. 'SEED'
@@ -195,7 +195,7 @@ def localize_all(roi, **kwargs):
     for source in vpsources:
         if prefix is not None and not source.name.startswith(prefix): continue
         with roi.tsmap_view(source.name) as tsm:
-            
+            print 'localizing %s' % source.name 
             loc = Localization(tsm)
             try:
                 loc.localize()
@@ -206,7 +206,8 @@ def localize_all(roi, **kwargs):
                     print 'updated position: %s --> %s' % (prev, tsm.saved_skydir)
             except Exception, msg:
                 print 'Localization of %s failed: %s' % (source.name, msg)
-            #source.ellipse = loc.qform.par[0:2]+loc.qform.par[3:7] +[loc.delta_ts] if hasattr(loc,'qform') else None
+                if not ignore_exception: raise
+            source.ellipse = loc.qform.par[0:2]+loc.qform.par[3:7] +[loc.delta_ts] if hasattr(loc,'qform') else None
             if not roi.quiet and hasattr(loc, 'niter') and loc.niter>0: 
                 print 'Localized %s: %d iterations, moved %.3f deg, deltaTS: %.1f' % \
                     (source.name, loc.niter, loc.delt, loc.delta_ts)
@@ -230,21 +231,20 @@ def localize_all(roi, **kwargs):
                     tsize= 2.0
                 if tsmap_dir.endswith('fail') and not bad: continue
                 pixelsize= tsize/15.;
-                #try:
-
-                tsm=plotting.tsmap.plot(loc, source.name, center=tsm.saved_skydir,
-                    outdir=tsmap_dir, catsig=0, size=tsize, 
-                    pixelsize= pixelsize, # was 14: desire to have central pixel
-                    # todo: fix this
-                    assoc=source.__dict__.get('adict', None), # either None or a dictionary
-                    notitle=True, #don't do title
-                    markersize=10,
-                    primary_markersize=12,
-                    tsfits=tsfits,
-                    )
-                #except Exception, msg:
-                #    print 'Plot of %s failed: %s' % (source.name, msg)
-                #    raise
+                try:
+                    tsm=plotting.tsmap.plot(loc, source.name, center=tsm.saved_skydir,
+                                                 outdir=tsmap_dir, catsig=0, size=tsize, 
+                                                 pixelsize= pixelsize, # was 14: desire to have central pixel
+                                                 # todo: fix this
+                                                 assoc=source.__dict__.get('adict', None), # either None or a dictionary
+                                                 notitle=True, #don't do title
+                                                 markersize=10,
+                                                 primary_markersize=12,
+                                                 tsfits=tsfits,
+                                                 )
+                except Exception, msg:
+                    print 'Plot of %s failed: %s' % (source.name, msg)
+                    raise
     curw= roi.log_like()
     if abs(initw-curw)>1.0 and not update:
         print 'localize_all: unexpected change in roi state after localization, from %.1f to %.1f (%+.1f)'\
