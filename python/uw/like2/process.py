@@ -1,6 +1,6 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.18 2014/07/02 15:53:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.19 2014/09/11 08:14:30 burnett Exp $
 
 """
 import os, sys, time, pickle
@@ -412,6 +412,9 @@ class Process(main.MultiROI):
             print '%-15s %6.0f' % (source.name, source.ts) , 
             if not hasattr(source, 'ellipse') or source.ellipse is None:
                 print ' no localization info'
+                continue
+            if not hasattr(source, 'ts'):   
+                print '    no TS'
                 continue
             if source.ts<tsmin:
                 print '    TS<%.0f' % (tsmin)
