@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Sep 22 11:02:41 PDT 2014
+pointlike/python/uw/like2
+
+Modified Files:
+	process.py 
+Log Message:
+now ignore fit exceptions
+    *
+------------------------------------------------------------
 User: burnett  Mon Sep 22 10:49:59 PDT 2014
 pointlike/python/uw/like2
 
