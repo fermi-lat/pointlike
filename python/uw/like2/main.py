@@ -1,13 +1,13 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.77 2014/08/18 20:11:48 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.78 2014/09/11 08:15:35 burnett Exp $
 
 """
 import types, time
 import numpy as np
 from uw.utilities import keyword_options
-from skymaps import SkyDir
+from skymaps import SkyDir, Band
 from . import (views,  configuration, extended,  roimodel, from_xml, from_healpix,
                 bands,  localization, sedfuns, tools,
                 plotting, associate, printing, to_healpix
@@ -102,8 +102,13 @@ class ROI(views.LikelihoodViews):
             roi_sources = from_healpix.ROImodelFromHealpix(config, roi_spec, ecat=ecat,load_kw=self.load_kw)
             roi_index = roi_spec
             config.roi_spec = configuration.ROIspec(healpix_index=roi_spec)
+        elif type(roi_spec)==tuple and len(roi_spec)==2:
+            roi_index = Band(12).index(SkyDir(*roi_spec))
+            roi_sources = from_healpix.ROImodelFromHealpix(config, roi_index, ecat=ecat,load_kw=self.load_kw)
+            config.roi_spec = configuration.ROIspec(healpix_index=roi_index)
+
         else:
-            raise Exception('Did not recoginze roi_spec: %s' %roi_spec)
+            raise Exception('Did not recoginze roi_spec: %s' %(roi_spec))
         self.name = config.roi_spec.name if config.roi_spec is not None else roi_spec
         
         roi_bands = bands.BandSet(config, roi_index)
