@@ -1,11 +1,11 @@
 """
 Output the ROI info to as a pickle file.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_healpix.py,v 1.5 2013/12/22 01:17:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_healpix.py,v 1.6 2013/12/31 04:44:25 burnett Exp $
 """
 import os, pickle, time
 import numpy as np
 
-def pickle_dump(roi,  pickle_dir, dampen, **kwargs):
+def pickle_dump(roi,  pickle_dir, dampen, ts_min=5, **kwargs):
     """ dump the source information from an ROI constructed from the sources here
     """
     assert os.path.exists(pickle_dir), 'output folder not found: %s' %pickle_dir
@@ -54,11 +54,15 @@ def pickle_dump(roi,  pickle_dir, dampen, **kwargs):
             s.sedrec = None
         sedrec = s.sedrec
         loc = s.__dict__.get('loc', None)
+        ts = s.ts if hasattr(s, 'ts') else.roi.TS(s.name)
+        if ts < ts_min:
+            print 'Not saving source %s: ts=%.1f < %.1f' % (s.name, ts, ts_min)
+            continue
         sources[s.name]=dict(
             skydir=s.skydir, 
             model=s.spectral_model,
             isextended=s.isextended,
-            ts = s.ts if hasattr(s, 'ts') else roi.TS(s.name),
+            ts = ts,
             sedrec = sedrec,
             band_ts=0 if sedrec is None else sedrec.ts.sum(),
             pivot_energy = pivot_energy,
