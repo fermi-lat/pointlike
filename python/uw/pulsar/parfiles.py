@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.64 2014/05/11 21:30:13 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.65 2014/05/27 00:38:29 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -131,6 +131,36 @@ class StringFloat(object):
             other = StringFloat(str(other))
         return self + other*StringFloat(-1)
 
+    def sigfig_string(self,sigfigs):
+        """ Return a string version with specified number of sig figs."""
+        sign = self._i < 0
+        icop = abs(self._i)
+        mysigfigs = len(str(icop))
+        if sigfigs >= mysigfigs:
+            return self._s
+        i = str(icop)[:(sigfigs+1)]
+        if int(i[-1]) < 5:
+            i = int(i[:-1])
+        else:
+            i = int(i[:-1])+1
+        places = self.places
+        # now figure out where decimal goes
+        i = str(i)
+        if places >= mysigfigs:
+            i = '0.' + '0'*(places-mysigfigs) + i
+        elif places < mysigfigs:
+            dp = mysigfigs-places # decimal point goes in this position
+            if dp < sigfigs:
+                # dp goes in middle of #
+                i = i[:dp] + '.' + i[dp:]
+            else:
+                i = i + '0'*(dp-sigfigs) + '.'
+        i =  i.rstrip('.')
+        if sign:
+            return '-'+i
+        return i
+
+
 class ParFile(dict):
 
     def __init__(self,parfile):
@@ -139,15 +169,19 @@ class ParFile(dict):
         self.parfile = parfile
         self.init()
 
-    def init(self):
+    def init(self,buf=None):
         # make this a little more bulletproof on the cluster
         self.ordered_keys = []
         self.duplicates = defaultdict(list)
         comment_counter = 0
         for i in xrange(3):
-            f = open(self.parfile,'r')
-            lines = f.readlines()
-            f.close()
+            if buf is None:
+                f = open(self.parfile,'r')
+                lines = f.readlines()
+                f.close()
+            else:
+                buf.seek(0)
+                lines = buf.readlines()
             if len(lines) > 0:
                 break
             else:
@@ -230,7 +264,7 @@ class ParFile(dict):
             then correct the position to given epoch and add the errors
             in quadrature.
             
-            NB that for tempo2, the both PMRA and PMDEC are physical scales,
+            NB that for tempo2, both PMRA and PMDEC are physical scales,
             so PMRA shoud be divided by cos(DEC) to get the "coordinate
             speed".
         """
@@ -244,6 +278,8 @@ class ParFile(dict):
         if epoch is not None:
             dt = (epoch - self.get('POSEPOCH',type=float))/365.24
             if 'PMRA' in self.keys():
+                #in TEMPO2,  proper motion is in physical units; convert
+                # to coordinate units by correcting for cos(dec)
                 cdec = np.cos(np.radians(de))
                 pmra = self.get('PMRA',type=float)/1000/3600./cdec # deg
                 idx = 1 if (len(self['PMRA'])==2) else 2
@@ -458,7 +494,11 @@ class ParFile(dict):
                     print 'Failed writing key/val pair %s/%s.'%(key,val)
                     raise e
                 f.append('%s%s\n'%(key,val))
-        file(output,'w').write(''.join(f))
+        try:
+            file(output,'w').write(''.join(f))
+        except TypeError:
+            # perhaps output is a buffer
+            output.write(''.join(f))
 
     def get_pm(self):
         """ Get the proper motion, return value is of form
@@ -666,6 +706,30 @@ class ParFile(dict):
     def zero_glitch_transients(self,glepoch=None):
         self.zero_glitches(glepoch=glepoch,transients_only=True)
 
+    def get_glitch_parameters(self,index,strip_index=True):
+        """ If glepoch is provided, only zero glitches near (within 1d) of
+            that epoch.  Otherwise, remove all glitches."""
+        indices = self.get_glitch_index(glepoch=None)
+        if index not in indices:
+            raise IndexError('Do not have glitch %d!'%index)
+        pars = dict()
+        for key in self.keys():
+            if (key[:2]=='GL') and (int(key.split('_')[-1])==index):
+                val = self[key]
+                if hasattr(val,'__iter__'):
+                    if len(val) > 1:
+                        pars[key] = [float(val[0]),float(val[-1])]
+                    else:
+                        pars[key] = [float(val[0]),None]
+                else:
+                    pars[key] = [float(val),None]
+        if strip_index:
+            d = dict()
+            for key in pars.keys():
+                d[key.split('_')[0]] = pars[key]
+            pars = d
+        return pars
+
     def sort_glitches(self):
         """ Put glitch indices in time order."""
         indices = []
@@ -758,7 +822,7 @@ class ParFile(dict):
         return 'WAVEEPOCH %s\n'%(epoch) + \
             '\n'.join(map(lambda s: '%s 0 0'%s,keys))
 
-    def replace_astrometry(self,block,output=None):
+    def replace_astrometry(self,block,output=None,clobber=True):
         """ Replace the astrometry in the ephemeris with the string
             indicated in block.  Note that we wish to preserve it verbatim
             since it may include comments and errors.  Therefore, delete
@@ -774,7 +838,9 @@ class ParFile(dict):
         """
         if block is None:
             return
-        lines = block.split('\n')
+        if len(block.strip()) == 0:
+            return
+        lines = filter(lambda l: len(l) > 0, block.split('\n'))
         # remove all duplicate keys
         keys = [l.split()[0] for l in lines if l[0] != '#']
         map(self.delete_key,keys)
@@ -782,17 +848,37 @@ class ParFile(dict):
         comm = [l.strip()[1:] for l in lines if l[0] == '#']
         map(self.delete_val,comm)
 
-        output = output or self.parfile
-        self.write(output)
-        lines = map(str.strip,file(output).readlines())
+        #output = output or self.parfile
+        #self.write(output)
+        #lines = map(str.strip,file(output).readlines())
+        #idx = 0
+        #for line in lines:
+        #    if 'PSRJ' in line:
+        #        break
+        #    idx += 1
+        #file(output,'w').write('\n'.join(
+        #    lines[:idx+1]+block.split('\n')+lines[idx+1:]))
+
+        import StringIO
+        buf = StringIO.StringIO()
+        self.write(buf)
+        buf.seek(0)
+        lines = map(str.strip,map(str,buf.readlines()))
         idx = 0
         for line in lines:
             if 'PSRJ' in line:
                 break
             idx += 1
-        file(output,'w').write('\n'.join(
+        buf = StringIO.StringIO()
+        buf.write('\n'.join(
             lines[:idx+1]+block.split('\n')+lines[idx+1:]))
-        self.init()
+
+        self.init(buf=buf)
+
+        if output is not None:
+            self.write(output)
+        elif clobber:
+            self.write(self.parfile)
 
     def freeze_params(self):
         for key in self.keys():
@@ -892,6 +978,7 @@ def get_bats_etc(par,tim,output=None,full_output=False,binary=False,
     if nofit:
         cmd += ' -nofit'
     proc = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE)
+    # TODO -- should check output...
     toks = map(lambda l:l.split('\t')[1:],
         filter(lambda l:l[:7]=='onerous',proc.stdout))
     #toks = [line.split('\t')[1:] for line in proc.stdout if line[:7]=='onerous']
@@ -911,7 +998,7 @@ def get_bats_etc(par,tim,output=None,full_output=False,binary=False,
         return bats,errs,phas
 
 def get_resids(par,tim,emax=None,phase=False,get_mjds=False,latonly=False,
-    jitter=None,select=None,nofit=True):
+    jitter=None,select=None,nofit=True,echo=False):
     """ Use the tempo2 general2 plugin to obtain residuals.  By default, 
         the residuals and the errors are given in microseconds.
 
@@ -928,8 +1015,16 @@ def get_resids(par,tim,emax=None,phase=False,get_mjds=False,latonly=False,
         cmd += ' -nofit'
     if select is not None:
         cmd += ' -select %s'%select
+    if echo:
+        print cmd
     proc = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE)
     toks = [line.split('\t')[1:] for line in proc.stdout if line[:7]=='onerous']
+    if len(toks)==0:
+        # tempo2 failed us
+        if get_mjds:
+            return [None]*6
+        return [None]*4
+        
     # NB -- both residuals and errors in microseconds
     frqs = np.array([x[3] for x in toks],dtype=np.float128)
     if latonly:
@@ -1268,8 +1363,7 @@ def flag_filter(tim,flag,valfunc=lambda x: True,return_lines=False,
     if converse:
         mask = ~mask
     if return_lines:
-        return [
-            toa_strings[i] for i in xrange(len(toa_strings)) if mask[i]]
+        return [toa_strings[m] for m in mask]
     return mask
 
 def flag_values(tim,flag):
@@ -1300,7 +1394,7 @@ def flag_filter_tim(tim,flag,output,val=None,converse=False):
         flagfunc = lambda x: x == val
     tim_strings = flag_filter(tim,flag,flagfunc,return_lines=True,
         converse=converse)
-    file(output,'w').write('FORMAT 1\n%s'%(tim_strings))
+    file(output,'w').write('FORMAT 1\n%s'%('\n'.join(tim_strings)))
 
 def merge_tim(timfiles,output,tmin=None,tmax=None):
     """ Merge TOA files, applying time cuts if desired."""
