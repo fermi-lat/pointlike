@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.78 2014/09/11 08:15:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.79 2014/09/22 17:49:24 burnett Exp $
 
 """
 import types, time
@@ -264,12 +264,10 @@ class ROI(views.LikelihoodViews):
         return sedrec.ts.sum()
     
     def get_counts(self, source_name=None, event_type=None):
-        """ return the array of predicted counts for the specified, or default source
+        """ return the array of predicted counts for the specified, or all sources
         """
         z = plotting.counts.get_counts(self, event_type=event_type)['models']
-        
         if source_name=='all': return z
-        
         source = self.sources.find_source(source_name)
         return dict(z)[source.name]
         
@@ -380,10 +378,10 @@ class MultiROI(ROI):
     Intended for subclasses
     """
     
-    def __init__(self, config_dir,  quiet=False):
+    def __init__(self, config_dir,  quiet=False, postpone=False):
         """
         """
-        self.config = configuration.Configuration(config_dir, quiet=quiet, postpone=False)
+        self.config = configuration.Configuration(config_dir, quiet=quiet, postpone=postpone)
         self.ecat = extended.ExtendedCatalog(self.config.extended)
             
     def setup_roi(self, roi_index):
