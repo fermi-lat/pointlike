@@ -1,6 +1,6 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.20 2014/09/22 17:49:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.21 2014/09/22 18:02:40 burnett Exp $
 
 """
 import os, sys, time, pickle
@@ -399,7 +399,7 @@ class Process(main.MultiROI):
                                                   free=[True,True,False,False]))
         return good_seeds[inside]   
 
-    def update_positions(self, tsmin=10, qualmax=5):
+    def update_positions(self, tsmin=10, qualmax=8):
         """ use the localization information associated with each source to update position
             require ts>tsmin, qual<qualmax
             
