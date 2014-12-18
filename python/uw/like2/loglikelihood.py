@@ -1,9 +1,9 @@
 """Tools for parameterizing log likelihood curves.
 
 Author(s): Eric Wallace, Matthew Kerr, Toby Burnett
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.21 2014/02/09 19:22:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.22 2014/02/11 04:17:42 burnett Exp $
 """
-__version__ = "$Revision: 1.21 $"
+__version__ = "$Revision: 1.22 $"
 
 import numpy as np
 from scipy import optimize, special, polyfit, stats
@@ -169,6 +169,15 @@ class Poisson(object):
         
     def pts(self):
         return 0 if self.flux<=0 else (self(self.flux)-self(0))*2.0
+        
+    def zero_fraction(self):
+        """ Return an estimate of the fraction of the probability that corresponds
+        to negative flux. Assume only have to calculate if TS>0 or TS<16
+        """
+        if self.ts==0: return 1.0
+        if self.ts>16: return 0.0
+        #this assumes that self.cdfc(0) is 1.0, and that cdfc(-b) is the full integral
+        return 1-1./self.cdfc(-self.p[2])
  
          
 class PoissonFitter(object):
@@ -329,6 +338,7 @@ class PoissonFitter(object):
         pfmax = self(self.smax)
         ax.plot(x, np.exp(self(x)-pfmax), '-', label='Input')
         ax.plot(xp, np.exp(self._poiss(xp)), 'o', label='approx')
+        ax.plot(x, np.exp(self._poiss(x)), ':')
         ax.legend(loc='lower left', prop =dict(size=8) )        ax.set_xticks([0, xp[-1]])
         ax.grid()
         return fig
