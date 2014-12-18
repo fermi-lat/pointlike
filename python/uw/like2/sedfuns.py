@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.41 2014/08/15 18:07:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.42 2014/09/11 08:15:01 burnett Exp $
 
 """
 import os, pickle
@@ -91,8 +91,9 @@ class SED(tools.WithMixin):
            mflux            -- Flux predicted by the model
            delta_ts         -- TS difference, fit-model
            pull             -- signed square root of delta_ts
+           zero_fract       -- predicted fraction of the time expect zero flux
         """
-        names = 'elow ehigh flux lflux uflux ts mflux delta_ts pull maxdev'.split()
+        names = 'elow ehigh flux lflux uflux ts mflux delta_ts pull maxdev zero_fract'.split()
         rec = tools.RecArray(names, dtype=dict(names=names, formats=['>f4']*len(names)) )
         for i,energy in enumerate(self.energies):
             try:
@@ -100,7 +101,7 @@ class SED(tools.WithMixin):
                 xlo,xhi = self.rs.emin,self.rs.emax
             except Exception, msg:
                 print 'Fail poiss fit for %.0f MeV: %s ' % (energy,msg)
-                rec.append(np.nan, np.nan, 0, 0, np.nan, 0, np.nan, np.nan, np.nan, np.nan )
+                rec.append(np.nan, np.nan, 0, 0, np.nan, 0, np.nan, np.nan, np.nan, np.nan, np.nan )
                 continue
             w = pf.poiss
             err = pf.maxdev
@@ -108,12 +109,13 @@ class SED(tools.WithMixin):
             maxl  = w.flux
             mf    = self.func.eflux
             delta_ts = 2.*(self(maxl) - self(mf) )
+            zf =   w.zero_fraction()
             if lf>0 :
                 pull = np.sign(maxl-mf) * np.sqrt(max(0, delta_ts))
-                rec.append(xlo, xhi, maxl, lf, uf, w.ts, mf, delta_ts, pull, err)
+                rec.append(xlo, xhi, maxl, lf, uf, w.ts, mf, delta_ts, pull, err, zf)
             else:
                 pull = -np.sqrt(max(0, delta_ts))
-                rec.append(xlo, xhi, 0, 0, w.cdfcinv(0.05), 0, mf, delta_ts, pull, err )
+                rec.append(xlo, xhi, 0, 0, w.cdfcinv(0.05), 0, mf, delta_ts, pull, err, zf )
             
         self.restore()
         return rec()
@@ -122,8 +124,8 @@ class SED(tools.WithMixin):
         """DataFrame summary of the sed_rec"""
         si = self.sed_rec(event_type,tol)
         r =pd.DataFrame(dict(flux=si.flux.round(1), TS=si.ts.round(1), lflux=si.lflux.round(1),
-        uflux=si.uflux.round(1), mflux=si.mflux.round(1), pull=si.pull.round(1)), 
-            index=np.array(np.sqrt(si.elow*si.ehigh),int), columns='flux lflux uflux mflux TS pull'.split())
+        uflux=si.uflux.round(1), mflux=si.mflux.round(1), pull=si.pull.round(1), zf=si.zero_fract.round(3)), 
+            index=np.array(np.sqrt(si.elow*si.ehigh),int), columns='flux lflux uflux mflux TS pull zf'.split())
         r.index.name='energy'
         return r
 
@@ -141,15 +143,17 @@ class SED(tools.WithMixin):
     def plots(self):
         import matplotlib.pylab as plt
            
-        fig, axx = plt.subplots(4,4, figsize=(12,12), sharex=True, sharey=True)
+        fig, axx = plt.subplots(4,4, figsize=(12,12), sharey=True)
         for i, ax in enumerate(axx.flatten()):
             if i >= len(self.energies):
                 ax.set_visible(False)
                 continue
             pf = self.select(i)
             pf.plot(ax)
-            ax.set_title('%s@ %d MeV' %( self.source_name, int(self.func.energy),), size=10)
+            ax.set_title('%d MeV' %( int(self.func.energy),), size=10)
+            ax.set_ylim(0,1)
         self.restore()
+        fig.suptitle('Binned likelihood plots for '+self.source_name, size=14)
         return fig
  
 def sed_table(roi, source_name=None, event_type=None, tol=0.1):
