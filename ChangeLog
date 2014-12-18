@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Dec 17 16:17:46 PST 2014
+pointlike/python/uw/like2
+
+Modified Files:
+	loglikelihood.py 
+Log Message:
+add zero_fraction function
+    *
+------------------------------------------------------------
 User: burnett  Wed Dec 17 16:17:13 PST 2014
 pointlike/python/uw/like2
 
