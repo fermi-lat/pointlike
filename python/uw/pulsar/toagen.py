@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.21 2014/01/14 08:18:12 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.22 2014/05/11 21:30:13 kerrm Exp $
 
 Calculate TOAs with a variety of methods.
 
@@ -58,6 +58,7 @@ class TOAGenerator(object):
         err_toas = np.empty(binner.ntoa)
         tim_strings = ['FORMAT 1']
         self.counter = 0
+        tmp_tim_strings = ['FORMAT 1']
 
         for ii,(mjdstart,mjdstop) in enumerate(binner):
 
@@ -85,13 +86,16 @@ class TOAGenerator(object):
 
             # compute RMS between linear assumption and actual polyco
             # over the integration period
-            dom = np.linspace(mjdstart,mjdstop,100)
-            ph = self.polyco.vec_evalabsphase(dom)
-            ph -= ph.min()
-            p = np.polyfit(dom-tmid,ph,1)
-            rms = (ph-np.polyval(p,dom-tmid)).std()*(1e6/freq) # mus
-            
+            #dom = np.linspace(mjdstart,mjdstop,100)
+            #ph = self.polyco.vec_evalabsphase(dom)
+            #ph -= ph.min()
+            #x = dom - tmid
+            #p = np.polyfit(x,ph,1)
+            #rms = (ph-np.polyval(p,x)).std()*(1e6/freq) # mus
+            rms = 0.
+
             # Prepare a string to write to a .tim file or to send to STDOUT
+            #print period
             toa = phase_time + (tau*period)/SECSPERDAY
             if tau_err < 100:
                 toa_err = tau_err*period*1.0e6
@@ -109,6 +113,21 @@ class TOAGenerator(object):
             tim_strings.append(s)
             self.counter += 1
 
+            """
+            # compute a temporary set of TOAs to sample phi(t) within the
+            # integration period
+            dom = np.append(phase_time,np.linspace(mjdstart,mjdstop,16))
+            taus = tau + polyco_phase0 - self.polyco.vec_evalphase(dom)
+            tmp_toas = dom + (taus*period)/SECSPERDAY
+            resids = self.polyco.vec_evalphase(tmp_toas)
+            print resids-resids.mean()
+            tmp_toa_strings  = [" %s 0.0 %.12f %.2f %s -i LAT" % (frame_label,toa,toa_err,pe.obs) for toa in tmp_toas]
+            tmp_tim_strings.extend(tmp_toa_strings)
+            #tim_strings.extend(tmp_toa_strings)
+            """
+
+        #file('/tmp/blah.tim','w').write('\n'.join(tmp_tim_strings)+'\n'+'\n'.join(tim_strings[1:]))
+
         # Note TOAS in MJD, err_toas in microseconds, tim_strings a line for a FORMAT 1 .tim file
         return toas,err_toas,tim_strings
 
@@ -124,6 +143,7 @@ class UnbinnedTOAGenerator(TOAGenerator):
         self.weights = None
         self.plot_stem = None
         self.display = True
+        self.likelihood_threshold = 5
 
     def __toa_error__(self,val,*args):
         f      = self.__toa_loglikelihood__
@@ -235,12 +255,16 @@ class UnbinnedTOAGenerator(TOAGenerator):
         else:
             seed = None
         x0,x0_err,best_ll = profile_analysis(
-            f,(phases,weights),pred_phase=seed,plot_output=plot_output)
+            f,(phases,weights),pred_phase=seed,plot_output=plot_output,
+            thresh=self.likelihood_threshold)
         if x0_err < 1e2:
             self.prev_peak = x0
         else:
             x0 = self.prev_peak # track solution with "fake" TOA
+
+         # the phase of profile relative to fiducal phase of the template
         peak_shift = x0-self.phi0
+
         # check for phase wraps
         if peak_shift < 0:
             # check for TOA wrapped higher
@@ -250,6 +274,9 @@ class UnbinnedTOAGenerator(TOAGenerator):
             # check for predicted phase wrapped higher
             if abs(peak_shift-1) < abs(peak_shift):
                 peak_shift -= 1
+
+        # the phase relative to the reference phase, computed from the
+        # reference time within the integration
         tau = peak_shift - polyco_phase0
         tau_err = x0_err
         if self.display: 

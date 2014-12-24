@@ -250,6 +250,10 @@ class FullStokesProfile(Profile):
         #keyword_options.process(self,kwargs)
         self.init()
         self.__dict__.update(kwargs)
+        if 'harm_align' in kwargs:
+            print 'Warning!  harmonic alignment does nothing for these.'
+        if 'peak_align' in kwargs:
+            print 'Warning!  peak alignment does nothing for these.'
         self.pfile = profile
         self.jname = jname
         self.obs = None

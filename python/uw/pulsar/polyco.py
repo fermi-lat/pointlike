@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.15 2013/11/27 07:05:23 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.16 2013/12/02 02:40:40 kerrm Exp $
 
 Mange polycos from tempo2.
 
@@ -50,7 +50,10 @@ class PolycoEntry:
         return(phase)
 
     def evalabsphase(self,t):
-        '''Return the phase at time t, computed with this polyco entry'''
+        """Return the phase at time t, computed with this polyco entry.
+        
+        This version includes the "DC" term, i.e. is the absolute phase
+        since the epoch."""
         dt = (t-self.tmid)*1440.0
         # Compute polynomial by factoring out the dt's
         phase = self.coeffs[self.ncoeff-1]
@@ -186,9 +189,10 @@ class Polyco:
             out_string = '' if self.output is None else ' -polyco_file %s'%self.output
             t2cmd = 'tempo2 -f %s%s -polyco "%s %s 360 12 12 %s 0 0\"'%(
                 polyconame,out_string,mjd0,endMJD,obs_string)
-            o = subprocess.check_output(t2cmd,shell=True)
             if self.verbose:
                 print 'Creating polycos with command:\n',t2cmd
+            o = subprocess.check_output(t2cmd,shell=True)
+            if self.verbose:
                 print o
         fname = '%spolyco_new.dat'%(prefix)
         polyconame=os.path.abspath(fname)
