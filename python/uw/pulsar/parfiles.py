@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.67 2014/12/24 07:52:31 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.68 2014/12/28 10:42:55 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -221,10 +221,12 @@ class ParFile(dict):
 
     def set(self,key,val):
         """ Replace the FIRST ELEMENT of a field with val."""
-        t = self[key]; v = '%.18g'%(val)
+        t = self[key];
+        if not type(val)==type(''):
+            val = '%.18g'%(val)
         if hasattr(t,'__iter__'):
-            self[key][0] = v
-        else: self[key] = v
+            self[key][0] = val
+        else: self[key] = val
 
     def get_psrname(self,add_j=True):
         try:
@@ -270,10 +272,16 @@ class ParFile(dict):
         """
         ra = ra2dec(self.get('RAJ'))
         de = decl2dec(self.get('DECJ'))
-        idx = 1 if (len(self['RAJ'])==2) else 2
-        rae = float(self['RAJ'][idx]) * (15./3600) # deg
-        idx = 1 if (len(self['DECJ'])==2) else 2
-        dee = float(self['DECJ'][idx]) * (1./3600) # deg
+        if hasattr(self['RAJ'],'__iter__'):
+            idx = 1 if (len(self['RAJ'])==2) else 2
+            rae = float(self['RAJ'][idx]) * (15./3600) # deg
+        else:
+            rae = 0.
+        if hasattr(self['DECJ'],'__iter__'):
+            idx = 1 if (len(self['DECJ'])==2) else 2
+            dee = float(self['DECJ'][idx]) * (1./3600) # deg
+        else:
+            dee = 0.
         
         if epoch is not None:
             dt = (epoch - self.get('POSEPOCH',type=float))/365.24
@@ -296,10 +304,10 @@ class ParFile(dict):
 
     def set_posepoch(self,epoch):
         """ Update POSEPOCH, evolving RAJ/DECJ if necessary."""
-        raj,raje,dec,decj = self.get_astrometry(epoch=epoch)
+        raj,raje,decj,decje = self.get_astrometry(epoch=epoch)
         self.set('RAJ',dec2sex(raj,mode='ra'))
         self.set('DECJ',dec2sex(decj,mode='dec'))
-        self.set('POSEPOCH',epoch)
+        self.set('POSEPOCH',str(epoch))
 
     def get_icrs_coord(self):
         """ Return an astropy ICRSCoordinate object."""
