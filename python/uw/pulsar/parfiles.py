@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.66 2014/12/13 04:04:10 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.67 2014/12/24 07:52:31 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -293,6 +293,13 @@ class ParFile(dict):
                 de += pmde * dt
                 dee = (dee**2 + (pmdee*dt)**2)**0.5
         return [ra,rae,de,dee]
+
+    def set_posepoch(self,epoch):
+        """ Update POSEPOCH, evolving RAJ/DECJ if necessary."""
+        raj,raje,dec,decj = self.get_astrometry(epoch=epoch)
+        self.set('RAJ',dec2sex(raj,mode='ra'))
+        self.set('DECJ',dec2sex(decj,mode='dec'))
+        self.set('POSEPOCH',epoch)
 
     def get_icrs_coord(self):
         """ Return an astropy ICRSCoordinate object."""
