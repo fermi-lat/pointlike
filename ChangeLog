@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Mon Feb  9 05:35:29 PST 2015
+pointlike/python/uw/like2
+
+Modified Files:
+	dataset.py diffuse.py from_healpix.py localization.py 
+	loglikelihood.py main.py to_fits.py to_healpix.py 
+Log Message:
+updates to pass8 processing
+    *
+------------------------------------------------------------
 User: kerrm  Sun Dec 28 02:53:05 PST 2014
 pointlike/python/uw/pulsar
 
