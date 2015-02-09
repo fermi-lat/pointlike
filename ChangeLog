@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Mon Feb  9 05:35:42 PST 2015
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	analysis_base.py associations.py counts.py export.py 
+	find_peak.py localization.py residuals.py sourcecomparison.py 
+	sourceinfo.py 
+Log Message:
+updates to pass8 processing
+    *
+------------------------------------------------------------
 User: burnett  Mon Feb  9 05:35:29 PST 2015
 pointlike/python/uw/like2
 
