@@ -339,7 +339,8 @@ class PoissonFitter(object):
         ax.plot(x, np.exp(self(x)-pfmax), '-', label='Input')
         ax.plot(xp, np.exp(self._poiss(xp)), 'o', label='approx')
         ax.plot(x, np.exp(self._poiss(x)), ':')
-        ax.legend(loc='lower left', prop =dict(size=8) )        ax.set_xticks([0, xp[-1]])
+        ax.legend(loc='lower left', prop =dict(size=8) )
+        ax.set_xticks([0, xp[-1]])
         ax.grid()
         return fig
 

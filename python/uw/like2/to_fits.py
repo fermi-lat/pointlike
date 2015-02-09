@@ -1,7 +1,7 @@
 """
 Code to generate a standard Fermi-LAT catalog FITS file
 also, see to_xml, to generate XML for the sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_fits.py,v 1.11 2013/07/09 02:06:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_fits.py,v 1.12 2013/11/27 14:59:56 burnett Exp $
 """
 import os, argparse, glob
 import pyfits
@@ -222,10 +222,10 @@ class MakeCat(object):
         # determine which modelname to use, how to interpret index2
         notpsr = z.modelname=='LogParabola'
         psr = z.modelname=='PLSuperExpCutoff'
-        logpar = notpsr * (z.index2>0)
-        powerlaw = notpsr * (z.index2==0)
-        has_exp_index = psr*(z.index2<1)
-        exp_cutoff = psr*(z.index2==1)
+        logpar = notpsr & (z.index2>0)
+        powerlaw = notpsr & (z.index2==0)
+        has_exp_index = psr & (z.index2<1)
+        exp_cutoff = psr & (z.index2==1)
         extended = pd.isnull(z.locqual)
         print 'found %d logparabola, %d exp cutoff, %d super cutoff, %d extended'\
                % (sum(logpar), sum(exp_cutoff), sum(has_exp_index), sum(extended))

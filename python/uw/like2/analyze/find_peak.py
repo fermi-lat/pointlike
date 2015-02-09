@@ -1,17 +1,16 @@
 """
 Run the moment analysis for finding peaks
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/find_peak.py,v 1.12 2013/08/03 18:09:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/find_peak.py,v 1.13 2013/09/04 12:34:59 burnett Exp $
 
 """
-from . import sourceinfo
-from uw.utilities import makepivot 
 import os, glob, sys
 import numpy as np
 import pandas as pd
 import pylab as plt
-
 from skymaps import SkyImage, SkyDir
+from . import sourceinfo
+from uw.utilities import (makepivot, image) 
 
 class PeakFinder(object):
     """Log of analysis stream
@@ -25,22 +24,44 @@ class PeakFinder(object):
         wcs = df.projector()
         self.tsmap = np.array(df.image())
         nx,ny = df.naxis1(), df.naxis2()
-        ix = np.array([ i % nx for i in range(nx*ny)])
-        iy = np.array([ i //nx for i in range(nx*ny)])
+        assert nx==ny, 'Array not square?'
+        #ix = np.array([ i % nx for i in range(nx*ny)])
+        #iy = np.array([ i //nx for i in range(nx*ny)])
         vals = np.exp(-0.5*self.tsmap**2) # convert to likelihood from TS
         norm = 1./sum(vals)
         self.peak_fract = norm*vals.max()
-        t = [sum(u*vals)*norm for u in  ix,iy, ix**2, ix*iy, iy**2]
-        self.T = np.matrix((t[0],t[1]))
-        ra,dec = wcs.pix2sph(t[0], t[1])
+        #t = [sum(u*vals)*norm for u in  ix,iy, ix**2, ix*iy, iy**2]
+        #self.T = np.matrix((t[0],t[1]))
+        #ra,dec = wcs.pix2sph(t[0], t[1])
+        #self.peak = SkyDir(ra,dec)
+        #self.scale = wcs.pix2sph(t[0], t[1]+1)[1] -dec
+        #self.size = nx*self.scale
+        ## variance in degrees
+        #self.variance = self.scale**2*(np.matrix(((t[2], t[3]),(t[3], t[4]))) - self.T.T* self.T)
+        #rac,decc = wcs.pix2sph(nx/2.0, ny/2.0)
+        #self.offset = np.degrees(self.peak.difference(SkyDir(rac,decc)))
+        center, variance = self.moments_analysis(vals)
+        ra,dec = wcs.pix2sph(center[1],center[0])
         self.peak = SkyDir(ra,dec)
-        self.scale = wcs.pix2sph(t[0], t[1]+1)[1] -dec
+        self.scale = wcs.pix2sph(center[0], center[1]+1)[1] - dec
         self.size = nx*self.scale
-        # variance in degrees
-        self.variance = self.scale**2*(np.matrix(((t[2], t[3]),(t[3], t[4]))) - self.T.T* self.T)
-        rac,decc = wcs.pix2sph(nx/2.0, ny/2.0)
+        self.variance = self.scale**2 * variance
+        rac, decc = wcs.pix2sph(nx/2, ny/2)
         self.offset = np.degrees(self.peak.difference(SkyDir(rac,decc)))
         
+    def moments_analysis(self, vals):
+        n = len(vals)
+        nx = int(np.sqrt(n))
+        ix = np.array([ i % nx for i in range(n)])
+        iy = np.array([ i //nx for i in range(n)])
+        norm = 1./sum(vals)
+        t = [sum(u*vals)*norm for u in  ix,iy, ix**2, ix*iy, iy**2]
+        center = (t[0],t[1])
+        C = np.matrix(center)
+        variance = (np.matrix(((t[2], t[3]),(t[3], t[4]))) - C.T * C)
+        return center, variance
+
+    
     def ellipse(self):
         # add effects of binsize
         var  = self.variance+ np.matrix(np.diag([1,1]))*(self.scale/3)**2
@@ -72,7 +93,8 @@ class SourceListXX(list):
                 ax=np.sqrt(a2), bx=np.sqrt(b2), angx=ang,
                 peak_fract = q.peak_fract,
                 offset=q.offset,
-                tsmap = q.tsmap, )
+                tsmap = q.tsmap, 
+                image=q.df, )
                 )
                 
     def __call__(self):
@@ -116,12 +138,14 @@ class FindPeak(sourceinfo.SourceInfo):
             if e1<e2: 
                 ang=90.+ang
                 if ang>90: ang-=180
-            slist.append(dict(name=q.sourcename, sdir=q.peak, 
+            slist.append(dict(name=q.sourcename, 
+                sdir=q.peak, 
                 ellipse=q.ellipse(), size=q.size,
                 ax=np.sqrt(a2), bx=np.sqrt(b2), angx=ang,
                 peak_fract = q.peak_fract,
                 offset=q.offset,
-                tsmap = q.tsmap, )
+                tsmap = q.tsmap, 
+                image=q.df, )
                 )   
         self.xdf=pd.DataFrame(slist, index=[s['name'] for s in slist])
         self.dfs = self.xdf['ax bx angx offset size peak_fract'.split()]
@@ -229,4 +253,43 @@ class FindPeak(sourceinfo.SourceInfo):
     def all_plots(self):
         self.runfigures([self.log, self.plots, self.peakfit_comparison,])
   
-  
+    def tsplot_with_moment(self, i, saveto=None, title=None, **kwargs):
+        """
+        Regenerate the TS plot with the result of the moment analysis overplotted
+        i : int | string
+            either the index, or the source name
+        """
+        t = self.xdf.ix[i]
+        tsf = image.TSplotFromFITS(t.image, sourcename=t.name)
+        tsf.show(colorbar=False)
+        moment_ellipse = [t.sdir.ra(), t.sdir.dec(), t.ax, t.bx,t.angx] 
+        tsf.overplot(moment_ellipse, color='w', lw=2, ls='-', contours=[2.45])
+        ellipse = self.df.ix[t.name].ellipse
+        if len(ellipse)<5 or ellipse is None:
+            print 'ellipse= %s for source %s' %(ellipse, t.name)
+        else:
+            tsf.overplot(ellipse, color='green',lw=2, ls='-', contours=[2.45])
+        tsf.plot(t.sdir, symbol='o', color='w')
+        tsf.plot(self.df.ix[t.name].skydir, symbol='*', color='green')
+        if title is not None:
+            plt.title(title)
+        if saveto is not None:
+            assert os.path.exists(saveto), 'Folder %s not found' % saveto
+            assert os.path.isdir(saveto), '%s is not a folder' % saveto
+            filename = t.name.replace('+','p').replace(' ', '_')
+            fullfilename = '%s/%s_tsmap.png' % (saveto, filename)
+            plt.savefig(fullfilename)
+            print 'saved tsmap to %s' % fullfilename
+            plt.close(plt.gcf())
+        return tsf
+
+    def tsplots_with_moment(self, saveto='moment_tsmaps', notitle=False, **kwargs):
+        """ save plots for all moment-analysis sources
+        saveto: string
+            name of folder
+        """
+        if not os.path.exists(saveto):
+            os.mkdir(saveto)
+        for i in range(len(self.xdf)):
+            self.tsplot_with_moment(i, saveto, title=self.xdf.ix[i].name if not notitle else None, **kwargs)
+        

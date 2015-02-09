@@ -1,7 +1,7 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.45 2014/08/15 18:07:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.46 2014/08/15 20:36:15 burnett Exp $
 
 author:  Toby Burnett
 """
@@ -448,7 +448,6 @@ class IsotropicList(DiffuseList):
             iso = Isotropic(filename)
             iso.kw = dict(correction =correction)
             self.append(iso)
-        print self
 
 def file_check(files):
     full_files = map( lambda f: os.path.expandvars(os.path.join('$FERMI','diffuse',f)), files)

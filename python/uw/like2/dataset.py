@@ -1,11 +1,11 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.30 2014/01/26 20:07:56 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.31 2014/02/24 20:01:36 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.30 $'.split()[1]
+version='$Revision: 1.31 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np
@@ -193,7 +193,7 @@ class DataSet(dataman.DataSpec):
  
     def _load_binfile(self):
         if not self.quiet: print 'loading binfile %s ...' % self.binfile ,
-        self.dmap = skymaps.BinnedPhotonData(self.binfile)
+        self.dmap = skymaps.BinnedPhotonData(self.binfile)  
         if not self.quiet: print 'found %d photons in %d bands, energies %.0f-%.0f MeV'\
                 % (self.dmap.photonCount(),len(self.dmap), self.dmap[1].emin(), self.dmap[len(self.dmap)-1].emax())
 

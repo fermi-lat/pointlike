@@ -1,7 +1,7 @@
 """
 Residual plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.10 2014/09/09 15:59:29 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.11 2014/09/09 16:01:10 burnett Exp $
 
 """
 
@@ -17,7 +17,7 @@ from .. import (tools, configuration, response)
 class Residuals(roi_info.ROIinfo): 
     """<b>Residual plots</b>
  <p>
- Analysis of results from a measurement (using the uwpipeline task 'resid') of the nomalization likelihood
+ Analysis of results from a measurement (using the uwpipeline task 'residuals') of the nomalization likelihood
  functions performed for every source and every energy band. 
  <p>
  That pipeline analysis makes individual likelihood fits to the normalization of all the components of the model for each ROI, 
@@ -36,6 +36,11 @@ class Residuals(roi_info.ROIinfo):
 
         self.plotfolder = 'residuals'
         files, self.pkls = analysis_base.load_pickles_from_zip('residuals.zip')
+        if len(files)!=1728:
+            print 'Found %s files, expected 1727' % len(files)
+            nn = set([int(x[15:19]) for x in files]); 
+            print 'mising: %s' % set(range(1728)).difference(nn)
+            raise
         self.energy = self.pkls[0]['ring']['all'].index
         self.sindec = np.sin(np.radians(np.asarray(self.df.dec,float)))
         self.singlat = np.sin(np.radians(np.array(self.df.glat, float)))
@@ -136,8 +141,12 @@ class Residuals(roi_info.ROIinfo):
         fig.text(0.05, 0.5, 'sin(latitude)', rotation='vertical', va='center')
         return fig
 
-    def update_correction(self, vin, vout):
-        """ update the Galactic Diffuse correction factor array with new residuals"""
+    def update_correction(self, vin, vout=None):
+        """ update the Galactic Diffuse correction factor array with new residuals
+                NOTE: this is intended to be done by hand
+
+        """
+        if vout is None: vout=self.skymodel
         # get current residual array, replace any nan's with 1.0
         t = self.resid_array('ring', 'maxl')
         ra = t[:,:8] # only upto 10 GeV
@@ -151,7 +160,28 @@ class Residuals(roi_info.ROIinfo):
         outfile = os.path.expandvars('$FERMI/diffuse/galactic_correction_%s.csv'%vout)
         cv_new.to_csv(outfile)
         print 'wrote new diffuse correction file %s' % outfile
-    
+    def update_iso_correction(self, vin, vout=None):
+        """ Update the isotropic diffuse correction factors with current residuals 
+        vin: string
+            skymodel used to generate current correction.
+        """
+        if vout is None: vout=self.skymodel
+        for et in ('front', 'back'):
+            infile = os.path.expandvars('$FERMI/diffuse/isotropic_correction_%s_%s.csv'% (et, vin))
+            assert os.path.exists(infile), 'File %s not found' %infile
+            # get current residual array, replace any nan's with 1.0
+            t = self.resid_array('isotrop', 'maxl', et)
+            ra = t[:,:8] # only upto 10 GeV
+            ra[ra>2.0]=2.0
+            ra[ra<0.5]=0.5
+            ra[~np.isfinite(ra)] = 1.0
+            cv_old = pd.read_csv(infile, index_col=0)
+            # multiply input corrections by residuals ane write it out
+            cv_new = ra * cv_old
+            outfile = os.path.expandvars('$FERMI/diffuse/isotropic_correction_%s_%s.csv'% (et,vout))
+            cv_new.to_csv(outfile)
+            print 'wrote new iso diffuse correction file %s' % outfile
+
     def norm_plot(self, name='isotrop', ax=None, ylim=(0.5,1.5)):
         """Isotropic Normalization vs Dec
         Only the isotropic component is allowed to vary; this is the resulting value.

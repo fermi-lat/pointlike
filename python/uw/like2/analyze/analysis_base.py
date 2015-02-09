@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.22 2014/07/01 17:47:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.23 2014/09/07 08:48:41 burnett Exp $
 
 """
 
@@ -18,6 +18,7 @@ class FloatFormat(): #simple formatting functor for to_html!
     
 def html_table( df, columns={}, name='temp', heading='', href=True, 
         href_pattern='sedfig/%s_sed*.jpg',
+        href_cols=[],
         maxlines=10, **kw):
     """ utility to create and reformat a pandas-generated html table
     df : a DataFrame
@@ -44,14 +45,23 @@ def html_table( df, columns={}, name='temp', heading='', href=True,
             continue
         t = t.replace('>'+h+'<', ' title="%s">%s<'% (title, newhead if newhead!='' else h))
     
-    if href:
-        for n in df.index:
+    def repit(s, t):
+        for n in s:
             fnpat = href_pattern %  n.replace(' ','_').replace('+','p') 
             q = glob.glob(fnpat)
             if len(q) !=1: 
                 print '**File %s not found' % fnpat
                 continue
-            t = t.replace('>'+n+'<', '><a href="../../%s">%s<' %(q[0],n))
+            i = t.find(n+'<')
+            assert i>0, 'pattern not found for %s' % n
+            t = t.replace(n+'<', '<a href="../../%s">%s<' %(q[0],n))
+        return t
+
+    if href:
+        t =repit( df.index, t)
+    for hcol in href_cols:
+        t=repit( df[hcol].values, t)
+        
     if len(df)<maxlines:
         return t
     # long table: make document and return link to it

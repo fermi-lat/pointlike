@@ -1,7 +1,7 @@
 """
 Association analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.16 2014/02/16 13:49:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.17 2014/03/25 18:35:19 burnett Exp $
 
 """
 import os, glob, sys, pyfits
@@ -138,9 +138,7 @@ class Associations(sourceinfo.SourceInfo):
         #map(SkyDir, np.array(lat.RAJ2000,float), np.array(lat.DEJ2000,float))
         lat['sourcedir'] = self.df.skydir[self.df.psr]
         lat['delta'] = [np.degrees(s.difference(t)) if not type(t)==float else np.nan for s,t in zip(lat.skydir,lat.sourcedir)]
-        if sum(lat.delta>0.25)>0:
-            print 'LAT pulsar catalog entries found more than 0.25 deg from catalog:'
-            #print lat[lat.delta>0.25]['ts delta'.split()]
+        far = lat.delta>0.25
         dc2names =set(pp.Source_Name)
         print 'sources with exp cutoff not in LAT catalog:', list(tt.difference(dc2names))
         print 'Catalog entries not found:', list(dc2names.difference(tt))
@@ -150,7 +148,7 @@ class Associations(sourceinfo.SourceInfo):
         #latsel = lat[missing]['RAJ2000 DEJ2000 ts ROI_index'.split()]
         missing_names = lat.index[missing]
         cols = 'RAJ2000 DEJ2000 ts ROI_index'.split()
-        latsel = pd.DataFrame( np.array([lat[id][missing] for id in cols]), index=cols, columns=missing_names).T
+        self.latsel=latsel = pd.DataFrame( np.array([lat[id][missing] for id in cols]), index=cols, columns=missing_names).T
 
         psrx = np.array([x in 'pulsar_fom pulsar_low msp pulsar_big'.split() for x in self.df.acat])
         print '%d sources found in other pulsar catalogs' % sum(psrx)
@@ -162,11 +160,12 @@ class Associations(sourceinfo.SourceInfo):
                     heading = '<p>%d LAT catalog entries not in the model (TS shown as NaN), or too weak.' % sum(missing),
                     name=self.plotfolder+'/missing', maxlines=20,
                     float_format=(FloatFormat(2)))
-        far = lat.delta>0.25
         if sum(far)>0:
             far_names = lat.index[far]
-            cols = 'ts delta'.split()
+            cols = 'delta ts RAJ2000 DEJ2000 ROI_index'.split()
             latfar = pd.DataFrame( np.array([lat[id][far] for id in cols]),index=cols, columns=far_names).T
+            print 'LAT pulsar catalog entries found more than 0.25 deg from catalog:'
+            print far_names
             self.atable += '<p>Pulsars located > 0.25 deg from nominal'\
                     + latfar.to_html(float_format=FloatFormat(2))
         if sum(psrx)>0:
@@ -205,7 +204,7 @@ class Associations(sourceinfo.SourceInfo):
         otherid=~(agn | psr | unid)
 
         def select(sel,  df = self.df, tsmin=tsmin, qualmax=qualmax):
-            cut = sel * (df.aprob>0.8) * (df.ts>tsmin) * (df.locqual<qualmax)
+            cut = sel & (df.aprob>0.8) & (df.ts>tsmin) & (df.locqual<qualmax)
             return df[cut].adeltats
             
         fig, axx = plt.subplots(1,3, figsize=(14,5))

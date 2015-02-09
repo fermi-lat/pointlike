@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.27 2014/03/24 14:28:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.28 2014/09/11 08:19:01 burnett Exp $
 
 """
 import os
@@ -19,10 +19,10 @@ class Localization(object):
    
     """
     defaults = (
-        ('tolerance',1e-2),
+        ('tolerance',1e-4),
         ('verbose',False),
         ('update',False,"Update the source position after localization"),
-        ('max_iteration',10,"Number of iterations"),
+        ('max_iteration',15,"Number of iterations"),
         #('bandfits',True,"Default use bandfits"),
         ('maxdist',1,"fail if try to move further than this"),
         ('seedpos', None, 'if set, start from this position instead of the source position'),
@@ -207,7 +207,7 @@ def localize_all(roi, ignore_exception=True, **kwargs):
             except Exception, msg:
                 print 'Localization of %s failed: %s' % (source.name, msg)
                 if not ignore_exception: raise
-            source.ellipse = loc.qform.par[0:2]+loc.qform.par[3:7] +[loc.delta_ts] if hasattr(loc,'qform') else None
+            #source.ellipse = loc.qform.par[0:2]+loc.qform.par[3:7] +[loc.delta_ts] if hasattr(loc,'qform') else None
             if not roi.quiet and hasattr(loc, 'niter') and loc.niter>0: 
                 print 'Localized %s: %d iterations, moved %.3f deg, deltaTS: %.1f' % \
                     (source.name, loc.niter, loc.delt, loc.delta_ts)

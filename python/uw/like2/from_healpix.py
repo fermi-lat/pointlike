@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_healpix.py,v 1.6 2014/08/15 18:07:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_healpix.py,v 1.7 2014/08/15 20:36:15 burnett Exp $
 """
 import os, pickle, zipfile
 import numpy as np
@@ -105,7 +105,8 @@ class ROImodelFromHealpix(roimodel.ROImodel):
             return gsrc
 
 
-        p = pickle.load(self._z.open('pickle/HP12_%04d.pickle' % index[0]))
+        self.pickle_file = 'pickle/HP12_%04d.pickle' % index[0]
+        p = pickle.load(self._z.open(self.pickle_file))
         if not neighbors:
             self.prev_logl = p.get('prev_logl', []) # make history available
             self.history = p.get('history', []) # will manage history of likelihood, stage, time, stream, cpu time
