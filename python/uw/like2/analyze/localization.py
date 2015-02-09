@@ -1,6 +1,6 @@
 """   Analyze localization 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.10 2014/05/07 20:45:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.11 2014/07/03 17:04:03 burnett Exp $
 
 """
 import os, pickle, collections
@@ -10,6 +10,7 @@ import pandas as pd
 from uw.utilities import makepivot
 from . import (sourceinfo, _html)
 from . analysis_base import FloatFormat, html_table
+from skymaps import Band
 #from . _html import HTMLindex
 
 class Localization(sourceinfo.SourceInfo):
@@ -31,14 +32,15 @@ class Localization(sourceinfo.SourceInfo):
         self.acut =  kw.get('acut', 0.25)
         self.qualcut=kw.get('qualcut', 8.0)
         self.delta_tscut = kw.get('delta_tscut', 2.0)
-        poorcut=((self.ebox.locqual>self.qualcut) | (self.ebox.a>self.acut) | (abs(self.ebox.delta_ts)>self.delta_tscut))*(self.df.ts>self.tscut)
+        poorcut=((self.ebox.locqual>self.qualcut) | (self.ebox.a>self.acut) | 
+            (abs(self.ebox.delta_ts)>self.delta_tscut))&(self.df.ts>self.tscut)
         self.poorloc=self.ebox[poorcut] ['ts a locqual delta_ts roiname'.split()].sort_index()
         if len(self.poorloc)>0:
             print '%d poorly localized (locqual>%.1f or a>%.2f or delta_ts>%.2f) '%\
                 (len(self.poorloc), self.qualcut,self.acut, self.delta_tscut)
             self.poorloc.to_csv('poorly_localized.csv')
             print 'wrote file "poorly_localized.csv"'
-        self.unloc = unloc = self.df.unloc * (self.df.ts>self.tscut)
+        self.unloc = unloc = np.array(self.df.unloc & (self.df.ts>self.tscut), bool)
         if sum(unloc)>0:
             print '%d point sources (TS>10) without localization information' % sum(unloc)
 
@@ -57,9 +59,9 @@ class Localization(sourceinfo.SourceInfo):
         wp = self.ebox
         cut = self.df.ts>mints
         ax=axx[0]
-        for tcut in (mints, 100):
+        for tcut,color in zip((mints, 100), ('blue','orange')):
             t = np.sqrt(wp.delta_ts[(self.df.ts>tcut) & (self.df.locqual<maxqual)].clip(0,maxdelta))
-            ax.hist(t, bins, label='ts>%d: mean=%.2f'%(tcut, t.mean()) )
+            ax.hist(t, bins, log=True, color=color, histtype='step', lw=2, label='ts>%d: mean=%.2f'%(tcut, t.mean()) )
         #ax.hist(np.sqrt(wp.delta_ts[self.df.ts>100].clip(0,maxdelta)), bins,label='TS>100\nmean:%f.1'%wp.delta)
         ax.legend(prop=dict(size=10))
         ax.grid()
@@ -70,6 +72,25 @@ class Localization(sourceinfo.SourceInfo):
         plt.setp(ax, xscale='log', xlabel='TS', ylabel='sqrt(delta TS)')
         return fig
         
+    def locqual_hist(self, ax=None,  maxqual=10, mints=10, tscut=25, grid_flag=False):
+        """special standalong histogram of location quality"""
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(5,5))
+        else:
+            fig = ax.figure
+        wp = self.ebox
+        bins=np.linspace(0,maxqual,26)
+
+        for x, color in zip((mints, tscut), ('blue', 'orange')):
+            ax.hist(wp.locqual[self.df.ts>x].clip(0,maxqual), bins,
+                histtype='step', lw=2, log=True, color=color, label='TS>%d'%x)
+        ax.legend(prop=dict(size=10))
+        ax.grid(grid_flag)
+        ax.set_ylim(ymin=1)
+        plt.setp(ax, xlabel='localization fit quality')
+        return fig
+
+    
     def localization_quality(self, maxqual=10, mints=10, tscut=25):
         """Localization quality plots
             <br><b>Left</b>: histogram of the fit quality. This is a measure of the difference between the sampled
@@ -128,12 +149,14 @@ class Localization(sourceinfo.SourceInfo):
             <p>Table of pairs closer than %(close_tol).2f degrees or the sum of the r95 values for each source, but no more than 0.5 deg.
             %(close_table)s
         """
-        cut = (np.abs(self.df.glat)>bmin) * (self.df.ts>tsmin)
+        cut = (np.abs(self.df.glat)>bmin) & (self.df.ts>tsmin)
         indeces = self.df.index[cut] 
         sdirs = self.df[ cut ]['skydir'].values
         r95 = 2.5 * self.df[cut]['a'].values
         r95[r95>0.5]=0.5
-        name1=[]; name2=[]; distance=[]; tolerance=[];
+        ts = self.df[cut]['ts'].values
+        name1=[]; name2=[]; distance=[]; tolerance=[]; roi_index=[]
+        ts1=[]; ts2=[]
         for i in range(len(sdirs)-1): 
             a = sdirs[i]
             a95 = r95[i]
@@ -143,27 +166,32 @@ class Localization(sourceinfo.SourceInfo):
                 if dist< t:
                     name1.append(indeces[i])
                     name2.append(indeces[j])
+                    ts1.append(ts[i])
+                    ts2.append(ts[j])
+                    roi = Band(12).index(a)
+                    roi_index.append(roi)
                     tolerance.append(t)
                     distance.append(dist.round(2))
-                    print 'Closer than tolerance: sources %s, %s, %.2f deg < %.2f' \
-                        % (indeces[i], indeces[j], dist,t )
+                    print 'Closer than tolerance: sources %s[%d], %s, %.2f deg < %.2f; ts=%.0f,%.0f' \
+                        % (indeces[i], roi, indeces[j], dist,t, ts[i],ts[j])
         self.close_tol = tol
-        def hreftag(name):
-           fn = 'sedfig/' + name.replace(' ','_').replace('+','p') + '_sed.jpg'
-           if not os.path.exists(fn): return name
-           return '<a href="../../%s">%s</a>' %(fn,name)
-
-        name1href = map(hreftag, name1)
-        name2href = map(hreftag, name2)
+#        def hreftag(name):
+#           fn = 'sedfig/' + name.replace(' ','_').replace('+','p') + '_sed_%s.jpg' % self.skymodel
+#           if not os.path.exists(fn): return name
+#           return '<a href="../../%s">%s</a>' %(fn,name)
+#
+#        name1href = map(hreftag, name1)
+#        name2href = map(hreftag, name2)
         
-        self.close_table = html_table(pd.DataFrame(
-            dict(source1=name1href, source2=name2href, distance=distance, 
-                    tolerance=tolerance),
-                columns = 'source1 source2 distance tolerance'.split(),
-            ), 
+        self.close_df = tdf= pd.DataFrame(
+            dict(source1=name1, source2=name2, distance=distance, 
+                    tolerance=tolerance, roi=roi_index, ts1=ts1, ts2=ts2),
+                columns = 'source1 ts1 source2 ts2 distance tolerance roi'.split(),
+            ).sort_index(by='roi')
+        self.close_table = html_table(tdf, 
             name=self.plotfolder+'/close',
             heading='<h4>Table of %d pairs of close sources</h4>'%len(name1),
-            float_format=FloatFormat(2), href=False) 
+            float_format=FloatFormat(2), href=False, href_cols=['source1','source2']) 
         return None
         
     def source_confusion(self, bmin=10, dtheta=0.1, nbins=50, deficit_angle=1.0, tsmin=10):
@@ -174,7 +202,7 @@ class Localization(sourceinfo.SourceInfo):
         <br> Right: ratio of measured to expected. 
         <br> Estimated loss: %(loss)s.
         """
-        sdirs = self.df[ (np.abs(self.df.glat)>bmin) * (self.df.ts>tsmin) ]['skydir'].values
+        sdirs = self.df[ (np.abs(self.df.glat)>bmin) & (self.df.ts>tsmin) ]['skydir'].values
         closest = ([sorted(map(sdirs[i].difference, sdirs))[1] for i in range(len(sdirs))])
         z = np.degrees(closest)
         self.closest = z
@@ -223,7 +251,7 @@ class Localization(sourceinfo.SourceInfo):
         """
         unloc = self.unloc
         if sum(unloc)>0:
-            unloc_table = self.df.ix[unloc]['ra dec ts roiname'.split()]
+            unloc_table = self.df.ix[unloc]['ra dec ts roiname'.split()].sort_index(by='roiname')
             self.unlocalized_sources =html_table(unloc_table,
                 name=self.plotfolder+'/unlocalized',
                 heading='<h4>Table of %d unlocalized sources</h4>'%len(unloc_table),

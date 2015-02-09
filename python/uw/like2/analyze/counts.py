@@ -1,7 +1,7 @@
 """
 Count plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.9 2014/03/14 13:41:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.10 2014/07/16 15:43:26 burnett Exp $
 
 """
 
@@ -38,12 +38,13 @@ class CountPlots(analysis_base.AnalysisBase):
                 print '***No counts in %s: skipping' % r['name']
                 skipped +=1
                 continue
+            cnts = r['counts']
             rdict[r['name']]=dict(
                 glon = lat180(r['skydir'].l()),
                 glat = r['skydir'].b(),
-                chisq = r['counts']['chisq'],
+                chisq = cnts['chisq'],
                 chisq10= chisq10(r['counts']),
-                uchisq = r['counts']['uchisq'],
+                uchisq = cnts['uchisq'] if 'uchisq' in cnts else 0,
                 )
         if skipped>0:
             self.missing_info = '<p>%d missing ROIS' % skipped
@@ -67,12 +68,13 @@ class CountPlots(analysis_base.AnalysisBase):
         if 'history' in pkls[0].keys():
             print 'Extracting history info from the ROI analysies'
             itdf = self.history_table()
+            n = min(len(itdf),10) # clugy: limit list to last 10
             config = eval(open('config.txt').read()) 
             input_model=config['input_model']['path']
             self.iteration_info = """<p>Input model: <a href="../../%s/plots/index.html?skipDecoration">%s</a>
             <p>Iteration history: log likelihood change for each step: \n%s
             """ % (input_model,input_model, 
-                    itdf.to_html(float_format=FloatFormat(1)) )
+                    itdf[-n:].to_html(float_format=FloatFormat(1)) )
 
         else:
             self.iteration_info=''
@@ -197,8 +199,10 @@ class CountPlots(analysis_base.AnalysisBase):
         ax.set_title('count residuals')
         ax.grid()
         ax.axhline(0, color='k')
+        return fig
         
-    def chisq_plots(self, use10=False, unweight=True, hsize=(1.0, 0.7, 1.5, 0.5), vmin=0, vmax=50, bcut=10):
+    def chisq_plots(self, use10=False, unweight=True, hsize=(1.0, 0.7, 1.5, 0.7), 
+            vmin=0, vmax=50, bcut=10, grid_flag=True):
         """ chi squared plots
         chi squared distribution
         <br>Note that this chi squared is modified by the unweighting factors.
@@ -210,19 +214,22 @@ class CountPlots(analysis_base.AnalysisBase):
             chisq = self.rois.uchisq
         else:
             chisq = self.rois.chisq if not use10 else self.rois.chisq10
-
+        chisqtxt= r'$\chi^2$'
+        
         def chisky(ax):
             self.basic_skyplot(ax, self.rois.glon, self.rois.singlat, chisq, 
-                s=60, marker='D', vmin=vmin, vmax=vmax,  edgecolor='none', colorbar=True);
+                s=55, marker='D', vmin=vmin, vmax=vmax,  edgecolor='none', 
+                colorbar=True, cbtext=chisqtxt);
                 
-        def chihist(ax):
+        def chihist(ax, htype='stepfilled'):
             bins = np.linspace(0, vmax, 26)
             lolat = np.abs(self.rois.glat)<bcut
-            ax.hist(chisq.clip(0,vmax), bins, label='all: mean=%.1f'%chisq.mean())
-            ax.hist(chisq.clip(0,vmax)[lolat], bins, color='red', label='|b|<%d (%.1f)'%(bcut, chisq[lolat].mean()))
+            ax.hist(chisq.clip(0,vmax), bins, label='all: mean=%.0f'%chisq.mean(), histtype=htype)
+            ax.hist(chisq.clip(0,vmax)[lolat], bins, color='orange', 
+                label='|b|<%d (%.0f)'%(bcut, chisq[lolat].mean()), histtype=htype)
             ax.legend(loc='upper right', prop=dict(size=10)) 
-            plt.setp(ax, xlabel='chisq', xlim=(0,vmax))
-            ax.grid(True)
+            plt.setp(ax, xlabel=chisqtxt, xlim=(0,vmax))
+            ax.grid(grid_flag)
             
         for f, ax in zip( (chihist, chisky), axs.flatten()): f(ax)
         return fig
@@ -273,9 +280,9 @@ class CountPlots(analysis_base.AnalysisBase):
             fig,ax = plt.subplots( figsize=(4,4))
         else: fig = ax.figure
         def cut( x, range):
-            return (x>range[0])*(x<range[1])
+            return (x>range[0])  & (x<range[1])
         #ridge = ( np.abs(self.rois.glat)<10) * ( np.abs(self.rois.glon)<60 )
-        ridge = cut(self.rois.glat, glat) * cut(self.rois.glon, glon)
+        ridge = cut(self.rois.glat, glat) & cut(self.rois.glon, glon)
         data =self.counts['observed'][ridge].sum()
         model = self.counts['total'][ridge].sum()
         x = self.energy

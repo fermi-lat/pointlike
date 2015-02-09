@@ -1,7 +1,7 @@
 """
 Comparison with the 2FGL catalog
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourcecomparison.py,v 1.3 2013/09/13 08:20:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourcecomparison.py,v 1.4 2014/01/16 19:36:43 burnett Exp $
 
 """
 
@@ -17,8 +17,8 @@ class SourceComparison(sourceinfo.SourceInfo):
     """Comparison with a FITS catalog, 2FGL or beyond
     """
 
-    def setup(self, cat='gll_pscP72Y_v5r2_flags_assoc_v5r11p3.fit', #gll_psc_v06.fit', 
-            catname='2FGL', **kw):
+    def setup(self, cat='gll_psc4yearsource_v9_assoc_v6r3p0.fit', #gll_psc_v06.fit', 
+            catname='3FGL', **kw):
         super(SourceComparison, self).setup(**kw)
         self.catname=catname
         self.plotfolder='comparison_%s' % catname
@@ -26,6 +26,7 @@ class SourceComparison(sourceinfo.SourceInfo):
             cat = os.path.expandvars('$FERMI/catalog/'+cat)
         assert os.path.exists(cat), 'Did not find file %s' %cat
         ft = pyfits.open(cat)[1].data
+        self.ft=ft # temp
         print 'loaded FITS catalog file %s with %d entries' % (cat, len(ft))
         name = ft.Source_Name
         id_prob = [np.nan]*len(ft)
@@ -40,8 +41,9 @@ class SourceComparison(sourceinfo.SourceInfo):
         self.cat = pd.DataFrame(dict(name3=ft.Source_Name, ra=ft.RAJ2000,dec= ft.DEJ2000, ts=ft.Test_Statistic, 
                 skydir=cat_skydirs,
                 glat=glat, glon=glon, pivot=ft.Pivot_Energy, flux=ft.Flux_Density, 
-                modelname=ft.SpectrumType, id_prob=id_prob), 
-            columns = 'name3 ra dec glat glon skydir ts pivot flux modelname id_prob'.split(), # this to order them
+                modelname=ft.SpectrumType, id_prob=id_prob,
+                a95=ft.Conf_95_SemiMajor,), 
+            columns = 'name3 ra dec glat glon skydir ts pivot flux modelname id_prob a95'.split(), # this to order them
             index=index, )
         self.cat.index.name='name'
         
@@ -57,14 +59,14 @@ class SourceComparison(sourceinfo.SourceInfo):
             return pd.DataFrame( map(mindist,  A.skydir.values),
                 index=A.index, columns=('otherid','distance'))
                 
-        if catname=='2FGL':
+        if catname=='2FGL' or catname=='3FGL':
             print 'generating closest distance to catalog "%s"' % cat
             closedf= find_close(self.df, self.cat)
             self.df['closest']= closedf['distance']
             self.df['close_name']=closedf.otherid
             #closest = np.degrees(np.array([min(map(sdir.difference, cat_skydirs))for sdir in self.df.skydir.values]))
             #self.df['closest'] = closest
-            closedf.to_csv(os.path.join('plots', self.plotfolder, 'comparison_2FGL.csv'))
+            closedf.to_csv(os.path.join('plots', self.plotfolder, 'comparison_%s.csv'%catname))
             closest2 = np.degrees(np.array([min(map(sdir.difference, self.df.skydir.values)) for sdir in cat_skydirs]))
             self.cat['closest']= closest2
         

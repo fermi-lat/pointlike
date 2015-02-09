@@ -1,7 +1,7 @@
 """
 Basic analyis of source spectra
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.22 2014/08/22 22:42:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.23 2014/09/09 09:32:58 burnett Exp $
 
 """
 
@@ -50,6 +50,10 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                         fitqual = round(sum(info['sedrec'].delta_ts),2)
                     except:
                         fitqual = np.nan
+                    try:
+                        fitndf  = sum(1-info['sedrec'].zero_fract)
+                    except:
+                        fitndf = 10
                     ellipse = info.get('ellipse', None)
                     sdict[name] = info
                     pulsar = model.name.endswith('Cutoff')
@@ -81,6 +85,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                         e0 = model.e0,
                         modelname=model.name,
                         fitqual = fitqual,
+                        fitndf  = fitndf,
                         eflux = prefactor*pars[0]*model.e0**2*1e6,
                         psr = pulsar,
                         )
@@ -94,7 +99,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             self.df = df.sort_index(by='ra')
             self.df['hassed'] = np.array([self.df.ix[i]['sedrec'] is not None for i in range(len(self.df))])
 
-            self.df.save(filename) ###to_pickle(filename)
+            self.df.to_pickle(filename)
             print 'saved %s' % filename
 
         else:
@@ -183,7 +188,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             ax.hist( other_ts ,dom, cumulative=-1, lw=2, color='b', histtype='step',label=otherlabel)
         if check_localized:
             unloc = df.unloc
-            ul = df[(unloc+df.poorloc) * usets>tscut[0]] 
+            ul = df[(unloc | df.poorloc) & (usets>tscut[0])] 
             n = len(ul)
             if n>10:
                 ax.hist(ul.ts ,dom, cumulative=-1, lw=2, color='r', histtype='step',
@@ -191,8 +196,8 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                 ax.text(12, n, 'none or poor localization (TS>%d) :%d'%(tscut[0],n), fontsize=12, color='r')
         plt.setp(ax,  ylabel='# sources with greater TS', xlabel='TS',
             xscale='log', yscale='log', xlim=(9, 1e4), ylim=(9,8000))
-        ax.set_xticklabels([' ', '10', '100', '1000'])
-        ax.set_yticklabels(['', '10', '100', '1000'])
+        ax.set_xticklabels([' ', ' ', '10', '100', '1000'])
+        #ax.set_yticklabels(['', '10', '100', '1000'])
             
         # label the plot with number at given TS
         for t in tscut:
@@ -236,7 +241,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         fig, axx = plt.subplots( 1,3, figsize=(12,4))
         plt.subplots_adjust(wspace=0.2, left=0.05,bottom=0.15)
 
-        t = self.df.ix[(self.df.ts>10)*(self.df.modelname=='LogParabola')]['ts flux pindex beta beta_unc freebits e0 roiname'.split()]
+        t = self.df.ix[(self.df.ts>10)&(self.df.modelname=='LogParabola')]['ts flux pindex beta beta_unc freebits e0 roiname'.split()]
         t['eflux'] = t.flux * t.e0**2 * 1e6
         ax = axx[0]
         [ax.hist(t.eflux[t.ts>tscut].clip(4e-2,1e2), np.logspace(-2,2,26), label='TS>%d' % tscut) for tscut in [10,25] ]
@@ -245,10 +250,10 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         [ax.hist(t.pindex[t.ts>tscut].clip(index_min,index_max), np.linspace(index_min,index_max,26), label='TS>%d' % tscut) for tscut in [10,25] ]
         plt.setp(ax, xlabel='spectral index'); ax.grid(); ax.legend(prop=dict(size=10))
         ax = axx[2]
-        [ax.hist(t.beta[(t.ts>tscut)*(t.beta>0.01)].clip(0,beta_max), np.linspace(0,beta_max,26), label='TS>%d' % tscut) for tscut in [10,25] ]
+        [ax.hist(t.beta[(t.ts>tscut)&(t.beta>0.01)].clip(0,beta_max), np.linspace(0,beta_max,26), label='TS>%d' % tscut) for tscut in [10,25] ]
         plt.setp(ax, xlabel='beta'); ax.grid(); ax.legend(prop=dict(size=10))
         # get tails
-        tail_cut = (t.eflux<5e-2)+((t.pindex<index_min)+(t.pindex>index_max))*t.beta.isnull()+(t.beta>beta_max)
+        tail_cut = (t.eflux<5e-2) | ((t.pindex<index_min) | (t.pindex>index_max))&t.beta.isnull() | (t.beta>beta_max)
         
         if sum(tail_cut)>0:
             tails=t[tail_cut]['ts eflux pindex beta freebits roiname'.split()].sort_index(by='roiname')
@@ -272,7 +277,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
 
         # check errors, especially that beta is at least 2 sigma
         self.beta_check=''
-        beta_bad = (t.beta>0.001) * ((t.beta_unc==0) + (t.beta/t.beta_unc<2) + (t.freebits!=7))
+        beta_bad = (t.beta>0.001) & ((t.beta_unc==0) | (t.beta/t.beta_unc<2) | (t.freebits!=7))
         if sum(beta_bad)>0:
             print '%d sources fail beta check' % sum(beta_bad)
             self.beta_check = html_table(t[beta_bad]['ts beta beta_unc freebits roiname'.split()], 
@@ -293,7 +298,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         """
         fig, axx = plt.subplots( 1,4, figsize=(14,4))
         plt.subplots_adjust(wspace=0.3, left=0.05,bottom=0.15)
-        psrmodel = (self.df.ts>10)*(self.df.modelname=='PLSuperExpCutoff')
+        psrmodel = (self.df.ts>10) & (self.df.modelname=='PLSuperExpCutoff')
         t = self.df.ix[psrmodel]\
             ['ts flux pindex cutoff e0 index2 index2_unc roiname freebits fitqual'.split()]
         t['eflux'] = t.flux * t.e0**2 * 1e6
@@ -335,7 +340,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
 
         for f,ax in zip((plot1,plot2,plot3,plot4,), axx.flatten()): f(ax)
         flags = self.df.flags
-        tail_cut = (t.pindex<=index_min) + (t.pindex>index_max) + (t.cutoff>cutoff_max)
+        tail_cut = (t.pindex<=index_min) | (t.pindex>index_max) | (t.cutoff>cutoff_max)
         tails = t.ix[tail_cut].index
         flags[tails] += 1 ### bit 1
         print '%d pulsar sources flagged (1) in tails of  index or cutoff' % sum(tail_cut)
@@ -362,7 +367,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         print '%d pulsar sources with b<1' %len(tt)
 
         # table of fits with any fixed parame er other than b
-        tt = t[(t.freebits&7!=7)]['ts fitqual pindex cutoff freebits roiname'.split()].sort_index(by='roiname')
+        tt = t[((np.array(t.freebits,int)&7) != 7)]['ts fitqual pindex cutoff freebits roiname'.split()].sort_index(by='roiname')
         if len(tt)>0:
             print '%d pulsar-like sources with fixed parameters' %len(tt)
             self.pulsar_fixed= html_table(tt, name=self.plotfolder+'/pulsar_fixed', 
@@ -381,7 +386,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         ax.grid(True)
         return fig
         
-    def fit_quality(self, xlim=(0,50), ndf=10, tsbandcut=20):
+    def fit_quality(self, xlim=(0,50), ndf=10, tsbandcut=20, grid_flag=True, make_table=True, legend_flag=True):
         """ Spectral fit quality
         This is the difference between the TS from the fits in the individual energy bands, and that for the spectral fit.
         It should be distributed approximately as chi squared of at most 14-2 =12 degrees of freedom. 
@@ -415,29 +420,36 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         hilat = np.abs(self.df.glat)>5
         self.average = [0]*4; i=0
         def tobool(a): return np.array(a, bool)
-        for ax, label in zip(axx[:2], ('powerlaw', 'logparabola',)):
-            mycut=tobool(cut&eval(label))
+        for ax, label, cut_expr in zip(axx[:2], ('power law', 'log-normal',), ('powerlaw','logparabola')):
+            mycut=tobool(cut&eval(cut_expr))
             count = sum(mycut)
-            ax.hist(fq[mycut].clip(*xlim), dom, label=label+' (%d)'%count)
+            ax.hist(fq[mycut].clip(*xlim), dom, histtype='stepfilled',  label=label+' (%d)'%count)
             self.average[i] = fq[mycut].mean(); i+=1
             ax.plot(d, chi2(d)*count*delta/fudge, 'r', lw=2, label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
-            ax.grid(); ax.set_xlabel('fit quality')
-            ax.legend(prop=dict(size=10))
+            ax.grid(grid_flag); ax.set_xlabel('fit quality')
+            if legend_flag: ax.legend(prop=dict(size=10))
+            else: ax.set_title(label)
             
-        def right(ax, label='PSR'):
-            mycut = cut & (psr)
+        def right(ax, label='exponential cutoff', cut_expr='psr'):
+            mycut= cut & (psr) #tobool(cut&eval(cut_expr))
             count = sum(mycut)
-            ax.hist(fq[tobool(mycut)].clip(*xlim), dom, label=label+' (%d)' %count)
-            ax.hist(fq[tobool(mycut&hilat)].clip(*xlim), dom, label=label+' [|b|>5] (%d)' %sum(mycut*hilat))
+            if legend_flag:
+                labels = [label+' (%d)' %count,label+' [|b|>5] (%d)' %sum(mycut*hilat),r'$\mathsf{\chi^2\ ndf=%d}$'%ndf]
+            else:
+                labels = ['all', '|b|>5', '_nolegend_']
+                ax.set_title(label)
+            ax.hist(fq[tobool(mycut)].clip(*xlim), dom, histtype='stepfilled', label=labels[0])
+            ax.hist(fq[tobool(mycut&hilat)].clip(*xlim), dom, histtype='stepfilled', color='orange', 
+                label=labels[1])
             self.average[i]   = fq[tobool(mycut&hilat)].mean()
             self.average[i+1] = fq[tobool(mycut&(~hilat))].mean()
-            ax.plot(d, chi2(d)*count*delta/fudge, 'r', lw=2, label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
-            ax.grid();ax.set_xlabel('fit quality')
-            ax.legend(loc='upper left', prop=dict(size=10))
+            ax.plot(d, chi2(d)*count*delta/fudge, 'r', lw=2, label=labels[2])
+            ax.grid(grid_flag);ax.set_xlabel('fit quality')
+            ax.legend(loc='upper right', prop=dict(size=10))
         
         right(axx[2])
         self.df['badfit2'] =np.array(self.df.badfit.values, bool)
-        t = self.df.ix[(self.df.badfit2)*(self.df.ts>10)].sort_index(by='roiname')
+        t = self.df.ix[(self.df.badfit2) & (self.df.ts>10)].sort_index(by='roiname')
         print '%d sources with bad fits' %len(t)
         if len(t)>0:
             self.badfit = t[['ts', 'errs', 'roiname']]
@@ -448,23 +460,23 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                             self.average, 'powerlaw logparabola expcutoff(hilat) expcutoff(lolat)'.split()) )
         self.ndf=ndf
         print 'fit quality averages:', self.fit_quality_average
+        if make_table:
+            # Make table of the poor fits
+            s['pull0'] = np.array([x.pull[0] if x is not None else np.nan for x in s.sedrec ])
+            t =s.ix[((s.fitqual>30) | (np.abs(s.pull0)>3)) & (s.ts>10) ]['ra dec glat fitqual pull0 ts modelname freebits index2 roiname'.split()].sort_index(by='roiname')
+            #poorfit_csv = 'poor_spectral_fits.csv'
+            #t.to_csv(poorfit_csv)
+            #bs =sorted(list(set(t.roiname)))
+            #print 'Wrote out list of poor fits to %s, %d with fitqual>30 or abs(pull0)>3, in %d ROIs' % (poorfit_csv, len(t), len(bs))
+            
+            self.poorfit_table  = html_table(t, name=self.plotfolder+'/poorfit', 
+                    heading='<h4>Table of %d poor spectral fits</h4>'%len(t),
+                    float_format=FloatFormat(2),
+                    formatters=dict(ra=FloatFormat(3), dec=FloatFormat(3), ts=FloatFormat(0),index2=FloatFormat(3)))
 
-        # Make table of the poor fits
-        s['pull0'] = np.array([x.pull[0] if x is not None else np.nan for x in s.sedrec ])
-        t =s.ix[((s.fitqual>30) | (np.abs(s.pull0)>3))*(s.ts>10) ]['ra dec glat fitqual pull0 ts modelname freebits index2 roiname'.split()].sort_index(by='roiname')
-        #poorfit_csv = 'poor_spectral_fits.csv'
-        #t.to_csv(poorfit_csv)
-        #bs =sorted(list(set(t.roiname)))
-        #print 'Wrote out list of poor fits to %s, %d with fitqual>30 or abs(pull0)>3, in %d ROIs' % (poorfit_csv, len(t), len(bs))
-        
-        self.poorfit_table  = html_table(t, name=self.plotfolder+'/poorfit', 
-                heading='<h4>Table of %d poor spectral fits</h4>'%len(t),
-                float_format=FloatFormat(2),
-                formatters=dict(ra=FloatFormat(3), dec=FloatFormat(3), ts=FloatFormat(0),index2=FloatFormat(3)))
-
-        # flag sources that made it into the list
-        self.df.flags[t.index] |= 2
-        print '%d sources flagged (2) as poor fits' %len(t)
+            # flag sources that made it into the list
+            self.df.flags[t.index] |= 2
+            print '%d sources flagged (2) as poor fits' %len(t)
         return fig
       
     def poor_fit_positions(self):
@@ -473,7 +485,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         """
         s = self.df
         s['pull0'] = np.array([x.pull[0] if x is not None else 0 for x in s.sedrec])
-        poor = ( (s.fitqual>30) | (np.abs(s.pull0)>3))*(s.ts>10) 
+        poor = ( (s.fitqual>30) | (np.abs(s.pull0)>3)) & (s.ts>10) 
         return self.skyplot(s.fitqual[poor], vmin=30, vmax=100, cbtext='TS')
         
     def pivot_vs_e0(self, xylim=(100, 4e4)):
@@ -491,7 +503,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         ax.grid()
         return fig
         
-    def fitquality(self):
+    def fitquality(self, grid=True):
         """Fit Quality
         
         Left: fit quality histogram; right fit quality vs. TS'
@@ -510,12 +522,12 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         ax.hist(fitqual[s.ts>500], d, label='TS>500');
         ax.plot(d, chi2(d)*len(fitqual)*delta/1.6, 'r', label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
         plt.setp(ax, xlabel='fit qual', ylim=(0,500))
-        ax.grid(); ax.legend(prop=dict(size=10))
+        ax.grid(grid); ax.legend(prop=dict(size=10))
         ax = axs[1]
         ax.plot(s.ts, fitqual, '.'); 
         plt.setp(ax, xscale='log', xlabel='TS', xlim=(10,1e5),
              ylabel='fit qual',ylim=(1,1e3),yscale='log')
-        ax.grid()
+        ax.grid(grid)
         return fig
 
     def flux_uncertainty(self):
@@ -577,8 +589,8 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         glat = np.array([x.b() for x in s.skydir])
         fluxcut = fmodel>minflux
         latcut  = abs(glat)>5.0
-        hilat = fluxcut*(latcut)
-        lolat = fluxcut*(~latcut)
+        hilat = fluxcut & (latcut)
+        lolat = fluxcut & (~latcut)
         
         lowebad = np.abs(pull)>3
         s.flags[lowebad] += 4
@@ -641,14 +653,14 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
 
         def count(prefix, tsmin):
             if prefix=='ext':
-                return sum(extended*(df.ts>tsmin))
+                return sum(extended & (df.ts>tsmin))
             elif prefix=='total':
                 return sum(df.ts>tsmin)
-            names = df[pointsource*(df.ts>tsmin)]['name'].values    
+            names = df[pointsource & (df.ts>tsmin)]['name'].values    
             return sum([n.startswith(prefix) for n in names])
         prefixes = list(set( n[:4] for n in df[pointsource]['name'])) +['ext', 'total']
         census = dict()
-        for x in (0, 10, 25):
+        for x in (0, 5, 10, 25):
             census[x] = [count(prefix, x) for prefix in prefixes]
         self.census_data=pd.DataFrame(census, index=prefixes)
         self.census_html = '\n<h4>Prefixes</h4>\n'+html_table(self.census_data, href=False)
@@ -680,7 +692,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         %(flagged_link)s
         """
         # Generate summary table for flagged sources
-        t =self.df[(self.df.flags>0)*(self.df.ts>10)]['ra dec ts fitqual pull0 eflux pindex beta cutoff index2 flags roiname'.split()]
+        t =self.df[(self.df.flags>0) & (self.df.ts>10)]['ra dec ts fitqual pull0 eflux pindex beta cutoff index2 flags roiname'.split()]
         t.to_csv('flagged_sources.csv')
         print 'wrote %d sources to flagged_sources.csv' % len(t)
         

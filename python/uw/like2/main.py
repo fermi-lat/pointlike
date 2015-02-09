@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.79 2014/09/22 17:49:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.80 2014/12/18 00:17:13 burnett Exp $
 
 """
 import types, time
@@ -297,7 +297,7 @@ class ROI(views.LikelihoodViews):
         return plotting.counts.stacked_plots(self, **kwargs)
         
     @tools.decorate_with(plotting.tsmap.plot)
-    def plot_tsmap(self, source_name=None, **kwargs):
+    def plot_tsmap(self, source_name=None, tsplot=False,  **kwargs):
         """ create a TS map showing the source localization
         """
         source = self.sources.find_source(source_name)
@@ -316,7 +316,7 @@ class ROI(views.LikelihoodViews):
             except Exception, e:
                 print 'Failed localization for source %s: %s' % (source.name, e)
             tsp = plotting.tsmap.plot(loc, **plot_kw)
-        return tsp.axes.figure # might want access to TSplot.
+        return tsp if tsplot else tsp.axes.figure # might want access to TSplot.
     
     def plot_roi_position(self, ax=None):
         """ define an Axes with a grid showing the position of this ROI """
