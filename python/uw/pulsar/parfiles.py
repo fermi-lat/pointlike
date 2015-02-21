@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.68 2014/12/28 10:42:55 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.69 2014/12/28 10:53:05 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -271,7 +271,7 @@ class ParFile(dict):
             speed".
         """
         ra = ra2dec(self.get('RAJ'))
-        de = decl2dec(self.get('DECJ'))
+        dec = decl2dec(self.get('DECJ'))
         if hasattr(self['RAJ'],'__iter__'):
             idx = 1 if (len(self['RAJ'])==2) else 2
             rae = float(self['RAJ'][idx]) * (15./3600) # deg
@@ -279,28 +279,34 @@ class ParFile(dict):
             rae = 0.
         if hasattr(self['DECJ'],'__iter__'):
             idx = 1 if (len(self['DECJ'])==2) else 2
-            dee = float(self['DECJ'][idx]) * (1./3600) # deg
+            dece = float(self['DECJ'][idx]) * (1./3600) # deg
         else:
-            dee = 0.
+            dece = 0.
         
         if epoch is not None:
             dt = (epoch - self.get('POSEPOCH',type=float))/365.24
             if 'PMRA' in self.keys():
                 #in TEMPO2,  proper motion is in physical units; convert
                 # to coordinate units by correcting for cos(dec)
-                cdec = np.cos(np.radians(de))
+                cdec = np.cos(np.radians(dec))
                 pmra = self.get('PMRA',type=float)/1000/3600./cdec # deg
-                idx = 1 if (len(self['PMRA'])==2) else 2
-                pmrae = float(self['PMRA'][idx])/1000/3600 # deg
+                if hasattr(self['PMRA'],'__iter__'):
+                    idx = 1 if (len(self['PMRA'])==2) else 2
+                    pmrae = float(self['PMRA'][idx])/1000/3600./cdec # deg
+                else:
+                    pmrae = 0
                 ra += pmra*dt
                 rae = (rae**2 + (pmrae*dt)**2)**0.5
             if 'PMDEC' in self.keys():
-                pmde = self.get('PMDEC',type=float)/1000/3600 # deg
-                idx = 1 if (len(self['PMDEC'])==2) else 2
-                pmdee = float(self['PMDEC'][idx])/1000/3600 # deg
-                de += pmde * dt
-                dee = (dee**2 + (pmdee*dt)**2)**0.5
-        return [ra,rae,de,dee]
+                pmdec = self.get('PMDEC',type=float)/1000/3600 # deg
+                if hasattr(self['PMDEC'],'__iter__'):
+                    idx = 1 if (len(self['PMDEC'])==2) else 2
+                    pmdece = float(self['PMDEC'][idx])/1000/3600 # deg
+                else:
+                    pmdece = 0
+                dec += pmdec * dt
+                dece = (dece**2 + (pmdece*dt)**2)**0.5
+        return [ra,rae,dec,dece]
 
     def set_posepoch(self,epoch):
         """ Update POSEPOCH, evolving RAJ/DECJ if necessary."""
@@ -375,16 +381,28 @@ class ParFile(dict):
             return binary_dict
         except: return None
 
-    def add_binary_model(self):
-        """ Add default binary parameters to model."""
-        if 'BINARY' in self.ordered_keys:
+    def add_binary_model(self,idx=None,clobber=False):
+        """ Add default binary parameters to model.
+        
+        NB -- for the T2 model, the accepted way of having more than
+        one binary companion seems to be
+        (1) T0/PB etc. for first companion
+        (2) T0_1/PB_1 etc. for second companion
+        (2) T0_2/PB_2 etc. for third companion
+        etc.
+        """
+        if (not clobber) and ('BINARY' in self.ordered_keys):
             return
         self.add_key('BINARY','T2')
-        self.add_key('PB','1e6')
-        self.add_key('A1','0')
+        if (idx is None):
+            label = ''
+        else:
+            label = '_%d'%idx
+        self.add_key('PB'+label,'1e6')
+        self.add_key('A1'+label,'0')
         epoch = self.get('PEPOCH')
-        self.add_key('T0',epoch)
-        self.add_key('ECC','0')
+        self.add_key('T0'+label,epoch)
+        self.add_key('ECC'+label,'0')
         return self
 
     def comp_mass(self,m1=1.4,sini=0.866):
@@ -536,7 +554,8 @@ class ParFile(dict):
         e = ((vals[0]*vals[1])**2+(vals[2]*vals[3])**2)**0.5/v
         return v,e
 
-    def get_shklovskii_pdot(self,dist,velocity=None):
+    def get_shklovskii_pdot(self,dist,velocity=None,
+        get_corrected_pdot=False):
         """ Given dist (kpc), try to compute Shklovskii from proper
             motion.  Alternatively, if velocity (km/s) is set, use
             this for computation.  Return the shift in Pdot expected
@@ -547,8 +566,18 @@ class ParFile(dict):
             return self.p()*velocity**2/dist/C
         v,e = self.get_comp_pm()
         if v == 0.: return 0.
-        v /= 365.*86400.*1000.*3600.*180/np.pi # rad/s
-        return self.p()*v**2*dist/C
+        # convert to rad/s
+        s1 = 365.*86400.*1000.*3600.*180/np.pi
+        v /= s1
+        e /= s1
+        print v,e
+        s2 = self.p()*dist/C
+        if get_corrected_pdot:
+            pdot,epdot = self.pdot(error=True)
+            cpdot = pdot - s2*v**2
+            cepdot = (epdot**2 + (s2*e**2)**2)**0.5
+            return cpdot,cepdot
+        return s2*v**2
 
     def get_transverse_velocity(self,dist):
         """ Given dist (kpc), return transverse velocity in km/s. """
@@ -702,7 +731,7 @@ class ParFile(dict):
                 k_glepoch = self.get(key,type=float)
                 if (glepoch is None) or (abs(glepoch-k_glepoch) < tol):
                     indices.append(int(key.split('_')[-1]))
-        return indices
+        return sorted(indices)
 
     def zero_glitches(self,glepoch=None,transients_only=False):
         """ If glepoch is provided, only zero glitches near (within 1d) of
