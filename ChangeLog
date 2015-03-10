@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Mar 10 09:59:19 PDT 2015
+pointlike/python/uw/like
+
+Modified Files:
+	pycaldb.py 
+Log Message:
+better exception message
+    *
+------------------------------------------------------------
 User: burnett  Tue Mar 10 09:58:58 PDT 2015
 pointlike/python/uw/like
 
