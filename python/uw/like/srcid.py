@@ -3,8 +3,8 @@ Python support for source association, equivalent to the Fermi Science Tool gtsr
 author:  Eric Wallace <wallacee@uw.edu>
 """
 
-__version__ = "$Revision: 1.37 $"
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.37 2013/12/07 22:49:40 burnett Exp $
+__version__ = "$Revision: 1.38 $"
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.38 2013/12/07 23:27:32 burnett Exp $
 
 import os
 import sys
@@ -335,7 +335,7 @@ class Catalog(object):
         cards = pf.CardList(self.hdu.header.cards)
         #First check for UCD in header
         for card in cards:
-            if card.key[:5]=='TBUCD' and card.value in ['ID_MAIN','meta.id;meta.main']:
+            if card.keyword[:5]=='TBUCD' and card.value in ['ID_MAIN','meta.id;meta.main']:
                 name_key = cards['TTYPE'+card.key[5:8]].value
                 break
             #Sometimes UCDs are declared in comments
@@ -351,7 +351,7 @@ class Catalog(object):
                             break
                     except IndexError:
                         pass
-            if card.key[:5]=='TTYPE' and card.value.upper() in ['NAME','ID','PSR_NAME','SOURCE_NAME']:
+            if card.keyword[:5]=='TTYPE' and card.value.upper() in ['NAME','ID','PSR_NAME','SOURCE_NAME']:
                 name_key = card.value
                 break
         try:
