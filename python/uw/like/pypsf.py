@@ -2,7 +2,7 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.34 2012/11/20 23:41:05 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.35 2014/02/06 16:18:21 burnett Exp $
 author: M. Kerr
 
 """
@@ -48,14 +48,23 @@ class Psf(object):
         h0,h1 = self.CALDBhandles = [pf.open(x) for x in self.CALDBManager.get_psf()]
 
         # read in stuff that doesn't depend on conversion type
-        self.scale_factors = np.asarray(h0[2].data.field('PSFSCALE')).flatten()
+        
+        sff = np.asarray(h0[2].data.field('PSFSCALE')).flatten()
+        if len(sff)==5:
+            # old format, both sets in both PSFSCALE tables
+            sf=self.scale_factors=sff
+        elif len(sff)==3:
+            # new format, individual arrays.
+            sfb = np.asarray(h1[2].data.field('PSFSCALE')).flatten()
+            sf=self.scale_factors = [sff[0], sff[1], sfb[0], sfb[1], sff[-1]]
+        else:
+            raise Exception('unexpected length of scale factors')
         self.e_los            = np.asarray(h0[1].data.field('ENERG_LO')).flatten().astype(float)
         self.e_his            = np.asarray(h0[1].data.field('ENERG_HI')).flatten().astype(float)
         self.c_los            = np.asarray(h0[1].data.field('CTHETA_LO')).flatten().astype(float)
         self.c_his            = np.asarray(h0[1].data.field('CTHETA_HI')).flatten().astype(float)
 
         # NB scaling functions in radians
-        sf = self.scale_factors
         self.scale_func = [lambda e: ( (sf[0]*(e/100.)**(sf[-1]))**2 + sf[1]**2 )**0.5,
                            lambda e: ( (sf[2]*(e/100.)**(sf[-1]))**2 + sf[3]**2 )**0.5 ]
 
