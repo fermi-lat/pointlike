@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Apr 28 16:06:52 PDT 2015
+pointlike/python/uw/like
+
+Modified Files:
+	pycaldb.py pypsf.py 
+Log Message:
+allow for new IRF format in psf, aeff
+    *
+------------------------------------------------------------
 User: burnett  Tue Mar 10 10:00:19 PDT 2015
 pointlike/python/uw/like
 
