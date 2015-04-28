@@ -2,7 +2,7 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.35 2014/02/06 16:18:21 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.36 2015/03/10 17:00:19 burnett Exp $
 author: M. Kerr
 
 """
@@ -47,32 +47,49 @@ class Psf(object):
 
         h0,h1 = self.CALDBhandles = [pf.open(x) for x in self.CALDBManager.get_psf()]
 
-        # read in stuff that doesn't depend on conversion type
+        # read in stuff that doesn't depend on conversion type, and set references to front and back data
         
-        sff = np.asarray(h0[2].data.field('PSFSCALE')).flatten()
-        if len(sff)==5:
-            # old format, both sets in both PSFSCALE tables
-            sf=self.scale_factors=sff
-        elif len(sff)==3:
-            # new format, individual arrays.
-            sfb = np.asarray(h1[2].data.field('PSFSCALE')).flatten()
+        if len(h0)>=7:
+            #New format, front, back in same file (expect h0, h1 to be the same)
+            sff = np.asarray(h0['PSF_SCALING_PARAMS_FRONT'].data.field('PSFSCALE')).flatten()
+            sfb = np.asarray(h0['PSF_SCALING_PARAMS_BACK' ].data.field('PSFSCALE')).flatten()
             sf=self.scale_factors = [sff[0], sff[1], sfb[0], sfb[1], sff[-1]]
+            self.psf_data = (h0['RPSF_FRONT'].data, h0['RPSF_BACK'].data)
         else:
-            raise Exception('unexpected length of scale factors')
+            # old format, separate files for front and back
+            sff = np.asarray(h0[2].data.field('PSFSCALE')).flatten()
+            self.psf_data = (h0[1].data, h1[1].data)
+            
+            if len(sff)==5:
+                # even older format, both sets in both PSFSCALE tables
+                sf=self.scale_factors=sff
+            elif len(sff)==3:
+                # new format, individual arrays.
+                sfb = np.asarray(h1[2].data.field('PSFSCALE')).flatten()
+                sf=self.scale_factors = [sff[0], sff[1], sfb[0], sfb[1], sff[-1]]
+            else:
+                raise Exception('unexpected length of scale factors')
+                
+        # NB scaling functions in radians
+        self.scale_func = [lambda e: ( (sf[0]*(e/100.)**(sf[-1]))**2 + sf[1]**2 )**0.5,
+                           lambda e: ( (sf[2]*(e/100.)**(sf[-1]))**2 + sf[3]**2 )**0.5 ]
+
+        # expect binning to be the same, this uses front
         self.e_los            = np.asarray(h0[1].data.field('ENERG_LO')).flatten().astype(float)
         self.e_his            = np.asarray(h0[1].data.field('ENERG_HI')).flatten().astype(float)
         self.c_los            = np.asarray(h0[1].data.field('CTHETA_LO')).flatten().astype(float)
         self.c_his            = np.asarray(h0[1].data.field('CTHETA_HI')).flatten().astype(float)
 
-        # NB scaling functions in radians
-        self.scale_func = [lambda e: ( (sf[0]*(e/100.)**(sf[-1]))**2 + sf[1]**2 )**0.5,
-                           lambda e: ( (sf[2]*(e/100.)**(sf[-1]))**2 + sf[3]**2 )**0.5 ]
-
 
     def __calc_weights__(self,livetimefile='',skydir=None):
 
         aeffstrs = self.CALDBManager.get_aeff()
-        ew         = ExposureWeighter(aeffstrs[0],aeffstrs[1],livetimefile)
+        if len(self.CALDBhandles[0]) >=7:
+            # new format
+            ew         = ExposureWeighter(aeffstrs[0],aeffstrs[1],livetimefile, 'EFFECTIVE AREA_FRONT', 'EFFECTIVE AREA_BACK')
+        else:
+            ew         = ExposureWeighter(aeffstrs[0],aeffstrs[1],livetimefile)
+        
         dummy     = skydir or SkyDir() 
 
         elo,ehi,clo,chi = self.e_los,self.e_his,self.c_los[::-1],self.c_his[::-1]
@@ -114,7 +131,9 @@ class CALDBPsf(Psf):
             """ Return the parameters from CALDB for conversion type
                 ct, and alter shape to match internal representation.
             """
-            t = np.reshape(h[ct][1].data.field(pname),[nc,ne])
+            ### t = np.reshape(h[ct][1].data.field(pname),[nc,ne])
+            ### Note change for new or old format
+            t = np.reshape(self.psf_data[ct].field(pname),[nc,ne])
             return t.transpose()[:,::-1]
 
         if self.newstyle:

@@ -1,5 +1,5 @@
 """  A module to handle finding irfs
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pycaldb.py,v 1.10 2013/12/13 19:41:45 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pycaldb.py,v 1.11 2015/03/10 16:59:18 burnett Exp $
 
     author: Joshua Lande """
 import os
@@ -48,8 +48,8 @@ class CALDBManager(object):
                 raise Exception("custom_irf_dir %s does not exist" % self.custom_irf_dir)
         else:
             self.custom_irf_dir = os.environ.get('CUSTOM_IRF_DIR', None)
-        if self.custom_irf_dir is not None:
-            if not self.quiet: print 'CALDBManager: using custom irf: %s' % self.custom_irf_dir
+        if self.custom_irf_dir is not None and self.custom_irf_dir!='':
+            if not self.quiet: print 'CALDBManager: using custom irf: "%s"' % self.custom_irf_dir
             
         self.bcf = join(self.CALDB,'bcf')
 
@@ -67,6 +67,7 @@ class CALDBManager(object):
 
         self.load_caldb_indx()
         self.construct_psf()
+        if not self.quiet: print 'PSF: %s' % self.psf_files
         self.construct_aeff()
         #self.construct_edisp()
 
@@ -108,7 +109,7 @@ class CALDBManager(object):
             print 'caldb.indx: did not find both %s' %self.psf_files
             
         # try the cusom_irf_dir
-        if self.custom_irf_dir is not None:
+        if self.custom_irf_dir is not None and self.custom_irf_dir!='':
             if not os.path.exists(self.custom_irf_dir):
                 raise Exception("custom_irf_dir '%s' does not exist." % self.custom_irf_dir)
             self.psf_files = [join(self.custom_irf_dir,'psf_%s_%s.fits' % (irf,i)) for i in ['front','back']]
@@ -155,7 +156,8 @@ class CALDBManager(object):
 
     def get_psf(self): return self.psf_files
 
-    def get_aeff(self): return self.aeff_files
+    def get_aeff(self): 
+        return self.aeff_files
 
     def get_edisp(self):
         raise NotImplementedException("No current need for this function.")
