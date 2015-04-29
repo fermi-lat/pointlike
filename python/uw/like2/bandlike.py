@@ -1,7 +1,7 @@
 """
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.55 2014/09/10 15:56:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.56 2014/09/11 08:13:45 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -132,7 +132,7 @@ class BandLike(object):
     def gradient(self):
         """ gradient of the likelihood with resepect to the free parameters
         """
-        #if not self.band.has_pixels: return np.array([])
+        if len(self.free_sources)==0: return np.array([])
         return self.unweight * np.concatenate(
                 [m.grad(self.weights, self.exposure_factor) for m in self.free_sources]
             )

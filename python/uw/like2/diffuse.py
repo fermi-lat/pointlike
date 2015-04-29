@@ -1,7 +1,7 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.46 2014/08/15 20:36:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.47 2015/02/09 13:35:28 burnett Exp $
 
 author:  Toby Burnett
 """
@@ -203,8 +203,11 @@ class HealpixCube(DiffuseBase):
             self.setEnergy(energy)
         skyindex = self.indexfun(skydir)
         a = self.energy_interpolation
-        return np.exp( np.log(self.eplane1[skyindex]) * (1-a) 
+        ret = np.exp( np.log(self.eplane1[skyindex]) * (1-a) 
                      + np.log(self.eplane2[skyindex]) * a      )
+        assert np.isfinite(ret), 'Not finite for %s at %s MeV, %f' % (skydir, self.energy, a)
+        return ret
+
 
 
     def setEnergy(self, energy): 

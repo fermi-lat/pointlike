@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.80 2014/12/18 00:17:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.81 2015/02/09 13:35:28 burnett Exp $
 
 """
 import types, time
@@ -162,6 +162,9 @@ class ROI(views.LikelihoodViews):
                 use_gradient = True
                 
         """
+        if len(self.sources.parameters)==0:
+            print 'No parameters to fit'
+            return
         ignore_exception = kwargs.pop('ignore_exception', False)
         update_by = kwargs.pop('update_by', 1.0)
         tolerance = kwargs.pop('tolerance', 0.2)
@@ -203,6 +206,9 @@ class ROI(views.LikelihoodViews):
         """construct a summary of the parameters, or subset thereof
         
         """
+        if len(self.sources.parameters)==0:
+            print 'No parameters to fit'
+            return
         with self.fitter_view(select, exclude=exclude) as fv:
             print 'current likelihood, est. diff to peak: %.1f, %.2f' % (fv.log_like(), fv.delta_loglike())
             fv.summary()
@@ -350,10 +356,13 @@ class ROI(views.LikelihoodViews):
             self.srcid=associate.SrcId('$FERMI/catalog',classes, quiet=quiet)
 
         def find_one(source):
-            if not hasattr(source, 'ellipse'):
-                self.localize(source.name)
-            with self.tsmap_view(source.name) as tsv:
-                associate.make_association(source, tsv, self.srcid)
+            try:
+                if not hasattr(source, 'ellipse'):
+                    self.localize(source.name)
+                with self.tsmap_view(source.name) as tsv:
+                    associate.make_association(source, tsv, self.srcid)
+            except Exception, msg:
+                print 'Exception raised while associating souurce %s: %s' %(source.name, msg)
 
         if source_name=='all':
             sources = filter(lambda s: np.any(s.model.free) and not s.isglobal and not s.isextended, self.sources)
@@ -369,24 +378,41 @@ class ROI(views.LikelihoodViews):
         
     
     def to_xml(self, filename):
-        """Save the current ROI to an XML file
+        """Save the current ROI to an XML file. 
+        Note that it will include info on the diffuse components not consistent with gtlike
         """
         return self.sources.to_xml(filename)
+        
+    def move(self, new_location, source_name=None):
+        """Move the position of a source
+        new_location : SkyDir object | (ra,dec) tuple
+        source_name : name of source | None
+            if None, use currently selected source
+        """
+        source = self.get_source(source_name)
+        tsv = self.tsmap_view(source.name)
+        old_loc = tsv.saved_skydir
+        loc = new_location if isinstance(SkyDir, new_location) else SkyDir(*new_location)
+        print 'moved position of source %s from %s to %s, change in TS: %.2f'\
+                % (source.name, old_loc, loc, tsv(loc) )
+        tsv.set_dir(loc)
+        
 
 class MultiROI(ROI):
     """ROI subclass that will perform a fixed analysis on multiple ROIs
     Intended for subclasses
     """
     
-    def __init__(self, config_dir,  quiet=False, postpone=False):
+    def __init__(self, config_dir,  quiet=False, postpone=False,):
         """
         """
         self.config = configuration.Configuration(config_dir, quiet=quiet, postpone=postpone)
         self.ecat = extended.ExtendedCatalog(self.config.extended)
-            
+
     def setup_roi(self, roi_index):
         roi_bands = bands.BandSet(self.config, roi_index)
         roi_bands.load_data()
-        roi_sources = from_healpix.ROImodelFromHealpix(self.config, roi_index, ecat=self.ecat,)
+        roi_sources = from_healpix.ROImodelFromHealpix(self.config, roi_index, ecat=self.ecat,
+            load_kw=self.load_kw)
         self.name = 'HP12_%04d' % roi_index
         self.setup( roi_bands, roi_sources)
