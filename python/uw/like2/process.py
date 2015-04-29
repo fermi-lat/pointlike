@@ -1,6 +1,6 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.21 2014/09/22 18:02:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.22 2014/12/18 00:16:30 burnett Exp $
 
 """
 import os, sys, time, pickle
@@ -15,6 +15,7 @@ class Process(main.MultiROI):
 
     defaults=(
         ('outdir',        '.',   'output folder'),
+        ('load_kw', {'rings':2}, 'a dict specific for the loading'),
         ('localize_flag', False, 'perform localiation'),
         ('localize_kw',   {},    'keywords for localization'),
         ('repivot_flag',  False, 'repivot the sources'),
@@ -32,6 +33,7 @@ class Process(main.MultiROI):
         ('finish',        False,  'set True to turn on all "finish" output flags'),
         ('residual_flag', False,  'set True for special residual run; all else ignored'),
         ('tables_flag',   False,  'set True for tables run; all else ignored'),
+        ('xtables_flag',  False,  'set True for special tables run; all else ignored'),
         ('tables_nside',  512,    'nside to use for table generation'),
         ('seed_flag',     False,  'set True for seed check run'),
         ('update_positions_flag',False,  'set True to update positions before fitting'),
@@ -43,8 +45,6 @@ class Process(main.MultiROI):
         """ process the roi object after being set up
         """
         keyword_options.process(self, kwargs)
-        import matplotlib.pylab as plt
-        print 'Backend: %s' % plt.rcParams['backend']
         if self.finish:
             self.__dict__.update(dampen=0,
                                  localize_flag=True, associate_flag=True,
@@ -52,8 +52,10 @@ class Process(main.MultiROI):
                                  counts_dir='countfig', 
                                  tsmap_dir='tsmap_fail',
                                  )
-        super(Process,self).__init__(config_dir,quiet=self.quiet)
+        super(Process,self).__init__(config_dir,quiet=self.quiet,)
         self.stream = os.environ.get('PIPELINE_STREAMPATH', 'interactive')
+        if self.xtables_flag:
+            self.load_kw={'rings':-1}
         if roi_list is not None:
             for index in roi_list:
                 self.process_roi(index)
@@ -90,6 +92,9 @@ class Process(main.MultiROI):
             return
         if self.tables_flag:
             self.tables()
+            return
+        if self.xtables_flag:
+            self.tables(special=True)
             return
         if self.seed_flag:
             self.seeds()
@@ -321,18 +326,27 @@ class Process(main.MultiROI):
             pickle.dump(resids, out)
             print 'wrote file %s' %filename
             
-    def tables(self):
+    def tables(self, special=False):
         """ create a set of tables """
-        rt = maps.ROItables(self.outdir, nside=self.tables_nside,
+        if not special:
+            rt = maps.ROItables(self.outdir, nside=self.tables_nside,
                skyfuns= ( 
                 (maps.ResidualTS, 'ts', dict(photon_index=2.2),) , 
                 (maps.KdeMap,     'kde', dict()),
               ),
-)
+            )
+        else:
+            self.selected = [b for b in self if b.band.energy>10000]
+            rt = maps.ROItables(self.outdir, nside=self.tables_nside,
+               skyfuns= ( 
+                (maps.ResidualTS, 'ts10', dict(photon_index=2.3),) , 
+                ),
+            )
+        
         rt(self)
         
-    def seeds(self,seedfile='seeds.txt', model='PowerLaw(1e-15, 2.2)', 
-                prefix='SEED',
+    def seeds(self,seedfile='seeds.txt', model='PowerLaw(1e-14, 2.2)', 
+                prefix=None,
                 associator=None, tsmap_dir=None,
                 **kwargs):
         """ add "seeds" from a text file 
@@ -350,6 +364,8 @@ class Process(main.MultiROI):
         if sum(inside)==0:
             print 'no seeds in ROI'
             return
+        if prefix is None:
+            prefix = seeds.name[0][:4]
         srclist = []
         for i,s in seeds[inside].iterrows():
             try:
@@ -361,7 +377,13 @@ class Process(main.MultiROI):
         # Fit only fluxes for each seed first
         parnames = self.sources.parameter_names
         seednorms = np.arange(len(parnames))[np.array([s.startswith(prefix) and s.endswith('_Norm') for s in parnames])]
-        self.fit(seednorms)
+        assert len(seednorms)>0, 'Did not find any seeds.'
+        try:
+            self.fit(seednorms)
+        except Exception, msg:
+            print 'Failed to fit seed norms %s' %msg
+            return
+            
         # now localize each, moving to new position
         localization.localize_all(self, prefix=prefix, tsmap_dir=tsmap_dir, associator=associator, update=True, tsmin=10)
         # fit full ROI 

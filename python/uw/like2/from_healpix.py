@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_healpix.py,v 1.7 2014/08/15 20:36:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_healpix.py,v 1.8 2015/02/09 13:35:28 burnett Exp $
 """
 import os, pickle, zipfile
 import numpy as np
@@ -38,6 +38,12 @@ class ROImodelFromHealpix(roimodel.ROImodel):
     
     def load_sources( self, roi_index, rings=1):
         """ load sources from the roi and its neighbors in the pickle file found in modeldir
+        
+        roi_index : integer
+            HEALPix index of the ROI
+        rings : integer
+            number of rings of concentric pixels to search for (fixed) sources to add
+            Special value: if -1, do not add any sources at all
         """
 
         self.pickle_file = os.path.join(self.config.modeldir, 'pickle.zip')
@@ -49,12 +55,14 @@ class ROImodelFromHealpix(roimodel.ROImodel):
         self.roi_dir = skymaps.Band(12).dir(roi_index)
         self.name = 'HP12_%04d' % roi_index
         self._z = zipfile.ZipFile(os.path.expandvars(self.pickle_file))
-        self.load_sources_from_healpix((roi_index,0))
+        global_only = rings==-1
+        self.load_sources_from_healpix((roi_index,0), global_only=global_only)
+        if global_only: return
         for neighbor_index in neighbors(roi_index, rings=rings):
             self.load_sources_from_healpix(neighbor_index, neighbors=True)
 
         
-    def load_sources_from_healpix(self, index, neighbors=False):
+    def load_sources_from_healpix(self, index, neighbors=False, global_only=False):
         """ select and add sources in the given HEALPix to self.
         Tags each with an index property, which is a tuple (healpix_index, ring number)
         if neigbors is True, add only local sources.
@@ -115,6 +123,7 @@ class ROImodelFromHealpix(roimodel.ROImodel):
             self.global_count = len(global_sources)
             for s in global_sources:
                 if s is not None: self.append(s)
+            if global_only: return
         local_sources = [load_local_source(name, rec) for name,rec in p['sources'].items()]
         if not neighbors: self.local_count = len(local_sources)
         for s in local_sources: self.append(s)

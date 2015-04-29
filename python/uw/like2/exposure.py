@@ -1,11 +1,12 @@
 """
 Implements exposure calcuations
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/exposure.py,v 1.1 2013/11/07 17:21:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/exposure.py,v 1.2 2013/11/10 20:05:08 burnett Exp $
 """
 import os
 import numpy as np
 import skymaps
+import pyfits
 
 
 class ExposureManager(object):
@@ -30,16 +31,20 @@ class ExposureManager(object):
                 ## use pregenerated gtexpcube2 cube; turn off interpolation
                 return [skymaps.DiffuseFunction(f,1000.,False) for f in dataset.exposure_cube]
                 
+            type_names = datadict.get('type_names', ('FRONT', 'BACK'))
             skymaps.EffectiveArea.set_CALDB(dataset.CALDBManager.CALDB)
             skymaps.Exposure.set_cutoff(np.cos(np.radians(dataset.thetacut)))
-            inst = ['front', 'back']
             aeff_files = dataset.CALDBManager.get_aeff()
             ok = [os.path.exists(file) for file in aeff_files]
             if not all(ok):
                 raise DataSetError('one of CALDB aeff files not found: %s' %aeff_files)
-            self.ea  = [skymaps.EffectiveArea('', file) for file in aeff_files]
+            if pyfits.open(aeff_files[0])[1].name != 'EFFECTIVE AREA':
+                 # new format with combined 
+                self.ea  = [skymaps.EffectiveArea('', file, 'EFFECTIVE AREA_'+name) for file,name in zip(aeff_files, type_names)]
+            else:
+                self.ea  = [skymaps.EffectiveArea('', file) for file in aeff_files]
             if dataset.verbose: print ' -->effective areas at 1 GeV: ', \
-                    ['%s: %6.1f'% (inst[i],self.ea[i](1000)) for i in range(len(inst))]
+                    ['%s: %6.1f'% (type_names[i],self.ea[i](1000)) for i in range(len(type_names))]
             
             if dataset.use_weighted_livetime and hasattr(dataset, 'weighted_lt'):
                 return [skymaps.Exposure(dataset.lt,dataset.weighted_lt,ea) for ea in self.ea]
