@@ -1,7 +1,7 @@
 """
 Run the moment analysis for finding peaks
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/find_peak.py,v 1.13 2013/09/04 12:34:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/find_peak.py,v 1.14 2015/02/09 13:35:42 burnett Exp $
 
 """
 import os, glob, sys
@@ -12,6 +12,47 @@ from skymaps import SkyImage, SkyDir
 from . import sourceinfo
 from uw.utilities import (makepivot, image) 
 
+def moment_analysis(tsmap, wcs):
+    """ perform localization by a moment analysis of a TS map
+        tsmap : array of float
+            should be square
+        wcs : Projector object
+            implements pix2sph function of two ints to return ra,dec
+    returns: 
+        ra, dec, ax, bx, phi
+    """
+    vals = np.exp(-0.5* tsmap**2).flatten(); 
+
+    n = len(vals)
+    nx = ny =int(np.sqrt(n))
+    ix = np.array([ i % nx for i in range(n)])
+    iy = np.array([ i //nx for i in range(n)])
+    norm = 1./sum(vals)
+    t = [sum(u*vals)*norm for u in  ix,iy, ix**2, ix*iy, iy**2]
+    center = (t[0],t[1])
+    C = np.matrix(center)
+    variance = (np.matrix(((t[2], t[3]),(t[3], t[4]))) - C.T * C)
+    ra,dec = wcs.pix2sph(center[1],center[0])
+    peak = SkyDir(ra,dec)
+    rac, decc = wcs.pix2sph(nx/2, ny/2)
+    scale = wcs.pix2sph(nx/2, ny/2+1)[1] - decc
+    size = nx*scale
+    variance = scale**2 * variance
+    offset = np.degrees(peak.difference(SkyDir(rac,decc)))
+
+    # add effects of binsize
+    var  = variance+ np.matrix(np.diag([1,1]))*(scale/3)**2
+    t,v =np.linalg.eigh(var)
+    ang =np.degrees(np.arctan2(v[1,1], -v[1,0]))
+
+    tt = np.sqrt(t)
+    if t[1]>t[0]:
+        ax,bx = tt[1], tt[0]
+        ang = 90-ang
+    else:
+        ax,bx = tt
+    return ra, dec, ax,bx, ang
+
 class PeakFinder(object):
     """Log of analysis stream
     <pre>%(logstream)s</pre>
@@ -20,26 +61,16 @@ class PeakFinder(object):
     def __init__(self, filename):
         t =os.path.split(os.path.splitext(filename)[0])[-1].split('_')
         self.sourcename= ' '.join(t[:-1]).replace('p', '+')
+        
         self.df = df = SkyImage(filename)
         wcs = df.projector()
         self.tsmap = np.array(df.image())
         nx,ny = df.naxis1(), df.naxis2()
         assert nx==ny, 'Array not square?'
-        #ix = np.array([ i % nx for i in range(nx*ny)])
-        #iy = np.array([ i //nx for i in range(nx*ny)])
+        
         vals = np.exp(-0.5*self.tsmap**2) # convert to likelihood from TS
         norm = 1./sum(vals)
         self.peak_fract = norm*vals.max()
-        #t = [sum(u*vals)*norm for u in  ix,iy, ix**2, ix*iy, iy**2]
-        #self.T = np.matrix((t[0],t[1]))
-        #ra,dec = wcs.pix2sph(t[0], t[1])
-        #self.peak = SkyDir(ra,dec)
-        #self.scale = wcs.pix2sph(t[0], t[1]+1)[1] -dec
-        #self.size = nx*self.scale
-        ## variance in degrees
-        #self.variance = self.scale**2*(np.matrix(((t[2], t[3]),(t[3], t[4]))) - self.T.T* self.T)
-        #rac,decc = wcs.pix2sph(nx/2.0, ny/2.0)
-        #self.offset = np.degrees(self.peak.difference(SkyDir(rac,decc)))
         center, variance = self.moments_analysis(vals)
         ra,dec = wcs.pix2sph(center[1],center[0])
         self.peak = SkyDir(ra,dec)
@@ -61,7 +92,6 @@ class PeakFinder(object):
         variance = (np.matrix(((t[2], t[3]),(t[3], t[4]))) - C.T * C)
         return center, variance
 
-    
     def ellipse(self):
         # add effects of binsize
         var  = self.variance+ np.matrix(np.diag([1,1]))*(self.scale/3)**2
@@ -127,6 +157,7 @@ class FindPeak(sourceinfo.SourceInfo):
                 print '*** file for %s not found' %sourcename
                 continue
             try:
+                print 'Analyzing file %s ...' % f[0],
                 q = PeakFinder(f[0])
             except Exception, msg:
                 print '*** Failed to load image %s: "%s"' % (f,msg)
@@ -147,6 +178,9 @@ class FindPeak(sourceinfo.SourceInfo):
                 tsmap = q.tsmap, 
                 image=q.df, )
                 )   
+            print 'done'
+        print 'Processed %d sources OK' % len(slist)
+        assert len(slist)>0, 'No sources found to localize!'
         self.xdf=pd.DataFrame(slist, index=[s['name'] for s in slist])
         self.dfs = self.xdf['ax bx angx offset size peak_fract'.split()]
         self.dfs.index.name='name'
@@ -189,7 +223,7 @@ class FindPeak(sourceinfo.SourceInfo):
         total weight.
         """ 
         dfs = self.dfs
-        cut =(dfs.offset<0.13) * (dfs.peak_fract>0.2) * (dfs.peak_fract<0.8) 
+        cut =(dfs.offset<0.13) & (dfs.peak_fract>0.2) & (dfs.peak_fract<0.8) 
         amax=0.3
         fig, ax = plt.subplots(figsize=(5,5))
         ax.plot(dfs.a.clip(0,amax), dfs.ax.clip(0,amax), '.')

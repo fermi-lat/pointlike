@@ -1,7 +1,7 @@
 """
 Environment plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.15 2014/02/14 18:46:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.16 2014/02/15 00:29:04 burnett Exp $
 
 """
 
@@ -13,7 +13,7 @@ from scipy import integrate, misc, optimize
 #from skymaps import SkyDir #?
 
 from . import roi_info
-from .. import (configuration, diffuse)
+from .. import (configuration, diffuse, response)
 
 class Environment(roi_info.ROIinfo):
     """ Environment plots"""
@@ -33,26 +33,43 @@ class Environment(roi_info.ROIinfo):
         
         #s = [[ x[1]['counts']['models'][modelnumber][1][:16] for x in self.df.iterrows()] for modelnumber in range(2)]
         self.bdf = [pd.DataFrame(y, index=self.df.index) for y in s]
-
         
-    def exposure_plots(self, hsize=(1.0,1.0,2.0,1.0, 2.0, 0.7),):
+        # get diffuse conrrections
+        
+        self.sindec = np.sin(np.radians(np.asarray(self.df.dec,float)))
+        self.singlat = np.sin(np.radians(np.array(self.df.glat, float)))
+        try:
+            t = [self.config.diffuse['isotrop']['correction'].replace('*',etn)
+                    for etn in self.config.event_type_names]
+        except:
+            t = None
+        self.isofiles = t
+        u = self.config.diffuse['ring']
+        if 'correction' in u.keys():
+            self.galfile = u['correction']
+        else:
+            self.galfile = None
+
+
+    def exposure_plots(self, ix = 8, hsize=(1.0,1.0,2.0,1.0, 2.0, 0.7),):
         """ Exposure dependence
         Examine the relative exposure, per ROI. Express in terms of the mean. Note that
         ROIs are distributed uniformly over the sky.
-        <p>Use the fact that the isotopic diffuse compoenent is isotropic, so that
-        the ratio of the computed counts, to the fit normalization, is proportional
-        to the exposure. This involves all energies, but is weighted according to the isotropic diffuse.
-
+        <p>We examine the isotopic diffuse component for front, 1333 GeV, and measure the ratio of predicted counts to 
+        tne normalization factor. This is proportional
+        to the exposure. 
+        
         <br>Left: histogram, center: scatter plot vs. Declination; right: map on sky, in Galactic coordinates.
         
         """
         # use the fact that the isotopic diffuse compoenent is isotropic, so that
         # the ratio of the computed counts, to the fit normalization, is proportional
         # to the exposure.
-        iso = self.model_counts('isotrop')
+        iso_counts = self.model_counts('isotrop', ix) # note ix is the sequential band index, over front and back
         models = self.diffuse_models('isotrop')
         norms = np.array([m.getp(0) if m is not None else np.nan for m in models])
-        relative_exp = iso/norms/(iso/norms).mean()
+        norms *= response.DiffuseCorrection(self.isofiles[ix//2])[str(ix/2)] 
+        relative_exp = iso_counts/(iso_counts/norms).mean()
         #fig, axx = plt.subplots(1,3, figsize=(15,4))
         fig, axx = self.subplot_array(hsize, figsize=(12,4))
         label = 'exposure relative to mean'
@@ -120,18 +137,6 @@ the second when there is small background, above a few GeV.
             f2 = lambda delta: psf(e,ct, delta)**2 * 2*np.pi*delta
             return np.degrees(1./np.sqrt(np.pi*integrate.quad(f2, 0, np.inf)[0]))
         
-#        def loc_size(e,ct, eps=1e-4):
-#            def wphi(r,x):
-#                fun = lambda phi: np.log(psf(e,ct,np.sqrt(r**2 -2*r*x*np.cos(phi) + x**2)))
-#                return 2*integrate.quad(fun, 0, np.pi)[0]
-# 
-#            def we(r):
-#                fun = lambda rp : psf(e,ct,rp) * rp * wphi(r,rp)
-#                return integrate.quad(fun, 0, np.radians(3.0))[0]
-#
-#            #f3 = lambda theta: psf(e,ct, theta) * theta**3 * 2.*np.pi
-#            #return np.degrees(np.sqrt(integrate.quad(f3, 0, np.pi/6) [0]))
-#            return eps * np.sqrt(1/(2*(we(0)- we(np.radians(eps)))))
         def loc_size(e, ct):
             func = lambda x : psf(e,ct, x)
             fprime = lambda x : misc.derivative(func, x, dx=0.0001, order=5)
@@ -167,6 +172,7 @@ the second when there is small background, above a few GeV.
         
         The spectrum used to define the isotropic diffuse component.
         <br>Files for front/back: %(idfiles)s
+        <br>See also the corrections.
         """
         # look up filenames used to define the isotropic spectrum: either new or old diffuse spec; list or dict
         #diffuse=self.config['diffuse']
@@ -205,7 +211,7 @@ the second when there is small background, above a few GeV.
     
     def limb_flux(self, energy=100, ra=0):
         """Limb flux 
-        Note assume indpenent of RA: this is for RA=0.
+        Note assume independentx7ZyIil9vaTFBDx7ZyIil9vaTFBD of RA: this is for RA=0.
         """
         from skymaps import SkyDir
         df=diffuse.diffuse_factory(self.config.diffuse['limb'])
@@ -234,15 +240,111 @@ the second when there is small background, above a few GeV.
 
         for r in rois:
             gal, iso = self.get_background(r)
-            ax.plot(egev, gal, '-d', label='gal %d'%r)
+            ax.plot(egev, gal, '-D', label='gal %d'%r)
             ax.plot(egev, iso, '--o', label='iso %d'%r)
         plt.setp(ax, xscale='log', xlim=(0.1,300), xlabel='Energy (GeV)',
-            yscale='log',  ylabel='Diffuse counts/ROI')
+                     yscale='log', ylim=(1e-1,1e6), ylabel='Diffuse counts/ROI')
         ax.legend(prop=dict(size=10)); ax.grid()
         return fig
         
+    def ecliptic_coords(self):
+        enp=SkyDir(270,90-23.439281) #ecliptic north pole
+        gdir = [SkyDir(l,b, SkyDir.GALACTIC) for l,b in zip(self.df.glon, self.df.glat)]
+        edir = np.array([ g.zenithCoords(enp) for g in gdir]); edir[0]
+        sinlat = np.sin(np.radians(edir[:,1]))
+        lon = edir[:,0]
+        lon[lon>180] -= 360
+        return lon, sinlat
+
+    def equatorial_coords(self):
+        gdir = [SkyDir(l,b, SkyDir.GALACTIC) for l,b in zip(self.df.glon, self.df.glat)]
+        lon = np.array([x.ra() for x in gdir])
+        lat = np.array([x.dec() for x in gdir])
+        sinlat = np.sin(np.radians(lat))
+        lon[lon>180] -= 360
+        return lon, sinlat
+    
+    def cartesian_map_array(self, fn, vmin=None, vmax=None, bands=8, 
+            ecliptic=False, equatorial=False, nocolorbar=False):
+        """
+        Plot an array of cartesian maps
         
+            fn : function object
+                fn(iband) returns nside=12 HEALPix array
+                has attributes vmin, vmax, title, cblabel
+        """
+        if vmin is None:vmin=fn.vmin
+        if vmax is None: vmax=fn.vmax
+        nrows, ncols = ((bands+1)//4, 4 ) if bands>=4 else (1, bands)
+        
+        fig, axx = plt.subplots(nrows, ncols, figsize=(3+3*ncols,1+3*nrows), sharex=True, sharey=True)
+        plt.subplots_adjust(right=0.9, hspace=0.15, wspace=0.1)
+        if ecliptic:
+            lon, sinlat = self.ecliptic_coords()
+        elif equatorial:
+            lon, sinlat = self.equatorial_coords()
+        else:
+            lon = self.df.glon
+            sinlat = self.singlat
+        for iband,energy in enumerate(self.energy[:bands]):
+            ax = axx.flatten()[iband]
+            scat=self.basic_skyplot(ax, lon, sinlat, fn(iband).clip(vmin,vmax),
+                 title='%d MeV'%energy,
+                vmin=vmin,vmax=vmax, s=30, edgecolor='none', colorbar=False, labels=False)
+        fig.text(0.5, 0.95, fn.title,  ha='center', size=12)
+        if nocolorbar: return fig
+        #put colorbar at right        
+        cbax = fig.add_axes((0.92, 0.15, 0.02, 0.7) )
+        cb=plt.colorbar(scat, cbax, orientation='vertical')
+        cb.set_label(fn.cblabel)
+        fig.text(0.5, 0.05, 'longitude', ha='center')
+        fig.text(0.05, 0.5, 'sin(latitude)', rotation='vertical', va='center')
+        return fig
+
+    class GalacticCorrection():
+        def __init__(self, residual):
+            self.x = response.DiffuseCorrection(residual.config.diffuse['ring']['correction'])
+            self.title = 'Galactic correction'
+            self.cblabel='corection factor'
+            self.vmin=0.9; self.vmax=1.1
+            
+        def __call__(self, energy_index,):
+            return self.x[energy_index]
+
+    def galactic_correction(self):
+        """Galactic correction factor
+        From file %(galfile)s
+        """
+        return self.cartesian_map_array(self.GalacticCorrection(self))
+    
+    class IsotropicCorrection(object):
+        def __init__(self, residual, event_type_name):
+            event_type_index = residual.config.event_type_names.index(event_type_name)
+            self.x = response.DiffuseCorrection(residual.isofiles[event_type_index])
+            self.title='Isotropic correction for %s'% (event_type_name,)
+            self.cblabel = 'correction factor'
+            self.vmin=0.5; self.vmax=1.5
+            
+        def __call__(self, energy_index,):
+            return self.x[energy_index]
+
+    def isotropic_correction_front(self):
+        """Isotropic correction factor for front
+        From file %(isofiles_front)s
+        """
+        self.isofiles_front=self.isofiles[1]
+        return self.cartesian_map_array(self.IsotropicCorrection(self,'front'))
+
+    def isotropic_correction_back(self):
+        """Isotropic correction factor for back
+        From file %(isofiles_back)s
+        """
+        self.isofiles_back=self.isofiles[1]
+        return self.cartesian_map_array(self.IsotropicCorrection(self,'back'))
+
     def all_plots(self, **kw):
         self.runfigures([self.psf_plot, self.exposure_plots, 
-            self.isotropic_spectrum,self.diffuse_flux, self.limb_flux, ])
+            self.isotropic_spectrum,self.diffuse_flux, self.limb_flux,
+            self.galactic_correction, self.isotropic_correction_front, self.isotropic_correction_back,
+            ])
     
