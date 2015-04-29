@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Wed Apr 29 11:07:10 PDT 2015
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	environment.py find_peak.py hptables.py localization.py 
+	residuals.py sourcecomparison.py sourceinfo.py 
+Log Message:
+analysis processing updates
+    *
+------------------------------------------------------------
 User: burnett  Wed Apr 29 11:06:41 PDT 2015
 pointlike/python/uw/like2
 
