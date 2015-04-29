@@ -1,7 +1,7 @@
 """
-Comparison with the 2FGL catalog
+Comparison with the 3FGL catalog
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourcecomparison.py,v 1.4 2014/01/16 19:36:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourcecomparison.py,v 1.5 2015/02/09 13:35:42 burnett Exp $
 
 """
 
@@ -28,7 +28,6 @@ class SourceComparison(sourceinfo.SourceInfo):
         ft = pyfits.open(cat)[1].data
         self.ft=ft # temp
         print 'loaded FITS catalog file %s with %d entries' % (cat, len(ft))
-        name = ft.Source_Name
         id_prob = [np.nan]*len(ft)
         try:
             id_prob = ft.ID_Probability[:,0]
@@ -37,15 +36,27 @@ class SourceComparison(sourceinfo.SourceInfo):
         
         glat = [s.b() for s in cat_skydirs]
         glon = [s.l() for s in cat_skydirs]
-        index = [x.strip() for x in ft.NickName] #Source_Name 
-        self.cat = pd.DataFrame(dict(name3=ft.Source_Name, ra=ft.RAJ2000,dec= ft.DEJ2000, ts=ft.Test_Statistic, 
+        def nickfix(n):
+            return n if n[:3]!='PSR' else 'PSR '+n[3:]
+        index = map(nickfix, [x.strip() for x in ft.NickName_3FGL]) #Source_Name 
+        self.cat = pd.DataFrame(dict(name3=ft.Source_Name_3FGL_1, 
+                nickname=map(nickfix, ft.NickName_3FGL), 
+                ra=ft.RAJ2000,dec= ft.DEJ2000, 
+                ts=ft.Test_Statistic, 
                 skydir=cat_skydirs,
-                glat=glat, glon=glon, pivot=ft.Pivot_Energy, flux=ft.Flux_Density, 
-                modelname=ft.SpectrumType, id_prob=id_prob,
-                a95=ft.Conf_95_SemiMajor,), 
-            columns = 'name3 ra dec glat glon skydir ts pivot flux modelname id_prob a95'.split(), # this to order them
+                glat=glat, glon=glon, 
+                #pivot=ft.Pivot_Energy, flux=ft.Flux_Density, 
+                #modelname=ft.SpectrumType, id_prob=id_prob,
+                a95=ft.Conf_95_SemiMajor, b95=ft.Conf_95_SemiMinor, ang95=ft.Conf_95_PosAng,
+                flags=ft.Flags_3FGL,
+                ), 
+            columns = 'name3 nickname ra dec glat glon skydir ts a95 b95 ang95 flags'.split(), # this to order them
             index=index, )
         self.cat.index.name='name'
+        self.cat['pt_flags'] = self.df.flags
+        self.cat['pt_ts'] = self.df.ts
+        self.cat['pt_ra'] = self.df.ra
+        self.cat['pt_dec'] = self.df.dec
         
         def find_close(A,B):
             """ helper function: make a DataFrame with A index containg columns of the
@@ -122,6 +133,9 @@ class SourceComparison(sourceinfo.SourceInfo):
             f(ax)
         return fig
         
+    def poorly_localized(self):
+        pass
+    
     def all_plots(self):
         """Results of comparison with 2FGL catalog
         """

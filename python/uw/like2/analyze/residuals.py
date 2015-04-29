@@ -1,7 +1,7 @@
 """
 Residual plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.11 2014/09/09 16:01:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.12 2015/02/09 13:35:42 burnett Exp $
 
 """
 
@@ -52,7 +52,11 @@ class Residuals(roi_info.ROIinfo):
         except:
             t = None
         self.isofiles = t
-        self.galfile = self.config.diffuse['ring']['correction']
+        u = self.config.diffuse['ring']
+        if 'correction' in u.keys():
+            self.galfile = u['correction']
+        else:
+            self.galfile = None
 
 
     def resid_array(self, source_name, column_name, event_type='all'):
@@ -165,7 +169,9 @@ class Residuals(roi_info.ROIinfo):
         vin: string
             skymodel used to generate current correction.
         """
-        if vout is None: vout=self.skymodel
+        if vout is None: 
+            vout=self.skymodel
+            print 'setting vout:', vout
         for et in ('front', 'back'):
             infile = os.path.expandvars('$FERMI/diffuse/isotropic_correction_%s_%s.csv'% (et, vin))
             assert os.path.exists(infile), 'File %s not found' %infile

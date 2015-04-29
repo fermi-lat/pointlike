@@ -1,6 +1,6 @@
 """   Analyze localization 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.11 2014/07/03 17:04:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.12 2015/02/09 13:35:42 burnett Exp $
 
 """
 import os, pickle, collections
@@ -293,9 +293,98 @@ class Localization(sourceinfo.SourceInfo):
         else:
             self.poorly_localized_table_check ='<p>No poorly localized sources!'
 
+        
+    def load_moment_analysis(self):
+        """ check results of moment analysis
+        """
+        m =self.df.moment
+        has_moment = [x is not None for x in m]
+        print 'Found %d sources with moment analysls' % sum(has_moment)
+        mdf = pd.DataFrame(m[has_moment]) 
+        u = np.array([list(x) for x in mdf.moment])
+        self.dfm=md= pd.DataFrame(u,  index=mdf.index, columns='rax decx ax bx angx size peak_fract'.split())
+        md['locqual'] = self.df.locqual
+        md['ts'] = self.df.ts
+        md['delta_ts'] = self.df.delta_ts
+        md['roiname'] = self.df.roiname
+        md['a'] = self.df.a
+        
+        filename = 'moment_localizations.csv'
+        md.to_csv(filename)
+        print 'Write file %s' % filename
+        
+        # no make a collection with images and data
+        self.moment_collection_html=''
+        try:
+            t = makepivot.MakeCollection('moment analysis localizations %s'%self.skymodel, 'tsmap_fail', 'moment_localizations.csv', 
+                refresh=True) 
+            makepivot.set_format(t.cId)
+            self.moment_collection_html="""
+                <p>The images and associated values can be examined with a 
+                <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>,
+                which requires Silverlight."""  % t.cId
+        except Exception, msg: 
+            print "**** Failed to make moment pivot table: %s" % msg
+
+        
+
+    def moment_plots(self):
+        """Plots of properties of the moment analysis
+        This analysis was done on localizations that had  locqual>5, or a>0.25, or delta_ts>2. 
+        It invovled creating a 15x15 TS plot with size estimated from the major axis, but limited to 2 degrees.
+        
+        The values shown are:
+        <ol><li>peak fraction: fraction of the total weight for the largest bin. This is a check on the scale.
+            Small means a uniform distribution, large means scale is too large </li>
+            <li>major: Size of major axis (1 sigma)</li>
+            <li>major/size : this ratio should be neither small, not >1 for the fit to make sense</li>
+            <li>minor/major: Ratio of minor to major axis size</li>
+            <li>size: Size of image. The analysis that generated these images used the peak fitting analysis to set 
+            the scale, but limited to 2 degrees.</li>
+            <li>locqual : The peak-finding localization quality. This being too large is the primary reason these sources
+            were selected. </li>
+         </ol> 
+        <p>Subsets correspond to peak fraction betweek 0.1 and 0.5.
+         %(moment_collection_html)s
+        """
+        
+        fig, axx = plt.subplots(2,3, figsize=(10,8))
+        plt.subplots_adjust(hspace=0.3, wspace=0.3, left=0.1)
+        if not hasattr(self,'dfm'):
+            self.load_moment_analysis()
+        dfs = self.dfm
+        goodfrac= (dfs.peak_fract<0.5) & (dfs.peak_fract>0.1)
+        for ix, ax in enumerate(axx.flatten()):
+            if ix==0:                       
+                ax.hist(dfs.peak_fract, np.linspace(0,1,26))
+                ax.hist(dfs.peak_fract[goodfrac], np.linspace(0,1,26))
+                plt.setp(ax, xlabel='peak fraction', xlim=(0,1))
+            elif ix==2:
+                ax.hist(dfs.ax/dfs.size, np.linspace(0,0.5,26))
+                ax.hist(dfs.ax/dfs.size[goodfrac], np.linspace(0,0.5,26))
+                plt.setp(ax, xlabel='major/size')
+            elif ix==1:
+                ax.hist(dfs.ax.clip_upper(0.5), np.linspace(0,0.5,26))
+                ax.hist(dfs.ax[goodfrac].clip_upper(0.5), np.linspace(0,0.5,26))
+                plt.setp(ax, xlabel='major')
+            elif ix==3:
+                ax.hist(dfs.bx/dfs.ax, np.linspace(0,1,26))
+                ax.hist((dfs.bx/dfs.ax)[goodfrac], np.linspace(0,1,26))
+                plt.setp(ax, xlabel='minor/major')
+            elif ix==4:
+                ax.hist(dfs.size, np.linspace(0,2,26))
+                ax.hist(dfs.size[goodfrac], np.linspace(0,2,26))
+                plt.setp(ax, xlabel='size')
+            elif ix==5:
+                ax.hist(dfs.locqual.clip_upper(8), np.linspace(0,8))
+                plt.setp(ax, xlabel='locqual')
+        return fig
+    
+    
     def all_plots(self):
         return self.runfigures([self.r95, self.localization,self.localization_quality,
             self.unlocalized, 
-            self.poor_loc,
+            #self.poor_loc,
+            self.moment_plots,
             self.check_closeness,self.source_confusion,
             ])

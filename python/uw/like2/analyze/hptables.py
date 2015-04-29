@@ -1,7 +1,7 @@
 """
 Analyze the contents of HEALPix tables, especially the tsmap
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/hptables.py,v 1.4 2014/03/28 14:29:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/hptables.py,v 1.5 2014/03/30 18:25:01 burnett Exp $
 
 """
 
@@ -28,9 +28,13 @@ class HPtables(analysis_base.AnalysisBase):
         assert len(fnames)>0, 'did not find hptables_*_%d.fits file' %nside
         self.fname=fnames[0]
         self.tables = pd.DataFrame(pyfits.open(self.fname)[1].data)
+        print 'loaded file %s ' % self.fname
         self.plotfolder = 'hptables'
         self.tsname='ts'
         self.seedfile, self.seedroot, self.title, self.bmin = 'seeds.txt', 'SEED' ,'power-law', 0
+        if not os.path.exists(self.seedfile):
+            print 'Seedfile %s not found' % self.seedfile
+            return
         self.make_seeds(refresh=kw.pop('refresh', False))
         self.tsmap_analysis="""<p>Seed analysis parameters: 
             <dl>
@@ -84,7 +88,7 @@ class HPtables(analysis_base.AnalysisBase):
         bc = np.abs(z.b)<bcut
         def all_plot(ax, q, dom, label):
             ax.hist(q.clip(dom[0],dom[-1]),dom)
-            ax.hist(q[bc].clip(dom[0],dom[-1]),dom, color='orange', label='|b|<%d'%bcut)
+            ax.hist(q[bc].values.clip(dom[0],dom[-1]),dom, color='orange', label='|b|<%d'%bcut)
             plt.setp(ax, xlabel=label)
             ax.grid()
             ax.legend(prop=dict(size=10))

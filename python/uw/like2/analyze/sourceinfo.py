@@ -1,7 +1,7 @@
 """
 Basic analyis of source spectra
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.23 2014/09/09 09:32:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.24 2015/02/09 13:35:42 burnett Exp $
 
 """
 
@@ -55,6 +55,8 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                     except:
                         fitndf = 10
                     ellipse = info.get('ellipse', None)
+                    moment  = info.get('moment', None)
+                    has_moemnt = moment is not None
                     sdict[name] = info
                     pulsar = model.name.endswith('Cutoff')
                     betavalue = float(pars[2]) if not pulsar else np.nan
@@ -71,6 +73,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                         ang=ellipse[4] if ellipse is not None else np.nan,
                         locqual = round(ellipse[5],2) if ellipse is not None else np.nan,
                         delta_ts = ellipse[6] if ellipse is not None else np.nan,
+                        moment=moment,
                         freebits= np.sum( int(b)*2**i for i,b in enumerate(model.free)),
                         flux = prefactor * pars[0],
                         flux_unc = prefactor * errs[0],
