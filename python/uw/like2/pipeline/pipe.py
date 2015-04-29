@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.44 2014/01/17 22:29:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.45 2014/01/17 22:35:23 burnett Exp $
 """
 import os, types, glob, pickle
 import numpy as np
@@ -94,6 +94,10 @@ def check_converge(month, tol=10, add_neighbors=True, log=None):
     r = roirec(outdir)
     if r is None: return
     diff = r.loglike-r.prevlike
+    nisnan = sum(np.isnan(diff))
+    if nisnan>0:
+        print 'warning: %d NaN values in likelihoods: ignoring them' % nisnan
+        diff[np.isnan(diff)]=0
     dmin,dmax = diff.min(), diff.max()
     rmin,rmax = list(diff).index(dmin), list(diff).index(dmax)
     changed = set(np.arange(1728)[np.abs(diff)>tol])
