@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Apr 29 11:07:39 PDT 2015
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	check_converge.py pipe.py uwpipeline.py 
+Log Message:
+pipeline processing updates
+    *
+------------------------------------------------------------
 User: burnett  Wed Apr 29 11:07:10 PDT 2015
 pointlike/python/uw/like2/analyze
 
