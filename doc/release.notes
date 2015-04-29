@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.224 2014/07/20 00:53:29 mdwood Exp $
+$Id: release.notes,v 1.225 2014/08/06 17:07:58 echarles Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-09-02-00 29-Apr-2015 burnett Fixes for new IRF format and many like2 updates
  pointlike-09-01-00 06-Aug-2014 echarles Collecting a few minor fixes and features for LMC analysis
  pointlike-09-00-03 19-Jul-2014 mdwood Minor bugfixes.
  pointlike-09-00-02 28-Jun-2014 mdwood Fixed unresolved reference in xml_parsers.
