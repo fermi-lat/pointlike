@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.69 2014/12/28 10:53:05 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.70 2015/02/21 11:37:54 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -284,7 +284,10 @@ class ParFile(dict):
             dece = 0.
         
         if epoch is not None:
-            dt = (epoch - self.get('POSEPOCH',type=float))/365.24
+            try:
+                dt = (epoch - self.get('POSEPOCH',type=float))/365.24
+            except KeyError:
+                dt = 0
             if 'PMRA' in self.keys():
                 #in TEMPO2,  proper motion is in physical units; convert
                 # to coordinate units by correcting for cos(dec)
@@ -404,6 +407,17 @@ class ParFile(dict):
         self.add_key('T0'+label,epoch)
         self.add_key('ECC'+label,'0')
         return self
+
+    def zero_binary_models(self):
+        try:
+            self.set('A1',0)
+        except:
+            return self
+        for i in xrange(2,10):
+            try:
+                self.set('A1_%d'%i,0)
+            except:
+                return self
 
     def comp_mass(self,m1=1.4,sini=0.866):
         from scipy.optimize import fsolve
@@ -833,6 +847,21 @@ class ParFile(dict):
         if unique:
             return sorted(list(set(glepochs)))
         return glepochs
+
+    def get_nglitch(self,thresh=0):
+        """ Return number of glitches above a df/f threshold."""
+        count = 0
+        f0 = self.get('F0',type=float)
+        for i in xrange(100):
+            try:
+                pars = self.get_glitch_parameters(i+1)
+                df_on_f = abs(pars['GLF0'][0] / f0)
+                if df_on_f > thresh:
+                    count += 1
+            except IndexError:
+                break
+        return count
+            
 
     def has_waves(self):
         return self.num_waves() > 0
@@ -1554,3 +1583,73 @@ def parkes2tempo2(tim,output):
             toks[0],toks[3],toks[4],toks[6],toks[7]))
     file(output,'w').write('FORMAT 1\n'+''.join(new_strings)) 
 
+def modify_pn(tim,offset,output=None):
+    """ Add a constant to the pulse numbers in a TOA file.
+
+    Useful for joining timing solutions.
+    """
+    strings = deque()
+    init = None
+    for line in file(tim).readlines():
+        toks = line.split()
+        if '-pn' in toks:
+            idx = toks.index('-pn')
+            if init is None:
+                init = int(toks[idx+1])
+            toks[idx+1] = str(int(toks[idx+1])-init+offset)
+            strings.append(' '.join(toks))
+        else:
+            strings.append(line)
+    if output is None:
+        output = tim
+    file(output,'w').write('\n'.join(strings))
+
+def add_instrument_flag(tim,output=None):
+    """ Do a simple flagging."""
+    lines = deque()
+    for line in map(str.strip,file(tim).readlines()):
+        if not id_toa_line(line):
+            lines.append(line)
+            continue
+        flag = (line.split()[0][0]).upper()
+        lines.append(line + ' -i %s'%flag)
+    if output is None:
+        output = tim
+    file(output,'w').write('\n'.join(lines))
+
+def process_ft_data(tim,output=None):
+    """ Flag older timing data to allow for JUMPs."""
+    lines = deque()
+    insts = ['C','P','D','F']
+    for line in map(str.strip,file(tim).readlines()):
+        if not id_toa_line(line):
+            lines.append(line)
+            continue
+        toks = line.split()
+        inst = (toks[0][0]).upper()
+        if inst not in insts:
+            lines.append(line)
+            continue
+        if '-i' not in toks:
+            toks.extend(('-i',inst))
+
+        if '-ft' not in toks:
+            mjd = int(float(toks[2]))
+            if inst=='C':
+                if (mjd < 49888):
+                    # baseline jump
+                    pass
+                elif  (mjd < 50462):
+                    toks.extend(('-ft','C95'))
+                else:
+                    toks.extend(('-ft','C97'))
+            elif inst=='D':
+                if mjd < 50462:
+                    # baseline jump
+                    pass
+                else:
+                    toks.extend(('-ft','D97'))
+        lines.append(' '.join(toks))
+    if output is None:
+        output = tim
+    file(output,'w').write('\n'.join(lines))
