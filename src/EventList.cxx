@@ -1,7 +1,7 @@
 /** @file EventList.cxx 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/src/EventList.cxx,v 1.24 2014/02/21 17:32:19 cohen Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.25 2014/06/19 23:02:26 mdwood Exp $
 */
 
 #include "EventList.h"
@@ -174,6 +174,7 @@ Photon EventList::Iterator::operator*()const
     double theta;
     int event_class, ctbclasslevel(1);
     int source(-1);
+    int event_type(-1); // NEW
 
     // NB: the internal variables (event_class, ctbclasslevel) no longer match FT1 names.
     // event_class == CONVERSION_TYPE, ctbclasslevel = "EVENT_CLASS"
@@ -213,8 +214,15 @@ Photon EventList::Iterator::operator*()const
       tip::BitStruct tip_event_class;
       (*m_it)[*names++].get(tip_event_class);
       ctbclasslevel = static_cast<int>(tip_event_class);
+      
     } else if(m_pass7)  {
-      (*m_it)[*names++].get(ctbclasslevel);
+        (*m_it)[*names++].get(ctbclasslevel);
+      
+        // NEW STUFF for EVENT_TYPE -- convert bit array to int, like EVENT_CLASS
+        tip::BitStruct tip_event_type;
+        (*m_it)['EVENT_TYPE'].get(tip_event_type);
+        event_type = static_cast<int>(tip_event_type);
+
     } else  {
       (*m_it)["CTBCLASSLEVEL"].get(ctbclasslevel);
     }
@@ -261,8 +269,9 @@ Photon EventList::Iterator::operator*()const
         }
     }
 
-    return Photon(astro::SkyDir(ra, dec), energy, time, event_class , source, 
-        SkyDir(raz,decz),SkyDir(rax,decx), zenith_angle, theta, ctbclasslevel);
+    return Photon(astro::SkyDir(ra, dec), energy, time, event_type , source, // note set event_class in astro::Photon
+        SkyDir(raz,decz),SkyDir(rax,decx), zenith_angle, theta, ctbclasslevel
+            , event_type); //NEW
 }
 
 
