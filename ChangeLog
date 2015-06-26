@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jun 26 07:34:06 PDT 2015
+pointlike/src
+
+Modified Files:
+	EventList.cxx EventList.h 
+Log Message:
+change to allow to work with front/back at least
+    *
+------------------------------------------------------------
 User: burnett  Thu Jun 25 11:01:19 PDT 2015
 pointlike/src
 
