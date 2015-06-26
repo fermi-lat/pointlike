@@ -1,7 +1,7 @@
 /** @file EventList.h 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.h,v 1.12 2014/06/19 23:02:26 mdwood Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.h,v 1.13 2015/06/25 18:01:19 burnett Exp $
 */
 
 
@@ -70,6 +70,7 @@ private:
     int m_event_type;
 
 };
+
 
 class AddPhoton: public std::unary_function<astro::Photon, void> {
 public:

@@ -1,7 +1,7 @@
 /** @file EventList.cxx 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.25 2014/06/19 23:02:26 mdwood Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.26 2015/06/25 18:01:19 burnett Exp $
 */
 
 #include "EventList.h"
@@ -215,14 +215,15 @@ Photon EventList::Iterator::operator*()const
       (*m_it)[*names++].get(tip_event_class);
       ctbclasslevel = static_cast<int>(tip_event_class);
       
-    } else if(m_pass7)  {
-        (*m_it)[*names++].get(ctbclasslevel);
-      
+#if 0 // seems to cause exception??
         // NEW STUFF for EVENT_TYPE -- convert bit array to int, like EVENT_CLASS
         tip::BitStruct tip_event_type;
         (*m_it)['EVENT_TYPE'].get(tip_event_type);
         event_type = static_cast<int>(tip_event_type);
-
+#endif
+      
+    } else if(m_pass7)  {
+        (*m_it)[*names++].get(ctbclasslevel);
     } else  {
       (*m_it)["CTBCLASSLEVEL"].get(ctbclasslevel);
     }
@@ -269,9 +270,10 @@ Photon EventList::Iterator::operator*()const
         }
     }
 
-    return Photon(astro::SkyDir(ra, dec), energy, time, event_type , source, // note set event_class in astro::Photon
+    return Photon(astro::SkyDir(ra, dec), energy, time, event_class , source, // note sets event_class in astro::Photon
         SkyDir(raz,decz),SkyDir(rax,decx), zenith_angle, theta, ctbclasslevel
-            , event_type); //NEW
+          , event_type //NEW
+            ); 
 }
 
 
