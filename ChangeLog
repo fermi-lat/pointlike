@@ -1,4 +1,17 @@
 ------------------------------------------------------------
+User: burnett  Fri Jul 24 10:56:02 PDT 2015
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	__init__.py _html.py analysis_base.py associations.py 
+	config.py counts.py export.py hptables.py maps.py residuals.py 
+	seedcheck.py sourcecomparison.py sourceinfo.py 
+Added Files:
+	pulsars.py 
+Log Message:
+cumulative updates
+    *
+------------------------------------------------------------
 User: burnett  Fri Jun 26 07:34:06 PDT 2015
 pointlike/src
 
