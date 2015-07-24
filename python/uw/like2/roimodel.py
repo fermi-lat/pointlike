@@ -1,10 +1,10 @@
 """
 Set up and manage the model for all the sources in an ROI
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.24 2014/04/14 17:43:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.25 2014/08/15 20:36:15 burnett Exp $
 
 """
-import os 
+import os, pickle
 import numpy as np
 import pandas as pd
 from  uw.utilities import keyword_options
@@ -228,16 +228,11 @@ class ROImodel(list):
             print '%d inside ROI' % ni
         else:
             print 'No sources in ROI %04d' % myindex
-            return 
         for name, s in good_seeds[inside].iterrows():
-            e0 = s['e0']
-            try: #in case already exists (debugging perhaps)
-                self.del_source(name)
-                print 'replacing source %s' % name 
-            except: pass
-            source=self.add_source(name=name, skydir=SkyDir(s['ra'],s['dec']), 
-                        model=sources.LogParabola(s['eflux']/e0**2/1e6, s['pindex'], s['par2'], e0, 
-                                                  free=[True,True,False,False]))
-        return good_seeds[inside]        
+            src = pickle.load(open('%s/seedcheck/%s.pickle' % (self.config.modeldir, name)))
+            try:
+                self.add_source(name=name, skydir=src.skydir, model=src.model)
+            finally: pass
+        return good_seeds[inside]
 
 

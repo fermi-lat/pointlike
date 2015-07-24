@@ -1,7 +1,7 @@
 """
 Configuration information
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/config.py,v 1.4 2013/08/03 19:39:48 burnett Exp $
 
 """
 
@@ -25,7 +25,7 @@ class Configuration(analysis_base.AnalysisBase):
         %(html)s
         """
         self.html =''
-        for filename in ('config.txt', 'dataset.txt', 'converge.txt', 'summary_log.txt'):
+        for filename in ('config.txt', '../config.txt', 'dataset.txt', 'converge.txt', 'summary_log.txt'):
             if not os.path.exists(filename): continue
             self.html += '<h4>%s</h4>\n<pre>%s</pre>' % (filename, open(filename).read())
         return None

@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.29 2015/02/09 13:35:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.30 2015/04/29 18:06:40 burnett Exp $
 
 """
 import os,sys
@@ -130,9 +130,9 @@ def full_localization(roi, source_name=None, ignore_exception=False,
             if  hasattr(loc,'ellipse'): 
                 a, qual, delta_ts = loc.ellipse['a'], loc.ellipse['qual'], loc.delta_ts
                 tsize = min(a*15., 2.0)
-                bad = a>0.25 or qual>5 or abs(delta_ts)>2
+                bad = a>0.25 or qual>5 or abs(delta_ts)>3
                 if bad:
-                    print 'Flagged as possibly bad: a=%.2f>0.25 or qual=%.1f>5 or abs(delta_ts=%.1f)>2:'% (a, qual, delta_ts)
+                    print 'Flagged as possibly bad: a=%.2f>0.25 or qual=%.1f>5 or abs(delta_ts=%.1f)>3:'% (a, qual, delta_ts)
             else: 
                 print 'no localization'
                 bad = True

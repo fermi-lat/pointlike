@@ -1,7 +1,7 @@
 """
 Association analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.17 2014/03/25 18:35:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.18 2015/02/09 13:35:41 burnett Exp $
 
 """
 import os, glob, sys, pyfits
@@ -125,6 +125,7 @@ class Associations(sourceinfo.SourceInfo):
         """LAT pulsar check
         %(atable)s
         """
+
         # compare with LAT pulsar catalog     
         tt = set(self.df.name[self.df.psr])
         pulsar_lat_catname = sorted(glob.glob(os.path.expandvars('$FERMI/catalog/srcid/cat/obj-pulsar-lat_*')))[-1]
@@ -140,7 +141,7 @@ class Associations(sourceinfo.SourceInfo):
         lat['delta'] = [np.degrees(s.difference(t)) if not type(t)==float else np.nan for s,t in zip(lat.skydir,lat.sourcedir)]
         far = lat.delta>0.25
         dc2names =set(pp.Source_Name)
-        print 'sources with exp cutoff not in LAT catalog:', list(tt.difference(dc2names))
+        print 'sources with exp cutoff not in LAT catalog:', np.asarray(list(tt.difference(dc2names)))
         print 'Catalog entries not found:', list(dc2names.difference(tt))
         missing = np.array([ np.isnan(x) or x<10. for x in lat.ts])
         
@@ -150,11 +151,11 @@ class Associations(sourceinfo.SourceInfo):
         cols = 'RAJ2000 DEJ2000 ts ROI_index'.split()
         self.latsel=latsel = pd.DataFrame( np.array([lat[id][missing] for id in cols]), index=cols, columns=missing_names).T
 
-        psrx = np.array([x in 'pulsar_fom pulsar_low msp pulsar_big'.split() for x in self.df.acat])
-        print '%d sources found in other pulsar catalogs' % sum(psrx)
+        #psrx = np.array([x in 'pulsar_fom pulsar_low msp pulsar_big'.split() for x in self.df.acat])
+        #print '%d sources found in other pulsar catalogs' % sum(psrx)
 
         self.atable = '<h4>Compare with LAT pulsar catalog: %s</h4>' % os.path.split(pulsar_lat_catname)[-1]
-        self.atable += '<p>Sources fit with exponential cutoff not in catalog %s' %list(tt.difference(dc2names))
+        self.atable += '<p>Sources fit with exponential cutoff not in catalog %s' %np.asarray(list(tt.difference(dc2names)))
         self.atable += html_table(latsel,
                     dict(ts='TS,Test Statistic', ROI_index='ROI Index,Index of the ROI, a HEALPix ring index'),
                     heading = '<p>%d LAT catalog entries not in the model (TS shown as NaN), or too weak.' % sum(missing),
@@ -168,24 +169,82 @@ class Associations(sourceinfo.SourceInfo):
             print far_names
             self.atable += '<p>Pulsars located > 0.25 deg from nominal'\
                     + latfar.to_html(float_format=FloatFormat(2))
-        if sum(psrx)>0:
-            self.atable+= html_table(self.df[psrx]['aprob acat aname aang ts delta_ts locqual'.split()],
-                          dict(name='Source Name,click for link to SED',
-                          ts='TS,Test Statistic for the source', 
-                          acat='catalog,Catalog nickname',
-                          aprob='Probability,Association probability',
-                          aname='Source Name,Catlog name for the source',
-                          aang='Angle,distance to the catalog source (deg)',
-                          delta_ts='Delta TS,change in TS to the catalog source\n'
-                                          'should be positive negative means peak of TS map was not at source',
-                          locqual='Localization quality,measure of the goodness of the localization fit\n greater than 5 is questionable',
-                          ),
-                          float_format=FloatFormat(2), 
-                          heading = """<p>%d sources with pulsar association not in LAT pulsar catalog. Note, no cut on 
-                            association probability.""" % sum(psrx),
-                          name=self.plotfolder+'/atable',
-                          maxlines=50)        
+        #if sum(psrx)>0:
+        #    self.atable+= html_table(self.df[psrx]['aprob acat aname aang ts delta_ts locqual'.split()],
+        #                  dict(name='Source Name,click for link to SED',
+        #                  ts='TS,Test Statistic for the source', 
+        #                  acat='catalog,Catalog nickname',
+        #                  aprob='Probability,Association probability',
+        #                  aname='Source Name,Catlog name for the source',
+        #                  aang='Angle,distance to the catalog source (deg)',
+        #                  delta_ts='Delta TS,change in TS to the catalog source\n'
+        #                                  'should be positive negative means peak of TS map was not at source',
+        #                  locqual='Localization quality,measure of the goodness of the localization fit\n greater than 5 is questionable',
+        #                  ),
+        #                  float_format=FloatFormat(2), 
+        #                  heading = """<p>%d sources with pulsar association not in LAT pulsar catalog. Note, no cut on 
+        #                    association probability.""" % sum(psrx),
+        #                  name=self.plotfolder+'/atable',
+        #                  maxlines=60)        
+    
+    def pulsar_candidates(self, test=False):
+        """Pulsar candidates
+        Construct a list of all point sources associated with the BigFile pulsar list
+        %(pulsar_candidate_table)s
+        """
+        class BigFile(object):
+            """"manage look up in the BigFile"""
+            def __init__(self):
+                ff = sorted(glob.glob(os.path.expandvars('$FERMI/catalog/srcid/cat/Pulsars_BigFile_*.fits')))
+                t= pyfits.open(ff[-1])
+                self.d = pd.DataFrame(t[1].data)
+                
+            def __call__(self, name):
+                """Find the entry with given name"""
+                b = np.array(self.d.NAME==name)
+                if sum(b)==0:
+                    print 'Data for source %s not found' %name
+                    return None
+                i = np.arange(len(b))[b][0]
+                return self.d.ix[i]
+
         
+        psrx = np.array([x=='pulsar_big' for x in self.df.acat],bool)
+        print '%d sources found in BigFile pulsar catalog' % sum(psrx)
+        pt = self.df[psrx]['aprob aname aang ts delta_ts locqual'.split()]
+        
+        # look it up in BigFile, add other stuff
+        bf=BigFile()
+        anames = self.df[psrx].aname
+        pt['jname'] = [bf(n).PSRJ for n in anames]
+        pt['history']= [bf(n).History[1:-1].replace("'","") for n in anames]
+        pt['edot'] = ['%.2e'%bf(n).EDOT for n in anames]
+        
+        # make file table
+        ptx = pt['jname edot history ts aprob aang delta_ts locqual'.split()]
+        
+        if len(ptx)>0:
+            self.pulsar_candidate_table= \
+                html_table(ptx,
+                    dict(name='Source Name,click for link to SED',
+                      jname='Pulsar name,J version',
+                      history='History,history of the BigFile entry',
+                      ts='TS,Test Statistic for the source', 
+                      aprob='Probability,Association probability: not cut on',
+                       aang='Angle,angular distance (deg)',
+                      delta_ts='Delta TS,change in TS to the point source\n'
+                                      'should be positive negative means peak of TS map was not at source',
+                      locqual='Localization quality,measure of the goodness of the localization fit\n greater than 5 is questionable',
+                      ),
+                      float_format=FloatFormat(2), 
+                      heading = """<p>%d sources with pulsar association not in LAT pulsar catalog. Note, no cut on 
+                        association probability.""" % sum(psrx),
+                      name=self.plotfolder+'/atable',
+                      maxlines=80)        
+        else:
+            self.pulsar_candidates='No candidates found'
+        return ptx if test else None    
+    
     def localization_check(self, tsmin=10, dtsmax=9, qualmax=5):
         r"""Localization resolution test
         
@@ -216,7 +275,7 @@ class Associations(sourceinfo.SourceInfo):
         return fig
 
     def all_plots(self):    
-        self.runfigures([self.summary, self.pulsar_check, self.association_vs_ts, self.localization_check,])
+        self.runfigures([self.summary, self.pulsar_check, self.pulsar_candidates, self.association_vs_ts, self.localization_check,])
 
 
 class FitExponential(object):

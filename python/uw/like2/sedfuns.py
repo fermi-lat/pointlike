@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.42 2014/09/11 08:15:01 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.43 2014/12/18 00:22:08 burnett Exp $
 
 """
 import os, pickle
@@ -103,6 +103,11 @@ class SED(tools.WithMixin):
                 print 'Fail poiss fit for %.0f MeV: %s ' % (energy,msg)
                 rec.append(np.nan, np.nan, 0, 0, np.nan, 0, np.nan, np.nan, np.nan, np.nan, np.nan )
                 continue
+            if np.isnan(pf.wprime):
+                print 'Fail poiss fit for %.0f MeV: %s ' % (energy,'bad poiss')
+                rec.append(np.nan, np.nan, 0, 0, np.nan, 0, np.nan, np.nan, np.nan, np.nan, np.nan )
+                continue
+            
             w = pf.poiss
             err = pf.maxdev
             lf,uf = w.errors

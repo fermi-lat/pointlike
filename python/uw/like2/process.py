@@ -1,9 +1,9 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.22 2014/12/18 00:16:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.23 2015/04/29 18:06:40 burnett Exp $
 
 """
-import os, sys, time, pickle
+import os, sys, time, pickle, glob
 import numpy as np
 import pandas as pd
 from skymaps import SkyDir, Band
@@ -20,9 +20,10 @@ class Process(main.MultiROI):
         ('localize_kw',   {},    'keywords for localization'),
         ('repivot_flag',  False, 'repivot the sources'),
         ('betafix_flag',  False, 'check betas, refit if needed'),
+        ('ts_beta_zero',  None,   'set to threshold for converting LP<->PL'),
         ('dampen',        1.0,   'damping factor: set <1 to dampen, 0 to not fit'),
         ('counts_dir',    None,  'folder for the counts plots'),
-        ('norms_first',   False, 'initial fit to norms only'),
+        ('norms_only',    False, 'fit to norms only'),
         ('countsplot_tsmin', 100, 'minimum for souces in counts plot'),
         ('source_name',   None,   'for localization?'),
         ('fit_kw',        dict(ignore_exception=True),     'extra parameters for fit'),
@@ -33,10 +34,13 @@ class Process(main.MultiROI):
         ('finish',        False,  'set True to turn on all "finish" output flags'),
         ('residual_flag', False,  'set True for special residual run; all else ignored'),
         ('tables_flag',   False,  'set True for tables run; all else ignored'),
-        ('xtables_flag',  False,  'set True for special tables run; all else ignored'),
+        #('xtables_flag',  False,  'set True for special tables run; all else ignored'),
         ('tables_nside',  512,    'nside to use for table generation'),
-        ('seed_flag',     False,  'set True for seed check run'),
+        ('table_keys',    None,   'list of keys for table generation: if None, all else ignored'),
+        ('seed_key',      None,   'set to name of key for seed check run'),
         ('update_positions_flag',False,  'set True to update positions before fitting'),
+        ('add_seeds_flag', False,    'Add seeds found within the ROI, from the table, "plots/seedcheck/good_seeds.csv"'), 
+        ('special_flag',  False,  'set for special processing: invoke member func "special"'), 
         
     )
     
@@ -54,8 +58,10 @@ class Process(main.MultiROI):
                                  )
         super(Process,self).__init__(config_dir,quiet=self.quiet,)
         self.stream = os.environ.get('PIPELINE_STREAMPATH', 'interactive')
-        if self.xtables_flag:
-            self.load_kw={'rings':-1}
+        #if self.xtables_flag:
+        #    # suppress loading all point sources for from-scratch source finding
+        #    #self.load_kw={'rings':-1} # not now
+        #    pass
         if roi_list is not None:
             for index in roi_list:
                 self.process_roi(index)
@@ -89,16 +95,27 @@ class Process(main.MultiROI):
         # special processing flags
         if self.residual_flag:
             self.residuals()
-            return
+            return        
         if self.tables_flag:
             self.tables()
             return
-        if self.xtables_flag:
-            self.tables(special=True)
+        if self.table_keys is not None:
+            self.tables(mapkeys=self.table_keys)
             return
-        if self.seed_flag:
-            self.seeds()
+        #if self.xtables_flag:
+        #    self.tables(special=True)
+        #    return
+        if self.seed_key is not None:
+            key = self.seed_key
+            seeds(self, key) 
             return
+        if self.special_flag:
+            """ special processing, converting something."""
+            if not self.special() : 
+                print '-----special processing had nothing to to'
+                return
+        if self.add_seeds_flag:
+            self.add_sources()
             
         if self.counts_dir is not None and not os.path.exists(self.counts_dir) :
             try: os.makedirs(self.counts_dir) # in case some other process makes it
@@ -115,7 +132,7 @@ class Process(main.MultiROI):
         else:
             fit_kw = self.fit_kw
             try:
-                if self.norms_first:
+                if self.norms_only:
                     print 'Fitting parameter names ending in "Norm"'
                     roi.fit('_Norm',  **fit_kw)
                 roi.fit(update_by=dampen, **fit_kw)
@@ -130,7 +147,7 @@ class Process(main.MultiROI):
                         if not self.repivot( fit_sources): break
                         n-=1
                 if self.betafix_flag:
-                    if not self.betafix(roi):
+                    if not self.betafix(ts_beta_zero=self.ts_beta_zero):
                         print 'betafix requested, but no refit needed, quitting'
             except Exception, msg:
                 print '============== fit failed, no update!! %s'%msg
@@ -180,7 +197,8 @@ class Process(main.MultiROI):
                 stream=self.stream,
                 )
     
-    def repivot(self, fit_sources=None, min_ts = 10, max_beta=3.0, emin=200, emax=20000., dampen=1.0):
+   
+    def repivot(self, fit_sources=None, min_ts = 10, max_beta=3.0, emin=200, emax=20000., dampen=1.0, test=False):
         """ invoked  if repivot flag set;
         returns True if had to refit, allowing iteration
         """
@@ -219,103 +237,48 @@ class Process(main.MultiROI):
             if pivot < emin or pivot > emax:
                 print 'pivot energy, not in range (%.0f, %.0f): setting to limit' % (emin, emax)
                 pivot = min(emax, max(pivot,emin))
+                model.set_e0(pivot)
+                limited = True
+            else: limited=False
             if abs(pivot/e0-1.)<0.05:
                 print 'converged'; continue
             print 'will refit'
             need_refit=True
-            model.set_e0(pivot*dampen+ e0*(1-dampen))
-        if need_refit:
-            roi.fit()
+            if not test and not limited: model.set_e0(pivot*dampen+ e0*(1-dampen))
+        if need_refit and not test:
+            roi.fit(tolerance=0, ignore_exception=True)
         return need_refit
-        
-    def betafix(self, ts_min=20, qual_min=15,poisson_tolerance=0.2):
-        """ invoked  if betafix flag set, 
-        if beta=0.001, it has not been tested.
-        if beta<0.01 or error exists and  >0.1
+
+    def betafix(self, ignore_exception=True, ts_beta_zero=9):
+        """ evalute ts_beta for all sources, add to source info
+            ts_beta_zero: float or None
+                if a float, convert source so that log parabola are greater
         """
-        roi = self
-        refit=candidate=False
-        print 'checking for beta fit: minTS %.1f, min qual %.1f ...' % (ts_min, qual_min)
-        models_to_fit=[]
-        for source in roi.sources:
-            model = source.spectral_model
-            which = source.name
-            if not np.any(model.free) or model.name!='LogParabola': continue
-            if not candidate:
-                print 'name                 beta               ts   fitqual'
-            candidate=True
-            beta = model[2]
-            try:
-                beta_unc = np.sqrt(model.get_cov_matrix()[2,2])
-            except:
-                beta_unc=0
-            ts = roi.TS(which)
-            fit_qual = roi.get_sed(source.name, tol=poisson_tolerance).delta_ts.sum()
-            sbeta = ' '*13
-            if beta_unc>0:
-                sbeta = '%5.3f+/-%5.3f' % (beta, beta_unc) 
-            elif beta>0:
-                sbeta ='%5.3f        '%beta
-            print '%-20s %s %8.0f %8.0f ' %(which, sbeta, ts, fit_qual),
-            # beta is free: is it a good fit? check value, error if any
-            if model.free[2] or beta>0.001:
-                # free: is the fit ok?
-                if beta>0.001 and beta_unc>0.001 and beta > 2*beta_unc:
-                    print 'ok'
-                    if not model.free[2]:
-                        source.thaw('beta') # make sure free, since was once.
-                        refit=True
-                    continue
-                else:
-                    print '<--- reseting to PowerLaw' 
-                    source.freeze('beta')
-                    # this should be done by the freeze? dangerous direct access, oh well.
-                    model.internal_cov_matrix[2,:]=0
-                    model.internal_cov_matrix[:,2]=0
-                    model[2]=0.
-                    models_to_fit.append(model)
-                    refit=True
-                    continue
-            if beta>0 and beta<=0.001:
-                print '<--- freezing at zero'
-                model[2]=0
-                model.internal_cov_matrix[2,:]=0
-                model.internal_cov_matrix[:,2]=0
+        for source in self.free_sources:
+            print '----------------- %s (%.1f)-------------' % (source.name, source.ts)
+            t=source.ts_beta = self.ts_beta(source.name, ignore_exception=ignore_exception)
+            if t is None: continue
+            print 'ts_beta ', t,
+            if ts_beta_zero is None: 
+                print ' -- not checking'
                 continue
+            changed=True
+            powerlaw = not source.model.free[2]
+            if t<ts_beta_zero and not powerlaw:
+                self.freeze('beta', source.name, 0.)
+                print '--> PowerLaw'
+            elif t>ts_beta_zero and powerlaw:
+                self.thaw('beta', source.name)
+                print '--> LogParabola'
+            else:
+                print ': OK'
+                changed=False
+            if changed:
+                self.fit(source.name)
+        self.fit(ignore_exception=ignore_exception) # seems necessary
+        return False # nofollowup
 
-            if beta>=3.0: print 'beta>3 too large'; continue
-            #if beta==0: print 'frozen previously'; continue
-            if ts< ts_min: print 'ts< %.1f'%ts_min; continue # not significant
-            if fit_qual < qual_min and beta<=0.01:
-                print 'qual<%.1f' %qual_min; 
-                continue # already a good fit
-            print '<-- select to free beta' # ok, modify
-            source.thaw('beta')
-            models_to_fit.append(model) # save for later check
-            refit = True
-        if refit:    
-            print 'start refit with beta(s) freed or refixed...'
-            roi.sources.initialize()
-            roi.fit()
-            roi.print_summary(title='after freeing one or more beta parameters')
-            # now check for overflow
-            refit = False
-            for model in models_to_fit:
-                beta = model[2]
-                if beta < 3.0: continue
-                print 'reseting model: beta =%.1f too large' % model[2]
-                model.freeze('beta')
-                model[0:3]=(1e-15, 2.0, 3.0) #reset everything
-                model.cov_matrix[:]=0 
-                refit=True
-            if refit:
-                print 'need to re-refit: beta too large'
-                roi.fit()
-                roi.print_summary(title='re-refit after freeing/fixing one or more beta parameters')
-        else:
-            print 'none found'
-        return refit    
-
+        
     def residuals(self, tol=0.3):
         print 'Creating tables of residuals'
         if not os.path.exists('residuals'):
@@ -326,23 +289,11 @@ class Process(main.MultiROI):
             pickle.dump(resids, out)
             print 'wrote file %s' %filename
             
-    def tables(self, special=False):
-        """ create a set of tables """
-        if not special:
-            rt = maps.ROItables(self.outdir, nside=self.tables_nside,
-               skyfuns= ( 
-                (maps.ResidualTS, 'ts', dict(photon_index=2.2),) , 
-                (maps.KdeMap,     'kde', dict()),
-              ),
-            )
-        else:
-            self.selected = [b for b in self if b.band.energy>10000]
-            rt = maps.ROItables(self.outdir, nside=self.tables_nside,
-               skyfuns= ( 
-                (maps.ResidualTS, 'ts10', dict(photon_index=2.3),) , 
-                ),
-            )
-        
+    def tables(self, special=False, mapkeys=['ts', 'kde']):
+        """create a set of tables"""
+        tinfo = [maps.table_info[key] for key in mapkeys]
+        skyfuns = [(entry[0], key, entry[1]) for key,entry in zip(mapkeys, tinfo)]  
+        rt = maps.ROItables(self.outdir, nside=self.tables_nside, skyfuns=skyfuns )
         rt(self)
         
     def seeds(self,seedfile='seeds.txt', model='PowerLaw(1e-14, 2.2)', 
@@ -379,18 +330,28 @@ class Process(main.MultiROI):
         seednorms = np.arange(len(parnames))[np.array([s.startswith(prefix) and s.endswith('_Norm') for s in parnames])]
         assert len(seednorms)>0, 'Did not find any seeds.'
         try:
-            self.fit(seednorms)
+            self.fit(seednorms, tolerance=0.2, ignore_exception=True)
         except Exception, msg:
             print 'Failed to fit seed norms %s' %msg
             return
-            
+        # now fit all parameter for each one 
+        for s in srclist:
+            self.fit(s.name, tolerance=0, ignore_exception=True)
+            s.ts = self.TS()
+            print '  TS = %.1f' % s.ts
+            if s.ts<10:
+                print ' TS<10, removing from ROI'
+                self.del_source(s.name)
+            else:
+                # one iteration of pivot change
+                self.repivot([s])
+                
         # now localize each, moving to new position
         localization.localize_all(self, prefix=prefix, tsmap_dir=tsmap_dir, associator=associator, update=True, tsmin=10)
         # fit full ROI 
-        self.fit()
+        self.fit(ignore_exception=True, tolerance=0.2)
         # save pickled source object for each seed
         for s in srclist:
-            s.ts = ts = self.TS(s.name)
             sfile = os.path.join(seedcheck_dir, s.name+'.pickle')
             pickle.dump(s, open(sfile, 'w'))
             print 'wrote file %s' % sfile
@@ -411,14 +372,20 @@ class Process(main.MultiROI):
             print 'No sources in ROI %04d' % myindex
             return 
         for name, s in good_seeds[inside].iterrows():
-            e0 = s['e0']
+            e0 = s.get('e0', 1000)
             try: #in case already exists (debugging perhaps)
                 self.del_source(name)
                 print 'replacing source %s' % name 
             except: pass
             source=self.add_source(name=name, skydir=SkyDir(s['ra'],s['dec']), 
-                        model=sources.LogParabola(s['eflux']/e0**2/1e6, s['pindex'], s['par2'], e0, 
+                        model=sources.LogParabola(s['eflux']/e0**2/1e6, s['pindex'], s.get('par2',0), e0, 
                                                   free=[True,True,False,False]))
+        # perform a preliminary fit including the new sources
+        self.fit(ignore_exception=True, tolerance=0.2)
+        # make sure they have SED and localization info
+        for name in good_seeds[inside].index:
+            self.get_sed(name)
+            self.localize(name, update=True)
         return good_seeds[inside]   
 
     def update_positions(self, tsmin=10, qualmax=8):
@@ -451,7 +418,108 @@ class Process(main.MultiROI):
             print ' %s -> %s, moved %.2f' % (source.skydir,newdir, np.degrees(newdir.difference(source.skydir)))
             source.skydir = newdir
 
-    
+    def special(self):
+        nset=0
+        for src in self.free_sources:
+            if not src.name.startswith('P967-'): continue
+            m = src.model
+            print '%s\n%s' % (src.name, m)
+            # Freeze Index at 2.0, thaw E_break, set beta to 1.0 for fit
+            if m.name!='LogParabola': continue
+            if False:
+                if m['beta']<2: continue 
+                print '===converting SED function for source %s, initial beta %.2f'  % (src.name, m['beta'])
+                self.freeze('Index', src.name, 2.0); 
+                self.thaw('E_break', src.name);
+                m['beta']=1.0
+            if True:
+                if m.free[3]:
+                    print '===converting SED function for source %s, initial beta %.2f'  % (src.name, m['beta'])
+                    self.thaw('Index', src.name)
+                    self.freeze('E_break', src.name)
+                    self.fit(src.name)
+                    nset +=1
+                
+            #if src.model.name=='LogParabola': continue
+            #m = src.model
+            #newmodel='LogParabola(1e-12, 2.0, %.2f,  %.2f)' %(m.curvature(), m.e0)
+            #print 'Converting source %s to %s' % (src.name, newmodel)
+            #c = src.model.curvature()
+            #self.set_model(newmodel, src.name)
+        return nset>0
+       
+def seeds(self, seedkey, model='PowerLaw(1e-14, 2.2)', 
+            prefix=None,
+            associator=None, tsmap_dir=None,
+            **kwargs):
+    """ add "seeds" from a text or csv file 
+    """
+    repivot_flag = kwargs.pop('repivot', True)
+    seedcheck_dir = kwargs.get('seedcheck_dir', 'seedcheck')
+    if not os.path.exists(seedcheck_dir): os.mkdir(seedcheck_dir)
+    associator= kwargs.pop('associate', None)
+
+    t = glob.glob('seeds_%s*' % seedkey)
+    assert len(t)==1, 'Seed file search, using %s, failed to find one file' % seedkey
+    seedfile=t[0]
+    csv_format=seedfile.split('.')[-1]=='csv'
+    if csv_format:
+        seeds = pd.read_csv(seedfile)
+    else:
+        seeds = pd.read_table(seedfile)
+    assert len(seeds)>0, 'No seeds found in the file %s' % seedfile
+    seeds['skydir'] = map(SkyDir, seeds.ra, seeds.dec)
+    seeds['hpindex'] = map( Band(12).index, seeds.skydir)
+    inside = seeds.hpindex==Band(12).index(self.roi_dir)
+    seednames= seeds.name[inside]
+    if sum(inside)==0:
+        print 'no seeds in ROI'
+        return
+    if prefix is None:
+        prefix = seeds.name[0][:4]
+    srclist = []
+    for i,s in seeds[inside].iterrows():
+        try:
+            srclist.append(self.add_source(sources.PointSource(name=s['name'], skydir=s['skydir'], model=model)))
+            print 'added %s at %s' % (s['name'], s['skydir'])
+        except roimodel.ROImodelException:
+            srclist.append(self.get_source(s['name']))
+            print 'updating existing %s at %s ' %(s['name'], s['skydir'])
+    # Fit only fluxes for each seed first
+    parnames = self.sources.parameter_names
+    seednorms = np.arange(len(parnames))[np.array([s.startswith(prefix) and s.endswith('_Norm') for s in parnames])]
+    assert len(seednorms)>0, 'Did not find any seeds.'
+    try:
+        self.fit(seednorms, tolerance=0.2, ignore_exception=True)
+    except Exception, msg:
+        print 'Failed to fit seed norms %s' %msg
+        return
+    # now fit all parameter for each one 
+    deleted = []
+    for s in srclist:
+        self.fit(s.name, tolerance=0, ignore_exception=True)
+        s.ts = self.TS()
+        print '  TS = %.1f' % s.ts
+        if s.ts<5:
+            print ' TS<5, removing from ROI'
+            self.del_source(s.name)
+            deleted.append(s.name)
+        else:
+            # one iteration of pivot change
+            self.repivot([s])
+            
+    # now localize each, moving to new position
+    localization.localize_all(self, prefix=prefix, tsmap_dir=tsmap_dir, associator=associator, update=True, tsmin=10)
+    # fit full ROI 
+    self.fit(ignore_exception=True, tolerance=0.2)
+    # save pickled source object for each seed
+    for s in srclist:
+        if s.name in deleted: continue
+        sfile = os.path.join(seedcheck_dir, s.name+'.pickle')
+        pickle.dump(s, open(sfile, 'w'))
+        print 'wrote file %s' % sfile
+            
+
 
 class BatchJob(Process):
     """special interface to be called from uwpipeline

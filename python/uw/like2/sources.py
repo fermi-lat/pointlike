@@ -1,6 +1,6 @@
 """
 Source classes
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.46 2014/03/12 15:52:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.47 2014/04/17 15:31:22 burnett Exp $
 
 """
 import os, copy
@@ -10,7 +10,10 @@ from uw.like import  Models
 from . import response
 
 # convenience adapters 
-def LogParabola(*pars, **kw):return Models.LogParabola(p=pars, **kw)
+def LogParabola(*pars, **kw):
+    m= Models.LogParabola(p=pars, **kw)
+    m.free[3]=False
+    return m
 def PowerLaw(*pars, **kw):   return Models.PowerLaw(p=pars, **kw)
 def ExpCutoff(*pars, **kw):  return Models.ExpCutoff(p=pars, **kw)
 def PLSuperExpCutoff(*pars, **kw): return Models.PLSuperExpCutoff(p=pars, **kw)
@@ -110,11 +113,18 @@ class Source(object):
                 raise
             self.model.free[2:]=False
         elif self.model.name=='LogParabola':
-            if hasattr(self, 'free') and len(self.free)>3: self.free[3]=False
-            self.model.free[-1]=False # make sure Ebreak is always frozen (bug in handling extended sources?)
+            #what was this for?
+            #if hasattr(self, 'free') and len(self.free)>3: self.free[3]=False
+            if sum(self.model.free)==4:
+                # do not allow all parameters to be free: freeze E_break if so
+                self.model.free[-1]=False
+            elif sum(self.model.free)==2 and not self.model.free[1]:
+                # undo freezing
+                print'Unfreezing E_break for source %s' % self.name
+                self.model.free[-1]=True
         if self.model.name not in ['LogParabola','PLSuperExpCutoff','ExpCutoff', 'Constant']:
             raise Exception('model %s not supported' % self.model.name)
-        self.free = self.model.free.copy()
+        #self.free = self.model.free.copy()
 
         if not hasattr(self.model, 'npar'):
             raise Exception('model %s for source %s was not converted to new format'\

@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.23 2014/09/07 08:48:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.24 2015/02/09 13:35:41 burnett Exp $
 
 """
 
@@ -62,7 +62,7 @@ def html_table( df, columns={}, name='temp', heading='', href=True,
     for hcol in href_cols:
         t=repit( df[hcol].values, t)
         
-    if len(df)<maxlines:
+    if len(df)<maxlines or name=='temp':
         return t
     # long table: make document and return link to it
     tt = _html.menu_header % dict(name=name)

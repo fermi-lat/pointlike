@@ -1,6 +1,6 @@
 """
 Export processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/export.py,v 1.12 2013/09/13 08:22:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/export.py,v 1.13 2015/02/09 13:35:41 burnett Exp $
 
 """
 import os, glob
@@ -38,7 +38,7 @@ class Export(sourceinfo.SourceInfo):
         self.plotfolder = 'export'
         self.sourcecsv = sorted(glob.glob('source*.csv'))[-1]
         self.sourcelist=pd.read_csv(self.sourcecsv, index_col=0)
-        self.error_box_factor = 1.05
+        self.error_box_factor = 1.08
         self.error_box_add = 5e-3
         self.error_box_cut = 0.25
         self.cuts = '(sources.ts>10) & (sources.a<%.2f) | pd.isnull(sources.locqual)' %self.error_box_cut
@@ -82,7 +82,8 @@ class Export(sourceinfo.SourceInfo):
         summary = html_table(df.describe().T, float_format=FloatFormat(3),
                 heading='', href=False, maxlines=50)
         self.fits_summary_table = summary.replace('%', '%%')
-        print 'Check: %s' % df
+        # creates error??
+        #print 'Check: %s' % df
         
     def all_plots(self):
         self.runfigures([self.analysis,self.fits_summary, self.files,])

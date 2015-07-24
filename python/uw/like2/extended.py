@@ -1,7 +1,7 @@
 """
 Extended source code
 Much of this adapts and utilizes 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.10 2014/02/21 17:32:18 cohen Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.11 2014/02/24 20:00:26 burnett Exp $
 
 """
 import os, copy, glob
@@ -216,7 +216,8 @@ class ExtendedCatalog( ExtendedSourceCatalog):
             model = model, 
             dmodel= source.spatial_model
             )
-        if extsource.model.name=='LogParabola': extsource.free[-1]=False # E_break not free
+        if extsource.model.name=='LogParabola': 
+            assert sum( extsource.model.free)<4, 'E_break is free?'
         return extsource  
     def __getitem__(self, name): return self.lookup(name)
 
