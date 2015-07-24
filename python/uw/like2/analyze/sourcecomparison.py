@@ -1,7 +1,7 @@
 """
 Comparison with the 3FGL catalog
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourcecomparison.py,v 1.5 2015/02/09 13:35:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourcecomparison.py,v 1.6 2015/04/29 18:07:09 burnett Exp $
 
 """
 
@@ -17,11 +17,13 @@ class SourceComparison(sourceinfo.SourceInfo):
     """Comparison with a FITS catalog, 2FGL or beyond
     """
 
-    def setup(self, cat='gll_psc4yearsource_v9_assoc_v6r3p0.fit', #gll_psc_v06.fit', 
+    def setup(self, cat='3FGL-v13r3_v6r9p1_3lacv12p1_v7.fits', #'gll_psc4yearsource_v9_assoc_v6r3p0.fit', #gll_psc_v06.fit', 
             catname='3FGL', **kw):
         super(SourceComparison, self).setup(**kw)
         self.catname=catname
         self.plotfolder='comparison_%s' % catname
+        if not os.path.exists('plots/'+self.plotfolder):
+            os.mkdir('plots/'+self.plotfolder)
         if cat[0]!='/':
             cat = os.path.expandvars('$FERMI/catalog/'+cat)
         assert os.path.exists(cat), 'Did not find file %s' %cat
@@ -30,8 +32,9 @@ class SourceComparison(sourceinfo.SourceInfo):
         print 'loaded FITS catalog file %s with %d entries' % (cat, len(ft))
         id_prob = [np.nan]*len(ft)
         try:
-            id_prob = ft.ID_Probability[:,0]
-        except: pass 
+            id_prob = ft.ID_Probability_v6r9p1[:,0] ## should find that suffix
+        except: 
+            print 'warning: id_prob not set' 
         cat_skydirs = map (lambda x,y: SkyDir(float(x),float(y)), ft.RAJ2000, ft.DEJ2000)
         
         glat = [s.b() for s in cat_skydirs]
@@ -46,11 +49,12 @@ class SourceComparison(sourceinfo.SourceInfo):
                 skydir=cat_skydirs,
                 glat=glat, glon=glon, 
                 #pivot=ft.Pivot_Energy, flux=ft.Flux_Density, 
-                #modelname=ft.SpectrumType, id_prob=id_prob,
+                #modelname=ft.SpectrumType, 
+                id_prob=id_prob,
                 a95=ft.Conf_95_SemiMajor, b95=ft.Conf_95_SemiMinor, ang95=ft.Conf_95_PosAng,
-                flags=ft.Flags_3FGL,
+                flags=np.asarray(ft.Flags_3FGL, int),
                 ), 
-            columns = 'name3 nickname ra dec glat glon skydir ts a95 b95 ang95 flags'.split(), # this to order them
+            columns = 'name3 nickname ra dec glat glon skydir ts a95 b95 ang95 id_prob flags'.split(), # this to order them
             index=index, )
         self.cat.index.name='name'
         self.cat['pt_flags'] = self.df.flags
@@ -96,8 +100,8 @@ class SourceComparison(sourceinfo.SourceInfo):
         return fig
     
     def lost_plots(self, close_cut=0.25, minassocprob=0.8, maxts=250):
-        """2FGL sources not present in new list
-        Histogram of the 2FGL catalog TS and Galactic latitude for those sources more than %(close_cut).2f deg from a skymodel source. 
+        """3FGL sources not present in new list
+        Histogram of the 3FGL catalog TS and Galactic latitude for those sources more than %(close_cut).2f deg from a skymodel source. 
         The subset of sources with associations (prob>%(minassocprob)s) is shown. <br>
         Left: Distribution vs. TS.<br>
         Right: Distribution vs sine of Galactic latitude.
@@ -107,14 +111,14 @@ class SourceComparison(sourceinfo.SourceInfo):
         fig,axx = plt.subplots(1,2, figsize=(8,4))
         self.lost = self.cat.closest>close_cut
         print '%d sources from %s further than %.2f deg: consider lost' % (sum(self.lost) , self.catname, close_cut )
-        self.cat.ix[self.lost].to_csv(os.path.join(self.plotfolder,'2fgl_lost.csv'))
-        print '\twrite to file "%s"' % os.path.join(self.plotfolder,'2fgl_lost.csv')
-        lost_assoc = self.lost * self.cat.id_prob>0.8
+        self.cat.ix[self.lost].to_csv(os.path.join(self.plotfolder,'3fgl_lost.csv'))
+        print '\twrite to file "%s"' % os.path.join(self.plotfolder,'3fgl_lost.csv')
+        lost_assoc = self.lost & (self.cat.id_prob>0.8)
 
         def left(ax):
             space = np.linspace(0,maxts,21)
             ax.hist(self.cat.ts[self.lost].clip(0,maxts), space, label='all (%d)'%sum(self.lost))
-            ax.hist(self.cat.ts[lost_assoc].clip(0,maxts), space, label='associated(%d)' %sum(lost_assoc) )
+            ax.hist(self.cat.ts[lost_assoc].clip(0,maxts), space, color='orange', label='associated(%d)' %sum(lost_assoc) )
             ax.legend(prop=dict(size=10))
             ax.grid()
             plt.setp(ax, xlabel='TS of %s source' %self.catname)
@@ -123,8 +127,8 @@ class SourceComparison(sourceinfo.SourceInfo):
             space = np.linspace(-1,1,51)
             singlat = np.sin(np.radians(self.cat.glat))
             ax.hist(singlat[self.lost], space, label='all (%d)'%sum(self.lost))
-            lost_assoc = self.lost * self.cat.id_prob>0.8
-            ax.hist(singlat[lost_assoc], space, label='associated(%d)' %sum(lost_assoc) )
+            #lost_assoc = self.lost & (self.cat.id_prob>0.8)
+            ax.hist(singlat[lost_assoc], space, color='orange', label='associated(%d)' %sum(lost_assoc) )
             ax.legend(prop=dict(size=10))
             ax.grid()
             plt.setp(ax, xlabel='sin(glat) of %s source' %self.catname, xlim=(-1,1))
@@ -137,6 +141,18 @@ class SourceComparison(sourceinfo.SourceInfo):
         pass
     
     def all_plots(self):
-        """Results of comparison with 2FGL catalog
+        """Results of comparison with 3FGL catalog
         """
         self.runfigures([ self.distance_to_cat, self.lost_plots])
+        
+    def lookup_3fgl(self, name3):
+        if name3[-1]!=' ' and name3[-1]!='c': name3=name3+' '
+        fglnames = list(self.cat.name3)
+        try:
+            i = fglnames.index(name3)
+            nick = self.cat.ix[i].name
+            j=  list(self.df.close_name).index(nick)
+            return self.df.ix[j]
+        except Exception, msg:
+            print 'Source %s not found (%s)' % (name3, msg)
+            return None

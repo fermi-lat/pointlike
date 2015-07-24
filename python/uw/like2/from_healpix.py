@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_healpix.py,v 1.8 2015/02/09 13:35:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_healpix.py,v 1.9 2015/04/29 18:06:40 burnett Exp $
 """
 import os, pickle, zipfile
 import numpy as np
@@ -92,12 +92,13 @@ class ROImodelFromHealpix(roimodel.ROImodel):
                     src.__dict__[attr] = t
                 map(tuple_check, ('ts', 'band_ts', 'sedrec', 'pivot_energy'))
                 
-            if neighbors: src.free[:]=False # not sure this is necessary
+            #if neighbors: src.free[:]=False # not sure this is necessary
+            if neighbors: src.model.free[:]=False
             src.index = index
-            src.model.free[:len(src.free)] = src.free # Don't think I still need this second copy of free
-            if src.model.name=='LogParabola':
-                src.model.free[-1] = False
-                src.free[-1] = False    
+            #src.model.free[:len(src.free)] = src.free # Don't think I still need this second copy of free
+            #if src.model.name=='LogParabola':
+            #    src.model.free[-1] = False
+            #    src.free[-1] = False    
 
             return src
         

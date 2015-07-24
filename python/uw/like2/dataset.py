@@ -1,11 +1,11 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.31 2014/02/24 20:01:36 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.32 2015/02/09 13:35:28 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.31 $'.split()[1]
+version='$Revision: 1.32 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np
@@ -38,8 +38,18 @@ class DataSpecification(object):
                 #assert os.path.exists(data[key]), 'DataSpec: file %s not found' % data[key]
         interval = data.get('interval', None)
         if interval is not None:
-            for name in ('binfile', 'ltcube'):
-                data[name]=data[name].replace('.fit', '_%s.fit'%interval)
+            if not interval.startswith('month_'):
+                for name in ('binfile', 'ltcube'):
+                    data[name]=data[name].replace('.fit', '_%s.fit'%interval)
+            else:
+                # using 'month_xx' where xx is 01,02,...
+                if interval[-1]=='*':
+                    interval = os.path.split(os.getcwd())[-1]
+                    if not interval.startswith('month'):
+                        raise DataSetError('Specified * for month, but path does not end with monthxx: found %s' % interval)
+                for name in ('binfile', 'ltcube'):
+                    data[name]=data[name].replace('*', interval[-2:])
+            
         self.__dict__.update(data)
         if not quiet: print 'data spec:\n', str(self.__dict__)
 
@@ -165,7 +175,8 @@ class DataSet(dataman.DataSpec):
                 ldict = eval(open(dict_file).read())
             except Exception, msg:
                 raise DataSetError( 'Data dictionary file %s not valid: %s' % (dict_file, msg))
-            if interval is not None:
+            if interval is not None and not interval.startswith('month_'):
+                # note that the underscore is to specify the designated months, with their own files
                 try:
                     pyfile = os.path.join(folder, 'intervals.py')
                     idict = eval(open(pyfile).read()) if os.path.exists(pyfile) else Interval()

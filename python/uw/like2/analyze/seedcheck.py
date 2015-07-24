@@ -1,7 +1,7 @@
 """
 Analyze seeds
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/seedcheck.py,v 1.10 2014/05/07 20:46:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/seedcheck.py,v 1.11 2014/09/12 09:41:31 burnett Exp $
 
 """
 import os
@@ -81,52 +81,74 @@ class SeedCheck(sourceinfo.SourceInfo):
                 adict = source.adict if has_adict else None,
                 )
         self.df = pd.DataFrame(pd.DataFrame(sdict).transpose(), 
-            columns='ra dec glat glon ts ellipse delta_ts eflux eflux_unc pindex pindex_unc par2 par2_unc e0 r95 locqual aprob index'.split() 
+            columns="""ra dec glat glon ts ellipse delta_ts eflux eflux_unc 
+                    pindex pindex_unc par2 par2_unc e0 r95 locqual aprob index""".split() 
             )
         self.df.index.name='name'
-        self.assoc = pd.DataFrame(assoc).transpose()
-        self.assoc.index.name = 'name'
         
         # analyze associations, make summary
+        self.assoc = pd.DataFrame(assoc).transpose()
+        self.assoc.index.name = 'name'
         if all(self.assoc.aprob==0):
             print "No associations found: running the standard logic"
-            self.association()
+            try:
+                self.make_associations()
+            except Exception, msg:
+                print 'Association attempt failed: %s' % msg
+                raise
         else:
             print "Using associations from uwpipeline run"
-            
-        acat=list(self.assoc.ix[self.assoc.aprob>0.8]['acat'].values)
+        
+        # define good subset
+        self.good = (self.df.ts>6)&(self.df.r95<0.6)&(self.df.locqual<8)
+        self.df_good= self.df[self.good]
+        
+#        self.test = self.df_good.ix[self.df_good.aprob>0.8]
+        
+        acat=list(self.df_good.ix[self.df_good.aprob>0.8]['acat'].values)
         sa = list(set(acat))
         t = np.zeros(len(sa),int)
         for x in acat:
             t[sa.index(x)]+=1
         self.assoc_sum = zip(sa, t)
-        self.good = (self.df.ts>6)&(self.df.r95<0.6)&(self.df.locqual<8)
-        self.df_good= self.df[self.good]
-        self.cut_summary= '<p>Read in %d sources from file %s: <br>selection cut: (self.df.ts>6)*(self.df.r95<0.6)*(self.df.locqual<8) : %d remain'\
+        self.cut_summary= """<p>Read in %d sources from file %s: <br>selection cut:
+                    (self.df.ts>6)*(self.df.r95<0.6)*(self.df.locqual<8) : %d remain"""\
             % (len(sources), self.require, sum(self.good))
         print self.cut_summary
     
-    def association(self):
+    def make_associations(self):
         """ run the standard association logic 
+            Only apply to "good" sources
         """
         srcid = associate.SrcId()
         assoc={}
-
+        print 'Note: making bzcat first if second'
         for name, s in self.df.iterrows():
             has_ellipse=  not np.isnan(s['r95'])
             if has_ellipse: 
-                adict = srcid(name, skymaps.SkyDir(s['ra'],s['dec']), s['r95']/2.6)
+                try:
+                    adict = srcid(name, skymaps.SkyDir(s['ra'],s['dec']), s['r95']/2.6)
+                except Exception, msg:
+                    print 'Failed association for source %s: %s' % (name, msg)
+                    adict=None
                 has_ellipse = adict is not None
-            assoc[name] = dict(
-                    acat =  adict['cat'][0] if has_ellipse else None,
-                    aname=  adict['name'][0] if has_ellipse else None,
-                    adelta_ts = adict['deltats'][0] if has_ellipse else None,
-                    aprob = adict['prob'][0] if has_ellipse else 0.,
+                if has_ellipse:
+                    cats = adict['cat']; probs = adict['prob']
+                    i=1 if len(cats)>1 and \
+                        cats[1]=='bzcat' and probs[1]>0.8\
+                        or cats[0]=='cgrabs' else 0
+            assoc[name] = ad = dict(
+                    acat =  adict['cat'][i] if has_ellipse else None,
+                    aname=  adict['name'][i] if has_ellipse else None,
+                    adelta_ts = adict['deltats'][i] if has_ellipse else None,
+                    aprob = adict['prob'][i] if has_ellipse else 0.,
                     adict = adict if has_ellipse else None,
                     )
         
         self.assoc = pd.DataFrame(assoc).transpose()
         self.assoc.index.name = 'name'
+        for col in 'acat aname adelta_ts aprob adict'.split():
+            self.df[col] = self.assoc[col]
     
     def seed_cumulative_ts(self, cut=None, label='all seeds'):
         """ Cumulative TS distribution for seeds 
@@ -223,7 +245,9 @@ class SeedCheck(sourceinfo.SourceInfo):
         %(info)s
         <p>A <a href="../../%(csv_file)s?download=true">csv file</a> is also available.
         """
-        t = self.df_good
+        cols="""ra	dec	glon glat		ts		eflux	pindex r95	
+            delta_ts locqual aprob acat aname index""".split()
+        t = self.df_good[cols].sort_index(by='index')
         good_seeds = 'good_seeds.csv'
         self.csv_file = os.path.join(self.plotfolder,good_seeds)
         t.to_csv(self.csv_file)
@@ -234,12 +258,26 @@ class SeedCheck(sourceinfo.SourceInfo):
         open(html_file,'w').write('<head>\n'+ _html.style + '</head>\n<body>'+ htmldoc+'\n</body>')
 
         self.info = self.df_good['ts eflux pindex r95 locqual aprob'.split()].describe().to_html(float_format=FloatFormat(2)).replace('%', '%%')
-        self.info += '<br><a href="%s?skipDecoration">Table of %d seeds</a>: '% (filename, len(t))
-        self.info += '<p>Association summary:' #\n<pre>%s\n</pre>' %self.assoc_sum
-        self.info += '<table border="1"><thead><tr><th>Catalog</th><th>Sources</th></tr></thead>\n<tbody>'
-        for (c,n) in  self.assoc_sum:
-            self.info += '<tr><td class="index">%s</td><td>%5d</td></tr>' % (c,n)
-        self.info += '</tbody></table>\n'
+        self.info += '<p><a href="%s?skipDecoration">Table of %d seeds</a> '% (filename, len(t))
+        if len(self.assoc_sum)>0:
+            self.info += '<p>Association summary for good seeds' 
+            t = pd.DataFrame(self.assoc_sum, columns='catalog associations'.split()).sort_index(by='catalog')
+            self.info += t.to_html(index=False)
+            # Make a summary of the AGN types 
+            ta=self.assoc[self.assoc.aprob>0.8]
+            bznames = np.array(ta.aname[ta.acat=='bzcat'])
+            if len(bznames!=0):
+                self.info+='<p>BZCAT AGN type summary'
+                bztypes = set([name[3] for name in bznames])
+                td = dict()       
+                for t in bztypes:
+                    td[t]= 0
+                for n in bznames:
+                    t = n[3]
+                    td[t] +=1
+                self.info += pd.DataFrame(td.items(), columns='type count'.split()).to_html(index=False)
+        else:
+            self.info += '<p>No associations found'
 
     def all_plots(self):
         self.runfigures([self.seed_list, self.seed_cumulative_ts, self.locations, self.spectral_parameters, self.localization,])

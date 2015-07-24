@@ -1,12 +1,12 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.51 2014/07/03 16:15:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.52 2015/04/29 18:07:39 burnett Exp $
 """
 import os, argparse,  datetime
 import numpy as np
 from uw.like2 import (process, tools, )
-from uw.like2.pipeline import (check_data, pipeline_job, check_converge, stream)
+from uw.like2.pipeline import (check_data, pipeline_job, stagedict, check_converge, stream)
 from uw.like2.analyze import app
 
 
@@ -16,25 +16,25 @@ class StartStream(object):
     """ setup, start a stream """
     def main(self, args):
         ps  = stream.PipelineStream()
-        for stage in args.stage:
+        for the_stage in args.stage:
             # note set job_list to the name of a local file in the pointlike folder -- needs better encapsulation
             job_list = args.job_list
             if job_list is None or job_list=='None':
-                job_list = stagenames[stage]['job_list']
-            ps(stage, job_list, test=args.test)
+                job_list = stagedict.stagenames[the_stage]['job_list']
+            ps(the_stage, job_list, test=args.test)
             
 class Summary(object):
     """ runs a sumamry job, via uw.like2.analyze.app"""
     def get_stage(self, args):
-        stagelist = args.stage[0] 
-        t = stagelist.split(':',1)
+        thedict = args.stage[0] 
+        t = thedict.split(':',1)
         if len(t)==2:
             stage, nextstage = t 
         else: stage,nextstage = t[0], None
         return stage
     def main(self, args):
         stage = self.get_stage(args)
-        kw = stagenames[stage].get('sum', None)
+        kw = stagedict.stagenames[stage].get('sum', None)
         if kw is not None:
             app.main(kw.split())
             
@@ -42,7 +42,7 @@ class JobProc(Summary):
     """ process args for running pipeline jobs"""
     def main(self, args):
         stage = self.get_stage(args)
-        proc, jobargs = stagenames[stage].setup()
+        proc, jobargs = stagedict.stagenames[stage].setup()
         if args.rois!='':
             print '-->passing roi list:', args.rois
             jobargs['roi_list']=args.rois
@@ -89,67 +89,11 @@ procnames = dict(
 proc_help = '\nproc names\n\t' \
     +'\n\t'.join(['%-15s: %s' % (key, procnames[key]['help'])  for key in sorted(procnames.keys())])
     
-class Stage(dict):
-    def __init__(self, proc, pars={}, job_list='$POINTLIKE_DIR/infrastructure/joblist.txt', help='', **kwargs):
-        super(Stage,self).__init__(proc=proc, pars=pars, help=help, **kwargs)
-        self['help']=help
-        self['job_list']=job_list
-    def setup(self):
-        return self['proc'], self['pars']
 
-class StageBatchJob(Stage):
-    """Stage a batch job
-    Note that job_list default is '$POINTLIKE_DIR/joblist.txt', but can be overridden 
-    """
-    def __init__(self, pars={}, job_list='$POINTLIKE_DIR/infrastructure/joblist.txt', help='', **kwargs):
-        super(StageBatchJob,self).__init__(process.BatchJob, pars, job_list, help, **kwargs)
-        
-stagenames = dict(
-    # List of possible stages, with proc to run, parameters for it,  summary string
-    # list is partly recognized by check_converge.py, TODO to incoprorate it here, especially the part that may start a new stream
-    create      =  StageBatchJob( dict(update_positions_flag=True),     sum='environment menu counts',  help='Create a new skymodel, follow with update_full',),
-    update_full =  StageBatchJob( dict(),     sum='config counts',            help='refit, full update' ),
-    update      =  StageBatchJob( dict( dampen=0.5,), sum='config counts',    help='refit, half update' ),
-    update_beta =  StageBatchJob( dict( betafix_flag=True),  sum='sourceinfo',help='check beta', ),
-    update_pivot=  StageBatchJob( dict( repivot_flag=True),  sum='sourceinfo',help='update pivot', ), 
-    update_only =  StageBatchJob( dict(),                   sum='config counts sourceinfo', help='update, no additional stage', ), 
-    update_positions
-                =  StageBatchJob( dict(update_positions_flag=True, dampen=1.0), sum='sourceinfo', help='update positions and refit', ),
-    finish      =  StageBatchJob( dict(finish=True),     sum='sourceinfo localization associations', help='localize, associations, sedfigs', ),
-    residuals   =  StageBatchJob( dict(residual_flag=True), sum='residuals',  help='generate residual tables for all sources', ),
-    counts      =  StageBatchJob( dict(counts_dir='counts_dir', dampen=0, outdir='.'), sum='counts',  help='generate counts info, plots', ), 
-    tables      =  StageBatchJob( dict(tables_flag=True, dampen=0), sum='hptables', job_list='$POINTLIKE_DIR/infrastructure/joblist8.txt', help='Create tsmap and kde maps'),
-    xtables     =  StageBatchJob( dict(xtables_flag=True, dampen=0), job_list='$POINTLIKE_DIR/infrastructure/joblist8.txt', help='Create special tsmap'),
-    seedcheck   =  StageBatchJob( dict(seed_flag=True, dampen=0), sum='seedcheck', help='Check seeds'),
-    )
-disabled="""
-    sedinfo     =  Stage(pipe.Update, dict( processor='processor.full_sed_processor',sedfig_dir='"sedfig"',), sum='frontback',
-                            help='process SED information' ),
-    galspectra  =  Stage(pipe.Update, dict( processor='processor.roi_refit_processor'), sum='galacticspectra', help='Refit the galactic component' ),
-    isospectra  =  Stage(pipe.Update, dict( processor='processor.iso_refit_processor'), sum='isotropicspectra', help='Refit the isotropic component'),
-    limb        =  Stage(pipe.Update, dict( processor='processor.limb_processor'),     sum='limbrefit', help='Refit the limb component, usually fixed' ),
-    sunmoon     =  Stage(pipe.Update, dict( processor='processor.sunmoon_processor'), sum='sunmoonrefit', help='Refit the SunMoon component, usually fixed' ),
-    fluxcorr    =  Stage(pipe.Update, dict( processor='processor.flux_correlations'), sum='fluxcorr', ),
-    fluxcorrgal =  Stage(pipe.Update, dict( processor='processor.flux_correlations'), sum='flxcorriso', ),
-    fluxcorriso =  Stage(pipe.Update, dict( processor='processor.flux_correlations(diffuse="iso*", fluxcorr="fluxcorriso")'), ),
-    pulsar_table=  Stage(pipe.PulsarLimitTables,),
-    localize    =  Stage(pipe.Update, dict( processor='processor.localize(emin=1000.)'), help='localize with energy cut' ),
-    seedcheck   =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="SEED")',auxcat="seeds.txt"), sum='seedcheck',
-                                                                       help='Evaluate a set of seeds: fit, localize with position update, fit again'),
-    seedcheck_MRF =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="MRF")', auxcat="4years_SeedSources-MRF.txt"), help='refit MRF seeds'),
-    seedcheck_PGW =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="PGW")', auxcat="4years_SeedSources-PGW.txt"), help='refit PGW seeds'),
-    pseedcheck  =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="PSEED")',auxcat="pseeds.txt"), help='refit pulsar seeds'),
-    fglcheck    =  Stage(pipe.Finish, dict( processor='processor.check_seeds(prefix="2FGL")',auxcat="2fgl_lost.csv"), help='check 2FGL'),
-    pulsar_detection=Stage(pipe.PulsarDetection, job_list='joblist8.txt', sum='pts', help='Create ts tables for pulsar detection'),
-    gtlike_check=  Stage(pipe.Finish, dict(processor='processor.gtlike_compare()',), sum='gtlikecomparison', help='Compare with gtlike analysis of same sources'),
-    uw_compare =  Stage(pipe.Finish, dict(processor='processor.UW_compare(other="uw26")',), sum='uw_comparison', help='Compare with another UW model'),
-    tsmap_fail =  Stage(pipe.Update, dict(processor='processor.localize()',), sum='localization', help='tsmap_fail'),
-    covariance =  Stage(pipe.Finish, dict(processor='processor.covariance',),  help='covariance matrices'),
-    diffuse_info= Stage(pipe.Update, dict(processor='processor.diffuse_info',), help='extract diffuse information'),
-""" 
-keys = stagenames.keys()
-stage_help = '\nstage name, or sequential stages separated by ":" names are\n\t' \
-    +  '\n\t'.join(['%-15s: %s' % (key,stagenames[key]['help'])  for key in sorted(stagenames.keys())])
+#keys = stagedict.stagenames.keys()
+#stage_help = '\nstage name, or sequential stages separated by "y:" names are\n\t' \
+#    +  '\n\t'.join(['%-15s: %s' % (key,stagedict.stagenames[key]['help']) \
+#        for key in sorted(stagedict.stagenames.keys())])
 
 def find_script_folder(cwd):
     """ look for folder with scripts: expect to be in folder containing skymodels or scripts
@@ -180,7 +124,8 @@ def check_environment(args):
         assert os.path.exists(skymodel), 'Bad path for skymodel folder: %s' %skymodel
         os.chdir(skymodel)
     cwd = os.getcwd()
-    assert os.path.exists('config.txt'), 'expect this folder (%s) to have a file config.txt'%cwd
+    assert os.path.exists('config.txt') or os.path.exists('../config.txt'), \
+        'expect this folder (%s), or its parent, to have a file config.txt'%cwd
     
     if args.scripts is None:
         script_folder = find_script_folder(cwd)
@@ -198,11 +143,12 @@ def check_environment(args):
     args.__dict__.update(skymodel=cwd, pointlike_dir=script_folder, script_folder=script_folder)
 
 def check_names(stage, proc):
+    keys = stagedict.keys
     if len(stage)==0:
         if proc is  None:
             raise Exception('No proc or stage argement specified')
         if proc not in procnames:
-            raise Exception('proc name "%s" not in list %s' % (proc, procnames,keys()))
+            raise Exception('proc name "%s" not in list %s' % (proc, procnames))
         return
     if stage[0] is None: 
         raise Exception('no stage specified')
@@ -231,7 +177,7 @@ def main( args ):
 if __name__=='__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
             description=""" start a UWpipeline stream, or run a UWpipeline proc; \n
-    """+stage_help+proc_help+"""
+    """+stagedict.help+proc_help+"""
     \nExamples: 
         uwpipeline create
         uwpipeline finish -p summary_plots

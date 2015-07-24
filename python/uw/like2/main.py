@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.81 2015/02/09 13:35:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.82 2015/04/29 18:06:40 burnett Exp $
 
 """
 import types, time
@@ -153,7 +153,7 @@ class ROI(views.LikelihoodViews):
                 if set, run the fit in a try block and return None
         update_by : float
             set to zero to not change parameters, or a number between 0 and 1 to make a partial update
-        tolerance : float, default 0.2
+        tolerance : float, default 0.0
             If current fit quality, an estimate of potential improvent of the log likelihood, which is
             based on gradient and hessian is less than this, do not fit
             
@@ -167,7 +167,7 @@ class ROI(views.LikelihoodViews):
             return
         ignore_exception = kwargs.pop('ignore_exception', False)
         update_by = kwargs.pop('update_by', 1.0)
-        tolerance = kwargs.pop('tolerance', 0.2)
+        tolerance = kwargs.pop('tolerance', 0.0)
        
         if setpars is not None: 
             self.sources.parameters.setitems(setpars)
@@ -396,6 +396,37 @@ class ROI(views.LikelihoodViews):
         print 'moved position of source %s from %s to %s, change in TS: %.2f'\
                 % (source.name, old_loc, loc, tsv(loc) )
         tsv.set_dir(loc)
+        
+    def ts_beta(self, source_name=None, ignore_exception=True): 
+        """evaluate ts_beta for a Log Parabola source
+        
+            returns TS(beta_fit)-TS(beta=0), or None if the model is not LogParabola
+        """
+        fit_pars = dict(tolerance=0, ignore_exception=ignore_exception)
+        source = self.sources.find_source(source_name)
+        if source.model.name != 'LogParabola': return None
+        model_copy = source.model.copy()
+        ts_saved=source.ts
+        if source.model.free[2]:
+            self.fit(source.name, **fit_pars)
+            ts2 = self.TS()
+            fit_beta=source.model['beta']
+            self.freeze('beta', source.name, 0)#reeze at zero
+            self.fit(source.name, **fit_pars)
+            ts1=self.TS()
+            self.thaw('beta', source.name)
+            source.model['beta']=fit_beta
+        else: 
+            #frozen, 
+            self.fit(source.name, **fit_pars)
+            ts1=self.TS()
+            self.thaw('beta', source.name)
+            self.fit(source.name, **fit_pars)
+            ts2 = self.TS()
+            self.freeze('beta', source.name, 0)
+        source.model=model_copy #make sure no change
+        source.ts=ts_saved
+        return ts2-ts1
         
 
 class MultiROI(ROI):

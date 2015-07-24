@@ -1,17 +1,20 @@
 """
 Count plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.10 2014/07/16 15:43:26 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.11 2015/02/09 13:35:41 burnett Exp $
 
 """
 
-import pickle
+import os, pickle
 import numpy as np
 import pylab as plt
 import pandas as pd
 
 from . import analysis_base
 from . analysis_base import FloatFormat
+from ..pipeline import stream
+
+from uw.utilities import makepivot
 
 class CountPlots(analysis_base.AnalysisBase): 
     """Count plots
@@ -66,15 +69,25 @@ class CountPlots(analysis_base.AnalysisBase):
         #    print msg
             
         if 'history' in pkls[0].keys():
-            print 'Extracting history info from the ROI analysies'
+            print 'Extracting history info from the ROI analysises'
             itdf = self.history_table()
+            
             n = min(len(itdf),10) # clugy: limit list to last 10
+            model = '/'.join(os.getcwd().split('/')[-2:])
+            
+            #look up info from stream creation
+            t = stream.StreamInfo(model)
+            keep = [i in t.keys() for i in itdf.index]; 
+            kept = itdf[keep]
+            for key in 'date stage'.split():
+                kept[key] = [t[i][key] for i in kept.index]
+
             config = eval(open('config.txt').read()) 
             input_model=config['input_model']['path']
             self.iteration_info = """<p>Input model: <a href="../../%s/plots/index.html?skipDecoration">%s</a>
             <p>Iteration history: log likelihood change for each step: \n%s
             """ % (input_model,input_model, 
-                    itdf[-n:].to_html(float_format=FloatFormat(1)) )
+                    kept.to_html(float_format=FloatFormat(1)) )
 
         else:
             self.iteration_info=''
@@ -95,7 +108,8 @@ class CountPlots(analysis_base.AnalysisBase):
                 hd[stream][i]=dict(logl=h['logl'], dampen=h['dampen'])
                 
         # now add a delta key to streams after the first (zero if previous was not run)
-        for k,stream in enumerate(hd.keys()[1:]):
+        skeys=sorted(hd.keys())
+        for k,stream in enumerate(skeys[1:]):
             prevstr = hd.keys()[k]
             for key,value in hd[stream].items():
                 if key in hd[prevstr].keys():
@@ -113,34 +127,34 @@ class CountPlots(analysis_base.AnalysisBase):
         return itdf.sort_index()
 
 
-    def iteration_info(self):
-        """ make a table summarizing the iterations
-        """
-        diffs =self.rois.diffs
-        n_iter = self.rois.n_iter
-        ll = self.rois.logl_list
-        max_iter = n_iter.max() 
-        def sumx(i):
-            return sum(w[i] if i<len(w)-1 else w[-1] for w in ll)
-        x = np.array(map( sumx, range(max_iter)))
-        ss = x[1:] - x[:-1]
-        itdict = dict()
-        for i in range(max_iter-1):
-            diffx = diffs[n_iter>i+1]
-            t = np.array([d[i] for d in diffx] )
-            itdict[i+1] = dict(nroi=len(diffx),delta_min=min(t), delta_max=max(t), 
-                gt10=sum(np.abs(t)>10), delta_sum=ss[i])
-        itdf =pd.DataFrame(itdict, index='nroi gt10 delta_sum delta_min delta_max'.split()).T
-        itdf.index.name='iteration'
-   
-            
-        config = eval(open('config.txt').read()) 
-        input_model=config['input_model']['path']
-        self.iteration_info = """<p>Input model: <a href="../../%s/plots/index.html?skipDecoration">%s</a>
-        <p>Minimum, maximum numbers of iterations: %d, %d 
-        <p>Iteration history: log likelihood change for each step: \n%s
-        """ % (input_model,input_model, n_iter.min(), n_iter.max(), 
-                itdf.to_html(float_format=FloatFormat(1)) )
+   # def iteration_info(self):
+   #     """ make a table summarizing the iterations
+   #     """
+   #     diffs =self.rois.diffs
+   #     n_iter = self.rois.n_iter
+   #     ll = self.rois.logl_list
+   #     max_iter = n_iter.max() 
+   #     def sumx(i):
+   #         return sum(w[i] if i<len(w)-1 else w[-1] for w in ll)
+   #     x = np.array(map( sumx, range(max_iter)))
+   #     ss = x[1:] - x[:-1]
+   #     itdict = dict()
+   #     for i in range(max_iter-1):
+   #         diffx = diffs[n_iter>i+1]
+   #         t = np.array([d[i] for d in diffx] )
+   #         itdict[i+1] = dict(nroi=len(diffx),delta_min=min(t), delta_max=max(t), 
+   #             gt10=sum(np.abs(t)>10), delta_sum=ss[i])
+   #     itdf =pd.DataFrame(itdict, index='nroi gt10 delta_sum delta_min delta_max'.split()).T
+   #     itdf.index.name='iteration'
+   #
+   #         
+   #     config = eval(open('config.txt').read()) 
+   #     input_model=config['input_model']['path']
+   #     self.iteration_info = """<p>Input model: <a href="../../%s/plots/index.html?skipDecoration">%s</a>
+   #     <p>Minimum, maximum numbers of iterations: %d, %d 
+   #     <p>Iteration history: log likelihood change for each step: \n%s
+   #     """ % (input_model,input_model, n_iter.min(), n_iter.max(), 
+   #             itdf.to_html(float_format=FloatFormat(1)) )
     
     def add_model_info(self):
         for i,key in enumerate(['ring','isotrop', 'SunMoon', 'limb',]): # the expected order
@@ -205,16 +219,29 @@ class CountPlots(analysis_base.AnalysisBase):
             vmin=0, vmax=50, bcut=10, grid_flag=True):
         """ chi squared plots
         chi squared distribution
-        <br>Note that this chi squared is modified by the unweighting factors.
+        <p>Note that this chi squared is modified by the unweighting factors.
+        %(bad_roi_link)s
         """
-        #fig, axs = plt.subplots( 1,2, figsize=(8,3))
-        #plt.subplots_adjust(wspace=0.3)
+        
+        
         fig, axs = self.subplot_array( hsize, figsize=(11,5))
         if unweight:
             chisq = self.rois.uchisq
         else:
             chisq = self.rois.chisq if not use10 else self.rois.chisq10
         chisqtxt= r'$\chi^2$'
+        
+        # make a table of the bad ones
+        
+        bad_rois = self.rois[chisq>vmax]['glat glon chisq'.split()]
+        bad_rois['chisq'] = chisq
+        bad_rois.to_csv('bad_rois.csv')
+        pc =makepivot.MakeCollection('bad rois %s' % os.path.split(os.getcwd())[-1], 'countfig', 'bad_rois.csv')
+        
+        self.bad_roi_link = """\
+            <p>A list of %d bad ROIs, with chisq>%.0f, can examined with a 
+            <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>,
+            which requires Silverlight."""  % (len(bad_rois), vmax, pc.cId)
         
         def chisky(ax):
             self.basic_skyplot(ax, self.rois.glon, self.rois.singlat, chisq, 

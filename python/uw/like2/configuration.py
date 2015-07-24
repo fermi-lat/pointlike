@@ -1,7 +1,7 @@
 """
 Manage the analysis configuration
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.24 2014/04/14 17:41:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.25 2014/08/01 18:35:30 burnett Exp $
 
 """
 import os, sys, types
@@ -10,7 +10,6 @@ from . import ( dataset, exposure, psf, from_xml)
 import skymaps
 from uw.utilities import keyword_options
         
-
 class ROIspec(object):
     """ define an ROI specification
     """
@@ -70,7 +69,8 @@ class Configuration(object):
         """ 
         parameters
         ----------
-        configdir: folder containing configuration definition, file config.txt
+        configdir: folder containing configuration definition, file config.txt. 
+            If it is not found, look in the parent directory
         It is a Python dictionary, and must have the keys:
             irf : a text string name for the IRF
             diffuse: a dict defining the diffuse components
@@ -99,13 +99,16 @@ class Configuration(object):
         
         if not os.path.exists(self.configdir):
             raise Exception( 'Configuration folder %s not found' % self.configdir)
-        if not os.path.exists(os.path.join(self.configdir, 'config.txt')):
-            raise Exception('Configuration file "config.txt" not found in %s' % self.configdir)
-        if not self.quiet: print 'Using configuration file "config.txt" in folder: %s' % self.configdir
+        config_file = 'config.txt'
+        if not os.path.exists(os.path.join(self.configdir, config_file)):
+            config_file = '../config.txt'
+            if not os.path.exists(os.path.join(self.configdir, config_file)):
+                raise Exception('Configuration file "%s" not found in %s' % (config_file, self.configdir))
+        if not self.quiet: print 'Using configuration file "%s" in folder: %s' % (config_file, self.configdir)
         
         # extract parameters config
         try:
-            config = eval(open(self.configdir+'/config.txt').read())
+            config = eval(open(os.path.join(self.configdir, config_file)).read())
         except Exception, msg:
             raise Exception('Failed to evaluate config file: %s' % msg)
             

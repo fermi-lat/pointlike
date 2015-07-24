@@ -1,11 +1,34 @@
 """
 Manage the Web page generation
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/_html.py,v 1.17 2013/08/31 04:52:31 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/_html.py,v 1.18 2013/10/01 16:48:51 burnett Exp $
 """
 import os, glob, re
 import pandas as pd
 import numpy as np
 #from uw.like2.analyze import app # for the menu
+
+# for tool tips
+tooltips_css = """
+table
+{
+  border-collapse: collapse;
+}
+th
+{
+  color: #ffffff;
+  background-color: #000000;
+}
+td
+{
+  background-color: #cccccc;
+}
+table, th, td
+{
+  font-family:Arial, Helvetica, sans-serif;
+  border: 1px solid black;
+  text-align: right;
+}
+"""
 
 style="""
 <style type="text/css">
@@ -124,7 +147,7 @@ mathjax=r"""<script type="text/x-mathjax-config">
 </script>
 """
 
-def table_menu():
+def table_menu(max_cols=20):
     """Make a table of analyses vx. models
     """
     models = sorted(glob.glob('../*/plots/index.html'), reverse=True)
@@ -145,8 +168,13 @@ def table_menu():
     idents = sorted(np.array(list(anames ))) 
     cols = sorted(mdict.keys())
     href = lambda m, a: '-A-%s-B-%s-C-' %(m ,a)
-    h = pd.DataFrame(np.array([[href(id,a) if id in ddict[a] else '' for id in cols] for a in idents]),
-       columns=cols, index=idents).to_html()
+    x = pd.DataFrame(np.array([[href(id,a) if id in ddict[a] else '' for id in cols] for a in idents]),
+       columns=cols, index=idents)
+    if len(cols)>max_cols: 
+        #transpose if too many columns
+        h=x.T.to_html()
+    else:
+        h = x.to_html()
     # <a href="%s/plots/%s/index.html?skipDecoration">X</a>'
     h1 =  h.replace('-A-','<a href="').replace('-B-','/plots/')\
            .replace('-C-', '/index.html?skipDecoration">&#10004;</a>')
@@ -162,8 +190,10 @@ def table_menu():
         return p.sub(replacer, instring)
 
     h2 = replace_model(h1) ##### oops, now they use <th>
-    h3 = replace_analysis(h2)
-    return h3
+    return h2
+    # No links to describe analysis yet?
+    #h3 = replace_analysis(h2)
+    #return h3
     
 def header(title=''):
     """ return HTML for start of a document """
@@ -186,6 +216,7 @@ class DDmenu():
     def item(self, name):
         """ name is full anchor """
         self.doc += '\n  <li>%s</li>' % name
+        #print 'added name %s to menu' % name
         
     def add_menu(self, menu_html, folder):
         """ add a menu from a file created by this class """
@@ -238,7 +269,10 @@ class HTMLindex():
             return '<a href="%s?skipDecoration"> %s </a>' %(parse_path(x) )
         def model_comment(x):
             a,b=parse_path(x)
-            return eval(open('../'+b+'/config.txt').read()).get('comment', 'no comment')
+            try:
+                return eval(open('../'+b+'/config.txt').read()).get('comment', 'no comment')
+            except IOError:
+                return eval(open('../'+b+'/../config.txt').read()).get('comment', 'no comment')
         
         models = sorted(glob.glob('../*/plots/index.html'), reverse=True)
         assert len(models)>0, 'No models found?'

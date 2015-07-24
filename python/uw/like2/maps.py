@@ -1,6 +1,6 @@
 """
 Code to generate a set of maps for each ROI
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.6 2014/03/30 18:25:39 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.7 2014/09/11 08:13:45 burnett Exp $
 
 """
 import os, sys,  pickle, types
@@ -16,23 +16,25 @@ nside=512
 # convenience adapters for ResidualTS model
 def LogParabola(*pars):
     model = Models.LogParabola(p=pars)
-    sourcelist.set_default_bounds(model)
+    sources.set_default_bounds(model)
     return model
 def PowerLaw(*pars):   
     model = Models.PowerLaw(p=pars)
-    sourcelist.set_default_bounds(model)
+    sources.set_default_bounds(model)
     return model
 def ExpCutoff(*pars):  
     model = Models.ExpCutoff(p=pars)
-    sourcelist.set_default_bounds(model)
+    sources.set_default_bounds(model)
     return model
 def PLSuperExpCutoff(*pars):  
     model = Models.PLSuperExpCutoff(p=pars)
-    sourcelist.set_default_bounds(model)
+    sources.set_default_bounds(model)
     return model
 
-def make_index_table(nside, subnside, usefile=True):
-    filename = 'index_table_%02d_%03d.pickle' % (nside, subnside)
+def make_index_table(nside=12, subnside=512, usefile=True):
+    """create, and/or use a table to convert between different nside pixelizations
+    """
+    filename = os.path.expandvars('$FERMI/misc/index_table_%02d_%03d.pickle' % (nside, subnside) )
     if os.path.exists(filename) and usefile:
         return pickle.load(open(filename))
     print 'generating index table for nside, subnside= %d %d' % (nside, subnside)
@@ -43,8 +45,7 @@ def make_index_table(nside, subnside, usefile=True):
     index_table = [a[t==i] for i in xrange(npix)]
     if usefile:
         pickle.dump(index_table, open(filename,'w'))
-    return index_table
-    
+    return index_table  
 
 class CountsMap(dict):
     """ A map with counts per HEALPix bin """
@@ -313,29 +314,8 @@ class DisplayTable(object):
         if title is not None: ax.set_title(title)
         return zea
 
-#def countmaps(g, outdir=None, nside=256, dom=range(1728), emin=1000):
-#    """ generate all the roi tables for CountsMap """
-#    if outdir is None: outdir = g.process_kw['outdir']
-#    if not os.path.exists(outdir): os.mkdir(outdir)
-#    table = ROItables(outdir, nside, skyfuns= [[CountsMap, "counts", dict(emin=emin)]])
-#    quiet, g.quiet = g.quiet, True
-#    map(lambda i: table(g.roi(i)), dom)
-#    g.quiet=quiet    
-#    
-#def kdemaps(g, outdir=None, nside=256, dom=range(1728)):
-#    """ generate all the roi tables for KdeMap """
-#    if outdir is None: outdir = g.process_kw['outdir']
-#    if not os.path.exists(outdir): os.mkdir(outdir)
-#    table = ROItables(outdir, nside, skyfuns= [[KdeMap, "kde", dict()]])
-#    quiet, g.quiet = g.quiet, True
-#    map(lambda i: table(g.roi(i)), dom)
-#    g.quiet=quiet    
-#
-#def modelmaps(g, outdir=None, nside=256, dom=range(1728)):
-#    """ generate all the roi tables for KdeMap """
-#    if outdir is None: outdir = g.process_kw['outdir']
-#    if not os.path.exists(outdir): os.mkdir(outdir)
-#    table = ROItables(outdir, nside, skyfuns= [[ModelMap, "model", dict()]])
-#    quiet, g.quiet = g.quiet, True
-#    map(lambda i: table(g.roi(i)), dom)
-#    g.quiet=quiet    
+table_info={'ts':  (ResidualTS, dict(photon_index=2.2, model='LogParabola(1e-12, 2.2, 0, 1000.)')),
+            'kde': (KdeMap, dict()),
+            'tsx': (ResidualTS, dict(photon_index=2.3, model='LogParabola(1e-12, 2.3, 0, 1000.)')),
+            'tsp': (ResidualTS, dict(model='ExpCutoff(1e-10,2.2, 2000.)'))
+           }

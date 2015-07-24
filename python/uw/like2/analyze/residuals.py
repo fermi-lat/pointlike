@@ -1,7 +1,7 @@
 """
 Residual plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.12 2015/02/09 13:35:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.13 2015/04/29 18:07:09 burnett Exp $
 
 """
 
@@ -212,7 +212,7 @@ class Residuals(roi_info.ROIinfo):
         """
         fb = [self.resid_array('ring', 'maxl', et) for et in ['front', 'back']]
         fbr = fb[0]/fb[1]; 
-        ridge = (np.abs(self.df.glat)<10) & (np.abs(self.df.glon)<60); 
+        ridge = np.asarray((np.abs(self.df.glat)<10) & (np.abs(self.df.glon)<60)); 
         fbrr = fbr[ridge]
 
         fig =plt.figure(figsize=(12,9))
@@ -238,7 +238,7 @@ class Residuals(roi_info.ROIinfo):
         ax.semilogx(self.energy[:12], means, 'o-')
         ax.axhline(1.0, color='b', ls='--')
         ax.grid()
-        plt.setp(ax, ylim=(0.85,1.15), xlabel='Energy [MeV]', ylabel='front/back ratio')
+        plt.setp(ax, ylim=(0.9,1.10), xlabel='Energy [MeV]', ylabel='front/back ratio')
         return fig
         
     def front_back_strong(self):

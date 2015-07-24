@@ -1,10 +1,10 @@
 """
 Check the residual TS maps for clusters
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_ts.py,v 1.5 2014/03/25 19:56:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_ts.py,v 1.6 2014/03/28 15:21:16 burnett Exp $
 
 """
 
-import os,pickle, argparse, glob
+import os, sys, pickle, argparse, glob
 import pyfits
 from skymaps import Band, SkyDir
 import numpy as np
@@ -20,14 +20,24 @@ class TSdata(object):
         assert os.path.exists(os.path.join(outdir, filename)), 'outdir, %s, not found' % outdir
         self.rts = pyfits.open(os.path.join(outdir,filename))[1].data.field(fieldname)
         assert len(self.rts)==12*(nside)**2, 'wrong nside in file %s: expect %d' %(filename, nside)
-        self.glat= np.array([sdir(i).b() for i in range(len(self.rts))])
-        self.glon= np.array([sdir(i).l() for i in range(len(self.rts))])
+        self.glat=None# np.array([sdir(i).b() for i in range(len(self.rts))])
+        #self.glon= np.array([sdir(i).l() for i in range(len(self.rts))])
         #print 'read %s ok' %filename
     def select(self, ts_min=0, b_min=0):
         cut = (self.rts>ts_min)* (abs(self.glat)>b_min)
         return self.rts[cut]
-    def indices(self, ts_min=0, b_min=0):
-        cut = (self.rts>ts_min)* (abs(self.glat)>b_min)
+        
+    def indices(self, ts_min=10, b_min=0, mask=None):
+        """ return an array of indices satisfying the criteria
+            mask is nside 512 array to further select
+        """
+        if b_min>0 and self.glat is None:
+            self.glat =np.array([sdir(i).b() for i in range(len(self.rts))])
+            cut = (self.rts>ts_min) & (abs(self.glat)>b_min)
+        else:
+            cut = (self.rts>ts_min)
+        if mask is not None:
+            cut = cut & mask
         return np.arange(len(self.rts))[cut]
         
 def rts_hist(tsdata, fignum=1, bcut=10, bins=np.linspace(0,100,51)):
@@ -56,13 +66,37 @@ def grow(indeces):
         remainder = newremain
     return cluster, remainder
         
-def cluster(indices):
+def cluster(indices, quiet=False):
+    if not quiet:
+        print 'Clustering %d pixels...' % len(indices)
+        sys.stdout.flush()
     ret = []
     rem = indices
     while len(rem)>0:
         clu, rem = grow(rem)
         ret.append(clu)
+    if not quiet:
+        print 'Found %d clusters' %len(ret)
     return ret
+
+def subclusters(clust, rts, mints=25, quiet=True):
+    """split the cluster into multiple clusters with higher thereshold
+    """
+    cut_cluster = filter(lambda i: rts[i]>mints, clust)
+    if len(cut_cluster)==0: return []
+    clusters = cluster(cut_cluster, quiet)
+    return clusters
+
+def split_clusters(clusters, rts, maxsize=25, split_ts=25):
+    # loop over clusters, make a list of split clusters
+    splits = []
+    for clu in clusters:
+        if len(clu)<maxsize: continue
+        t = subclusters(clu, rts, split_ts)
+        if len(t)<2: continue
+        splits += t
+    return splits
+    
 
 class Cluster(object):
     def __init__(self, rts):
@@ -83,21 +117,33 @@ class Cluster(object):
         self.sdir = SkyDir(float(wra), float(wdec))
         #print self.sdir
         
-def make_seeds(tsdata, nside, fieldname='ts', rcut=10, bcut=5, out=None, rec=None, seedroot='SEED', minsize=2):
+def make_seeds(tsdata,  filename, fieldname='ts', nside=512 ,rcut=10, bcut=0, 
+		out=None, rec=None, seedroot='SEED', minsize=2, max_pixels=30000, mask=None):
+
     """
-    tsdata: object created by TSdata
+    tsdata: object created by TSdata | string | None
+        if not a TSdata object, create the TSdata object using filename and fieldname
+        
     rec: open file to write tab-delimited file to
     """
-    if isinstance(tsdata, str):
-        ff = 'hptables_ts*_%d.fits' % nside
-        fn = glob.glob(ff)
-        assert len(fn)>0, 'Did not find any files with pattern %s' %ff
-        if len(fn)>1:
-            print 'found files %s: using first'
-        tsdata = TSdata(outdir='.', filename=fn[0], fieldname=fieldname)
+    if not isinstance(tsdata, TSdata):
+        tsdata = TSdata(outdir='.', filename=filename, fieldname=fieldname)
 
-    indices  = tsdata.indices(rcut,bcut)
+    # make list of indices of pixels with ts and b above thresholds
+    indices  = tsdata.indices(rcut,bcut,mask)
+    if len(indices)>max_pixels:
+        print 'Too many pixels, %d>%d, to cluster' % (len(indices), max_pixels)
+        return 0
+        
+    # create list of the clustered results: each a list of the pixel indeces    
     clusters = cluster(indices)
+    print 'Found %d clusters' % len(clusters)
+    
+    # split large clusters; add those which have 2 or more sub clusters
+    clusters += split_clusters(clusters, tsdata.rts)
+    print 'Added split clusters, now %d total' % len(clusters)
+    
+    # now create list of seeds from the clusters
     cl = Cluster(tsdata.rts)
     if out is not None: print >> out,  '# Region file format: DS9 version 4.0 global color=green'
     if rec is not None:
@@ -109,7 +155,7 @@ def make_seeds(tsdata, nside, fieldname='ts', rcut=10, bcut=5, out=None, rec=Non
             print >>out,'fk5; point(%8.3f, %8.3f) # point=cross text={%d:%d %.1f}'%\
                 ( cl.sdir.ra(), cl.sdir.dec(),i, len(x), cl.ts)
         if rec is not None:
-            print >>rec, '%s-%03d\t%8.3f \t%8.3f\t %8.1f\t%8d\t%8.3f \t%8.3f ' %\
+            print >>rec, '%s-%04d\t%8.3f \t%8.3f\t %8.1f\t%8d\t%8.3f \t%8.3f ' %\
                 (seedroot, i,cl.sdir.ra(), cl.sdir.dec(),  cl.ts, len(x), cl.sdir.l(),cl.sdir.b())
         
     if rec is not None: rec.close()
@@ -129,7 +175,7 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser(description='examine a TS map file for clusters, create a file of source candidates')
     parser.add_argument('files', nargs=2, help='input FITS file and output text file')
     parser.add_argument('--tsmin',    help='minimum TS for cluster', default=10)
-    parser.add_argument('--bmin',     help='minimum |b|',            default=5)
+    parser.add_argument('--bmin',     help='minimum |b|',            default=0)
     parser.add_argument('--minsize',  help='minimum cluster size',   default=2)
     parser.add_argument('--seedroot', help='root for seed names',    default='SEED')
     parser.add_argument('--nside',    help='nside for healpix map',  default=nside)
