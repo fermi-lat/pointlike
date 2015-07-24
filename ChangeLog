@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Fri Jul 24 10:57:07 PDT 2015
+pointlike/python/uw/like2
+
+Modified Files:
+	configuration.py dataset.py extended.py from_healpix.py 
+	localization.py main.py maps.py process.py roimodel.py 
+	sedfuns.py sources.py to_healpix.py 
+Log Message:
+cumulative updates
+    *
+------------------------------------------------------------
 User: burnett  Fri Jul 24 10:56:30 PDT 2015
 pointlike/python/uw/like2/pipeline
 
