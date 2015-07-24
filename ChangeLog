@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: burnett  Fri Jul 24 10:56:30 PDT 2015
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	check_converge.py check_ts.py pipeline_job.py stream.py 
+	uwpipeline.py 
+Added Files:
+	stagedict.py 
+Log Message:
+cumulative updates
+    *
+------------------------------------------------------------
 User: burnett  Fri Jul 24 10:56:02 PDT 2015
 pointlike/python/uw/like2/analyze
 
