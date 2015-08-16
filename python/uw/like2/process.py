@@ -1,6 +1,6 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.23 2015/04/29 18:06:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.24 2015/07/24 17:57:06 burnett Exp $
 
 """
 import os, sys, time, pickle, glob
@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from skymaps import SkyDir, Band
 from uw.utilities import keyword_options
-from uw.like2 import (main, tools, sedfuns, maps, sources, localization, roimodel,)
+from uw.like2 import (main, tools, sedfuns, maps, sources, localization, roimodel, seeds,)
 
 
 class Process(main.MultiROI):
@@ -24,6 +24,7 @@ class Process(main.MultiROI):
         ('dampen',        1.0,   'damping factor: set <1 to dampen, 0 to not fit'),
         ('counts_dir',    None,  'folder for the counts plots'),
         ('norms_only',    False, 'fit to norms only'),
+        ('fix_spectra_flag',False,  'set variable sources to fit norms only, for this and subsequent iterations'),
         ('countsplot_tsmin', 100, 'minimum for souces in counts plot'),
         ('source_name',   None,   'for localization?'),
         ('fit_kw',        dict(ignore_exception=True),     'extra parameters for fit'),
@@ -107,8 +108,9 @@ class Process(main.MultiROI):
         #    return
         if self.seed_key is not None:
             key = self.seed_key
-            seeds(self, key) 
-            return
+            if not seeds.add_seeds(self, key) :
+                # nothing added, so nothing to do with the model for this ROI
+                return
         if self.special_flag:
             """ special processing, converting something."""
             if not self.special() : 
@@ -116,6 +118,10 @@ class Process(main.MultiROI):
                 return
         if self.add_seeds_flag:
             self.add_sources()
+        
+        if self.fix_spectra_flag:
+            # special for monthly or smaller processing
+            fix_spectra(self)
             
         if self.counts_dir is not None and not os.path.exists(self.counts_dir) :
             try: os.makedirs(self.counts_dir) # in case some other process makes it
@@ -136,6 +142,16 @@ class Process(main.MultiROI):
                     print 'Fitting parameter names ending in "Norm"'
                     roi.fit('_Norm',  **fit_kw)
                 roi.fit(update_by=dampen, **fit_kw)
+                if self.fix_spectra_flag:
+                    # Check for bad errors, 
+                    diag = np.asarray(self.hessian().diagonal())[0]
+                    if np.any(diag<0):
+                        print 'Retrying bad fits, reset '
+                        for i,v in enumerate(diag):
+                            if v>0: continue
+                            self.fit([i], setpars={i: -13}, **fit_kw)
+                        self.fit(**fit_kw)
+                
                 change =roi.log_like() - init_log_like 
                 if  abs(change)>1.0 :
                     roi.print_summary(title='after global fit, logL=%0.f, change=%.1f'% (roi.log_like(), change))
@@ -167,6 +183,10 @@ class Process(main.MultiROI):
         if self.localize_flag:
             print '------localizing all local sources------'; sys.stdout.flush()
             tsmap_dir = getdir(self.tsmap_dir)
+            skymodel = os.getcwd().split('/')[-1]
+            if skymodel.startswith('month'): 
+                print 'Not running tsmap analysis since monthly subset'
+                tsmap_dir=None
             roi.localize('all', tsmap_dir=tsmap_dir)
         
         if self.associate_flag:
@@ -296,98 +316,6 @@ class Process(main.MultiROI):
         rt = maps.ROItables(self.outdir, nside=self.tables_nside, skyfuns=skyfuns )
         rt(self)
         
-    def seeds(self,seedfile='seeds.txt', model='PowerLaw(1e-14, 2.2)', 
-                prefix=None,
-                associator=None, tsmap_dir=None,
-                **kwargs):
-        """ add "seeds" from a text file 
-        """
-        repivot_flag = kwargs.pop('repivot', True)
-        seedcheck_dir = kwargs.get('seedcheck_dir', 'seedcheck')
-        if not os.path.exists(seedcheck_dir): os.mkdir(seedcheck_dir)
-        associator= kwargs.pop('associate', None)
-
-        seeds = pd.read_table(seedfile)
-        seeds['skydir'] = map(SkyDir, seeds.ra, seeds.dec)
-        seeds['hpindex'] = map( Band(12).index, seeds.skydir)
-        inside = seeds.hpindex==Band(12).index(self.roi_dir)
-        seednames=seeds.name[inside]
-        if sum(inside)==0:
-            print 'no seeds in ROI'
-            return
-        if prefix is None:
-            prefix = seeds.name[0][:4]
-        srclist = []
-        for i,s in seeds[inside].iterrows():
-            try:
-                srclist.append(self.add_source(sources.PointSource(name=s['name'], skydir=s['skydir'], model=model)))
-                print 'added %s at %s' % (s['name'], s['skydir'])
-            except roimodel.ROImodelException:
-                srclist.append(self.get_source(s['name']))
-                print 'updating existing %s at %s ' %(s['name'], s['skydir'])
-        # Fit only fluxes for each seed first
-        parnames = self.sources.parameter_names
-        seednorms = np.arange(len(parnames))[np.array([s.startswith(prefix) and s.endswith('_Norm') for s in parnames])]
-        assert len(seednorms)>0, 'Did not find any seeds.'
-        try:
-            self.fit(seednorms, tolerance=0.2, ignore_exception=True)
-        except Exception, msg:
-            print 'Failed to fit seed norms %s' %msg
-            return
-        # now fit all parameter for each one 
-        for s in srclist:
-            self.fit(s.name, tolerance=0, ignore_exception=True)
-            s.ts = self.TS()
-            print '  TS = %.1f' % s.ts
-            if s.ts<10:
-                print ' TS<10, removing from ROI'
-                self.del_source(s.name)
-            else:
-                # one iteration of pivot change
-                self.repivot([s])
-                
-        # now localize each, moving to new position
-        localization.localize_all(self, prefix=prefix, tsmap_dir=tsmap_dir, associator=associator, update=True, tsmin=10)
-        # fit full ROI 
-        self.fit(ignore_exception=True, tolerance=0.2)
-        # save pickled source object for each seed
-        for s in srclist:
-            sfile = os.path.join(seedcheck_dir, s.name+'.pickle')
-            pickle.dump(s, open(sfile, 'w'))
-            print 'wrote file %s' % sfile
-            
-    def add_sources(self, csv_file='plots/seedcheck/good_seeds.csv'):
-        """Add new sources from a csv file
-        Default assumes analysis by seedcheck
-        """
-        assert os.path.exists(csv_file), 'csv file %s not found' % csv_file
-        good_seeds = pd.read_csv(csv_file, index_col=0)
-        print 'Check %d sources from file %s: ' % (len(good_seeds), csv_file),
-        myindex = Band(12).index(self.roi_dir)
-        inside = good_seeds['index']==myindex
-        ni = sum(inside)
-        if ni>0:
-            print '%d inside ROI' % ni
-        else:
-            print 'No sources in ROI %04d' % myindex
-            return 
-        for name, s in good_seeds[inside].iterrows():
-            e0 = s.get('e0', 1000)
-            try: #in case already exists (debugging perhaps)
-                self.del_source(name)
-                print 'replacing source %s' % name 
-            except: pass
-            source=self.add_source(name=name, skydir=SkyDir(s['ra'],s['dec']), 
-                        model=sources.LogParabola(s['eflux']/e0**2/1e6, s['pindex'], s.get('par2',0), e0, 
-                                                  free=[True,True,False,False]))
-        # perform a preliminary fit including the new sources
-        self.fit(ignore_exception=True, tolerance=0.2)
-        # make sure they have SED and localization info
-        for name in good_seeds[inside].index:
-            self.get_sed(name)
-            self.localize(name, update=True)
-        return good_seeds[inside]   
-
     def update_positions(self, tsmin=10, qualmax=8):
         """ use the localization information associated with each source to update position
             require ts>tsmin, qual<qualmax
@@ -448,79 +376,15 @@ class Process(main.MultiROI):
             #self.set_model(newmodel, src.name)
         return nset>0
        
-def seeds(self, seedkey, model='PowerLaw(1e-14, 2.2)', 
-            prefix=None,
-            associator=None, tsmap_dir=None,
-            **kwargs):
-    """ add "seeds" from a text or csv file 
-    """
-    repivot_flag = kwargs.pop('repivot', True)
-    seedcheck_dir = kwargs.get('seedcheck_dir', 'seedcheck')
-    if not os.path.exists(seedcheck_dir): os.mkdir(seedcheck_dir)
-    associator= kwargs.pop('associate', None)
-
-    t = glob.glob('seeds_%s*' % seedkey)
-    assert len(t)==1, 'Seed file search, using %s, failed to find one file' % seedkey
-    seedfile=t[0]
-    csv_format=seedfile.split('.')[-1]=='csv'
-    if csv_format:
-        seeds = pd.read_csv(seedfile)
-    else:
-        seeds = pd.read_table(seedfile)
-    assert len(seeds)>0, 'No seeds found in the file %s' % seedfile
-    seeds['skydir'] = map(SkyDir, seeds.ra, seeds.dec)
-    seeds['hpindex'] = map( Band(12).index, seeds.skydir)
-    inside = seeds.hpindex==Band(12).index(self.roi_dir)
-    seednames= seeds.name[inside]
-    if sum(inside)==0:
-        print 'no seeds in ROI'
-        return
-    if prefix is None:
-        prefix = seeds.name[0][:4]
-    srclist = []
-    for i,s in seeds[inside].iterrows():
-        try:
-            srclist.append(self.add_source(sources.PointSource(name=s['name'], skydir=s['skydir'], model=model)))
-            print 'added %s at %s' % (s['name'], s['skydir'])
-        except roimodel.ROImodelException:
-            srclist.append(self.get_source(s['name']))
-            print 'updating existing %s at %s ' %(s['name'], s['skydir'])
-    # Fit only fluxes for each seed first
-    parnames = self.sources.parameter_names
-    seednorms = np.arange(len(parnames))[np.array([s.startswith(prefix) and s.endswith('_Norm') for s in parnames])]
-    assert len(seednorms)>0, 'Did not find any seeds.'
-    try:
-        self.fit(seednorms, tolerance=0.2, ignore_exception=True)
-    except Exception, msg:
-        print 'Failed to fit seed norms %s' %msg
-        return
-    # now fit all parameter for each one 
-    deleted = []
-    for s in srclist:
-        self.fit(s.name, tolerance=0, ignore_exception=True)
-        s.ts = self.TS()
-        print '  TS = %.1f' % s.ts
-        if s.ts<5:
-            print ' TS<5, removing from ROI'
-            self.del_source(s.name)
-            deleted.append(s.name)
-        else:
-            # one iteration of pivot change
-            self.repivot([s])
             
-    # now localize each, moving to new position
-    localization.localize_all(self, prefix=prefix, tsmap_dir=tsmap_dir, associator=associator, update=True, tsmin=10)
-    # fit full ROI 
-    self.fit(ignore_exception=True, tolerance=0.2)
-    # save pickled source object for each seed
-    for s in srclist:
-        if s.name in deleted: continue
-        sfile = os.path.join(seedcheck_dir, s.name+'.pickle')
-        pickle.dump(s, open(sfile, 'w'))
-        print 'wrote file %s' % sfile
-            
-
-
+def fix_spectra(roi):
+	for src in roi.free_sources:
+		m=src.model
+		for i,parname in enumerate(m.param_names[1:]):
+			if m.free[i+1]:
+				roi.freeze(parname, src.name)
+		src.fixed_spectrum=True
+		
 class BatchJob(Process):
     """special interface to be called from uwpipeline
     Expect current dir to be output dir.

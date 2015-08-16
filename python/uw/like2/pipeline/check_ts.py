@@ -1,6 +1,6 @@
 """
 Check the residual TS maps for clusters
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_ts.py,v 1.6 2014/03/28 15:21:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_ts.py,v 1.7 2015/07/24 17:56:30 burnett Exp $
 
 """
 
@@ -9,6 +9,7 @@ import pyfits
 from skymaps import Band, SkyDir
 import numpy as np
 import pylab as plt
+import pandas as pd
 from pointlike import IntVector
 nside=512
 band = Band(nside)
@@ -17,8 +18,9 @@ def sdir(index):
 
 class TSdata(object):
     def __init__(self, outdir, filename, fieldname='ts'):
-        assert os.path.exists(os.path.join(outdir, filename)), 'outdir, %s, not found' % outdir
-        self.rts = pyfits.open(os.path.join(outdir,filename))[1].data.field(fieldname)
+        full_filename = os.path.join(outdir, filename)
+        assert os.path.exists(full_filename), 'file, %s, not found' % full_filename
+        self.rts = pyfits.open(full_filename)[1].data.field(fieldname)
         assert len(self.rts)==12*(nside)**2, 'wrong nside in file %s: expect %d' %(filename, nside)
         self.glat=None# np.array([sdir(i).b() for i in range(len(self.rts))])
         #self.glon= np.array([sdir(i).l() for i in range(len(self.rts))])
@@ -116,7 +118,28 @@ class Cluster(object):
         self.ts = ts.max()
         self.sdir = SkyDir(float(wra), float(wdec))
         #print self.sdir
+
+def monthly_ecliptic_mask( month, elat_max=5):
+    """return a nside=512 mask for the given month, an integer starting at 1
+    """
+    info = pd.read_csv(open(os.path.expandvars(
+                '$FERMI/skymodels/P301_monthly/month_info.csv')),index_col=0)
+    ecliptic_info= pickle.load(open(os.path.expandvars('$FERMI/misc/ecliptic_512.pickle')))
+    elon_vec = ecliptic_info[:,0]
+    elat_mask = np.abs(ecliptic_info[:,1])<5
+    elon_min = info.sun_elon[month]
+    try:
+        elon_max = info.sun_elon[month+1]
+    except:
+        elon_max = elon_min+30
+    if elon_min< elon_max:
+        elon_mask = (elon_vec>elon_min) & (elon_vec<elon_max)
+    else:
+        elon_mask = (elon_vec>elon_min) | (elon_vec<elon_max)
+                                        
+    return elat_mask & elon_mask
         
+
 def make_seeds(tsdata,  filename, fieldname='ts', nside=512 ,rcut=10, bcut=0, 
 		out=None, rec=None, seedroot='SEED', minsize=2, max_pixels=30000, mask=None):
 
@@ -137,7 +160,6 @@ def make_seeds(tsdata,  filename, fieldname='ts', nside=512 ,rcut=10, bcut=0,
         
     # create list of the clustered results: each a list of the pixel indeces    
     clusters = cluster(indices)
-    print 'Found %d clusters' % len(clusters)
     
     # split large clusters; add those which have 2 or more sub clusters
     clusters += split_clusters(clusters, tsdata.rts)
@@ -161,6 +183,36 @@ def make_seeds(tsdata,  filename, fieldname='ts', nside=512 ,rcut=10, bcut=0,
     if rec is not None: rec.close()
     if out is not None: out.close()
     return len(clusters)
+    
+def pipe_make_seeds(skymodel, filename,  fieldname='ts', minsize=2):
+    """
+        # Special check for a month, which should mask out the Sun
+    """
+    if skymodel.startswith('month'):
+        month=int(skymodel[5:]);
+        mask = monthly_ecliptic_mask( month)
+        print 'created a mask for month %d, with %d pixels set' % (month, sum(mask))
+        seedroot = fieldname.upper()+ skymodel[-3:] 
+    else: 
+        mask=None
+        seedroot='SEED'
+    fnames = glob.glob('hptables_*_%d.fits' % nside )
+    assert len(fnames)>0, 'did not find hptables_*_%d.fits file' %nside
+    fname=None
+    for fname in fnames:
+        t = fname.split('_')
+        if fieldname in t:
+            print 'Found table %s in file %s' %(fieldname, fname)
+            break
+    assert fname is not None, 'Table %s not found in files %s' %(fieldname, fnames)
+
+    # Create the seed list by clustering the pixels in the tsmap
+    rec = open('seeds_%s.txt' %fieldname, 'w')
+    nseeds = make_seeds('test', fname, fieldname=fieldname, rec=rec,
+        seedroot=seedroot, minsize=minsize,
+        mask=~mask)
+    print '%d seeds' % nseeds
+
  
 def main(args):
     print args

@@ -1,7 +1,7 @@
 """
 Analyze seeds
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/seedcheck.py,v 1.11 2014/09/12 09:41:31 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/seedcheck.py,v 1.12 2015/07/24 17:56:02 burnett Exp $
 
 """
 import os
@@ -150,16 +150,31 @@ class SeedCheck(sourceinfo.SourceInfo):
         for col in 'acat aname adelta_ts aprob adict'.split():
             self.df[col] = self.assoc[col]
     
-    def seed_cumulative_ts(self, cut=None, label='all seeds'):
+    def seed_cumulative_ts(self, cut=None, label=None):
         """ Cumulative TS distribution for seeds 
         """
-        v = self.df_good.ts
-        if cut is not None: v=v[cut]
-        fig = self.cumulative_ts(v, check_localized=False, label=label)
+        df = self.df_good
+        prefixes = list(set([s[:4] for s in df.index]))
+        n = len(prefixes)
+        if n>2:
+            print 'Warning: only set to plot two prefixes'
+            n=2
+        if n >1:
+            print 'found prefixes %s' %prefixes
+            x = [[s.startswith(prefixes[i]) for s in df.index] for i in range(n)]
+            fig=self.cumulative_ts(df.ts[x[0]], label=prefixes[0],
+                               other_ts=df.ts[x[1]], otherlabel=prefixes[1],
+                              check_localized=False, tscut=[] )
+        else:
+            v = df.ts
+            if cut is not None: v=v[cut]
+            fig = self.cumulative_ts(v, label=label if label is not None else prefixes[0], 
+                    check_localized=False,)
         ax = plt.gca()
-        plt.setp(ax, ylim=(9,1000), xlim=(9,100))
+        plt.setp(ax, ylim=(1,1000), xlim=(9,100))
         leg =ax.legend()
-        pbox = leg.get_patches()[0]; pbox._height=0; pbox._y=5
+        for patch in leg.get_patches():
+            pbox = patch; pbox._height=0; pbox._y=5
         return fig
         
     def unassoc_seed_cumulative_ts(self):
@@ -197,7 +212,7 @@ class SeedCheck(sourceinfo.SourceInfo):
             f(a)
         return fig
 
-    def spectral_parameters(self, ax=None, index_lim=(1.5,3.0), flux_lim=(0.05,5)):
+    def spectral_parameters(self, ax=None, index_lim=(1.5,3.0), flux_lim=(0.05,10)):
         """ Spectral fit parameters
         Flux vs. spectral index for %(spectral_type)s fit
         <br>histograms of sin(glat) and sqrt(delta_ts) for all, TS>10, and TS>25
@@ -211,7 +226,8 @@ class SeedCheck(sourceinfo.SourceInfo):
                 ax.plot(df.eflux[cut].clip(*xlim), df.pindex[cut].clip(*ylim), c, label=label)
             ax.grid()
             ax.legend(loc='lower right', prop=dict(size=10))
-            plt.setp(ax, ylim=ylim, xlim=xlim, xscale='log', ylabel='spectral index', xlabel='Energy flux [eV]')
+            plt.setp(ax, ylim=ylim, xlim=xlim, xscale='log', ylabel='spectral index', 
+                xlabel='Energy flux [eV]')
         def singlat(ax):
             v = np.sin(np.radians(list(df.glat))); bins=np.linspace(-1,1,26)
             self.histo(ax, v, bins)

@@ -1,7 +1,7 @@
 """
 Association analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.18 2015/02/09 13:35:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.19 2015/07/24 17:56:02 burnett Exp $
 
 """
 import os, glob, sys, pyfits
@@ -26,26 +26,38 @@ class Associations(sourceinfo.SourceInfo):
     
     def setup(self, **kw):
         self.args = kw.pop('args', None)
+        self.quiet = kw.get('quiet', False)
         super(Associations, self).setup(**kw)
         self.plotfolder='associations'
+        df = kw.get('df', None)
+        if df is not None:
+            self.df = df
+            print 'Associations: set subset, %d sources, to report on.' % len(df)
         self.load_assoc(self.args)
     
-    def load_assoc(self, fromdf=None):
+    def load_assoc(self, fromdf=None, minprob=0.8):
         if fromdf is not None:
-            print 'loading associations from file %s' %fromdf
-            self.df['altassoc']=pd.load(fromdf)
-        else: print 'using associations found in sourceinfo'
-        associations = self.df.associations if fromdf is None else self.df.altassoc
+            if not self.quiet:
+                print 'loading associations from file %s' %fromdf
+            df['altassoc']=pd.load(fromdf)
+        else: 
+            if not self.quiet:
+                print 'using associations found in sourceinfo'
+            df = self.df
+        associations = df.associations if fromdf is None else self.df.altassoc
         probfun = lambda x: x['prob'][0] if not pd.isnull(x) else 0
-        self.df['aprob'] = np.array([ probfun(assoc) for  assoc in associations])
-        self.df['acat']  = np.array([ assoc['cat'][0] if not pd.isnull(assoc) else 'unid' for  assoc in associations])
-        self.df['aname'] = np.array([ assoc['name'][0] if not pd.isnull(assoc) else 'unid' for  assoc in associations])
-        self.df['aang']  = np.array([ assoc['ang'][0] if not pd.isnull(assoc) else np.nan for  assoc in associations])
-
-        self.df['adeltats'] = np.array([assoc['deltats'][0] if not pd.isnull(assoc) else np.nan for assoc in associations])
         
+        df['aprob'] = np.array([ probfun(assoc) for  assoc in associations])
+        df['acat']  = np.array([ assoc['cat'][0] if not pd.isnull(assoc) else 'unid' for  assoc in associations])
+        df['aname'] = np.array([ assoc['name'][0] if not pd.isnull(assoc) else 'unid' for  assoc in associations])
+        df['aang']  = np.array([ assoc['ang'][0] if not pd.isnull(assoc) else np.nan for  assoc in associations])
+        df['adeltats'] = np.array([assoc['deltats'][0] if not pd.isnull(assoc) else np.nan for assoc in associations])
+        # make selection requiring association probabliliy
+        total=len(df)
+        self.df = df[df.aprob>minprob]
         self.df10 = self.df.ix[self.df.ts>10]
-        print 'associated: %d/%d' % (sum(self.df10.aprob>0.8), len(self.df10))
+        if not self.quiet:
+            print 'associated: %d/%d' % (sum(self.df10.aprob>0.8), total)
         
     def association_vs_ts(self, aprob_min=0.5):
         """ Associations vs. TS
@@ -80,6 +92,34 @@ class Associations(sourceinfo.SourceInfo):
         for f,ax in zip((plota,plotb), axx.flatten()): f(ax) 
         return fig
             
+    
+    def delta_ts_figure(self, df=None, title='', ax=None, ):
+        """Delta ts for association
+        
+        """
+        if df is None: df=self.df
+        
+        deltats = df.adeltats if 'adeltats' in df.columns else df.deltats
+        
+        if ax is None:
+            fig,ax = plt.subplots(figsize=(5,5))
+        else: fig = ax.figure
+        hist_kw=dict(log=True, histtype='step', lw=2)
+        binsize=0.5; maxts=12
+        bins = np.linspace(0,maxts,maxts/binsize+1)
+
+        ax.hist( deltats.clip(0,12), bins,   label='all', **hist_kw)
+        ax.hist( deltats[df.ts<25].clip(0,12), bins,  color='orange',
+                label='TS<25',  **hist_kw)
+        ax.plot(bins, len(deltats)*binsize*0.5*np.exp(-bins/2),ls='--', color='r', label='expected')
+
+        plt.setp(ax, xlabel='delta TS', ylim=(1,1000), title=title)
+        ax.grid(True, alpha=0.5); 
+        leg=ax.legend()
+        for box in leg.get_patches():
+            box._height=0; box._y=0.5
+        return fig
+
     def summary(self):
         """Summary
         %(summary_html)s
@@ -121,6 +161,69 @@ class Associations(sourceinfo.SourceInfo):
             heading='<br>Table of catalogs with associations', name=self.plotfolder+'/associated_catalogs', 
             href=False, maxlines=100)
                  
+    def bzcat_study(self, tsmax=10000, title='Integral TS distribution bzcat associations'):
+        """BZCAT associations
+        
+        %(bzcat_html)s
+        """
+        df = self.df
+        assoc = df.aprob>0.8; sum(assoc)
+        dfa = df[assoc]; len(dfa)
+        agn = [ n in ('crates bzcat bllac agn').split() for n in dfa.acat]; 
+        print 'agns:', sum(agn)
+        dfagn = dfa[agn]
+        ###Look for cases where the second or third association is above 0.8, and is 'bzcat'
+        test=[-1]* len(dfagn)
+ 
+        # make a DataFrame of all BZCAT associations if the prob is >0.8
+        bzdict = dict()
+        for i,a in enumerate(dfagn.associations):
+            prob = a['prob']
+            for j,p in enumerate(prob):
+                if p>0.8 and a['cat'][j]=='bzcat':
+                    test[i]=j
+                    bzdict[a['name'][j]] = \
+                        dict(ts=dfagn.ts[i], 
+                            sname=dfagn.index[i],
+                            ra=a['ra'][j], dec=a['dec'][j],
+                            deltats=a['deltats'][j],
+                            locqual=dfagn.locqual[i],
+                            ang=a['ang'][j],
+                            )
+        bzdf = pd.DataFrame(bzdict).T        
+        
+        t=np.asarray(test)
+        u =[sum(t==k) for k in range(-1,4)] ; print u
+        self.bzcat_html= '<p>There is a BZCAT association in all but %d out of %d agns' % (u[0], sum(u))
+        bzdf['type'] = [n[3] for n in bzdf.index]
+        types=set(bzdf.type)
+        tc = [sum(bzdf.type==type) for type in types]
+        self.bzcat_html += 'Frequencies: %s' % dict(zip(types, tc))
+        
+        # make an integral logTS plot 
+        fig, ax = plt.subplots(figsize=(8,10))
+        hist_args=dict(cumulative=-1, lw=2, histtype='step', log=True)
+        dom= np.logspace(1,np.log10(tsmax),501)
+        ax.hist(bzdf.ts, dom, label='all', **hist_args );
+        for type,label in zip('QBG', ['FSRQ', 'BL Lac', 'Galaxy']):
+            sel = bzdf.type==type
+            if sum(sel)>0:
+                try:
+                    ax.hist(bzdf.ts[sel], dom, label=label, **hist_args)
+                except: pass
+        plt.setp(ax, xscale='log', xlabel='TS', ylim=(1,None), xlim=(10, tsmax),
+                title=title,)
+        ax.grid(True, alpha=0.8);
+        ax.axvline(25, color='k', ls='--', label='TS=25')
+        leg =ax.legend()
+        for patch in leg.get_patches():
+            pbox = patch; pbox._height=0; pbox._y=5
+
+        # save a summary file
+        print 'Writing bzcat summary to %s ' %(self.plotfolder+'/bzcat_summary.csv')
+        bzdf.to_csv(self.plotfolder+'/bzcat_summary.csv')
+        return fig
+        
     def pulsar_check(self):
         """LAT pulsar check
         %(atable)s
@@ -169,24 +272,7 @@ class Associations(sourceinfo.SourceInfo):
             print far_names
             self.atable += '<p>Pulsars located > 0.25 deg from nominal'\
                     + latfar.to_html(float_format=FloatFormat(2))
-        #if sum(psrx)>0:
-        #    self.atable+= html_table(self.df[psrx]['aprob acat aname aang ts delta_ts locqual'.split()],
-        #                  dict(name='Source Name,click for link to SED',
-        #                  ts='TS,Test Statistic for the source', 
-        #                  acat='catalog,Catalog nickname',
-        #                  aprob='Probability,Association probability',
-        #                  aname='Source Name,Catlog name for the source',
-        #                  aang='Angle,distance to the catalog source (deg)',
-        #                  delta_ts='Delta TS,change in TS to the catalog source\n'
-        #                                  'should be positive negative means peak of TS map was not at source',
-        #                  locqual='Localization quality,measure of the goodness of the localization fit\n greater than 5 is questionable',
-        #                  ),
-        #                  float_format=FloatFormat(2), 
-        #                  heading = """<p>%d sources with pulsar association not in LAT pulsar catalog. Note, no cut on 
-        #                    association probability.""" % sum(psrx),
-        #                  name=self.plotfolder+'/atable',
-        #                  maxlines=60)        
-    
+     
     def pulsar_candidates(self, test=False):
         """Pulsar candidates
         Construct a list of all point sources associated with the BigFile pulsar list
@@ -275,7 +361,7 @@ class Associations(sourceinfo.SourceInfo):
         return fig
 
     def all_plots(self):    
-        self.runfigures([self.summary, self.pulsar_check, self.pulsar_candidates, self.association_vs_ts, self.localization_check,])
+        self.runfigures([self.summary, self.pulsar_check, self.pulsar_candidates, self.association_vs_ts, self.localization_check, self.bzcat_study])
 
 
 class FitExponential(object):
@@ -318,4 +404,16 @@ class FitExponential(object):
 
     def __call__(self, x):
         return self.alpha * np.exp(-x/self.beta)
+
+class ExtAssociations(Associations):
+    """ subclass invoked with a specific path
+    """
+    def __init__(self, model_path, **kw):
+        curdir = os.getcwd()
+        try:
+            os.chdir(model_path)
+            self.setup(refresh=False, **kw)
+            self.plotfolder=model_path+'/plots/'+self.plotfolder
+        finally:
+            os.chdir(curdir)
 

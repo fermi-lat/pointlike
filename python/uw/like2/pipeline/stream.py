@@ -1,10 +1,11 @@
 """
 manage creating new PipelineII stream
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/stream.py,v 1.2 2014/06/30 15:25:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/stream.py,v 1.3 2015/07/24 17:56:30 burnett Exp $
 """
 import os, datetime
 import numpy as np
+import pandas as pd
 
 
 class PipelineStream(object):
@@ -51,7 +52,15 @@ class PipelineStream(object):
             print 'Test mode: would have submitted \n\t%s'%cmd
 
 class StreamInfo(dict):
+    """A dictionary of the stream info
+    """
     def __init__(self, model=None, fn='summary_log.txt'):
+        """
+        model : string, default None
+            If set, a filter. 
+            the name of a model, e.g. "P301_6years/uw972", or a group with ending wildcard
+        
+        """
         self.pointlike_dir=os.path.expandvars('$POINTLIKE_DIR')
         self.summary= os.path.join(self.pointlike_dir,fn)
         t = open(self.summary,'r').read().split('\n')
@@ -62,7 +71,23 @@ class StreamInfo(dict):
             if len(tokens)<6: 
                 print 'bad line, %s: %d tokens' % (line, len(tokens))
                 continue
-            if model is None or model==tokens[3]:
+            if model is None or model==tokens[3] or model[-1]=='*' and tokens[3].startswith(model[:-1]):
                 self[int(tokens[0])] = dict(stage=tokens[4], date=tokens[1]+' '+tokens[2], model=tokens[3])
     def __call__(self, stream ):
         return self[stream]
+
+def recent_stream(model_name, filter=None):
+    """ return a dict, key the model name of the most recent stream, with stage and date
+    """
+    sinfo = StreamInfo(model_name)
+    sdf = pd.DataFrame(sinfo).T
+    # select last one for each model
+    recent = dict()
+    for model,s in zip(sdf.model, sdf.index):
+        m = model.split('/')[-1]
+        if filter is not None and not filter(m): continue
+        date = sdf.ix[s].date
+        stage = sdf.ix[s].stage
+        if m not in recent: recent[m]=dict(stream=s, date=date, stage=stage)
+        else: recent[m].update(stream=s, date=date,stage=stage)
+    return recent

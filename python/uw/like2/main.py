@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.82 2015/04/29 18:06:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.83 2015/07/24 17:57:06 burnett Exp $
 
 """
 import types, time
@@ -347,13 +347,13 @@ class ROI(views.LikelihoodViews):
         sedfuns.print_sed(self, source_name)
         
         
-    def find_associations(self, source_name=None, classes='all_but_gammas', quiet=True):
+    def find_associations(self, source_name=None, classes='all_but_gammas', srcid='srcid', quiet=True):
         """ find associations, using srcid object.
         If source was not localized, run that first
         Expect to find files at $FERMI/catalog.
         """
         if not hasattr(self, 'srcid'):
-            self.srcid=associate.SrcId('$FERMI/catalog',classes, quiet=quiet)
+            self.srcid=associate.SrcId('$FERMI/catalog',classes=classes, srcid=srcid, quiet=quiet)
 
         def find_one(source):
             try:

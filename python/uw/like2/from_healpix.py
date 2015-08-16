@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_healpix.py,v 1.9 2015/04/29 18:06:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_healpix.py,v 1.10 2015/07/24 17:57:06 burnett Exp $
 """
 import os, pickle, zipfile
 import numpy as np
@@ -80,7 +80,11 @@ class ROImodelFromHealpix(roimodel.ROImodel):
                     sedrec = rec.get('sedrec', None),
                     ts = rec.get('ts', None),
                     pivot_energy = rec.get('pivot_energy', None),
+                    fixed_spectrum = rec.get('fixed_spectrum', False),
                     )
+                if src.fixed_spectrum:
+                    assert sum(src.model.free)==1, \
+                        'Logic error? model=%s for %s' % (src.model, src.name)
             else:
                 # extended source: get from extended catalog list, replace model, add info from previous fit
                 src = self.ecat.lookup(name)

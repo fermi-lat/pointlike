@@ -1,6 +1,6 @@
 """
  Manage associations
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/associate.py,v 1.2 2013/12/04 05:18:03 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/associate.py,v 1.3 2013/12/05 21:16:33 burnett Exp $
  author: T. Burnett <tburnett@uw.edu>
 """
 import os, glob
@@ -13,7 +13,7 @@ class SrcId(srcid.SourceAssociation):
     """
     adapter to Eric Wallace's source association code
     """
-    def __init__(self, catalog_path='$FERMI/catalog/', classes='all_but_gammas', quiet=True):
+    def __init__(self, catalog_path='$FERMI/catalog/', srcid='srcid', classes='all_but_gammas', quiet=True):
         """ 
         catalog_path : string
             path to the catalogs, expect to find srcid/classes under it
@@ -23,7 +23,7 @@ class SrcId(srcid.SourceAssociation):
         """
         self.classes = classes
         catalog_path = os.path.expandvars(catalog_path)
-        d = os.path.join(catalog_path, 'srcid', 'classes')
+        d = os.path.join(catalog_path, srcid, 'classes')
         q = glob.glob(os.path.join(d, '*.py'))
         assert len(q)>0, 'no association classes found in folder %s' % d
         allclasses =[os.path.split(u)[-1].split('.')[0] for u in q if '__init__' not in u]
@@ -31,19 +31,27 @@ class SrcId(srcid.SourceAssociation):
             # special tag to really get everything
             q = glob.glob(os.path.join(d, '*.py'))
             self.classes = allclasses
-        elif self.classes=='all_but_gammas':
+        elif self.classes=='all_but_gammas' and srcid=='srcid':
             self.classes = ['agn', 'bllac', 'bzcat', 'cgrabs', 'crates', 'crates_fom', 'dwarfs', 
             'galaxies', 'globular', 'hmxb', 'ibis', 'lbv', 'lmxb',  'ocl', 'ostar', 
              #'pulsar_fom',
             'pulsar_lat', 'pulsar_big', #'msp', 'pulsar_high',  'pulsar_low', 'pulsar_nonATNF', 
             'pwn', 'qso', 'seyfert', 'seyfert_rl', 'snr', 'snr_ext', 'starbursts', 'tev']
+        elif srcid=='lott_srcid':
+            self.classes=['agn', 'arxas', 'at20g', 'bat', 'bllac', 'bzcat', 'cgrabs',
+               'crates', 'ecc', 'ercsc030', 'ercsc044', 'ercsc070', 'ercsc100',
+               'ercsc143', 'ercsc217', 'ercsc353', 'ercsc545', 'ercsc857', 'esz',
+               'fgl2us', 'gal', 'gc', 'hmxb', 'ibis', 'iras', 'lbv',
+               'lmxb', 'msp', 'ocl', 'ostar', 'pulhigh', 'pulother', 'pulsar_lat',
+               'pwn', 'qso', 'sey', 'seyrl', 'snr', 'vcs', 'wise', 'wisestrip',
+               'wr']
         else:
             self.classes=classes
         for c in self.classes:
             if c not in allclasses:
                 txt = 'class %s not in set classes: %s' % (c, allclasses)
                 raise Exception(txt)
-        super(SrcId, self).__init__(os.path.join(catalog_path, 'srcid'),quiet=quiet)
+        super(SrcId, self).__init__(os.path.join(catalog_path, srcid),quiet=quiet)
         self.class_list = self.classes # will be used by the id method
      
     def __str__(self):
