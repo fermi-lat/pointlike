@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: burnett  Sat Aug 15 18:13:19 PDT 2015
+pointlike/python/uw/like2
+
+Modified Files:
+	associate.py from_healpix.py main.py process.py roimodel.py 
+	to_healpix.py 
+Added Files:
+	seeds.py 
+Log Message:
+updates
+    *
+------------------------------------------------------------
 User: burnett  Sat Aug 15 18:12:11 PDT 2015
 pointlike/python/uw/like2/pipeline
 
