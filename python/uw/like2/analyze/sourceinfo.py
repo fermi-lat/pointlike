@@ -1,7 +1,7 @@
 """
 Basic analyis of source spectra
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.25 2015/04/29 18:07:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.26 2015/07/24 17:56:02 burnett Exp $
 
 """
 
@@ -23,6 +23,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
     def setup(self, **kwargs):
         self.plotfolder='sources' #needed by superclass
         filename = 'sources.pickle'
+        self.quiet = kwargs.pop('quiet', True)
         refresh = kwargs.pop('refresh', not os.path.exists(filename) or os.path.getmtime(filename)<os.path.getmtime('pickle.zip'))
         if refresh:
             files, pkls = self.load_pickles('pickle')
@@ -104,6 +105,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                         eflux = prefactor*pars[0]*model.e0**2*1e6,
                         psr = pulsar,
                         cat3fgl = None if get_cat3fgl is None else get_cat3fgl(name),
+                        transient = not info.get('fixed_spectrum', False) and not info['isextended']
                         )
             df = pd.DataFrame(sdict).transpose()
             df.index.name='name'
@@ -116,10 +118,11 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             self.df['hassed'] = np.array([self.df.ix[i]['sedrec'] is not None for i in range(len(self.df))])
             self.curvature(setup=True) # add curvature item
             self.df.to_pickle(filename)
-            print 'saved %s' % filename
+            if not self.quiet:
+                print 'saved %s' % filename
 
         else:
-            print 'loading %s' % filename
+            if not self.quiet: print 'loading %s' % filename
             self.df = pd.read_pickle(filename)
         #self.df['flux']    = [v[0] for v in self.df.pars.values]
         #self.df['flux_unc']= [v[0] for v in self.df.errs.values]
@@ -189,26 +192,32 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                 glat=s.glat, glon=s.glon, roiname=s.roiname),
             index=s.index).sort_index(by='roiname')
 
-    def cumulative_ts(self, ts=None, other_ts=None, tscut=(10,25), check_localized=True, label=None, otherlabel=None):
+    def cumulative_ts(self, ts=None, tscut=(10,25), check_localized=True, 
+            label=None,  other_ts=[], other_label=[], ax=None, legend=True):
         """ Cumulative test statistic TS
         
         A logN-logS plot, but using TS. Important thresholds at TS=10 and 25 are shown.
         """
         usets = self.df.ts if ts is None else ts
         df = self.df
-        fig,ax = plt.subplots( figsize=(8,6))
+        if ax is None:
+            fig,ax = plt.subplots( figsize=(8,6))
+        else: fig=ax.figure
+        
         dom = np.logspace(np.log10(9),5,1601)
-        ax.axvline(25, color='gray', lw=1)
-        ax.hist( usets ,dom, cumulative=-1, lw=2, color='g', histtype='step',label=label)
-        if other_ts is not None:
-            ax.hist( other_ts ,dom, cumulative=-1, lw=2, color='b', histtype='step',label=otherlabel)
+        ax.axvline(25, color='gray', lw=1, ls='--',label='TS=25')
+        hist_kw=dict(cumulative=-1, lw=2,  histtype='step')
+        ax.hist( usets ,dom,  color='k', label=label, **hist_kw)
+        if len(other_ts)>0 :
+            for ots, olab in zip(other_ts,other_label):
+                ax.hist( ots, dom,  label=olab, **hist_kw)
         if check_localized:
             unloc = df.unloc
             ul = df[(unloc | df.poorloc) & (usets>tscut[0])] 
             n = len(ul)
             if n>10:
-                ax.hist(ul.ts ,dom, cumulative=-1, lw=2, color='r', histtype='step',
-                    label='none or poor localization')
+                ax.hist(ul.ts ,dom,  color='r', 
+                    label='none or poor localization', **hist_kw)
                 ax.text(12, n, 'none or poor localization (TS>%d) :%d'%(tscut[0],n), fontsize=12, color='r')
         plt.setp(ax,  ylabel='# sources with greater TS', xlabel='TS',
             xscale='log', yscale='log', xlim=(9, 1e4), ylim=(9,8000))
@@ -223,7 +232,10 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             ax.text(2*t, n, 'TS>%d: %d'%(t,n), fontsize=14, va='center')
                 
         ax.grid(True, alpha=0.3)
-        if label is not None or otherlabel is not None: ax.legend()
+        if (label is not None or other_label is not None) and legend: 
+            leg =ax.legend()
+            for patch in leg.get_patches():
+                pbox = patch; pbox._height=0; pbox._y=5
         return fig
 
     def cumulative_counts(self):
@@ -266,8 +278,10 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         [ax.hist(t.pindex[t.ts>tscut].clip(index_min,index_max), np.linspace(index_min,index_max,26), label='TS>%d' % tscut) for tscut in [10,25] ]
         plt.setp(ax, xlabel='spectral index'); ax.grid(); ax.legend(prop=dict(size=10))
         ax = axx[2]
-        [ax.hist(t.beta[(t.ts>tscut)&(t.beta>0.01)].clip(0,beta_max), np.linspace(0,beta_max,26), label='TS>%d' % tscut) for tscut in [10,25] ]
-        plt.setp(ax, xlabel='beta'); ax.grid(); ax.legend(prop=dict(size=10))
+        sel=(t.ts>tscut)&(t.beta>0.01)
+        if sum(sel)>0:
+            [ax.hist(t.beta[sel].clip(0,beta_max), np.linspace(0,beta_max,26), label='TS>%d' % tscut) for tscut in [10,25] ]
+            plt.setp(ax, xlabel='beta'); ax.grid(); ax.legend(prop=dict(size=10))
         # get tails
         tail_cut = (t.eflux<5e-2) | ((t.pindex<index_min) | (t.pindex>index_max))& (t.beta==0) | (t.beta>beta_max) | (t.beta<0)
         
@@ -469,6 +483,9 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         for ax, label, cut_expr in zip(axx[:2], ('power law', 'log-normal',), ('powerlaw','logparabola')):
             mycut=tobool(cut&eval(cut_expr))
             count = sum(mycut)
+            if count==0:
+                print 'Not generating plot for %s' % label
+                continue
             ax.hist(fq[mycut].clip(*xlim), dom, histtype='stepfilled',  label=label+' (%d)'%count)
             self.average[i] = fq[mycut].mean(); i+=1
             ax.plot(d, chi2(d)*count*delta/fudge, 'r', lw=2, label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
@@ -479,6 +496,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         def right(ax, label='exponential cutoff', cut_expr='psr'):
             mycut= cut & (psr) #tobool(cut&eval(cut_expr))
             count = sum(mycut)
+            if count==0: return
             if legend_flag:
                 labels = [label+' (%d)' %count,label+' [|b|>5] (%d)' %sum(mycut*hilat),r'$\mathsf{\chi^2\ ndf=%d}$'%ndf]
             else:
@@ -511,19 +529,18 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             # Make table of the poor fits
             s['pull0'] = np.array([x.pull[0] if x is not None else np.nan for x in s.sedrec ])
             t =s.ix[((s.fitqual>30) | (np.abs(s.pull0)>3)) & (s.ts>10) ]['ra dec glat fitqual pull0 ts modelname freebits index2 roiname'.split()].sort_index(by='roiname')
-            #poorfit_csv = 'poor_spectral_fits.csv'
-            #t.to_csv(poorfit_csv)
-            #bs =sorted(list(set(t.roiname)))
-            #print 'Wrote out list of poor fits to %s, %d with fitqual>30 or abs(pull0)>3, in %d ROIs' % (poorfit_csv, len(t), len(bs))
+            if len(t)==0:
+                self.poorfit_table= '<p>No poor fits found'
+            else:
             
-            self.poorfit_table  = html_table(t, name=self.plotfolder+'/poorfit', 
-                    heading='<h4>Table of %d poor spectral fits</h4>'%len(t),
-                    float_format=FloatFormat(2),
-                    formatters=dict(ra=FloatFormat(3), dec=FloatFormat(3), ts=FloatFormat(0),index2=FloatFormat(3)))
+                self.poorfit_table  = html_table(t, name=self.plotfolder+'/poorfit', 
+                        heading='<h4>Table of %d poor spectral fits</h4>'%len(t),
+                        float_format=FloatFormat(2),
+                        formatters=dict(ra=FloatFormat(3), dec=FloatFormat(3), ts=FloatFormat(0),index2=FloatFormat(3)))
 
-            # flag sources that made it into the list
-            self.df.flags[t.index] = np.asarray(self.df.flags[t.index],int) | 2
-            print '%d sources flagged (2) as poor fits' %len(t)
+                # flag sources that made it into the list
+                self.df.flags[t.index] = np.asarray(self.df.flags[t.index],int) | 2
+                print '%d sources flagged (2) as poor fits' %len(t)
         return fig
       
     def poor_fit_positions(self):
@@ -718,7 +735,11 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                 return sum(df.ts>tsmin)
             names = df[pointsource & (df.ts>tsmin)]['name'].values    
             return sum([n.startswith(prefix) for n in names])
-        prefixes = list(set( n[:4] for n in df[pointsource]['name'])) +['ext', 'total']
+        if count('ext',0)>0:
+            prefixes = list(set( n[:4] for n in df[pointsource]['name'])) +['ext', 'total']
+        else:
+            prefixes = list(set( n[:4] for n in df[pointsource]['name'])) +['total']
+        
         census = dict()
         for x in (0, 5, 10, 25):
             census[x] = [count(prefix, x) for prefix in prefixes]
@@ -880,5 +901,17 @@ class Cat_3fgl(object):
         if oldname not in self.index_3fgl: return None
         return self.cat.ix[oldname]
 
-        
+class ExtSourceInfo(SourceInfo):
+    """ subclass invoked with a specific path
+    """
+    def __init__(self, model_path, quiet=True):
+        curdir = os.getcwd()
+        try:
+            os.chdir(model_path)
+            if not quiet: print os.getcwd()
+            self.setup(refresh=False, quiet=quiet)
+            self.plotfolder=model_path+'/plots/'+self.plotfolder
+        finally:
+            os.chdir(curdir)
+
 

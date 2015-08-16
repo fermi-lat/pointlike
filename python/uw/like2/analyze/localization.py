@@ -1,6 +1,6 @@
 """   Analyze localization 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.12 2015/02/09 13:35:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.13 2015/04/29 18:07:09 burnett Exp $
 
 """
 import os, pickle, collections
@@ -23,11 +23,15 @@ class Localization(sourceinfo.SourceInfo):
     def setup(self, **kw):
         super(Localization, self).setup(**kw)
         self.plotfolder = 'localization'
+        df = kw.get('df', None)
+        if df is not None:
+            self.df = df
         # unpack the ellipse info into a new DataFrame
         self.ebox = pd.DataFrame([x if x is not None else [np.nan]*7 for x in self.df.ellipse], index=self.df.index)
         self.ebox.columns = 'fit_ra fit_dec a b ang locqual delta_ts'.split()
         self.ebox['roiname']=self.df.roiname
         self.ebox['ts'] = self.df.ts
+        
         self.tscut = kw.get('tscut', 10.)
         self.acut =  kw.get('acut', 0.25)
         self.qualcut=kw.get('qualcut', 8.0)
@@ -61,6 +65,7 @@ class Localization(sourceinfo.SourceInfo):
         ax=axx[0]
         for tcut,color in zip((mints, 100), ('blue','orange')):
             t = np.sqrt(wp.delta_ts[(self.df.ts>tcut) & (self.df.locqual<maxqual)].clip(0,maxdelta))
+            if  len(t)==0: continue
             ax.hist(t, bins, log=True, color=color, histtype='step', lw=2, label='ts>%d: mean=%.2f'%(tcut, t.mean()) )
         #ax.hist(np.sqrt(wp.delta_ts[self.df.ts>100].clip(0,maxdelta)), bins,label='TS>100\nmean:%f.1'%wp.delta)
         ax.legend(prop=dict(size=10))
@@ -73,7 +78,12 @@ class Localization(sourceinfo.SourceInfo):
         return fig
         
     def locqual_hist(self, ax=None,  maxqual=10, mints=10, tscut=25, grid_flag=False):
-        """special standalong histogram of location quality"""
+        """Localization quality
+            <br>histogram of the fit quality. This is a measure of the difference between the sampled
+            TS map points and the prediction of the quadratic model. 
+
+        
+        """
         if ax is None:
             fig, ax = plt.subplots(figsize=(5,5))
         else:

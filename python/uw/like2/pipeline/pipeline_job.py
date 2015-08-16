@@ -1,7 +1,7 @@
 """
 setup and run pointlike all-sky analysis for subset of ROIs
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.17 2013/12/31 04:45:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.18 2015/07/24 17:56:30 burnett Exp $
 """
 import os, sys, logging
 from collections import OrderedDict
@@ -47,7 +47,10 @@ def main( factory=None, **args):
     assert set(roi_list).issubset(range(1728)), 'ROI indeces, "%s", not in range 0-1727' % roi_list
     
 
-    skymodeldir =SKYMODEL_SUBDIR.replace('/a/wain025/g.glast.u55/','/afs/slac/g/glast/groups/')  
+    skymodeldir =SKYMODEL_SUBDIR.replace('/a/wain025/g.glast.u55/','/afs/slac/g/glast/groups/') 
+    if skymodeldir.split('/')[-1]=='month23':
+        raise Exception('Special abort to terminate month23')
+        
     streamlogdir = os.path.join(POINTLIKE_DIR,skymodeldir,'streamlogs')
     streamlogfile=os.path.join(streamlogdir,'stream%s.%04d.log' % ( PIPELINE_STREAMPATH.split('.')[0], int(PIPELINE_STREAM)) )
     if not os.path.exists(streamlogdir): os.mkdir(streamlogdir)
@@ -56,11 +59,14 @@ def main( factory=None, **args):
        print '...appending to existing '
        with open(streamlogfile) as f:
             lines= f.read().split('\n')
-            lastline = lines[-1] if len(lines[-1])>0 else lines[-2]
-            if 'Start roi' in lastline: 
-               first_roi = int(lastline.split()[-1])
-               print 'Resuming execution with roi at %s' %first_roi
-               assert first_roi in roi_list, 'Logic error roi %d not found in %d' %(first_roi, roi_list)
+            if len(lines)<2:
+                print 'file is empty.'
+            else:
+                lastline = lines[-1] if len(lines[-1])>0 else lines[-2]
+                if 'Start roi' in lastline: 
+                   first_roi = int(lastline.split()[-1])
+                   print 'Resuming execution with roi at %s' %first_roi
+                   assert first_roi in roi_list, 'Logic error roi %d not found in %d' %(first_roi, roi_list)
     logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO, filename=streamlogfile   )
 
     ### set up object with skymodel and data

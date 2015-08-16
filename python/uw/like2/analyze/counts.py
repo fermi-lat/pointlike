@@ -1,7 +1,7 @@
 """
 Count plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.11 2015/02/09 13:35:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.12 2015/07/24 17:56:02 burnett Exp $
 
 """
 
@@ -70,91 +70,74 @@ class CountPlots(analysis_base.AnalysisBase):
             
         if 'history' in pkls[0].keys():
             print 'Extracting history info from the ROI analysises'
-            itdf = self.history_table()
-            
-            n = min(len(itdf),10) # clugy: limit list to last 10
-            model = '/'.join(os.getcwd().split('/')[-2:])
-            
-            #look up info from stream creation
-            t = stream.StreamInfo(model)
-            keep = [i in t.keys() for i in itdf.index]; 
-            kept = itdf[keep]
-            for key in 'date stage'.split():
-                kept[key] = [t[i][key] for i in kept.index]
-
-            config = eval(open('config.txt').read()) 
+            self.sinfo = self.history_info()
+            cfile = 'config.txt' if os.path.exists('config.txt') else '../config.txt'
+            try:
+                config = eval(open(cfile).read()) 
+            except Exception, msg:
+                raise Exception('Could not read config file, %s' %msg)
             input_model=config['input_model']['path']
             self.iteration_info = """<p>Input model: <a href="../../%s/plots/index.html?skipDecoration">%s</a>
-            <p>Iteration history: log likelihood change for each step: \n%s
-            """ % (input_model,input_model, 
-                    kept.to_html(float_format=FloatFormat(1)) )
-
+                <p>Iteration history: log likelihood change for each step: \n%s
+                """ % (input_model,input_model, 
+                    self.sinfo.to_html(float_format=FloatFormat(1)) )
         else:
             self.iteration_info=''
 
-    def history_table(self):
-        # make a dictionary of dictionaries: stream, then roi; save logl and dampen
-        hd = dict()
+    def history_info(self):
+        from uw.like2.pipeline import stream
+        model = '/'.join(os.getcwd().split('/')[-2:])
+        sinfo = stream.StreamInfo(model)
+        
+        #look up info from stream creation
+        model_streams =sorted(sinfo.keys()); # streams in this model
+        hd= dict()
+        for s in model_streams:
+            hd[s]=np.zeros(1728)
         interactive = 0
         for i,r in enumerate(self.pkls):
             hh = r['history']
             for h in hh:
-                if h['stream']=='interactive': 
+                s = h['stream']
+                if s=='interactive': 
                     interactive +=1
                     continue
                 stream = int(h['stream'].split('.')[0])
-                if stream not in hd.keys():
-                    hd[stream]=dict()
-                hd[stream][i]=dict(logl=h['logl'], dampen=h['dampen'])
-                
-        # now add a delta key to streams after the first (zero if previous was not run)
-        skeys=sorted(hd.keys())
-        for k,stream in enumerate(skeys[1:]):
-            prevstr = hd.keys()[k]
-            for key,value in hd[stream].items():
-                if key in hd[prevstr].keys():
-                    delta = value['logl']- hd[prevstr][key]['logl']
-                else: delta=0
-                hd[stream][key]['delta'] = delta   
-        delta_sum = [sum(value['delta'] for value in hd[k].values()) for k in hd.keys()[1:]]
-        delta_min = [min(value['delta'] for value in hd[k].values()) for k in hd.keys()[1:]]
-        delta_max = [max(value['delta'] for value in hd[k].values()) for k in hd.keys()[1:]]
-        nroi = [len(hd[k].values()) for k in hd.keys()[1:]]
-        gt10 = [sum( np.abs(value['delta'])>10 for value in hd[k].values()) for k in hd.keys()[1:]]
-        itdf = pd.DataFrame([nroi, gt10, delta_sum, delta_min, delta_max],
-                     index='nroi gt10 delta_sum delta_min delta_max'.split(), columns=hd.keys()[1:]).T
-        itdf.index.name='stream'
-        return itdf.sort_index()
+                if stream not in model_streams: continue
+                hd[stream][i]=h['logl']
+        p = model_streams[0]
 
+        sinfo[p].update(delta_min=0, delta_max=0, delta_sum=0,gt10=0, nroi=1728)
+        for s  in model_streams[1:]:
+            nroi = sum(hd[s]!=0)
+            for k in range(1728):
+                if hd[s][k]==0:
+                    hd[s][k]= hd[p][k]
+            delta = hd[s]-hd[p]
+            sinfo[s].update(delta_sum=sum(delta), delta_min=delta.min(), 
+                            gt10=sum(abs(delta)>10), delta_max=delta.max(), nroi=nroi)
+            p = s
+        return pd.DataFrame(sinfo).T['stage date nroi gt10 delta_sum delta_min delta_max'.split()]
+    
+    def loglikelihood(self):
+        """log likelihood
 
-   # def iteration_info(self):
-   #     """ make a table summarizing the iterations
-   #     """
-   #     diffs =self.rois.diffs
-   #     n_iter = self.rois.n_iter
-   #     ll = self.rois.logl_list
-   #     max_iter = n_iter.max() 
-   #     def sumx(i):
-   #         return sum(w[i] if i<len(w)-1 else w[-1] for w in ll)
-   #     x = np.array(map( sumx, range(max_iter)))
-   #     ss = x[1:] - x[:-1]
-   #     itdict = dict()
-   #     for i in range(max_iter-1):
-   #         diffx = diffs[n_iter>i+1]
-   #         t = np.array([d[i] for d in diffx] )
-   #         itdict[i+1] = dict(nroi=len(diffx),delta_min=min(t), delta_max=max(t), 
-   #             gt10=sum(np.abs(t)>10), delta_sum=ss[i])
-   #     itdf =pd.DataFrame(itdict, index='nroi gt10 delta_sum delta_min delta_max'.split()).T
-   #     itdf.index.name='iteration'
-   #
-   #         
-   #     config = eval(open('config.txt').read()) 
-   #     input_model=config['input_model']['path']
-   #     self.iteration_info = """<p>Input model: <a href="../../%s/plots/index.html?skipDecoration">%s</a>
-   #     <p>Minimum, maximum numbers of iterations: %d, %d 
-   #     <p>Iteration history: log likelihood change for each step: \n%s
-   #     """ % (input_model,input_model, n_iter.min(), n_iter.max(), 
-   #             itdf.to_html(float_format=FloatFormat(1)) )
+        Progression of the log likelihood (left scale, blue cirles) and the number of ROI's changing by more than 10 (right scale, red diamonds) 
+        for the processing stages.
+        """
+        fig, ax = plt.subplots(1,1, figsize=(8,4))
+        ds=self.sinfo.delta_sum
+        x = range(len(self.sinfo))
+        ax.plot( x, np.cumsum(ds), 'o--');
+        ax.set_xticks(x)
+        ax.set_xticklabels(list(self.sinfo.stage), rotation=45, va='top', ha='right')
+        plt.setp(ax, xlim=(x[0]-0.5, x[-1]+0.5), 
+                 title='change in total log likelihood', xlabel='processing stage', ylabel='log likelihood')
+        ax.grid(True, alpha=0.5)
+        axr = ax.twinx()
+        plt.setp(axr, ylabel='changed ROIs', ylim=(0,self.sinfo.gt10.max()+5) )
+        axr.plot( x, self.sinfo.gt10, 'Dr--')
+        return fig    
     
     def add_model_info(self):
         for i,key in enumerate(['ring','isotrop', 'SunMoon', 'limb',]): # the expected order
@@ -236,12 +219,15 @@ class CountPlots(analysis_base.AnalysisBase):
         bad_rois = self.rois[chisq>vmax]['glat glon chisq'.split()]
         bad_rois['chisq'] = chisq
         bad_rois.to_csv('bad_rois.csv')
-        pc =makepivot.MakeCollection('bad rois %s' % os.path.split(os.getcwd())[-1], 'countfig', 'bad_rois.csv')
+        if not self.skymodel.startswith('month'):
+            pc =makepivot.MakeCollection('bad rois %s' % os.path.split(os.getcwd())[-1], 'countfig', 'bad_rois.csv')
         
-        self.bad_roi_link = """\
-            <p>A list of %d bad ROIs, with chisq>%.0f, can examined with a 
-            <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>,
-            which requires Silverlight."""  % (len(bad_rois), vmax, pc.cId)
+            self.bad_roi_link = """\
+                <p>A list of %d bad ROIs, with chisq>%.0f, can examined with a 
+                <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>,
+                which requires Silverlight."""  % (len(bad_rois), vmax, pc.cId)
+        else:
+            self.bad_roi_link=''
         
         def chisky(ax):
             self.basic_skyplot(ax, self.rois.glon, self.rois.singlat, chisq, 
@@ -326,6 +312,7 @@ class CountPlots(analysis_base.AnalysisBase):
 
     def all_plots(self):
         self.runfigures([
+            self.loglikelihood,
             self.chisq_plots,
             self.residual_maps, 
             self.residual_plot, 

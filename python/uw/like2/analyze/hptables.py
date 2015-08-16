@@ -1,7 +1,7 @@
 """
 Analyze the contents of HEALPix tables, especially the tsmap
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/hptables.py,v 1.6 2015/04/29 18:07:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/hptables.py,v 1.7 2015/07/24 17:56:02 burnett Exp $
 
 """
 
@@ -48,13 +48,25 @@ class HPtables(analysis_base.AnalysisBase):
      
     def make_seeds(self, refresh=False,  tcut=10, bcut=0, minsize=2):
         """ may have to run the clustering application """
-        if not os.path.exists(self.seedfile) or \
-                os.path.getsize(self.seedfile)==0 or \
-                os.path.getmtime(self.seedfile)<os.path.getmtime(self.fname) or refresh:
+        if not os.path.exists(self.seedfile) or os.path.getsize(self.seedfile)==0 or refresh:
+               # or os.path.getmtime(self.seedfile)<os.path.getmtime(self.fname)\
+               
             print 'reconstructing seeds: %s --> %s: ' % (self.fname, self.seedfile),
             rec = open(self.seedfile, 'w')
+            skymodel=self.skymodel
+            
+            # Special check for a month, which should mask out the Sun
+            if skymodel.startswith('month'):
+                month=int(skymodel[5:]);
+                mask = check_ts.monthly_ecliptic_mask( month)
+                print 'created a mask for month %d, with %d pixels set' % (month, sum(mask))
+            else: mask=None
+            
+            # Create the seed list by clustering the pixels in the tsmap
             nseeds = check_ts.make_seeds('test', self.fname, fieldname=self.tsname, 
-                nside=self.nside, rcut=tcut, bcut=bcut, rec=rec, seedroot=self.seedroot, minsize=minsize)
+                nside=self.nside, rcut=tcut, bcut=bcut, rec=rec, 
+                seedroot=self.seedroot, minsize=minsize,
+                mask=~mask)
             print '%d seeds' % nseeds
             if nseeds==0:
                 self.seeds = None
