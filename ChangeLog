@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: burnett  Sat Aug 15 18:11:36 PDT 2015
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	__init__.py _html.py associations.py counts.py hptables.py 
+	localization.py seedcheck.py sourceinfo.py 
+Added Files:
+	transientinfo.py 
+Log Message:
+updates
+    *
+------------------------------------------------------------
 User: burnett  Fri Jul 24 10:57:07 PDT 2015
 pointlike/python/uw/like2
 
