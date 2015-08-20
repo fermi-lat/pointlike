@@ -38,11 +38,20 @@ class TransientInfo(sourceinfo.SourceInfo):
         A logN-logS plot, but using TS. Important thresholds at TS=10 and 25 are shown.
         """
 
-        fig= super(TransientInfo, self).cumulative_ts(check_localized=False)
-        ax = fig.axes[0]
-        plt.setp(ax, ylim=(1,1000), xlim=(9,200))
+        df = self.df
+        df['prefix'] = [n[:2] for n in df.index]
+        fig=super(TransientInfo, self).cumulative_ts(check_localized=False, 
+                    ts = df.ts, label='all',
+                    other_ts=[df.ts[df.prefix=='PG'],
+                               df.ts[(df.prefix=='Sh') | (df.prefix=='S ')|(df.prefix=='TS')]] ,
+                    other_label=['PGWave', 'TSmap'], 
+                    legend=True,
+                    );
+        plt.setp(fig.axes[0], ylim=(1,1000), xlim=(9,100))
+
         return fig
     
+   
     def association_summary(self):
         """Summary
         %(summary_html)s
@@ -114,63 +123,105 @@ class Analysis(object):
             assoc = associations.ExtAssociations(month,quiet=True)
             for key in 'aprob acat aname aang adeltats'.split():
                 sinfo.df[key] = assoc.df[key]
-        # concatenate
+        # concatenate the transient sources
         dflist= []
         for i,month in enumerate(monthinfo):
             month.df['month'] = i+1
             month.df['has_assoc'] = [a is not None for a in month.df.associations]
-            dflist.append( month.df[month.df.transient]['ra dec glat glon ts pindex eflux a locqual aprob acat adeltats has_assoc month'.split()])
+            dflist.append( month.df[month.df.transient]['ra dec glat glon ts pindex eflux flux a locqual aprob acat adeltats has_assoc month'.split()])
         df = pd.concat(dflist) 
         df['skydir'] = map(SkyDir, df.ra, df.dec)
         df['roi'] = map( lambda s: Band(12).index(s), df.skydir)
         
-        # select those with TS>10
-        self.df = df[df.ts>10]
-        print 'candidate sources:', len(self.df)
+        # select those with TS>10 and good localization
+        good = np.logical_not((df.ts<10) | (df.locqual>8) | (df.a<0.01) | (df.a>0.25))
+        self.df = df[good]
+        print 'good sources: %d/%d' % (len(self.df), len(df))
         self.hilat = np.abs(self.df.glat)>10
         print 'High latitude (>10 deg)', sum(self.hilat)
         self.assoc = np.isfinite(self.df.aprob)
         print 'Associated', sum(self.assoc)
         
-    
-    
-    def plots(self):
-        dfall = self.df
-        cats =set(dfall.acat)
-        agn = (dfall.adeltats<9) & [(t in 'agn bllac qso crates bzcat cgrabs'.split()) for t in dfall.acat]
-        psr_lat = (dfall.adeltats<9) & (dfall.acat=='pulsar_lat')
-        psr = (dfall.adeltats<9) & (dfall.acat=='pulsar_big')
+def monthly_info(self, sname):
+    """Return monthly info for sources in all or most months
+    """
+    s6y = pd.read_csv('../P301_6years/uw972/sources_uw972.csv', index_col=0)
+    assert sname in s6y.index, 'Source %s not found in 6-year list' % sname
+    rec6y = s6y.ix[sname]
+    eflux6y = rec6y.flux * rec6y.e0**2*1e6
+    fluxunc67 = rec6y.flux_unc
+    # compile monthly stuff
+    months = dict()
+    for i,month in enumerate(self.monthinfo):
+        if sname not in month.df.index: continue
+        rec = month.df.ix[sname]
+        eflux = rec.flux * rec.e0**2*1e6
+        relfluxunc = rec.flux_unc/rec.flux
+        months[i+1]= dict(  
+            eflux = eflux,
+            relfluxunc = relfluxunc,
+            pull = (1-eflux6y/eflux)/relfluxunc,
+            a = rec.a,
+            ts=rec.ts,
+            locqual=rec.locqual,
+            good= rec.ts>10 and rec.a>0.01 and rec.a<0.25 and rec.locqual<8, 
+            )
+    assert len(months)>10, 'source %s not in at least 10 monthly models' % sname
+    monthly = pd.DataFrame(months).T
+    good=monthly.good
+    pull_rms = monthly[good].pull.std()
+    pull_mean = monthly[good].pull.mean()                  
+    ngood=sum(good)
+    return dict( monthly=monthly, 
+                 nmonths=len(monthly), 
+                 ngood=ngood,
+                 pull_rms=pull_rms,
+                 mean=pull_mean,
+                 ts = rec6y.ts,
+                 eflux = eflux6y,
+                 )
 
-        fig, axx = plt.subplots(1,3,figsize=( 12,8))
-        def glat_fig(ax):
-            dfall['singlat'] =np.sin(np.radians(np.asarray(dfall.glat,float)))
-            hist_kw=dict( histtype='step', lw=2)
-            bins = np.linspace(-1,1,41)
-            ax.hist(dfall.singlat, bins, label='all', **hist_kw)
-            ax.hist(dfall.singlat[dfall.locqual<5], bins,label='good loc', **hist_kw)
-            ax.hist(dfall.singlat[agn], bins, label='AGN assoc', **hist_kw)
-            ax.grid(True, alpha=0.5)
-            ax.legend()
-            plt.setp(ax, title='sin(glat) for transients', xlabel='sin(glat)');
-        def ts_fig(ax):
-            bins=np.logspace(1,2,26)
-            hist_kw=dict(lw=2, histtype='step',log=True)
-            ax.hist(dfall.ts, bins, label='all', **hist_kw)
-            ax.hist(dfall.ts[agn], bins, label='AGN',color='red', **hist_kw)
-            ax.legend()
-            ax.grid(True,alpha=0.5)
-            plt.setp(ax, xscale='log', ylim=(1,None), xlabel='TS')
-        def dts_fig(ax):
-            hist_kw = dict(lw=2, histtype='step', log=True)
-            bins = np.linspace(-5,10,31) 
-            ax.hist(dfall.adeltats.clip(-5,10),bins, label='associated', **hist_kw);
-            ax.hist(dfall.adeltats[agn].clip(-5,10),bins, label='agn',color='red', **hist_kw);
-            ax.hist(dfall.adeltats[psr_lat].clip(-5,10),bins, label='lat_psr', color='green',**hist_kw);
-            ax.grid(True, alpha=0.5);
-            ax.legend()
-            plt.setp(ax, xlim=(-5,10), xlabel='Delta TS', ylim=(1,None), title='association TS')
-        for f,ax in zip([glat_fig,ts_fig, dts_fig], axx.flatten()): f(ax)
-        return fig
+
+    
+    
+def plots(self):
+    dfall = self.df
+    cats =set(dfall.acat)
+    agn = (dfall.adeltats<9) & [(t in 'agn bllac qso crates bzcat cgrabs'.split()) for t in dfall.acat]
+    psr_lat = (dfall.adeltats<9) & (dfall.acat=='pulsar_lat')
+    psr = (dfall.adeltats<9) & (dfall.acat=='pulsar_big')
+    dfall['singlat'] =np.sin(np.radians(np.asarray(dfall.glat,float)))
+    hist_kw = dict(lw=2, histtype='step', log=True)
+
+
+    fig, axx = plt.subplots(1,2,figsize=( 10,6))
+    def glat_fig(ax):
+        bins = np.linspace(-1,1,41)
+        ax.hist(dfall.singlat, bins, label='all', **hist_kw)
+        ax.hist(dfall.singlat[dfall.locqual<5], bins,label='good loc', **hist_kw)
+        ax.hist(dfall.singlat[agn], bins, label='AGN assoc', **hist_kw)
+        ax.grid(True, alpha=0.5)
+        legend(ax)
+        plt.setp(ax, title='sin(glat) for transients', xlabel='sin(glat)');
+    def dts_fig(ax):
+        bins = np.linspace(-5,10,31) 
+        ax.hist(dfall.adeltats.clip(-5,10),bins, label='associated', **hist_kw);
+        ax.hist(dfall.adeltats[agn].clip(-5,10),bins, label='agn',color='red', **hist_kw);
+        ax.hist(dfall.adeltats[psr_lat].clip(-5,10),bins, label='lat_psr', color='green',**hist_kw);
+        ax.grid(True, alpha=0.5);
+        legend(ax)
+        plt.setp(ax, xlim=(-5,10), xlabel='Delta TS', ylim=(1,None), title='association TS')
+    def locqual(ax):
+        dfall['lq'] = np.asarray(dfall.locqual, float)
+        bins = np.linspace(0,8,25) 
+        ax.hist(dfall.lq[self.hilat].clip(0,8),bins, label='|b|>10', **hist_kw);
+        ax.hist(dfall.lq[agn].clip(0,8),bins, label='agn',color='red', **hist_kw);
+        ax.hist(dfall.lq[np.abs(dfall.glat<5)].clip(0,8),bins, label='|b|<5', color='green',**hist_kw);
+        ax.grid(True, alpha=0.5);
+        legend(ax)
+        plt.setp(ax, xlim=(0,8), xlabel='localization quality', ylim=(1,None), title='loc qual')
+    for f,ax in zip([dts_fig,], axx.flatten()): f(ax)
+    return fig
         
 def plots2(self):
     fig, axx = plt.subplots(2,3, figsize=(15,12))
@@ -216,7 +267,7 @@ def plots2(self):
 
 def monthly(self):
     df=self.df
-    fig, ax = plt.subplots(1,1,figsize=(8,8))
+    fig, ax = plt.subplots(1,1,figsize=(8,5))
     hist_kw=dict(lw=2, histtype='step', log=True)
     bins=np.linspace(0.5,72.5,73)
     ax.hist(df.month, bins, label='all', **hist_kw);
@@ -224,6 +275,7 @@ def monthly(self):
     ax.hist(df.month[self.assoc], bins, label='assoc',color='red', **hist_kw);
     plt.setp(ax, xlim=(0.5,72.5), xlabel='month', ylim=(10,None), title='Montly totals');
     legend(ax, loc='lower left');
+    ax.grid(True, alpha=0.5)
     return fig
 
 def pair_correlations(self, df):
