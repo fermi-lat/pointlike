@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mdwood  Fri Aug 21 17:40:10 PDT 2015
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Initialize parameter array in Model class.
+    *
+------------------------------------------------------------
 User: burnett  Wed Aug 19 17:31:19 PDT 2015
 pointlike/python/uw/like2/analyze
 
