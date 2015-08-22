@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.147 2014/07/25 01:07:44 echarles Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.148 2014/08/04 22:06:39 kadrlica Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -96,7 +96,7 @@ class Model(object):
         for k,v in self.default_extra_attrs.items():
             setattr(self,k,v)
 
-        self._p = np.empty(self.npar, dtype=float)
+        self._p = np.zeros(self.npar, dtype=float)
         self._external = self._p.copy()
         if p is None:
             p = self.default_p
