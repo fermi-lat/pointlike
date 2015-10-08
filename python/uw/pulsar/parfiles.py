@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.70 2015/02/21 11:37:54 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.71 2015/05/02 10:50:55 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -17,9 +17,13 @@ import time
 C = 29979245800.
 
 def sex2dec(s,mode='ra'):
-    """ Convert a colon-delimited sexagesimal string to decimal degrees.
+    """ Convert a colon- or space-delimited sexagesimal string to decimal 
+        degrees.
     """
-    toks = s.split(':')
+    if ':' in s:
+        toks = s.split(':')
+    else:
+        toks = s.split(' ')
     multi = (-1 if '-' in s else 1) * (15 if mode == 'ra' else 1)
     return multi*sum( (60**(-i) * abs(float(toks[i])) for i in xrange(len(toks)) ) )
 
@@ -904,8 +908,8 @@ class ParFile(dict):
             RAJ    08:35:20.61149  0.00002
             DECJ   -45:10:34.8751  0.00030
 
-            NB this WILL clobber the ephemeris file.
-            
+            NB this WILL clobber the ephemeris file unless otherwise
+            specified.
         """
         if block is None:
             return
@@ -918,17 +922,6 @@ class ParFile(dict):
         # remove duplicate comments (e.g. if this has been done before)
         comm = [l.strip()[1:] for l in lines if l[0] == '#']
         map(self.delete_val,comm)
-
-        #output = output or self.parfile
-        #self.write(output)
-        #lines = map(str.strip,file(output).readlines())
-        #idx = 0
-        #for line in lines:
-        #    if 'PSRJ' in line:
-        #        break
-        #    idx += 1
-        #file(output,'w').write('\n'.join(
-        #    lines[:idx+1]+block.split('\n')+lines[idx+1:]))
 
         import StringIO
         buf = StringIO.StringIO()
@@ -1255,6 +1248,8 @@ def id_toa_line(line):
     if line[0]=='#' or line[0]=='C':
         return False
     if 'FORMAT' in line:
+        return False
+    if 'MODE' in line:
         return False
     toks = line.split()
     if len(toks) < 3:
@@ -1653,3 +1648,18 @@ def process_ft_data(tim,output=None):
     if output is None:
         output = tim
     file(output,'w').write('\n'.join(lines))
+
+def edit_start_finish(par,output=None):
+    """ Delete the "free parameter" flag after START/FINISH."""
+    lines = file(par).readlines()
+    for iline,line in enumerate(lines):
+        if ('START' in line) or ('FINISH' in line):
+            toks = line.strip().split()
+            if not ((toks[0] == 'START') or (toks[0] == 'FINISH')):
+                continue
+            if len(toks) > 2:
+                otoks = line.split(toks[1])
+                lines[iline] = otoks[0] + toks[1] + '\n'
+    if output is None:
+        output = par
+    file(output,'w').write(''.join(lines))
