@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.72 2015/10/08 20:53:38 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.73 2015/10/20 22:08:08 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -388,7 +388,7 @@ class ParFile(dict):
             self.set('ELONG',elon)
             self.set('ELAT',elat)
         else:
-            raj,raje,decj,decje = self.get_astrometry_ecliptric(
+            raj,raje,decj,decje = self.get_astrometry(
                 epoch=epoch)
             self.set('RAJ',dec2sex(raj,mode='ra'))
             self.set('DECJ',dec2sex(decj,mode='dec'))
