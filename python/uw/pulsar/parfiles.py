@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.71 2015/05/02 10:50:55 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.72 2015/10/08 20:53:38 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -262,6 +262,14 @@ class ParFile(dict):
         ra,dec = self.get_ra(), self.get_dec()
         return SkyDir(ra,dec)
 
+    def is_ecliptic(self):
+        try:
+            elon = self['ELONG']
+            return True
+        except Exception:
+            pass
+        return False
+
     def get_astrometry(self,epoch=None):
         """ Return the astrometry as a 4-tuple with RA, error, Dec, error
             in degrees.
@@ -315,11 +323,75 @@ class ParFile(dict):
                 dece = (dece**2 + (pmdece*dt)**2)**0.5
         return [ra,rae,dec,dece]
 
+    def get_astrometry_ecliptic(self,epoch=None):
+        """ Return the astrometry as a 4-tuple with ELONG, error, ELAT, 
+            error, in degrees.
+
+            NB in tempo2 convention ELONG and ELAT are given in degr.
+            
+            If the epoch is provided, and the source has a proper motion,
+            then correct the position to given epoch and add the errors
+            in quadrature.
+            
+            NB that for tempo2, both PMELONG and PMELAT are physical
+            scales, so PMELONG shoud be divided by cos(ELAT) to get the 
+            "coordinate speed".
+        """
+        elon = float(self.get('ELONG'))
+        elat = float(self.get('ELAT'))
+        if hasattr(self['ELONG'],'__iter__'):
+            idx = 1 if (len(self['ELONG'])==2) else 2
+            elone = float(self['ELONG'][idx])
+        else:
+            elone = 0.
+        if hasattr(self['ELAT'],'__iter__'):
+            idx = 1 if (len(self['ELAT'])==2) else 2
+            elate = float(self['ELAT'][idx])
+        else:
+            elate = 0.
+
+        if epoch is None:
+            return [elon,elone,elat,elate]
+        
+        try:
+            dt = (epoch - self.get('POSEPOCH',type=float))/365.24
+        except KeyError:
+            dt = 0
+        if 'PMELONG' in self.keys():
+            #in TEMPO2,  proper motion is in physical units; convert
+            # to coordinate units by correcting for cos(ELAT)
+            celat = np.cos(np.radians(elat))
+            pmelon = self.get('PMELONG',type=float)/1000/3600./celat
+            if hasattr(self['PMELONG'],'__iter__'):
+                idx = 1 if (len(self['PMELONG'])==2) else 2
+                pmelone = float(self['PMELONG'][idx])/1000/3600./celat
+            else:
+                pmelone = 0
+            elon += pmelon*dt
+            elone = (elone**2 + (pmelone*dt)**2)**0.5
+        if 'PMELAT' in self.keys():
+            pmelat = self.get('PMELAT',type=float)/1000/3600 # deg
+            if hasattr(self['PMELAT'],'__iter__'):
+                idx = 1 if (len(self['PMELAT'])==2) else 2
+                pmelate = float(self['PMELAT'][idx])/1000/3600 # deg
+            else:
+                pmelate = 0
+            elat += pmelat * dt
+            elate = (elate**2 + (pmelate*dt)**2)**0.5
+        return [elon,elone,elat,elate]
+
     def set_posepoch(self,epoch):
         """ Update POSEPOCH, evolving RAJ/DECJ if necessary."""
-        raj,raje,decj,decje = self.get_astrometry(epoch=epoch)
-        self.set('RAJ',dec2sex(raj,mode='ra'))
-        self.set('DECJ',dec2sex(decj,mode='dec'))
+        if self.is_ecliptic():
+            elon,elone,elat,elate = self.get_astrometry_ecliptic(
+                epoch=epoch)
+            self.set('ELONG',elon)
+            self.set('ELAT',elat)
+        else:
+            raj,raje,decj,decje = self.get_astrometry_ecliptric(
+                epoch=epoch)
+            self.set('RAJ',dec2sex(raj,mode='ra'))
+            self.set('DECJ',dec2sex(decj,mode='dec'))
         self.set('POSEPOCH',str(epoch))
 
     def get_icrs_coord(self):
