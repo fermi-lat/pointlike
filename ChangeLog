@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Tue Oct 20 15:08:08 PDT 2015
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+Add ecliptic support.
+    *
+------------------------------------------------------------
 User: kerrm  Thu Oct  8 13:53:38 PDT 2015
 pointlike/python/uw/pulsar
 
