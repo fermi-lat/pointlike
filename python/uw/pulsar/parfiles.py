@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.73 2015/10/20 22:08:08 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.74 2015/10/20 22:32:03 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -382,6 +382,11 @@ class ParFile(dict):
 
     def set_posepoch(self,epoch):
         """ Update POSEPOCH, evolving RAJ/DECJ if necessary."""
+        try:
+            posepoch = self['POSEPOCH']
+        except KeyError:
+            self.set('POSEPOCH',str(epoch))
+            return
         if self.is_ecliptic():
             elon,elone,elat,elate = self.get_astrometry_ecliptic(
                 epoch=epoch)
