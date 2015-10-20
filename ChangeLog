@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Tue Oct 20 15:37:05 PDT 2015
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+Add check for primitive ephemerides.
+    *
+------------------------------------------------------------
 User: kerrm  Tue Oct 20 15:32:03 PDT 2015
 pointlike/python/uw/pulsar
 
