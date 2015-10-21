@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Wed Oct 21 14:50:55 PDT 2015
+pointlike/python/uw/pulsar
+
+Modified Files:
+	stats.py 
+Log Message:
+Add David's on-the-fly weighting.
+    *
+------------------------------------------------------------
 User: kerrm  Tue Oct 20 15:37:05 PDT 2015
 pointlike/python/uw/pulsar
 
