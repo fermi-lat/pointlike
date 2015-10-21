@@ -2,9 +2,11 @@
 A module collecting various routines for calculating pulsation test
 test statistics and helper functions.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/stats.py,v 1.6 2012/04/12 22:33:05 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/stats.py,v 1.7 2012/11/29 00:29:45 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
+
+21 October 2015, LPC2E Orleans, David Smith adds srchpuls.
 """
 
 import numpy as np
@@ -271,3 +273,40 @@ def sf_stackedh(k,h,l=0.398405):
     for i in xrange(k):
         p += c**i/fact(i)
     return p*np.exp(-c)
+
+def srchpuls(energies, angseps, logeref=4.1, logesig=0.5):
+    """ Generate weights using SearchPulsation parameters.
+    
+    angseps is the list of angular differences, in degrees, between the 
+    photons and the pulsar position. 
+
+	Copying this code snippet taken from Lucas' plot_phaso.c ---
+            logE       = log10(energy);
+            fgeom      = p2d0(angsep,norm,gam,PSFCut(energy,psfpar0,psfpar1,psfpar2)/scalepsf);
+            tempweight = fgeom * exp(-pow((logE-logeref)/sqrt(2.)/logesig,2.));	
+
+       As well as this from misc_func.c --- 
+float p2d0(float angsep, float norm, float gamma, float sigma)
+{  return norm*pow(1+angsep*angsep/2./gamma/sigma/sigma,-gamma); }
+where norm = DEF_NORM = 1. and DEF_GAM = 2. and DEF_SCALEPSF = 3. in plot_phaso.h
+
+       And this from misc_func.c --- 
+float PSFCut(float energy, float psfpar0, float psfpar1, float psfpar2)
+{ float theta = sqrt(psfpar0*psfpar0*pow(100/energy,2*psfpar1)+psfpar2*psfpar2);
+    return theta; }
+
+    """
+    psfpar0 =  5.445
+    psfpar1 =  0.848
+    psfpar2 =  0.084
+    norm = 1.
+    gam = 2.
+    scalepsf = 3.
+
+    logE = np.log10(energies)
+    
+    sigma = np.sqrt(psfpar0*psfpar0*np.power(100./energies, 2.*psfpar1) + psfpar2*psfpar2)/scalepsf
+    
+    fgeom = norm*np.power(1+angseps*angseps/2./gam/sigma/sigma, -gam)
+
+    return fgeom * np.exp(-np.power((logE-logeref)/np.sqrt(2.)/logesig,2.))	
