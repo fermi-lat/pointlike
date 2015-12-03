@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Thu Dec  3 09:08:06 PST 2015
+pointlike/python/uw/like2
+
+Modified Files:
+	associate.py bandlike.py dataset.py main.py to_fits.py 
+	to_healpix.py tools.py 
+Log Message:
+merge recent updates
+    *
+------------------------------------------------------------
 User: kerrm  Wed Oct 21 14:50:55 PDT 2015
 pointlike/python/uw/pulsar
 
