@@ -1,7 +1,7 @@
 """
 Analyze the contents of HEALPix tables, especially the tsmap
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/hptables.py,v 1.7 2015/07/24 17:56:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/hptables.py,v 1.8 2015/08/16 01:11:36 burnett Exp $
 
 """
 
@@ -43,7 +43,7 @@ class HPtables(analysis_base.AnalysisBase):
         self.seedfile, self.seedroot, self.bmin = \
             'seeds_%s.txt'%tsname, '%s%s'%( (tsname[-1]).upper(),self.skymodel[-3:] ) , 0
         
-        #self.make_seeds(refresh=kw.pop('refresh', False))
+        self.make_seeds(refresh=kw.pop('refresh', False))
 
      
     def make_seeds(self, refresh=False,  tcut=10, bcut=0, minsize=2):
@@ -66,7 +66,7 @@ class HPtables(analysis_base.AnalysisBase):
             nseeds = check_ts.make_seeds('test', self.fname, fieldname=self.tsname, 
                 nside=self.nside, rcut=tcut, bcut=bcut, rec=rec, 
                 seedroot=self.seedroot, minsize=minsize,
-                mask=~mask)
+                mask=~mask if mask is not None else None)
             print '%d seeds' % nseeds
             if nseeds==0:
                 self.seeds = None

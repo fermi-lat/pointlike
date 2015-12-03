@@ -1,7 +1,7 @@
 """
 Association analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.19 2015/07/24 17:56:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.20 2015/08/16 01:11:36 burnett Exp $
 
 """
 import os, glob, sys, pyfits
@@ -54,7 +54,8 @@ class Associations(sourceinfo.SourceInfo):
         df['adeltats'] = np.array([assoc['deltats'][0] if not pd.isnull(assoc) else np.nan for assoc in associations])
         # make selection requiring association probabliliy
         total=len(df)
-        self.df = df[df.aprob>minprob]
+        self.indf=df
+        self.df = df[(df.aprob>minprob) | (df.psr)]
         self.df10 = self.df.ix[self.df.ts>10]
         if not self.quiet:
             print 'associated: %d/%d' % (sum(self.df10.aprob>0.8), total)
@@ -65,16 +66,17 @@ class Associations(sourceinfo.SourceInfo):
         <br>Left: histogram of TS, showing the fraction that have associations.
         <br>Right: The fractions themselves.
         """
-        ts = self.df10.ts
-        lowlat = np.abs(self.df10.glat)<5
-        assoc = self.df.aprob>aprob_min
+        ts = self.indf.ts #self.df10.ts
+        lowlat = np.abs(self.indf.glat)<5
+        assoc = self.indf.aprob>aprob_min
         def plota(ax, bins=np.logspace(1,5,41) ):
-            ax.hist(ts, bins, label='all sources')
-            ax.hist(ts[assoc], bins, color='orange', label='associated')
-            plt.setp(ax, xscale='log', xlabel='TS', xlim=(10,1e5))
+            histkw = dict(bins=bins, histtype='step', lw=2)
+            ax.hist(ts, label='all sources', **histkw)
+            ax.hist(ts[assoc], color='orange', label='associated', **histkw)
+            plt.setp(ax, xscale='log', xlabel='TS', xlim=(10,1e4))
             ax.legend(prop=dict(size=10)); ax.grid()
         def plotb(ax, bins=np.logspace(1,4.5,8)):
-            for tsvals, label,color in zip( (self.df10[~lowlat].ts, self.df10[lowlat].ts), 
+            for tsvals, label,color in zip( (self.indf[~lowlat].ts, self.indf[lowlat].ts), 
                     ('|b|>5', '|b|<5'), ('blue','red')):
                 all = np.array(np.histogram(tsvals, bins)[0],float)
                 subset = np.histogram(tsvals[assoc], bins)[0]
@@ -190,18 +192,23 @@ class Associations(sourceinfo.SourceInfo):
                             locqual=dfagn.locqual[i],
                             ang=a['ang'][j],
                             )
+        print 'bzdict length:', len(bzdict)
         bzdf = pd.DataFrame(bzdict).T        
-        
         t=np.asarray(test)
         u =[sum(t==k) for k in range(-1,4)] ; print u
         self.bzcat_html= '<p>There is a BZCAT association in all but %d out of %d agns' % (u[0], sum(u))
         bzdf['type'] = [n[3] for n in bzdf.index]
         types=set(bzdf.type)
         tc = [sum(bzdf.type==type) for type in types]
-        self.bzcat_html += 'Frequencies: %s' % dict(zip(types, tc))
+        self.bzcat_html += '<p>Frequencies: %s' % dict(zip(types, tc))
         
         # make an integral logTS plot 
-        fig, ax = plt.subplots(figsize=(8,10))
+        fig, ax = plt.subplots(figsize=(8,5))
+        if len(bzdict)==0:
+            print 'No BZCAT associations found'
+            self.bzcat_html += '<p>No BZCAT associations: quitting'
+            return fig
+        
         hist_args=dict(cumulative=-1, lw=2, histtype='step', log=True)
         dom= np.logspace(1,np.log10(tsmax),501)
         ax.hist(bzdf.ts, dom, label='all', **hist_args );
@@ -236,6 +243,7 @@ class Associations(sourceinfo.SourceInfo):
         pp = pyfits.open(pulsar_lat_catname)[1].data
         lat = pd.DataFrame(pp, index=[n.strip() for n in pp.Source_Name])
         lat['ts'] = self.df[self.df.psr]['ts']
+        lat['aprob'] = self.df[self.df.psr]['aprob']
         lat['ROI_index'] = [Band(12).index(SkyDir(float(ra),float(dec))) for ra,dec in zip(lat.RAJ2000,lat.DEJ2000)]
         
         lat['skydir'] = [SkyDir(float(ra),float(dec)) for ra,dec in zip(lat.RAJ2000, lat.DEJ2000)]
@@ -243,15 +251,17 @@ class Associations(sourceinfo.SourceInfo):
         lat['sourcedir'] = self.df.skydir[self.df.psr]
         lat['delta'] = [np.degrees(s.difference(t)) if not type(t)==float else np.nan for s,t in zip(lat.skydir,lat.sourcedir)]
         far = lat.delta>0.25
+        self.lat = lat # for debug
         dc2names =set(pp.Source_Name)
         print 'sources with exp cutoff not in LAT catalog:', np.asarray(list(tt.difference(dc2names)))
         print 'Catalog entries not found:', list(dc2names.difference(tt))
         missing = np.array([ np.isnan(x) or x<10. for x in lat.ts])
+        missing |= np.array(lat.aprob==0)
         
         # this used to work but now generates 'endian' message
         #latsel = lat[missing]['RAJ2000 DEJ2000 ts ROI_index'.split()]
         missing_names = lat.index[missing]
-        cols = 'RAJ2000 DEJ2000 ts ROI_index'.split()
+        cols = 'RAJ2000 DEJ2000 ts aprob delta ROI_index'.split()
         self.latsel=latsel = pd.DataFrame( np.array([lat[id][missing] for id in cols]), index=cols, columns=missing_names).T
 
         #psrx = np.array([x in 'pulsar_fom pulsar_low msp pulsar_big'.split() for x in self.df.acat])
@@ -260,8 +270,8 @@ class Associations(sourceinfo.SourceInfo):
         self.atable = '<h4>Compare with LAT pulsar catalog: %s</h4>' % os.path.split(pulsar_lat_catname)[-1]
         self.atable += '<p>Sources fit with exponential cutoff not in catalog %s' %np.asarray(list(tt.difference(dc2names)))
         self.atable += html_table(latsel,
-                    dict(ts='TS,Test Statistic', ROI_index='ROI Index,Index of the ROI, a HEALPix ring index'),
-                    heading = '<p>%d LAT catalog entries not in the model (TS shown as NaN), or too weak.' % sum(missing),
+                    dict(ts='TS,Test Statistic', aprob='aprob,Association probability', ROI_index='ROI Index,Index of the ROI, a HEALPix ring index'),
+                    heading = '<p>%d LAT catalog entries with problems -- not in the model (TS shown as NaN), too weak (TS<10) or not associated.' % sum(missing),
                     name=self.plotfolder+'/missing', maxlines=20,
                     float_format=(FloatFormat(2)))
         if sum(far)>0:
@@ -331,17 +341,18 @@ class Associations(sourceinfo.SourceInfo):
             self.pulsar_candidates='No candidates found'
         return ptx if test else None    
     
-    def localization_check(self, tsmin=10, dtsmax=9, qualmax=5):
+    def localization_check(self, tsmin=100, dtsmax=9, qualmax=5):
         r"""Localization resolution test
         
         The association procedure records the likelihood ratio for consistency of the associated location with the 
         fit location, expressed as a TS, or the difference in the TS for source at the maximum, and at the associated
-        source. The distribution in this quantity should be an exponential, $\exp(-TS/2/f^2)$, where $f$ is a scale factor
+        source. The distribution in this quantity should be an exponential, $\exp(-\Delta TS/2/f^2)$, where $f$ is a scale factor
         to be measured from the distribution. If the PSF is a faithful representation of the distribution of photons
         from a point source, $f=1$. For 1FGL and 2FGL we assumed 1.1. The plots show the results for AGN, LAT pulsars, and
         all other associations. They are cut off at 9, corresponding to 95 percent containment.
+        <br>%(localization_html)s
         """
-        
+        self.localization_html = 'Cuts: TS>{}, Delta TS<{}, localization quality <{}'.format(tsmin, dtsmax, qualmax) 
         t = self.df.acat
         agn = np.array([x in 'crates bzcat agn bllac'.split() for x in t])
         psr = np.array([x in 'pulsar_lat'.split() for x in t])
@@ -372,7 +383,7 @@ class FitExponential(object):
         from scipy import optimize
 
         self.vmax, self.binsize, self.label = vmax, binsize, label
-        self.vcut=vcut = v[v<vmax]
+        self.vcut=vcut = v[(v<vmax) & (v>=0)].clip(0,vmax)
         self.vmean = vmean = vcut.mean() 
         # find factor that has same average over the interval
         self.factor = optimize.brentq( lambda x : self.cfactors(x)[3]-self.vmean, 1.0, 1.5)
