@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Thu Dec  3 09:10:03 PST 2015
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	__init__.py analysis_base.py associations.py counts.py 
+	hptables.py residuals.py sourcecomparison.py sourceinfo.py 
+	transientinfo.py 
+Log Message:
+big update
+    *
+------------------------------------------------------------
 User: burnett  Thu Dec  3 09:08:06 PST 2015
 pointlike/python/uw/like2
 
