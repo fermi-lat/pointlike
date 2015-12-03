@@ -5,7 +5,7 @@ Manage a SED plot
             sf an SourceFlux object, 
         Plot(sf)()
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.22 2014/06/30 21:39:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.23 2014/07/14 22:47:25 burnett Exp $
 """
 import os, types, sys
 import numpy as np
@@ -80,8 +80,8 @@ class Plot(object):
         if butterfly:
             try:
                 self.plot_butterfly(m)
-            except:
-                print 'fail to plot butterfly for {}'.format(self.name)
+            except Exception, msg:
+                print 'fail to plot butterfly for {}:{}'.format(self.name, msg)
 
     def plot_butterfly(self, m, ):
         energy_flux_factor = self.scale_factor*1e6 # from MeV to eV
@@ -89,9 +89,9 @@ class Plot(object):
         dom = self.dom
         try:
             e0 = m.pivot_energy()
-        except:
-            print 'no butterfly plot for {}'.format(self.name)
-            return
+        except Exception, msg:
+            print 'pivot failure: using 1 1GeV for {}'.format(self.name)
+            e0=1000
         flux = m(e0); 
         eflux = lambda e: energy_flux_factor * m(e) * e**2
         bfun  = lambda e: m.flux_relunc(e)
@@ -141,7 +141,7 @@ class Plot(object):
         name         name of the source
         fignum       [5] if set, use (and clear) this figure. If None, use current Axes object
         axes         [None] If set use this Axes object
-        axis         None, (1e2, 1e5, 1e-8, 1e-2) depending on energy flux unit
+        axis         None, (1e2, 1e5, 1e-10, 1e-1) depending on energy flux unit
         data_kwargs  a dict to pass to the data part of the display
         fit_kwargs   a dict to pass to the fit part of the display
         butterfly    [True] plot model with a butterfly outline
@@ -169,7 +169,7 @@ class Plot(object):
         axes.set_xscale('log')
         axes.set_yscale('log')
         if axis is None:
-            axis = (1e2,4e5, 0.2*self.scale_factor, 1e4*self.scale_factor) 
+            axis = (1e2,4e5, 0.1*self.scale_factor, 1e3*self.scale_factor) 
         axes.axis(axis)
         axes.grid(grid)
         axes.set_autoscale_on(False)
@@ -184,8 +184,9 @@ class Plot(object):
         # the axis labels (note reduced labelpad for y) 
         axes.set_ylabel(r'$\mathsf{Energy\ Flux\ (%s\ cm^{-2}\ s^{-1})}$' % self.energy_flux_unit, labelpad=0)
         axes.set_xlabel(r'$\mathsf{Energy\ (GeV)}$')
-        if self.energy_flux_unit=='eV':
-           axes.set_yticklabels(['', '1', '10', '100', r'$\mathdefault{10^{3}}$'])
+        # not flexible
+        #if self.energy_flux_unit=='eV':
+        #  axes.set_yticklabels(['', '1', '10', '100', r'$\mathdefault{10^{3}}$'])
 
         axes.set_title(name, size=14)
         set_xlabels(axes, self.gev_scale)
@@ -200,14 +201,14 @@ class Plot(object):
             self.savefig( outdir, suffix)
             
 
-    def savefig(self,outdir, suffix=''):
+    def savefig(self, outdir, suffix='', bbox_inches='tight'):
         if os.path.isdir(outdir):
             fname = self.name.replace(' ','_').replace('+','p') + suffix
             outf = os.path.join(outdir,'%s.jpg'% fname)
-            print 'saving sedfig to %s...' %outf, sys.stdout.flush()
-            plt.savefig(outf); print
+            print 'saving sedfig to %s...' %outf, 
+            plt.savefig(outf, bbox_inches=bbox_inches); print 'Done'
         else :
-            plt.savefig(outdir)
+            plt.savefig(outdir, bbox_inches=bbox_inches)
             print 'saved sedfig to %s' %outdir
 
 def sed_table(roi, source_name=None):

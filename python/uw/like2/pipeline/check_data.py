@@ -1,6 +1,6 @@
 """
 Check that the data specification for this stream is valid, perhaps creating the intermediate files
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_data.py,v 1.8 2013/12/31 04:45:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_data.py,v 1.9 2014/05/08 20:29:28 burnett Exp $
 """
 import os, sys, glob, zipfile, logging, datetime
 import numpy as np
@@ -11,12 +11,13 @@ def main(args=None):
 
     if args is not None:
         stage = args.stage[0]
-        nocreate = True
+        nocreate = False # Was True, but only important to run the creation for large data sets
     else:
         # if called directly, may create
         stage = os.environ.get('stage', 'create' )
         nocreate = False
-    if stage!='create':
+    stage=stage.split('_')[0]
+    if stage!='create' and stage!='monthly':
         print 'Not creating a model: assume data validated'
         return
         
@@ -24,7 +25,7 @@ def main(args=None):
     pointlike_dir = os.environ.get('POINTLIKE_DIR', '.')
     skymodel = os.environ.get('SKYMODEL_SUBDIR', '.')
     stream = os.environ.get('PIPELINE_STREAM', '-1')
-    absskymodel = os.path.join(pointlike_dir, skymodel)
+    absskymodel = os.path.join(pointlike_dir, skymodel) if args is not None else '.'
 
     if args is not None:
         tee = tools.OutputTee(os.path.join(absskymodel, 'summary_log.txt'))
@@ -35,7 +36,7 @@ def main(args=None):
     if 'CUSTOM_IRF_DIR' not in os.environ and os.path.exists(os.path.expandvars('$FERMI/custom_irfs')):
         os.environ['CUSTOM_IRF_DIR'] = os.path.expandvars('$FERMI/custom_irfs')
 
-    rc = dataset.validate(absskymodel, nocreate=nocreate)
+    rc = dataset.validate(absskymodel, nocreate=nocreate, quiet=False)
     print 'Data is validated' if rc else 'NOT validated'
     if args is not None:
         tee.close()

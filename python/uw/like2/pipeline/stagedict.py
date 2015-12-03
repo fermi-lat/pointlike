@@ -37,8 +37,9 @@ stagenames = dict(
     #update_norms=  StageBatchJob( dict( norms_only=True), sum='menu config counts', help='update that fits the normalization factors only'),
     
     monthly     =  StageBatchJob( dict( fix_spectra_flag=True), sum='menu config counts', next='addseeds_pgw', help='create a monthly model; followed by adding PGW seeds for that month'),
+    monthlynopgw =  StageBatchJob( dict( fix_spectra_flag=True), sum='menu config counts', next='update_full', help='create a monthly model, no seeds, just update'),
     addseeds    =  StageBatchJob( dict(seed_key=''), next='update_full', sum='config counts', help='start update sequence with seeds'),
-    addseeds_pgw=  StageBatchJob( dict(seed_key='pgw'), next='update_full', sum='config counts', help='start update sequence with PGW seeds'),
+    addseeds_pgw=  StageBatchJob( dict(seed_key='pgw'), next='update_full', sum='config counts pgwave', help='start update sequence with PGW seeds'),
     addseeds_ts =  StageBatchJob( dict(seed_key='ts'), next='update_full', sum='config counts', help='start update sequence with TS maap seeds'),
     
     #update_seeds=  StageBatchJob( dict(add_seeds_flag=True), sum='config counts', help='start update sequence with new seed soruces'),
