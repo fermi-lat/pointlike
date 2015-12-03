@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.83 2015/07/24 17:57:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.84 2015/08/16 01:13:19 burnett Exp $
 
 """
 import types, time
@@ -443,7 +443,11 @@ class MultiROI(ROI):
     def setup_roi(self, roi_index):
         roi_bands = bands.BandSet(self.config, roi_index)
         roi_bands.load_data()
-        roi_sources = from_healpix.ROImodelFromHealpix(self.config, roi_index, ecat=self.ecat,
-            load_kw=self.load_kw)
+        if self.config.modeldir is not None:
+            roi_sources = from_healpix.ROImodelFromHealpix(self.config, roi_index, ecat=self.ecat,
+                load_kw=self.load_kw)
+        else:
+            roi_sources = from_xml.ROImodelFromXML(self.config, roi_index, ecat=self.ecat)
+            
         self.name = 'HP12_%04d' % roi_index
         self.setup( roi_bands, roi_sources)

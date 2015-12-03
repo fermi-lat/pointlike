@@ -1,6 +1,6 @@
 """
  Manage associations
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/associate.py,v 1.3 2013/12/05 21:16:33 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/associate.py,v 1.4 2015/08/16 01:13:19 burnett Exp $
  author: T. Burnett <tburnett@uw.edu>
 """
 import os, glob
@@ -62,7 +62,7 @@ class SrcId(srcid.SourceAssociation):
         
     def __call__(self, name, pos, error):
         """ name: source name, ignored, for reference
-            pos: a SkyDir object
+            pos: a SkyDir object |; (ra,dec) cuple
             error: [float | tuple]
                 a or tuple: (a,b,ang) or, (ra,dec,a,b,ang,)...
                 a,b: 1-sigma elipse in deg; ang orientation degrees
@@ -103,6 +103,13 @@ class SrcId(srcid.SourceAssociation):
     def positional_likelihood(self, name, pos, error):
         a,b,ang = error
 
+class BzcatId(SrcId):
+
+    def __init__(self):
+        super(BzcatId, self).__init__(classes=['bzcat'])
+        #self.catalogs['bzcat'].prob_threshold=0.1
+        
+        
 def make_association(source, tsf, associate, quiet=False):
     if not quiet: print ' %s association(s) ' % source.name,
     try:    ell = source.ellipse

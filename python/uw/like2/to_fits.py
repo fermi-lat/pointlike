@@ -1,7 +1,7 @@
 """
 Code to generate a standard Fermi-LAT catalog FITS file
 also, see to_xml, to generate XML for the sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_fits.py,v 1.12 2013/11/27 14:59:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_fits.py,v 1.13 2015/02/09 13:35:29 burnett Exp $
 """
 import os, argparse, glob
 import pyfits
@@ -57,8 +57,8 @@ coldata ="""\
     Unc_Spectral_Index       E None
     Flux1000                 E photon/cm**2/s
     Unc_Flux1000             E photon/cm**2/s
-    Energy_Flux              E erg/cm**2/s
-    Unc_Energy_Flux          E erg/cm**2/s
+    Energy_Flux100           E erg/cm**2/s
+    Unc_Energy_Flux100       E erg/cm**2/s
     SpectralFitQuality       E None
     ID_Number                I None
     ID_Name               520A None
@@ -229,7 +229,6 @@ class MakeCat(object):
         extended = pd.isnull(z.locqual)
         print 'found %d logparabola, %d exp cutoff, %d super cutoff, %d extended'\
                % (sum(logpar), sum(exp_cutoff), sum(has_exp_index), sum(extended))
-
         self.add('Test_Statistic',    z.ts)
         
         # Spectral details
@@ -245,6 +244,8 @@ class MakeCat(object):
         self.add('Unc_Cutoff_Energy', z.cutoff_unc) 
         self.add('Beta',              np.where(logpar, z.index2, np.nan))
         self.add('Unc_Beta',          np.where(logpar, z.index2_unc, np.nan))
+        self.add('Energy_Flux100',    z.eflux100 )
+        self.add('Unc_Energy_Flux100',z.eflux100_unc)
         self.add('SpectralFitQuality',z.fitqual) 
         self.add('Extended',          extended)
         self.add('Flags',             flags)

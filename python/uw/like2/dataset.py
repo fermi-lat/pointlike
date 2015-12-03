@@ -1,11 +1,11 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.32 2015/02/09 13:35:28 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.33 2015/07/24 17:57:06 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.32 $'.split()[1]
+version='$Revision: 1.33 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np
@@ -45,10 +45,11 @@ class DataSpecification(object):
                 # using 'month_xx' where xx is 01,02,...
                 if interval[-1]=='*':
                     interval = os.path.split(os.getcwd())[-1]
-                    if not interval.startswith('month'):
-                        raise DataSetError('Specified * for month, but path does not end with monthxx: found %s' % interval)
-                for name in ('binfile', 'ltcube'):
-                    data[name]=data[name].replace('*', interval[-2:])
+                    if interval.find('month')<0 :
+                        raise DataSetError('Specified * for month, but path does not contain monthxx: found %s' % interval)
+                for name in ('binfile', 'ltcube', 'ft1files'):
+                    if data[name] is not None:
+                        data[name]=data[name].replace('*', interval[-2:])
             
         self.__dict__.update(data)
         if not quiet: print 'data spec:\n', str(self.__dict__)
@@ -274,7 +275,7 @@ def main(datadict=dict(dataname='P7_V4_SOURCE_4bpd'), analysis_kw=dict(irf='P7SO
     dataset = DataSet(datadict['dataname'], **analysis_kw)
     return dataset
     
-def validate(model_path='.', interval=None, nocreate=False, logfile='dataset.txt'):
+def validate(model_path='.', interval=None, nocreate=False, logfile='dataset.txt', quiet=False,):
     """
     validate the dataset for a model, as defined by the pipeline architecture
     
@@ -296,17 +297,23 @@ def validate(model_path='.', interval=None, nocreate=False, logfile='dataset.txt
     """
     actual_path =  os.path.expandvars(model_path)
     assert os.path.exists(actual_path), 'Model path %s not found' % actual_path
+    config = 'config.txt' 
+    if not os.path.exists(config):
+        config = '../config.txt'
+    assert os.path.exists(config), 'Could not find config.txt in current or parent folder'
     try:
-        modelspec = eval(open(os.path.join(actual_path, 'config.txt')).read())
+        modelspec = eval(open(os.path.join(actual_path, config)).read())
     except Exception, msg:
-        raise DataSetError('could not evaluate config.txt: '+msg)
+        raise DataSetError('could not evaluate config.txt: %s' % msg)
     
     datadict = modelspec['datadict']
     dataname = datadict['dataname']
     if interval is None:
         interval= datadict.get('interval', None)
+        print 'Using interval %s' %interval
     try:
-        dset = DataSet(dataname, interval=interval, irf=modelspec['irf'], nocreate=nocreate)
+        #dset = DataSet(dataname, irf=modelspec['irf'], nocreate=nocreate, quiet=quiet, **datadict)
+        dset = DataSet(dataname,  interval=interval, irf=modelspec['irf'], nocreate=nocreate, quiet=quiet, )
         if logfile is not None: open(logfile, 'w').write(dset.__str__())
     except Exception, msg:
         print 'Failed: %s ' % msg
