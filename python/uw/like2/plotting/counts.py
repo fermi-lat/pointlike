@@ -1,6 +1,6 @@
 """
 Code to generate an ROI counts plot 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.13 2014/06/30 21:39:01 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.14 2014/07/14 22:47:25 burnett Exp $
 
 Authors M. Kerr, T. Burnett
 
@@ -9,7 +9,7 @@ import os, sys
 import numpy as np
 import pylab as plt
 from matplotlib import font_manager
-
+from uw.utilities import image
 
 def get_counts(roi, event_type=None, tsmin=10):
     """
@@ -32,9 +32,9 @@ def get_counts(roi, event_type=None, tsmin=10):
     all_sources = np.array(roi.sources)
     global_mask = np.array([s.skydir is None for s in roi.sources])
     free_mask = np.array([s.skydir is not None and np.any(s.model.free) for s in roi.sources])
-    
     global_sources = all_sources[global_mask]
     free_sources = all_sources[free_mask] 
+    fixed_source_mask = ~free_mask & ~global_mask
     strong_filter= lambda s: (s.sedrec.ts.sum()>tsmin if hasattr(s,'sedrec') and s.sedrec is not None else True) and s in free_sources
     strong_mask = np.array([strong_filter(s) for s in all_sources])
     weak_mask = free_mask * (~strong_mask)
@@ -43,30 +43,38 @@ def get_counts(roi, event_type=None, tsmin=10):
     bandts = np.array([s.sedrec.ts.sum() if hasattr(s,'sedrec') and s.sedrec is not None else None for s in free_sources])
     energies = roi.energies #sorted(list(set([b.energy for b in bands])))
     nume = len(energies)
-    numsrc = sum(global_mask | strong_mask)
+    numsrc = sum(global_mask)# | strong_mask)
     observed = np.zeros(nume)
     fixed = np.zeros(nume)
+    fixed_source = np.zeros(nume)
+    free_source = np.zeros(nume)
     weak = np.zeros(nume)
     model_counts = np.zeros((nume, numsrc))
     total = np.zeros(nume)
     utotal = np.zeros(nume)
     uobserved = np.zeros(nume)
+    
     for i, energy in enumerate(energies):
         for b in bands:
             if b.band.energy!=energy: continue
             counts = np.array([s.counts for s in b]) # array of all model counts
+            weak[i]  += sum(counts[weak_mask]) 
+            fixed_source[i] += sum(counts[fixed_source_mask])
+            free_source[i] += sum(counts[free_mask])
             observed[i] += sum(b.data)
             fixed[i] += b.fixed_counts            
-            weak[i]  += sum(counts[weak_mask]) 
-            model_counts[i,:]  += counts[global_mask | strong_mask]
+            model_counts[i,:]  += counts[global_mask]# | strong_mask]
             total[i] += b.counts
             # model, photons with unweight
             utotal[i] += b.unweight * b.counts
             uobserved[i] += b.unweight * sum(b.data)
             
+    
     models = [(names[j] , model_counts[:,j]) for j in range(numsrc)]
-    if sum(weak)>0: models.append( ('TS<%.0f'%tsmin, weak))
-    models.append( ('(fixed)', fixed))
+    #if sum(weak)>0: models.append( ('TS<%.0f'%tsmin, weak))
+    #models.append( ('(fixed)', fixed))
+    models.append( ('free_sources', free_source))
+    models.append( ('fixed_sources', fixed_source)) 
     chisq = ((observed-total)**2/total).sum()
     uchisq= ((uobserved-utotal)**2/utotal).sum()
     return dict(energies=energies, observed=observed, models=models, 
@@ -101,6 +109,7 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
         ax.set_xscale('log')
         ax.set_yscale('log')
         en,obs,tot = count_data['energies'],count_data['observed'],count_data['total']
+        
         for name, data in count_data['models']:
             if np.any(data<=0): continue # ignore models with no predicted counts
             assert len(en)==len(data), 'energy, data mismatch'
@@ -108,23 +117,25 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
             tmodel_kw = model_kw.copy()
             if name.startswith('iso'): tmodel_kw.update(linestyle=':', lw=2)
             elif name.startswith('ring'):tmodel_kw.update(linestyle='--', lw=2)
+            elif name=='(fixed)': tmodel_kw.update(linestyle='-.', lw=3)
             ax.loglog(en, data, label=name, **tmodel_kw)
+        
         ax.loglog( en, tot, label='Total Model', **total_kw)
         err = obs**0.5
         low_err = np.where(obs-err <= 0, 0.99*obs, err)
         ax.errorbar(en,obs,yerr=[low_err,err], label='Counts', **obs_kw )
-        ax.set_ylabel('Counts per Bin')
+        ax.set_ylabel('Counts per Bin', fontsize=12)
         def gevticklabel(x):
             if x<100 or x>1e5: return ''
             elif x==100: return '0.1'
             return '%d'% (x/1e3)
         """ make it look nicer """
         ax.set_xticklabels(map(gevticklabel, ax.get_xticks()))
-        ax.set_xlabel(r'$\mathsf{Energy\ (GeV)}$')
+        ax.set_xlabel(r'$\mathsf{Energy\ (GeV)}$', fontsize=12)
 
-        ax.legend(loc=0,prop=dict(size=8))
-        ax.grid(b=True)
-        ax.set_ylim(ymin=0.3)
+        ax.legend(loc=0,prop=dict(size=10))
+        ax.grid(b=True, alpha=0.5)
+        ax.set_ylim(ymin=100.)
         
     def plot_residuals(ax, count_data, 
                 plot_kw=dict( linestyle=' ', marker='o', color='black',),
@@ -159,9 +170,10 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
         """ make it look nicer """
         ax.set_xticklabels(map(gevticklabel, ax.get_xticks()))
         ax.set_xlabel(r'$\mathsf{Energy\ (GeV)}$')
-        ax.grid(b=True)
+        ax.grid(b=True,alpha=0.3)
         if show_chisq :
-            ax.text(0.8, 0.8,'chisq=%.0f'% count_data['chisq'], transform = ax.transAxes, fontsize=8)
+            ax.text(0.75, 0.8,'chisq={:.0f}'.format(count_data['chisq']), 
+                transform = ax.transAxes, fontsize=10)
 
 
     if axes is None:
@@ -195,7 +207,8 @@ def stacked_plots(roi, counts_dir=None, fignum=6, title=None, **kwargs):
     plt.close(fignum)
     oldlw = plt.rcParams['axes.linewidth']
     plt.rcParams['axes.linewidth'] = 2
-    fig, axes = plt.subplots(2,1, sharex=True, num=fignum, figsize=(5,6))
+    figsize = kwargs.pop('figsize', (5,8))
+    fig, axes = plt.subplots(2,1, sharex=True, num=fignum, figsize=figsize)
     fig.subplots_adjust(hspace=0)
     axes[0].tick_params(labelbottom='off')
     left, bottom, width, height = (0.15, 0.10, 0.75, 0.85)
@@ -203,12 +216,13 @@ def stacked_plots(roi, counts_dir=None, fignum=6, title=None, **kwargs):
 
     axes[0].set_position([left, bottom+(1-fraction)*height, width, fraction*height])
     axes[1].set_position([left, bottom, width, (1-fraction)*height])
+    axes[1].set_yticks([-2,0,2])
     plot_counts(roi, axes=axes, outfile=None, **kwargs)
     
     plt.rcParams['axes.linewidth'] = oldlw
 
     axes[0].set_xlabel('') 
-    axes[0].set_ylim(ymin=0.3)
+    axes[0].set_ylim(ymin=30)
     if title is None:
         if hasattr(roi,'name'): fig.suptitle(roi.name)
     else: fig.suptitle(title)
@@ -220,4 +234,49 @@ def stacked_plots(roi, counts_dir=None, fignum=6, title=None, **kwargs):
         print 'saving counts plot to %s ...' % fout, ; sys.stdout.flush()
         fig.savefig(fout)
         print 
+    fig.set_facecolor('white')
     return fig
+
+
+def ROI_residuals(roi, ):
+    """ Multiple plots of the residuals for the pixels in bands of an ROI
+    """
+
+    def plot_residual(roi, index=0, ax=None, **kwargs):
+
+        b=roi[index] # the BandLike object
+        band_label = '{:.0f} Mev {}'.format(b.band.energy, ['Front','Back'][b.band.event_type])
+        
+        # get pixel info: counts, model, positions 
+        data = b.data
+        factor = sum(data)/sum(b.model_pixels) #scale factor
+        model = b.model_pixels*factor #rescaled model count distribution
+        pixel_dirs = b.pixel_dirs
+        
+        # the chisquared: useful if counts high enough
+        chi2 = sum((data-model)**2/model)
+
+        # create a ZEA image object to get the transformation to image coordinates,
+        #  and set up axes for display
+        z = image.ZEA(roi.roi_dir, size=13, galactic=True, axes=ax )
+        pix = np.array([z.pixel(sdir) for sdir in pixel_dirs])
+        ax=z.axes
+         
+        scat=z.axes.scatter(pix[:,0],pix[:,1], c=data/model-1, marker='D', edgecolor='none', 
+                        s=20000/len(pix), **kwargs);
+
+        ax.text(0.05,0.93,band_label, transform=ax.transAxes)
+        ax.text(0.05,0.05,'factor={:.3f}, chi2/ndf = {:.0f}/{}'.format(factor, chi2, len(b.data)-3),transform = ax.transAxes)
+        return scat
+
+    fig, axx = plt.subplots(2,4, figsize=(18,8), sharex=True, sharey=True)
+    plt.subplots_adjust(right=0.9, hspace=0.15, wspace=0.1)
+
+    for i,ax in enumerate(axx.flatten()):
+        j = [0,2,4,6,1,3,5,7][i]
+        scat=plot_residual(roi, j ,ax=ax, vmin=-0.1, vmax=0.1)
+    cbax = fig.add_axes((0.92, 0.15, 0.02, 0.7) )
+    cb=plt.colorbar(scat, cbax, orientation='vertical')
+    cb.set_label('fractional deviation', fontsize=12)
+
+    fig.suptitle('Residuals for {}'.format(roi.name), fontsize=14)
