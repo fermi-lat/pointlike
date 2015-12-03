@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.24 2015/02/09 13:35:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.25 2015/07/24 17:56:02 burnett Exp $
 
 """
 
@@ -207,6 +207,7 @@ class AnalysisBase(object):
         htmldoc = '<a id="%.0f"><h3>%s %s</h3></a> ' % (float(section), section, title)
         self.htmlmenu.item('<a href="index.html?skipDecoration#%.0f">%s</a>' % (float(section),title))
         if fig is not None:
+            fig.set_facecolor('white') # important for copy and paste to Evernote
             fig.text(0.02, 0.02, self.skymodel, fontsize=8)
             savefig_kw=dict(dpi=60, bbox_inches='tight', bbox_extra_artists=fig.texts, pad_inches=0.5) 
             print 'Saving fig %s, ...' % (name, ),; sys.stdout.flush()

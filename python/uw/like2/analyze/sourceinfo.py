@@ -1,7 +1,7 @@
 """
 Basic analyis of source spectra
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.26 2015/07/24 17:56:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.27 2015/08/16 01:11:36 burnett Exp $
 
 """
 
@@ -28,6 +28,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         if refresh:
             files, pkls = self.load_pickles('pickle')
             assert len(files)==1728, 'Expected to find 1728 files'
+            self.pkls = pkls # for debugging
             sdict= dict()
             try:
                 get_cat3fgl = Cat_3fgl()
@@ -103,6 +104,8 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                         fitqual = fitqual,
                         fitndf  = fitndf,
                         eflux = prefactor*pars[0]*model.e0**2*1e6,
+                        eflux100 = info.get('eflux', (np.nan,np.nan))[0],
+                        eflux100_unc = info.get('eflux', (np.nan,np.nan))[1],
                         psr = pulsar,
                         cat3fgl = None if get_cat3fgl is None else get_cat3fgl(name),
                         transient = not info.get('fixed_spectrum', False) and not info['isextended']
@@ -638,7 +641,8 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         return fig
         
     def spectral_fit_consistency_plots(self, energy=133., minflux=2.0, 
-            title = 'low energy fit consistency'
+            title = 'low energy fit consistency',
+            three_plots=False,
         ):
         """ Spectral fit consistency for the lowest energy bin
         
@@ -685,34 +689,38 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             ax.errorbar(x=xlo, y=ylo, yerr=yerrlo, fmt='or', label='%d lowlat sources'%sum(lolat))
             plt.setp(ax, xlabel=r'$\mathsf{model\ flux\ (eV\ cm^{-2} s^{-1}})$', xscale='log', 
                 ylabel='data/model', ylim=(0,2.5), xlim=(minflux, 100) )
-            ax.set_xticks([2,5,10,20,50,100])
-            ax.set_title( title, fontsize='medium')
+            #ax.set_xticks([2,5,10,20,50,100])
             ax.set_title( title, fontsize='medium')
             ax.legend(loc='upper left', prop=dict(size=10))
             ax.grid()  
 
         def hist(ax):
-            dom = np.linspace(-3,3,31)
-            hist_kw=dict(lw=2, histtype='step')
+            hist_kw=dict(bins=np.linspace(-3,3,25), lw=2, histtype='step')
             q=pull.clip(-3,3) 
             
-            ax.hist(q[hilat], dom, color='g',  label='%d hilat sources'%sum(hilat),  **hist_kw)
-            ax.hist(q[lolat], dom, color='r',  label='%d lowlat sources'%sum(lolat), **hist_kw)
+            ax.hist(q[hilat], color='g',  label='%d hilat sources'%sum(hilat),  **hist_kw)
+            ax.hist(q[lolat], color='r',  label='%d lowlat sources'%sum(lolat), **hist_kw)
             ax.set_xlabel('pull')
             ax.axvline(0, color='k')
             ax.set_xlim((-3,3))
             ax.set_title( title, fontsize='medium')
-            ax.legend(loc='upper left', prop=dict(size=10))
+            ax.legend(loc='upper right', prop=dict(size=10))
             ax.grid()  
 
         def skyplot(ax):
             pdf = pd.DataFrame(dict(pull=pull), index=s.index) # to atatch indx
             self.skyplot(pdf.pull[lowebad], ax=ax, vmin=-3, vmax=3, title=title, cbtext='pull')
 
-        fig,ax = plt.subplots(1,3, figsize=(12,5))
-        plt.subplots_adjust(wspace=0.3, left=0.05)
-        for f, ax in zip( (hist, error_bar, skyplot), ax.flatten()):
-            f(ax=ax)
+        if three_plots:
+            fig,ax = plt.subplots(1,3, figsize=(12,5))
+            plt.subplots_adjust(wspace=0.3, left=0.05)
+            for f, ax in zip( (hist, error_bar, skyplot), ax.flatten()):
+                f(ax=ax)
+        else:
+            fig,ax = plt.subplots(1,2, figsize=(12,5))
+            plt.subplots_adjust(wspace=0.3, left=0.05)
+            for f, ax in zip( (hist, skyplot), ax.flatten()):
+                f(ax=ax)
         return fig
         
     def census(self, primary_prefix='P86Y'): #'P7R4'):
@@ -844,7 +852,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         plt.close('all')
         csvfile='sources_%s.csv' % version
         colstosave="""ra dec ts modelname freebits fitqual e0 flux flux_unc pindex pindex_unc index2 index2_unc
-                 cutoff cutoff_unc locqual delta_ts a b ang flags roiname""".split()
+                 cutoff cutoff_unc eflux100 eflux100_unc locqual delta_ts a b ang flags roiname""".split()
         self.df.ix[self.df.ts>10][colstosave].to_csv(csvfile)
         print 'saved truncated csv version to "%s"' %csvfile
         
@@ -889,11 +897,12 @@ class Cat_3fgl(object):
                 #glat=glat, glon=glon, 
                 #pivot=ft.Pivot_Energy, flux=ft.Flux_Density, 
                 #modelname=ft.SpectrumType, 
+                eflux = ft.Energy_Flux100,
                 id_prob=id_prob,
                 a95=ft.Conf_95_SemiMajor, b95=ft.Conf_95_SemiMinor, ang95=ft.Conf_95_PosAng,
                 flags=np.asarray(ft.Flags_3FGL, int),
                 ), 
-            columns = 'name3 nickname ra dec ts a95 b95 ang95 id_prob flags'.split(), # this to order them
+            columns = 'name3 nickname ra dec ts eflux a95 b95 ang95 id_prob flags'.split(), # this to order them
             index=self.index_3fgl, )
 
     def __call__(self, newname):

@@ -1,7 +1,7 @@
 """
 Count plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.12 2015/07/24 17:56:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.13 2015/08/16 01:11:36 burnett Exp $
 
 """
 
@@ -69,7 +69,7 @@ class CountPlots(analysis_base.AnalysisBase):
         #    print msg
             
         if 'history' in pkls[0].keys():
-            print 'Extracting history info from the ROI analysises'
+            print 'Extracting history info from the ROI analyses'
             self.sinfo = self.history_info()
             cfile = 'config.txt' if os.path.exists('config.txt') else '../config.txt'
             try:
@@ -220,12 +220,17 @@ class CountPlots(analysis_base.AnalysisBase):
         bad_rois['chisq'] = chisq
         bad_rois.to_csv('bad_rois.csv')
         if not self.skymodel.startswith('month'):
-            pc =makepivot.MakeCollection('bad rois %s' % os.path.split(os.getcwd())[-1], 'countfig', 'bad_rois.csv')
-        
-            self.bad_roi_link = """\
-                <p>A list of %d bad ROIs, with chisq>%.0f, can examined with a 
-                <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>,
-                which requires Silverlight."""  % (len(bad_rois), vmax, pc.cId)
+            try:
+                pc =makepivot.MakeCollection('bad rois %s' % os.path.split(os.getcwd())[-1], 'countfig', 'bad_rois.csv')
+            
+                self.bad_roi_link = """\
+                    <p>A list of %d bad ROIs, with chisq>%.0f, can examined with a 
+                    <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>,
+                    which requires Silverlight."""  % (len(bad_rois), vmax, pc.cId)
+            except Exception, msg:
+                self.bad_roi_link = 'Failed to create Pivot: {}'.format(msg)
+                print self.bad_roi_link
+            
         else:
             self.bad_roi_link=''
         

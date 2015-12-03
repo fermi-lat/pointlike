@@ -1,7 +1,7 @@
 """
 Residual plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.13 2015/04/29 18:07:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.14 2015/07/24 17:56:02 burnett Exp $
 
 """
 
@@ -313,9 +313,9 @@ class Residuals(roi_info.ROIinfo):
         """
         return self.cartesian_map_array( self.ResidualArray(self, 'maxl', 'isotrop', 'front', vmin=0.9, vmax=1.1), bands=4); 
         
-    def maxl_map_ring(self):
+    def maxl_map_ring(self, vmin=0.9, vmax=1.1):
         """Max likelihood for ring"""
-        return self.cartesian_map_array( self.ResidualArray(self, 'maxl', 'ring', vmin=0.9, vmax=1.1), ); 
+        return self.cartesian_map_array( self.ResidualArray(self, 'maxl', 'ring', vmin=vmin, vmax=vmax), ); 
     
     class GalacticCorrection():
         def __init__(self, residual):
