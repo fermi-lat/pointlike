@@ -1,10 +1,10 @@
 """
 Tools for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.18 2013/12/09 01:13:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.19 2014/07/02 15:55:13 burnett Exp $
 
 """
-import os, sys
+import os, sys, time
 import numpy as np
 
 def ufunc_decorator(f): # this adapts a bound function
@@ -73,3 +73,6 @@ class RecArray(object):
         return np.rec.fromarrays(self.fields, names=self.names, dtype=self.dtype)
     
       
+class DateStamp(object):
+    def _repr_html_(self):
+         return '<div align=center> <h3>'+time.asctime()+'</h3> </div>'

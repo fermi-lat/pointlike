@@ -1,13 +1,14 @@
 """
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.56 2014/09/11 08:13:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.57 2015/04/29 18:06:39 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
 import sys, types
 import numpy as np
 from  uw.utilities import keyword_options
+from skymaps import SkyDir
 
    
 class BandLike(object):
@@ -74,6 +75,11 @@ class BandLike(object):
                     return bs
             raise Exception('Source "%s" not found in band sources' %i)
         return self.bandsources[i]
+        
+    @property
+    def pixel_dirs(self):
+        """ the list of SkyDirs for the pixels with data"""
+        return [SkyDir(w.dir()) for w in self.band.wsdl]
         
     def initialize(self, free):
         """ should only call if free array changes.
