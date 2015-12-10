@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/src/swig_setup.i,v 1.3 2010/10/02 23:43:00 lande Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/users/echarles/healpix_changes/pointlike/src/swig_setup.i,v 1.4 2015/03/05 19:58:43 echarles Exp $
 #define PySwigIterator pointlike_PySwigIterator
 %{
 #include <cstddef>
@@ -7,6 +7,8 @@
 #include <vector>
 #include <utility>
 
+// EAC, added ProjBase base class
+#include "astro/ProjBase.h"
 #include "astro/SkyProj.h"
 #include "astro/Photon.h"
 #include "astro/PointingHistory.h"
@@ -109,7 +111,8 @@ public:
    size_t __len__() {      return self->size();       }
 }
 
-
+// EAC, added ProjBase base class
+%include astro/ProjBase.h
 %include astro/SkyProj.h
 %include astro/Photon.h
 %include astro/PointingHistory.h
