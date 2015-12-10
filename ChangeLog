@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: echarles  Wed Dec  9 16:52:37 PST 2015
+pointlike/src
+
+Modified Files:
+	swig_setup.i 
+Log Message:
+Switch from using SkyProj to ProjBase
+    *
+------------------------------------------------------------
 User: burnett  Thu Dec  3 09:33:45 PST 2015
 pointlike/python/uw/like2/plotting
 
