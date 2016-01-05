@@ -1,6 +1,6 @@
 """ Class to write out region files compatable with ds9. 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/region_writer.py,v 1.14 2011/06/16 21:42:33 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/region_writer.py,v 1.15 2011/06/25 03:54:50 lande Exp $
 
 author: Joshua Lande
 """
@@ -44,7 +44,7 @@ def unparse_extension(spatial_model,extension_color=None,r68=False):
         elif isinstance(sm,Ring) and r68 is False:
             frac=sm.frac
             return ["fk5; circle(%.4f, %.4f, %.4f) # %s" % \
-                          (ra,dec,_,color) for _ in [frac*sigma,sigma]]
+                          (ra,dec,_,extra) for _ in [frac*sigma,sigma]]
         else:    
             return ["fk5; circle(%.4f, %.4f, %.4f) # %s Circle containing 68 percent of the source." % \
                           (ra,dec,sm.r68(),extra)]
