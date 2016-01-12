@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Tue Jan 12 10:51:29 PST 2016
+pointlike/python/uw/darkmatter
+
+Modified Files:
+	spectral.py 
+Log Message:
+Allow user to pass DM channel as string when initializing DMFitFunction
+    *
+------------------------------------------------------------
 User: fdepalma  Tue Jan  5 10:17:53 PST 2016
 pointlike/python/uw/utilities
 
