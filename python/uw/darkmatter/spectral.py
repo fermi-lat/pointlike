@@ -1,6 +1,6 @@
 """ Dark Matter spectral models
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/darkmatter/spectral.py,v 1.15 2013/08/12 19:15:00 kadrlica Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/darkmatter/spectral.py,v 1.16 2014/08/06 00:52:49 echarles Exp $
 
     author: Alex Drlica-Wagner, Joshua Lande
 """
@@ -185,6 +185,12 @@ class DMFitFunction(Model):
 
     def __init__(self,  *args, **kwargs):
         import pyLikelihood
+
+        # Parse channel strings
+        if isinstance(kwargs.get('channel0',None),basestring):
+            kwargs['channel0'] = self.channel2int(kwargs['channel0'])
+        if isinstance(kwargs.get('channel1',None),basestring):
+            kwargs['channel1'] = self.channel2int(kwargs['channel1'])
 
         # the DMFitFunction must exist before __init__ is called because
         # the __init__ will call setp().
