@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: burnett  Mon Mar 21 11:54:57 PDT 2016
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	associations.py counts.py export.py hptables.py 
+	localization.py sourceinfo.py transientinfo.py 
+Added Files:
+	pgwave.py timedependence.py 
+Log Message:
+major update
+    *
+------------------------------------------------------------
 User: burnett  Mon Mar 21 11:54:13 PDT 2016
 pointlike/python/uw/like2
 
