@@ -1,6 +1,6 @@
 """   Analyze localization 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.13 2015/04/29 18:07:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.14 2015/08/16 01:11:36 burnett Exp $
 
 """
 import os, pickle, collections
@@ -10,7 +10,7 @@ import pandas as pd
 from uw.utilities import makepivot
 from . import (sourceinfo, _html)
 from . analysis_base import FloatFormat, html_table
-from skymaps import Band
+from skymaps import Band, SkyDir
 #from . _html import HTMLindex
 
 class Localization(sourceinfo.SourceInfo):
@@ -304,7 +304,7 @@ class Localization(sourceinfo.SourceInfo):
             self.poorly_localized_table_check ='<p>No poorly localized sources!'
 
         
-    def load_moment_analysis(self):
+    def load_moment_analysis(self, make_collection=True):
         """ check results of moment analysis
         """
         m =self.df.moment
@@ -319,11 +319,20 @@ class Localization(sourceinfo.SourceInfo):
         md['roiname'] = self.df.roiname
         md['a'] = self.df.a
         
+        # generate the angular difference of fit vs. current positions 
+        delta=[]
+        for n,t in self.df.iterrows():
+            ellipse = t['ellipse']
+            delta.append(np.degrees(SkyDir(*ellipse[:2]).difference(t['skydir'])) if ellipse is not None else None )
+        self.df['delta'] = delta
+        md['delta']= self.df.delta
+        
         filename = 'moment_localizations.csv'
         md.to_csv(filename)
         print 'Write file %s' % filename
+        if not make_collection: return md
         
-        # no make a collection with images and data
+        # now make a collection with images and data
         self.moment_collection_html=''
         try:
             t = makepivot.MakeCollection('moment analysis localizations %s'%self.skymodel, 'tsmap_fail', 'moment_localizations.csv', 

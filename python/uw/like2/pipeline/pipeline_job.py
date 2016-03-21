@@ -1,7 +1,7 @@
 """
 setup and run pointlike all-sky analysis for subset of ROIs
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.18 2015/07/24 17:56:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.19 2015/08/16 01:12:11 burnett Exp $
 """
 import os, sys, logging
 from collections import OrderedDict
@@ -48,8 +48,8 @@ def main( factory=None, **args):
     
 
     skymodeldir =SKYMODEL_SUBDIR.replace('/a/wain025/g.glast.u55/','/afs/slac/g/glast/groups/') 
-    if skymodeldir.split('/')[-1]=='month23':
-        raise Exception('Special abort to terminate month23')
+    #if skymodeldir.split('/')[-1]=='month23':
+    #    raise Exception('Special abort to terminate month23')
         
     streamlogdir = os.path.join(POINTLIKE_DIR,skymodeldir,'streamlogs')
     streamlogfile=os.path.join(streamlogdir,'stream%s.%04d.log' % ( PIPELINE_STREAMPATH.split('.')[0], int(PIPELINE_STREAM)) )

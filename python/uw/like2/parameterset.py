@@ -1,7 +1,7 @@
 """
 Manage a set of parameters
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/parameterset.py,v 1.4 2014/03/12 15:52:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/parameterset.py,v 1.5 2014/07/02 15:55:13 burnett Exp $
 
 """
 import os, types 
@@ -221,32 +221,35 @@ class ParSubSet(ParameterSet):
         npars = len(self)
         
         if select is not None:
-            selectpar = select
-            if not hasattr(select, '__iter__'): select = [select]
-            for item in select:
-                if type(item)==types.IntType or type(item)==np.int64:
-                    selected.add(item)
-                    if item>=npars:
-                        raise Exception('Selected parameter number, %d, not in range [0,%d)' %(item, npars))
-                elif type(item)==types.StringType:
-                    if item.startswith('_'):
-                        # look for parameters
-                        if item[-1] != '*':
-                            toadd = filter( lambda i: self.parameter_names[i].endswith(item), range(npars) )
+            try:
+                selectpar = select
+                if not hasattr(select, '__iter__'): select = [select]
+                for item in select:
+                    if type(item)==types.IntType or type(item)==np.int64:
+                        selected.add(item)
+                        if item>=npars:
+                            raise Exception('Selected parameter number, %d, not in range [0,%d)' %(item, npars))
+                    elif type(item)==types.StringType or type(item)==np.string_:
+                        if item.startswith('_'):
+                            # look for parameters
+                            if item[-1] != '*':
+                                toadd = filter( lambda i: self.parameter_names[i].endswith(item), range(npars) )
+                            else:
+                                def filt(i):
+                                    return self.parameter_names[i].find(item[:-1])!=-1
+                                toadd = filter( filt, range(npars) )
+                        elif item in self.parameter_names:
+                            toadd = [list(self.parameter_names).index(item)]
+                            self.selection_description = 'parameter %s' % item
                         else:
-                            def filt(i):
-                                return self.parameter_names[i].find(item[:-1])!=-1
-                            toadd = filter( filt, range(npars) )
-                    elif item in self.parameter_names:
-                        toadd = [list(self.parameter_names).index(item)]
-                        self.selection_description = 'parameter %s' % item
+                            src = self.roimodel.find_source(item)
+                            self.selection_description = 'source %s'%src.name
+                            toadd = filter(lambda i: self.parameter_names[i].startswith(src.name), range(npars))
+                        selected = selected.union(toadd )
                     else:
-                        src = self.roimodel.find_source(item)
-                        self.selection_description = 'source %s'%src.name
-                        toadd = filter(lambda i: self.parameter_names[i].startswith(src.name), range(npars))
-                    selected = selected.union(toadd )
-                else:
-                    raise Exception('fit parameter select list item %s, type %s, must be either an integer or a string' %(item, type(item)))
+                        raise Exception('fit parameter select list item %s, type %s, must be either an integer or a string' %(item, type(item)))
+            except Exception, msg:
+                raise Exception('Fail parameter select: {}'.format(msg))
             select = sorted(list(selected))
             if len(select)==0:
                 raise Exception('nothing selected using "%s"' % selectpar)

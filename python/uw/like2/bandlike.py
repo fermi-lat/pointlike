@@ -1,7 +1,7 @@
 """
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.57 2015/04/29 18:06:39 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.58 2015/12/03 17:08:06 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -18,17 +18,18 @@ class BandLike(object):
         ('quiet', True, 'set False for info'),
         )
     @keyword_options.decorate(defaults)
-    def __init__(self, band, sources, free=None, **kwargs):
+    def __init__(self, band, sources, free, roi, **kwargs):
         """
            band    : bands.EnergyBand object
            sources : list of sources.Source objects
            free    : [array of bool | None]
                 to select models with variable parameters
                 If None, select all
+           roi reference to the ROI
         """
         keyword_options.process(self, kwargs)
         # make a list of the Response objects
-        self.bandsources = np.array(map(lambda s: s.response(band, quiet=self.quiet), sources))
+        self.bandsources = np.array(map(lambda s: s.response(band, quiet=self.quiet, roi=roi), sources))
 
         self.band = band 
         self.exposure_factor = band.exposure.correction
@@ -139,6 +140,10 @@ class BandLike(object):
         """ gradient of the likelihood with resepect to the free parameters
         """
         if len(self.free_sources)==0: return np.array([])
+        grads = []
+        for m in self.free_sources:
+            grads.append(m.grad(self.weights, self.exposure_factor))
+            
         return self.unweight * np.concatenate(
                 [m.grad(self.weights, self.exposure_factor) for m in self.free_sources]
             )
@@ -248,7 +253,7 @@ class BandLikeList(list):
         while len(self)>0:
             self.pop()
         for band in roi_bands:
-            bl = BandLike(band, self.sources, self.sources.free) 
+            bl = BandLike(band, self.sources, self.sources.free, self) 
             self.append( bl)
             
         self.set_selected(self)# set selected for a subset?
@@ -455,6 +460,11 @@ class BandLikeList(list):
             source_name, parname = parname.split('_')
         source = self.get_source(source_name)
         source.freeze(parname, value)
+        self.reinitialize()
+        
+    def reinitialize(self):
+        """Used to reinitialize after change in number of free parameters
+        """
         self.sources.initialize()
         self.initialize(free=self.sources.free)
         self.update()
@@ -471,8 +481,6 @@ class BandLikeList(list):
             source_name, parname = parname.split('_')
         source = self.get_source(source_name)
         source.thaw(parname)
-        self.sources.initialize()
-        self.initialize(free=self.sources.free)
-        self.update()
+        self.reinitialize()
 
 

@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.30 2015/04/29 18:06:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.31 2015/07/24 17:57:06 burnett Exp $
 
 """
 import os,sys
@@ -98,21 +98,22 @@ def full_localization(roi, source_name=None, ignore_exception=False,
     import pylab as plt
 
     source = roi.sources.find_source(source_name)
+    source.ellipsex = None # in case already had a moment analysis
     tsp=None
     with roi.tsmap_view(source.name) as tsm:
 
         loc = Localization(tsm)
         try:
             loc.localize()
-            if update:
-                t = loc.ellipse
+            t = loc.ellipse
+            # Automatically update position if good fit.
+            if update or loc['qual']<1.0 and loc['a']<0.1: 
                 prev = tsm.saved_skydir
                 tsm.saved_skydir = SkyDir(t['ra'], t['dec'])
                 print 'updated position: %s --> %s' % (prev, tsm.saved_skydir)
         except Exception, msg:
             print 'Localization of %s failed: %s' % (source.name, msg)
             if not ignore_exception: raise
-        #source.ellipse = loc.qform.par[0:2]+loc.qform.par[3:7] +[loc.delta_ts] if hasattr(loc,'qform') else None
         if not roi.quiet and hasattr(loc, 'niter') and loc.niter>0: 
             print 'Localized %s: %d iterations, moved %.3f deg, deltaTS: %.1f' % \
                 (source.name, loc.niter, loc.delt, loc.delta_ts)

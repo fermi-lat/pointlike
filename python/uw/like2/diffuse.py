@@ -1,7 +1,7 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.47 2015/02/09 13:35:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.48 2015/04/29 18:06:40 burnett Exp $
 
 author:  Toby Burnett
 """
@@ -432,11 +432,12 @@ class DiffuseList(list):
         return fig
 
 class IsotropicList(DiffuseList):
-    def __init__(self, adict, event_type_names):
+    def __init__(self, adict, event_type_names, diffuse_normalization):
         """ Create a list of Isotropic functions, one per entry in event_type_names
             adict: dict
                 contains filename, correction, each with wildcards to be expanded
             event_type_names : list of string
+            diffuse_normalization : DataFrame or None
                 
         """
         try:
@@ -446,10 +447,20 @@ class IsotropicList(DiffuseList):
             raise
         for et in event_type_names:
             filename = fn.replace('*', et)
-            correction = corr.replace('*', et)
-            file_check([filename, correction])
+            correction_data=None
+            if corr is not None:
+                correction = corr.replace('*', et)
+                if diffuse_normalization is not None and correction in diffuse_normalization:
+                    correction_data = diffuse_normalization[correction]
+                    #file_check(filename)
+                else:
+                    # old scheme
+                    file_check([filename, correction])
+            else:
+                file_check([filename])
+                correction=None
             iso = Isotropic(filename)
-            iso.kw = dict(correction =correction)
+            iso.kw = dict(correction =correction, correction_data=correction_data)
             self.append(iso)
 
 def file_check(files):
@@ -459,7 +470,7 @@ def file_check(files):
         raise DiffuseException('not all diffuse files %s found' % full_files)
     
 
-def diffuse_factory(value, event_type_names=('front', 'back')):
+def diffuse_factory(value, diffuse_normalization=None, event_type_names=('front', 'back')):
     """
     Create a DiffuseList object from a text specification
     value : [string | list | dict ]
@@ -524,7 +535,8 @@ def diffuse_factory(value, event_type_names=('front', 'back')):
         diffuse_source = map(dfun,files)
     elif dfun==IsotropicList:
         # special code to handle Isotropic list in a dict with wild cards
-        return IsotropicList(value[0], event_type_names)
+        return IsotropicList(value[0], event_type_names=event_type_names, 
+            diffuse_normalization=diffuse_normalization)
     else:
         file_check(files)
         full_files = map( lambda f: os.path.expandvars(os.path.join('$FERMI','diffuse',f)), files)

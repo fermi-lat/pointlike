@@ -1,7 +1,7 @@
 """
 Classes to compute response from various sources
  
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.12 2014/08/15 18:07:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.13 2014/09/11 08:16:07 burnett Exp $
 author:  Toby Burnett
 """
 import os, pickle
@@ -17,6 +17,7 @@ diffuse_grid_defaults = (
         ('pixelsize', 0.25, 'Size of pixels to use for convolution grid'),
         ('npix',      61,   'Number of pixels (must be an odd number'),
         ('quiet',     False, ''),
+        ('diffuse_normalization', None, 'dataframe of spectral normalization'),
         )
         
 extended_grid_defaults = [
@@ -30,8 +31,9 @@ class Response(object):
     or count density for any position within the ROI. Created by the response function of each source.  
     The constructor for the appropriate subclass is invoked by the source's "response" function, with an 
     EnergyBand as argument. 
+    
     """
-    def __init__(self, source, band, **kwargs):
+    def __init__(self, source, band, roi=None, **kwargs):
         """
         source : Source object, inherit from sources.Source
             skydir : position of source, or None if global
@@ -43,11 +45,14 @@ class Response(object):
             ----- pixelization, data ---
             wsdl : list of pixel positions, perhaps None
             pixel_size : pixel solid angle
+        roi : None or the current ROI. This is for the diffuse correction, in progress
+
         """
         self.band=band
         self.source=source
         self.roicenter = self.band.skydir
-        self.quiet = kwargs.pop('quiet', True)
+        self.quiet = False #kwargs.pop('quiet', False)
+        self.roi = roi
         self.initialize()
         
     def update(self):
@@ -127,11 +132,12 @@ class DiffuseResponse(Response):
         
     defaults = diffuse_grid_defaults
     @keyword_options.decorate(defaults)
-    def __init__(self, source, band, **kwargs):
+    def __init__(self, source, band, roi, **kwargs):
         keyword_options.process(self, kwargs)
         self.setup=False
         self.overlap=1
-        super(DiffuseResponse, self).__init__(source, band, **kwargs)
+        super(DiffuseResponse, self).__init__(source, band, roi,  **kwargs)
+        self.quiet=False
         
     def initialize(self):
         if self.setup: return
@@ -141,6 +147,9 @@ class DiffuseResponse(Response):
         self.dmodel.load()
         self.energy = self.band.energy
         self.dmodel.setEnergy(self.band.energy)
+        
+        roi_index = skymaps.Band(12).index(self.roicenter)
+        self._keyword_check(roi_index)
         
         self.create_grid()
         grid = self.grid
@@ -163,8 +172,21 @@ class DiffuseResponse(Response):
             
     def fill_grid(self):
         # fill and convolve the grid
+        
         self.grid.psf_fill(self.band.psf)
         self.grid.bg_fill(self.band.exposure, self.dmodel)
+        #assert False, 'Break point'
+        
+        #now that the grid is filled with the background model values, perhaps change normalization
+        # (should be in model? )
+        if hasattr(self,'corr') and self.corr is not None:
+            #klugy way to get current list of energies
+            energies = sorted(list(set([x.energy for x in self.roi.bands])))
+            energy_index = energies.index(self.band.energy) 
+            if energy_index>=len(self.corr): energy_index = len(self.corr)-1
+            factor = self.corr[energy_index]
+            #print 'correcting by factor {:.3f}'.format(factor)
+            self.grid.bg_vals *= factor
         self.grid.convolve()
         
     def evaluate(self):
@@ -198,19 +220,30 @@ class DiffuseResponse(Response):
         if hasattr(dfun, 'kw') and len(dfun.kw.keys())>1: 
             # Manage keywords found in the 
             if dfun.kw['correction'] is not None:
-                if not self.quiet:print '\t%s loading corrections for source %s from %s.kw:' \
+                if not self.quiet:
+                    print '\t%s loading corrections for source %s from %s.kw:' \
                     % (self.__class__.__name__, self.source.name,  dfun.__class__.__name__)
                 corr_file = os.path.expandvars(dfun.kw['correction'])
-                if not os.path.exists(corr_file):
-                    corr_file = os.path.expandvars(os.path.join('$FERMI','diffuse', corr_file))
-                try:
-                    df = pd.read_csv(corr_file, index_col=0) 
-                except Exception, msg:
-                    raise Exception('Error loading correction file %s: %s'% (corr_file,msg))
-                self.corr = df.ix['HP12_%04d'%roi_index].values
-                if not self.quiet:print '\tcorrection file: "%s"' % corr_file
-                if not self.quiet:print '\tcorrections: %s' %self.corr.round(3)
-            else: self.corr=None
+                dn = self.roi.sources.diffuse_normalization
+                if dn is not None and corr_file in dn:
+                    diffuse_normalization = dn[corr_file]
+                    self.corr = diffuse_normalization
+                else:
+                    self.corr = DiffuseCorrection(corr_file).roi_norm(roi_index) #correction.ix['HP12_%04d'%roi_index].values
+
+            #    if not os.path.exists(corr_file):
+            #        corr_file = os.path.expandvars(os.path.join('$FERMI','diffuse', corr_file))
+            #    try:
+            #        df = pd.read_csv(corr_file, index_col=0) 
+            #    except Exception, msg:
+            #        raise Exception('Error loading correction file %s: %s'% (corr_file,msg))
+            #    self.corr = df.ix['HP12_%04d'%roi_index].values
+            #    if not self.quiet:print '\tcorrection file: "%s"' % corr_file
+            #    if not self.quiet:print '\tcorrections: %s' %self.corr.round(3)
+            else: 
+                self.corr=None
+            
+            if not self.quiet: print '\tcorrections:{}'.format(self.corr)
             self.systematic = dfun.kw.get('systematic', None)
             if self.systematic is not None:
                 if not self.quiet:print '\tsystematic: %.3f' % self.systematic
@@ -223,14 +256,33 @@ class DiffuseResponse(Response):
 
 class DiffuseCorrection(object):
     """load, and provide access to a diffuse correction file
+    
+   Now support diffuse normalization dataframe in the ROI info
     """
     from uw.like2.pub import healpix_map as hm
 
-    def __init__(self, filename, elist=np.logspace(2.125,3.875,8).round()):
+    def __init__(self, filename, diffuse_normalization=None, elist=np.logspace(2.125,3.875,8).round(), quiet=False):
         """ filename : str
                 expect the name of a file in csv format, with 1728 rows and 8 columns
             elist : list of float
         """
+        self.elist = list(elist)
+        if  filename is None:
+            self.correction = None
+            self.dn = diffuse_normalization
+            return
+        
+        # new scheme: 
+        self.dn= diffuse_normalization
+        if self.dn is not None and filename in self.dn:
+            try:
+                self.correction = self.dn[filename]
+                if not quiet:
+                    print 'loaded corrections {} for {}'.format(self.correction, filename)
+            except:
+                print 'No normalization in ROI object: assume none'
+                self.correction=None
+            return
         corr_file = os.path.expandvars(filename)
         if corr_file[0]!='/' and not os.path.exists(corr_file):
             corr_file = os.path.expandvars(os.path.join('$FERMI','diffuse', corr_file))
@@ -239,7 +291,6 @@ class DiffuseCorrection(object):
             #print self.correction
         except Exception, msg:
             raise Exception('Error loading correction file %s: %s'% (corr_file,msg))
-        self.elist = list(elist)
             
     def plot_ait(self, energy_index= 0, title=None, ax=None, vmin=0.9, vmax=1.1, ait_kw={}, **kwargs):
         """ make an AIT plot, return the figure
@@ -270,12 +321,18 @@ class DiffuseCorrection(object):
         self.hm.HEALPixFITS(t).write(filename)
         
     def __call__(self, roi_index, energy):
+        if energy > self.elist[-1]: return 1.0
         try:
             energy_index = self.elist.index(round(energy))
         except:
-            if energy > self.elist[-1]: return 1.0
             raise Exception('energy %f not found in list %s' % (round(energy), self.elist))
-        return self.correction.ix[roi_index][energy_index]
+        if self.dn is not None:
+            return self.correction.ix[energy_index]
+        return self.correction.ix[roi_index][energy_index] if self.correction is not None else 1.0
+        
+    def roi_norm(self, roi_index):
+        """return a array of correction for the bands for a given ROI"""
+        return np.array([self(roi_index, e) for e in self.elist])
 
         
 class CachedDiffuseResponse(DiffuseResponse):
@@ -314,7 +371,7 @@ class CachedDiffuseResponse(DiffuseResponse):
         # apply correction factor if any; use last value for all higher (depends only on energy)
         vals = cd['vals']
         if hasattr(self, 'corr') and self.corr is not None:
-            c = self.corr[index] if index<len(self.corr) else self.corr[-1]
+            c = list(self.corr)[index] if index<len(self.corr) else list(self.corr)[-1]
             vals *= c
         else: c = None
         
@@ -327,9 +384,9 @@ class IsotropicResponse(DiffuseResponse):
 
     defaults = diffuse_grid_defaults
     @keyword_options.decorate(defaults)    
-    def __init__(self, source, band, **kwargs):
+    def __init__(self, source, band, roi, **kwargs):
         keyword_options.process(self, kwargs)
-        super(IsotropicResponse, self).__init__(source, band, **kwargs)
+        super(IsotropicResponse, self).__init__(source, band, roi, **kwargs)
         
     def evaluate(self):
         # deal with FrontBackConstant case, which uses different conatants for front/back
@@ -337,22 +394,47 @@ class IsotropicResponse(DiffuseResponse):
             self.source.model.ct=self.band.event_type
         super(IsotropicResponse, self).evaluate()
             
+    def grad(self, weights, exposure_factor=1): 
+        # deal with FrontBackConstant case, which uses different conatants for front/back
+        if hasattr(self.source.model, 'ct'): # bit ugly
+            self.source.model.ct=self.band.event_type
+        return super(IsotropicResponse, self).grad(weights, exposure_factor)
+
+
     def fill_grid(self):
         # fill the grid for evaluating counts integral over ROI, individual pixel predictions
         roi_index = skymaps.Band(12).index(self.roicenter)
         dmodel = self.dmodel
         self.corr = 1.0
         if hasattr(dmodel, 'kw') and dmodel.kw is not None and 'correction' in dmodel.kw:
-            dc = DiffuseCorrection(dmodel.kw['correction'])
-            self.corr = dc(roi_index, self.band.energy)
-            #print 'energy, correction: %.0f %.3f' % (self.band.energy, self.corr)
+        
+            #dc = DiffuseCorrection(dmodel.kw['correction'], diffuse_normalization=self.diffuse_normalization)
+            #self.corr = dc(roi_index, self.band.energy)
+            ##print 'energy, correction: %.0f %.3f' % (self.band.energy, self.corr)
+            
+            corr_file = os.path.expandvars(dmodel.kw['correction'])
+            energy=round(self.band.energy)
+            if energy>10000.:
+                self.corr=1.0
+            else:
+                dn = self.roi.sources.diffuse_normalization
+                if dn is not None and corr_file in dn:
+                    diffuse_normalization = dn[corr_file]
+                    if energy not in diffuse_normalization.index:
+                        energy -=1 # kluge!!
+                    assert energy in diffuse_normalization.index, 'Bad index? {} not in {}'.format(energy, diffuse_normalization.index)
+                    self.corr = diffuse_normalization[energy] 
+                else:
+                    self.corr = DiffuseCorrection(corr_file)(roi_index, energy)
+            #print 'ISO: {} {} MeV: apply correction {} '.format(corr_file, energy, self.corr)
+
         grid = self.grid
         grid.cvals = grid.fill(self.band.exposure) * dmodel(self.band.skydir) * self.corr
         
 
 class ExtendedResponse(DiffuseResponse):
     
-    def __init__(self, source, band, **kwargs):
+    def __init__(self, source, band, roi, **kwargs):
         defaults = dict( [x[:2] for x in extended_grid_defaults])
         defaults.update(kwargs)
         if 'npix' not in defaults:
@@ -361,7 +443,7 @@ class ExtendedResponse(DiffuseResponse):
             #print 'setting npix', defaults
         self.quiet=defaults.get('quiet', True)
         self.initialized = False
-        super(ExtendedResponse, self).__init__(source, band, **defaults)
+        super(ExtendedResponse, self).__init__(source, band, roi, **defaults)
             
     def exposure_integral(self):
         """Perform integral of the exposure times the flux at the source position

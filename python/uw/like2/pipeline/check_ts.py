@@ -1,6 +1,6 @@
 """
 Check the residual TS maps for clusters
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_ts.py,v 1.8 2015/08/16 01:12:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_ts.py,v 1.9 2015/12/03 17:33:07 burnett Exp $
 
 """
 
@@ -193,14 +193,14 @@ def pipe_make_seeds(skymodel, filename,  fieldname='ts', minsize=2):
         try:
             mask = monthly_ecliptic_mask( month)
             print 'created a mask for month %d, with %d pixels set' % (month, sum(mask))
-            seedroot = fieldname.upper()+ skymodel[-3:] 
+            seedroot = fieldname.upper()+ skymodel[-2:] 
         except:
             mask=None
             print 'No mask found'
             seedroot='TSxx'
     else: 
         mask=None
-        seedroot='TSxx'
+        seedroot=skymodel.replace('uw','S')
     fnames = glob.glob('hptables_*_%d.fits' % nside )
     assert len(fnames)>0, 'did not find hptables_*_%d.fits file' %nside
     fname=None
