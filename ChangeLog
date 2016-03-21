@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Mon Mar 21 11:54:13 PDT 2016
+pointlike/python/uw/like2
+
+Modified Files:
+	bandlike.py diffuse.py extended.py from_healpix.py 
+	localization.py parameterset.py process.py response.py 
+	seeds.py sources.py to_healpix.py to_xml.py 
+Log Message:
+major update
+    *
+------------------------------------------------------------
 User: kadrlica  Tue Jan 12 10:51:29 PST 2016
 pointlike/python/uw/darkmatter
 
