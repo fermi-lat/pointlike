@@ -1,7 +1,7 @@
 """
 Basic analyis of source spectra
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.27 2015/08/16 01:11:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.28 2015/12/03 17:10:03 burnett Exp $
 
 """
 
@@ -223,7 +223,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                     label='none or poor localization', **hist_kw)
                 ax.text(12, n, 'none or poor localization (TS>%d) :%d'%(tscut[0],n), fontsize=12, color='r')
         plt.setp(ax,  ylabel='# sources with greater TS', xlabel='TS',
-            xscale='log', yscale='log', xlim=(9, 1e4), ylim=(9,8000))
+            xscale='log', yscale='log', xlim=(9, 1e4), ylim=(9,10000))
         ax.set_xticklabels([' ', ' ', '10', '100', '1000'])
         #ax.set_yticklabels(['', '10', '100', '1000'])
             
@@ -649,7 +649,6 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         These plots show the consistency of the lowest energy band with the spectrum
         defined by the full fit. <br>
         <b>Left</b>: distribution of the "pull" <br>
-        <b>Center</b>: data/model ratio with errors, vs. the model flux.<br>
         <b>Right</b>: position in the sky of sources with |pull]>3 <br>
         """
         hassed = np.array([self.df.ix[i]['sedrec'] is not None for i in range(len(self.df))]) 
@@ -749,6 +748,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             prefixes = list(set( n[:4] for n in df[pointsource]['name'])) +['total']
         
         census = dict()
+        prefixes = sorted(prefixes)
         for x in (0, 5, 10, 25):
             census[x] = [count(prefix, x) for prefix in prefixes]
         self.census_data=pd.DataFrame(census, index=prefixes)
@@ -837,12 +837,12 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         assert 'curvature' in self.df, 'Curvature not calculated'
         df = self.df
         psr = np.asarray([n.startswith('PSR') for n in df.index], bool)
-        fig,ax = plt.subplots(figsize=(6,6))
-        dom= np.linspace(0,1,26)
-        ax.hist(df.curvature.clip(0,1), dom, log=True, label='all sources')
-        ax.hist(df[df.psr].curvature.clip(0,1), dom, log=True, label='EC model')
-        ax.hist(df[psr].curvature.clip(0,1), dom,log=True, label='PSR souce')
-        plt.setp(ax, xlabel='Curvature')
+        fig,ax = plt.subplots(figsize=(8,6))
+        hkw = dict(bins=np.linspace(0,2,41), log=True, histtype='step', lw=2)
+        ax.hist(df.curvature.clip(0,2), label='all sources', **hkw)
+        ax.hist(df[df.psr].curvature.clip(0,2), label='EC model', **hkw)
+        ax.hist(df[psr].curvature.clip(0,2), label='PSR souce', **hkw)
+        plt.setp(ax, xlabel='Curvature', ylim=(0.5,None))
         ax.legend()
         ax.grid()
         return fig

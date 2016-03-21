@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_healpix.py,v 1.10 2015/07/24 17:57:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_healpix.py,v 1.11 2015/08/16 01:13:19 burnett Exp $
 """
 import os, pickle, zipfile
 import numpy as np
@@ -75,6 +75,7 @@ class ROImodelFromHealpix(roimodel.ROImodel):
                 src = sources.PointSource(name=name, skydir=rec['skydir'], 
                     model=rec['model'],
                     ellipse = rec.get('ellipse', None),
+                    ellipsex= rec.get('ellipsex', None), # moment analysis, if done before
                     associations = rec.get('associations', None),
                     band_ts = rec.get('band_ts', None),
                     sedrec = rec.get('sedrec', None),
@@ -109,11 +110,16 @@ class ROImodelFromHealpix(roimodel.ROImodel):
         def load_global_source(name, rec):
 
             if not self.quiet: print 'Loading global source %s for %d' % (name, index)
+            if name not in self.config.diffuse:
+                print 'Warning from from_healpix: diffuse name {} not in diffuse list'.format(name)
+                return None
             df = self.config.diffuse[name]
             if df is None: 
                 return None
             gsrc = sources.GlobalSource(name=name, skydir=None, model=rec,
-                dmodel = diffuse.diffuse_factory( df, self.config.event_type_names))
+                dmodel = diffuse.diffuse_factory( df, 
+                event_type_names=self.config.event_type_names, 
+                diffuse_normalization = self.diffuse_normalization))
             gsrc.index =index
             return gsrc
 
@@ -123,6 +129,9 @@ class ROImodelFromHealpix(roimodel.ROImodel):
         if not neighbors:
             self.prev_logl = p.get('prev_logl', []) # make history available
             self.history = p.get('history', []) # will manage history of likelihood, stage, time, stream, cpu time
+            # add 
+            self.diffuse_normalization = p.get('diffuse_normalization', None)
+            
             global_sources = [load_global_source(name, rec) for name, rec \
                 in zip(p['diffuse_names'], p['diffuse']) if name not in self.ecat.names]
             self.global_count = len(global_sources)

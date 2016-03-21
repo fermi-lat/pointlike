@@ -1,9 +1,9 @@
 """
 Seed processing code
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/seeds.py,v 1.1 2015/08/16 01:13:19 burnett Exp $
 
 """
-import os, sys, time, pickle, glob
+import os, sys, time, pickle, glob, pyfits, types
 import numpy as np
 import pandas as pd
 from skymaps import SkyDir, Band
@@ -11,7 +11,8 @@ from uw.utilities import keyword_options
 from uw.like2 import (tools, sedfuns, maps, sources, localization, roimodel,)
 
 
-def read_seedfile(seedkey):
+def read_seedfile(seedkey, 
+    pgw_filename= '/nfs/farm/g/glast/g/catalog/transients/P302/PGW/1m_1mp15_PGW_ALL_NoSun.fits'):
 
     model_name = os.getcwd().split('/')[-1]
 
@@ -19,7 +20,7 @@ def read_seedfile(seedkey):
         #monthly mode, need to find and load PGW analysis with rouighly equivalent months
         month=int(model_name[5:]); 
         pgw_filename='/nfs/farm/g/glast/g/catalog/transients/TBIN_%d_all_pgw.txt'% (month-1)
-        assert os.path.exists(pgw_filename), 'PGWAVE file %s not found'% pgw_filensme  
+        assert os.path.exists(pgw_filename), 'PGWAVE file %s not found'% pgw_filename  
         try:
             seeds = pd.read_table(pgw_filename, sep=' ', skipinitialspace=True, index_col=1,
                 header=None,
@@ -31,6 +32,25 @@ def read_seedfile(seedkey):
             j = int(s.name[4:6]) if s.name[6]=='_' else int(s.name[4:5])
             names.append('PGW_%02d_%03d_%02d' % (month, int(s.pgw_roi), j))
         seeds['name'] = names    
+    elif model_name.startswith('month') and seedkey=='PGW':
+        # monthly mode, new format PGwave, in a single FITS file
+        month=int(model_name[5:]); 
+
+        
+        assert os.path.exists(pgw_filename), 'PGWAVE file {} not found'.format( pgw_filename)  
+        t = pyfits.open(pgw_filename)
+        df=pd.DataFrame(t[1].data)
+        selector = lambda month : (df.run=='1m   ') & (df.TBIN=='TBIN_{:<2d}'.format(month-1))
+        cut = selector(month)
+        assert sum(cut)>0, 'No seeds found for month {}'.format(month)
+        print 'Found {} PGWave seeds'.format(sum(cut))
+        ra = np.array(df.Ra[cut],float)
+        dec = np.array(df.Dec[cut],float)
+        prefix = 'PG{:02d} '.format(int(month))
+        # note making it a string type
+        name = np.array([prefix + n.split('_')[-1].strip() for n in 'TBIN_{}_'.format(month-1)+df.PGW_name[cut]])
+        seeds = pd.DataFrame([name, ra,dec], index='name ra dec'.split()).T
+
     else:
         # reading a TS seeds file
         t = glob.glob('seeds_%s*' % seedkey)
@@ -46,7 +66,11 @@ def read_seedfile(seedkey):
             raise Exception('Failed to read file %s, perhaps empty: %s' %(seedfile, msg))
     seeds['skydir'] = map(SkyDir, seeds.ra, seeds.dec)
     seeds['hpindex'] = map( Band(12).index, seeds.skydir)
-
+    # check for duplicated names
+    dups = seeds.name.duplicated()
+    if sum(dups)>0:
+        print '\tRemoving {} duplicate entries'.format(sum(dups))
+        return seeds[np.logical_not(dups)]
     return seeds
 
 def add_seeds(roi, seedkey, model='PowerLaw(1e-14, 2.2)', 
@@ -92,11 +116,11 @@ def add_seeds(roi, seedkey, model='PowerLaw(1e-14, 2.2)',
     seednorms = np.arange(len(parnames))[np.array([s.startswith(prefix) and s.endswith('_Norm') for s in parnames])]
     assert len(seednorms)>0, 'Did not find any seeds.'
     try:
-        roi.fit(seednorms, tolerance=0.2, ignore_exception=True)
+        roi.fit(seednorms, tolerance=0.2, ignore_exception=False)
     except Exception, msg:
-        print 'Failed to fit seed norms %s' %msg
-        return
-    # remove those with low TS
+        print 'Failed to fit seed norms: \n\t{}\nTrying full fit'.format(msg)
+        roi.fit(ignore_exception=True)
+    #remove those with low TS
     print 'TS values'
     goodseeds = []
     for sname in seednames:

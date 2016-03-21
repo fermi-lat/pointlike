@@ -1,6 +1,6 @@
 """
 Output the ROI info to as a pickle file.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_healpix.py,v 1.11 2015/08/16 01:13:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_healpix.py,v 1.12 2015/12/03 17:08:06 burnett Exp $
 """
 import os, pickle, time
 import numpy as np
@@ -38,7 +38,11 @@ def pickle_dump(roi,  pickle_dir, dampen, ts_min=5, **kwargs):
     
     output['diffuse'] = [s.spectral_model for s in diffuse_sources] #roi.dsm.models
     output['diffuse_names'] = [s.name for s in diffuse_sources]  #roi.dsm.names
-
+    try:
+        output['diffuse_normalization'] = roi.sources.diffuse_normalization
+    except:
+        print 'No diffuse normalization DataFrame to save'
+        
     # a dict for all variable sources
     sources=dict()
     output['sources']= sources

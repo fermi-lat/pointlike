@@ -1,6 +1,6 @@
 """
 Code to generate an ROI counts plot 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.14 2014/07/14 22:47:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.15 2015/12/03 17:33:45 burnett Exp $
 
 Authors M. Kerr, T. Burnett
 
@@ -267,6 +267,7 @@ def ROI_residuals(roi, ):
 
         ax.text(0.05,0.93,band_label, transform=ax.transAxes)
         ax.text(0.05,0.05,'factor={:.3f}, chi2/ndf = {:.0f}/{}'.format(factor, chi2, len(b.data)-3),transform = ax.transAxes)
+        
         return scat
 
     fig, axx = plt.subplots(2,4, figsize=(18,8), sharex=True, sharey=True)
@@ -280,3 +281,44 @@ def ROI_residuals(roi, ):
     cb.set_label('fractional deviation', fontsize=12)
 
     fig.suptitle('Residuals for {}'.format(roi.name), fontsize=14)
+    fig.set_facecolor('white')
+    
+def ROI_pixel_counts(roi, ):
+    """
+    Multiple plots of the counts per pixel for first 4 bands, front and back
+    """
+
+    def plot(roi, index=0, ax=None, **kwargs):
+
+        b=roi[index] # the BandLike object
+        band_label = '{:.0f} Mev {}'.format(b.band.energy, ['Front','Back'][b.band.event_type])
+        
+        # get pixel info: counts, model, positions 
+        data = b.data
+        pixel_dirs = b.pixel_dirs
+        
+
+        # create a ZEA image object to get the transformation to image coordinates,
+        #  and set up axes for display
+        z = image.ZEA(roi.roi_dir, size=13, galactic=True, axes=ax )
+        pix = np.array([z.pixel(sdir) for sdir in pixel_dirs])
+        ax=z.axes
+         
+        scat=z.axes.scatter(pix[:,0],pix[:,1], c=data, marker='D', edgecolor='none', 
+                        s=25000/len(pix), **kwargs);
+
+        ax.text(0.05,0.93,band_label, transform=ax.transAxes)
+        return scat
+
+    fig, axx = plt.subplots(2,4, figsize=(18,8), sharex=True, sharey=True)
+    plt.subplots_adjust(right=0.9, hspace=0.15, wspace=0.1)
+
+    for i,ax in enumerate(axx.flatten()):
+        j = [0,2,4,6,1,3,5,7][i]
+        scat=plot(roi, j ,ax=ax,)
+    cbax = fig.add_axes((0.92, 0.15, 0.02, 0.7) )
+    cb=plt.colorbar(scat, cbax, orientation='vertical')
+    cb.set_label('counts', fontsize=12)
+
+    fig.suptitle('Counts for {}'.format(roi.name), fontsize=14)
+    fig.set_facecolor('white')

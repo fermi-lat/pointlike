@@ -1,6 +1,6 @@
 """
 Source classes
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.47 2014/04/17 15:31:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.48 2015/07/24 17:57:06 burnett Exp $
 
 """
 import os, copy
@@ -176,8 +176,8 @@ class PointSource(Source):
         ret = PointSource(**self.__dict__)
         ret.model = self.model.copy()
         return ret
-    def response(self, band, **kwargs):
-        return response.PointResponse(self, band, **kwargs)
+    def response(self, band, roi=None, **kwargs):
+        return response.PointResponse(self, band, roi, **kwargs)
 
 
 class ExtendedSource(Source):
@@ -201,11 +201,11 @@ class ExtendedSource(Source):
             ret.model.free[-1]=False # make sure Ebreak is frozen
         return ret
          
-    def response(self, band, **kwargs):
+    def response(self, band, roi=None, **kwargs):
         """ return a Respose object, which, given a band, can create a convolved image
         and calculate expected counts
         """
-        return response.ExtendedResponse(self, band, **kwargs)
+        return response.ExtendedResponse(self, band, roi, **kwargs)
 
         
 class GlobalSource(Source):
@@ -220,7 +220,7 @@ class GlobalSource(Source):
         ret.model = self.model.copy()
         return ret
 
-    def response(self, band, **kwargs):
+    def response(self, band, roi=None, **kwargs):
         """ return a Response class for the band"""
         assert self.dmodel, 'Need DiffuseBase object to determine response'
         try:
@@ -236,6 +236,6 @@ class GlobalSource(Source):
                 )[self.dmodel.type]
         except Exception, msg:
             raise Exception('Could not find a response class for source %s:"%s"' %(self,msg))
-        return resp_class(self,band, **kwargs) 
+        return resp_class(self,band,roi, **kwargs) 
     
 

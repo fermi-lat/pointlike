@@ -1,7 +1,7 @@
 """
 Analysis plots of transient sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/transientinfo.py,v 1.2 2015/08/20 00:31:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/transientinfo.py,v 1.3 2015/12/03 17:10:03 burnett Exp $
 
 """
 
@@ -58,6 +58,7 @@ class TransientInfo(sourceinfo.SourceInfo):
                     legend=True,
                     );
         plt.setp(fig.axes[0], ylim=(1,1000), xlim=(9,100))
+        fig.set_facecolor('white')
         return fig
    
     def association_summary(self):
@@ -73,6 +74,7 @@ class TransientInfo(sourceinfo.SourceInfo):
         """
         fig = self.assoc.bzcat_study(tsmax=200, title='Cumulative bzcat associations')
         self.bzcat_html = self.assoc.bzcat_html
+        fig.set_facecolor('white')
         return fig
 
     
@@ -140,12 +142,14 @@ def delta_ts_figure(df,  title='', ax=None, xlim=(-4,10), ymax=None, binsize=0.5
     leg=ax.legend()
     for box in leg.get_patches():
         box._height=0; box._y=0.5
+    fig.set_facecolor('white')
     return fig
     
 class Analysis(object):
     """ a place to put code to make plots for all months
     """
-    def __init__(self,  path='$FERMI/skymodels/P301_monthly', prefix='', quiet=True):
+    def __init__(self,  path='$FERMI/skymodels/P301_monthly', prefix='', quiet=True, 
+                all_months_model='../P301_6years/uw972'):
         """ If prefix=='o', then it is obssim
         """
         os.chdir(os.path.expandvars(path))
@@ -191,7 +195,7 @@ class Analysis(object):
             print 'Associated', sum(self.assoc)
         
         # get the 6-year dataframe for reference, and access to functions in SourceInfo
-        self.sinfo = sourceinfo.ExtSourceInfo('../P301_6years/uw972')
+        self.sinfo = sourceinfo.ExtSourceInfo(all_months_model)
         self.df6y = self.sinfo.df 
 
     def all_6y_names(self):
@@ -246,7 +250,8 @@ class Analysis(object):
                 acat=acat,
                 )
         if len(months)==0:
-            print 'Source %s not detected in any month' % sname
+            self.notdetected.append(sname)
+            #print 'Source %s not detected in any month' % sname
             return None
         monthly = pd.DataFrame(months).T
         good=monthly.good
@@ -256,8 +261,12 @@ class Analysis(object):
         adts_mean = monthly[good].adeltats.mean()
         adts_max  = monthly[good].adeltats.max()
         ngood=sum(good)
+        tssum = sum(monthly.ts)
+        tsmax = max(monthly.ts)
         return dict( monthly=monthly, 
-                     nmonths=len(monthly), 
+                     nmonths=len(monthly),
+                     tssum=tssum,
+                     tsmax = tsmax,                        
                      ngood=ngood,
                      pull_rms=pull_rms,
                      mean=pull_mean,
@@ -285,10 +294,13 @@ class SourceInfo(object):
             names=ta.all_6y_names()
         print 'loading SourceInfo with %d sources' % len(names)
         info=dict()
+        ta.notdetected=[]
         for s in names:
             if not quiet: print '.',
             month_dict = ta.monthly_info(s)
             info[s] = month_dict
+        if len(ta.notdetected)>0:
+            print 'Sources not detected in any month:\n{}'.format(np.array(ta.notdetected))
         self.df= pd.DataFrame(info).T
 
     def __getitem__(self, sourcename):

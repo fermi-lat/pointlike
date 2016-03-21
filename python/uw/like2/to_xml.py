@@ -1,6 +1,6 @@
 """
 Generate the XML representation of a list of sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.17 2014/01/26 20:07:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.18 2014/04/14 17:43:22 burnett Exp $
 
 """
 import os, collections, argparse, types, glob, pyfits
@@ -152,7 +152,7 @@ def source_library(source_list, title='sources', stream=None, strict=False, maxi
     ns=ne=0
     try:
         extended = pd.DataFrame(pyfits.open(glob.glob(
-            os.path.expandvars('$FERMI/catalog/Extended_archive*/LAT_extended_sources*.fit'))[-1]
+            os.path.expandvars('$FERMI/catalog/Extended_archive*/LAT_extended_sources*.fit*'))[-1]
             )[1].data)
         extended.index= [x.strip() for x in extended['Source_Name']]
     except Exception, msg:

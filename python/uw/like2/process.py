@@ -1,6 +1,6 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.24 2015/07/24 17:57:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.25 2015/08/16 01:13:19 burnett Exp $
 
 """
 import os, sys, time, pickle, glob
@@ -34,6 +34,7 @@ class Process(main.MultiROI):
         ('quiet',         False,  'Set false for summary output'),
         ('finish',        False,  'set True to turn on all "finish" output flags'),
         ('residual_flag', False,  'set True for special residual run; all else ignored'),
+        ('diffuse_flag',  False,   'set True to evaluate diffuse spectral corrections'),
         ('tables_flag',   False,  'set True for tables run; all else ignored'),
         #('xtables_flag',  False,  'set True for special tables run; all else ignored'),
         ('tables_nside',  512,    'nside to use for table generation'),
@@ -94,6 +95,9 @@ class Process(main.MultiROI):
         print '%4d-%02d-%02d %02d:%02d:%02d - %s - %s' %(time.localtime()[:6]+ (roi.name,)+(self.stream,))
 
         # special processing flags
+        if self.diffuse_flag:
+            fit_diffuse(self)
+            
         if self.residual_flag:
             self.residuals()
             return        
@@ -210,12 +214,13 @@ class Process(main.MultiROI):
                 chisq = -1
         
         if outdir is not None:  
-            pickle_dir = os.path.join(outdir, 'pickle')
-            if not os.path.exists(pickle_dir): os.makedirs(pickle_dir)
-            roi.to_healpix( pickle_dir, dampen, 
-                counts=cts,
-                stream=self.stream,
-                )
+            write_pickle(self)
+            #pickle_dir = os.path.join(outdir, 'pickle')
+            #if not os.path.exists(pickle_dir): os.makedirs(pickle_dir)
+            #roi.to_healpix( pickle_dir, dampen, 
+            #    counts=cts,
+            #    stream=self.stream,
+            #    )
     
    
     def repivot(self, fit_sources=None, min_ts = 10, max_beta=3.0, emin=200, emax=20000., dampen=1.0, test=False):
@@ -378,13 +383,19 @@ class Process(main.MultiROI):
        
             
 def fix_spectra(roi):
-	for src in roi.free_sources:
-		m=src.model
-		for i,parname in enumerate(m.param_names[1:]):
-			if m.free[i+1]:
-				roi.freeze(parname, src.name)
-		src.fixed_spectrum=True
-		
+    for src in roi.free_sources:
+        m=src.model
+        if src.name=='isotrop':
+            print 'Freezing isotrop'
+            roi.freeze('Scale', src.name, 1.0)
+            continue
+        
+        for i,parname in enumerate(m.param_names[1:]):
+            if m.free[i+1]:
+                roi.freeze(parname, src.name)
+        src.fixed_spectrum=True
+
+
 class BatchJob(Process):
     """special interface to be called from uwpipeline
     Expect current dir to be output dir.
@@ -398,6 +409,68 @@ class BatchJob(Process):
     def __call__(self, roi_index):
         self.process_roi(roi_index)
     
+
+def fit_diffuse(roi, nbands=8, select=None, restore=False):
+    """
+    Perform indpendent fits to the gal, iso_front, and iso_back for each of the first nbands bands
+    select: None or list of variables
+    """
+    from uw.like import Models
+    # freeze all free sources, thaw gal and iso
+    free_sources = roi.free_sources
+    saved_free = [s.model.free.copy() for s in free_sources]
+    for s in free_sources:
+        s.model.free[:]=False
+    roi.sources.find_source('ring').model.free[0]=True
+    iso_model =roi.sources.find_source('isotrop').model
+    roi.sources.set_model(Models.FrontBackConstant(), 'isotrop')
+    roi.reinitialize()
+    
+    # do the fitting
+    dpars=[]
+    energies = []
+    for ie in range(nbands):
+        roi.select(ie); 
+        roi.reinitialize();
+        roi.fit(select)
+        energies.append(int(roi.energies[0]))
+        dpars.append( roi.sources.parameters.get_parameters())
+    t =np.power(10, dpars)
+    df = pd.DataFrame(t, columns=['gal iso_front iso_back'.split()])
+    df.index=energies
+    
+    if restore:
+        # does not seem to work, comment this out for now
+        # restore sources
+        roi.sources.diffuse_normalization *= df
+        for s,f in zip(free_sources, saved_free):
+            s.model.free=f
+        roi.sources.find_source('ring').model.free[0]=False
+        roi.sources.set_model(iso_model, 'isotrop')
+        roi.reinitialize()
+        roi.select()
+        roi.fit() # needed to restore gradient, at least.
+        
+        # update the pickle file
+        write_pickle(roi)
+    else:
+        # simply save results
+        if not os.path.exists('diffuse_fit'):
+            os.mkdir('diffuse_fit')
+        filename= 'diffuse_fit/{}.pickle'.format(roi.name)
+        pickle.dump(df, open(filename, 'w'))
+        print 'wrote file {}'.format(filename)
+    return df
+    
+def write_pickle(roi):
+    pickle_dir = os.path.join(roi.outdir, 'pickle')
+    if not os.path.exists(pickle_dir): os.makedirs(pickle_dir)
+    roi.to_healpix( pickle_dir, dampen=1.0, 
+        counts=roi.get_count_dict(),
+        stream=os.environ.get('PIPELINE_STREAMPATH', 'interactive'),
+
+        )
+
 #### TODO
 #def run(rois, **kw):
 #    Process('.', rois, **kw )

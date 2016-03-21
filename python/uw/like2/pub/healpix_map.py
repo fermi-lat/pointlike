@@ -1,6 +1,6 @@
 """
 Utilities for managing Healpix arrays
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.16 2014/03/25 18:28:26 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.17 2014/03/27 21:18:23 burnett Exp $
 """
 import os,glob,pickle, types, copy, zipfile
 import pylab as plt
@@ -61,6 +61,20 @@ class HParray(object):
         ait=image.AIT(PySkyFunction(skyplotfun) ,axes=axes, **ait_kw)
         ait.imshow(title=title, **kwargs)
         return ait
+        
+    def plot_ZEA(self, center, size, pixelsize=0.1, title=None, axes=None, fignum=31, zea_kw={}, galactic=True, **kwargs ):
+        """ center : tuple
+                RA,DEc or L,B depending on galactic
+        """
+        #if not isinstance(SkyDir,center):
+        #    
+        center = SkyDir(center[0],center[1], SkyDir.GALACTIC if galactic else SkyDIr.EQUATORIAL)
+        zea = image.ZEA(center, size=size, axes=axes, pixelsize=pixelsize, galactic=galactic)
+        zea.fill(self)
+        zea.imshow( **kwargs)
+        if title is not None:
+            zea.axes.set_title(title)
+        return zea
 
     def smooth(self, a=0.6):
         """ simple-minded smooth using nearest neighbors 
@@ -117,8 +131,10 @@ class HPGaussSmooth(HParray):
         return ret
         
         
-def make_index_table(nside, subnside, usefile=True):
-    filename = 'index_table_%02d_%03d.pickle' % (nside, subnside)
+def make_index_table(nside=12, subnside=512, usefile=True):
+    """create, and/or use a table to convert between different nside pixelizations
+    """
+    filename = os.path.expandvars('$FERMI/misc/index_table_%02d_%03d.pickle' % (nside, subnside) )
     if os.path.exists(filename) and usefile:
         return pickle.load(open(filename))
     print 'generating index table for nside, subnside= %d %d' % (nside, subnside)
@@ -285,7 +301,7 @@ class HEALPixFITS(list):
                 ('NPIX',     12*nside**2,   '# of pixels'),
                 ('FIRSTPIX',  0,                 'First pixel (0 based)'),
                 ('LASTPIX',  12*nside**2-1, 'Last pixel (0 based)')]]
-        table = pyfits.new_table(cols, header=pyfits.Header(cards))
+        table = pyfits.BinTableHDU.from_columns(cols, header=pyfits.Header(cards))
         table.name = 'healpix' 
         return table
         
@@ -301,7 +317,80 @@ class HEALPixFITS(list):
         pyfits.HDUList(hdus).writeto(outfile)
         print '\nwrote FITS file to %s' % outfile
 
+class HEALPixSkymap():
+    """Make a spectral cube, with layers corresponding to a set of energies
+    """
 
+    def __init__(self, spectral_cube, energy_list, name='Spectra', unit='1/MeV cm^2 s sr' ):
+        """ spectral_cube : 2-d array, pixel x enegy bin
+            energy_list : 1-d array of energies
+            
+        """
+        assert spectral_cube.shape[1]==len(energy_list), 'Energy list not consistent with Spectral cube'
+        self.nside = int(np.sqrt(spectral_cube.shape[0]/12))
+        assert 12*self.nside**2==spectral_cube.shape[0], 'Length inconsistent with HEALPix'
+        self.sc=spectral_cube
+        self.el=np.array(energy_list,float)
+        self.unit=unit
+        self.name=name
+    
+    def spectral_table(self):        
+        column=pyfits.Column(name=self.name, format='{}E'.format(len(self.el)), 
+                    unit=self.unit, array=self.sc)
+        table = pyfits.BinTableHDU.from_columns([column])
+        table.name = 'SKYMAP' 
+        # add HEALPix and energy info to the header 
+        nside = self.nside
+        emin, deltae= self.el[0], np.log(self.el[1]/self.el[0])
+        cards = [pyfits.Card(*pars) for pars in [ 
+                ('PIXTYPE',  'HEALPIX',     'Pixel algorithm',),
+                ('ORDERING', 'RING',        'Ordering scheme'),
+                ('NSIDE' ,    nside,        'Resolution Parameter'),
+                #('NPIX',     12*nside**2,   '# of pixels'),
+                ('FIRSTPIX',  0,            'First pixel (0 based)'),
+                ('LASTPIX',  12*nside**2-1, 'Last pixel (0 based)'),
+                ('NRBINS',  len(self.el),   'Number of energy bins'),
+                ('EMIN',     emin,          'Minimum energy'  ),
+                ('DELTAE',   deltae,        'Step in energy (log)'),
+            ]]
+        for card in cards: table.header.append(card)
+        return table
+        
+    def energy_table(self):
+        column=pyfits.Column( name='MeV', format='E', unit='MeV', array=self.el)
+        table = pyfits.BinTableHDU.from_columns([column])
+        table.name='ENERGIES'
+        return table
+                      
+    def hdu_list(self):
+        return [ pyfits.PrimaryHDU(header=None),  #primary
+                   self.spectral_table(),           # this table
+                   self.energy_table(),
+               ]
+
+    def write(self, outfile):
+        hdus = self.hdu_list()
+        if os.path.exists(outfile):
+            os.remove(outfile)
+        pyfits.HDUList(hdus).writeto(outfile)
+        print '\nwrote FITS Skymap file, nside={}, {} energies, to {}'.format(
+           self.nside, len(self.el), outfile, )
+
+
+class FromFITS(HParray):
+
+    def __init__(self, filename, colname):
+        """ load array from a HEALPix-format FITS file
+        """
+        assert os.path.exists(filename), 'File "{}" not found'.format(filename)
+        hdu = pyfits.open(filename)[1] 
+        data = hdu.data
+        assert colname in data.dtype.fields, 'Field {colname} not found in "{filename}": found {found}'\
+            .format(filename=filename,colname=colname, found=data.dtype.fields.keys())
+        assert 'NSIDE' in hdu.header, 'Bad header in file "{}"? No NSIDE'.format(filename)
+        self.nside = hdu.header['NSIDE']
+        super(FromFITS, self).__init__(colname, data[colname])
+        
 def mapcube_to_healpix(inputfile, 
             suffix='_nside256_bpd4',
             inpath= '$FERMI/diffuse',

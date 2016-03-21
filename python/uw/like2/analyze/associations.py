@@ -1,7 +1,7 @@
 """
 Association analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.20 2015/08/16 01:11:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.21 2015/12/03 17:10:03 burnett Exp $
 
 """
 import os, glob, sys, pyfits
@@ -196,12 +196,17 @@ class Associations(sourceinfo.SourceInfo):
         bzdf = pd.DataFrame(bzdict).T        
         t=np.asarray(test)
         u =[sum(t==k) for k in range(-1,4)] ; print u
-        self.bzcat_html= '<p>There is a BZCAT association in all but %d out of %d agns' % (u[0], sum(u))
+        self.bzcat_html= '<p>There is a BZCAT association in all but %d out of %d AGN associations' % (u[0], sum(u))
         bzdf['type'] = [n[3] for n in bzdf.index]
         types=set(bzdf.type)
         tc = [sum(bzdf.type==type) for type in types]
-        self.bzcat_html += '<p>Frequencies: %s' % dict(zip(types, tc))
-        
+        rows=[tc]
+        type_names=dict(B='BL Lac', G='Radio Galaxy', U='Unknown', Q='FSRQ')
+        dfT=pd.DataFrame(rows, index=['all'], columns=[type_names[n] for n in types])
+        dfT['total'] = [sum(x) for x in rows]
+        df=dfT.T
+        self.bzcat_html += '<p>Frequencies by Blazar type: {}'.format(df.to_html())
+
         # make an integral logTS plot 
         fig, ax = plt.subplots(figsize=(8,5))
         if len(bzdict)==0:
@@ -209,14 +214,14 @@ class Associations(sourceinfo.SourceInfo):
             self.bzcat_html += '<p>No BZCAT associations: quitting'
             return fig
         
-        hist_args=dict(cumulative=-1, lw=2, histtype='step', log=True)
-        dom= np.logspace(1,np.log10(tsmax),501)
-        ax.hist(bzdf.ts, dom, label='all', **hist_args );
+        hist_args=dict(bins=np.logspace(1,np.log10(tsmax),501),
+            cumulative=-1, lw=2, histtype='step', log=True)
+        #ax.hist(bzdf.ts,  label='all', **hist_args );
         for type,label in zip('QBG', ['FSRQ', 'BL Lac', 'Galaxy']):
             sel = bzdf.type==type
             if sum(sel)>0:
                 try:
-                    ax.hist(bzdf.ts[sel], dom, label=label, **hist_args)
+                    ax.hist(bzdf.ts[sel],  label=label, **hist_args)
                 except: pass
         plt.setp(ax, xscale='log', xlabel='TS', ylim=(1,None), xlim=(10, tsmax),
                 title=title,)

@@ -1,7 +1,7 @@
 """
 Count plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.13 2015/08/16 01:11:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.14 2015/12/03 17:10:03 burnett Exp $
 
 """
 
@@ -70,7 +70,13 @@ class CountPlots(analysis_base.AnalysisBase):
             
         if 'history' in pkls[0].keys():
             print 'Extracting history info from the ROI analyses'
-            self.sinfo = self.history_info()
+            self.sinfo =t= self.history_info()
+            # check for previous creation, ignore them: look for last "monthly*" or "create"
+            y= [(x.startswith('monthly') or (x.startswith('create'))) for x in t.stage]; 
+            lc = t.index[y][-1]; print lc
+            self.toshow = t[t.index>= lc]; print self.toshow
+            skipped = t.index[y][:-1]; print 'Skipped starts:\n{}'.format(t.ix[skipped])
+            
             cfile = 'config.txt' if os.path.exists('config.txt') else '../config.txt'
             try:
                 config = eval(open(cfile).read()) 
@@ -80,7 +86,7 @@ class CountPlots(analysis_base.AnalysisBase):
             self.iteration_info = """<p>Input model: <a href="../../%s/plots/index.html?skipDecoration">%s</a>
                 <p>Iteration history: log likelihood change for each step: \n%s
                 """ % (input_model,input_model, 
-                    self.sinfo.to_html(float_format=FloatFormat(1)) )
+                    self.toshow.to_html(float_format=FloatFormat(1)) )
         else:
             self.iteration_info=''
 
@@ -126,17 +132,18 @@ class CountPlots(analysis_base.AnalysisBase):
         for the processing stages.
         """
         fig, ax = plt.subplots(1,1, figsize=(8,4))
-        ds=self.sinfo.delta_sum
-        x = range(len(self.sinfo))
+        sinfo = self.toshow #subset
+        ds = sinfo.delta_sum
+        x = range(len(sinfo))
         ax.plot( x, np.cumsum(ds), 'o--');
         ax.set_xticks(x)
-        ax.set_xticklabels(list(self.sinfo.stage), rotation=45, va='top', ha='right')
+        ax.set_xticklabels(list(sinfo.stage), rotation=45, va='top', ha='right')
         plt.setp(ax, xlim=(x[0]-0.5, x[-1]+0.5), 
                  title='change in total log likelihood', xlabel='processing stage', ylabel='log likelihood')
         ax.grid(True, alpha=0.5)
         axr = ax.twinx()
-        plt.setp(axr, ylabel='changed ROIs', ylim=(0,self.sinfo.gt10.max()+5) )
-        axr.plot( x, self.sinfo.gt10, 'Dr--')
+        plt.setp(axr, ylabel='changed ROIs', ylim=(0,sinfo.gt10.max()+5) )
+        axr.plot( x, sinfo.gt10, 'Dr--')
         return fig    
     
     def add_model_info(self):
@@ -171,13 +178,14 @@ class CountPlots(analysis_base.AnalysisBase):
         """ histograms of normalized residuals 
         subset for ridge (|b|<10, |l|<60) shown
         """
-        fig,axx = plt.subplots(3,4, figsize=(12,12))
+        fig,axx = plt.subplots(3,4, figsize=(12,9), sharex=True,)
         ridge = ( np.abs(self.rois.glat)<10) & ( np.abs(self.rois.glon)<60 )
 
         for ib,ax in enumerate(axx.flatten()):
             resid = self.residual(ib)
-            ax.hist(resid.clip(-5,5), np.linspace(-5,5,21))
-            ax.hist(resid[ridge].clip(-5,5), np.linspace(-5,5,21))
+            hkw = dict(bins=np.linspace(-5,5,21), histtype='stepfilled')
+            ax.hist(resid.clip(-5,5), **hkw)
+            ax.hist(resid[ridge].clip(-5,5), color='orange', **hkw)
             ax.set_title('%.0f MeV'% self.energy[ib], fontsize=10)
             ax.axvline(0, color='k')
             plt.setp(ax, xlim=(-5,5))

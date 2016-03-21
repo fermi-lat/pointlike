@@ -1,7 +1,7 @@
 """
 Analyze the contents of HEALPix tables, especially the tsmap
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/hptables.py,v 1.8 2015/08/16 01:11:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/hptables.py,v 1.9 2015/12/03 17:10:03 burnett Exp $
 
 """
 
@@ -39,6 +39,8 @@ class HPtables(analysis_base.AnalysisBase):
         
         self.tables = pd.DataFrame(pyfits.open(self.fname)[1].data)
         print 'loaded file %s ' % self.fname
+        self.tsmap=healpix_map.HParray(self.tsname, self.tables[self.tsname])
+
         self.plotfolder = 'hptables_%s' % tsname
         self.seedfile, self.seedroot, self.bmin = \
             'seeds_%s.txt'%tsname, '%s%s'%( (tsname[-1]).upper(),self.skymodel[-3:] ) , 0
@@ -85,21 +87,24 @@ class HPtables(analysis_base.AnalysisBase):
             </dl>""" % (self.seedfile, self.seedfile, self.seedroot,  self.bmin)
 
     
-    def kde_map(self, vmin=1e5, vmax=1e8, pixelsize=0.25):
+    def kde_map(self, vmin=1e5, vmax=1e7, pixelsize=0.25):
         """Photon Density map
         All data, smoothed with a kernel density estimator using the PSF.
         """
         hpts = healpix_map.HParray('kde', self.tables.kde)
         hpts.plot(ait_kw=dict(pixelsize=pixelsize), norm=LogNorm(vmin, vmax))
-        return plt.gcf()
+        fig=plt.gcf()
+        fig.set_facecolor('white')
+        return fig
      
-    def ts_map(self, vmin=10, vmax=25, pixelsize=0.25):
+    def ts_map(self, vmin=0, vmax=25, pixelsize=0.25):
         """ TS residual map 
         DIstribution of TS values for %(title)s residual TS study.
         """
-        hpts = healpix_map.HParray(self.tsname, self.tables[self.tsname])
-        hpts.plot(ait_kw=dict(pixelsize=pixelsize), vmin=vmin, vmax=vmax)
-        return plt.gcf()
+        self.tsmap.plot(ait_kw=dict(pixelsize=pixelsize), vmin=vmin, vmax=vmax)
+        fig=plt.gcf()
+        fig.set_facecolor('white')
+        return fig
         
     def seed_plots(self, bcut=5):
         """ Seed plots
@@ -114,17 +119,46 @@ class HPtables(analysis_base.AnalysisBase):
         fig,axx= plt.subplots(1,3, figsize=(12,4))
         plt.subplots_adjust(left=0.1)
         bc = np.abs(z.b)<bcut
+        histkw=dict(histtype='step', lw=2)
         def all_plot(ax, q, dom, label):
-            ax.hist(q.clip(dom[0],dom[-1]),dom)
-            ax.hist(q[bc].values.clip(dom[0],dom[-1]),dom, color='orange', label='|b|<%d'%bcut)
-            plt.setp(ax, xlabel=label)
+            ax.hist(q.clip(dom[0],dom[-1]),dom, **histkw)
+            ax.hist(q[bc].values.clip(dom[0],dom[-1]),dom, color='orange', label='|b|<%d'%bcut, **histkw)
+            plt.setp(ax, xlabel=label, xlim=(None,dom[-1]))
             ax.grid()
             ax.legend(prop=dict(size=10))
-        all_plot(axx[0], z.size, np.linspace(0,20,21), 'cluster size')
+        all_plot(axx[0], z.size, np.linspace(0.5,10.5,11), 'cluster size')
         all_plot(axx[1], z.ts, np.linspace(0,50,26), 'TS')
         all_plot(axx[2], np.sin(np.radians(z.b)), np.linspace(-1,1,41), 'sin(b)')
         axx[2].axvline(0, color='k')
+        fig.suptitle('Model {}: {} seeds'.format(self.skymodel, len(z)))#, ha='center') 
+        fig.set_facecolor('white')
+        return fig
+        
+    def pixel_ts_distribution(self):
+        """The cumulative TS distribution
+        For single pixels, one might expect the chi-squared distribution for the null hypothesis if 
+        there were no resolvable sources, and the background model was correct.
+        The shaded area is the difference.
+        """
+        fig,ax = plt.subplots(figsize=(8,6))
+        bins = np.linspace(0,25,501)
+        tsvec=self.tsmap.vec
+        ax.hist(tsvec, bins, log=True, histtype='step', lw=2, cumulative=-1, label='data');
+        # make array corresponding to the hist
+        h = np.histogram(tsvec, bins, )[0]
+        x = bins[:-1]
+        yh = sum(h)-h.cumsum() 
+        f = lambda x: np.exp(-x/2)
+        ye=6e5*f(x)
+        ax.plot(x, ye, '-g', lw=2, label='exp(TS/2)')
+        ax.fill_between(x,yh,ye,where=x>5, facecolor='red', alpha=0.6)
+        plt.setp(ax, xscale='linear', xlabel='TS', ylim=(1,None), ylabel='# greater than TS')
+        ax.legend()
+        ax.set_title('Cumulative distribution of single-pixel TS values for {}'.format(self.skymodel),
+                     fontsize=14)
+        ax.grid(True, alpha=0.5)        
+        fig.set_facecolor('white')
         return fig
     
     def all_plots(self):
-        self.runfigures([self.make_seeds, self.seed_plots, self.ts_map, self.kde_map,])
+        self.runfigures([ self.kde_map, self.ts_map, self.pixel_ts_distribution, self.seed_plots,])
