@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Mar 21 11:55:31 PDT 2016
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	check_converge.py check_ts.py pipeline_job.py stagedict.py 
+Log Message:
+major update
+    *
+------------------------------------------------------------
 User: burnett  Mon Mar 21 11:54:57 PDT 2016
 pointlike/python/uw/like2/analyze
 
