@@ -1,7 +1,7 @@
 """
 Set up and manage the model for all the sources in an ROI
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.26 2015/07/24 17:57:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.27 2015/08/16 01:13:19 burnett Exp $
 
 """
 import os, pickle
@@ -203,14 +203,14 @@ class ROImodel(list):
         self.initialize()
         return src, old_model
         
-    def to_xml(self, filename):
+    def to_xml(self, filename, strict=False):
         """Create an XML representation
         
         filename : string
             the xml filename
         """
         with open(filename, 'w') as out:
-            to_xml.from_roi(self, stream = out)
+            to_xml.from_roi(self, stream = out, strict=strict)
             
     def add_sources(self, auxcat='plots/seedcheck/good_seeds.csv'):
         """Add new sources from a csv file
