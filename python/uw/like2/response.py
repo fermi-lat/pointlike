@@ -1,7 +1,7 @@
 """
 Classes to compute response from various sources
  
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.13 2014/09/11 08:16:07 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.14 2016/03/21 18:54:12 burnett Exp $
 author:  Toby Burnett
 """
 import os, pickle
@@ -217,9 +217,9 @@ class DiffuseResponse(Response):
             return
         dfun = self.dmodel
         
-        if hasattr(dfun, 'kw') and len(dfun.kw.keys())>1: 
+        if hasattr(dfun, 'kw') and dfun.kw is not None and len(dfun.kw.keys())>1: 
             # Manage keywords found in the 
-            if dfun.kw['correction'] is not None:
+            if 'correction' in dfun.kw and dfun.kw['correction'] is not None:
                 if not self.quiet:
                     print '\t%s loading corrections for source %s from %s.kw:' \
                     % (self.__class__.__name__, self.source.name,  dfun.__class__.__name__)
