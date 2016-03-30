@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Mar 30 07:53:30 PDT 2016
+pointlike/python/uw/like2
+
+Modified Files:
+	seeds.py 
+Log Message:
+relax criterion for acceptance as a source
+    *
+------------------------------------------------------------
 User: burnett  Wed Mar 30 07:52:26 PDT 2016
 pointlike/python/uw/like2
 
