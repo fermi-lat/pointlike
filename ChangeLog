@@ -1,4 +1,31 @@
 ------------------------------------------------------------
+User: burnett  Wed Mar 30 10:29:58 PDT 2016
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+stag/GoGui_auto-tag
+    *
+------------------------------------------------------------
+User: burnett  Wed Mar 30 10:29:58 PDT 2016
+pointlike/doc
+
+Modified Files:
+	release.notes 
+Log Message:
+stag/GoGui_auto-tag
+    *
+------------------------------------------------------------
+User: burnett  Wed Mar 30 10:29:58 PDT 2016
+pointlike
+
+Modified Files:
+	SConscript 
+Log Message:
+stag/GoGui_auto-tag
+    *
+------------------------------------------------------------
 User: burnett  Wed Mar 30 07:53:30 PDT 2016
 pointlike/python/uw/like2
 
