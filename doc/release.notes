@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.226 2015/04/29 18:08:16 burnett Exp $
+$Id: release.notes,v 1.227 2015/12/10 06:49:54 echarles Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-09-04-00 30-Mar-2016 burnett version used for uw985
  pointlike-09-03-00 09-Dec-2015 echarles Replace SkyProj with ProjBase
  pointlike-09-02-00 29-Apr-2015 burnett Fixes for new IRF format and many like2 updates
  pointlike-09-01-00 06-Aug-2014 echarles Collecting a few minor fixes and features for LMC analysis
