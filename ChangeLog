@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Wed Apr 20 17:23:41 PDT 2016
+pointlike/python/uw/data
+
+Modified Files:
+	dataman.py dssman.py 
+Log Message:
+Handle data files binned using PSF event types.
+
+
+    *
+------------------------------------------------------------
 User: wallacee  Wed Apr 20 17:22:23 PDT 2016
 pointlike/src/test
 
