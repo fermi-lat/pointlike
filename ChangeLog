@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Wed Apr 20 17:22:22 PDT 2016
+pointlike/pointlike
+
+Modified Files:
+	AlignProc.h 
+Log Message:
+Enable use of PSF event types in binned data files.
+
+
+    *
+------------------------------------------------------------
 User: burnett  Wed Mar 30 10:29:58 PDT 2016
 pointlike/cmt
 
