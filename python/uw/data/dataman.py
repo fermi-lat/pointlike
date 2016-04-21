@@ -4,8 +4,8 @@ Module implements classes and functions to specify data for use in pointlike ana
 author(s): Matthew Kerr, Eric Wallace
 """
 
-__version__ = '$Revision: 1.25 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.25 2013/09/27 17:09:00 burnett Exp $
+__version__ = '$Revision: 1.26 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.26 2014/02/21 17:32:17 cohen Exp $
 
 import os, sys
 import collections
@@ -97,11 +97,13 @@ to be gained by binning.  Using such small pixels means the data are
 essentially unbinned in position for E > a few GeV.
     """
 
-    norms    = [0.0116,0.0192] # pix size at 100 MeV in radians
-    slopes   = [-0.8,-0.8]     # slope for pix size with energy
-    cuts     = [20.,20.]   # "cutoff" energy, 2 GeV = 20 in E_100 units
-    maxnside = [8192,8192]
-    minnside = [0,0]
+    norms    = [0.0116, 0.0192,   0.0283,  0.0202,  0.0161,  0.007] # pix size at 100 MeV in radians
+    #           front    back     psf0     psf1     psf2     psf3 
+    # derived from https://confluence.slac.stanford.edu/display/SCIGRPS/2015/02/22/P8V6+irfs
+    slopes   = [-0.8]*6    # slope for pix size with energy
+    cuts     = [20.]*6   # "cutoff" energy, 2 GeV = 20 in E_100 units
+    maxnside = [8192]*6
+    minnside = [0]*6
 
     @staticmethod
     def nside(en,ct=0):
@@ -148,6 +150,7 @@ class DataSpec(object):
         ('binfile',None,'(a) destination for new binfile or (b) location of existing one'),
         ('ltcube',None,'(a) destination for new ltcube or (b) location of existing one'),
         ('binsperdec',None,'energy bins per decade; must be 8 or 4'),
+        ('psf_event_types', False,'if set, use the PSFn event types instead of front/back'),
         ('zenith_cut',None,'a SimpleCut wrapper giving zenith cuts'),
         ('theta_cut',None,'a SimpleCut wrapper giving theta cuts'),
         ('event_class_cut',None,'a SimpleCut wrapper giving event cuts'),
@@ -220,6 +223,7 @@ class DataSpec(object):
     def __str__(self):
         """ Pretty print of cuts/data."""
         s = collections.deque()
+        s.append('Event types:' + 'PSF' if self.psf_event_types else 'Front/back')
         s.append('Bins per decade: {0}'.format(self.binsperdec))
         s.append('DSS keywords:\n{0}'.format(self.dss))
         def process_ft(files):
@@ -263,9 +267,18 @@ class DataSpec(object):
         if (self.binsperdec!=4) and (self.binsperdec!=8):
             raise ValueError('Only support 4 or 8 energy bins per decade: found %s' %self.binsperdec)
         self.bins = bins = np.logspace(1,6,5*self.binsperdec+1)
-        f_nside = pointlike.IntVector(NsideMapper.nside(bins,0))
-        b_nside = pointlike.IntVector(NsideMapper.nside(bins,1))
-        DataSpec.binner = skymaps.PhotonBinner(pointlike.DoubleVector(bins),f_nside,b_nside)
+        if self.psf_event_types:
+            if not self.quiet:
+                print 'invoking Data.setPhotonBinner for PSFn event types...'; sys.stdout.flush()
+            nsides = [pointlike.IntVector(NsideMapper.nside(bins,i)) for i in range(2,6)]
+            DataSpec.binner = skymaps.PhotonBinner(pointlike.DoubleVector(bins),  *nsides)
+        else:
+            f_nside = pointlike.IntVector(NsideMapper.nside(bins,0))
+            b_nside = pointlike.IntVector(NsideMapper.nside(bins,1))
+            if not self.quiet:
+                print 'invoking Data.setPhotonBinner for front/back event types...'; 
+                sys.stdout.flush()
+            DataSpec.binner = skymaps.PhotonBinner(pointlike.DoubleVector(bins),f_nside,b_nside)
         pointlike.Data.setPhotonBinner(DataSpec.binner)
         
     def _parse_filename(self,ft):
@@ -397,10 +410,14 @@ class DataSpec(object):
         self._Data_setup() # set up Data to use cuts
         def fill_empty_bands(bpd,bands):
             dummy = skymaps.SkyDir(0,0)
+            if self.psf_event_types:
+                event_types = [4,8,16,32]
+            else:
+                event_types = [0,1]
             for bin_center in (bands[:-1]*bands[1:])**0.5:
-                 ph_f = pointlike.Photon(dummy,bin_center,2.5e8,0)
-                 ph_b = pointlike.Photon(dummy,bin_center,2.5e8,1)
-                 bpd.addBand(ph_f); bpd.addBand(ph_b)
+                for et in event_types:
+                    ph = skymaps.Photon(dummy,bin_center,2.5e8,et)
+                    bpd.addBand(ph)
         if not self.quiet: print 'writing to binfile %s' %self.binfile
         def overlaps(f):
             fgti = skymaps.Gti(f)
@@ -411,7 +428,7 @@ class DataSpec(object):
         files = filter(overlaps, self.ft1files) ##TODO
         if len(files)==0:
             raise DataManException('Attempt to create binned photon file with no data')
-        print 'Creating binfile from %d FT1 files' % len(files)
+        print 'Creating binfile from %d FT1 files' % len(files); sys.stdout.flush()
         data = pointlike.Data(files,-1, 0,0, self.mc_src_id,'')
         dmap = data.map() # local reference to avoid segfaults
         fill_empty_bands(dmap, self.bins)
@@ -467,7 +484,7 @@ class DataSpec(object):
         # compare GTI with that found in FT1 or binfile
         #
         gti = skymaps.Gti(self.ltcube)
-        if  (gti.minValue!=self.gti.minValue) or (gti.computeOntime() != self.gti.computeOntime()):
+        if  (gti.minValue!=self.gti.minValue) or abs(gti.computeOntime() - self.gti.computeOntime())>1:
             print 'Failed gti check:\n  ltcube: %s \n binfile: %s' % (gti, self.gti)
             return self.legacy #ignore if legacy, for now
             
@@ -487,6 +504,8 @@ class DataSpec(object):
         else:
             roi_dir = skymaps.SkyDir(roi_info[0],roi_info[1])
             exp_radius = roi_info[2] + self.livetime_buffer
+        if self.zenith_cut is None:
+            raise DataManException('zenith cut not specified')
         zenithcut = self.zenith_cut.get_bounds()[1]
         if not self.quiet:
             if exp_radius == 180:
