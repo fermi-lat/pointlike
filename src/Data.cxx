@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.73 2012/01/06 02:41:56 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.74 2012/04/22 23:50:17 wallacee Exp $
 
 */
 
@@ -11,7 +11,6 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.73 2012/01/06 0
 #include "EventList.h"
 
 #include "astro/SkyDir.h"
-#include "astro/Photon.h"
 #include "astro/GPS.h"
 #include "astro/PointingTransform.h"
 #include "astro/PointingHistory.h"
@@ -21,6 +20,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.73 2012/01/06 0
 #include "skymaps/BinnedPhotonData.h"
 #include "skymaps/IParams.h"
 #include "skymaps/Gti.h"
+#include "skymaps/Photon.h"
 
 #include "tip/IFileSvc.h"
 #include "tip/Table.h"
@@ -301,7 +301,8 @@ void Data::add(const std::string& inputFile, int event_type, int source_id)
     }else {
 
         EventList photons(inputFile, source_id>-1, s_use_mc_energy);
-        AddPhoton adder(*m_data, event_type, m_start, m_stop, source_id, s_gti_mask, photons.pass7());
+        AddPhoton adder(*m_data, event_type, m_start, m_stop, source_id, s_gti_mask, photons.data_pass());
+        //AddPhoton adder(*m_data, event_type, m_start, m_stop, source_id, s_gti_mask, photons.pass7());
         //AddPhoton adder(*m_data, event_type, m_start, m_stop, source_id, m_data->gti(), photons.pass7());
 
         AddPhoton added =std::for_each(photons.begin(), photons.end(), adder );
@@ -413,7 +414,7 @@ Data::~Data()
 }
 
 //ROOT event extraction, only used by Data::lroot
-astro::Photon events(std::vector<double>& row) {
+skymaps::Photon events(std::vector<double>& row) {
 
     // extract stuff from row, assuming order in root_names
     float ra(row[0]), dec(row[1]); 
@@ -431,7 +432,7 @@ astro::Photon events(std::vector<double>& row) {
     double zenith_angle(row[10]); 
     int source_id(-1); // not set now?
 
-    // create the local Photon object from these data, have it return a transformed astro::Photon
+    // create the local Photon object from these data, have it return a transformed skymaps::Photon
     Photon p(astro::SkyDir(ra, dec), energy, time, event_class , 
         source_id, astro::SkyDir(raz,decz),astro::SkyDir(rax,decx),
         zenith_angle,class_level);
@@ -512,7 +513,7 @@ void Data::lroot(const std::string& inputFile, int event_class) {
 
             //set_rot(rx[tower],ry[tower],rz[tower]);
             if(i-bstart) ShowPercent(i-bstart+1,bstop-bstart+1,i-bstart+1,speed);
-            astro::Photon p =  events(row); 
+            skymaps::Photon p =  events(row); 
             if ((p.eventClass()==event_class||event_class==-1) 
                 ) {
                     m_data->addPhoton(p);

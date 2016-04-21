@@ -40,21 +40,24 @@ class Points{public:
 std::string inputFile(facilities::commonUtilities::joinPath(facilities::commonUtilities::getDataPath("pointlike"), 
                      "test_events.root" ));
 
+std::string fitsFile(facilities::commonUtilities::joinPath(facilities::commonUtilities::getDataPath("pointlike"),
+					 "test_pass8_ft1.fits"));
 /** @class AddPhoton
 
 */
 template<class M>
-class AddPhoton: public std::unary_function<astro::Photon, void> {
+class AddPhoton: public std::unary_function<skymaps::Photon, void> {
 public:
     AddPhoton (M& map)
         : m_map(map)
     {}
-    void operator()(const astro::Photon& gamma)
+    void operator()(const skymaps::Photon& gamma)
     {
         //int event_class = gamma.eventClass();
 
         m_map.addPhoton(gamma);
     }
+
     M& m_map;
 };
 
@@ -78,10 +81,22 @@ int main(int argc , char** argv )
         PhotonList photons(inputFile);
 
         double bins_per_decade(5.0);
-        skymaps::BinnedPhotonData& x= *new skymaps::BinnedPhotonData(*new skymaps::PhotonBinner(bins_per_decade));
+        skymaps::BinnedPhotonData& x= *new skymaps::BinnedPhotonData(bins_per_decade);
         std::for_each(photons.begin(), photons.end(), AddPhoton<skymaps::BinnedPhotonData>(x));
+		//for(PhotonListIterator it=photons.begin();it!=photons.end();++it){
+		//	skymaps::Band b = x.binner()(*it);
+		//	std::cout << b.event_class() << " " << b.emin() << " " << b.emax() << " " << (b.event_class() + 10*static_cast<int>(b.emin()+.5)) << " " << (int)(b) << std::endl;
+		//}
 
         x.info();
+
+        std::cout << "Loading data from file " << fitsFile  <<std::endl;
+		std::vector<std::string> ft1_list;
+		ft1_list.push_back(fitsFile);
+		Data test_data(ft1_list);
+		test_data.info();
+
+
 #if 0 // disable this since that file does not have GTI
         { 
             std::vector<std::string>ft1_list;

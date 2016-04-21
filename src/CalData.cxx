@@ -1,15 +1,12 @@
 /** @file CalData.cxx
 @brief implementation of CalData
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/CalData.cxx,v 1.6 2008/08/06 19:37:11 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/CalData.cxx,v 1.7 2008/11/11 01:31:16 mar0 Exp $
 
 */
 
 
 #include "pointlike/CalData.h"
-
-#include "astro/Photon.h"
-
 #include "skymaps/BinnedPhotonData.h"
 
 // --ROOT --
@@ -102,7 +99,8 @@ namespace {
     skymaps::PhotonBinner pb = *binner(0,0);
 
     //ROOT event extraction
-    astro::Photon events(std::vector<float>& row,int event_type, double emin, double emax) {
+	//Changed to use skymaps::Photon. Shouldn't change any behavior. -EEW
+    skymaps::Photon events(std::vector<float>& row,int event_type, double emin, double emax) {
         float ra(0), dec(0), energy(0); // photon info
 
         double time(0);
@@ -130,7 +128,7 @@ namespace {
                 double diff = 180/M_PI*row[3];
                 dec = diff*sin(r);
                 ra = diff*cos(r)/cos(dec*M_PI/180);
-                skymaps::Band bb = pb(astro::Photon(astro::SkyDir(0,0),energy,0));
+                skymaps::Band bb = pb(skymaps::Photon(astro::SkyDir(0,0),energy,0));
                 double ratio = (bb.emin()/energy);
                 double rseed = rand->Uniform();
                 if(ratio<rseed) event_class=99;
@@ -140,7 +138,7 @@ namespace {
             }
 
         }
-        return astro::Photon(astro::SkyDir(ra,dec),energy,time,event_class, source_id);
+        return skymaps::Photon(astro::SkyDir(ra,dec),energy,time,event_class, source_id);
     }
 
 
@@ -187,7 +185,7 @@ void CalData::lroot(const std::string& inputFile,int event_type,double emin,doub
             float v = tl->GetValue();
             row.push_back(isFinite(v)?v:-1e8);
         }
-        astro::Photon p = events(row,event_type,emin,emax);
+        skymaps::Photon p = events(row,event_type,emin,emax);
 #if 0 // does not compile with gcc
         p.eventClass()<99?m_data->addPhoton(p):0;
 #else

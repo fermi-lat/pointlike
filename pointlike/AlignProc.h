@@ -6,7 +6,6 @@
 #ifndef pointlike_AlignProc_h
 #define pointlike_AlignProc_h
 
-#include "astro/Photon.h"
 #include "pointlike/RotationInfo.h"
 #include "pointlike/PointSourceLikelihood.h"
 #include "skymaps/PhotonBinner.h"
@@ -71,14 +70,15 @@ namespace pointlike{
 
         //! class Photon
         //! Wrapper class for astro::Photon with added pointing information
-        class Photona : public astro::Photon {
+		// Inherit from skymaps::Photon for compatibility with new PhotonBinner - EEW
+        class Photona : public skymaps::Photon {
         public:
             Photona(const astro::SkyDir& dir, double energy, 
                 double time, int event_class, 
                 const astro::SkyDir& scz, 
                 const astro::SkyDir& scx,
                 int id=0)
-                : astro::Photon(dir, energy, time, event_class, id)
+                : skymaps::Photon(dir, energy, time, event_class, id)
             {
                 CLHEP::Hep3Vector scy (scz().cross(scx()));
                 CLHEP::Hep3Vector sz = scz();
@@ -92,7 +92,7 @@ namespace pointlike{
 
             /// make transformation in GLAST frame
             /// @param corr matrix that corrects direction in the GLAST frame
-            astro::Photon transform(const CLHEP::HepRotation& corr)const
+            skymaps::Photon transform(const CLHEP::HepRotation& corr)const
             {
                 CLHEP::Hep3Vector 
                     local( m_rot.inverse()*dir()),
@@ -101,7 +101,7 @@ namespace pointlike{
                 // account for worse energy resolution of back events by simply scaling up the energy.
                 int evtclass(eventClass());
                 //assert( evtclass>=0 && evtclass<3); // just a check: should be 0 or 1 if not DC2
-                return astro::Photon(SkyDir(transformed), energy(),time(),evtclass, source());
+                return skymaps::Photon(SkyDir(transformed), energy(),time(),evtclass, source());
             }
 
         private:
