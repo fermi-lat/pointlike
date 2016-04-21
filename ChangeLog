@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Wed Apr 20 17:22:23 PDT 2016
+pointlike/src/test
+
+Modified Files:
+	PhotonList.cxx PhotonList.h test_main.cxx 
+Log Message:
+Enable use of PSF event types in binned data files.
+
+
+    *
+------------------------------------------------------------
 User: wallacee  Wed Apr 20 17:22:22 PDT 2016
 pointlike/src
 
