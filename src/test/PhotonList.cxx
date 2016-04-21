@@ -111,14 +111,14 @@ RootLeaf::operator double()const
 
 size_t PhotonList::size()const{ return m_tree->GetEntries();}
 
-astro::Photon PhotonList::operator[](int index)const
+skymaps::Photon PhotonList::operator[](int index)const
 {
     m_tree->GetEntry(index);
-    return astro::Photon(astro::SkyDir(*m_leaf_ra, *m_leaf_dec),
+    return skymaps::Photon(astro::SkyDir(*m_leaf_ra, *m_leaf_dec),
         *m_leaf_energy,*m_leaf_event_class);
 }
 
-astro::Photon PhotonListIterator::operator*()const
+skymaps::Photon PhotonListIterator::operator*()const
 {
     // note: possibility of selection here: test, then increment index  
     return m_list[m_index];

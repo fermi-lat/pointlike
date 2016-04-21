@@ -1,7 +1,7 @@
 /** @file EventList.cxx 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.26 2015/06/25 18:01:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.27 2015/06/26 14:34:06 burnett Exp $
 */
 
 #include "EventList.h"
@@ -12,6 +12,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.26 2015/06
 #include "astro/GPS.h"
 
 #include <iomanip>
+#include <cstdlib>
 using namespace pointlike;
 using skymaps::BinnedPhotonData;
 
@@ -52,16 +53,23 @@ void AddPhoton::operator()(const Photon& gamma)
     {
         m_found++;
         int event_class = gamma.eventClass();
+		int event_type = gamma.event_type();
         int sourceid = gamma.source();
-        if( m_select>-1 && event_class!= m_select) return;
+		if( m_select>-1){
+		    if( m_data_pass < 8){
+	            if( event_class!= m_select) return;
+	        }else{
+		        if( (event_type & (1<<m_select))==0 ) return;
+		    }
+		}
       
         // timing: either start/stop interval, or a Gti object
-	if( m_use_gti ){
-		if( !m_gti.accept(gamma.time()) ) return;}
-	else{
-        	if( m_start>0   && gamma.time()<m_start ||  m_stop>m_start && gamma.time()>m_stop) return;
-	}
-
+        if( m_use_gti ){
+        	if( !m_gti.accept(gamma.time()) ) return;}
+        else{
+            	if( m_start>0   && gamma.time()<m_start ||  m_stop>m_start && gamma.time()>m_stop) return;
+        }
+        
         if( m_source>-1 && sourceid != m_source)return;
 
         // theta cut: define FOV
@@ -74,10 +82,13 @@ void AddPhoton::operator()(const Photon& gamma)
         // For Pass6, EVENT_CLASS is an integer representing a nested scheme
         // For Pass7, EVENT_CLASS is a bitmask, and we requre the bit(s) corresponding
         // to EVENT_CLASS be set
-        if( !m_pass7 ) {
+        //if( !m_pass7 ) {
+		if (m_data_pass<7){
             if( class_level< pointlike::Data::class_level() ) return; // select class level
-        }
-        //else {
+		}
+		// Not sure why the bitmask version is commented out here. No capability to do class level
+		// cuts for pass 7/8? - EEW
+        //else { 
 	  //if(class_level>0 && (( class_level & (1<<pointlike::Data::class_level()) )== 0) ) return;
         //}
         m_kept++;
@@ -102,7 +113,7 @@ void AddPhoton::operator()(const Photon& gamma)
 
 #endif
 
-            m_map.addPhoton(astro::Photon(fixed, gamma.energy(),gamma.time(),gamma.eventClass()));
+            m_map.addPhoton(skymaps::Photon(fixed, gamma.energy(),gamma.time(),gamma.eventClass(),gamma.event_type()));
         }else{
             // no correction: just add the photon
             m_map.addPhoton(gamma);
@@ -115,7 +126,8 @@ EventList::EventList(const std::string infile, bool selectid, bool use_mc_energy
                      : m_fits(true)
                      , m_selectid(selectid)
                      , m_use_mc_energy(use_mc_energy)
-                     , m_pass7(true), m_evclass_bitarray(true)
+                     //, m_pass7(true), m_evclass_bitarray(true)
+					 , m_data_pass(8)
 {
     if( infile.find(".root") != std::string::npos) {
         table_name = "MeritTuple"; 
@@ -132,11 +144,12 @@ EventList::EventList(const std::string infile, bool selectid, bool use_mc_energy
             double dif;
             // (*m_itbegin)["DIFRSP1"].get(dif);
             (*m_itbegin)["CTBCLASSLEVEL"].get(dif);
-            m_pass7=false;
+            //m_pass7=false;
+			m_data_pass=6;
         } catch (const std::exception& ){}
     }
 
-    int evclsver(0);
+    int evclsver(0); //Is this ever used?
     
     const tip::Header & header(m_table->getHeader());
     try {
@@ -152,9 +165,14 @@ EventList::EventList(const std::string infile, bool selectid, bool use_mc_energy
       pass_ver = "NONE";
     }
 
-    if (pass_ver == "NONE" || pass_ver.substr(0, 2) == "P7") {
-      m_evclass_bitarray = false;
-    }
+    //if (pass_ver == "NONE" || pass_ver.substr(0, 2) == "P7") {
+    //  m_evclass_bitarray = false;
+    //}
+	
+	//NB: This assumes that all Pass 7 and higher FT1s will
+	//have the pass_ver header key. -EEW
+	m_data_pass = pass_ver=="NONE"?6:atoi(&pass_ver[1]);
+
 }
 EventList::EventList()
 {
@@ -174,7 +192,7 @@ Photon EventList::Iterator::operator*()const
     double theta;
     int event_class, ctbclasslevel(1);
     int source(-1);
-    int event_type(-1); // NEW
+    int event_type(0); // NEW
 
     // NB: the internal variables (event_class, ctbclasslevel) no longer match FT1 names.
     // event_class == CONVERSION_TYPE, ctbclasslevel = "EVENT_CLASS"
@@ -210,22 +228,29 @@ Photon EventList::Iterator::operator*()const
     }
     (*m_it)[*names++].get(theta);
 
-    if (m_evclass_bitarray) {
+    if (m_data_pass>=8) {
+       //std::cout << "Testing ..." << std::endl;
+#if 1
       tip::BitStruct tip_event_class;
       (*m_it)[*names++].get(tip_event_class);
       ctbclasslevel = static_cast<int>(tip_event_class);
-      
-#if 0 // seems to cause exception??
-        // NEW STUFF for EVENT_TYPE -- convert bit array to int, like EVENT_CLASS
-        tip::BitStruct tip_event_type;
-        (*m_it)['EVENT_TYPE'].get(tip_event_type);
-        event_type = static_cast<int>(tip_event_type);
+#endif 
+#if 1 // seems to cause exception??
+      // NEW STUFF for EVENT_TYPE -- convert bit array to int, like EVENT_CLASS
+      tip::BitStruct tip_event_type;
+      (*m_it)["EVENT_TYPE"].get(tip_event_type);
+      event_type = static_cast<int>(tip_event_type);
 #endif
+     
+       //std::cout << "End Testing: event type, class: " << event_type << ", " << ctbclasslevel << std::endl;
       
-    } else if(m_pass7)  {
+    } else if(m_data_pass==7)  {
         (*m_it)[*names++].get(ctbclasslevel);
+		event_type = event_class;  //
     } else  {
       (*m_it)["CTBCLASSLEVEL"].get(ctbclasslevel);
+	  names++; // Still need to keep the iterator lined up...
+	  event_type = event_class;
     }
 
     if( m_selectid) { // check for source id only if requested
@@ -269,7 +294,7 @@ Photon EventList::Iterator::operator*()const
             decx = pi.xAxis().dec();
         }
     }
-
+    
     return Photon(astro::SkyDir(ra, dec), energy, time, event_class , source, // note sets event_class in astro::Photon
         SkyDir(raz,decz),SkyDir(rax,decx), zenith_angle, theta, ctbclasslevel
           , event_type //NEW
@@ -279,11 +304,12 @@ Photon EventList::Iterator::operator*()const
 
 EventList::Iterator EventList::begin()
 { 
-  return Iterator(m_itbegin, m_fits, m_selectid, m_use_mc_energy, m_pass7, m_evclass_bitarray);
+  //return Iterator(m_itbegin, m_fits, m_selectid, m_use_mc_energy, m_pass7, m_evclass_bitarray);
+  return Iterator(m_itbegin, m_fits, m_selectid, m_use_mc_energy, m_data_pass);
 }
 
 EventList::Iterator EventList::end()
 {
-    return Iterator(m_itend, m_fits);
+    return Iterator(m_itend, m_fits);//Does it matter if data_pass is given to this one?
 }
 

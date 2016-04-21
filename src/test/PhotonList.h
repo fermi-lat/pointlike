@@ -6,7 +6,7 @@
 #ifndef tools_PhotonList_h
 #define tools_PhotonList_h
 
-#include "astro/Photon.h"
+#include "skymaps/Photon.h"
 #include <string>
 
 // ROOT forward declarations
@@ -36,7 +36,7 @@ public:
     PhotonList(const std::string infile, 
         const std::string table_name="");
 
-    astro::Photon operator[](int index)const;
+    skymaps::Photon operator[](int index)const;
 
     size_t size() const;
 
@@ -60,16 +60,16 @@ private:
 class PhotonListIterator {
 public:
 		// these traits needed  for STL functions like accumulate
-	typedef const astro::Photon& reference;
-	typedef const astro::Photon* pointer;
-	typedef astro::Photon value_type;
+	typedef const skymaps::Photon& reference;
+	typedef const skymaps::Photon* pointer;
+	typedef skymaps::Photon value_type;
 	typedef std::forward_iterator_tag iterator_category;
 	typedef int difference_type;
 
 
     PhotonListIterator(const PhotonList& list, long index=0)
         :m_list(list), m_index(index){}
-        astro::Photon operator*()const;             ///< dereference
+        skymaps::Photon operator*()const;             ///< dereference
         operator int()const{return m_index;} ///< allows comparison
         long operator++(){return ++m_index;} ///< increment operator
 private:
