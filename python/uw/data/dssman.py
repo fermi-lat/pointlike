@@ -5,8 +5,8 @@ in FITS files.
 author(s): M. Kerr
 """
 
-__version__ = '$Revision: 1.5 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dssman.py,v 1.5 2012/09/30 18:14:28 kadrlica Exp $
+__version__ = '$Revision: 1.6 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dssman.py,v 1.6 2013/09/27 17:07:35 burnett Exp $
 
 import pyfits
 from collections import deque
@@ -151,14 +151,16 @@ def DSSFactory(keys,vals):
     for k,v in zip(keys,vals):
         d['index'] = int(k[-1])
         for l in d.keys():
-            if l in k: d[l] = v
+            if l in k : d[l] = v
+        assert d[l] is not None, 'DSS key {}, value {} not valid'.format(k,v)
 
     # determine if cut is a bitmask
     if 'BIT_MASK' in d['TYP']:
         return DSSBitMask(d)
 
     # determine if cut is of a simple type
-    toks = d['VAL'].split(':')
+    assert d['VAL'] is not None, 'DSS key {}, bad,  value {}'.format(keys,vals)
+    toks = d['VAL'].split(':') 
     if len(toks)==2:
         a,b = toks
         # conditions to accept: empty low and numeric high,
@@ -189,10 +191,12 @@ class DSSEntries(list):
         keys = [x for x in h.keys() if x.startswith('DS')]
         if len(keys)==0: return
         vals = [h[k] for k in keys]
+        # list of the indices, not necewssarily in numeric order (THB change 02/23/16)
+        indeces = sorted(list(set([int(k[-1]) for k in keys])))
         kdeque,vdeque = deque(),deque()
-        counter = 1
+        counter = 0 # index of list of DSS indeces
         for i in xrange(len(keys)):
-            if int(keys[i][-1])!=counter:
+            if int(keys[i][-1])!=indeces[counter]:
                 self.append(DSSFactory(kdeque,vdeque)) 
                 kdeque.clear(); vdeque.clear()
                 counter += 1
