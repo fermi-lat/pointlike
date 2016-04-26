@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Apr 26 16:32:43 PDT 2016
+pointlike/python/uw/like2/analyze
+
+Added Files:
+	transient_catalog.py 
+Log Message:
+new code to select monthly transients
+    *
+------------------------------------------------------------
 User: wallacee  Wed Apr 20 17:23:41 PDT 2016
 pointlike/python/uw/data
 
