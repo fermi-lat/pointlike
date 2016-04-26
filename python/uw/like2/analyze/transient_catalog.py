@@ -152,13 +152,15 @@ class TransientCatalog(analysis_base.AnalysisBase):
         return fig
   
 
-    def write_to_fits(self, error_box_factor=1.1, error_box_add=5e-3, 
-            cuts='(sources.ts>25) & (sources.a<%.2f) &(sources.closediff>0.5)'):
+    def write_to_fits(self, filename='sources_4yr_transients', error_box_factor=1.1, error_box_add=5e-3, 
+           ):
         """FITS output log
         <pre>%(fitslogstream)s</pre>"""
+        self.df.to_csv(filename+'.csv')
+        cuts='(sources.ts>25) & (sources.a<0.25) &(sources.closediff>%.2f)' % self.mindist_cut
         self.startlog()
         print '\nRunning "to_fits"...'
-        self.fits_file = '_'.join(os.path.abspath('.').split('/')[-2:])+'.fits'
+        self.fits_file = filename+'.fits'
         to_fits.main(self.fits_file,  cuts=cuts,
                      localization_systematic = (error_box_factor, error_box_add)
                      )
