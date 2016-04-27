@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Tue Apr 26 19:22:06 PDT 2016
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	__init__.py analysis_base.py environment.py hptables.py 
+	sourceinfo.py transient_catalog.py transientinfo.py 
+Log Message:
+update for transient analysis
+    *
+------------------------------------------------------------
 User: burnett  Tue Apr 26 17:04:33 PDT 2016
 pointlike/python/uw/like2/analyze
 
