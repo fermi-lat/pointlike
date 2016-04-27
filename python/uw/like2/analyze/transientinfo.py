@@ -1,7 +1,7 @@
 """
 Analysis plots of transient sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/transientinfo.py,v 1.3 2015/12/03 17:10:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/transientinfo.py,v 1.4 2016/03/21 18:54:57 burnett Exp $
 
 """
 
@@ -148,12 +148,16 @@ def delta_ts_figure(df,  title='', ax=None, xlim=(-4,10), ymax=None, binsize=0.5
 class Analysis(object):
     """ a place to put code to make plots for all months
     """
-    def __init__(self,  path='$FERMI/skymodels/P301_monthly', prefix='', quiet=True, 
+    def __init__(self,  path=None, prefix='', quiet=False, 
                 all_months_model='../P301_6years/uw972'):
         """ If prefix=='o', then it is obssim
         """
-        os.chdir(os.path.expandvars(path))
+        if path is not None:
+            os.chdir(os.path.expandvars(path))
+        else:
+            path=os.getcwd()
         files =  sorted(glob.glob(prefix+'month*/sources.pickle'));
+        print 'Found {} "monthxx" folders in folder {}'.format(len(files), path)
         self.monthlist = [f.split('/')[0] for f in files];
         self.monthinfo=monthinfo=[]
         for month in self.monthlist: #[:last+1]:
@@ -168,7 +172,9 @@ class Analysis(object):
             month.df['month'] = i+1
             month.df['has_assoc'] = [a is not None for a in month.df.associations]
             monthdf = month.df[month.df.transient]["""
-                ra dec glat glon ts pindex eflux flux a b ang locqual aprob 
+                ra dec glat glon ts 
+                modelname pindex eflux flux a b ang locqual aprob flux pindex index2 e0 flags
+                flux_unc pindex_unc index2_unc cutoff cutoff_unc eflux100 eflux100_unc fitqual 
                 acat adeltats aang has_assoc month""".split()]
             if prefix=='o':
                 monthdf.index = [s.replace('TSxx','TS%02d' % i) for s in monthdf.index]
@@ -285,7 +291,7 @@ class ObssimAnalysis(Analysis):
         super(ObssimAnalysis, self).__init__(path=path, prefix='o')
 
 class SourceInfo(object):
-    """Manage the 6-year source information, adding monthly info
+    """Manage the all-year source information, adding monthly info
     """
     def __init__(self, transient_analysis=None, names=None, quiet=True):
         ta= transient_analysis if transient_analysis is not None else Analysis()
@@ -300,7 +306,8 @@ class SourceInfo(object):
             month_dict = ta.monthly_info(s)
             info[s] = month_dict
         if len(ta.notdetected)>0:
-            print 'Sources not detected in any month:\n{}'.format(np.array(ta.notdetected))
+            print '{} Sources where not detected in any month.'.format(len(ta.notdetected))
+            #print '{}'.format(np.array(ta.notdetected))
         self.df= pd.DataFrame(info).T
 
     def __getitem__(self, sourcename):
@@ -833,13 +840,16 @@ class CloseCut(object):
             return np.degrees(min([a.difference(x) for x in b]))
         self.closediff = np.array([closest(a,reference) for a in sources])
     
-    def plot(self, marker=0.5):
+    def plot(self, marker=0.5, bins=np.linspace(0,1,101), ax=None):
         import matplotlib.pyplot as plt
-        fig, ax = plt.subplots(figsize=(6,6))
-        ax.hist(self.closediff**2, np.linspace(0,1,101), histtype='step', );
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(6,6))
+        else: fig=ax.figure
+        ax.hist(self.closediff**2, bins, histtype='step', lw=2);
         ax.axvline(marker**2,color='red', label='{:.2f} deg'.format(marker))
         plt.setp(ax, xlabel='Distance**2 [deg**2]', title='Closest distance to reference source')
         ax.legend(); ax.grid(True, alpha=0.5)
+        return fig
     
     def __call__(self, mindist=0.5):
         return self.closediff>mindist;
