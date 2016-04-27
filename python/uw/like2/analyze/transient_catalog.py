@@ -109,9 +109,9 @@ class TransientCatalog(analysis_base.AnalysisBase):
         ax.legend()
 
         ax=axf[2]
-        glat = np.array(df.glat, float) #not sure why necessary
-        ax.hist(np.sin(np.radians(glat)), np.linspace(-1,1,41),label='all', **histkw)
-        ax.hist(np.sin(np.radians(glat[ts25])), np.linspace(-1,1,41), label='TS>25', **histkw)
+        df['singlat'] = np.sin(np.array(df.glat, float)) #not sure why necessary
+        ax.hist(df.singlat, np.linspace(-1,1,41),label='all', **histkw)
+        ax.hist(df.singlat[ts25], np.linspace(-1,1,41), label='TS>25', **histkw)
         plt.setp(ax, xlabel='sin(glat)' ,ylim=(0.9,None));
         ax.grid(True, alpha=0.5)
         ax.legend();
@@ -156,6 +156,7 @@ class TransientCatalog(analysis_base.AnalysisBase):
            ):
         """FITS output log
         <pre>%(fitslogstream)s</pre>"""
+        print 'Writing all sources to file {}'.format (filename+'.csv')
         self.df.to_csv(filename+'.csv')
         cuts='(sources.ts>25) & (sources.a<0.25) &(sources.closediff>%.2f)' % self.mindist_cut
         self.startlog()
