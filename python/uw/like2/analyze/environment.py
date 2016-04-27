@@ -1,7 +1,7 @@
 """
 Environment plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.16 2014/02/15 00:29:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.17 2015/04/29 18:07:09 burnett Exp $
 
 """
 
@@ -46,9 +46,11 @@ class Environment(roi_info.ROIinfo):
         self.isofiles = t
         u = self.config.diffuse['ring']
         if 'correction' in u.keys():
-            self.galfile = u['correction']
+            self.galfile = os.path.expandvars('$FERMI/diffuse/') + u['correction']
         else:
             self.galfile = None
+            
+        [self.isofiles_front, self.isofiles_back] = [os.path.expandvars('$FERMI/diffuse/')+ f for f in self.isofiles ]
 
 
     def exposure_plots(self, ix = 8, hsize=(1.0,1.0,2.0,1.0, 2.0, 0.7),):
@@ -68,7 +70,7 @@ class Environment(roi_info.ROIinfo):
         iso_counts = self.model_counts('isotrop', ix) # note ix is the sequential band index, over front and back
         models = self.diffuse_models('isotrop')
         norms = np.array([m.getp(0) if m is not None else np.nan for m in models])
-        norms *= response.DiffuseCorrection(self.isofiles[ix//2])[str(ix/2)] 
+        norms *= response.DiffuseCorrection(self.isofiles[ix%2])[str(ix/2)] 
         relative_exp = iso_counts/(iso_counts/norms).mean()
         #fig, axx = plt.subplots(1,3, figsize=(15,4))
         fig, axx = self.subplot_array(hsize, figsize=(12,4))
@@ -332,19 +334,17 @@ the second when there is small background, above a few GeV.
         """Isotropic correction factor for front
         From file %(isofiles_front)s
         """
-        self.isofiles_front=self.isofiles[1]
         return self.cartesian_map_array(self.IsotropicCorrection(self,'front'))
 
     def isotropic_correction_back(self):
         """Isotropic correction factor for back
         From file %(isofiles_back)s
         """
-        self.isofiles_back=self.isofiles[1]
         return self.cartesian_map_array(self.IsotropicCorrection(self,'back'))
 
     def all_plots(self, **kw):
         self.runfigures([self.psf_plot, self.exposure_plots, 
-            self.isotropic_spectrum,self.diffuse_flux, self.limb_flux,
+            self.isotropic_spectrum,self.diffuse_flux, #self.limb_flux,
             self.galactic_correction, self.isotropic_correction_front, self.isotropic_correction_back,
             ])
     

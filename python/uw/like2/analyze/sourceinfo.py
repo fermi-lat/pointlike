@@ -1,7 +1,7 @@
 """
 Basic analyis of source spectra
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.28 2015/12/03 17:10:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.29 2016/03/21 18:54:57 burnett Exp $
 
 """
 
@@ -14,6 +14,7 @@ import pandas as pd
 from uw.utilities import makepivot
 from . import analysis_base, _html
 from analysis_base import html_table, FloatFormat
+from skymaps import SkyDir, Band
 
 class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
     """Source spectral properties 
@@ -847,6 +848,34 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         ax.grid()
         return fig
     
+    def roi_check(self):
+        """Distance from ROI center
+        The distribution of source positions from the center of the ROI.
+        %(roi_check_html)s
+        """
+        df = self.df
+        df['actual_roi'] = map(Band(12).index, df.skydir)
+        df['roi'] = map( lambda n:int(n[-4:]), df.roiname)
+        df['rname'] = np.array(['HP12_{:04d}'.format(x) for x in df.roi])
+        df['roi_dist'] = map(lambda s,r: np.degrees(s.difference(Band(12).dir(r))),df.skydir,df.roi)
+        fig,ax = plt.subplots(figsize=(5,5))
+        ax.hist(df.roi_dist, np.linspace(0,5,26), histtype ='stepfilled')
+        ax.grid(True, alpha=0.5);
+        plt.setp(ax, xlabel='Distance (deg)')
+        check = df.roi!=df.actual_roi; 
+        print 'Found {} sources in the wrong ROI'.format(sum(check))
+        to_move = df[check]['roi actual_roi ts'.split()].sort_index(by='roi')
+        to_move['roi_dist'] = df.roi_dist
+        self.roi_check_html = ''
+        if sum(check)>0:
+            self.roi_check_html = html_table(to_move, name=self.plotfolder+'/outside_roi', 
+                heading='<h4>%d Sources that are outside the HEALPix ROI boundary</h4>' %len(to_move),
+                float_format=FloatFormat(2))
+        return fig
+
+        
+        
+    
     def all_plots(self):
         version = os.path.split(os.getcwd())[-1]
         plt.close('all')
@@ -860,7 +889,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             self.fit_quality,self.spectral_fit_consistency_plots, self.poor_fit_positions,
             self.non_psr_spectral_plots, 
             #self.beta_check, 
-            self.pulsar_spectra, self.curvature, self.pivot_vs_e0, self.flag_proc, ]
+            self.pulsar_spectra, self.curvature, self.pivot_vs_e0, self.roi_check, self.flag_proc, ]
         )
     
 class OldName(object):

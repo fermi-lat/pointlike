@@ -1,6 +1,6 @@
 """
 Package containing source analysis code
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/__init__.py,v 1.17 2015/08/16 01:11:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/__init__.py,v 1.18 2015/12/03 17:10:03 burnett Exp $
 
 """
 # this is a list of modules in this package that have a class implementing an 'all_plots()' method.
@@ -48,5 +48,6 @@ __all__=[
  #'sunmoonrefit',
  'uwsourcecomparison',
  'transientinfo',
+ 'transient_catalog',
  ]
 

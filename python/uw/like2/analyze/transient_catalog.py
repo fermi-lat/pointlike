@@ -1,7 +1,7 @@
 """
 Analysis of a set of monthly transients to generate a subset suitable for a catalog
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/transient_catalog.py,v 1.3 2016/04/27 00:04:33 burnett Exp $
 
 """
 
@@ -21,6 +21,8 @@ class TransientCatalog(analysis_base.AnalysisBase):
     """Transient Catalog analysis
     
     <p>This analysis checks the combined monthly transient source detections, and prepares a summary file 
+    The individual monthly list is 
+    <a href="http://glast-ground.slac.stanford.edu/Decorator/exp/Fermi/Decorate/groups/catalog/pointlike/skymodels/%(skymodel)s/plot_index.html?skipDecorations'/> here </a>
     <br>Output from setup.
     <pre>%(logstream)s</pre>
     """
@@ -109,7 +111,7 @@ class TransientCatalog(analysis_base.AnalysisBase):
         ax.legend()
 
         ax=axf[2]
-        df['singlat'] = np.sin(np.array(df.glat, float)) #not sure why necessary
+        df['singlat'] = np.sin(np.radians(np.array(df.glat, float))) #not sure why necessary
         ax.hist(df.singlat, np.linspace(-1,1,41),label='all', **histkw)
         ax.hist(df.singlat[ts25], np.linspace(-1,1,41), label='TS>25', **histkw)
         plt.setp(ax, xlabel='sin(glat)' ,ylim=(0.9,None));
@@ -156,10 +158,10 @@ class TransientCatalog(analysis_base.AnalysisBase):
            ):
         """FITS output log
         <pre>%(fitslogstream)s</pre>"""
+        self.startlog()
         print 'Writing all sources to file {}'.format (filename+'.csv')
         self.df.to_csv(filename+'.csv')
         cuts='(sources.ts>25) & (sources.a<0.25) &(sources.closediff>%.2f)' % self.mindist_cut
-        self.startlog()
         print '\nRunning "to_fits"...'
         self.fits_file = filename+'.fits'
         to_fits.main(self.fits_file,  cuts=cuts,
