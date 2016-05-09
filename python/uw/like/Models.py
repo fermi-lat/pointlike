@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.148 2014/08/04 22:06:39 kadrlica Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.149 2015/08/22 00:40:10 mdwood Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -15,6 +15,7 @@ from scipy.special import kv
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
 from scipy import roots, optimize
+from scipy.misc import derivative
 
 from uw.utilities.parmap import LinearMapper, LogMapper, LimitMapper, ParameterMapper
 from uw.utilities import path
@@ -1226,6 +1227,23 @@ class Model(object):
             model.setp_gtlike(pn,v)
         return model
 
+    def curvature(self, e=None):
+        """return estimate of the curvature, using numerical derivatives
+        This is exactly the parameter beta for a LogParabola 
+        e: float
+            energy in Mev, default e0
+        """
+        def dfun(x):
+            def fun(x):
+                """flux as function of x=ln(e0/e)"""
+                e = self.e0 * np.exp(-x)
+                return self(e)
+            return derivative(fun,x, dx=0.01)/fun(x)
+        x=0 if e is None else np.log(self.e0/e)
+        
+        return -0.5*derivative(lambda x: dfun(x), x, dx=0.01)
+
+
 
 class PowerLaw(Model):
     """ Implement a power law.  See constructor docstring for further keyword arguments.
@@ -1329,7 +1347,7 @@ class PowerLaw(Model):
     @property
     def eflux(self):
         return self.e0**2*self['Norm']
-
+        
 class ScalingPowerLaw(PowerLaw):
     """ ScalingPowerLaw is just like a PowerLaw, but
         is suitable for scaling the Galactic diffuse. 
