@@ -3,8 +3,8 @@ Python support for source association, equivalent to the Fermi Science Tool gtsr
 author:  Eric Wallace <wallacee@uw.edu>
 """
 
-__version__ = "$Revision: 1.38 $"
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.38 2013/12/07 23:27:32 burnett Exp $
+__version__ = "$Revision: 1.39 $"
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.39 2015/03/10 16:58:56 burnett Exp $
 
 import os
 import sys
@@ -61,6 +61,7 @@ class SourceAssociation(object):
             self.class_dir = path.expand(self.class_dir)
         else:
             self.class_dir = os.path.join(self.srcid_dir,'cat')
+        assert os.path.exists(self.class_dir), 'class_dir, %s, does not exist' % self.class_dir
         if self.quiet: self.verbosity=0
         if not self.srcid_dir in sys.path:
             sys.path.insert(0,self.srcid_dir)
@@ -251,7 +252,7 @@ class Catalog(object):
         ## allows wild card in file specification
         cat_files = sorted(glob.glob(os.path.join(catalog_dir,self.class_module.catname)))
         #self.cat_file = os.path.join(catalog_dir,self.class_module.catname)
-        assert len(cat_files)>0, 'File "%s" does not exist; module=%s' % (self.cat_file, class_module)
+        assert len(cat_files)>0, 'File "%s" does not exist; module=%s' % (self.class_module.catname, class_module)
         self.cat_file = cat_files[-1]
         if self.verbosity > 1:
             print('Setting up catalog for source class "%s" from file "%s"'%(self.class_module.catid,self.cat_file))
@@ -272,7 +273,10 @@ class Catalog(object):
         self.hdu = self._get_hdu(fits_cat)
         if self.hdu is None:
             raise CatalogError(self.cat_file,'No catalog information found.')
+        #try:
         names = [' '.join([self.name_prefix,x]).strip() for x in self._get_ids()]
+        #except Exception, msg:
+        #    raise CatalogError(self.cat_file, 'error finding ids: %s' % msg)
         if names is None:
             raise CatalogError(self.cat_file,'Could not find column with source names')
         lons,lats = self._get_positions()
@@ -310,13 +314,13 @@ class Catalog(object):
         """Find and return HDU with catalog information."""
         #First check for HDUS with CAT-NAME or EXTNAME in header.
         for hdu in fits_cat:
-            cards = pf.CardList(hdu.header.cards) ## replaced this function: ascardlist()
+            cards = hdu.header #pf.CardList(hdu.header.cards) ## replaced this function: ascardlist()
             try:
-                self.cat_name = cards['CAT-NAME'].value
+                self.cat_name = cards['CAT-NAME']
                 return hdu
             except KeyError:
                 try:
-                    self.cat_name = cards['EXTNAME'].value
+                    self.cat_name = cards['EXTNAME']
                     return hdu
                 except KeyError:
                     self.cat_name = self.class_module.catid
@@ -332,11 +336,12 @@ class Catalog(object):
         name_key = ''
         # deprecated, removed at 3.2
         #cards = self.hdu.header.ascardlist()
-        cards = pf.CardList(self.hdu.header.cards)
+        #cards = pf.CardList(self.hdu.header.cards)
+        cards = self.hdu.header.cards
         #First check for UCD in header
         for card in cards:
-            if card.keyword[:5]=='TBUCD' and card.value in ['ID_MAIN','meta.id;meta.main']:
-                name_key = cards['TTYPE'+card.key[5:8]].value
+            if card.keyword[:5]=='TBUCD' and card in ['ID_MAIN','meta.id;meta.main']:
+                name_key = cards['TTYPE'+card.key[5:8]]
                 break
             #Sometimes UCDs are declared in comments
             #May be fragile - depends on specific format for comments as in gamma-egr catalog
@@ -347,63 +352,78 @@ class Catalog(object):
                 if ucd_string:
                     try:
                         if ucd_string[0].split('=')[1].strip('.')=='ID_MAIN':
-                            name_key = cards[''.join(['TTYPE',card.key[5:8]])].value
+                            # changed pyfits
+                            name_key = cards[''.join(['TTYPE',card.keyword[5:8]])].value
                             break
                     except IndexError:
                         pass
-            if card.keyword[:5]=='TTYPE' and card.value.upper() in ['NAME','ID','PSR_NAME','SOURCE_NAME']:
+            if card.keyword[:5]=='TTYPE' and (
+                    card.value.upper() in ['NAME','ID','PSR_NAME','SOURCE_NAME', 'SOURCE NAME' ]
+                    or card.value.upper().endswith('NAME')
+                    ):
                 name_key = card.value
                 break
+        if name_key=='':
+            print 'Catalog %s: did not find name column' %self.class_module
         try:
             return self.hdu.data.field(name_key)
         except KeyError:
+            print 'srcid: key %s not found in list %s' % (name_key, self.hdu.data.field)
+            raise
             return
 
     def _get_positions(self):
         """Find columns containing position info and return a list of SkyDirs"""
 
-        cards = pf.CardList(self.hdu.header.cards) #ascardlist()
-        #ucds = cards.filterList('TBUCD*')
-        #ttypes = cards.filterList('TTYPE*')
-        ucds = cards.filter_list('TBUCD*')
-        ttypes = cards.filter_list('TTYPE*')
+        #the Header class has been rewritten, and the CardList class is deprecated.
+        #http://stsdas.stsci.edu/stsci_python_sphinxdocs_2.13/pyfits/users_guide/users_headers.html
+        #cards = pf.CardList(self.hdu.header.cards) 
+        #ucds = cards.filter_list('TBUCD*') #### Use :meth:`Header.values` instead.
+        #ttypes = cards.filter_list('TTYPE*') ####
+        ucds = self.hdu.header['TBUCD*']
+        ttypes= self.hdu.header['TTYPE*']
         lon_key = lat_key = ''
         if not lon_key:
-            if 'POS_EQ_RA_MAIN' in ucds.values():
+            if 'POS_EQ_RA_MAIN' in ucds.values(): 
                 ucd = ucds.keys()[ucds.values().index('POS_EQ_RA_MAIN')]
-                lon_key = ttypes[''.join(['TTYPE',ucd[5:8]])].value
+                lon_key = ttypes[''.join(['TTYPE',ucd[5:8]])]
                 #Assumes that if POS_EQ_RA_MAIN exists, POS_EQ_DEC_MAIN does too.
                 ucd = ucds.keys()[ucds.values().index('POS_EQ_DEC_MAIN')]
-                lat_key = ttypes[''.join(['TTYPE',ucd[5:8]])].value
+                lat_key = ttypes[''.join(['TTYPE',ucd[5:8]])]
             elif 'RAdeg' in ttypes.values():
-                lon_key = ttypes[ttypes.keys()[ttypes.values().index('RAdeg')]].value
-                lat_key = ttypes[ttypes.keys()[ttypes.values().index('DEdeg')]].value
+                lon_key = ttypes[ttypes.keys()[ttypes.values().index('RAdeg')]]
+                lat_key = ttypes[ttypes.keys()[ttypes.values().index('DEdeg')]]
             elif '_RAJ2000' in ttypes.values():
-                lon_key = ttypes[ttypes.keys()[ttypes.values().index('_RAJ2000')]].value
-                lat_key = ttypes[ttypes.keys()[ttypes.values().index('_DEJ2000')]].value
+                lon_key = ttypes[ttypes.keys()[ttypes.values().index('_RAJ2000')]]
+                lat_key = ttypes[ttypes.keys()[ttypes.values().index('_DEJ2000')]]
             elif 'RAJ2000' in ttypes.values():
-                lon_key = ttypes[ttypes.keys()[ttypes.values().index('RAJ2000')]].value
-                lat_key = ttypes[ttypes.keys()[ttypes.values().index('DEJ2000')]].value
+                lon_key = ttypes[ttypes.keys()[ttypes.values().index('RAJ2000')]]
+                lat_key = ttypes[ttypes.keys()[ttypes.values().index('DEJ2000')]]
             elif 'RAJD' in ttypes.values(): # only for bigbfile?
-                lon_key = ttypes[ttypes.keys()[ttypes.values().index('RAJD')]].value
-                lat_key = ttypes[ttypes.keys()[ttypes.values().index('DECJD')]].value
+                lon_key = ttypes[ttypes.keys()[ttypes.values().index('RAJD')]]
+                lat_key = ttypes[ttypes.keys()[ttypes.values().index('DECJD')]]
             elif 'RA' in ttypes.values():
-                lon_key = ttypes[ttypes.keys()[ttypes.values().index('RA')]].value
+                lon_key = ttypes[ttypes.keys()[ttypes.values().index('RA')]]
                 try:
-                    lat_key = ttypes[ttypes.keys()[ttypes.values().index('DE')]].value
+                    lat_key = ttypes[ttypes.keys()[ttypes.values().index('DE')]]
                 except ValueError:
-                    lat_key = ttypes[ttypes.keys()[ttypes.values().index('DEC')]].value
+                    lat_key = ttypes[ttypes.keys()[ttypes.values().index('DEC')]]
+            elif 'RA (J2000.0)' in ttypes.values(): # new bzcat, at least
+                lon_key = ttypes[ttypes.keys()[ttypes.values().index('RA (J2000.0)')]]
+                lat_key = ttypes[ttypes.keys()[ttypes.values().index('Dec (J2000.0)')]]
+
+            
         if not lon_key:
             self.coords = skymaps.SkyDir.GALACTIC
             if 'POS_GAL_LON' in ucds.values():
                 lon_key = ucds.keys()[ucds.values().index('POS_GAL_LON')]
                 lat_key = ucds.keys()[ucds.values().index('POS_GAL_LAT')]
             elif '_GLON' in ttypes.values():
-                lon_key = ttypes[ttypes.keys()[ttypes.values().index('_GLON')]].value
-                lat_key = ttypes[ttypes.keys()[ttypes.values().index('_GLAT')]].value
+                lon_key = ttypes[ttypes.keys()[ttypes.values().index('_GLON')]]
+                lat_key = ttypes[ttypes.keys()[ttypes.values().index('_GLAT')]]
             elif 'GLON' in ttypes.values():
-                lon_key = ttypes[ttypes.keys()[ttypes.values().index('GLON')]].value
-                lat_key = ttypes[ttypes.keys()[ttypes.values().index('GLAT')]].value
+                lon_key = ttypes[ttypes.keys()[ttypes.values().index('GLON')]]
+                lat_key = ttypes[ttypes.keys()[ttypes.values().index('GLAT')]]
         if lon_key:
             return (self.hdu.data.field(lon_key).astype('float'),
                     self.hdu.data.field(lat_key).astype('float'))
@@ -434,7 +454,10 @@ class Catalog(object):
                 sel = 'np.logical_or(%s)'%(sel.replace('||',',').strip('()'))
             elif '&&' in sel:
                 sel = 'np.logical_and(%s)'%(sel.replace('&&',',').strip('()'))
-            mask = np.logical_and(mask,eval(sel))
+            try:
+                mask = np.logical_and(mask,eval(sel))
+            except:
+                print 'failed to evaluate selection "%s"' % sel
         return mask
 
 
@@ -717,6 +740,55 @@ class ExtendedSource(CatalogSource):
             return self.catalog.prob_threshold + 1e-5
         else:
             return 0.0
+
+def summary_table(srcid_path=None):
+    """
+    Return a summary table of the catalogs as a list of dictionaries
+    """
+    import glob, pyfits
+    # load the catalogs used
+    #if srcid_path is None:
+    #    srcid_path = os.path.expandvars('$FERMI/catalog/srcid/')
+    #sys.path[0] = srcid_path 
+    import classes
+    cats = dict()
+    for module_name in classes.__all__:
+        cd = dict()
+        # this is equivalent to "from classes import module_name"
+        module = __import__('classes.'+module_name,  fromlist=['classes'])
+        
+        title = module.__doc__.split('\n')
+        if len(title)>0 and len(title[0])==0:
+            title = title[1]
+        else: title=title[0]
+        if len(title)>0 and title[-1]=='.': title=title[:-1]
+
+        for var in 'catid catname prob_prior prob_thres figure_of_merit max_counterparts new_quantity selection'.split():
+            cd[var] = module.__dict__[var] 
+        cd['title']=title
+        cats[module_name]= cd
+        catname = cd['catname']
+        if not catname.startswith('/'):
+            catname = cd['catname'] = os.path.join(srcid_path,'cat',catname)
+        ff = glob.glob(catname)
+        if len(ff)==0: #not found
+            cd['objects']=-1
+        else:
+            catname = ff[-1]
+            
+            if os.path.exists(catname):
+                try:
+                    fd = pyfits.open(catname)[1].data
+                    cd['objects']=len(fd)
+                    cd['columns']=fd.columns
+                except Exception, msg:
+                    cd['objects'] = -2 #cannot open existing file
+                    print catname, msg
+            else:
+                cd['objects'] = -1 # not found
+                print catname
+        cd['catfilename'] = os.path.split(catname)[-1]
+    return cats
 
 class SrcidError(Exception):
     """Exception class for general problems."""
