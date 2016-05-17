@@ -4,8 +4,8 @@ Module implements classes and functions to specify data for use in pointlike ana
 author(s): Matthew Kerr, Eric Wallace
 """
 
-__version__ = '$Revision: 1.26 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.26 2014/02/21 17:32:17 cohen Exp $
+__version__ = '$Revision: 1.27 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.27 2016/04/21 00:23:40 wallacee Exp $
 
 import os, sys
 import collections
@@ -397,7 +397,7 @@ class DataSpec(object):
         if gti is None:
             raise DataManException('GTI not found in the binfile %s' % self.binfile)
         self.gti = gti
-        if  (gti.minValue!=self.gti.minValue) or (gti.computeOntime() != self.gti.computeOntime()):
+        if  (gti.minValue!=self.gti.minValue) or abs((gti.computeOntime() - self.gti.computeOntime())>1.0 ):
             print 'File %s Failed GTI check: \n  expect %s \n  found  %s' % (self.binfile, self.gti, gti)
             return self.legacy # ignore if legacy, for now
         
@@ -484,8 +484,9 @@ class DataSpec(object):
         # compare GTI with that found in FT1 or binfile
         #
         gti = skymaps.Gti(self.ltcube)
-        if  (gti.minValue!=self.gti.minValue) or abs(gti.computeOntime() - self.gti.computeOntime())>1:
-            print 'Failed gti check:\n  ltcube: %s \n binfile: %s' % (gti, self.gti)
+        tdiff = gti.computeOntime() - self.gti.computeOntime()
+        if  (gti.minValue()!=self.gti.minValue()) or abs(tdiff)>1:
+            print 'Failed gti check, time difference %.1f:\n  ltcube: %s \n binfile: %s' % (tdiff, gti, self.gti)
             return self.legacy #ignore if legacy, for now
             
         if (not self.quiet): print('Verified ltcube {0}'.format(self.ltcube))
