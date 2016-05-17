@@ -1,11 +1,11 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.33 2015/07/24 17:57:06 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.34 2015/12/03 17:08:06 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.33 $'.split()[1]
+version='$Revision: 1.34 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np
@@ -29,13 +29,24 @@ class DataSpecification(object):
         Note: if interval found, modify the binfile and ltcube name to include
         """
         if folder=='.': folder = os.getcwd()
+        def abspath(path):
+            if not os.path.isabs(path):
+                path = os.path.join(folder,path) 
+            return path
+            
         for key in 'ft1files ft2files binfile ltcube'.split():
             if key in data and data[key] is not None:
-                data[key]=os.path.expandvars(data[key]) 
-                if not os.path.isabs(key):
-                    data[key] = os.path.join(folder,data[key])
-                # need a check, but will fail if need to glob
-                #assert os.path.exists(data[key]), 'DataSpec: file %s not found' % data[key]
+                if hasattr(data[key],'__iter__'):
+                    data[key] = [os.path.expandvars(x) for x in data[key]]
+                else:
+                    #Allow glob patterns for FT1/2 files
+                    if key in ('ft1files','ft2files'):
+                        data[key] = sorted(glob.glob(os.path.expandvars(data[key])))
+                    else:
+                        data[key] = (os.path.expandvars(data[key]),)
+                data[key] = [abspath(f) for f in data[key]]
+                if len(data[key])==1: data[key]=data[key][0]
+
         interval = data.get('interval', None)
         if interval is not None:
             if not interval.startswith('month_'):
@@ -50,7 +61,18 @@ class DataSpecification(object):
                 for name in ('binfile', 'ltcube', 'ft1files'):
                     if data[name] is not None:
                         data[name]=data[name].replace('*', interval[-2:])
-            
+
+        if not os.path.exists(data['binfile']):
+            ft1s = data['ft1files'] if hasattr(data['ft1files'],'__iter__') else (data['ft1files'],)
+            for ft1 in ft1s:
+                if not os.path.exists(ft1):
+                    raise DataSetError('FT1 file {} does not exist, needed to create binned photon data file'.format(ft1))
+        if not os.path.exists(data['ltcube']):
+            ft2s = data['ft2files'] if hasattr(data['ft2files'],'__iter__') else (data['ft2files'],)
+            for ft2 in ft2s:
+                if not os.path.exists(ft2):
+                    raise DataSetError('FT2 file {} does not exist, needed to create binned photon data file'.format(ft2))
+
         self.__dict__.update(data)
         if not quiet: print 'data spec:\n', str(self.__dict__)
 

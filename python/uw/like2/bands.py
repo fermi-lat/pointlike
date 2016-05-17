@@ -1,7 +1,7 @@
 """
 manage band classes
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bands.py,v 1.8 2014/03/12 15:52:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bands.py,v 1.9 2014/04/14 17:41:05 burnett Exp $
 """
 import os
 import numpy as np
@@ -96,8 +96,12 @@ class BandSet(list):
             self.roi_index = roi_index
             self.roi_dir = skymaps.Band(12).dir(roi_index) # could be defined otherwise
             self.radius=radius
+        if not config.dataset.psf_event_types:
+            event_types = range(2)
+        else:
+            event_types = range(2,5)
         for emin, emax  in zip(energybins[:-1], energybins[1:]):
-            for et in range(2):
+            for et in event_types:
                 self.append(EnergyBand(config, self.roi_dir,  event_type=et, radius=self.radius, emin=emin,emax=emax))
         self.has_data = False
         
