@@ -1,7 +1,7 @@
 """
 Manage the analysis configuration
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.25 2014/08/01 18:35:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.26 2015/07/24 17:57:06 burnett Exp $
 
 """
 import os, sys, types
@@ -55,7 +55,6 @@ class Configuration(object):
     range and sky position.
     """
     defaults =(
-        ('event_type_names', ('front', 'back'), 'names to describe event classes'),
         ('bins_per_decade', 4, 'number of bins per decade'),
         ('irf', None,  'Set to override value in config.txt : may find in custom_irf_dir'),
         ('extended', None, 'Set to override value in config.txt'),
@@ -126,7 +125,7 @@ class Configuration(object):
         if 'CUSTOM_IRF_DIR' not in os.environ and os.path.exists(os.path.expandvars('$FERMI/custom_irfs')):
             os.environ['CUSTOM_IRF_DIR'] = os.path.expandvars('$FERMI/custom_irfs')
         custom_irf_dir = os.environ['CUSTOM_IRF_DIR']
-        
+
         # define diffuse dictionary for constucting spatial models
         # --------------------------------------------------------
         
@@ -145,11 +144,20 @@ class Configuration(object):
                     postpone=self.postpone,
                     )
         elif dataspec is not None:
-            self.dataset = dataset.DataSet(dataspec, irf=irf, quiet=self.quiet, nocreate=False)
+            self.dataset = dataset.DataSet(dataspec,
+                    irf=irf,
+                    quiet=self.quiet,
+                    nocreate=self.nocreate,
+                    postpone = self.postpone,
+                                )
         
         else:
             raise Exception('Neither datadict nor dataspec keys in config.txt')
             
+        if self.dataset.psf_event_types:
+            self.event_type_names = ('PSF0','PSF1','PSF2','PSF3')
+        else:
+            self.event_type_names = ('front','back')
         if not self.quiet:  print self.dataset
         
         # use dataset to extract psf and exposure, set up respective managers
