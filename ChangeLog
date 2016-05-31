@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue May 31 10:29:50 PDT 2016
+pointlike/python/uw/like2
+
+Modified Files:
+	extended.py 
+Log Message:
+suddenly needed strip; use standard fits
+    *
+------------------------------------------------------------
 User: burnett  Mon May 30 17:42:20 PDT 2016
 pointlike/python/uw/like
 
