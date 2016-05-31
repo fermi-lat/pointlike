@@ -1,5 +1,5 @@
 """  A module to handle finding irfs
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pycaldb.py,v 1.11 2015/03/10 16:59:18 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pycaldb.py,v 1.12 2015/04/28 23:06:50 burnett Exp $
 
     author: Joshua Lande """
 import os
@@ -79,7 +79,7 @@ class CALDBManager(object):
         self.irf_files=index_fits[1].data.field('CAL_FILE') # name of fits file for the irf
         self.irf_types=index_fits[1].data.field('CAL_CNAM') # type of irf "RPSF", "EFF_AREA", "EDISP"
         index_fits.close()
-
+        self.irf_names = N.char.array(self.irf_names) # to use chararray.find
     def construct_psf(self):
 
         # see if the psf should be overloaded
