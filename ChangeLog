@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon May 30 17:42:20 PDT 2016
+pointlike/python/uw/like
+
+Modified Files:
+	pycaldb.py 
+Log Message:
+fix to continue to use numpy.chararray
+    *
+------------------------------------------------------------
 User: wallacee  Tue May 17 16:21:54 PDT 2016
 pointlike/python/uw/like2/notebooks
 
