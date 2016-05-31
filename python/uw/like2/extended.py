@@ -1,11 +1,12 @@
 """
 Extended source code
 Much of this adapts and utilizes 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.12 2015/07/24 17:57:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.13 2016/03/21 18:54:12 burnett Exp $
 
 """
 import os, copy, glob
 import numpy as np
+from astropy.io import fits as pyfits
 from skymaps import SkyDir
 from uw.like import  Models
 from uw.like.SpatialModels import Disk,EllipticalDisk,Gaussian,EllipticalGaussian,SpatialMap
@@ -36,13 +37,12 @@ class ExtendedSourceCatalog(object):
             to get a list of the extended sources. """
         self.archive_directory = archive_directory
 
-        import pyfits
         filename=os.path.join(self.archive_directory,"LAT_extended_sources*.fit*")
         filename=glob.glob(filename)
         if len(filename)!=1: raise Exception("Unable to find LAT_extended_sources.fit archive file.")
         filename=filename[0]
         f = pyfits.open(filename)
-        self.names = f[1].data.field('Source_Name')
+        self.names = np.array([n.strip() for n in f[1].data.field('Source_Name')])
         ras   = f[1].data.field('RAJ2000')
         decs  = f[1].data.field('DEJ2000')
         form = f[1].data.field('Model_Form')
