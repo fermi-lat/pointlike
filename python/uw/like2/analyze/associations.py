@@ -1,13 +1,14 @@
 """
 Association analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.21 2015/12/03 17:10:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.22 2016/03/21 18:54:57 burnett Exp $
 
 """
-import os, glob, sys, pyfits
+import os, glob, sys
 import numpy as np
 import pylab as plt
 import pandas as pd
+from astropy.io import fits as pyfits
 
 from skymaps import SkyDir, Band
 from . import sourceinfo
@@ -257,7 +258,7 @@ class Associations(sourceinfo.SourceInfo):
         lat['delta'] = [np.degrees(s.difference(t)) if not type(t)==float else np.nan for s,t in zip(lat.skydir,lat.sourcedir)]
         far = lat.delta>0.25
         self.lat = lat # for debug
-        dc2names =set(pp.Source_Name)
+        dc2names =set([name.strip() for name in pp.Source_Name])
         print 'sources with exp cutoff not in LAT catalog:', np.asarray(list(tt.difference(dc2names)))
         print 'Catalog entries not found:', list(dc2names.difference(tt))
         missing = np.array([ np.isnan(x) or x<10. for x in lat.ts])
