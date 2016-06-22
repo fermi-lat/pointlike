@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: wallacee  Wed Jun 22 10:02:51 PDT 2016
+pointlike/python/uw/irfs
+
+Added Files:
+	__init__.py caldb.py effective_area.py exposure.py irfman.py 
+	psf.py 
+Log Message:
+New code (uw.irfs) for handling irfs, and changes to existing code to use it.
+Includes handling of PSF-based event types, along with general cleanup.
+
+    *
+------------------------------------------------------------
 User: wallacee  Wed Jun 22 10:02:50 PDT 2016
 pointlike/python/uw/data
 
