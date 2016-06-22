@@ -2,7 +2,7 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.36 2015/03/10 17:00:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.37 2015/04/28 23:06:51 burnett Exp $
 author: M. Kerr
 
 """
@@ -86,7 +86,10 @@ class Psf(object):
         aeffstrs = self.CALDBManager.get_aeff()
         if len(self.CALDBhandles[0]) >=7:
             # new format
-            ew         = ExposureWeighter(aeffstrs[0],aeffstrs[1],livetimefile, 'EFFECTIVE AREA_FRONT', 'EFFECTIVE AREA_BACK')
+            try:
+                ew         = ExposureWeighter(aeffstrs[0],aeffstrs[1],livetimefile, 'EFFECTIVE AREA_FRONT', 'EFFECTIVE AREA_BACK')
+            except Exception:
+                ew         = ExposureWeighter(aeffstrs[0],aeffstrs[1],livetimefile)
         else:
             ew         = ExposureWeighter(aeffstrs[0],aeffstrs[1],livetimefile)
         

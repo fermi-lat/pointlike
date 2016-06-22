@@ -4,8 +4,8 @@ Module implements classes and functions to specify data for use in pointlike ana
 author(s): Matthew Kerr, Eric Wallace
 """
 
-__version__ = '$Revision: 1.27 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.27 2016/04/21 00:23:40 wallacee Exp $
+__version__ = '$Revision: 1.28 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.28 2016/05/17 16:34:23 burnett Exp $
 
 import os, sys
 import collections
@@ -540,8 +540,8 @@ class DataSpec(object):
         self.dss.write(self.ltcube,header_key=0)
         # write some info to livetime file
         f = pyfits.open(self.ltcube)
-        f[0]._header.update('RADIUS',exp_radius)
-        f[0]._header.update('PIXSIZE',self.livetime_pixelsize)
+        f[0]._header['RADIUS'] = exp_radius
+        f[0]._header['PIXSIZE'] = self.livetime_pixelsize
         f.writeto(self.ltcube,clobber=True)
         f.close()
         

@@ -5,8 +5,8 @@ in FITS files.
 author(s): M. Kerr
 """
 
-__version__ = '$Revision: 1.6 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dssman.py,v 1.6 2013/09/27 17:07:35 burnett Exp $
+__version__ = '$Revision: 1.7 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dssman.py,v 1.7 2016/04/21 00:23:41 wallacee Exp $
 
 import pyfits
 from collections import deque
@@ -238,7 +238,7 @@ class DSSEntries(list):
         for d in self:
             tup = d.to_header_entries()
             for t in tup:
-                h.update(t[0],t[1])
+                h[t[0]] = t[1]
         # convert unsigned ints to ints -- this is a kluge but perhaps necessary
         for hdu in f:
             if not isinstance(hdu,pyfits.core.BinTableHDU): continue

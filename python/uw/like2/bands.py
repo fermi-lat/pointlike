@@ -1,7 +1,7 @@
 """
 manage band classes
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bands.py,v 1.9 2014/04/14 17:41:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bands.py,v 1.10 2016/05/17 23:18:58 wallacee Exp $
 """
 import os
 import numpy as np
@@ -30,8 +30,8 @@ class EnergyBand(object):
         
         # save appropriate psf and exposure
         
-        self.psf=config.psfman(event_type, energy)
-        self.exposure = config.exposureman(event_type, energy)
+        self.psf = config.irfs.psf(event_type,energy)
+        self.exposure = config.irfs.exposure(event_type,energy)
         
         # used by client to integrate a function of energy over exposure
         self.integrator = self.exposure.integrator(self.skydir, self.emin, self.emax) 
@@ -69,9 +69,9 @@ class EnergyBand(object):
         return sum(w.weight() for w in self.wsdl) if self.wsdl is not None else 0
     @property
     def title(self):
-        ret = '%.0f-%.0f MeV event_type %d' % (self.emin, self.emax, self.event_type)
+        ret = '{:.0}-{:.0} MeV event_type {}'.format(self.emin, self.emax, self.event_type)
         if self.wsdl is not None:
-            ret += ', %d pixels, %d events' % (self.pixels, self.events)
+            ret += ', {} pixels, {} events'.format(self.pixels, self.events)
         return ret
         
 class BandSet(list):
@@ -118,9 +118,9 @@ class BandSet(list):
             
     def find(self, emin, event_type):
         for band in self:
-            if round(emin)==round(band.emin) and event_type==band.event_type :
+            if round(emin)==round(band.emin) and event_type==band.event_type:
                 return band
-        raise Exception('Band with emin, event_type = %d,%d not found in %s' % (round(emin), event_type, self))
+        raise Exception('Band with emin, event_type = {}, {} not found in {}'.format(round(emin), event_type, self))
     
     def load_data(self):
         """load the current dataset, have the respective bands fill pixels from it
@@ -133,7 +133,7 @@ class BandSet(list):
             try:
                 band = self.find(emin, event_type)
                 found +=1
-            except:
+            except Exception:
                 continue
             band.load_data(cband)
         if found!=len(self):

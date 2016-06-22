@@ -1,7 +1,7 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.49 2016/03/21 18:54:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.50 2016/03/30 14:51:07 burnett Exp $
 
 author:  Toby Burnett
 """
@@ -413,6 +413,12 @@ class DiffuseList(list):
         
     def __getitem__(self, index):
         if len(self)==1: index=0
+        try:
+            index = ['front','back',
+                     'psf0','psf1','psf2','psf3',
+                     'edisp0','edisp1','edisp2','edisp3'].index(index)
+        except ValueError:
+            pass
         return super(DiffuseList,self).__getitem__(index) 
     def load(self):
         for x in self:
