@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Wed Jun 22 10:02:53 PDT 2016
+pointlike/python/uw/like2
+
+Modified Files:
+	bands.py configuration.py dataset.py diffuse.py exposure.py 
+Log Message:
+New code (uw.irfs) for handling irfs, and changes to existing code to use it.
+Includes handling of PSF-based event types, along with general cleanup.
+
+    *
+------------------------------------------------------------
 User: wallacee  Wed Jun 22 10:02:52 PDT 2016
 pointlike/python/uw/like
 
