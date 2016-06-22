@@ -1,7 +1,7 @@
 """
 Manage the analysis configuration
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.26 2015/07/24 17:57:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.27 2016/05/17 23:18:58 wallacee Exp $
 
 """
 import os, sys, types
@@ -163,9 +163,7 @@ class Configuration(object):
         # use dataset to extract psf and exposure, set up respective managers
         
         exposure_correction=datadict.pop('exposure_correction', None) if datadict is not None else None        
-        self.exposureman = exposure.ExposureManager(self.dataset, exposure_correction=exposure_correction)
-        
-        self.psfman = psf.PSFmanager(self.dataset)
+        self.irfs = irfman.IrfManager(self.dataset)
         
         # check location of model
         # possibilites are the all-sky pickle.zip, from which any ROI can be extraccted, or a specific set of

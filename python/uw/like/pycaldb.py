@@ -1,5 +1,5 @@
 """  A module to handle finding irfs
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pycaldb.py,v 1.12 2015/04/28 23:06:50 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pycaldb.py,v 1.13 2016/05/31 00:42:20 burnett Exp $
 
     author: Joshua Lande """
 import os
@@ -79,7 +79,7 @@ class CALDBManager(object):
         self.irf_files=index_fits[1].data.field('CAL_FILE') # name of fits file for the irf
         self.irf_types=index_fits[1].data.field('CAL_CNAM') # type of irf "RPSF", "EFF_AREA", "EDISP"
         index_fits.close()
-        self.irf_names = N.char.array(self.irf_names) # to use chararray.find
+
     def construct_psf(self):
 
         # see if the psf should be overloaded
@@ -88,25 +88,30 @@ class CALDBManager(object):
         else:
             if not self.quiet: print 'Overriding default PSF; using %s'%(self.psf_irf)
             irf=self.psf_irf
+        #Just handle Pass 8 separately for now
+        if self.irf.startswith('P8'):
+            #try the caldb index
+            self.available_event_types = ('FRONT','BACK','PSF0','PSF1','PSF2','PSF3')
+            self.psf_files = [join(self.bcf,'psf','psf_%s_%s.fits'%(irf,i)) for i in 'FB','PSF']
+        else:
+            # see if the psf name is directly in the filename.
+            self.available_event_types = ('FRONT','BACK')
+            self.psf_files = [join(self.bcf,'psf','psf_%s_%s.fits'%(irf,i)) for i in ('front','back')]
 
-        # see if the psf name is directly in the filename.
-        self.psf_files = [join(self.bcf,'psf','psf_%s_%s.fits'%(irf,i)) for i in ['front','back']]
-
-        if os.path.exists(self.psf_files[0]) and os.path.exists(self.psf_files[1]):
+        if N.all([os.path.exists(pf) for pf in self.psf_files]):
             return
 
-        # try to read form caldb index
-        front=N.where((N.chararray.find(self.irf_names,irf)!=-1)&(self.irf_types=='RPSF')&(self.conv_types=='FRONT'))[0]
-        back=N.where((N.chararray.find(self.irf_names,irf)!=-1)&(self.irf_types=='RPSF')&(self.conv_types=='BACK'))[0]
+        # try to read from caldb index
+        psf_indices = [self.irf_files[(self.irf_names.find(irf)!=-1)&(self.irf_types=='RPSF')&(self.conv_types==et)][0]
+                         for et in self.available_event_types]
 
         # if front & back exist in the caldb.indx
-        if len(front)==1 and len(back)==1:
-            psfs=self.irf_files[front[0]],self.irf_files[back[0]]
+        if N.all([len(ind)==1 for ind in psf_indices]):
+            psfs = [self.irf_files[ind[0]] for ind in psf_indices]
             self.psf_files = [join(self.bcf,'psf',x) for x in psfs]
-
-            if os.path.exists(self.psf_files[0]) and os.path.exists(self.psf_files[1]):
+            if N.all([os.path.exists(pf) for pf in self.psf_files]):
                 return
-            print 'caldb.indx: did not find both %s' %self.psf_files
+            print 'caldb.indx: did not find all files in %s'%self.psf_files
             
         # try the cusom_irf_dir
         if self.custom_irf_dir is not None and self.custom_irf_dir!='':
@@ -130,8 +135,8 @@ class CALDBManager(object):
             return
 
         # try to read form caldb index
-        front=N.where((N.chararray.find(self.irf_names,irf)!=-1)&(self.irf_types=='EFF_AREA')&(self.conv_types=='FRONT'))[0]
-        back=N.where((N.chararray.find(self.irf_names,irf)!=-1)&(self.irf_types=='EFF_AREA')&(self.conv_types=='BACK'))[0]
+        front=N.where((N.char.find(self.irf_names,irf)!=-1)&(self.irf_types=='EFF_AREA')&(self.conv_types=='FRONT'))[0]
+        back=N.where((N.char.find(self.irf_names,irf)!=-1)&(self.irf_types=='EFF_AREA')&(self.conv_types=='BACK'))[0]
 
         # if front & back exist in the caldb.indx
         if len(front)==1 and len(back)==1:

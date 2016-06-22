@@ -1,11 +1,11 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.34 2015/12/03 17:08:06 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.35 2016/05/17 23:18:58 wallacee Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.34 $'.split()[1]
+version='$Revision: 1.35 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np
@@ -169,6 +169,8 @@ class DataSet(dataman.DataSpec):
                 custom_irf_dir=self.custom_irf_dir)
         if self.exposure_cube is None:
             self.lt = skymaps.LivetimeCube(self.ltcube,weighted=False) ###<< ok?
+            if self.use_weighted_livetime:
+                self.weighted_lt = skymaps.LivetimeCube(self.ltcube,weighted=True)
         else:
             self.lt = None
         if not self.postpone:

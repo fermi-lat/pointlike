@@ -1,7 +1,7 @@
 """
 Implements exposure calcuations
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/exposure.py,v 1.2 2013/11/10 20:05:08 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/exposure.py,v 1.3 2015/04/29 18:06:40 burnett Exp $
 """
 import os
 import numpy as np
@@ -22,7 +22,7 @@ class ExposureManager(object):
         dataset :  DataSet object
             for CALDB, aeff, some parameters
             
-        datadict['exposure-correction'] : list of strings defining functions of energy
+        datadict['exposure_correction'] : list of strings defining functions of energy
             the correction factors to apply to front, back 
         """
 
