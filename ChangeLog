@@ -1,4 +1,18 @@
 ------------------------------------------------------------
+User: wallacee  Wed Jun 22 13:18:29 PDT 2016
+pointlike/python/uw/like2/notebooks
+
+Modified Files:
+	PSF binning test.ipynb 
+Added Files:
+	IRFs.ipynb 
+Log Message:
+Added IRFs.ipynb, documenting the uw.irfs module. Updates to 
+"PSF binning test.ipynb" to adding some additional testing of
+new irf handling.
+
+    *
+------------------------------------------------------------
 User: wallacee  Wed Jun 22 10:02:53 PDT 2016
 pointlike/python/uw/like2
 
