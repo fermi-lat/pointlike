@@ -1,9 +1,9 @@
 """Module for managing instrument response functions.
 
-$Header:$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/irfman.py,v 1.1 2016/06/22 17:02:51 wallacee Exp $
 Author: Eric Wallace
 """
-__version__="$Revision$"
+__version__="$Revision: 1.1 $"
 
 import numpy as np
 
@@ -14,22 +14,16 @@ class IrfManager(object):
     """An object to manage loading sets of IRFs."""
     event_type_names = ('front','back', 'psf0','psf1','psf2','psf3','edisp0',
                          'edisp1','edisp2','edisp3')
-    #event_type_partitions = dict(fb = ('front','back'),
-    #                             psf = ('psf0','psf1','psf2','psf3'),
-    #                             edisp = ('edisp0','edisp1','edisp2','edisp3'))
     event_type_partitions = dict(fb = (0,1),
                                  psf = (2,3,4,5),
                                  edisp = (6,7,8,9))
 
-    def __init__(self, dataset, irf_dir="$CALDB",irf_version="P8R2_V6",event_class="source",
-                      event_type="fb",cthetamin=.4):
+    def __init__(self, dataset, irf_dir="$CALDB"):
         self.caldb = caldb.CALDB(irf_dir)
         irfname = dataset.irf
         irfname_parts = irfname.split('_')
         self.event_class = irfname_parts.pop(1)
         self.irf_version = '_'.join(irfname_parts)
-        #self.irf_version = dataset.irf.split('_')
-        #self.event_class = event_class
         if dataset.psf_event_types:
             ets = 'psf'
         else:
@@ -37,12 +31,7 @@ class IrfManager(object):
         self.event_types = self._parse_event_type(ets)
         self.cthetamin = np.cos(np.radians(dataset.theta_cut.get_bounds()[1]))
         self.dataset = dataset
-        self._check_irf_version()
         self._load_irfs()
-
-    def _check_irf_version(self):
-        """Verify that requested irf selections are consistent with dataset."""
-        pass
 
     def _load_irfs(self):
         psf_info = self.caldb('psf',version=self.irf_version,
