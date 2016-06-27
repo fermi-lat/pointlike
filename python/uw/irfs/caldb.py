@@ -1,11 +1,11 @@
 """
 Module to provide access to CALDB information
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/caldb.py,v 1.1 2016/06/22 17:02:51 wallacee Exp $
 Author: Eric Wallace
 
 """
-__version__ = '$Revision$'
+__version__ = '$Revision: 1.1 $'
 
 import os
 
@@ -37,6 +37,13 @@ class CALDB(object):
             parameter.
         index
             FITS HDU containing CALDB index data
+
+    Methods
+    -------
+        list_irfs
+            Prints a list of available irfs from the CALDB index, optionally
+            filtered by selections specified with the same keyword arguments
+            as __call__.
     """
 
     event_type_names = ('front','back', 'psf0','psf1','psf2','psf3','edisp0',
@@ -48,10 +55,13 @@ class CALDB(object):
     event_type_partitions = dict(fb = (0,1),
                                  psf = (2,3,4,5),
                                  edisp = (6,7,8,9))
-    def __init__(self,irf_dir="$CALDB"):
-        self.CALDB_dir = os.path.abspath(os.path.expandvars(irf_dir))
+    def __init__(self,CALDB_dir="$CALDB"):
+        self.CALDB_dir = os.path.abspath(os.path.expandvars(CALDB_dir))
         self.index = self._load_caldb_index()
     
+    def __repr__(self):
+        return "{self.__class__}(CALDB_dir={self.CALDB_dir})".format(self)
+
     def _load_caldb_index(self):
         if not os.path.exists(self.CALDB_dir):
             raise CALDBError('CALDB directory {} not found.'.format(self.CALDB_dir))
