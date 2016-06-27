@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: wallacee  Mon Jun 27 16:06:36 PDT 2016
+pointlike/python/uw/like2
+
+Modified Files:
+	configuration.py dataset.py 
+Log Message:
+A few changes that somehow didn't make it into the previous commit. Fixes an
+import in configuration.py and a reference to pycaldb in dataset.py, along with
+some minor code cleanup.
+
+    *
+------------------------------------------------------------
 User: wallacee  Mon Jun 27 16:06:35 PDT 2016
 pointlike/python/uw/irfs
 
