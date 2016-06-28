@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Tue Jun 28 11:57:14 PDT 2016
+pointlike/python/uw/irfs
+
+Modified Files:
+	caldb.py 
+Log Message:
+Bugfix in __repr__ formatting.
+
+    *
+------------------------------------------------------------
 User: wallacee  Mon Jun 27 16:06:36 PDT 2016
 pointlike/python/uw/like2
 
