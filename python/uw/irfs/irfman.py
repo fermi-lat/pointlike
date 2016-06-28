@@ -1,9 +1,9 @@
 """Module for managing instrument response functions.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/irfman.py,v 1.1 2016/06/22 17:02:51 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/irfman.py,v 1.2 2016/06/27 23:06:35 wallacee Exp $
 Author: Eric Wallace
 """
-__version__="$Revision: 1.1 $"
+__version__="$Revision: 1.2 $"
 
 import numpy as np
 
@@ -29,7 +29,13 @@ class IrfManager(object):
         else:
             ets = 'fb'
         self.event_types = self._parse_event_type(ets)
-        self.cthetamin = np.cos(np.radians(dataset.theta_cut.get_bounds()[1]))
+        if dataset.legacy:
+            #No DSS keywords, assume dataset has thetacut member
+            #TODO: Fix dataman.DataSpec to provide a sensible default
+            #      or find something to reference that works for both cases
+            self.cthetamin = np.cos(np.radians(dataset.thetacut))
+        else:
+            self.cthetamin = np.cos(np.radians(dataset.theta_cut.get_bounds()[1]))
         self.dataset = dataset
         self._load_irfs()
 
