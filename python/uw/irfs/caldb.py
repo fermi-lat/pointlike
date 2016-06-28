@@ -1,11 +1,11 @@
 """
 Module to provide access to CALDB information
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/caldb.py,v 1.1 2016/06/22 17:02:51 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/caldb.py,v 1.2 2016/06/27 23:06:35 wallacee Exp $
 Author: Eric Wallace
 
 """
-__version__ = '$Revision: 1.1 $'
+__version__ = '$Revision: 1.2 $'
 
 import os
 
@@ -60,7 +60,7 @@ class CALDB(object):
         self.index = self._load_caldb_index()
     
     def __repr__(self):
-        return "{self.__class__}(CALDB_dir={self.CALDB_dir})".format(self)
+        return "{self.__class__}(CALDB_dir={self.CALDB_dir})".format(self=self)
 
     def _load_caldb_index(self):
         if not os.path.exists(self.CALDB_dir):
