@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Tue Jun 28 12:35:17 PDT 2016
+pointlike/python/uw/irfs
+
+Modified Files:
+	irfman.py 
+Log Message:
+Quick fix for handling legacy datasets with no DSS keywords. 
+
+    *
+------------------------------------------------------------
 User: wallacee  Tue Jun 28 11:57:14 PDT 2016
 pointlike/python/uw/irfs
 
