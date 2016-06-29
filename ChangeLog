@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Wed Jun 29 16:19:34 PDT 2016
+pointlike/python/uw/irfs
+
+Modified Files:
+	psf.py 
+Log Message:
+Fix some errors in the initial overlap calculation.
+
+    *
+------------------------------------------------------------
 User: burnett  Wed Jun 29 15:49:44 PDT 2016
 pointlike/python/uw/irfs
 
