@@ -1,7 +1,7 @@
 """
 Classes to compute response from various sources
  
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.14 2016/03/21 18:54:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.15 2016/03/30 14:50:07 burnett Exp $
 author:  Toby Burnett
 """
 import os, pickle
@@ -84,16 +84,13 @@ class PointResponse(Response):
     """
 
     def initialize(self):
-        """ Only needs to be done if position changes
-        """
         self.overlap = self.band.psf.overlap(self.roicenter, self.band.radius, self.source.skydir)
-        self._exposure_ratio = self.band.exposure(self.source.skydir) / self.band.exposure(self.roicenter)
+        self._exposure_ratio = self.band.exposure(self.source.skydir)/self.band.exposure(self.roicenter)
         if self.band.has_pixels:
-            wsdl = self.band.wsdl
-            rvals  = np.empty(len(wsdl),dtype=float)
-            self.band.psf.cpsf.wsdl_val(rvals, self.source.skydir, wsdl) #from C++: sets rvals
-            self.pixel_values = rvals * self.band.pixel_area
+            psf_weights = self.band.psf([self.source.skydir.difference(sd) for sd in self.band.wsdl])
+            self.pixel_values = psf_weights*self.band.pixel_area
         self.evaluate()
+
         
     def evaluate(self): #, weights=None, exposure_factor=1):
         """ update values of counts, pix_counts used for likelihood calculation, derivatives

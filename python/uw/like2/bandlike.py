@@ -1,7 +1,7 @@
 """
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.58 2015/12/03 17:08:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.59 2016/03/21 18:54:12 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -55,7 +55,7 @@ class BandLike(object):
         if systematic==0: return 1.0 
         n = 1/systematic**2
         # m is the number of counts from the galactic diffuse in the footprint of a point source
-        m = self['ring'].counts / (self.band.psf(0)[0]*self.band.solid_angle)
+        m = self['ring'].counts / (self.band.psf(0)*self.band.solid_angle)
         u = min(1., n/m)
         return u
 
