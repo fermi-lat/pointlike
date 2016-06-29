@@ -1,9 +1,9 @@
 """Module providing handling of the LAT point spread function.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/psf.py,v 1.1 2016/06/22 17:02:51 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/psf.py,v 1.2 2016/06/29 18:05:34 wallacee Exp $
 Author: Eric Wallace
 """
-__version__='$Revision: 1.1 $'
+__version__='$Revision: 1.2 $'
 
 import os
 
@@ -265,6 +265,9 @@ class BandPSF(PSF):
 
     def overlap(self, roi_dir, radius, skydir):
         """Calculate the fractional PSF overlap with a circle."""
+        #NOTE: radius in degrees currently. Seems preferable for it to be radians for
+        #consistency with other PSF code, but would require changes to clients
+        radius = np.radians(radius)
         if hasattr(skydir,'__iter__'):
             scalar = False
             offset = np.asarray([roi_dir.difference(sd) for sd in skydir])
@@ -273,8 +276,9 @@ class BandPSF(PSF):
             offset = np.asarray([roi_dir.difference(skydir)])
         ret = np.zeros(offset.shape)
         interior = offset<=radius
+        lim = np.arcsin(radius/offset)
         ret[interior] = np.array([integrate.quad(self._interior_integrand(o,radius),0,np.pi)[0]/np.pi for o in offset[interior]])
-        ret[~interior] = np.array([integrate.quad(self._exterior_integrand(o,radius),0,np.pi)[0]/np.pi for o in offset[~interior]])
+        ret[~interior] = np.array([integrate.quad(self._exterior_integrand(o,radius),0,np.arcsin(radius/l))[0]/np.pi for o,l in zip(offset[~interior],lim[~interior])])
         if scalar:
             return ret.item()
         else:
@@ -291,7 +295,6 @@ class BandPSF(PSF):
         def integrand(theta):
             ctheta = np.cos(theta)
             x = (radius**2+offset**2*(ctheta**2-1))**.5
-            rmax =  - ctheta*offset
-            return self.integral(radius*ctheta+x,radius*ctheta-x)
+            return self.integral(offset*ctheta+x,offset*ctheta-x)
         return integrand
 
