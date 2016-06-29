@@ -1,9 +1,9 @@
 """Module for managing instrument response functions.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/irfman.py,v 1.2 2016/06/27 23:06:35 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/irfman.py,v 1.3 2016/06/28 19:35:17 wallacee Exp $
 Author: Eric Wallace
 """
-__version__="$Revision: 1.2 $"
+__version__="$Revision: 1.3 $"
 
 import numpy as np
 
@@ -18,28 +18,27 @@ class IrfManager(object):
                                  psf = (2,3,4,5),
                                  edisp = (6,7,8,9))
 
-    def __init__(self, dataset, irf_dir="$CALDB"):
+    def __init__(self, dataset, irf_dir="$CALDB", irfname='P8R2_SOURCE_V6', event_types='fb',):
+        """
+        Parameters
+        ---------
+        dataset : DataSet object or None
+            If not None, used to set the irfname, event types, and exposure details
+            If None, use parameter values, and define psf without weighting over exposure
+        irf_dir : string
+            Path to the CALDB folder 
+        """
         self.caldb = caldb.CALDB(irf_dir)
-        irfname = dataset.irf
+        if dataset is not None:
+            irfname = dataset.irf
+            event_types = 'psf' if dataset.psf_event_types else 'fb'
         irfname_parts = irfname.split('_')
         self.event_class = irfname_parts.pop(1)
         self.irf_version = '_'.join(irfname_parts)
-        if dataset.psf_event_types:
-            ets = 'psf'
-        else:
-            ets = 'fb'
-        self.event_types = self._parse_event_type(ets)
-        if dataset.legacy:
-            #No DSS keywords, assume dataset has thetacut member
-            #TODO: Fix dataman.DataSpec to provide a sensible default
-            #      or find something to reference that works for both cases
-            self.cthetamin = np.cos(np.radians(dataset.thetacut))
-        else:
-            self.cthetamin = np.cos(np.radians(dataset.theta_cut.get_bounds()[1]))
-        self.dataset = dataset
-        self._load_irfs()
+        self.event_types = self._parse_event_type(event_types)
+        self._load_irfs(dataset)
 
-    def _load_irfs(self):
+    def _load_irfs(self, dataset):
         psf_info = self.caldb('psf',version=self.irf_version,
                                     event_class = self.event_class,
                                     event_type = self.event_types)
@@ -50,12 +49,22 @@ class IrfManager(object):
                                      aeff_extension=d['extensions']['EFF_AREA'],
                                      eff_params_extension=d['extensions']['EFFICIENCY_PARS'])
                             for et,d in aeff_info.items()}
-        self._exposure = {et:exposure.Exposure(self.dataset.lt,aeff,cthetamin=self.cthetamin)
+                            
+        if dataset is not None:
+            if dataset.legacy:
+                #No DSS keywords, assume dataset has thetacut member
+                #TODO: Fix dataman.DataSpec to provide a sensible default
+                #      or find something to reference that works for both cases
+                cthetamin = np.cos(np.radians(dataset.thetacut))
+            else:
+                cthetamin = np.cos(np.radians(dataset.theta_cut.get_bounds()[1]))
+        
+            self._exposure = {et:exposure.Exposure(dataset.lt,aeff,cthetamin=cthetamin)
                                 for et,aeff in self._aeff.items()}
         self._psf = {et:psf.PSF(d['filename'],
                                      rpsf_extension=d['extensions']['RPSF'],
                                      psf_scaling_extension=d['extensions']['PSF_SCALING'],
-                                     exposure = self._exposure[et])
+                                     exposure = self._exposure[et] if dataset is not None else None)
                             for et,d in psf_info.items()}
 
         
