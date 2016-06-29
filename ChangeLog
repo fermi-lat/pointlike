@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Wed Jun 29 11:05:34 PDT 2016
+pointlike/python/uw/irfs
+
+Modified Files:
+	exposure.py psf.py 
+Log Message:
+Add PSF overlap function. Fix PSF return type. Miscellaneous minor bug fixes.
+
+    *
+------------------------------------------------------------
 User: wallacee  Wed Jun 29 11:05:33 PDT 2016
 pointlike/python/uw/like2
 
