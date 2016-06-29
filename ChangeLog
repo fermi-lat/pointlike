@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Wed Jun 29 11:05:33 PDT 2016
+pointlike/python/uw/like2
+
+Modified Files:
+	bandlike.py from_healpix.py response.py 
+Log Message:
+Add PSF overlap function. Fix PSF return type. Miscellaneous minor bug fixes.
+
+    *
+------------------------------------------------------------
 User: wallacee  Tue Jun 28 12:35:17 PDT 2016
 pointlike/python/uw/irfs
 
