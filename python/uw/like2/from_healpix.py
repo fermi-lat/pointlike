@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_healpix.py,v 1.11 2015/08/16 01:13:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_healpix.py,v 1.12 2016/03/21 18:54:12 burnett Exp $
 """
 import os, pickle, zipfile
 import numpy as np
@@ -132,8 +132,8 @@ class ROImodelFromHealpix(roimodel.ROImodel):
             # add 
             self.diffuse_normalization = p.get('diffuse_normalization', None)
             
-            global_sources = [load_global_source(name, rec) for name, rec \
-                in zip(p['diffuse_names'], p['diffuse']) if name not in self.ecat.names]
+            global_sources = [load_global_source(name, rec) for name, rec 
+                in zip(p['diffuse_names'], p['diffuse']) if self.ecat.lookup(name) is None]
             self.global_count = len(global_sources)
             for s in global_sources:
                 if s is not None: self.append(s)

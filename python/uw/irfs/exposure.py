@@ -1,9 +1,9 @@
 """Module to handle LAT exposure calculations.
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/exposure.py,v 1.1 2016/06/22 17:02:51 wallacee Exp $
 Author: Eric Wallace
 """
-__version__='$Revision$'
+__version__='$Revision: 1.1 $'
 
 
 import numpy as np
@@ -54,6 +54,7 @@ class BandExposure(Exposure):
         for attr in ('aeff','lt','weighted_lt','correction','_cpp_exposure'):
             setattr(self,attr,getattr(exp,attr))
         self.energy = energy
+        self.correction = exp.correction(self.energy)
 
     def __call__(self,skydir,energy=None):
         if energy is None:

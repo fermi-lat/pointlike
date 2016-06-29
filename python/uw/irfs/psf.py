@@ -1,58 +1,22 @@
 """Module providing handling of the LAT point spread function.
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/psf.py,v 1.1 2016/06/22 17:02:51 wallacee Exp $
 Author: Eric Wallace
 """
-__version__='$Revision$'
+__version__='$Revision: 1.1 $'
 
 import os
 
 import numpy as np
 from astropy.io import fits
+from scipy import integrate
 
 from uw.utilities import keyword_options
 from . import caldb, IrfError
 
 class PSF(object):
     """Object representing the LAT PSF."""
-    defaults = (
-        ('irf_dir','$CALDB','Path to the directory containing IRF definitions.'),
-        ('filename',None,'Name of the file containing the desired PSF definition, if non-standard.'),
-        ('exposure',None,'ExposureManager to use for exposure-weighted averages over inclination angle.'), 
-        ('irf_version','P8R2_V6','IRF version to use, e.g. "P8R2_V6","P7V6", "P7REP_V6","P6_V3"'),
-        ('event_class','source','''Event class to use, e.g. source, clean, transient, diffuse.
-                                 Case-insensitive. Event classes from the extended hierarchy 
-                                 (such as transient010e,020e,...) should work but have not been tested.
-                                 For Pass 7 and later versions, a bitmask in the standard form is also accepted.'''),
-        ('event_type',None,'''Desired event type. Recognized values are 
-                              "front","back","psf0"..."psf3","edisp0"..."edisp3",
-                              or the corresponding numeric index from 0 to 9.
-
-                              Names are case-insensitive. If None, load all event
-                              types from the specified event type partition'''),
-
-        ('event_type_partition', 'fb','''Desired event type partitioning (i.e., 
-                                         event types based on conversion type,
-                                         psf quality, or energy dispersion).
-                                         Accepted values are ('fb','psf','edisp').
-                                         Case-insensitive.''')
-
-    )
-    """
-    @keyword_options.decorate(defaults)
-    def __init__(self,**kwargs):
-        keyword_options.process(self,kwargs)
-        self.irf_dir = os.path.abspath(os.path.expandvars(self.irf_version))
-        self.CALDB = None
-        if self.filename is None:
-            try:
-                self._load_CALDB(self.irf_dir)
-            except IrfError:
-                self.filename = self._load_file()
-        else:
-            self._load_file(self.filename)
-        self._load_data()
-    """
+    
     def __init__(self,filename,exposure=None,rpsf_extension='RPSF',psf_scaling_extension='PSF_SCALING'):
         self._load_data(filename,rpsf_extension,psf_scaling_extension)
         self.set_weights(exposure)
@@ -93,20 +57,6 @@ class PSF(object):
             self.ncore = np.ones_like(rpsf.field('SIGMA'))
             self.ntail = np.zeros_like(rpsf.field('SIGMA'))
     
-   # @property
-   # def parameters(self):
-   #     """Return the radial PSF parameters.
-
-   #     Parameters are stored as a table with rows and columns corresponding
-   #     to bins in energy and cos(theta), respectively.
-   #     """
-   #     return self._p
-
-   # @property 
-   # def scaling_parameters(self):
-   #     """Return the parameters of the PSF energy scaling function."""
-   #     return self._scale_p
-
     def __getitem__(self,mask):
         """Return PSF parameters for a given energy and cos(theta) selection"""
         return np.concatenate([getattr(self,p)[mask][None]
@@ -188,19 +138,6 @@ class PSF(object):
             return (self.weights[:,mask]*(nc*kc+nt*kt)/scale**2).sum(axis=-2)
 
 
-        #else:
-        #    mask = (np.fmin(np.searchsorted(self.cthetabins[:,1],ctheta),
-        #                    self.cthetabins.shape[0]-1),
-        #            np.fmin(np.searchsorted(self.ebins[:,1],e),
-        #                    self.ebins.shape[0]-1)
-        #           )
-        #    nc,nt,sc,st,gc,gt = [getattr(self,p)[mask] for p in
-        #                         ['ncore','ntail','score','stail','gcore','gtail']]
-        #    kc,kt = [self.psf_base(delta,s*scale,g*scale)
-        #         for s,g in zip((sc,st),(gc,gt))]
-        #    return (nc*kc+nt*kt)
-        
-
     def psf_base(self,delta,sigma,gamma):
         """Evaluate the King function at angular deviation delta.
 
@@ -223,12 +160,13 @@ class PSF(object):
             len(`delta`) by len(`sigma`).
 
         """
+        return_scalar = np.all([np.isscalar(x) for x in (delta,sigma,gamma)])
         d,s,g = (np.asarray(x) for x in (delta,sigma,gamma))
         if s.shape!=g.shape:
             raise ValueError('Arrays for sigma and gamma must have the same shape')
         u = (.5*np.outer(d,1/s)**2).reshape(d.shape+s.shape)
         k = (1-1/g)*(1+u/g)**-g
-        if k.size==1:
+        if return_scalar:
             return k.item()
         else:
             return k
@@ -236,6 +174,7 @@ class PSF(object):
     def psf_base_integral(self,dmax,sigma,gamma,dmin=0):
         """Integral of the PSF base function; g = gamma, s = sigma (scaled),
            delta = deviation in radians."""
+        return_scalar = np.all([np.isscalar(x) for x in (dmax,sigma,gamma,dmin)])
         dmax,s,g,dmin = (np.asarray(x) for x in (dmax,sigma,gamma,dmin))
         if s.shape!=g.shape:
             raise ValueError('Arrays for sigma and gamma must have the same shape')
@@ -244,7 +183,7 @@ class PSF(object):
         u0 = (.5*np.outer(dmin,1/s)**2).reshape(dmin.shape+s.shape)
         u1 = (.5*np.outer(dmax,1/s)**2).reshape(dmax.shape+s.shape)
         i = (1+u0/g)**(1-g)-(1+u1/g)**(1-g)
-        if i.size==1:
+        if return_scalar:
             return i.item()
         else:
             return i
@@ -264,8 +203,10 @@ class PSF(object):
             itail = np.pi*2*st**2*nt*self.psf_base_integral(dmax, st*scale, gt, dmin)
             return (self.weights[:,mask]*(icore+itail)).sum(axis=-2)
     
+        
     def band_psf(self,energy):
         return BandPSF(self,energy)
+    
 
 class BandPSF(PSF):
     """Representation of the PSF for a specific energy band."""
@@ -322,7 +263,35 @@ class BandPSF(PSF):
             itail = np.pi*2*st**2*nt*self.psf_base_integral(dmax, st*scale, gt, dmin)
             return (self.weights[:,mask]*(icore+itail)).sum(axis=-2)
 
-class PSFFactory(object):
-    """Factory class to provide BandPSF objects."""
-    def __init__(self,psf_dict):
-        pass    
+    def overlap(self, roi_dir, radius, skydir):
+        """Calculate the fractional PSF overlap with a circle."""
+        if hasattr(skydir,'__iter__'):
+            scalar = False
+            offset = np.asarray([roi_dir.difference(sd) for sd in skydir])
+        else:
+            scalar = True
+            offset = np.asarray([roi_dir.difference(skydir)])
+        ret = np.zeros(offset.shape)
+        interior = offset<=radius
+        ret[interior] = np.array([integrate.quad(self._interior_integrand(o,radius),0,np.pi)[0]/np.pi for o in offset[interior]])
+        ret[~interior] = np.array([integrate.quad(self._exterior_integrand(o,radius),0,np.pi)[0]/np.pi for o in offset[~interior]])
+        if scalar:
+            return ret.item()
+        else:
+            return ret
+
+    def _interior_integrand(self,offset,radius):
+        def integrand(theta):
+            ctheta = np.cos(theta)
+            rmax = (radius**2+offset**2*(ctheta**2-1))**.5 - ctheta*offset
+            return self.integral(rmax)
+        return integrand
+
+    def _exterior_integrand(self,offset,radius):
+        def integrand(theta):
+            ctheta = np.cos(theta)
+            x = (radius**2+offset**2*(ctheta**2-1))**.5
+            rmax =  - ctheta*offset
+            return self.integral(radius*ctheta+x,radius*ctheta-x)
+        return integrand
+
