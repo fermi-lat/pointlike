@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Jun 29 15:49:44 PDT 2016
+pointlike/python/uw/irfs
+
+Modified Files:
+	irfman.py 
+Log Message:
+allow dataset to be None
+    *
+------------------------------------------------------------
 User: burnett  Wed Jun 29 13:02:12 PDT 2016
 pointlike/python/uw/irfs
 
