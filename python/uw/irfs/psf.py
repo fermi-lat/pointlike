@@ -278,7 +278,7 @@ class BandPSF(PSF):
         interior = offset<=radius
         lim = np.arcsin(radius/offset)
         ret[interior] = np.array([integrate.quad(self._interior_integrand(o,radius),0,np.pi)[0]/np.pi for o in offset[interior]])
-        ret[~interior] = np.array([integrate.quad(self._exterior_integrand(o,radius),0,np.arcsin(radius/l))[0]/np.pi for o,l in zip(offset[~interior],lim[~interior])])
+        ret[~interior] = np.array([integrate.quad(self._exterior_integrand(o,radius),0,l)[0]/np.pi for o,l in zip(offset[~interior],lim[~interior])])
         if scalar:
             return ret.item()
         else:
