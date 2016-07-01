@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.43 2014/12/18 00:22:08 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.44 2015/07/24 17:57:06 burnett Exp $
 
 """
 import os, pickle
@@ -34,7 +34,7 @@ class SED(tools.WithMixin):
         try:
             self.full_poiss = self.select(None).poiss
         except Exception, msg:
-            print 'Failed poisson fit to source %s: "%s"' % (source_name, msg)
+            print 'Failed poisson fit to source %s: "%s"' % (self.source_name, msg)
             raise
 
     def __repr__(self):
