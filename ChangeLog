@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jul  1 08:55:22 PDT 2016
+pointlike/python/uw/like2
+
+Modified Files:
+	diffuse.py 
+Log Message:
+implement isotropic maps
+    *
+------------------------------------------------------------
 User: burnett  Fri Jul  1 08:51:37 PDT 2016
 pointlike/python/uw/like2
 
