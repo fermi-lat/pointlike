@@ -1,7 +1,7 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.50 2016/03/30 14:51:07 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.51 2016/06/22 17:02:53 wallacee Exp $
 
 author:  Toby Burnett
 """
@@ -174,7 +174,7 @@ class HealpixCube(DiffuseBase):
             
     def load(self):
         try:
-            hdus = pyfits.open(self.fullfilename)
+            self.hdulist = hdus = pyfits.open(self.fullfilename)
             self.energies = hdus[2].data.field(0)
             self.vector_mode = len(hdus[1].columns)==1
             if self.vector_mode:
@@ -191,6 +191,7 @@ class HealpixCube(DiffuseBase):
                 
             self.loaded=True
             self.indexfun = skymaps.Band(self.nside).index
+            self.dirfun = skymaps.Band(self.nside).dir
         except Exception, msg:
             print 'bad file or unexpected FITS format, file %s: %s' % (self.fullfilename, msg)
             raise
@@ -198,6 +199,9 @@ class HealpixCube(DiffuseBase):
         self.setEnergy(1000.)
         
     
+    def close(self):
+        self.hdulist.close()
+
     def __call__(self, skydir, energy=None):
         if energy is not None and energy!=self.energy: 
             self.setEnergy(energy)
@@ -212,6 +216,8 @@ class HealpixCube(DiffuseBase):
 
     def setEnergy(self, energy): 
         # set up logarithmic interpolation
+        if not self.loaded:
+            self.load()
         self.energy=energy
         r = np.log(energy/self.energies[0])/self.logeratio
         self.energy_index = i = max(0, min(int(r), len(self.energies)-2))
@@ -222,6 +228,14 @@ class HealpixCube(DiffuseBase):
         else:
             self.eplane1 = np.ravel(self.data.field(i))
             self.eplane2 = np.ravel(self.data.field(i+1))
+            
+    def column(self, energy):
+        """ return a full HEALPix-ordered column for the given energy
+        """
+        self.setEnergy(energy)
+        a = self.energy_interpolation
+        return np.exp( np.log(self.eplane1) * (1-a) 
+             + np.log(self.eplane2) * a      )
             
     
 class Healpix(DiffuseBase):
@@ -453,28 +467,30 @@ class IsotropicList(DiffuseList):
             raise
         for et in event_type_names:
             filename = fn.replace('*', et)
-            correction_data=None
+            correction_data=correction=None
             if corr is not None:
                 correction = corr.replace('*', et)
                 if diffuse_normalization is not None and correction in diffuse_normalization:
                     correction_data = diffuse_normalization[correction]
-                    #file_check(filename)
-                else:
-                    # old scheme
-                    file_check([filename, correction])
+            ext = os.path.splitext(filename)[-1]
+            if ext=='.txt':   iso = Isotropic(filename) 
+            elif ext=='.fits': iso = HealpixCube(filename)
             else:
-                file_check([filename])
-                correction=None
-            iso = Isotropic(filename)
+                raise Exception('Unrecognized extension: {}'.format(ext))
             iso.kw = dict(correction =correction, correction_data=correction_data)
             self.append(iso)
-
 def file_check(files):
     full_files = map( lambda f: os.path.expandvars(os.path.join('$FERMI','diffuse',f)), files)
     check = map(lambda f: os.path.lexists(f) or f[-1]==')', full_files) 
     if not all(check):
         raise DiffuseException('not all diffuse files %s found' % full_files)
     
+
+
+def expand_file(filename):
+    if os.path.lexists(filename):
+        return os.path.join(os.getcwd(),filename)
+    return os.path.join(os.path.expandvars('$FERMI/diffuse/'),filename)
 
 def diffuse_factory(value, diffuse_normalization=None, event_type_names=('front', 'back')):
     """
@@ -544,8 +560,7 @@ def diffuse_factory(value, diffuse_normalization=None, event_type_names=('front'
         return IsotropicList(value[0], event_type_names=event_type_names, 
             diffuse_normalization=diffuse_normalization)
     else:
-        file_check(files)
-        full_files = map( lambda f: os.path.expandvars(os.path.join('$FERMI','diffuse',f)), files)
+        full_files = map( expand_file, files)
         check = map(lambda f: os.path.lexists(f) or f[-1]==')', full_files) 
         if not all(check):
             raise DiffuseException('not all diffuse files %s found' % full_files)
@@ -555,5 +570,3 @@ def diffuse_factory(value, diffuse_normalization=None, event_type_names=('front'
         for x,kw in zip(diffuse_source, kws):
             x.kw = kw
     return DiffuseList(diffuse_source, event_type_names=event_type_names)
-
-
