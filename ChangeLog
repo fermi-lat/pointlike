@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jul  1 10:47:47 PDT 2016
+pointlike/python/uw/irfs
+
+Modified Files:
+	irfman.py 
+Log Message:
+add repr and a psf plotting function
+    *
+------------------------------------------------------------
 User: burnett  Fri Jul  1 08:55:22 PDT 2016
 pointlike/python/uw/like2
 
