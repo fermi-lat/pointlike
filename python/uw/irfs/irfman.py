@@ -1,9 +1,9 @@
 """Module for managing instrument response functions.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/irfman.py,v 1.3 2016/06/28 19:35:17 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/irfman.py,v 1.4 2016/06/29 22:49:44 burnett Exp $
 Author: Eric Wallace
 """
-__version__="$Revision: 1.3 $"
+__version__="$Revision: 1.4 $"
 
 import numpy as np
 
@@ -38,6 +38,9 @@ class IrfManager(object):
         self.event_types = self._parse_event_type(event_types)
         self._load_irfs(dataset)
 
+    def __repr__(self):
+        return '{self.__class__.__name__}, event_class: {self.event_class}, event_types: {self.event_types}'.format(self=self)
+        
     def _load_irfs(self, dataset):
         psf_info = self.caldb('psf',version=self.irf_version,
                                     event_class = self.event_class,
@@ -97,3 +100,18 @@ class IrfManager(object):
             try: return self.event_type_partitions[event_type]
             except KeyError:
                 raise exc
+
+def psf_plots(energy=100, x=np.linspace(0,10,51), irfname='P8R2_SOURCE_V6',  ):
+    import matplotlib.pyplot as plt
+    fig, axx = plt.subplots(1,2, figsize=(10,4), sharex=True, sharey=True)
+    for event_types, ax in zip('fb psf'.split(), axx):
+        iman = IrfManager(None, irfname=irfname, event_types=event_types)
+        ets = iman.event_types
+        psfs = [iman.psf(et, energy) for et in ets]
+        y = np.array([psfs[et-ets[0]](np.radians(x)) for et in ets])
+        [ax.plot(x,y[et-ets[0]], label='{}'.format(iman.event_type_names[et])) for et in ets]
+        ax.set_xlabel('delta [deg]')
+        ax.grid()
+        ax.legend();
+    fig.suptitle('PSF plots for IRF {} at {:.0f} MeV'.format(irfname, energy))
+    return fig
