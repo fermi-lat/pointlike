@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jul  1 08:50:46 PDT 2016
+pointlike/python/uw/like2
+
+Modified Files:
+	bandlike.py 
+Log Message:
+allow psf func to not be ufunc
+    *
+------------------------------------------------------------
 User: wallacee  Wed Jun 29 17:02:42 PDT 2016
 pointlike/python/uw/irfs
 
