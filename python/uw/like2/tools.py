@@ -1,11 +1,12 @@
 """
 Tools for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.19 2014/07/02 15:55:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.20 2015/12/03 17:08:06 burnett Exp $
 
 """
 import os, sys, time
 import numpy as np
+import pandas as pd
 
 def ufunc_decorator(f): # this adapts a bound function
     def new_ufunc(self, par):
@@ -76,3 +77,34 @@ class RecArray(object):
 class DateStamp(object):
     def _repr_html_(self):
          return '<div align=center> <h3>'+time.asctime()+'</h3> </div>'
+
+class Profile(object):
+    """ Create a "profile" of y, binned in x, according to bins
+    """
+    def __init__(self,x, y, bins):
+        df = pd.DataFrame({'x': x, 'y': y})
+        df['bin'] = np.digitize(x, bins=bins)
+         # grouby bin, so we can calculate stuff
+        binned = df.groupby('bin')
+        # calculate mean and standard error of the mean for y in each bin
+        self.pdf= binned['y'].agg(['mean', 'sem'])
+        self.pdf['x'] = 0.5 * (bins[:-1] + bins[1:])
+        self.pdf['xerr'] = (bins[1] - bins[0]) / 2
+
+    def plot(self, **kwargs):
+        """ Generate a plot using the profile DataFrame
+        return the Axes object
+        """
+        return self.pdf.plot(
+            x='x',       y='mean',
+            xerr='xerr', yerr='sem',
+            linestyle='none', capsize=0,  color='black',
+            **kwargs
+        )
+
+def html_table(dataframe, float_precision=2):
+    """Return an HTML table of a DataFrame with given precision
+    """
+    from IPython.display import display, HTML
+    fmt = '{:.'+ '{:d}'.format(float_precision) + 'f}'
+    return display(HTML(dataframe.to_html(float_format=lambda x:fmt.format(x))))
