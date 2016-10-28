@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.44 2015/07/24 17:57:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.45 2016/07/01 15:51:37 burnett Exp $
 
 """
 import os, pickle
@@ -9,8 +9,9 @@ import numpy as np
 import pandas as pd
 
 from uw.utilities import ( keyword_options)
-from . import ( plotting, tools, loglikelihood)
-
+from . import ( plotting, tools, loglikelihood, sources)
+# 2/decade above 31.6 GeV
+energybins=np.concatenate( [np.logspace(2,4.25,10), np.logspace(4.5,6,4)])
        
 class SED(tools.WithMixin):
     """ measure the energy flux vs. energy for a given source
@@ -24,11 +25,15 @@ class SED(tools.WithMixin):
         """
         self.rs = rstat
         self.rs.quiet=quiet
-        self.func = self.rs.energy_flux_view(source_name)
+        self.func = self.rs.energy_flux_view(source_name, bound=-20) # note very low bound
         self.source_name = source_name
         # make a list of energies with data; only have info if there is data in the ROI
         hasdata = np.array([b.pixels>0 for b in self.rs])
         self.energies = self.rs.energies[hasdata[0::2] | hasdata[1::2]] ## note assumption about energies 
+        self.energybins=np.logspace(2,6,17)
+        # combines the bands above 100 GeV 
+        global energybins
+        self.energybins=energybins
     
     def full(self):
         try:
@@ -42,7 +47,8 @@ class SED(tools.WithMixin):
                     self.__module__, self.__class__.__name__,len(self.rs.selected), self.source_name, 
                     self.rs.emin, self.rs.emax)
     
-    def select(self, index, event_type=None, poisson_tolerance=0.10, **kwargs):
+    def select(self, index, event_type=None, poisson_tolerance=0.10, 
+        elow=None, ehigh=None,**kwargs):
         """ Select an energy band or bands
         parameters:
             index: None or integer
@@ -51,19 +57,29 @@ class SED(tools.WithMixin):
                 represent an model-independent flux over the band.
             event_type : None or integer
                 if None, select both front and back, otherwise 0/1 for front/back
-                
-        returns an equivalent Poisson object
+            elow, ehigh : None or float
+                If set, use to select bands, allowing combined
+                For this case only, check to see if there is any data, return None if not 
+
+        returns an equivalent Poisson object.
         """
-        if index is None:
+        if index is None and elow is None:
             self.rs.select()
             self.func.set_energy(None)# =func = self.rs.energy_flux_view(self.source_name)
-        else:
+        elif index is not None:
             self.rs.select(index, event_type)
             energies = self.rs.energies
             assert len(energies)==1
             energy = self.rs.energies[0]
             self.func.set_energy(energy)
             assert self.func(0) != self.func(1), 'Function not variable? energy %.0f' % energy
+        else:
+            # case to perhaps combine bands
+            self.rs.select(elow=elow, ehigh=ehigh)
+            has_data = np.any([b.band.has_pixels for b in self.rs.selected])
+            if not has_data: return None
+            energy = np.sqrt(elow*ehigh)
+            self.func.set_energy(energy)
         pf = loglikelihood.PoissonFitter(self.func, tol=poisson_tolerance, **kwargs)
         return pf
 
@@ -84,28 +100,37 @@ class SED(tools.WithMixin):
         return np.array(pp)
         
     def sed_rec(self, event_type=None, tol=0.1):
-        """ return a numpy.recarray with values for each band
+        """ return a numpy.recarray with values for each band (or set of bands)
            elow ehigh       -- energy limits
            flux lflux uflux -- flux at max, upper and lower 1-sigma
            ts               -- Test Statistic for the band
            mflux            -- Flux predicted by the model
+           npred            -- number predicted photons for max L 
+           pindex           -- photon index at central energy
            delta_ts         -- TS difference, fit-model
            pull             -- signed square root of delta_ts
            zero_fract       -- predicted fraction of the time expect zero flux
         """
-        names = 'elow ehigh flux lflux uflux ts mflux delta_ts pull maxdev zero_fract'.split()
+        names = 'elow ehigh flux lflux uflux npred pindex ts mflux  delta_ts pull maxdev zero_fract'.split()
         rec = tools.RecArray(names, dtype=dict(names=names, formats=['>f4']*len(names)) )
-        for i,energy in enumerate(self.energies):
+        
+        for i,(elow,ehigh) in enumerate(zip(self.energybins[:-1], self.energybins[1:])):
+        #for i,energy in enumerate(self.energies):
+                
             try:
-                pf = self.select(i, event_type=event_type, poisson_tolerance=tol)
-                xlo,xhi = self.rs.emin,self.rs.emax
+                pf = self.select(None, elow=elow,ehigh=ehigh, 
+                    event_type=event_type, poisson_tolerance=tol)
+                xlo,xhi = self.rs.emin, self.rs.emax
             except Exception, msg:
-                print 'Fail poiss fit for %.0f MeV: %s ' % (energy,msg)
-                rec.append(np.nan, np.nan, 0, 0, np.nan, 0, np.nan, np.nan, np.nan, np.nan, np.nan )
+                print 'Fail poiss fit for %.0f-%.0f MeV: %s ' % (elow,ehigh,msg)
+                rec.append(elow,ehigh, 0, 0, np.nan, 0,0,0, np.nan, np.nan, np.nan, np.nan,     np.nan )
                 continue
-            if np.isnan(pf.wprime):
-                print 'Fail poiss fit for %.0f MeV: %s ' % (energy,'bad poiss')
-                rec.append(np.nan, np.nan, 0, 0, np.nan, 0, np.nan, np.nan, np.nan, np.nan, np.nan )
+            if pf is None: # no data
+                rec.append(elow,ehigh, 0, 0, np.nan, 0,0,0, np.nan, np.nan, np.nan, np.nan,     np.nan )
+                continue
+            elif np.isnan(pf.wprime):
+                print 'Fail poiss fit for %.0f-%.0f MeV: %s ' % (elow,ehigh,'bad poiss')
+                rec.append(elow,ehigh, 0, 0, np.nan, 0,0,0, np.nan, np.nan, np.nan, np.nan, np.nan )
                 continue
             
             w = pf.poiss
@@ -113,14 +138,23 @@ class SED(tools.WithMixin):
             lf,uf = w.errors
             maxl  = w.flux
             mf    = self.func.eflux
+            self.func(maxl) # set to maxl for npred
+            npred = sum([bs[self.source_name].counts for bs in self.rs.selected])
+            
+            # get spectral function evaluate exponential slope by finite difference
+            m = self.rs.get_model(self.source_name)
+            x = np.sqrt(xlo*xhi)
+            delta=0.01 # 1%
+            pindex= (1-m((1+delta)*x)/m(x))/delta
+            
             delta_ts = 2.*(self(maxl) - self(mf) )
             zf =   w.zero_fraction()
             if lf>0 :
                 pull = np.sign(maxl-mf) * np.sqrt(max(0, delta_ts))
-                rec.append(xlo, xhi, maxl, lf, uf, w.ts, mf, delta_ts, pull, err, zf)
+                rec.append(xlo, xhi, maxl, lf, uf, npred, pindex, w.ts, mf, delta_ts, pull, err, zf)
             else:
                 pull = -np.sqrt(max(0, delta_ts))
-                rec.append(xlo, xhi, 0, 0, w.cdfcinv(0.05), 0, mf, delta_ts, pull, err, zf )
+                rec.append(xlo, xhi, 0, 0, w.cdfcinv(0.05), 0,pindex, 0, mf, delta_ts, pull, err, zf )
             
         self.restore()
         return rec()
@@ -128,9 +162,14 @@ class SED(tools.WithMixin):
     def data_frame(self, event_type=None, tol=0.1):
         """DataFrame summary of the sed_rec"""
         si = self.sed_rec(event_type,tol)
-        r =pd.DataFrame(dict(flux=si.flux.round(1), TS=si.ts.round(1), lflux=si.lflux.round(1),
-        uflux=si.uflux.round(1), mflux=si.mflux.round(1), pull=si.pull.round(1), zf=si.zero_fract.round(3)), 
-            index=np.array(np.sqrt(si.elow*si.ehigh),int), columns='flux lflux uflux mflux TS pull zf'.split())
+        r =pd.DataFrame(
+            dict(elow=si.elow, ehigh=si.ehigh, 
+                flux=si.flux.round(2), TS=si.ts.round(1), lflux=si.lflux.round(2),
+                npred= si.npred.round(1),
+                pindex=si.pindex.round(2),
+                uflux=si.uflux.round(2), mflux=si.mflux.round(2), pull=si.pull.round(2), zf=si.zero_fract.round(3)), 
+            index=np.array(np.sqrt(si.elow*si.ehigh),int), 
+            columns='elow ehigh flux lflux uflux mflux npred pindex TS pull zf'.split())
         r.index.name='energy'
         return r
 
@@ -302,3 +341,27 @@ def normalization_poiss(roi, source_name, event_type=None):
             poiss_list.append(p)
     roi.select()
     return poiss_list
+
+def alternate_source(roi, source, name, skydir, model):
+    """
+    Create a PointSource object, coincident with a current one, but with a different 
+    
+    roi    : a ROI object
+    source : Current Source object, with sedrec
+    name   : Name of alternative source
+    skydir : its position (presumably very close to source.skydir)
+    model  : alternative Model object
+    
+    Will create, and return a Source object, containing a different sedrec.
+    
+    """
+    roi.get_source(source.name) # make sure selected
+    altsrc = sources.PointSource(name=name, skydir=skydir, model=model)
+    saved_model = source.spectral_model
+    saved_sed = source.sedrec.copy()
+    source.spectral_model = model
+    altsrc.sedrec = roi.get_sed(update=True)
+    source.spectral_model = saved_model
+    source.sedrec = saved_sed
+    return altsrc
+    
