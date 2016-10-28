@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.84 2015/08/16 01:13:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.85 2015/12/03 17:08:06 burnett Exp $
 
 """
 import types, time
@@ -252,17 +252,21 @@ class ROI(views.LikelihoodViews):
         return plotting.counts.get_counts(self, event_type=event_type)
         
     def get_sed(self, source_name=None, event_type=None, update=False, tol=0.1):
-        """ return the SED recarray for the source
+        """ return the SED recarray for the source, including npred info
         source_name : string
             Name of a source in the ROI, with possible wildcards
         event_type : None, or integer, 0/1 for front/back
         update : bool
             set True to force recalculation of sed recarray
         """
+        import numpy.lib.recfunctions as rfn 
         source = self.sources.find_source(source_name)
         if not hasattr(source, 'sedrec') or source.sedrec is None or update:
             with sedfuns.SED(self, source.name) as sf:
                 source.sedrec = sf.sed_rec(event_type=event_type, tol=tol)
+        
+        # source.sedrec = rfn.rec_append_fields(source.sedrec, 'npred' , 
+        #     self.get_counts(source.name).round(1),)
         return source.sedrec
 
     def band_ts(self, source_name=None, update=False):
@@ -270,12 +274,13 @@ class ROI(views.LikelihoodViews):
         return sedrec.ts.sum()
     
     def get_counts(self, source_name=None, event_type=None):
-        """ return the array of predicted counts for the specified, or all sources
+        """ return the array of predicted counts, or npred, for the specified, or all sources if 'all'
         """
-        z = plotting.counts.get_counts(self, event_type=event_type)['models']
-        if source_name=='all': return z
+        if source_name=='all': 
+            return plotting.counts.get_counts(self, event_type=event_type)['models']
+
         source = self.sources.find_source(source_name)
-        return dict(z)[source.name]
+        return plotting.counts.get_npred(self, source.name)
         
     def Npred(self, source_name=None):
         """ Return the total predicted counts for the specified, or default source
@@ -392,7 +397,7 @@ class ROI(views.LikelihoodViews):
         source = self.get_source(source_name)
         tsv = self.tsmap_view(source.name)
         old_loc = tsv.saved_skydir
-        loc = new_location if isinstance(SkyDir, new_location) else SkyDir(*new_location)
+        loc = new_location if isinstance( new_location,SkyDir,) else SkyDir(*new_location)
         print 'moved position of source %s from %s to %s, change in TS: %.2f'\
                 % (source.name, old_loc, loc, tsv(loc) )
         tsv.set_dir(loc)
