@@ -1,6 +1,6 @@
 """
 Code to generate a set of maps for each ROI
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.8 2015/07/24 17:57:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.9 2016/03/30 14:37:15 burnett Exp $
 
 """
 import os, sys,  pickle, types
@@ -317,5 +317,41 @@ class DisplayTable(object):
 table_info={'ts':  (ResidualTS, dict(photon_index=2.2, model='LogParabola(1e-12, 2.2, 0, 1000.)')),
             'kde': (KdeMap, dict()),
             'tsx': (ResidualTS, dict(photon_index=2.3, model='LogParabola(1e-12, 2.3, 0, 1000.)')),
-            'tsp': (ResidualTS, dict(model='ExpCutoff(1e-10,2.2, 2000.)'))
+            'tsp': (ResidualTS, dict(model='ExpCutoff(1e-13,2.2, 2000.)')),
+            'hard': (ResidualTS, dict(photon_index=1.7, model='LogParabola(1e-15, 1.7, 0, 50000.)')),
+            'soft': (ResidualTS, dict(photon_index=2.7, model='LogParabola(1e-12, 2.7, 0, 250.)')),
            }
+
+def residual_maps(roi, folder='residual_maps'):
+    
+    def residual_map(index):
+        cband = roi.config.dataset.dmap[index+8]
+        nside = cband.nside()
+        b=roi[index] # the BandLike object
+        assert cband.emin()==b.band.emin
+        energy = b.band.energy
+        event_type = b.band.event_type
+        band_label = '{:.0f} Mev {}'.format(energy, ['Front','Back'][event_type])
+
+        # get pixel info: counts, model, positions 
+        wsdl = b.band.wsdl # list of WeightedSKyDir objects
+        ids = np.array(map( cband.index, wsdl)) # list of ids with nside
+        id12 = np.array(map(Band(12).index, wsdl),int) # nside=12 ids
+        inside = id12==roi_id
+        data = b.data[inside]
+        model= np.array(b.model_pixels,np.float32)[inside]
+        dd = dict(band_index=index, nside=nside,energy=energy, event_type=event_type, 
+                  ids=ids[inside], model= model,data= data,)
+        chi2 = sum((data-model)**2/model)
+        print '{:5.0f} {:5d} {:4d}   {:4.0f}/{:4d}   {:+0.1%}'.format(energy, event_type, nside,
+                                                                 chi2, len(data), (data/model-1).mean())
+        return dd
+        
+    roi_id = Band(12).index(roi.roi_dir)
+    print 'energy type nside  chi2/ ndf  offset'
+    maps = [residual_map(index)   for index in range(8)]
+    if not os.path.exists(folder):
+        os.mkdir(folder)
+    filename = '{}/ROI_{:04d}.pickle'.format(folder,roi_id)
+    pickle.dump(maps, open(filename,'w'))
+    print 'Wrote file {}'.format(filename)
