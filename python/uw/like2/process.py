@@ -1,6 +1,6 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.25 2015/08/16 01:13:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.26 2016/03/21 18:54:12 burnett Exp $
 
 """
 import os, sys, time, pickle, glob
@@ -112,7 +112,7 @@ class Process(main.MultiROI):
         #    return
         if self.seed_key is not None:
             key = self.seed_key
-            if not seeds.add_seeds(self, key) :
+            if not seeds.add_seeds(self, key, config=self.config) :
                 # nothing added, so nothing to do with the model for this ROI
                 return
         if self.special_flag:
@@ -223,7 +223,7 @@ class Process(main.MultiROI):
             #    )
     
    
-    def repivot(self, fit_sources=None, min_ts = 10, max_beta=3.0, emin=200, emax=20000., dampen=1.0, test=False):
+    def repivot(self, fit_sources=None, min_ts = 10, max_beta=3.0, emin=200, emax=100000., dampen=1.0, test=False):
         """ invoked  if repivot flag set;
         returns True if had to refit, allowing iteration
         """
@@ -316,6 +316,10 @@ class Process(main.MultiROI):
             
     def tables(self, special=False, mapkeys=['ts', 'kde']):
         """create a set of tables"""
+        if mapkeys==['rmap']:
+            # residual maps
+            maps.residual_maps(self)
+            return
         tinfo = [maps.table_info[key] for key in mapkeys]
         skyfuns = [(entry[0], key, entry[1]) for key,entry in zip(mapkeys, tinfo)]  
         rt = maps.ROItables(self.outdir, nside=self.tables_nside, skyfuns=skyfuns )
@@ -352,26 +356,45 @@ class Process(main.MultiROI):
             source.skydir = newdir
 
     def special(self):
-        nset=0
-        for src in self.free_sources:
-            if not src.name.startswith('P967-'): continue
-            m = src.model
-            print '%s\n%s' % (src.name, m)
-            # Freeze Index at 2.0, thaw E_break, set beta to 1.0 for fit
-            if m.name!='LogParabola': continue
-            if False:
-                if m['beta']<2: continue 
-                print '===converting SED function for source %s, initial beta %.2f'  % (src.name, m['beta'])
-                self.freeze('Index', src.name, 2.0); 
-                self.thaw('E_break', src.name);
-                m['beta']=1.0
-            if True:
-                if m.free[3]:
-                    print '===converting SED function for source %s, initial beta %.2f'  % (src.name, m['beta'])
-                    self.thaw('Index', src.name)
-                    self.freeze('E_break', src.name)
-                    self.fit(src.name)
-                    nset +=1
+        """For making the 3FHL correspondence
+        """
+        df =pd.read_pickle('UW-3FHL_correspondence.pkl')
+        local = (df.uw_roi==int(self.name[-4:])) & df.uwok
+        if sum(local)==0:
+            print 'No corresponding sources found'
+            return False
+        for name in df[local].index:
+            gts = df.ix[name]
+            altmodel = gts['model']
+            print 'Comparing gt source {} [{}] with UW {}'.format(name, altmodel.name, gts['uw_name'])
+            s = self.get_source(gts['uw_name'])
+            
+            altsrc = sedfuns.alternate_source(self, s, name, gts['skydir'],altmodel)
+            outfile = '3FHL_correspondence/{}.pkl'.format(name.replace('+','p'))
+            pickle.dump(altsrc, open(outfile,'w'))
+            print 'Wrote file {}'.format(outfile)
+        return False
+        # nset=0
+        # for src in self.free_sources:
+        #     if not src.name.startswith('P967-'): continue
+        #     m = src.model
+        #     print '%s\n%s' % (src.name, m)
+        #     # Freeze Index at 2.0, thaw E_break, set beta to 1.0 for fit
+        #     if m.name!='LogParabola': continue
+        #     if False:
+        #         if m['beta']<2: continue 
+        #         print '===converting SED function for source %s, initial beta %.2f'  % (src.name, m['beta'])
+        #         self.freeze('Index', src.name, 2.0); 
+        #         self.thaw('E_break', src.name);
+        #         m['beta']=1.0
+        #     if True:
+        #         if m.free[3]:
+        #             print '===converting SED function for source %s, initial beta %.2f'  % (src.name, m['beta'])
+        #             self.thaw('Index', src.name)
+        #             self.freeze('E_break', src.name)
+        #             self.fit(src.name)
+        #             nset +=1
+        # return nset>0
                 
             #if src.model.name=='LogParabola': continue
             #m = src.model
@@ -379,7 +402,6 @@ class Process(main.MultiROI):
             #print 'Converting source %s to %s' % (src.name, newmodel)
             #c = src.model.curvature()
             #self.set_model(newmodel, src.name)
-        return nset>0
        
             
 def fix_spectra(roi):
@@ -432,7 +454,7 @@ def fit_diffuse(roi, nbands=8, select=None, restore=False):
     for ie in range(nbands):
         roi.select(ie); 
         roi.reinitialize();
-        roi.fit(select)
+        roi.fit(select, ignore_exception=True)
         energies.append(int(roi.energies[0]))
         dpars.append( roi.sources.parameters.get_parameters())
     t =np.power(10, dpars)
