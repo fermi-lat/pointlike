@@ -1,7 +1,7 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.51 2016/06/22 17:02:53 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.52 2016/07/01 15:55:22 burnett Exp $
 
 author:  Toby Burnett
 """
@@ -236,7 +236,52 @@ class HealpixCube(DiffuseBase):
         a = self.energy_interpolation
         return np.exp( np.log(self.eplane1) * (1-a) 
              + np.log(self.eplane2) * a      )
-            
+    @property        
+    def array(self):
+        """return data as a 2-D Numpy array"""
+        if not self.loaded: self.load()
+        data = self.hdulist[1].data
+        return np.array([row[0] for row in data])
+        
+def make_healpix_spectral_cube(spectra, energies, filename=None):
+    """
+    Generate a FITS format spectral cube from HEALPix data 
+    
+        spectra : array with shape (12*nside**2, nenergies) 
+        energies : array, length nenergies
+        filename : if not None, write the result
+    
+    return the HDU list
+    """
+    naxis2 =spectra.shape[0]
+    nebins = len(energies)
+    assert nebins== spectra.shape[1] , 'Inconsistent length of energy list'
+    nside = int(np.sqrt(naxis2/12))
+    assert  12*nside**2 == naxis2, 'Size not consistent with HEALPix'
+    spec_table = pyfits.BinTableHDU.from_columns([
+            pyfits.Column(name='Spectra', format='{:2d}D'.format(nebins), unit='Intensity', array=spectra)
+        ])
+    spec_table.name = 'SKYMAP'
+    spec_table.header['PIXTYPE']='HEALPIX'
+    spec_table.header['ORDERING']='RING'
+    spec_table.header['NSIDE'] = nside
+    spec_table.header['FIRSTPIX'] = 0
+    spec_table.header['LASTPIX'] = naxis2-1
+    spec_table.header['NBRBINS']=(nebins, 'Number of energy bins')
+    spec_table.header['EMIN'] = (energies[0],'Minimum energy')
+    spec_table.header['DELTAE']= (np.log(energies[1]/energies[0]), 'Step in energy (log)')
+
+    energy_table = pyfits.BinTableHDU.from_columns([
+            pyfits.Column(name='Energy', format='D', unit='MeV',array=energies)
+        ])
+    energy_table.name = 'ENERGIES'
+    hdus = [pyfits.PrimaryHDU(header=None), spec_table, energy_table] 
+    hdulist = pyfits.HDUList(hdus)
+    if filename is not None:
+        if os.path.exists(filename):
+            os.remove(filename)
+        hdulist.writeto(os.path.expandvars(filename))
+    return hdulist
     
 class Healpix(DiffuseBase):
     """Diffuse map using HEALPix representation.
@@ -461,7 +506,7 @@ class IsotropicList(DiffuseList):
                 
         """
         try:
-            fn, corr = adict['filename'], adict['correction']
+            fn, corr = adict['filename'], adict.get('correction', None)
         except Exception, msg:
             print "Fail to create IsotropicList: adict=%s, %s" % (adict, msg)
             raise
