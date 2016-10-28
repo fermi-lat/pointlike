@@ -1,13 +1,14 @@
 """
 Code to generate a standard Fermi-LAT catalog FITS file
 also, see to_xml, to generate XML for the sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_fits.py,v 1.13 2015/02/09 13:35:29 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_fits.py,v 1.14 2015/12/03 17:08:06 burnett Exp $
 """
 import os, argparse, glob
-import pyfits
+from astropy.io import fits as pyfits
 from skymaps import SkyDir
 import numpy as np
 import pandas as pd
+from .analyze import fermi_catalog, sourceinfo
 
 #catdir  = config.catalog_path
 #catalog = config.default_catalog
@@ -174,6 +175,8 @@ class MakeCat(object):
     def __init__(self, z,   add_assoc=False):
         self.z = z  
         self.add_assoc = add_assoc
+        si = sourceinfo.SourceInfo()
+        self.fcat = fermi_catalog.CreateFermiFITS(si.df,names=list(z.index))
         
     def add(self, name, array, fill=0):
         #print ' %s ' % name ,
@@ -242,23 +245,24 @@ class MakeCat(object):
         self.add('Unc_Exp_Index',     np.where(has_exp_index, z.index2_unc, np.nan))
         self.add('Cutoff_Energy',     z.cutoff) 
         self.add('Unc_Cutoff_Energy', z.cutoff_unc) 
-        self.add('Beta',              np.where(logpar, z.index2, np.nan))
-        self.add('Unc_Beta',          np.where(logpar, z.index2_unc, np.nan))
+        self.add('beta',              np.where(logpar, z.index2, np.nan))
+        self.add('Unc_beta',          np.where(logpar, z.index2_unc, np.nan))
         self.add('Energy_Flux100',    z.eflux100 )
         self.add('Unc_Energy_Flux100',z.eflux100_unc)
         self.add('SpectralFitQuality',z.fitqual) 
         self.add('Extended',          extended)
         self.add('Flags',             flags)
         
-        # make the FITS stuff
-        table = pyfits.new_table(self.cols)
-        table.header.update('ERPOSFAC','%.3f'% localization_systematic[0], 'Systematic factor applied to conf95')
-        table.header.update('ERPOSABS','%.4f'% localization_systematic[1], 'systematic value (deg) added in quadrature conf95')
-        table.name = '4year_LAT_Source_Catalog' 
+        # make the FITS stuff, adding the *_Band columns and the EnergyBounds table
+        table = pyfits.BinTableHDU.from_columns(self.cols + self.fcat.make_bands(z.index))
+        table.header['ERPOSFAC']= '%.3f'% localization_systematic[0], 'Systematic factor applied to conf95'
+        table.header['ERPOSABS']= '%.4f'% localization_systematic[1], 'systematic value (deg) added in quadrature conf95'
+        table.name = 'LAT_Point_Source_Catalog' 
         if os.path.exists(outfile):
             os.remove(outfile)
         self.hdus =  [pyfits.PrimaryHDU(header=None),  #primary
                  table,      # this table
+                 pyfits.BinTableHDU.from_columns(self.fcat.make_ebounds(),name='EnergyBounds'),
                 ]
         if self.add_assoc:
             self.hdus += [assoc.cat_ref,]    # the catalog reference (copied)
