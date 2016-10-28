@@ -1,6 +1,6 @@
 """
 Source classes
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.48 2015/07/24 17:57:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.49 2016/03/21 18:54:13 burnett Exp $
 
 """
 import os, copy
@@ -40,8 +40,8 @@ def set_default_bounds( model, force=False):
         plim = (None,None)
         try:
             plim = dict(
-                Index=(-0.5, 5), 
-                Norm=(10**-16, 10**-7),
+                Index=(0.0, 5), 
+                Norm=(10**-18, 10**-7),
                 Scale=(0.001, 4.0),
                 beta=(-0.1, 5.), 
                 Cutoff=(100., 1e5),
@@ -84,7 +84,7 @@ class Source(object):
             try:
                 t =eval(self.model)
             except Exception, exp:
-                print 'Failed to evaluate model expression, %s: %s' %(model, exp)
+                print 'Failed to evaluate model expression, %s: %s' %(source.model, exp)
                 raise
             self.model=t
                 
@@ -186,8 +186,8 @@ class ExtendedSource(Source):
     #    return self.name + ' '+ self.model.name \
     #            +  (' (free)' if np.any(self.model.free) else ' (fixed)') 
     def __str__(self):
-        return '\tname  : %s\n\tskydir: %s\n\tfile  : %s\n\tmodel : %s\n\t\t%s' %\
-    (self.name, self.skydir, self.dmodel.file, self.model.name, self.model.__str__(indent='\t\t'))
+        return '\tname  : %s\n\tskydir: %s\n\tSpatial : %s\n\tmodel : %s\n\t\t%s' %\
+    (self.name, self.skydir, self.dmodel.name, self.model.name, self.model.__str__(indent='\t\t'))
  
   
     def near(self, otherdir, distance=10):
