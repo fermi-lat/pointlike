@@ -1,9 +1,9 @@
 """Tools for parameterizing log likelihood curves.
 
 Author(s): Eric Wallace, Matthew Kerr, Toby Burnett
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.22 2014/02/11 04:17:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.24 2015/02/09 13:35:28 burnett Exp $
 """
-__version__ = "$Revision: 1.22 $"
+__version__ = "$Revision: 1.24 $"
 
 import numpy as np
 from scipy import optimize, special, polyfit, stats
@@ -206,8 +206,10 @@ class PoissonFitter(object):
         """
         self.func = func
         #first check derivative at zero flux - delta is sensitive
-        s = self.wprime = (func(delta)-func(0))/delta
+        self.f0 = func(0)
+        s = self.wprime = (func(delta)-self.f0)/delta
         self.smax = self.find_max(scale) if s>=0 else 0.
+        self.ts = 2.*(func(self.smax) - self.f0)
         # determine values of the function corresponding to delta L of 0.5, 1, 2, 4
         # depending on how peaked the function is, this will be from 5 to 8 
         # The Poisson will be fit to this set of values
@@ -288,8 +290,8 @@ class PoissonFitter(object):
         smax = self.smax
         if smax>0:
             # function to fit has positive peak. Fit the drived parameters mu, beta
-            cod = self(self.dom)-self(smax)
-            #print 'smax=%.2f, w(%s)=%s' % (smax, self.dom, cod)
+            cod = self(self.dom)-self.func(smax)
+            #print 'smax=%.2f, w(smax)=%s, w(%s)=%s' % (smax,self.func(smax), self.dom, cod)
             def fitfunc(p):
                 mu,beta=p
                 e=(mu-beta)/smax; b = beta/e
@@ -327,7 +329,7 @@ class PoissonFitter(object):
         if t>tol: raise Exception('PoissonFitter: maximum deviation, %.2f > tolerance, %s'%(t,tol))
         return t, deltas
     
-    def plot(self, ax=None):
+    def plot(self, ax=None, xticks=True ):
         """Return a figure showing the fit"""
         import matplotlib.pyplot as plt
         xp = self.dom
@@ -339,36 +341,43 @@ class PoissonFitter(object):
         ax.plot(x, np.exp(self(x)-pfmax), '-', label='Input')
         ax.plot(xp, np.exp(self._poiss(xp)), 'o', label='approx')
         ax.plot(x, np.exp(self._poiss(x)), ':')
-        ax.legend(loc='lower left', prop =dict(size=8) )
-        ax.set_xticks([0, xp[-1]])
+        ax.legend(loc='upper right', prop =dict(size=8) )
+        if xticks:
+            ax.set_xticks([0, xp[-1]])
         ax.grid()
+        fig.set_facecolor('white')
         return fig
 
-    def normalization_summary(self, nominal=1.0):
+    def normalization_summary(self, nominal=None):
         """return a dict with useful stuff for normalization check
+            nominal: None or float
+                if specified, calculate delta_ts and pull
         """
         poiss = self.poiss
         lower, upper = poiss.errors
         maxl = poiss.flux
         err = self.maxdev
-        mf =self(nominal)
-        delta_ts = 2.*(self(maxl) - mf )
+        if nominal is not None:
+            mf =self(nominal)
+            delta_ts = 2.*(self(maxl) - mf )
         if lower>0:
-            pull = np.sign(maxl-mf) * np.sqrt(max(0, delta_ts))
-            return dict(
+            pull = np.sign(maxl-mf) * np.sqrt(max(0, delta_ts))\
+            if nominal is not None else None
+            summary  = dict(
                 maxl=maxl,
                 lower=lower, upper=upper,
-                ts=poiss.ts,
-                delta_ts=delta_ts,
-                pull=pull, err=err,
+                ts=self.ts, # poiss.ts,
+                err=err,
                 )
         else:
             # just an upper limit
-            pull = -np.sqrt(max(0, delta_ts))
-            return dict(maxl=0,lower=0, upper=poiss.cdfinv(0.05), ts=0, 
-                delta_ts=delta_ts, pull=pull, err=err,
+            pull = -np.sqrt(max(0, delta_ts)) if nominal is not None else None
+            summary= dict(maxl=0,lower=0, upper=poiss.cdfinv(0.05), ts=0, 
+                 err=err,
                 )
-   
+        if nominal is not None:
+            summary.update(delta_ts=delta_ts, pull=pull) 
+        return summary
 
  
 class MultiPoiss(object):
@@ -522,6 +531,99 @@ class MultiPoiss(object):
         axes.axhspan(yl,yu, color='r', alpha=0.5)
         axes.grid(True)
         plt.rcParams['axes.linewidth'] = oldlw
+
+def plot_pixel_counts(roi, iband, source_name, ax=None, ymax=1e-2, xmax=1.0,title=None):
+    from matplotlib import pylab as plt
+    q = roi[iband]
+    source = roi.get_source(source_name)
+    qs = q[source.name]
+    pix_dist = np.degrees(np.array([qs.source.skydir.difference(x) for x in q.band.wsdl]))
+    if ax is None:
+        fig,ax=plt.subplots(figsize=(6,6))
+    else:
+        fig=ax.figure
+    ax.semilogy(pix_dist, qs.pix_counts, 'og', label=qs.source.name)
+    ax.semilogy(pix_dist, q[0].pix_counts+q[1].pix_counts, 'xr', label='diffuse')
+    ax.semilogy(pix_dist, q.model_pixels, 'dr', label='total')
+    x = np.linspace(0, xmax, 101)
+    psf = qs.band.psf
+    norm = qs.expected*qs.band.pixel_area
+    ax.semilogy(x, norm*psf(np.radians(x)), '--g', label='psf, expected={:.1f}'.format(qs.expected))
+    r95 = psf.inverse_integral(95)
+    ax.axvline(r95, ls=':', color='g', label='r95')
+    plt.setp(ax, xlim=(0,xmax), ylim=(1e-5,ymax), xlabel='distance from source [deg]}', 
+             ylabel='counts per pixel');
+    ax.grid();ax.legend(loc='upper right', fontsize=10);
+    if title is not None: ax.set_title(title)
+    fig.set_facecolor('white');
+
+def plotfbpixels(roi, name, eband=8, ymax=0.1):   
+    from matplotlib import pylab as plt
+    energy = roi[2*eband].band.energy; 
+    fig,ax= plt.subplots(1,2, figsize=(12,6), sharey=True)
+    plot_pixel_counts(roi, 2*eband, name, ax=ax[0], ymax=ymax, title='Front');
+    plot_pixel_counts(roi, 2*eband+1, name, ax=ax[1], ymax=ymax, title='Back');
+    fig.suptitle('{:.1f} GeV'.format(energy/1e3), fontsize=12)
+
+def plot_loglike(roi, source_name=None, gtlike=None, ms=20):
+    from matplotlib import pylab as plt
+    source = roi.get_source(source_name)
+    with  roi.energy_flux_view(source.name,bound=-20) as func: 
+        func.set_energy(1e4)
+        pf = PoissonFitter(func, tol=0.1)
+        pfn = pf.normalization_summary()
+        x = np.linspace(0,pf.dom[-1]*1.05) #np.linspace(0,xlim,101)
+        nh = func(0)
+        xmax = pfn['maxl']
+        ts = 2*(func(xmax)-nh)
+        npred = sum([b[source.name].counts for b in roi.selected])        
+        xl=pfn['lower']; xu=pfn['upper']
+        fig, (ax1,ax2) = plt.subplots(2,1, figsize=(6,8), sharex=True)
+        ax1.plot(x, func(x)-nh, '-')
+        ax1.plot(xmax, func(xmax)-nh, 'o', ms=ms)
+        ax1.plot([xl,xu], func([xl,xu])-nh, '|b', ms=ms, lw=3)
+        if gtlike is not None:
+            ax1.axvline(gtlike[0])
+            ax1.axvline(gtlike[0]+gtlike[1])
+            ax1.axvline(gtlike[0]+gtlike[2])
+        ax1.grid()
+        ax1.set_title('{} - TS={:.0f}, npred={:.1f}'.format(source.name,ts,npred));
+        ax1.set_ylabel('log likelihood')
+        fig.set_facecolor('white')
+        pf.plot(ax=ax2, xticks=False)
+        ax2.set_ylabel('differential probability')
+        ax2.set_xlabel('energy flux [eV/cm**2/s]')
+    return pf.normalization_summary()
+
+def plot_roi(roi,center=None, radius=5, band_index=16, 
+        pix_min=0.001, src_min=0.25, ax=None,text_offset=(0.1,0.1)):
+    from uw.utilities import image
+    from matplotlib import pylab as plt
+    q = roi[band_index]
+    high = q.model_pixels>pix_min 
+    qdf = q.dataframe()
+    sel = qdf[(qdf.counts>src_min) & (qdf.diffuse==False) ]
+    wsdl = list(q.band.wsdl)
+    wsdl_high = [x for x,c in zip(wsdl,high) if c]
+
+    roi_radius=radius
+    if ax is None:
+        fig,ax = plt.subplots(figsize=(15,15))
+    else: fig=ax.figure
+    if center is None: center=roi.roi_dir    
+    zea = image.ZEA(center, size=2*radius, axes=ax)
+    #zea.circle(center, radius, color='grey' )
+    zea.plot(wsdl, marker='.' , color='blue')
+    zea.plot(wsdl_high, marker='o',color='red' )
+    #zea.plot([SkyDir(350.62,-42.37)], text=['MRF2689'], marker='+', text_offset=(1,1), s=100)
+    names = list(sel.index)
+    sdirs = [roi.get_source(name).skydir for name in names]
+    zea.plot(sdirs, text=names, marker='+', text_offset=text_offset,text_kw=dict(fontsize=10), s=100)
+    zea.scale_bar()
+    zea.axes.set_title(q.band.__repr__())
+    zea.axes.figure.set_facecolor('white');
+    return zea
+
 if __name__ == "__main__":
     print __doc__
     import doctest
