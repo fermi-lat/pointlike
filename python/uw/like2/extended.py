@@ -1,7 +1,7 @@
 """
 Extended source code
 Much of this adapts and utilizes 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.13 2016/03/21 18:54:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.14 2016/05/31 17:29:50 burnett Exp $
 
 """
 import os, copy, glob
@@ -45,7 +45,7 @@ class ExtendedSourceCatalog(object):
         self.names = np.array([n.strip() for n in f[1].data.field('Source_Name')])
         ras   = f[1].data.field('RAJ2000')
         decs  = f[1].data.field('DEJ2000')
-        form = f[1].data.field('Model_Form')
+        form = [x.strip() for x in f[1].data.field('Model_Form')]
         major = f[1].data.field('Model_SemiMajor')
         minor = f[1].data.field('Model_SemiMinor')
         posang = f[1].data.field('Model_PosAng')
@@ -69,16 +69,16 @@ class ExtendedSourceCatalog(object):
         self.spatial_models = []
         fail = False
         for i in range(len(self.names)):
-            #print 'unpacking source {}'.format(self.names[i])
-            if self.force_map:
+            #print 'unpacking source "{}", form: "{}"'.format(self.names[i], form[i]), 
+            if self.force_map or form[i] in ('Map','Ring'):
                 self.spatial_models.append(
                     SpatialMap(file=self.templates[i].replace(' ', '')))
-            elif form[i] == 'Disk':
+            elif form[i] in ('Disk', 'RadialDisk'):
                 if major[i] == minor[i] and posang[i] == 0:
                     self.spatial_models.append(Disk(p=[major[i]],center=self.dirs[i]))
                 else:
                     self.spatial_models.append(EllipticalDisk(p=[major[i],minor[i],posang[i]],center=self.dirs[i]))
-            elif form[i] == '2D Gaussian':
+            elif form[i] in ('2D Gaussian', 'RadialGaussian'):
                 if major[i] == minor[i] and posang[i] == 0:
                     self.spatial_models.append(Gaussian(p=[major[i]/Gaussian.x68],center=self.dirs[i]))
                 else:
@@ -86,6 +86,7 @@ class ExtendedSourceCatalog(object):
                         EllipticalGaussian(p=[major[i]/Gaussian.x68,minor[i]/Gaussian.x68,posang[i]],
                                            center=self.dirs[i]))
             else:
+                print 'Unrecognized spatial model: {}, assuming a Map'.format(form[i])
                 try:
                     self.spatial_models.append(
                         SpatialMap(file=self.templates[i])
@@ -164,7 +165,7 @@ class ExtendedCatalog( ExtendedSourceCatalog):
     TODO: merge, keeping only needed features
     """
 
-    def __init__(self, extended_catalog_name, **kwargs):
+    def __init__(self, extended_catalog_name, force_map=False,  **kwargs):
         """ initialize by also filling an array with all source spectral models"""
         self.alias = kwargs.pop('alias', dict())
         self.quiet = kwargs.pop('quiet', True)
@@ -179,15 +180,22 @@ class ExtendedCatalog( ExtendedSourceCatalog):
         if not self.quiet:
             print 'Loaded extended catalog %s' % extended_catalog_name
         
-        super(ExtendedCatalog,self).__init__(extended_catalog_name, force_map=True)#**kwargs)
+        super(ExtendedCatalog,self).__init__(extended_catalog_name, force_map=force_map)#**kwargs)
         
         # create list of sources using superclass, for lookup by name
         self.sources = [self.get_sources(self.dirs[i], 0.1)[0] for i in range(len(self.names))]
-        for source in self.sources:
+        for source, spatial_model in zip(self.sources, self.spatial_models):
             model = source.model
             if model.mappers[0].__class__.__name__== 'LimitMapper':
                 #print 'converting mappers for model for source %s, model %s' % (source.name, model.name)
                 source.model = eval('Models.%s(p=%s)' % (model.name, list(model.get_all_parameters())))
+
+            # Replace the spatial model with the one specified by the FITS catalog list    
+            dmodel = source.dmodel
+            if spatial_model.name != 'SpatialMap':
+                assert spatial_model.center.difference(dmodel[0].center)<0.001,\
+                     'Center discrepance for {}: {},{}'.format(source.name, spatial_model.center, dmodel[0].center)
+                source.dmodel[0]=source.spatial_model=spatial_model
 
     def __repr__(self):
         return '%s.%s: %s' % (self.__module__, self.__class__.__name__, self.catname)
