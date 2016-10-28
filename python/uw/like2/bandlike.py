@@ -1,7 +1,7 @@
 """
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.60 2016/06/29 18:05:33 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.61 2016/07/01 15:50:46 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -191,7 +191,7 @@ class BandLike(object):
         """ return a pandas.DataFrame for diagnostics """
         import pandas as pd
         df = pd.DataFrame(dict([(s.source.name, 
-                dict(counts=s.counts.round(), 
+                dict(counts=s.counts.round(1), 
                     overlap=s.overlap, 
                     free=self.free[i],
                     extended=s.source.skydir is not None and hasattr(s.source, 'dmodel'),
@@ -273,7 +273,7 @@ class BandLikeList(list):
         return self._selected
     selected = property(get_selected, set_selected)
         
-    def select(self, index=None, event_type=None):
+    def select(self, index=None, event_type=None, elow=None, ehigh=None,):
         """ Select an energy band or bands
         parameters:
         ----------
@@ -281,8 +281,15 @@ class BandLikeList(list):
             an index into the list of energies; if None, select all bands
         event_type : None, integer, or name
             if None or 'all', select all
-                
+        elow,ehigh : None | float
+            If elow[None] is set, override others, select all bands with energy>elow and < ehigh (if set)
         """
+        if elow is not None:
+            t = filter(lambda b: b.band.energy>elow and 
+                b.band.energy<ehigh if ehigh is not None else True, self[:])
+            assert len(t)>0, 'no bands selected with elow,ehigh= ({},{})'.format(elow,ehigh)
+            self.selected=t
+            return
         etindex = self.bands.config.select_event_type(event_type)
         if index is None and etindex is None: #select all (initially selected) bands
             selected_bands = self[:]
