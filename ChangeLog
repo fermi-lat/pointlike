@@ -1,4 +1,18 @@
 ------------------------------------------------------------
+User: burnett  Fri Oct 28 13:48:14 PDT 2016
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	__init__.py analysis_base.py app.py associations.py counts.py 
+	environment.py export.py hptables.py localization.py 
+	residuals.py roi_info.py sourceinfo.py transient_catalog.py 
+	transientinfo.py 
+Added Files:
+	fermi_catalog.py fhl_comparison.py gc_comparison.py 
+Log Message:
+catch up
+    *
+------------------------------------------------------------
 User: burnett  Fri Jul  1 10:47:47 PDT 2016
 pointlike/python/uw/irfs
 
