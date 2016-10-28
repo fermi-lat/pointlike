@@ -1,7 +1,7 @@
 """
 Plots involving the 1728 ROIs
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/roi_info.py,v 1.9 2014/08/22 22:41:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/roi_info.py,v 1.10 2014/09/07 08:48:41 burnett Exp $
 
 """
 
@@ -251,3 +251,20 @@ class ROIinfo(analysis_base.AnalysisBase):
         
     def all_plots(self): #, other_html=None):
         self.runfigures(self.funcs, self.fnames, **self.plots_kw)
+        
+    def counts_dataframe(self, roi_index):
+        """ return a dataframe with columns for the diffuse sources, free and fixed point sources,
+            total, observed, and pull
+        """
+        c = self.df.ix[roi_index]['counts']
+        cp = dict()
+        scols = []
+        for n,d in c['models']:
+            scols.append(n)
+            cp[n]=np.array(d).round(1)
+        cols = 'total observed'.split()
+        for n in cols:
+            cp[n] = np.array(c[n]).round(1)
+        df= pd.DataFrame(cp, index=np.array(c['energies'],int), columns=scols+cols)
+        df['pull'] = ((df.observed-df.total)/np.sqrt(df.total)).round(1)
+        return df

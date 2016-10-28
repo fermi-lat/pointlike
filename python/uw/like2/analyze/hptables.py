@@ -1,7 +1,7 @@
 """
 Analyze the contents of HEALPix tables, especially the tsmap
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/hptables.py,v 1.9 2015/12/03 17:10:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/hptables.py,v 1.11 2016/04/27 02:22:06 burnett Exp $
 
 """
 
@@ -29,11 +29,15 @@ class HPtables(sourceinfo.SourceInfo):
 
         self.nside = nside= kw.pop('nside', 512)
         self.tsname = tsname=kw.pop('tsname', 'ts')
+        self.input_path=kw.pop('input_path', '.')
+        self.input_model=os.path.realpath(self.input_path).split('/')[-1]
         # get the 
         super(HPtables, self).setup(**kw)
-        self.title = 'TS Table analysis'
-        fnames = glob.glob('hptables_*_%d.fits' % nside )
-        assert len(fnames)>0, 'did not find hptables_*_%d.fits file' %nside
+        self.title = '{} Table analysis'.format(self.tsname)
+        fnames = glob.glob(os.path.join(self.input_path, 'hptables_*_%d.fits' % nside ))
+        
+        assert len(fnames)>0, '''did not find hptables_*_%d.fits file:
+                 try runing healpix_map.assembele_tables''' %nside
 
         self.fname=None
         for fname in fnames:
@@ -48,16 +52,16 @@ class HPtables(sourceinfo.SourceInfo):
         print 'loaded file {}, created {}'.format(self.fname, 
             time.asctime(time.localtime(os.path.getmtime(self.fname))))
         self.tsmap=healpix_map.HParray(self.tsname, self.tables[self.tsname])
-        self.kdemap=healpix_map.HParray('kde', self.tables.kde)
+        self.kdemap=healpix_map.HParray('kde', self.tables.kde) if 'kde' in self.tables else None
 
         self.plotfolder = 'hptables_%s' % tsname
         self.seedfile, self.seedroot, self.bmin = \
-            'seeds_%s.txt'%tsname, '%s%s'%( (tsname[-1]).upper(),self.skymodel[-3:] ) , 0
+            'seeds_%s.txt'%tsname, '%s%s'%( (tsname[-1]).upper(),self.input_model[-3:] ) , 0
         
         self.make_seeds(refresh=kw.pop('refresh', False))
 
-     
-    def make_seeds(self, refresh=False,  tcut=10, bcut=0, minsize=2):
+    
+    def make_seeds(self, refresh=False,  tcut=10, bcut=0, minsize=1):
         """ may have to run the clustering application """
         if not os.path.exists(self.seedfile) or os.path.getsize(self.seedfile)==0 or refresh:
                # or os.path.getmtime(self.seedfile)<os.path.getmtime(self.fname)\
@@ -72,7 +76,7 @@ class HPtables(sourceinfo.SourceInfo):
                 mask = check_ts.monthly_ecliptic_mask( month)
                 print 'created a mask for month %d, with %d pixels set' % (month, sum(mask))
             else: mask=None
-            
+
             # Create the seed list by clustering the pixels in the tsmap
             nseeds = check_ts.make_seeds('test', self.fname, fieldname=self.tsname, 
                 nside=self.nside, rcut=tcut, bcut=bcut, rec=rec, 
@@ -91,13 +95,13 @@ class HPtables(sourceinfo.SourceInfo):
         
         # add info from fit, if there
         self.seeds['ts_fit'] = self.df.ts
-        self.seeds['locqual']=self.df.locqual
+        self.seeds['locqual'] = self.df.locqual
         self.seeds['pindex'] = self.df.pindex
         self.seeds['bad'] = [np.isnan(x) for x in self.seeds.ts_fit]
 
         self.n_seeds = len(self.seeds)
         print 'read in %d seeds from %s' % (self.n_seeds, self.seedfile)
-        outfile = 'seeds_{}.csv'.format(self.skymodel)
+        outfile = 'seeds_{}.csv'.format(self.tsname)
         self.seeds.to_csv(outfile)
         print 'wrote csv file {} with fit info, if any'.format(outfile)
         
@@ -114,6 +118,7 @@ class HPtables(sourceinfo.SourceInfo):
         All data, smoothed with a kernel density estimator using the PSF.
         """
         hpts = self.kdemap
+        if hpts is None: return
         hpts.plot(ait_kw=dict(pixelsize=pixelsize), norm=LogNorm(vmin, vmax))
         fig=plt.gcf()
         fig.set_facecolor('white')
@@ -152,12 +157,15 @@ class HPtables(sourceinfo.SourceInfo):
         all_plot(axx[1], z.ts, np.linspace(0,50,26), 'TS')
         all_plot(axx[2], np.sin(np.radians(z.b)), np.linspace(-1,1,41), 'sin(b)')
         axx[2].axvline(0, color='k')
-        fig.suptitle('Model {}: {} seeds'.format(self.skymodel, len(z)) if title is None else title)
+        fig.suptitle('{} {} seeds from model {}'.format( len(z), self.tsname, self.input_model,)
+             if title is None else title)
         fig.set_facecolor('white')
         return fig
         
     def bad_seed_plots(self):
         """Plots of the %(bad_seeds)d seeds that were not imported to the model
+        Mostly this is because there was no sensible localization. The table below has the localization
+        TS map plots for each one, linked to the source name.
         <br>Left: size of cluster, in 0.15 degree pixels
         <br>Center: maximum TS in the cluster
         <br>Right: distribution in sin(|b|), showing cut if any.
@@ -166,12 +174,14 @@ class HPtables(sourceinfo.SourceInfo):
         self.bad_seeds = sum(self.seeds.bad)
         s='Bad seed list'
         df = self.seeds[self.seeds.bad]['ra dec ts size l b roi'.split()].sort_index(by='roi')
+        df.to_csv(self.plotfolder+'/bad_seeds.csv')
+        print 'Wrote file {}'.format(self.plotfolder+'/bad_seeds.csv')
         s+= html_table(df, name=self.plotfolder+'/bad_seeds', 
                 heading='<h4>Table of %d failed seeds</h4>'%self.bad_seeds,
                 href_pattern='tsmap_fail/%s_tsmap.jpg',
                 float_format=FloatFormat(2))
         self.bad_seed_list = s
-        return self.seed_plots(subset=self.seeds.bad, title='failed seeds')
+        return self.seed_plots(subset=self.seeds.bad, title='{} failed seeds'.format(self.bad_seeds))
         
     def pixel_ts_distribution(self):
         """The cumulative TS distribution

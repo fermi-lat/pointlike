@@ -1,7 +1,7 @@
 """
 Residual plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.14 2015/07/24 17:56:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.15 2015/12/03 17:10:03 burnett Exp $
 
 """
 
@@ -145,6 +145,18 @@ class Residuals(roi_info.ROIinfo):
         fig.text(0.05, 0.5, 'sin(latitude)', rotation='vertical', va='center')
         return fig
 
+    
+    def write_correction(self, vout=None):
+        # get current residual array, replace any nan's with 1.0
+        t = self.resid_array('ring', 'maxl')
+        ra = t[:,:8] # only upto 10 GeV
+        ra[~np.isfinite(ra)]=1.0
+        cv_new = pd.DataFrame(ra) 
+        if vout is None: vout=self.skymodel
+        outfile = os.path.expandvars('$FERMI/diffuse/galactic_correction_%s.csv'%vout)
+        cv_new.to_csv(outfile)
+        print 'wrote diffuse correction file %s' % outfile
+        
     def update_correction(self, vin, vout=None):
         """ update the Galactic Diffuse correction factor array with new residuals
                 NOTE: this is intended to be done by hand
@@ -173,15 +185,20 @@ class Residuals(roi_info.ROIinfo):
             vout=self.skymodel
             print 'setting vout:', vout
         for et in ('front', 'back'):
-            infile = os.path.expandvars('$FERMI/diffuse/isotropic_correction_%s_%s.csv'% (et, vin))
-            assert os.path.exists(infile), 'File %s not found' %infile
+            if vin is not None:
+                infile = os.path.expandvars('$FERMI/diffuse/isotropic_correction_%s_%s.csv'% (et, vin))
+                assert os.path.exists(infile), 'File %s not found' %infile
+                cv_old = pd.read_csv(infile, index_col=0)
+            else:
+                # special case of no initial corrections
+                cv_old = pd.DataFrame(np.ones((1728,8)), columns='0 1 2 3 4 5 6 7'.split(),
+                    index=['HP12_{:04d}'.format(i) for i in range(1728) ])
             # get current residual array, replace any nan's with 1.0
             t = self.resid_array('isotrop', 'maxl', et)
             ra = t[:,:8] # only upto 10 GeV
             ra[ra>2.0]=2.0
             ra[ra<0.5]=0.5
             ra[~np.isfinite(ra)] = 1.0
-            cv_old = pd.read_csv(infile, index_col=0)
             # multiply input corrections by residuals ane write it out
             cv_new = ra * cv_old
             outfile = os.path.expandvars('$FERMI/diffuse/isotropic_correction_%s_%s.csv'% (et,vout))
@@ -303,15 +320,15 @@ class Residuals(roi_info.ROIinfo):
         """
         return self.cartesian_map_array( self.ResidualArray(self, 'pull', 'isotrop', 'back')); 
 
-    def maxl_plots_isotrop_back(self):
+    def maxl_plots_isotrop_back(self, vmin=0.9, vmax=1.1):
         """Max Likelihood for Isotropic back
         """
-        return self.cartesian_map_array( self.ResidualArray(self, 'maxl', 'isotrop', 'back', vmin=0.9, vmax=1.1), bands=4); 
+        return self.cartesian_map_array( self.ResidualArray(self, 'maxl', 'isotrop', 'back', vmin=vmin, vmax=vmax), bands=4); 
         
-    def maxl_plots_isotrop_front(self):
+    def maxl_plots_isotrop_front(self, vmin=0.9, vmax=1.1):
         """Max Likelihood for Isotropic front
         """
-        return self.cartesian_map_array( self.ResidualArray(self, 'maxl', 'isotrop', 'front', vmin=0.9, vmax=1.1), bands=4); 
+        return self.cartesian_map_array( self.ResidualArray(self, 'maxl', 'isotrop', 'front', vmin=vmin, vmax=vmax), bands=4); 
         
     def maxl_map_ring(self, vmin=0.9, vmax=1.1):
         """Max likelihood for ring"""

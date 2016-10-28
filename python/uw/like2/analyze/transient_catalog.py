@@ -22,7 +22,7 @@ class TransientCatalog(analysis_base.AnalysisBase):
     
     <p>This analysis checks the combined monthly transient source detections, and prepares a summary file 
     The individual monthly list is 
-    <a href="http://glast-ground.slac.stanford.edu/Decorator/exp/Fermi/Decorate/groups/catalog/pointlike/skymodels/%(skymodel)s/plot_index.html?skipDecorations'/> here </a>
+    <a href="http://glast-ground.slac.stanford.edu/Decorator/exp/Fermi/Decorate/groups/catalog/pointlike/skymodels/%(skymodel)s/plot_index.html?skipDecoration"/> here </a>
     <br>Output from setup.
     <pre>%(logstream)s</pre>
     """

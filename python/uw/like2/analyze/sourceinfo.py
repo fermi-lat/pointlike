@@ -1,11 +1,13 @@
 """
 Basic analyis of source spectra
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.29 2016/03/21 18:54:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.30 2016/04/27 02:22:06 burnett Exp $
 
 """
 
-import os, pickle, pyfits
+import os
+import astropy.io.fits as pyfits
+import cPickle as pickle
 from collections import Counter
 import numpy as np
 import pylab as plt
@@ -13,6 +15,7 @@ import pandas as pd
 
 from uw.utilities import makepivot
 from . import analysis_base, _html
+from .. import extended, configuration
 from analysis_base import html_table, FloatFormat
 from skymaps import SkyDir, Band
 
@@ -38,6 +41,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                 get_cat3fgl=None
             
             for pkl in pkls:
+                roidir = pkl['skydir']
                 for name, info in pkl['sources'].items():
                     model = info['model']
                     pars = np.empty(4); pars.fill(np.nan)
@@ -67,6 +71,10 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                         fitndf  = sum(1-info['sedrec'].zero_fract)
                     except:
                         fitndf = 10
+                    try:
+                        npred = round(sum(info['sedrec'].npred),1)
+                    except:
+                        npred=np.nan
                     ellipse = info.get('ellipse', None)
                     moment  = info.get('moment', None)
                     has_moemnt = moment is not None
@@ -79,6 +87,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                     else: prefactor = 1.0
                     sdict[name].update(
                         glat=info['skydir'].b(), glon=info['skydir'].l(),
+                        npred=npred,
                         roiname=pkl['name'], 
                         pars= pars, errs=errs, free=free, badfit=badfit,
                         a = ellipse[2] if ellipse is not None else np.nan,
@@ -109,7 +118,8 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                         eflux100_unc = info.get('eflux', (np.nan,np.nan))[1],
                         psr = pulsar,
                         cat3fgl = None if get_cat3fgl is None else get_cat3fgl(name),
-                        transient = not info.get('fixed_spectrum', False) and not info['isextended']
+                        transient= not info.get('fixed_spectrum', False) and not info['isextended'],
+                        roi_dist= np.degrees(info['skydir'].difference(roidir)),
                         )
             df = pd.DataFrame(sdict).transpose()
             df.index.name='name'
@@ -224,7 +234,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                     label='none or poor localization', **hist_kw)
                 ax.text(12, n, 'none or poor localization (TS>%d) :%d'%(tscut[0],n), fontsize=12, color='r')
         plt.setp(ax,  ylabel='# sources with greater TS', xlabel='TS',
-            xscale='log', yscale='log', xlim=(9, 1e4), ylim=(9,10000))
+            xscale='log', yscale='log', xlim=(9, 1e4), ylim=(9,20000))
         ax.set_xticklabels([' ', ' ', '10', '100', '1000'])
         #ax.set_yticklabels(['', '10', '100', '1000'])
             
@@ -556,10 +566,10 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         poor = ( (s.fitqual>30) | (np.abs(s.pull0)>3)) & (s.ts>10) 
         return self.skyplot(s.fitqual[poor], vmin=30, vmax=100, cbtext='TS')
         
-    def pivot_vs_e0(self, xylim=(100, 4e4)):
+    def pivot_vs_e0(self, xylim=(100, 1e5)):
         """ pivot vs e0
         The reference energy, e0, is fixed except by a special run that iterates until the measured pivot energy, 
-        which is the energy at which the differential flux uncertainty is minimum is the same. This plot checks that by measuring the pivot energy, and comparing it with the current reference. Note that e0 is required to be in the range 200 MeV to 20 GeV.
+        which is the energy at which the differential flux uncertainty is minimum is the same. This plot checks that by measuring the pivot energy, and comparing it with the current reference. Note that e0 is required to be in the range 200 MeV to 100 GeV.
         """
         fig, ax = plt.subplots(figsize=(5,5))
         s = self.df
@@ -567,8 +577,8 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         df = self.df
         offset = df.pivot_energy/df.e0-1.0
         df['offset'] = offset
-        not_converged = cut & ( (abs(offset)>0.3) &(df.e0<19999) & (df.e0>201) |
-                                 (df.e0>19999) & (df.pivot_energy<df.e0*0.95) 
+        not_converged = cut & ( (abs(offset)>0.3) &(df.e0<99999) & (df.e0>201) |
+                                 (df.e0>99999) & (df.pivot_energy<df.e0*0.95) 
                                 | (df.e0<201) & (df.pivot_energy>df.e0*1.05)
                                )
         print 'Pivot needs fixing: %d sources' % sum(not_converged)
@@ -858,12 +868,16 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         df['roi'] = map( lambda n:int(n[-4:]), df.roiname)
         df['rname'] = np.array(['HP12_{:04d}'.format(x) for x in df.roi])
         df['roi_dist'] = map(lambda s,r: np.degrees(s.difference(Band(12).dir(r))),df.skydir,df.roi)
-        fig,ax = plt.subplots(figsize=(5,5))
-        ax.hist(df.roi_dist, np.linspace(0,5,26), histtype ='stepfilled')
-        ax.grid(True, alpha=0.5);
-        plt.setp(ax, xlabel='Distance (deg)')
         check = df.roi!=df.actual_roi; 
         print 'Found {} sources in the wrong ROI'.format(sum(check))
+        fig,ax = plt.subplots(figsize=(5,5))
+        hist_kw = dict(bins=np.linspace(0,8,33), histtype ='stepfilled', log=True)
+        ax.hist(df.roi_dist.clip(0,8), **hist_kw)
+        if sum(check)>0:
+            ax.hist(df.roi_dist[check].clip(0.8), color='red', label='wrong ROI', **hist_kw)
+        ax.grid(True, alpha=0.5);
+        ax.legend()
+        plt.setp(ax, xlabel='Distance (deg)', ylim=(0.8,None))
         to_move = df[check]['roi actual_roi ts'.split()].sort_index(by='roi')
         to_move['roi_dist'] = df.roi_dist
         self.roi_check_html = ''
@@ -873,6 +887,24 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                 float_format=FloatFormat(2))
         return fig
 
+    def extended_table(self):
+        """Extended table
+        Table of information for fits, including links to SEDs for all extended sources.
+        %(extended_table_html)s
+        """
+        
+        df = self.df
+        ext = df.isextended; sum(ext)
+
+        cols = 'ra dec ts fitqual pindex roiname'.split()
+        extdf = pd.DataFrame(df[ext][cols]).sort();
+        config = configuration.Configuration('.', quiet=True, postpone=True)
+        ecat = extended.ExtendedCatalog(os.path.expandvars('$FERMI/catalog/')+config.extended)
+        extdf['spatial_model'] = [ecat[name].dmodel.name for name in extdf.index]
+        self.extended_table_html = html_table(extdf, name=self.plotfolder+'/extended_sources',                                        
+                                        heading='<h4>Table of {} extended sources</h4>'.format(len(extdf)),
+                                        float_format=FloatFormat(2))
+        return None
         
         
     
@@ -889,7 +921,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             self.fit_quality,self.spectral_fit_consistency_plots, self.poor_fit_positions,
             self.non_psr_spectral_plots, 
             #self.beta_check, 
-            self.pulsar_spectra, self.curvature, self.pivot_vs_e0, self.roi_check, self.flag_proc, ]
+            self.pulsar_spectra, self.curvature, self.pivot_vs_e0, self.roi_check, self.extended_table, ]
         )
     
 class OldName(object):

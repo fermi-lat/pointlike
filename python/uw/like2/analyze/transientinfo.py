@@ -174,7 +174,7 @@ class Analysis(object):
             monthdf = month.df[month.df.transient]["""
                 ra dec glat glon ts 
                 modelname pindex eflux flux a b ang locqual aprob flux pindex index2 e0 flags
-                flux_unc pindex_unc index2_unc cutoff cutoff_unc eflux100 eflux100_unc fitqual 
+                flux_unc pindex_unc index2_unc cutoff cutoff_unc fitqual 
                 acat adeltats aang has_assoc month""".split()]
             if prefix=='o':
                 monthdf.index = [s.replace('TSxx','TS%02d' % i) for s in monthdf.index]
