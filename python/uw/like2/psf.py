@@ -1,12 +1,11 @@
 """
 Manage the psf
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/psf.py,v 1.1 2013/11/07 17:21:28 burnett Exp $
 
 """
 import numpy as np
 from uw.like import pypsf
-
 
 class PSFmanager(object):
     """ manage the PSF
@@ -66,4 +65,22 @@ class PSFmanager(object):
                
         return PSF(event_type, energy)
 
-        
+def plot_psf(roi, iband, ax=None):
+    from matplotlib import pylab as plt
+    if ax is None:
+        fig,ax = plt.subplots(figsize=(6,6))
+    else: fig = ax.figure
+    q=roi[iband]
+    psf = q.band.psf
+    energy = q.band.energy
+    evt = q.band.event_type
+    pct = np.linspace(1,95,95)
+    rpc = np.array([psf.inverse_integral(z) for z in pct])
+    x = np.linspace(0,rpc[-1],51)
+    ax.plot(x, psf(np.radians(x))/psf(0));
+    rax =ax.twinx()
+    rax.plot(rpc, pct)
+    rax.set_ylabel('percent integral')
+    ax.set_ylabel('relative density')
+    ax.set_xlabel('angle [deg]')
+    ax.set_title('{:.0f} MeV {}'.format(energy, ['front','back'][evt]));       
