@@ -1,6 +1,6 @@
 """
 Export processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/export.py,v 1.14 2015/07/24 17:56:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/export.py,v 1.15 2016/03/21 18:54:57 burnett Exp $
 
 """
 import os, glob
@@ -12,7 +12,7 @@ from . analysis_base import FloatFormat, html_table
 import numpy as np
 import pandas as pd
 import pylab as plt
-import pyfits
+from astropy.io import fits as pyfits
 
 class Export(sourceinfo.SourceInfo):
     """Export to XML and FITS
@@ -38,9 +38,11 @@ class Export(sourceinfo.SourceInfo):
         self.plotfolder = 'export'
         self.sourcecsv = sorted(glob.glob('source*.csv'))[-1]
         self.sourcelist=pd.read_csv(self.sourcecsv, index_col=0)
-        self.error_box_factor = 1.10
-        self.error_box_add = 5e-3
-        self.error_box_cut = 0.25
+        systematic = self.config['localization_systematics']\
+             if 'localization_systematics' in self.config.keys() else (1.1, 0.3)
+        self.error_box_factor = systematic[0]
+        self.error_box_add = systematic[1]/60.
+        self.error_box_cut = 0.5
         self.cuts = '(sources.ts>10) & (sources.a<%.2f) | pd.isnull(sources.locqual)' %self.error_box_cut
     
     def analysis(self, fits_only=False):
@@ -76,7 +78,14 @@ class Export(sourceinfo.SourceInfo):
         * flux13 and unc_flux13 are not in the FITS file, but set to [Unc_]Flux_Density * 1e13 for numerical display.
         """
         t = pyfits.open(self.fits_file)[1].data
-        df = pd.DataFrame(t)
+        # remove columns that have multiple dimensions
+        for j in range(3):#??? why
+            for i,col in enumerate(t.columns):
+                if len(col.array.shape)>1:
+                    t.columns.del_col(i)
+
+        tt=pyfits.BinTableHDU.from_columns(t.columns)
+        df = pd.DataFrame(tt.data)
         df['flux13*'] = df['Flux_Density']*1e13
         df['unc_flux13*'] = df['Unc_Flux_Density']*1e13
         summary = html_table(df.describe().T, float_format=FloatFormat(3),

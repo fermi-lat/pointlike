@@ -4,11 +4,12 @@ Association analysis
 $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.22 2016/03/21 18:54:57 burnett Exp $
 
 """
-import os, glob, sys
+import os, glob, sys, warnings
 import numpy as np
 import pylab as plt
 import pandas as pd
 from astropy.io import fits as pyfits
+from astropy.utils.exceptions import AstropyUserWarning
 
 from skymaps import SkyDir, Band
 from . import sourceinfo
@@ -35,6 +36,9 @@ class Associations(sourceinfo.SourceInfo):
             self.df = df
             print 'Associations: set subset, %d sources, to report on.' % len(df)
         self.load_assoc(self.args)
+        # these suppresses warnings associated with headers
+        warnings.filterwarnings('ignore', category=pyfits.verify.VerifyWarning, append=True)
+        warnings.filterwarnings('ignore', category=AstropyUserWarning, append=True)
     
     def load_assoc(self, fromdf=None, minprob=0.8):
         if fromdf is not None:
@@ -76,7 +80,7 @@ class Associations(sourceinfo.SourceInfo):
             ax.hist(ts[assoc], color='orange', label='associated', **histkw)
             plt.setp(ax, xscale='log', xlabel='TS', xlim=(10,1e4))
             ax.legend(prop=dict(size=10)); ax.grid()
-        def plotb(ax, bins=np.logspace(1,4.5,8)):
+        def plotb(ax, bins=np.logspace(1,4.0,12)):
             for tsvals, label,color in zip( (self.indf[~lowlat].ts, self.indf[lowlat].ts), 
                     ('|b|>5', '|b|<5'), ('blue','red')):
                 all = np.array(np.histogram(tsvals, bins)[0],float)
@@ -274,7 +278,7 @@ class Associations(sourceinfo.SourceInfo):
         #print '%d sources found in other pulsar catalogs' % sum(psrx)
 
         self.atable = '<h4>Compare with LAT pulsar catalog: %s</h4>' % os.path.split(pulsar_lat_catname)[-1]
-        self.atable += '<p>Sources fit with exponential cutoff not in catalog %s' %np.asarray(list(tt.difference(dc2names)))
+        self.atable += '<p>{} sources fit with exponential cutoff not in catalog '.format(len(tt.difference(dc2names)))
         self.atable += html_table(latsel,
                     dict(ts='TS,Test Statistic', aprob='aprob,Association probability', ROI_index='ROI Index,Index of the ROI, a HEALPix ring index'),
                     heading = '<p>%d LAT catalog entries with problems -- not in the model (TS shown as NaN), too weak (TS<10) or not associated.' % sum(missing),
@@ -347,7 +351,7 @@ class Associations(sourceinfo.SourceInfo):
             self.pulsar_candidates='No candidates found'
         return ptx if test else None    
     
-    def localization_check(self, tsmin=100, dtsmax=9, qualmax=5):
+    def localization_check(self, tsmin=100, dtsmax=9, qualmax=5, systematic=None):
         r"""Localization resolution test
         
         The association procedure records the likelihood ratio for consistency of the associated location with the 
@@ -359,22 +363,45 @@ class Associations(sourceinfo.SourceInfo):
         <br>%(localization_html)s
         """
         self.localization_html = 'Cuts: TS>{}, Delta TS<{}, localization quality <{}'.format(tsmin, dtsmax, qualmax) 
+        if systematic is None:
+            systematic = self.config['localization_systematics'] if 'localization_systematics' in self.config.keys() else (1,0)
+        self.localization_html+= '<br>Applied systematic factor {:.2f} and {} arcmin added in quadrature with r95'.format(*systematic)
+        
+
         t = self.df.acat
+        df = self.df
+        r95 = 60* 2.45 * np.sqrt(np.array(df.a, float)*np.array(df.b,float))
         agn = np.array([x in 'crates bzcat agn bllac'.split() for x in t])
         psr = np.array([x in 'pulsar_lat'.split() for x in t])
         unid= np.array([x in 'unid'.split() for x in t])
         otherid=~(agn | psr | unid)
+        
+        #adjust using the systematics
+        deltats = df.adeltats / (systematic[0]**2 + (systematic[1]/r95)**2)
 
-        def select(sel,  df = self.df, tsmin=tsmin, qualmax=qualmax):
-            cut = sel & (df.aprob>0.8) & (df.ts>tsmin) & (df.locqual<qualmax)
-            return df[cut].adeltats
+        def select(sel, rlim=(0,5) ,):
+            cut = sel & (df.aprob>0.8) & (df.ts>tsmin) & (df.locqual<qualmax) & (r95>rlim[0]) & (r95<rlim[1])
+            return deltats[cut]
             
-        fig, axx = plt.subplots(1,3, figsize=(14,5))
-
-        for sel, name, ax in zip((agn, psr,otherid), ('AGN','LAT pulsars', 'other ids'), axx):
-            z = FitExponential(select(sel), name, vmax=dtsmax)
-            z.plot(ax, xlabel=r'$\Delta TS$')
-            print '%s: localization factor=%.2f' %(name, z.factor)
+        cases = [(agn, 'AGN strong', (0,1)), (agn,'AGN moderate', (1,2)), (agn,'AGN weak',(2,20)),
+                (psr, 'LAT PSR',(0,20)), (otherid, 'other ids',(0,20))]
+        zz=[]
+        print '{:12} {:10} {:6} {:6}'.format(*'Selection range number factor'.split())
+        for sel, name,rcut in cases:
+            cut = select(sel, rcut)
+            try:
+                z = FitExponential(cut, name);
+            except:
+                z = None
+            print '{:12} {:10} {:6.0f} {:6.2f}'.format(name,
+                     rcut, len(z.vcut), z.factor if z is not None else 99)
+            zz.append(z)
+            
+ 
+        fig, axx = plt.subplots(2,3, figsize=(12,12), sharex=True)
+        for ax, z in zip(axx.flatten(), zz):
+            z.plot(ax=ax, xlabel=r'$\Delta TS$');
+        axx.flatten()[-1].set_visible(False)           
         return fig
 
     def all_plots(self):    
@@ -389,10 +416,11 @@ class FitExponential(object):
         from scipy import optimize
 
         self.vmax, self.binsize, self.label = vmax, binsize, label
-        self.vcut=vcut = v[(v<vmax) & (v>=0)].clip(0,vmax)
+        #self.vcut=vcut = v[(v<vmax) & (v>=0)].clip(0,vmax)
+        self.vcut=vcut = v[(v<vmax) ].clip(0,vmax)
         self.vmean = vmean = vcut.mean() 
         # find factor that has same average over the interval
-        self.factor = optimize.brentq( lambda x : self.cfactors(x)[3]-self.vmean, 1.0, 1.5)
+        self.factor = optimize.brentq( lambda x : self.cfactors(x)[3]-self.vmean, 0.9,2.0 )
         beta, c0, c1, r = self.cfactors(self.factor)
         self.alpha = len(vcut) / c0 * binsize
         self.beta=beta
@@ -413,7 +441,7 @@ class FitExponential(object):
             fig,ax = plt.subplots(figsize=(5,5))
         else:fig = ax.figure
         x = np.linspace(0, self.vmax, int(self.vmax/self.binsize)+1) 
-        ax.hist( self.vcut, x, label='%d %s'%(len(self.vcut),self.label))
+        ax.hist( self.vcut, x, label='%d %s'%(len(self.vcut),self.label), histtype='stepfilled')
         ax.set_ylim(ymin=0)
         ax.plot(x, self(x), '-r', lw=2,  label='factor=%.2f'% self.factor)
         ax.grid(); ax.legend()

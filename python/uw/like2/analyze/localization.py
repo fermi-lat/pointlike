@@ -1,6 +1,6 @@
 """   Analyze localization 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.14 2015/08/16 01:11:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.15 2016/03/21 18:54:57 burnett Exp $
 
 """
 import os, pickle, collections
@@ -70,7 +70,7 @@ class Localization(sourceinfo.SourceInfo):
         #ax.hist(np.sqrt(wp.delta_ts[self.df.ts>100].clip(0,maxdelta)), bins,label='TS>100\nmean:%f.1'%wp.delta)
         ax.legend(prop=dict(size=10))
         ax.grid()
-        plt.setp(ax, xlabel='sqrt(delta TS)')
+        plt.setp(ax, xlabel='sqrt(delta TS)', ylim=(0.8,None))
         ax=axx[1]
         ax.plot( self.df.ts[cut],np.sqrt(wp.delta_ts[cut].clip(0,maxdelta)), '.')
         ax.grid()
@@ -128,7 +128,7 @@ class Localization(sourceinfo.SourceInfo):
         self.skyplot(self.poorloc.locqual, ax=ax, s=50, vmin=10, vmax=100, cbtext='localization quality')
         return fig 
         
-    def r95(self, qualmax=10):
+    def r95(self, qualmax=5):
         """ Error circle radius
         R95 is the 95 %%%% containment radius. Here I show the semi-major axis.
         Applying cut quality < %(qualmax)d.
@@ -139,11 +139,11 @@ class Localization(sourceinfo.SourceInfo):
         ts = self.df.ts[self.ebox.locqual<qualmax]
         self.qualmax = qualmax
         def hist(ax, rmax=30):
-            bins = np.linspace(0,rmax,31)
-            ax.hist(r95.clip(0,rmax), bins, label='all')
+            bins = np.logspace(-1,2,31)
+            ax.hist(r95, bins, label='all')
             for tsmin in (25,1000):
                 ax.hist(r95[self.df.ts>tsmin].clip(0,rmax), bins, label='TS>%d' % tsmin)
-            plt.setp(ax, xlabel='R95 (arcmin)')
+            plt.setp(ax, xlabel='R95 (arcmin)', xscale='log')
             ax.grid(); ax.legend(prop=dict(size=10))
         def scat(ax):
             #ax.plot( ts, r95, '.')

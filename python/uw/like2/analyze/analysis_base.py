@@ -1,7 +1,7 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.26 2015/12/03 17:10:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.27 2016/04/27 02:22:06 burnett Exp $
 
 """
 
@@ -11,6 +11,7 @@ import pylab as plt
 from mpl_toolkits.axes_grid import axes_grid, axes_size, Divider, make_axes_locatable
 
 from . import _html
+from .. import configuration
 
 class FloatFormat(): #simple formatting functor for to_html!
     def __init__(self, n): self.fmt = '%%.%df' % n
@@ -125,6 +126,7 @@ class AnalysisBase(object):
             os.chdir(self.skymodel_dir)
             print 'chdir to {}'.format(self.skymodel_dir)
         self.skymodel = os.path.split(os.getcwd())[-1]
+        self.config = configuration.Configuration(skymodel_dir, quiet=True, postpone=True)
         self.setup(**kwargs)
         if not os.path.exists('plots'):
             os.mkdir('plots')
@@ -136,7 +138,7 @@ class AnalysisBase(object):
                os.makedirs(self.plotfolder)
         else:
             raise Exception('Subclass %s of AnalysisBase did not create a "plotfolder" variable' % self.__class__.__name__)
-
+   
     def setup(self, *args, **kwargs):
         assert False, 'Base class not implemented'
         
