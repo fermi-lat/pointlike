@@ -1,7 +1,7 @@
 """
 Manage the analysis configuration
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.28 2016/06/22 17:02:53 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.29 2016/06/27 23:06:36 wallacee Exp $
 
 """
 import os, sys, types
@@ -49,7 +49,7 @@ class ROIspec(object):
         else:
             return s + 'unspecified HEALPix'
         
-class Configuration(object):
+class Configuration(dict):
     """
     Manage an analysis configuration: the IRF, exposure and data
     This is used by the band class EnergyBand to set up the PSF and exposure for the energy 
@@ -62,6 +62,7 @@ class Configuration(object):
         ('nocreate', False, 'Set True to prevent creation of a binned photon file'),
         ('quiet', False, 'set to suppress most output'),
         ('postpone', False, 'set true to postpone loading data until requested'),
+        ('use_old_irf_code', True, 'allow testing with this switch'),
         )
 
     @keyword_options.decorate(defaults)
@@ -70,7 +71,8 @@ class Configuration(object):
         parameters
         ----------
         configdir: folder containing configuration definition, file config.txt. 
-            If it is not found, look in the parent directory
+            If it is not found, look in the parent directory. If files are in both,
+            first load the parent, then update with the configdir version.
         It is a Python dictionary, and must have the keys:
             irf : a text string name for the IRF
             diffuse: a dict defining the diffuse components
@@ -89,29 +91,10 @@ class Configuration(object):
         will look in input_model['path'] folder
         """
         keyword_options.process(self, kwargs)
-        # make absolute path
-        if configdir.startswith('$'):
-            self.configdir = os.path.expandvars(configdir)
-        elif not configdir.startswith('/'):
-            self.configdir = os.path.join(os.getcwd(), configdir)
-        else:
-            self.configdir = configdir
-        
-        if not os.path.exists(self.configdir):
-            raise Exception( 'Configuration folder %s not found' % self.configdir)
-        config_file = 'config.txt'
-        if not os.path.exists(os.path.join(self.configdir, config_file)):
-            config_file = '../config.txt'
-            if not os.path.exists(os.path.join(self.configdir, config_file)):
-                raise Exception('Configuration file "%s" not found in %s' % (config_file, self.configdir))
-        if not self.quiet: print 'Using configuration file "%s" in folder: %s' % (config_file, self.configdir)
-        
-        # extract parameters config
-        try:
-            config = eval(open(os.path.join(self.configdir, config_file)).read())
-        except Exception, msg:
-            raise Exception('Failed to evaluate config file: %s' % msg)
-            
+
+        config = self.load_config(configdir) 
+        self.update(config)            
+             
         # check for override from kwargs
         for key in 'extended irf'.split():
             if self.__dict__.get(key, None) is None: 
@@ -163,10 +146,14 @@ class Configuration(object):
         
         # use dataset to extract psf and exposure, set up respective managers
         
-        exposure_correction=datadict.pop('exposure_correction', None) if datadict is not None else None        
-        self.irfs = irfman.IrfManager(self.dataset)
-        #self.exposureman = exposure.ExposureManager(self.dataset, exposure_correction=exposure_correction)
-        #self.psfman = psf.PSFmanager(self.dataset)
+        exposure_correction=datadict.pop('exposure_correction', None) if datadict is not None else None 
+        if self.use_old_irf_code:
+            self.exposureman = exposure.ExposureManager(self.dataset,
+                 exposure_correction=exposure_correction)
+            self.psfman = psf.PSFmanager(self.dataset)
+            self.irfs=None
+        else:       
+            self.irfs = irfman.IrfManager(self.dataset)
         
         # check location of model
         # possibilites are the all-sky pickle.zip, from which any ROI can be extraccted, or a specific set of
@@ -231,7 +218,35 @@ class Configuration(object):
             print 'WARNING: pickle.zip not found in %s: no model to load' % self.modeldir
         elif not self.quiet:
             print 'Will load healpix sources from %s/%s' % (self.modeldir,self.modelname)
-            
+    
+    def load_config(self, configdir, config_file='config.txt'):
+        if configdir.startswith('$'):
+            self.configdir = os.path.expandvars(configdir)
+        elif not configdir.startswith('/'):
+            self.configdir = os.path.join(os.getcwd(), configdir)
+        else:
+            self.configdir = configdir
+        
+        if not os.path.exists(self.configdir):
+            raise Exception( 'Configuration folder %s not found' % self.configdir)
+        
+        if os.path.exists(os.path.join(self.configdir, '../'+config_file, )):
+            if not self.quiet: print 'Reading default parameters from ../{}'.format(config_file)
+            try:
+                config = eval(open(os.path.join(self.configdir, '../'+config_file)).read())
+            except Exception, msg:
+                raise Exception('Failed to evaluate config file: %s' % msg)
+        else: config = dict()
+
+        if os.path.exists(os.path.join(self.configdir, config_file)):
+            if not self.quiet: print 'Updating parameters from {}'.format(config_file)
+            try: local = eval(open(os.path.join(self.configdir, config_file)).read())
+            except Exception, msg:
+                raise Exception('Failed to evaluate config file: %s' % msg)
+            config.update(local)
+        assert len(config.keys())>0, 'No dicts found'
+        return config
+        
     def __repr__(self):
         return '%s.%s: %s' %(self.__module__, self.__class__.__name__, self.configdir)
         
