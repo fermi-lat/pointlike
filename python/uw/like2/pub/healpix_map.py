@@ -58,17 +58,17 @@ class HParray(object):
             plt.close(fignum)
             fig = plt.figure(fignum, figsize=(12,6))
             axes = plt.gca()
+        else:
+            fig = axes.figure
         ait=image.AIT(PySkyFunction(skyplotfun) ,axes=axes, **ait_kw)
         ait.imshow(title=title, **kwargs)
+        fig.set_facecolor('white')
         return ait
         
     def plot_ZEA(self, center, size, pixelsize=0.1, title=None, axes=None, fignum=31, zea_kw={}, galactic=True, **kwargs ):
         """ center : tuple
                 RA,DEc or L,B depending on galactic
         """
-        #if not isinstance(SkyDir,center):
-        #    
-        center = SkyDir(center[0],center[1], SkyDir.GALACTIC if galactic else SkyDIr.EQUATORIAL)
         zea = image.ZEA(center, size=size, axes=axes, pixelsize=pixelsize, galactic=galactic)
         zea.fill(self)
         zea.imshow( **kwargs)
@@ -129,7 +129,11 @@ class HPGaussSmooth(HParray):
         if np.isnan(ret) or np.isinf(ret):
             raise Exception('Bad value at %s' %skydir)
         return ret
-        
+    
+    def getcol(self, type=np.float32):
+        """evaluate the Gaussian smoothing on all directions to make a new column
+        """
+        return np.asarray([self(self.dirfun(i)) for i in range(len(self.vec))], type)     
         
 def make_index_table(nside=12, subnside=512, usefile=True):
     """create, and/or use a table to convert between different nside pixelizations
@@ -147,7 +151,20 @@ def make_index_table(nside=12, subnside=512, usefile=True):
         pickle.dump(index_table, open(filename,'w'))
     return index_table
     
-        
+def gaussian_mask(center, sigma, nside):
+    """Return a HEALPix array 
+    
+    center : SkyDir object for maximum  
+    sigma : float
+        sigma in degrees
+    nside : int
+        HEALPix nside parameter
+    
+    """
+    # make an array of distances
+    sig = np.radians(sigma)
+    sds = np.array([min(Band(nside).dir(i).difference(center)/sig, 5) for i in range(12*nside**2)])
+    return np.exp(-0.5*sds**2)        
         
 class HPtables(HParray):
     """ assemble an array from tables in a set of ROIs

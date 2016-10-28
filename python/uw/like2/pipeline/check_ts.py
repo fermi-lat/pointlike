@@ -1,6 +1,6 @@
 """
 Check the residual TS maps for clusters
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_ts.py,v 1.9 2015/12/03 17:33:07 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_ts.py,v 1.10 2016/03/21 18:55:31 burnett Exp $
 
 """
 
@@ -54,6 +54,12 @@ def neighbors(i,j):
     iv = IntVector()
     n = band.findNeighbors(int(i),iv)
     return j in iv
+
+def ajacent_ts(i,rts):
+    iv = IntVector()
+    n = band.findNeighbors(int(i),iv)
+    ats = [rts[i] for i in iv[:4]]
+    return sum(ats), max(ats)
 
 def grow(indeces):
     i = 0
@@ -141,7 +147,7 @@ def monthly_ecliptic_mask( month, elat_max=5):
         
 
 def make_seeds(tsdata,  filename, fieldname='ts', nside=512 ,rcut=10, bcut=0, 
-		out=None, rec=None, seedroot='SEED', minsize=2, max_pixels=30000, mask=None):
+		out=None, rec=None, seedroot='SEED', minsize=1, max_pixels=30000, mask=None):
 
     """
     tsdata: object created by TSdata | string | None
@@ -184,7 +190,7 @@ def make_seeds(tsdata,  filename, fieldname='ts', nside=512 ,rcut=10, bcut=0,
     if out is not None: out.close()
     return len(clusters)
     
-def pipe_make_seeds(skymodel, filename,  fieldname='ts', minsize=2):
+def pipe_make_seeds(skymodel, filename,  fieldname='ts', minsize=1): # changed from 2!
     """
         # Special check for a month, which should mask out the Sun
     """

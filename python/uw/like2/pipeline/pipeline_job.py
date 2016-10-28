@@ -1,9 +1,9 @@
 """
 setup and run pointlike all-sky analysis for subset of ROIs
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.19 2015/08/16 01:12:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.20 2016/03/21 18:55:31 burnett Exp $
 """
-import os, sys, logging
+import os, sys, logging, time, random
 from collections import OrderedDict
 
 import numpy as np
@@ -47,9 +47,7 @@ def main( factory=None, **args):
     assert set(roi_list).issubset(range(1728)), 'ROI indeces, "%s", not in range 0-1727' % roi_list
     
 
-    skymodeldir =SKYMODEL_SUBDIR.replace('/a/wain025/g.glast.u55/','/afs/slac/g/glast/groups/') 
-    #if skymodeldir.split('/')[-1]=='month23':
-    #    raise Exception('Special abort to terminate month23')
+    skymodeldir =SKYMODEL_SUBDIR #.replace('/a/wain025/g.glast.u55/','/afs/slac/g/glast/groups/') 
         
     streamlogdir = os.path.join(POINTLIKE_DIR,skymodeldir,'streamlogs')
     streamlogfile=os.path.join(streamlogdir,'stream%s.%04d.log' % ( PIPELINE_STREAMPATH.split('.')[0], int(PIPELINE_STREAM)) )
@@ -73,6 +71,10 @@ def main( factory=None, **args):
     tzero = tnow = logging.time.time()
     logging.info('Start setup: rois %s ... %s on host %s' % (int(first_roi), int(last_roi), 
         os.environ.get('HOSTNAME','unknown')))
+    
+    ### Random delay to avoid possible collision with other jobs starting at the same time in the same machine
+    time.sleep(0.5*random.random())
+    
     if factory is not None:
         print '--> executing process_roi in %s' % factory
         g = factory(**args)
