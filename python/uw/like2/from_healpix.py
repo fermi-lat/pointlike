@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_healpix.py,v 1.12 2016/03/21 18:54:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_healpix.py,v 1.13 2016/06/29 18:05:33 wallacee Exp $
 """
 import os, pickle, zipfile
 import numpy as np
@@ -111,8 +111,9 @@ class ROImodelFromHealpix(roimodel.ROImodel):
 
             if not self.quiet: print 'Loading global source %s for %d' % (name, index)
             if name not in self.config.diffuse:
-                print 'Warning from from_healpix: diffuse name {} not in diffuse list'.format(name)
-                return None
+                msg= 'diffuse name {} not in diffuse list'.format(name)
+                print msg
+                raise Exception(msg)
             df = self.config.diffuse[name]
             if df is None: 
                 return None
@@ -125,7 +126,10 @@ class ROImodelFromHealpix(roimodel.ROImodel):
 
 
         self.pickle_file = 'pickle/HP12_%04d.pickle' % index[0]
-        p = pickle.load(self._z.open(self.pickle_file))
+        try:
+            p = pickle.load(self._z.open(self.pickle_file))
+        except Exception, msg:
+            raise Exception('Fail to load zipped pickle {}: {}'.format(self.pickle_file, msg))
         if not neighbors:
             self.prev_logl = p.get('prev_logl', []) # make history available
             self.history = p.get('history', []) # will manage history of likelihood, stage, time, stream, cpu time
