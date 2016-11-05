@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Sat Nov  5 14:40:24 PDT 2016
+pointlike/python/uw/irfs
+
+Modified Files:
+	caldb.py 
+Added Files:
+	psfman.py 
+Log Message:
+initial new implementation of PSF management for like2
+    *
+------------------------------------------------------------
 User: burnett  Fri Oct 28 15:37:58 PDT 2016
 pointlike/python/uw/like2
 
