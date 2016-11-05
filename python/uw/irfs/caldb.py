@@ -1,11 +1,11 @@
 """
 Module to provide access to CALDB information
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/caldb.py,v 1.2 2016/06/27 23:06:35 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/caldb.py,v 1.3 2016/06/28 18:57:14 wallacee Exp $
 Author: Eric Wallace
 
 """
-__version__ = '$Revision: 1.2 $'
+__version__ = '$Revision: 1.3 $'
 
 import os
 
@@ -55,12 +55,17 @@ class CALDB(object):
     event_type_partitions = dict(fb = (0,1),
                                  psf = (2,3,4,5),
                                  edisp = (6,7,8,9))
-    def __init__(self,CALDB_dir="$CALDB"):
+    def __init__(self,CALDB_dir="$CALDB", irfname='P8R2_SOURCE_V6'):
         self.CALDB_dir = os.path.abspath(os.path.expandvars(CALDB_dir))
         self.index = self._load_caldb_index()
+        self.irf=irfname
+        t = self.irf.split('_')
+        self.event_class=t[1]
+        self.version = t[0]+'_'+t[2]
     
     def __repr__(self):
-        return "{self.__class__}(CALDB_dir={self.CALDB_dir})".format(self=self)
+        return "{self.__class__}\n CALDB_dir: {self.CALDB_dir},\
+             \n  event_class: {self.event_class} \n  version    : {self.version}".format(self=self)
 
     def _load_caldb_index(self):
         if not os.path.exists(self.CALDB_dir):
@@ -72,7 +77,17 @@ class CALDB(object):
             return fits.getdata(os.path.join(self.CALDB_dir,'caldb.indx'),'CIF')
         raise CALDBError('No CALDB index found in {}'.format(self.CALDB_dir))
     
-    def __call__(self,irf,version="P8R2_V6",event_class="source",event_type='fb'):
+    def filenames(self, irf):
+        """ for compatibility with old code: return a list of filenames in order fb,psf
+        """
+        return [self(irf, event_type=et)['filename'] for et in range(6)]  
+ 
+    def get_aeff(self):
+        return self.filenames('aeff')
+    def get_psf(self,):
+        return self.filenames('psf')
+
+    def __call__(self,irf,version=None,event_class=None,event_type='fb'):
         """Return the filenames and FITS extensions for a given irf.
         
         Parameters
@@ -110,6 +125,9 @@ class CALDB(object):
             in which the keys are the event type names and the values are dicts
             of the form described above.
         """
+        # First use default values
+        if version is None: version = self.version
+        if event_class is None: event_class=self.event_class
 
         irf_entries = self._filter(irf=irf, version=version,
                                    event_class=event_class, event_type=event_type)
