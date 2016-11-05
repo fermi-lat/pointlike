@@ -1,7 +1,7 @@
 """
 Manage the psf, module in uw/irfs
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/psfman.py,v 1.1 2016/11/05 21:40:24 burnett Exp $
 
 """
 import os
@@ -70,8 +70,8 @@ class PSFmanager(dict):
 
         # normalize according to the irfs/latResponse conventions
         ens = (self.e_los*self.e_his)**0.5
-        for i in xrange(tables.shape[2]): # iterate through energy
-            sf = scale_func(ens[i])
+        for i,en in enumerate(ens): # iterate through energy
+            sf = scale_func(en)
 
             # vector operations in incidence angle
             nc,nt,gc,gt,sc,st = tables[:,i,:]
@@ -114,12 +114,12 @@ class PSFmanager(dict):
             weights[i,:] /= weights[i,:].sum()       # normalize weights over cos(theta)
         return weights
 
-    def get_p(self,e,ct,cthetabin=None):
+    def get_p(self,e,ct):
         # Identical to old except for indexing of ct
         ind    = min(np.searchsorted(self.e_his,e),len(self.e_his) - 1)
         p      = self[ct]['tables'][:,ind,:]
         w      = self[ct]['weights'][ind,:]
-        return np.append(p,[w],axis=0) if cthetabin is None else np.append(p[:,cthetabin],1)
+        return np.append(p,[w],axis=0)
 
     def get_cpp_psf(self,e,ct):
         sf = self[ct]['scale_func'](e)
