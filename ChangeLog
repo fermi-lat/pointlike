@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Nov  6 19:13:15 PST 2016
+pointlike/python/uw/irfs
+
+Modified Files:
+	irfman.py 
+Log Message:
+convert to use psfman code for psf; add aeff_plots
+    *
+------------------------------------------------------------
 User: burnett  Sat Nov  5 16:01:14 PDT 2016
 pointlike/python/uw/irfs
 
