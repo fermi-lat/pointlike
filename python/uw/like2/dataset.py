@@ -1,18 +1,19 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.36 2016/06/22 17:02:53 wallacee Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.37 2016/06/27 23:06:36 wallacee Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.36 $'.split()[1]
+version='$Revision: 1.37 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np
 import skymaps, pointlike #from the science tools
 from uw.data import dataman, dssman
 from uw.utilities import keyword_options
-from uw.irfs import caldb
+from uw.irfs import caldb # new code
+from uw.like import pycaldb # old one to keep during transitioi
 
 class DataSetError(Exception):pass
 
@@ -162,7 +163,18 @@ class DataSet(dataman.DataSpec):
         # Now invoke the superclass to actually load the data, which may involve creating the binfile and livetime cube
         super(DataSet,self).__init__(  **dataspec)
         assert self.irf is not None, 'irf was not specifed!'
-        self.CALDBManager = caldb.CALDB(self.CALDB)
+        
+        if self.legacy:
+            # use the old IRF management code
+            if self.CALDB=='$CALDB': self.CALDB=None #restore old default
+            self.CALDBManager = pycaldb.CALDBManager(
+                irf=self.irf, 
+                psf_irf=self.psf_irf,
+                CALDB=self.CALDB,
+                custom_irf_dir=self.custom_irf_dir)
+        else:
+            # new IRF management
+            self.CALDBManager = caldb.CALDB(self.CALDB)
         if self.exposure_cube is None:
             self.lt = skymaps.LivetimeCube(self.ltcube,weighted=False) ###<< ok?
             if self.use_weighted_livetime:
@@ -267,13 +279,12 @@ class DataSet(dataman.DataSpec):
                 s.append(label + '\tNone')
                 return
             s.append(label)
-            s.append(label)
             if len(files) < 10:
-                s.append('\n\t'.join(files))
+                s.append('\t'+ '\n\t'.join(files))
             else:
-                s.append('\n\t'.join(files[:5]))
-                s.append('...')
-                s.append('\n\t'.join(files[-5:]))
+                s.append('\t'+'\n\t'.join(files[:2]))
+                s.append('\t...')
+                s.append('\t'+'\n\t'.join(files[-2:]))
         process_ft('FT1 files: ',self.ft1files)
         process_ft('FT2 files: ',self.ft2files)
         s.append('Binned data: {0}'.format(self.binfile))
@@ -317,16 +328,21 @@ def validate(model_path='.', interval=None, nocreate=False, logfile='dataset.txt
     """
     actual_path =  os.path.expandvars(model_path)
     assert os.path.exists(actual_path), 'Model path %s not found' % actual_path
-    config = 'config.txt' 
+    config = '../config.txt' 
     if not os.path.exists(config):
-        config = '../config.txt'
+        config = 'config.txt'
     assert os.path.exists(config), 'Could not find config.txt in current or parent folder'
     try:
         modelspec = eval(open(os.path.join(actual_path, config)).read())
     except Exception, msg:
         raise DataSetError('could not evaluate config.txt: %s' % msg)
     
-    datadict = modelspec['datadict']
+    #modelspec = configuration.Configuration(model_path, postpone=True)
+    try:
+        datadict = modelspec['datadict']
+    except Exception,msg:
+        print 'Failed to find data set: {}'.format(msg)
+        return False
     dataname = datadict['dataname']
     if interval is None:
         interval= datadict.get('interval', None)

@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.85 2015/12/03 17:08:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.86 2016/10/28 21:18:17 burnett Exp $
 
 """
 import types, time
@@ -439,10 +439,11 @@ class MultiROI(ROI):
     Intended for subclasses
     """
     
-    def __init__(self, config_dir,  quiet=False, postpone=False,):
+    def __init__(self, config_dir,  quiet=False, postpone=False, **kwargs):
         """
         """
-        self.config = configuration.Configuration(config_dir, quiet=quiet, postpone=postpone)
+        self.config = configuration.Configuration(config_dir, quiet=quiet, postpone=postpone,
+             **self.config_kw)
         self.ecat = extended.ExtendedCatalog(self.config.extended)
 
     def setup_roi(self, roi_index):

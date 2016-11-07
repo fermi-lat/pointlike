@@ -1,6 +1,6 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.26 2016/03/21 18:54:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.27 2016/10/28 21:19:39 burnett Exp $
 
 """
 import os, sys, time, pickle, glob
@@ -16,6 +16,7 @@ class Process(main.MultiROI):
     defaults=(
         ('outdir',        '.',   'output folder'),
         ('load_kw', {'rings':2}, 'a dict specific for the loading'),
+        ('config_kw',    {},     'additional configuration keywords'),
         ('localize_flag', False, 'perform localiation'),
         ('localize_kw',   {},    'keywords for localization'),
         ('repivot_flag',  False, 'repivot the sources'),

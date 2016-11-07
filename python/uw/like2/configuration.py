@@ -4,7 +4,7 @@ Manage the analysis configuration
 $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.29 2016/06/27 23:06:36 wallacee Exp $
 
 """
-import os, sys, types
+import os, sys, types, StringIO, pprint
 import numpy as np
 from uw.irfs import irfman
 from . import ( dataset, exposure, psf, from_xml)
@@ -138,7 +138,7 @@ class Configuration(dict):
         else:
             raise Exception('Neither datadict nor dataspec keys in config.txt')
             
-        if self.dataset.psf_event_types:
+        if not self.use_old_irf_code and self.dataset.psf_event_types:
             self.event_type_names = ('PSF0','PSF1','PSF2','PSF3')
         else:
             self.event_type_names = ('front','back')
@@ -248,7 +248,16 @@ class Configuration(dict):
         return config
         
     def __repr__(self):
-        return '%s.%s: %s' %(self.__module__, self.__class__.__name__, self.configdir)
+        ret= '{}.{}'.format(self.__module__, self.__class__.__name__)
+        ret+='\n * configdir {}'.format( self.configdir)
+        ret+='\n * irfs      {}'.format(self.irf+' '+(self.irfs.__repr__() if self.irfs is not None else "(old irf code)"))
+        out=StringIO.StringIO()
+        pprint.pprint(self.diffuse, stream=out, indent=4)
+        ret+='\n * diffuse\n   {}'.format(out.getvalue())
+        out.close()
+        #ret+='\n * diffuse   {}'.format(self.diffuse)
+        ret+='\n * {}'.format(self.dataset)
+        return ret
         
     def get_bands_for_ROI(self, index):
         return self.get_bands(skymaps.Band(12).dir(index), minROI=5)

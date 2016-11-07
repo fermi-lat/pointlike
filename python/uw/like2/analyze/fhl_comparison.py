@@ -1,7 +1,7 @@
 """
 Comparison with a FHL model
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/fhl_comparison.py,v 1.1 2016/10/28 20:48:14 burnett Exp $
 
 """
 
@@ -234,11 +234,11 @@ class FHLcomparison(sourceinfo.SourceInfo):
         fig.set_facecolor('white')
         return fig
 
-    def missing_from_fhl(self,min_ts=25):
+    def missing_from_fhl(self,min_ts=25, max_index=2.5):
         """Plots of UW sources not in FHL
        As expected, amost all UW sources with TS10 above a threshold, apparently 30, are matched. 
-       The exceptions, the red histogram on the right, need to be understood: 
-       the onset represents a measure of the detection efficiency, including the TS>25 requirement
+       The exceptions, the red histograms, need to be understood: 
+       the onset represents a measure of the detection efficiency, including the 3FHL TS>25 requirement, and excluding extended sources.
        <br> %(notinfgl_html)s
         """
         df=self.df; dfuw=self.dfuw
@@ -246,8 +246,25 @@ class FHLcomparison(sourceinfo.SourceInfo):
             min_ts, sum( dfuw.nofhl & (dfuw.ts10>min_ts) ))
         msg+=  '<br>Largest UW TS10: {:.0f}'.format(max(dfuw.ts10[dfuw.nofhl]))
         self.notinfgl_html=msg
+        dfuw['aname']=aname =[a['name'][0] if a is not None else None for a in dfuw.associations]
+        dfuw['roi'] = [int(n[-4:]) for n in dfuw.roiname]
+        dfnogt = dfuw[(dfuw.nofhl)&(dfuw.ts10>25)\
+             & (np.logical_not(dfuw.isextended))\
+             & (dfuw.pindex<max_index)]\
+            ['ra dec glon glat ts ts10 pindex r95 locqual roi aname'.split()]
+        self.notinfgl_html += html_table(dfnogt, float_format=FloatFormat(2),
+                name=self.plotfolder+'/notinfhl',
+                heading='<h4>List of {} {} sources with ts>{} and spec. index <{} not in 3FHL</h4>'.format(len(dfnogt), self.skymodel, min_ts, max_index),
+                )
 
-        fig, axx = plt.subplots(1,2, figsize=(12,6))
+        # save a csv file as well
+        outfile ='missing_from_3FHL.csv' 
+        dfnogt.to_csv(os.path.join(self.plotfolder,outfile))
+        print 'Wrote file {}'.format(self.plotfolder+outfile)
+        self.notinfgl_html += '<br><a href="{}">CSV file of missing sources</a>'.format(outfile)
+
+        # the plots
+        fig, axx = plt.subplots(1,3, figsize=(15,6))
         ax=axx[0]
         histkw = dict(bins=np.logspace(1,4,33), histtype='step', log=True)
         ax.hist(dfuw.ts10.clip(10,1e4), label='all uw', **histkw);
@@ -266,6 +283,20 @@ class FHLcomparison(sourceinfo.SourceInfo):
         ax.grid(True, alpha=0.5)
         ax.legend()
         plt.setp(ax, xscale='linear', ylim=(0.8,None), xlabel='UW TS10');
+
+        ax=axx[2]
+        dfuw['singlat']=np.sin(np.radians(np.array(dfuw.glat,float)))
+        histkw=dict(bins=np.linspace(-1,1,41),histtype='step', lw=2)
+        
+        tscut = dfuw.ts10>min_ts
+        ax.hist(dfuw.singlat[(dfuw.fhl_ok) & tscut], label='match',  color='green', **histkw);
+        histkw.update(histtype='stepfilled')
+        ax.hist(dfuw.singlat[np.logical_not(dfuw.fhl_ok) & tscut], label='not 3FHL', color='red', **histkw);
+        ax.text(0.05,0.9, 'TS10>{}'.format(min_ts), transform=ax.transAxes)
+        plt.setp(ax, xlabel='sin(b)')
+        ax.grid(alpha=0.5)
+        ax.legend()
+
         fig.set_facecolor('white')
         return fig
     
