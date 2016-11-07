@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Sun Nov  6 19:16:34 PST 2016
+pointlike/python/uw/like2/plotting
+
+Modified Files:
+	counts.py sed.py tsmap.py 
+Log Message:
+fix for new PSF
+    *
+------------------------------------------------------------
+User: burnett  Sun Nov  6 19:16:34 PST 2016
 pointlike/python/uw/like2/notebooks
 
 Modified Files:
