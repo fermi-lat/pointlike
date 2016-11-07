@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Nov  6 19:14:13 PST 2016
+pointlike/python/uw/irfs
+
+Modified Files:
+	psfman.py 
+Log Message:
+make cpsf private, add wsdl_value
+    *
+------------------------------------------------------------
 User: burnett  Sun Nov  6 19:13:15 PST 2016
 pointlike/python/uw/irfs
 
