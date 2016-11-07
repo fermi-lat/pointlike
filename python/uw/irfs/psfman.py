@@ -4,6 +4,8 @@ Manage the psf, module in uw/irfs
 $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/psfman.py,v 1.1 2016/11/05 21:40:24 burnett Exp $
 
 """
+__version__='$Revision$'
+
 import os
 from astropy.io import fits
 import numpy as np
@@ -13,25 +15,27 @@ from skymaps import (SkyDir, ExposureWeighter, PythonPsf,)
 from . import caldb
 
 
-
 class PSFmanager(dict):
     """ manage the PSF
-    Much of this code has been imported from the original uw/like/pypsf, writen by M. Kerr,  modified in order to expand to the PSFn event types. 
+    Much of this code has been imported from the original uw/like/pypsf, writen by M. Kerr, 
+     modified in order to expand to the PSFn event types. 
     It uses uw/irfs/caldb to interpret the CALDB information.
     Usage: 
         pman = psfman.PSFmanager() # sets up default CALDB, from $CALDB
         psf = pman(event_type, energy) # returns functor describing the PSF
     
     """
-    def __init__(self, caldb_path='$CALDB'):
-        """cdbman : CALDBmanager
+    def __init__(self, caldb_path='$CALDB', livetimefile=''):
+        """caldb_path   : string
+           livetimefile : filename of the livetime cube file
+                used in the weighting, if not empty
         """
         self.cdbman = caldb.CALDB(caldb_path)
         self.hdus = None
-        # local
-
+        self.livetimefile = livetimefile
+ 
     def __repr__(self):
-        return '{self.__class__}\nCALDB: {self.cdbman}'.format(self=self)
+        return '{self.__class__}\nCALDB: {self.cdbman}\n\tlivetime: {self.livetimefile}'.format(self=self)
 
     def psf_base_integral(self,g,s,dmax,dmin=0):
         """Integral of the PSF base function; g = gamma, s = sigma (scaled),
@@ -50,7 +54,7 @@ class PSFmanager(dict):
         filename = info['filename']
         if self.hdus is None or self.hdus.filename() != filename:
             self.hdus = fits.open(filename)
-            print 'opened "{}"'.format(os.path.split(filename)[-1])
+            #print 'opened "{}"'.format(os.path.split(filename)[-1])
         # scale factor from PSF_SCALING hdu    
         sft = np.asarray(self.hdus[ext['PSF_SCALING']].data.field('PSFSCALE')).flatten()
         self[et]['scale_func']=\
@@ -89,7 +93,7 @@ class PSFmanager(dict):
         #### Calculate the weights -- depend in principle on direction and livetime
         self[et]['weights'] = self._calculate_weights(et)
     
-    def _calculate_weights(self,event_type, livetimefile='',skydir=None):
+    def _calculate_weights(self,event_type, skydir=None):
         """Mostly a copy of like.pypsf.Psf.__calc_weights__
         Adjusted to do a single event type
         """
@@ -101,8 +105,8 @@ class PSFmanager(dict):
 
         elo,ehi,clo,chi = self.e_los,self.e_his,self.c_los[::-1],self.c_his[::-1]
 
-        # note that is is designed to do front and back, so need to copy filenamea nd extname
-        ew = ExposureWeighter(filename, filename, livetimefile, extname, extname)
+        # note that it is designed to do front and back, so need to copy filenamea and extname
+        ew = ExposureWeighter(filename, filename, self.livetimefile, extname, extname)
         
         dummy     = skydir or SkyDir() 
         weights  = np.zeros([len(elo),len(clo)])
@@ -142,11 +146,13 @@ class PSFmanager(dict):
     def __call__(self, event_type, energy=1000):
         """Return a PSF functor of distance for the given event type (e.g., front or back)
             the energy can be changed by a setEnergy method
+
         """
         self.setup_event_type(event_type)
         psfman = self
         
-        class PSF(object):
+        class BandPSF(object):
+            
             def __init__(self,  event_type, energy):
                 self.psfman = psfman # reference for clients that need it, like convolution
                 self.event_type =event_type
@@ -164,9 +170,9 @@ class PSFmanager(dict):
                 self.par[0] /= self.scale**2
                 self.par[1] /= self.scale**2
 
-                # Get the Python function
+                # Get the Python function for internal use
                 nc,nt,gc,gt,sc,st,w = self.par
-                self.cpsf = PythonPsf(sc,st,gc,gt,nc,nt,w)
+                self._cpsf = PythonPsf(sc,st,gc,gt,nc,nt,w)
                 self.r68= self.inverse_integral()
  
             def __repr__(self):
@@ -221,7 +227,17 @@ class PSFmanager(dict):
 
             def overlap(self, roi_dir, radius, skydir): #not tested
                 #return pypsf.PsfOverlap()(roi_dir, self.sd, skydir) 
-                return self.cpsf.overlap_circle(roi_dir, np.radians(radius), skydir)
+                return self._cpsf.overlap_circle(roi_dir, np.radians(radius), skydir)
+
+            def wsdl_value(self, skydir, wsdl):
+                """Return a list of PSF values corresponding to the difference of skydir and the list
+                    paramters:
+                    skydir : SkyDir object,
+                    wsdl   : WeightedSkyDirList: a list of SkyDir
+                """
+                rvals = np.empty(len(wsdl), dtype=float)
+                self._cpsf.wsdl_val(rvals, skydir, wsdl)
+                return rvals
 
             def plot(self, ax=None):
                 from matplotlib import pylab as plt
@@ -244,7 +260,7 @@ class PSFmanager(dict):
                 ax.set_title('{:.0f} MeV {}'.format(self.energy,self.etname));       
 
                
-        return PSF(event_type, energy)
+        return BandPSF(event_type, energy)
 
 
 def plot_psf(roi, iband, ax=None):
