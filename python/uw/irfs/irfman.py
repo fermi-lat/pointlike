@@ -1,17 +1,19 @@
 """Module for managing instrument response functions.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/irfman.py,v 1.4 2016/06/29 22:49:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/irfman.py,v 1.5 2016/07/01 17:47:47 burnett Exp $
 Author: Eric Wallace
 """
-__version__="$Revision: 1.4 $"
+__version__="$Revision: 1.5 $"
 
 import numpy as np
 
 from . import (caldb, psf, effective_area, exposure, IrfError)
+from . import psfman # new version with bug corrected, implements functions with C++ code for speed
 
 
 class IrfManager(object):
-    """An object to manage loading sets of IRFs."""
+    """Manage loading sets of IRFs.
+    """
     event_type_names = ('front','back', 'psf0','psf1','psf2','psf3','edisp0',
                          'edisp1','edisp2','edisp3')
     event_type_partitions = dict(fb = (0,1),
@@ -32,6 +34,11 @@ class IrfManager(object):
         if dataset is not None:
             irfname = dataset.irf
             event_types = 'psf' if dataset.psf_event_types else 'fb'
+            self.dataname = dataset.name
+            self.ltcube = dataset.ltcube
+        else:
+            self.dataname = '(none)'
+            self.ltcube=''
         irfname_parts = irfname.split('_')
         self.event_class = irfname_parts.pop(1)
         self.irf_version = '_'.join(irfname_parts)
@@ -39,7 +46,9 @@ class IrfManager(object):
         self._load_irfs(dataset)
 
     def __repr__(self):
-        return '{self.__class__.__name__}, event_class: {self.event_class}, event_types: {self.event_types}'.format(self=self)
+        txt = '{self.__class__}, event_class: {self.event_class}, event_types: {self.event_types}'.format(self=self)
+        txt +='\n\tdataset: {self.dataname}'.format(self=self)
+        return txt
         
     def _load_irfs(self, dataset):
         psf_info = self.caldb('psf',version=self.irf_version,
@@ -64,20 +73,28 @@ class IrfManager(object):
         
             self._exposure = {et:exposure.Exposure(dataset.lt,aeff,cthetamin=cthetamin)
                                 for et,aeff in self._aeff.items()}
+        else:
+            self._exposure = None
         self._psf = {et:psf.PSF(d['filename'],
                                      rpsf_extension=d['extensions']['RPSF'],
                                      psf_scaling_extension=d['extensions']['PSF_SCALING'],
                                      exposure = self._exposure[et] if dataset is not None else None)
                             for et,d in psf_info.items()}
 
+        # laod THB version for PSF management
+        self._psfman = psfman.PSFmanager(caldb_path=self.caldb.CALDB_dir, livetimefile=self.ltcube)
         
     def psf(self,event_type,energy):
-        """Return a BandPSF for the given energy and event_type."""
+        """Return a BandPSF for the given energy and event_type.
+        """
         et = self._parse_event_type(event_type)
-        return self._psf[et].band_psf(energy)
+        return self._psfman(et, energy) # THB version
+
+        #return self._psf[et].band_psf(energy)
 
     def exposure(self,event_type,energy):
         """Return a BandExposure obect for the given energy and event_type."""
+        assert self._exposure is not None
         et = self._parse_event_type(event_type)
         return self._exposure[et].band_exposure(energy)
 
@@ -115,3 +132,21 @@ def psf_plots(energy=100, x=np.linspace(0,10,51), irfname='P8R2_SOURCE_V6',  ):
         ax.legend();
     fig.suptitle('PSF plots for IRF {} at {:.0f} MeV'.format(irfname, energy))
     return fig
+
+def aeff_plots(irfname='P8R2_SOURCE_V6', x = np.logspace(2,6,41)):
+    import matplotlib.pyplot as plt
+    fig, axx = plt.subplots(1,2, figsize=(15,6), sharex=True, sharey=True)
+    for event_types, ax in zip('fb psf'.split(), axx):
+        irf = IrfManager(None, irfname=irfname, event_types=event_types)
+        aeffs = irf._aeff.values() # the functions
+        ets=irf.event_type_partitions[event_types]
+        #if event_types=='psf': ets = np.flipud(ets) # make psf3 first
+        y = np.array([map(aeff,x) for aeff in aeffs])
+        for et in ets:
+            ax.semilogx(x,y[et-ets[0],:], label='{}'.format(irf.event_type_names[et]),lw=2) 
+        ax.set_xlabel('Effective Area [cm^2]')
+        ax.grid(alpha=0.5)
+        ax.legend();
+    fig.suptitle('Effective Area plots for IRF {}'.format(irfname))
+    return fig
+
