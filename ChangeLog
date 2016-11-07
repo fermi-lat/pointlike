@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Sun Nov  6 19:16:33 PST 2016
+pointlike/python/uw/like2
+
+Modified Files:
+	configuration.py dataset.py exposure.py main.py process.py 
+	response.py 
+Log Message:
+fix for new PSF
+    *
+------------------------------------------------------------
 User: burnett  Sun Nov  6 19:15:36 PST 2016
 pointlike/python/uw/like2
 
