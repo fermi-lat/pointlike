@@ -1,6 +1,6 @@
 """
 Code to generate an ROI counts plot 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.15 2015/12/03 17:33:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.16 2016/03/21 18:56:11 burnett Exp $
 
 Authors M. Kerr, T. Burnett
 
@@ -8,6 +8,7 @@ Authors M. Kerr, T. Burnett
 import os, sys
 import numpy as np
 import pylab as plt
+import pandas as pd
 from matplotlib import font_manager
 from uw.utilities import image
 
@@ -80,7 +81,42 @@ def get_counts(roi, event_type=None, tsmin=10):
     return dict(energies=energies, observed=observed, models=models, 
         names=names, total=total, bandts=bandts, chisq=chisq, uchisq=uchisq, utotal=utotal, uobserved=uobserved)
     
+def get_npred(roi, source_name, event_type=None):
+    """
+    Return array of npred for a given source
+    """
+    bands = roi.selected
+    if event_type is not None:
+        bands = [b for b in bands if b.band.event_type==event_type]
+        num_types = 1
+    else:
+        num_types = len(roi.config.event_type_names)
+    assert len(bands)>0, 'get_counts: no bands found'
+    all_sources = np.array(roi.sources)
+    energies = roi.energies #sorted(list(set([b.energy for b in bands])))
+    nume = len(energies)
+    npred= np.zeros(nume)
+    sindex = [s.name for s in all_sources].index(source_name)
+    for i, energy in enumerate(energies):
+        for b in bands:
+            if b.band.energy==energy:
+                npred[i] += b[sindex].counts
+    return npred
 
+def counts_dataframe(roi, event_type=None,):
+    c = get_counts(roi, event_type)
+    cp = dict()
+    scols = []
+    for n,d in c['models']:
+        scols.append(n)
+        cp[n]=np.array(d).round(1)
+    cols = 'total observed'.split()
+    for n in cols:
+        cp[n] = np.array(c[n]).round(1)
+    df= pd.DataFrame(cp, index=np.array(c['energies'],int), columns=scols+cols)
+    df['pull'] = ((df.observed-df.total)/np.sqrt(df.total)).round(1)
+    return df
+    
 def plot_counts(roi,fignum=1, event_type=None, outfile=None,
         max_label=10, #merge_non_free=True,
         #merge_all=False,
@@ -102,7 +138,7 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
     """
 
     def plot_counts_and_models(ax, count_data,
-                model_kw = dict(linestyle='-', marker=''),
+                model_kw = dict(linestyle='-', marker='', lw=2),
                 total_kw = dict(linestyle='steps-mid', color='black', linewidth=2),
                 obs_kw= dict(linestyle=' ', marker='o', color='black',)
                 ):
@@ -117,7 +153,9 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
             tmodel_kw = model_kw.copy()
             if name.startswith('iso'): tmodel_kw.update(linestyle=':', lw=2)
             elif name.startswith('ring'):tmodel_kw.update(linestyle='--', lw=2)
-            elif name=='(fixed)': tmodel_kw.update(linestyle='-.', lw=3)
+            elif name=='SunMoon': tmodel_kw.update(color='grey')
+            elif name.startswith('fixed'): tmodel_kw.update(linestyle='-.', color='g', lw=3)
+            elif name.startswith('free'): tmodel_kw.update(linestyle='-.', color='r', lw=3)
             ax.loglog(en, data, label=name, **tmodel_kw)
         
         ax.loglog( en, tot, label='Total Model', **total_kw)

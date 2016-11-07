@@ -1,7 +1,7 @@
 """
 Implements exposure calcuations
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/exposure.py,v 1.3 2015/04/29 18:06:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/exposure.py,v 1.4 2016/06/22 17:02:53 wallacee Exp $
 """
 import os
 import numpy as np
@@ -32,6 +32,8 @@ class ExposureManager(object):
                 return [skymaps.DiffuseFunction(f,1000.,False) for f in dataset.exposure_cube]
                 
             type_names = datadict.get('type_names', ('FRONT', 'BACK'))
+            if type_names=='psf':
+                type_names = ['PSF{}'.format(i) for i in range(4)]
             skymaps.EffectiveArea.set_CALDB(dataset.CALDBManager.CALDB)
             skymaps.Exposure.set_cutoff(np.cos(np.radians(dataset.thetacut)))
             aeff_files = dataset.CALDBManager.get_aeff()

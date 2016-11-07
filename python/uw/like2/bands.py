@@ -1,13 +1,14 @@
 """
 manage band classes
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bands.py,v 1.10 2016/05/17 23:18:58 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bands.py,v 1.11 2016/06/22 17:02:53 wallacee Exp $
 """
 import os
 import numpy as np
 import skymaps
 
-energybins = np.logspace(2,5.5,15) # default 100 MeV to 3.16 GeV, 4/decade
+#energybins = np.logspace(2,5.5,15) # default 100 MeV to 3.16 GeV, 4/decade
+energybins = np.logspace(2,6,17) # 100 MeV to 1 TeV, 4/decade
   
 class EnergyBand(object):
     """ Combine three concepts:
@@ -30,8 +31,12 @@ class EnergyBand(object):
         
         # save appropriate psf and exposure
         
-        self.psf = config.irfs.psf(event_type,energy)
-        self.exposure = config.irfs.exposure(event_type,energy)
+        if config.use_old_irf_code: 
+            self.psf=config.psfman(event_type, energy)
+            self.exposure = config.exposureman(event_type, energy)
+        else:
+            self.psf = config.irfs.psf(event_type,energy)
+            self.exposure = config.irfs.exposure(event_type,energy)
         
         # used by client to integrate a function of energy over exposure
         self.integrator = self.exposure.integrator(self.skydir, self.emin, self.emax) 

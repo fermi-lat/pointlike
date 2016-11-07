@@ -1,7 +1,7 @@
 """
 Classes to compute response from various sources
  
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.15 2016/03/30 14:50:07 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.16 2016/06/29 18:05:33 wallacee Exp $
 author:  Toby Burnett
 """
 import os, pickle
@@ -51,7 +51,7 @@ class Response(object):
         self.band=band
         self.source=source
         self.roicenter = self.band.skydir
-        self.quiet = False #kwargs.pop('quiet', False)
+        self.quiet = kwargs.pop('quiet', True)
         self.roi = roi
         self.initialize()
         
@@ -87,8 +87,18 @@ class PointResponse(Response):
         self.overlap = self.band.psf.overlap(self.roicenter, self.band.radius, self.source.skydir)
         self._exposure_ratio = self.band.exposure(self.source.skydir)/self.band.exposure(self.roicenter)
         if self.band.has_pixels:
-            psf_weights = self.band.psf([self.source.skydir.difference(sd) for sd in self.band.wsdl])
-            self.pixel_values = psf_weights*self.band.pixel_area
+            if hasattr(self.band.psf, 'cpsf'):
+                # old PSF class, uses C++ code for speed
+                wsdl = self.band.wsdl
+                rvals  = np.empty(len(wsdl),dtype=float)
+                self.band.psf.cpsf.wsdl_val(rvals, self.source.skydir, wsdl) #from C++: sets rvals
+                self.pixel_values = rvals * self.band.pixel_area
+            else:
+                #  new psf class: cpsf is internal
+                # psf_weights =self.band.psf(
+                #     [self.source.skydir.difference(sd) for sd in self.band.wsdl])
+                psf_weights = self.band.psf.wsdl_value(self.source.skydir, self.band.wsdl)
+                self.pixel_values = psf_weights * self.band.pixel_area
         self.evaluate()
 
         
@@ -134,7 +144,7 @@ class DiffuseResponse(Response):
         self.setup=False
         self.overlap=1
         super(DiffuseResponse, self).__init__(source, band, roi,  **kwargs)
-        self.quiet=False
+        self.quiet=kwargs.get('quiet', True)
         
     def initialize(self):
         if self.setup: return
@@ -409,9 +419,9 @@ class IsotropicResponse(DiffuseResponse):
             #self.corr = dc(roi_index, self.band.energy)
             ##print 'energy, correction: %.0f %.3f' % (self.band.energy, self.corr)
             
-            corr_file = os.path.expandvars(dmodel.kw['correction'])
+            corr_file = dmodel.kw.get('correction', None)
             energy=round(self.band.energy)
-            if energy>10000.:
+            if energy>10000. or corr_file is None:
                 self.corr=1.0
             else:
                 dn = self.roi.sources.diffuse_normalization

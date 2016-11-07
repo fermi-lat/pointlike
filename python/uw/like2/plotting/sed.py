@@ -5,11 +5,12 @@ Manage a SED plot
             sf an SourceFlux object, 
         Plot(sf)()
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.23 2014/07/14 22:47:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.24 2015/12/03 17:33:45 burnett Exp $
 """
 import os, types, sys
 import numpy as np
 import pylab as plt
+import pandas as pd
 from uw.utilities import image
 
 def set_xlabels( axes, gev_scale) :   
@@ -30,7 +31,10 @@ class Plot(object):
     
     """
     def __init__(self, source, energy_flux_unit='eV', gev_scale=True):
-        """ source
+        """ source : object
+                data members: 
+                    name : string
+                    spectral_model : Models.Model object
         
         """
         self.name = source.name
@@ -70,7 +74,8 @@ class Plot(object):
             kwargs: pass to the line to plot
         """
         energy_flux_factor = self.scale_factor*1e6 # from MeV to eV
-        dom = self.dom
+        dom = kwargs.pop('dom', None)
+        if dom is None: dom=self.dom
         axes = self.axes
         
         ## plot the curve
@@ -169,7 +174,7 @@ class Plot(object):
         axes.set_xscale('log')
         axes.set_yscale('log')
         if axis is None:
-            axis = (1e2,4e5, 0.1*self.scale_factor, 1e3*self.scale_factor) 
+            axis = (1e2,1e6, 0.04*self.scale_factor, 1e3*self.scale_factor) 
         axes.axis(axis)
         axes.grid(grid)
         axes.set_autoscale_on(False)
@@ -279,8 +284,54 @@ def stacked_plots(sed,  outdir=None,  **kwargs):
     plt.rcParams['axes.linewidth'] = oldlw
     plt.setp(axes[1], xscale='log', ylabel='pull', ylim=(-3.5,3.5) )
     set_xlabels( axes[1], p.gev_scale )
+    fig.set_facecolor('white');
     
     if outdir is not None:
         p.savefig( outdir, suffix)
     return fig
 
+def plot_other_source(source, other_source, emin=None,
+             uwname='uw7000', gtname='3FHL v9r1',
+             ax=None, **kwargs):
+    """Make a sed plot with an alternative model overlaid
+
+    source, other_souce: sources.Source objects
+        each must have a sedrec member
+    emin : float
+    """
+    source_name = source.name
+    othermodel=other_source.model
+    
+    sdf=pd.DataFrame(source.sedrec)
+    def chisq(source):
+        sdf = pd.DataFrame(source.sedrec)
+        if emin is not None:
+            ee=sdf.elow 
+            return sum(sdf.pull[ee>=emin]**2)
+        return sum(sdf.pull**2)
+        
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(4,5))
+    else:
+        fig = plt.gcf()
+    plot_kw=dict(energy_flux_unit=kwargs.pop('energy_flux_unit','eV'),
+             gev_scale=kwargs.pop('gev_scale',True))
+    
+    ps = Plot(source,  **plot_kw)
+    ps.name = '{}/{}'.format(source_name, other_source.name)
+    #annotation =(0.05,0.9, 'TS=%.0f'% self.TS(source.name))
+    
+
+    plot_kw = dict( label= '%s: %.1f'%(uwname, chisq(source))) #annotate=annotation)
+    ps(axes=ax,  fit_kwargs=plot_kw)
+    
+    ps.plot_model( other_source.model, butterfly=False, 
+                  label='%s: %.1f'%(gtname, chisq(other_source)), 
+                  color='g', lw=4, 
+                  dom=np.logspace(np.log10(emin),6,17) if emin is not None else None,
+                 )
+    
+    ax.legend(prop=dict(size=10))
+    plt.setp(ax, xlim=(100, 1e6), ylim=(0.01,1000))
+    fig.set_facecolor('white')
+    return fig
