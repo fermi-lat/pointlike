@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.74 2015/10/20 22:32:03 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.75 2015/10/20 22:37:05 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -245,7 +245,8 @@ class ParFile(dict):
         try:
             return ra2dec(self.get('RAJ'))
         except KeyError:
-            elong, elat = self.get("ELONG",type=float), self.get("ELAT",type=float)
+            elong = self.get("ELONG",type=float)
+            elat = self.get("ELAT",type=float)
             ra, dec = ec2eq(elong,elat)
             return ra[0]
         
@@ -380,12 +381,35 @@ class ParFile(dict):
             elate = (elate**2 + (pmelate*dt)**2)**0.5
         return [elon,elone,elat,elate]
 
+    def convert_ecliptic(self):
+        """ Convert ecliptic coordinates to celestial coordinates."""
+        if not self.is_ecliptic():
+            return
+        if ('PMELONG' in self.keys()) or ('PMELAT' in self.keys()):
+            elon1,a,elat1,b = self.get_astrometry_ecliptic(epoch=55000)
+            elon2,a,elat2,b = self.get_astrometry_ecliptic(epoch=55365.24)
+            raj1,decj1 = ec2eq(elon1,elat1)
+            raj2,decj2 = ec2eq(elon2,elat2)
+            pmra = (raj2-raj1)*3600*1000*np.cos(
+                np.radians(0.5*(decj1+decj2)))
+            pmdec = (decj2-decj1)*3600*1000
+            self.delete_key('PMELONG')
+            self.delete_key('PMELAT')
+            self.add_key('PMRA',pmra[0])
+            self.add_key('PMDEC',pmdec[0])
+        raj = self.get_ra()
+        decj = self.get_dec()
+        self.add_key('RAJ',dec2sex(raj,mode='ra'))
+        self.add_key('DECJ',dec2sex(decj,mode='dec'))
+        self.delete_key('ELONG')
+        self.delete_key('ELAT')
+
     def set_posepoch(self,epoch):
         """ Update POSEPOCH, evolving RAJ/DECJ if necessary."""
         try:
             posepoch = self['POSEPOCH']
         except KeyError:
-            self.set('POSEPOCH',str(epoch))
+            self.add_key('POSEPOCH',str(epoch))
             return
         if self.is_ecliptic():
             elon,elone,elat,elate = self.get_astrometry_ecliptic(
