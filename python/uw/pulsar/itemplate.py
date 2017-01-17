@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/itemplate.py,v 1.7 2012/12/05 00:12:27 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/itemplate.py,v 1.8 2013/02/05 22:47:48 kerrm Exp $
 
 Provide a method for interactively fitting a multi-gaussian template to data.
 
@@ -17,11 +17,17 @@ from lctemplate import LCTemplate
 from lcspeclike import light_curve
 from optparse import OptionParser
 
-def get_phases(ft1file,get_weights=False,weightcol='WEIGHT'):
+def get_phases(ft1file,get_weights=False,weightcol='WEIGHT',
+    emin=100,tmax=999999999):
     f = pyfits.open(ft1file)
     phases = np.asarray(f['EVENTS'].data.field('PULSE_PHASE'),dtype=float)
+    mask = f['events'].data.field("ENERGY") > emin
+    mask &= f['events'].data.field("TIME") < tmax
+    print len(mask),mask.sum()
+    phases = phases[mask]
     if get_weights:
         weights = np.asarray(f['EVENTS'].data.field(weightcol),dtype=float)
+        weights = weights[mask]
     else: weights = None
     f.close()
     return phases,weights
@@ -115,6 +121,8 @@ if __name__ == '__main__':
     parser.add_option('-c','--weightcol',type='string',default='WEIGHT',help='Column in FT1 file that holds the weight')
     parser.add_option('-p','--prof',type='string',default=None,help='Output name for profile')
     parser.add_option('-m','--min_weight',type='float',default=1e-2,help='Minimum weight to include in fit.')
+    parser.add_option('-Q','--emin',type='float',default=100,help='Minimum energy to include in fit.')
+    parser.add_option('-T','--tmax',type='float',default=999999999,help='Maximum time to include in fit.')
     parser.add_option('-e','--errors',action='store_true',default=False,help='Compute errors on components.')
     
     ## Parse arguments
@@ -122,7 +130,7 @@ if __name__ == '__main__':
     if len(args) < 1:
         raise ValueError('Must provide an FT1 file!')
 
-    phases,weights = get_phases(args[0],get_weights=options.weights,weightcol=options.weightcol)
+    phases,weights = get_phases(args[0],get_weights=options.weights,weightcol=options.weightcol,emin=options.emin)
 
     if options.weights:
         phases = phases[weights > options.min_weight]
@@ -167,7 +175,8 @@ if __name__ == '__main__':
         if options.prof is not None:
             # check that specified directory exists
             out = options.prof
-            if not os.path.exists(os.path.dirname(out)):
+            dname = os.path.dirname(out)
+            if len(dname) > 0 and not os.path.exists(dname):
                 raise IOError('Specified directory %s does not exist!'%(os.path.dirname(out)))
         else:
             out = ''
