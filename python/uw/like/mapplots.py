@@ -12,7 +12,7 @@ from skymaps import SkyDir
 from scipy.stats import poisson,norm
 
 import pylab as P
-from matplotlib import mpl,ticker,font_manager
+from matplotlib import colors,ticker,font_manager
 from matplotlib.ticker import MaxNLocator
 from matplotlib.axes import Axes
 
@@ -234,7 +234,7 @@ class ROITSMapPlotter(ROIMapPlotter):
 
     def imshow_kwargs(self):
         # since this is a residual tsmap, never let the scale go below 25.
-        norm=mpl.colors.Normalize(vmin=0, vmax=25) if np.max(self.pf['PRIMARY'].data) < 25 else None
+        norm=colors.Normalize(vmin=0, vmax=25) if np.max(self.pf['PRIMARY'].data) < 25 else None
         cmap=colormaps.b
         return dict(norm=norm, cmap=cmap)
     
@@ -644,8 +644,8 @@ class ROIDisplay(object):
         self.imshow_args = dict(interpolation='nearest', origin='lower')
 
 
-        self.counts_norm = mpl.colors.LogNorm(vmin=self.counts_min,vmax=self.counts_max)
-        self.norm_res = mpl.colors.Normalize(vmin=-5,vmax=5)
+        self.counts_norm = colors.LogNorm(vmin=self.counts_min,vmax=self.counts_max)
+        self.norm_res = colors.Normalize(vmin=-5,vmax=5)
 
         # first, divide the plot in 4x4
         self.fig = P.figure(self.fignum,self.figsize)
