@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jan 20 10:50:49 PST 2017
+pointlike/python/uw/like
+
+Modified Files:
+	mapplots.py 
+Log Message:
+fix matplotlib import for colors
+    *
+------------------------------------------------------------
 User: kerrm  Tue Jan 17 07:24:06 PST 2017
 pointlike/python/uw/pulsar
 
