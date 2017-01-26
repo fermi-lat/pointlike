@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pixeldata.py,v 1.24 2012/02/12 20:19:04 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.25 2012/07/16 16:44:08 lande Exp $
 
 """
-version='$Revision: 1.24 $'.split()[1]
+version='$Revision: 1.25 $'.split()[1]
 import os, math, pyfits, types, glob
 import numpy as N; np = N
 import pointlike, skymaps
@@ -183,8 +183,8 @@ Create a new PixelData instance, managing data and livetime.
         dummy = skymaps.SkyDir(0,0)
 
         for bin_center in (bands[:-1]*bands[1:])**0.5:
-             ph_f = pointlike.Photon(dummy,bin_center,2.5e8,0)
-             ph_b = pointlike.Photon(dummy,bin_center,2.5e8,1)
+             ph_f = skymaps.Photon(dummy,bin_center,2.5e8,0)
+             ph_b = skymaps.Photon(dummy,bin_center,2.5e8,1)
              bpd.addBand(ph_f)
              bpd.addBand(ph_b)
 
