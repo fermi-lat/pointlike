@@ -1,5 +1,5 @@
 """  A module to handle finding irfs
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pycaldb.py,v 1.13 2016/05/31 00:42:20 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pycaldb.py,v 1.14 2016/06/22 17:02:52 wallacee Exp $
 
     author: Joshua Lande """
 import os
@@ -43,13 +43,13 @@ class CALDBManager(object):
                 except:
                     raise Exception('Environment variable CALDB must be set, or findable by py_facilities package')
 
-        if self.custom_irf_dir is not None:
-            if not os.path.exists(self.custom_irf_dir):
-                raise Exception("custom_irf_dir %s does not exist" % self.custom_irf_dir)
-        else:
-            self.custom_irf_dir = os.environ.get('CUSTOM_IRF_DIR', None)
-        if self.custom_irf_dir is not None and self.custom_irf_dir!='':
-            if not self.quiet: print 'CALDBManager: using custom irf: "%s"' % self.custom_irf_dir
+        # if self.custom_irf_dir is not None:
+        #     if not os.path.exists(self.custom_irf_dir):
+        #         raise Exception("custom_irf_dir %s does not exist" % self.custom_irf_dir)
+        # else:
+        #     self.custom_irf_dir = os.environ.get('CUSTOM_IRF_DIR', None)
+        # if self.custom_irf_dir is not None and self.custom_irf_dir!='':
+        #     if not self.quiet: print 'CALDBManager: using custom irf: "%s"' % self.custom_irf_dir
             
         self.bcf = join(self.CALDB,'bcf')
 
@@ -70,14 +70,23 @@ class CALDBManager(object):
         if not self.quiet: print 'PSF: %s' % self.psf_files
         self.construct_aeff()
         #self.construct_edisp()
+ 
+    def __repr__(self):
+        return "{self.__class__}\n\tCALDB: {self.CALDB}\n\tIRF  : {self.irf})".format(self=self)
 
     def load_caldb_indx(self):
         # parse CALDB_index
         index_fits = pyfits.open(self.CALDB_index)
-        self.irf_names=index_fits[1].data.field('CAL_CBD') # name of the irfs (includes other junk in the string)
-        self.conv_types=index_fits[1].data.field('DETNAM') # Whether irf is front/back
-        self.irf_files=index_fits[1].data.field('CAL_FILE') # name of fits file for the irf
-        self.irf_types=index_fits[1].data.field('CAL_CNAM') # type of irf "RPSF", "EFF_AREA", "EDISP"
+        def get_field(name):
+            return N.array([s.strip() for s in index_fits[1].data.field(name)])
+        # self.irf_names=index_fits[1].data.field('CAL_CBD') # name of the irfs (includes other junk in the string)
+        # self.conv_types=index_fits[1].data.field('DETNAM') # Whether irf is front/back
+        # self.irf_files=index_fits[1].data.field('CAL_FILE') # name of fits file for the irf
+        # self.irf_types=index_fits[1].data.field('CAL_CNAM') # type of irf "RPSF", "EFF_AREA", "EDISP"
+        self.irf_names = get_field('CAL_CBD')
+        self.conv_types = get_field('DETNAM')
+        self.irf_files = get_field('CAL_FILE')
+        self.irf_types = get_field('CAL_CNAM')
         index_fits.close()
 
     def construct_psf(self):
@@ -153,7 +162,7 @@ class CALDBManager(object):
             if os.path.exists(self.aeff_files[0]) and os.path.exists(self.aeff_files[0]):
                 return
 
-        raise Exception("Unable to find the irf %s." % irf)
+        raise Exception("Unable to find effective area for the irf %s." % irf)
 
 
     def construct_edisp(self):
