@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jan 26 14:02:43 PST 2017
+pointlike/python/uw/like
+
+Modified Files:
+	pycaldb.py 
+Log Message:
+disable custom_irf
+    *
+------------------------------------------------------------
 User: burnett  Fri Jan 20 11:00:40 PST 2017
 pointlike/cmt
 
