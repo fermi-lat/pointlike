@@ -1,12 +1,14 @@
 """
 Tools for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.20 2015/12/03 17:08:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.21 2016/10/28 21:24:32 burnett Exp $
 
 """
 import os, sys, time
 import numpy as np
 import pandas as pd
+from astropy.coordinates import Angle
+import astropy.units as u
 
 def ufunc_decorator(f): # this adapts a bound function
     def new_ufunc(self, par):
@@ -108,3 +110,22 @@ def html_table(dataframe, float_precision=2):
     from IPython.display import display, HTML
     fmt = '{:.'+ '{:d}'.format(float_precision) + 'f}'
     return display(HTML(dataframe.to_html(float_format=lambda x:fmt.format(x))))
+
+def parse_jname(name):
+    """ return an (ra,dec) tuple from a name in J format
+    J0258.9+0552 -> (44.725, 5.86667)
+    """
+    ra=(name[1:3]+'h'+name[3:7]+'m')
+    dec = (name[7:10]+'d'+name[10:12]+'m')
+    return map(lambda a: float(Angle(a, unit=u.deg).to_string(decimal=True)),(ra,dec))
+
+def create_jname(ra,dec):
+    """Create the format Jhhmm.m+ddmm
+    note that last digit is truncated, not rounded
+    """
+    ram = np.mod(int(ra*40),1440)/10. # RA in minutes, truncate at 0.1 
+    sign= '+' if dec>=0 else '-'
+    dem = int(abs(dec)*60) #abs( DEC) in minutes, truncated
+    return 'J' +   '{:02d}{:04.1f}'.format(int(ram/60),ram%60)\
+            + sign+'{:02d}{:02.0f}'.format(int(dem/60),dem%60)
+ 
