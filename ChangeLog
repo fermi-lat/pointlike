@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Feb  9 11:02:30 PST 2017
+pointlike/python/uw/like2
+
+Modified Files:
+	to_fits.py 
+Log Message:
+add SourceName as the jname
+    *
+------------------------------------------------------------
 User: burnett  Thu Feb  9 11:01:42 PST 2017
 pointlike/python/uw/like2
 
