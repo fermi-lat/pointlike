@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Feb  9 10:58:02 PST 2017
+pointlike/python/uw/like2
+
+Modified Files:
+	main.py 
+Log Message:
+implement (ra,dec) arg for ROI spec
+    *
+------------------------------------------------------------
 User: burnett  Thu Feb  9 10:56:59 PST 2017
 pointlike/python/uw/like2
 
