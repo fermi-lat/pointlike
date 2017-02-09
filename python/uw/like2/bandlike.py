@@ -1,7 +1,7 @@
 """
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.61 2016/07/01 15:50:46 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.62 2016/10/28 21:06:50 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -32,6 +32,7 @@ class BandLike(object):
         self.bandsources = np.array(map(lambda s: s.response(band, quiet=self.quiet, roi=roi), sources))
 
         self.band = band 
+        self.event_type_name = roi.config.event_type_name(band.event_type)
         self.exposure_factor = band.exposure.correction
         self.data = band.pix_counts  if band.has_pixels else []# data from the band
         self.pixels=len(self.data)
@@ -64,7 +65,7 @@ class BandLike(object):
         b = self.band
         return '%s.%s: %d models (%d free) applied to band %.0f-%.0f, %s with %d pixels, %d photons'\
                 % (self.__module__,self.__class__.__name__,len(self.bandsources), sum(self.free), b.emin, b.emax, 
-                 ('front back'.split()[b.event_type]), self.pixels, sum(self.data), )
+                 self.event_type_name, self.pixels, sum(self.data), )
                  
     def __repr__(self): return self.__str__()
     
@@ -227,7 +228,21 @@ class BandLike(object):
             signal = source.flux_value(skydir) * source.counts
             back = self.model_pixels.mean()
         return signal, back 
-       
+
+    def fluxes(self, skydir):
+        """Return an array of the fluxes for all models at the position
+        skydir : Skydir object | (ra,dec) tuple
+        """
+        loc = skydir if isinstance( skydir,SkyDir,) else SkyDir(*skydir)
+        t = []
+        for bb in self:
+            try:
+                t.append( bb(loc))
+            except:
+                t.append(0)
+        return np.array(t)
+        
+    
          
 class BandLikeList(list):
     """Manage a list of BandLike objects
@@ -284,13 +299,18 @@ class BandLikeList(list):
         elow,ehigh : None | float
             If elow[None] is set, override others, select all bands with energy>elow and < ehigh (if set)
         """
+        etindex = self.config.select_event_type(event_type)
+        type_select = lambda x : True if etindex is None else x==etindex
+        
+
         if elow is not None:
-            t = filter(lambda b: b.band.energy>elow and 
-                b.band.energy<ehigh if ehigh is not None else True, self[:])
-            assert len(t)>0, 'no bands selected with elow,ehigh= ({},{})'.format(elow,ehigh)
+            esel = lambda b: b.band.energy>elow and b.band.energy<ehigh if ehigh is not None else True
+            etsel= lambda b: b.band.event_type==etindex if event_type is not None else True
+            t = filter(lambda b: esel(b) and etsel(b) , self[:]) 
+
+            assert len(t)>0, 'no bands selected with event_type, elow,ehigh= ({},{},{})'.format(event_type,elow,ehigh)
             self.selected=t
             return
-        etindex = self.bands.config.select_event_type(event_type)
         if index is None and etindex is None: #select all (initially selected) bands
             selected_bands = self[:]
         else:
@@ -299,7 +319,8 @@ class BandLikeList(list):
             type_select = lambda x : True if etindex is None else x==etindex
             selected_bands = filter(lambda b: energy_select(b.band.energy) and type_select(b.band.event_type), self)
             if len(selected_bands)==0:
-                raise Exception( 'did not find any bands for energy %.1f and event_type %s: %s are available' %( energy, etindex, self.energies))
+                raise Exception( 'did not find any bands for energy %.1f and event_type %s: %s are available'\
+                 %( energy, etindex, self.energies))
         self.selected = selected_bands
 
     @property
@@ -491,4 +512,25 @@ class BandLikeList(list):
         source.thaw(parname)
         self.reinitialize()
 
+    def select_band(self, energy, et):
+        """ Find a band, given the energy and event type"""
+        for bl in self:
+            if energy<=bl.band.emin : continue
+            if energy>bl.band.emax : continue
+            if et != bl.band.event_type: continue
+            return bl
+        raise Exception(
+            'No band found for energy {:.1f}, event_type {}'.format(energy,ct))
 
+    def source_weight(self, source_index, ra,dec, energy, et):
+        """ Return weight for a source
+
+        source_index : integer
+        ra, dec, energy: float
+        et : event type, (0,1) for (front,back)
+        """
+        # get the BandLike object for energy and event type
+        bl = self.select_band(energy,et)
+        f =bl.fluxes((ra,dec) ) 
+        fs= f[source_index]
+        return fs/(sum(f))
