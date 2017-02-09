@@ -1,13 +1,13 @@
 """
 Code to generate a set of maps for each ROI
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.9 2016/03/30 14:37:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.10 2016/10/28 21:18:41 burnett Exp $
 
 """
 import os, sys,  pickle, types
 import numpy as np
 from skymaps import Band, SkyDir, PySkyFunction, Hep3Vector, PythonUtilities 
 from uw.like import Models
-from . import sources 
+from . import sources, sedfuns 
 from uw.utilities import image
 
 # the default nside
@@ -180,25 +180,30 @@ class ResidualTS(object):
         return self.tsfun(skydir)
         
 
-class ResidualLikelihood(ResidualTS):
+class ResidualUpperLimit(ResidualTS):
     """ save the likelihood function, as the 3-parameter representation of a shifted Poisson, plss the max dev.
     """
     def tsfun(self, skydir):
         self.source.skydir = skydir
-        self.roi.update(True)
+        self.roi.calls =0
+        self.model[0]=1e-13 # initial value 
+        self.roi.initialize(sourcename=self.sourcename)
         #print 'Studying source %s at %s' % (self.sourcename, skydir) ,
 
-        with sedfuns.SourceFlux(self.roi, self.sourcename) as sf:
-            sf.select_band(None)
-            try:
-                pf = loglikelihood.PoissonFitter(sf, tol=1.0)
-                p = pf.poiss.p+ [pf.maxdev]
-                #print 'TS, maxdev: %.2f %.2f' % (pf.poiss.ts, pf.maxdev)
+        with sedfuns.SED(self.roi, self.sourcename) as sf:
+            try: # get a PoissonFItter object 
+                pf = sf.select(None)
+                poiss = pf.poiss #loglikelihood.PoissonFitter(sf, tol=1.0)
+                #print 'TS, maxdev: %.2f %.2f' % (poiss.ts, pf.maxdev)
+                lim = poiss.percentile()
+                if lim==0:
+                    print 'Limit is zero at {}'.format(skydir)
+                return lim
             except Exception, msg:
-                p = [0,0,0, 1.0]
+                p = 0
                 print 'Failed at %s: %s' % (skydir,msg)
-        return p 
-
+                return 0
+ 
 
 class ROItables(object):
     """ manage one or more tables of values subdividing a HEALpix roi
@@ -224,10 +229,9 @@ class ROItables(object):
             if not os.path.exists(subdir):  os.makedirs(subdir)
                     
     def process_table(self, skyfun,name, pos_list, outfile=None, **kwargs):
-        print 'filling table %-5s with %d entries...' % (name, len(pos_list)),
         sys.stdout.flush()
         skytable = np.array([skyfun(p) for p in pos_list])
-        print ' min=%6.1f, max=%6.1f, mean=%6.1f ' \
+        print ' min=%6.2e, max=%6.2e, mean=%6.2e ' \
             % (skytable.min(), skytable.max(),skytable.mean()) ,
         if outfile is not None:
             print '--> %s' % outfile
@@ -312,6 +316,7 @@ class DisplayTable(object):
         zea.imshow( **(show_kw if show_kw is not None else self.imshow_kw))
         zea.colorbar()
         if title is not None: ax.set_title(title)
+        fig.set_facecolor('white')
         return zea
 
 table_info={'ts':  (ResidualTS, dict(photon_index=2.2, model='LogParabola(1e-12, 2.2, 0, 1000.)')),
@@ -320,6 +325,11 @@ table_info={'ts':  (ResidualTS, dict(photon_index=2.2, model='LogParabola(1e-12,
             'tsp': (ResidualTS, dict(model='ExpCutoff(1e-13,2.2, 2000.)')),
             'hard': (ResidualTS, dict(photon_index=1.7, model='LogParabola(1e-15, 1.7, 0, 50000.)')),
             'soft': (ResidualTS, dict(photon_index=2.7, model='LogParabola(1e-12, 2.7, 0, 250.)')),
+            'mspsens': (ResidualUpperLimit, dict(model='ExpCutoff(1e-13,1.2,2800.)')),
+           'mspsens2': (ResidualUpperLimit, dict(model='ExpCutoff(1e-13,1.2,2800.)')),
+           'mspts': (ResidualTS, dict(model='ExpCutoff(1e-13,1.2, 2800.)')),
+            'mspts2': (ResidualTS, dict(model='ExpCutoff(1e-13,1.2, 2800.)')),
+
            }
 
 def residual_maps(roi, folder='residual_maps'):
