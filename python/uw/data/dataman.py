@@ -4,8 +4,8 @@ Module implements classes and functions to specify data for use in pointlike ana
 author(s): Matthew Kerr, Eric Wallace
 """
 
-__version__ = '$Revision: 1.28 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.28 2016/05/17 16:34:23 burnett Exp $
+__version__ = '$Revision: 1.29 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.29 2016/06/22 17:02:49 wallacee Exp $
 
 import os, sys
 import collections
@@ -14,7 +14,7 @@ import warnings
 from cPickle import dump,load
 
 import numpy as np
-import pyfits
+from astropy.io import fits as pyfits
 
 import pointlike
 import skymaps
@@ -64,7 +64,7 @@ def get_default(colname, kw):
     defaults wired in, except for event class, get info from kw args
     """
     if colname == 'ZENITH_ANGLE':
-        return SimpleCut(None,100,'deg','ZENITH_ANGLE')
+        return SimpleCut(None,105,'deg','ZENITH_ANGLE')
     if colname == 'THETA':
         #print 'applying thetacut, kw=', kw
         return SimpleCut(None,kw.get('thetacut',66.4),'deg','THETA')
@@ -270,9 +270,11 @@ class DataSpec(object):
         if self.psf_event_types:
             if not self.quiet:
                 print 'invoking Data.setPhotonBinner for PSFn event types...'; sys.stdout.flush()
-            nsides = [pointlike.IntVector(NsideMapper.nside(bins,i)) for i in range(2,6)]
+            self.event_types = range(2,6)
+            nsides = [pointlike.IntVector(NsideMapper.nside(bins,i)) for i in self.event_types]
             DataSpec.binner = skymaps.PhotonBinner(pointlike.DoubleVector(bins),  *nsides)
         else:
+            self.event_types= (0,1)
             f_nside = pointlike.IntVector(NsideMapper.nside(bins,0))
             b_nside = pointlike.IntVector(NsideMapper.nside(bins,1))
             if not self.quiet:
@@ -312,9 +314,10 @@ class DataSpec(object):
                       ]
         for col,mycut in basic_cuts:
             ft1_cut,index = self.dss.get_simple_dss(col)
-            print 'processing cuts: ', col, mycut
+            if not self.quiet: print 'processing cuts: ', col, mycut
             if self.__dict__[mycut] is not None:
-                print('_make_cuts: working on {0}, cut {1}'.format(col, self.__dict__[mycut] ))
+                if not self.quiet: 
+                    print('_make_cuts: working on {0}, cut {1}'.format(col, self.__dict__[mycut] ))
                 if ft1_cut is not None:
                     # apply more restrictive of two cuts
                     self.__dict__[mycut].intersection(ft1_cut)
@@ -324,7 +327,7 @@ class DataSpec(object):
                     self.__dict__[mycut]['index'] = len(self.dss)+1
                     self.dss.append(self.__dict__[mycut])
             else:
-                print 'ft1_cut', ft1_cut
+                if not self.quiet: print 'ft1_cut', ft1_cut
                 if ft1_cut is not None: self.__dict__[mycut] = ft1_cut
                 else:
                     self.__dict__[mycut] = get_default(col, self.__dict__)
@@ -334,29 +337,32 @@ class DataSpec(object):
     def _get_ft1_dss(self):
         """ Get existing DSS keywords from FT1 files.
             If there is more than one FT1 file present, the protocol
-            is that all DSS entries must agree."""
+            is that all DSS entries must agree.
+            Assume that it is so, only look at the first for PASS and DSS """
         self.data_pass = get_pass(self.ft1files[0])
-        if 'PROC_VER' not in pyfits.getheader(self.ft1files[0]).keys():
-            print 'Warning: PROC_VER not found in %s header' %self.ft1files[0]
-            self.dss = dssman.DSSEntries(self.ft1files[0])
-            return
-        if len(self.ft1files) == 1:
-            self.dss = dssman.DSSEntries(self.ft1files[0])
-        else:
-            all_dss = [dssman.DSSEntries(ft1) for ft1 in self.ft1files]
-            #Kludge to handle inconsistencies in DSS keywords between P120 and P130
-            if (pyfits.getheader(self.ft1files[0])['PROC_VER']<=120 and 
-                pyfits.getheader(self.ft1files[-1])['PROC_VER']>=130):
-                for dss in all_dss:
-                    for i,d in enumerate(dss):
-                        if isinstance(d,dssman.DSSBitMask): dss.delete(i)
-            if not np.all([all_dss[0] == x for x in all_dss]):
-                raise ValueError('DSS keywords are inconsistent for FT1 files.')
-            self.dss = all_dss[0]
-            for ft1 in self.ft1files[1:]:
-                # sanity check that all files have same pass
-                if get_pass(ft1) != self.data_pass:
-                    raise DataError('%s is not Pass %d'%(ft1,self.data_pass))
+        self.dss = dssman.DSSEntries(self.ft1files[0])
+        ###### obsolete--THB
+        # if 'PROC_VER' not in pyfits.getheader(self.ft1files[0]).keys():
+        #     print 'Warning: PROC_VER not found in %s header' %self.ft1files[0]
+        #     self.dss = dssman.DSSEntries(self.ft1files[0])
+        #     return
+        # if len(self.ft1files) == 1:
+        #     self.dss = dssman.DSSEntries(self.ft1files[0])
+        # else:
+        #     all_dss = [dssman.DSSEntries(ft1) for ft1 in self.ft1files]
+        #     #Kludge to handle inconsistencies in DSS keywords between P120 and P130
+        #     if (pyfits.getheader(self.ft1files[0])['PROC_VER']<=120 and 
+        #         pyfits.getheader(self.ft1files[-1])['PROC_VER']>=130):
+        #         for dss in all_dss:
+        #             for i,d in enumerate(dss):
+        #                 if isinstance(d,dssman.DSSBitMask): dss.delete(i)
+        #     if not np.all([all_dss[0] == x for x in all_dss]):
+        #         raise ValueError('DSS keywords are inconsistent for FT1 files.')
+        #     self.dss = all_dss[0]
+        #     for ft1 in self.ft1files[1:]:
+        #         # sanity check that all files have same pass
+        #         if get_pass(ft1) != self.data_pass:
+        #             raise DataError('%s is not Pass %d'%(ft1,self.data_pass))
     def _make_default_name(self,prefix='bpd'):
         """ Come up with a default name for binfile or ltcube."""
         left,right = os.path.split(self.ft1files[0])
@@ -370,7 +376,7 @@ class DataSpec(object):
         if self.binfile is None:
             raise DataManException('No bin file specified')
         if not os.path.exists(self.binfile) :
-            print 'File %s not found' % self.binfile; sys.stdout.flush()
+            print 'Binned file %s not found' % self.binfile; sys.stdout.flush()
             return False
         if self.clobber or self.binfile is None:
             print 'self.clobber or self.binfile is None'; sys.stdout.flush()
@@ -378,18 +384,19 @@ class DataSpec(object):
         #
         # Check DSS keywords
         #
-        dss = dssman.DSSEntries(self.binfile,header_key=0)
-        if (dss is None):
-            print("dss is None"); sys.stdout.flush()
-            return False
-        if self.dss is None: 
-            if not self.quiet: print('Extracting DSS from existing binfile')
-            self.dss = dss
-        if self.dss != dss:
-            print 'File %s Failed DSS keyword check: expected \n%s \nbut found \n%s' % (self.binfile, self.dss, dss)
-            sys.stdout.flush()
-            return False
-        #
+        # dss = dssman.DSSEntries(self.binfile,header_key=0) # this header_key returns []
+        # if (dss is None):
+        #     print("dss is None"); sys.stdout.flush()
+        #     return False
+        # if self.dss is None: 
+        #     if not self.quiet: print('Extracting DSS from existing binfile')
+        #     self.dss = dss
+        # if self.dss != dss:
+        #     print 'File %s Failed DSS keyword check: expected \n%s \nbut found \n%s' % (self.binfile, self.dss, dss)
+        #     sys.stdout.flush()
+        #     return False
+        if not self.quiet: print 'Assuming no DSS keywords in the binfile'
+        # #
         #  Check GTI
         #
         gti = skymaps.Gti(self.binfile)
@@ -399,7 +406,7 @@ class DataSpec(object):
         self.gti = gti
         if  (gti.minValue!=self.gti.minValue) or abs((gti.computeOntime() - self.gti.computeOntime())>1.0 ):
             print 'File %s Failed GTI check: \n  expect %s \n  found  %s' % (self.binfile, self.gti, gti)
-            return self.legacy # ignore if legacy, for now
+            return False #self.legacy # ignore if legacy, for now
         
         if (not self.quiet): print('Verified binfile {0}'.format(self.binfile))
         return True
@@ -446,19 +453,22 @@ class DataSpec(object):
         #if os.path.exists(self.ltcube) and self.legacy : 
         #    print('Accepting ltcube without dss checks since legacy specified')
         #    return True
-        if self.clobber or (not os.path.exists(self.ltcube or '')): 
-            print 'checking ltcube: failed clobber on %s' % self.ltcube
+        ltcubes = glob.glob(self.ltcube)
+        if len(ltcubes)==0:
+        #if self.clobber or (not os.path.exists(self.ltcube or '')): 
+            print 'Checking ltcube: will generate new {}'.format(self.ltcube)
             return False
         # check for presence of important history
         # eew -- primary header doesn't have info about extensions, so just
         #   open the file and use that handle to check header keys and
         #   extensions.
         # h = pyfits.getheader(self.ltcube,0) 
-        lt = pyfits.open(self.ltcube)
-        try:
-            lt[0].header['RADIUS']; lt[0].header['PIXSIZE']
-        except KeyError: 
-            if not self.quiet: print 'no header info in ltcube?' #pass #return False
+        lt = pyfits.open(ltcubes[0])
+        #   DISABLE this: seems to be normal
+        # try:
+        #     lt[0].header['RADIUS']; lt[0].header['PIXSIZE']
+        # except KeyError: 
+        #     if not self.quiet: print 'no header info in ltcube?' #pass #return False
         # check for weighted extension if we are using it
         if self.use_weighted_livetime:
             #try: h['WEIGHTED_EXPOSURE']
@@ -470,26 +480,29 @@ class DataSpec(object):
         #        
         # DSS check
         #
-        dss = dssman.DSSEntries(self.ltcube,header_key=0)
+        nodss=False
+        dss = dssman.DSSEntries(ltcubes[0],header_key=0)
         if dss is None or len(dss)==0: 
-            if self.legacy:
-                if not self.quiet: print 'Accepting ltcube without DSS info since legacy specified'
+            nodss=True
+            if True: # Permamently allow this self.legacy:
+                #if not self.quiet: print 'Accepting ltcube without DSS info since legacy specified'
                 dss=self.dss
             else:
-                raise DataManException('DSS found in ltcube %s' % self.ltcube)
+                raise DataManException('DSS found in ltcube %s' % ltcubes[0])
         if dss != self.dss:
             print 'Failed dss comparison:\n ltcube %s,\n FT1 %s' % (dss, self.dss)
             return False
         #
         # compare GTI with that found in FT1 or binfile
         #
-        gti = skymaps.Gti(self.ltcube)
+        gti = skymaps.Gti(ltcubes[0])
         tdiff = gti.computeOntime() - self.gti.computeOntime()
         if  (gti.minValue()!=self.gti.minValue()) or abs(tdiff)>1:
             print 'Failed gti check, time difference %.1f:\n  ltcube: %s \n binfile: %s' % (tdiff, gti, self.gti)
-            return self.legacy #ignore if legacy, for now
+            return True #self.legacy #ignore if legacy, for now
             
-        if (not self.quiet): print('Verified ltcube {0}'.format(self.ltcube))
+        if (not self.quiet): print('Verified ltcube {} {}'.format(ltcubes[0],
+            '(without DSS)' if nodss else ''))
         return True
         
     def _make_ltcube(self):
@@ -514,7 +527,7 @@ class DataSpec(object):
             else:
                 print('Constructing livetime cube about RA,Dec = ({0:0.3f},{1:0.3f}) with a radius of {2:0.3f} deg.'.format(roi_dir.ra(),roi_dir.dec(),exp_radius))
         for i in xrange(1+self.use_weighted_livetime):
-            print('on iteration {0}'.format(i))
+            #print('on iteration {0}'.format(i))
             sys.stdout.flush()
             lt = skymaps.LivetimeCube(
                 cone_angle =exp_radius,

@@ -2,13 +2,13 @@
 Module to handle reading/writing/consistency of DSS keywords
 in FITS files.
 
-author(s): M. Kerr
+author(s): M. Kerr, T. Burnett
 """
 
-__version__ = '$Revision: 1.7 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dssman.py,v 1.7 2016/04/21 00:23:41 wallacee Exp $
+__version__ = '$Revision: 1.8 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dssman.py,v 1.8 2016/06/22 17:02:50 wallacee Exp $
 
-import pyfits
+from astropy.io import fits as pyfits
 from collections import deque
 import numpy as np
 
@@ -241,7 +241,7 @@ class DSSEntries(list):
                 h[t[0]] = t[1]
         # convert unsigned ints to ints -- this is a kluge but perhaps necessary
         for hdu in f:
-            if not isinstance(hdu,pyfits.core.BinTableHDU): continue
+            if not isinstance(hdu,pyfits.BinTableHDU): continue
             for icol,col in enumerate(hdu.columns):
                 if col.format=='1J':
                     #print 'update %s'%col.name
