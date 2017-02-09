@@ -1,7 +1,7 @@
 """
 Manage the analysis configuration
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.29 2016/06/27 23:06:36 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.31 2016/11/07 03:16:32 burnett Exp $
 
 """
 import os, sys, types, StringIO, pprint
@@ -62,7 +62,7 @@ class Configuration(dict):
         ('nocreate', False, 'Set True to prevent creation of a binned photon file'),
         ('quiet', False, 'set to suppress most output'),
         ('postpone', False, 'set true to postpone loading data until requested'),
-        ('use_old_irf_code', True, 'allow testing with this switch'),
+        ('use_old_irf_code', False, 'allow testing with this switch'),
         )
 
     @keyword_options.decorate(defaults)
@@ -288,7 +288,7 @@ class Configuration(dict):
         returns None or the index of the selected event type
         """
         if which is None or which=='all': return None
-        etnames = self.event_type_names
+        etnames = irfman.IrfManager.event_type_names
         try:
             if type(which)==str:
                 which = which.lower()
@@ -298,6 +298,11 @@ class Configuration(dict):
         except Exception, msg:
             print 'Bad event type, "%s": %s\nMust be one of %s or a valid index' % (which, msg, etnames)
             raise
+    def event_type_name(self, event_type):
+        """convenience function to access name of an event type index
+        """
+        return irfman.IrfManager.event_type_names[event_type]
+
     @property
     def auxcat(self):
         """get the auxillary catalog, if any"""
@@ -307,5 +312,3 @@ class Configuration(dict):
         if os.path.isabs(acat): return acat
         return os.path.join(self.modeldir, acat)
         
- 
- 
