@@ -5,12 +5,12 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.45 2014/01/30 16:24:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.46 2014/07/11 21:38:17 burnett Exp $
 
 """
-version = '$Revision: 1.45 $'.split()[1]
+version = '$Revision: 1.46 $'.split()[1]
 
-import sys, pylab, types
+import sys, pylab, types, os
 import math
 import numpy as np
 import pylab as pl
@@ -79,13 +79,14 @@ class Rescale(object):
                        for x in self.uticks]
         #self.yticks = [image.pixel(SkyDir(xl,v))[1] for v in self.vticks]
         # proportional is usually good?
-        yscale = ny/(lon(0,ny)-self.vmin)
-        self.yticks = [ (v-self.vmin)*yscale for v in self.vticks]
         try:
+            yscale = ny/(lon(0,ny)-self.vmin)
+            self.yticks = [ (v-self.vmin)*yscale for v in self.vticks]
             self.xticklabels = self.formatter(self.uticks)
             self.yticklabels = self.formatter(self.vticks)
-        except:
-            print 'formatting failure in image.py'
+        except Exception, msg:
+            print 'formatting failure in image.py: {}'.format(msg)
+            self.xticks=self.yticks=None
     def formatter(self, t):
         n=0
         s = np.abs(np.array(t))+1e-9
@@ -98,6 +99,8 @@ class Rescale(object):
         return [(fmt% x).strip() for x in t]
 
     def apply(self, axes):
+        if self.xticks is None:
+            return
         #note remove outer ones
         if len(self.xticks)>=3:
             axes.set_xticks(self.xticks[1:-1])
@@ -579,14 +582,18 @@ class ZEA(object):
     @keyword_options.decorate(defaults)
     def __init__(self, center, **kwargs):
         """
-        center SkyDir specifying center of image
+        center SkyDir specifying center of image or tuple
+            tuple interpreted as (l,b) or (ra,dec) depending on self.galactic
 
         """
         keyword_options.process(self, kwargs)
  
-        self.center = center
+        if not isinstance(center, SkyDir):
+            self.center=SkyDir(center[0],center[1], SkyDir.GALACTIC if self.galactic else SkyDir.EQUATORIAL)
+        else:
+            self.center = center
         # set up, then create a SkyImage object to perform the projection to a grid and manage an image
-        self.skyimage = SkyImage(center, self.fitsfile, self.pixelsize, self.size, 1, self.proj, self.galactic, False, self.size2)
+        self.skyimage = SkyImage(self.center, self.fitsfile, self.pixelsize, self.size, 1, self.proj, self.galactic, False, self.size2)
         
         # now extract stuff for the pylab image
         self.nx, self.ny = self.skyimage.naxis1(), self.skyimage.naxis2()
@@ -758,23 +765,28 @@ class ZEA(object):
         return True
 
     def plot(self, sources, marker='o', text=None, 
-            colorbar=False, text_kw={}, **kwargs):
+            colorbar=False, text_offset=(0,0),text_kw={},
+            c=None, s=20, **kwargs):
         """ plot symbols at points 
         see AIT.plot
         """
         if 'fontsize' not in text_kw: text_kw['fontsize']=8
         X=[]
         Y=[]
-        for i,s in enumerate(sources):
-            
-            x,y = self.pixel(s)
-            if not x> 0 and y>0 and x<self.nx and  y<self.ny: continue
+        C=[] if c is not None else None
+        dx,dy=text_offset
+        for i,t in enumerate(sources):
+            if not self.inside(t): continue
+            x,y = self.pixel(t)
             X.append(x)
             Y.append(y)
+            if c is not None: C.append(c[i])
             if text is not None:
-                self.axes.text(x,y,text[i], **text_kw )
-        self.source_cb=self.axes.scatter(X,Y, marker=marker,  **kwargs)
-        if colorbar: assert False, "not implemented" #self.colorbar()
+                self.axes.text(x+dx,y+dy,text[i], **text_kw )
+        self.source_cb=self.axes.scatter(X,Y,c=C, marker=marker, s=s, **kwargs)
+        #if colorbar: assert False, "not implemented" #self.colorbar()
+        if colorbar: 
+            plt.colorbar(self.source_cb) #self.colorbar()
 
     def cross(self, sdir, size, text=None, **kwargs):
         """ draw a cross at sdir,
@@ -794,9 +806,12 @@ class ZEA(object):
         return True
         
     def ellipse(self, sdir, par, symbol='-', **kwargs ):
-        """ sdir: SkyDir
-            ellipse parameters: a, b, ang (all deg)
+        """ sdir: SkyDir or (ra, dec) or (l,b)
+            ellipse parameters: a, b, ang (all deg) 
         """
+        if not isinstance(sdir, SkyDir):
+            sdir = SkyDir(sdir[0],sdir[1], SkyDir.GALACTIC if self.galactic else SkyDir.EQUATORIAL)
+
         x0,y0 = self.pixel(sdir)
         a,b,ang = par
         if self.galactic:
@@ -814,7 +829,6 @@ class ZEA(object):
             callback example:
             def default_onclick(event):
                 print 'button %d, %s' % (event.button, zea.skydir(event.xdata,event.ydata))
-            
         """
         def default_onclick(event):
             print 'button %d, %s' % (event.button, self.skydir(event.xdata,event.ydata))
@@ -851,7 +865,10 @@ class ZEA(object):
         self.image = self.original
         self.__dict__.pop('original')
 
-
+    def circle(self, sdir, size, fill=False, **kwargs):
+        """draw a cirle
+        """
+        self.axes.add_artist(plt.Circle(self.pixel(sdir), size/self.pixelsize, fill=fill, **kwargs))
 
 def ZEA_test(ra=90, dec=80, size=5, nticks=8, galactic=False, **kwargs):
     """ exercise (most) everything """
@@ -874,6 +891,37 @@ def ZEA_test(ra=90, dec=80, size=5, nticks=8, galactic=False, **kwargs):
     q.colorbar()
     q.axes.figure.show()
     return q
+
+class ZEA_from_fits(ZEA):
+    """ subclass of ZEA with input FITS file, produced by ZEA"""
+    defaults = ZEA.defaults
+
+    @keyword_options.decorate(defaults)
+    def __init__(self, filename, **kwargs):
+        """
+        filename: string | skymaps.SkyImage object
+        """
+        keyword_options.process(self,kwargs)
+        if not isinstance(filename, SkyImage):
+            try:
+                self.skyimage =SkyImage(filename)
+            except Exception, msg:
+                raise Exception('failed to load file %s: %s)' % (filename, msg))
+        else:
+            self.skyimage=filename
+        s = self.skyimage
+        image_array = np.array(s.image())
+        self.nx,self.ny = s.naxis1(), s.naxis2()
+        self.projector = s.projector()
+        image_array.resize(self.nx,self.ny)
+        self.image=image_array  
+        self.center = SkyDir(*self.projector.pix2sph(self.nx/2,self.ny/2.))
+        left = SkyDir(*self.projector.pix2sph(0,self.ny/2.))
+        edge = SkyDir(*self.projector.pix2sph(self.nx,self.ny/2.))
+        self.size = 2.*np.degrees(self.center.difference(edge))
+
+
+        self.set_axes()
 
 class TSplot(object):
     """
@@ -909,10 +957,12 @@ class TSplot(object):
             if key in kwargs: self.__dict__[key] = kwargs.pop(key)
         self.tsmap = tsmap
         self.size=size
-        if self.pixelsize is None: self.pixelsize=size/10. 
+        if self.pixelsize is None: self.pixelsize=size/10.
+        npix = round(size/self.pixelsize)
+        self.pixelsize=size/npix
         self.zea= ZEA(center, size=size, pixelsize=self.pixelsize, axes=self.axes, 
                 nticks=self.nticks,fitsfile=self.fitsfile, **kwargs)
-        print 'TSplot: filling %d pixels...'% (size/self.pixelsize)**2
+        print 'TSplot: filling %d pixels (size=%.2f, npix=%d)...'%( (size/self.pixelsize)**2, size, npix)
         sys.stdout.flush()
         self.zea.fill(tsmap)
         # create new image that is the significance in sigma with respect to local max
@@ -960,7 +1010,7 @@ class TSplot(object):
             print 'Warning: coutour modified: limits', axes.get_xlim(), axes.get_ylim()
         cfmt={} 
         for key,t in zip(self.clevels,['68%','95%', '99%']): cfmt[key]=t
-        pl.clabel(ct, fmt=cfmt, fontsize=8)
+        plt.clabel(ct, fmt=cfmt, fontsize=8)
         #axes.set_xlim((0,nx)); axes.set_ylim((0,ny))
         #print 'after reset', axes.get_xlim(), axes.get_ylim()
         if self.scalebar:
@@ -1043,7 +1093,7 @@ class TSplot(object):
             textargs = {}
             if 'color' in kwargs: textargs['color']=kwargs['color']
             image.axes.text( x+nx/100., y+nx/100., label, fontsize=fontsize, **textargs)
-        return self.tsmap(loc)
+        return self.tsmap(loc) if hasattr(self, 'tsmap') else None
         
     def clicker(self, onclick=None):
         return self.zea.clicker(onclick)
@@ -1056,6 +1106,26 @@ class TSplot(object):
         """
         self.skyimage.reimage(self.gcdir, filename, self.pixelsize, self.size, self.proj, True)
     
+class TSplotFromFITS(TSplot):
+    """subclass of TSplot, load data from FITS image file"""
+
+    def __init__(self, filename, **kwargs):
+        self.__dict__.update(TSplot.defaults)
+        try:
+            self.zea = ZEA_from_fits(filename)
+        except Exception, msg:
+            raise Exception('failed to load file %s: %s)' % (filename,msg) )
+        if not isinstance(filename, SkyImage):
+            t =os.path.split(os.path.splitext(filename)[0])[-1].split('_')
+            self.sourcename= ' '.join(t[:-1]).replace('p', '+')
+        else:
+            self.sourcename = kwargs.pop('sourcename', '(not specified)')
+        zi = self.zea.image
+        self.image=np.sqrt(zi.max()-zi)  
+        self.cb = None
+        self.clevels = np.array([1.51, 2.45, 3.03])
+        self.scalebar=True
+        self.size = self.zea.size
 
 
 class GaussKernel(object):
