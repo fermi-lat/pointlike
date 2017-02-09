@@ -1,7 +1,7 @@
 """
 Classes to compute response from various sources
  
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.16 2016/06/29 18:05:33 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.17 2016/11/07 03:16:33 burnett Exp $
 author:  Toby Burnett
 """
 import os, pickle
@@ -131,7 +131,7 @@ class PointResponse(Response):
         return g * (apterm - pixterm)
 
     def __call__(self, skydir):
-        return self.band.psf(skydir.difference(self.source.skydir))  * self.expected
+        return self.band.psf(skydir.difference(self.source.skydir))[0]  * self.expected
      
 
     
@@ -462,7 +462,8 @@ class ExtendedResponse(DiffuseResponse):
       
     def initialize(self):
         #set up the spatial model NOTE THIS NEEDS TO BE SAVED
-        self.dmodel = self.source.dmodel[self.band.event_type]
+        # that index only pulls up a paramter??? See if this is acutally referenced by clients
+        #self.dmodel = self.source.dmodel[self.band.event_type]
   
         self.center = self.source.skydir
          
