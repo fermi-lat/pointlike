@@ -72,8 +72,9 @@ stagenames = dict(
     special     =  StageBatchJob( dict(special_flag=True), sum='counts', help='Special processing, then updates'),
     special_only=  StageBatchJob( dict(special_flag=True), sum='counts', help='Special processing only'),
     fitdiffuse  =  StageBatchJob( dict(diffuse_flag=True), sum='diffuse_correction',  help='special diffuse fits'),
+    tables_mspsens =StageBatchJob( dict(table_keys=['mspsens'], dampen=0, tables_nside=256),
+         job_list='$POINTLIKE_DIR/infrastructure/joblist8.txt', help='Create MSP sensitivity map'), 
     )
-
 keys = stagenames.keys()
 help = '\nstage name, or sequential stages separated by "y:" names are\n\t' \
     +  '\n\t'.join(['%-15s: %s' % (key,stagenames[key]['help']) \
