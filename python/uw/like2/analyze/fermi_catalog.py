@@ -1,6 +1,6 @@
 """
 Manage Fermi catalogs
-$Header:$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/fermi_catalog.py,v 1.1 2016/10/28 20:48:14 burnett Exp $
 
 """
 import os, cStringIO, glob
@@ -28,8 +28,11 @@ class GLL_PSC(object):
         self.version = filename.split('_')[-1].split('.')[0]
         print 'Loaded {}'.format(filename)
         self.hdulist = fits.open(os.path.expandvars(filename))
-        energy_bounds = pd.DataFrame(self.hdulist['EnergyBounds'].data)
-        self.pscdata = self.hdulist['LAT_Point_Source_Catalog'].data
+        try:
+            energy_bounds = pd.DataFrame(self.hdulist['EnergyBounds'].data)
+        except KeyError:
+            print 'No energy bounds'
+        self.pscdata = self.hdulist[1].data #'LAT_Point_Source_Catalog'].data
         field = self.pscdata.field
         self.colnames = [x.name for x in self.pscdata.columns]
         if 'Source_Name' in self.colnames:
@@ -74,30 +77,36 @@ class GLL_PSC(object):
         """ Return a DataFrame with a simplified subset, including pointlike Model objects
 
         """
-        field_names = ('RAJ2000 DEJ2000 GLAT GLON Test_Statistic Npred Conf_95_SemiMajor Pivot_Energy'
-            +' Flux_Density Spectral_Index beta').split()
+        #leave off Npred for now
+        field_names = ('RAJ2000 DEJ2000 GLAT GLON Test_Statistic Conf_95_SemiMajor Pivot_Energy '
+            +' Flux_Density Spectral_Index beta  ID_Number').split()
         # make columns, with type either float, or str
         col_data = [np.array(self.pscdata.field(fname),float) for fname in field_names]
         col_data.append(np.array(self.pscdata.field('SpectrumType'),str)) 
+        
 
         # now put it into a DataFrame with simple names, index with NickName
-        cols = 'ra dec glat glon ts npred r95 pivot_energy flux pindex beta spectral_type'.split()
+        cols = 'ra dec glat glon ts r95 pivot_energy flux pindex beta assoc_id spectral_type '.split()
         df = pd.DataFrame(col_data, index=cols).T
         df.index=self.pscdata.field('NickName'); 
         df.index.name='name'
         df['cutoff'] = np.nan # make dependent on catalog type
+        df['exp_index'] = self.pscdata.field('Exp_Index')
  
         # add Pointlike stuff
         df['skydir'] = map(lambda ra,dec:SkyDir(float(ra),float(dec)), df.ra, df.dec)
         df['roi'] = map(Band(12).index, df.skydir)
         models = []
 
-        def model(st, flux, index, beta, pivot, cutoff):
+        def model(st, flux, index, beta, pivot, cutoff, b):
             if st=='PowerLaw':
                return Models.PowerLaw(p=[flux, index], e0=pivot)
             elif st=='PLSuperExpCutoff':
                 prefactor = flux*np.exp((pivot/cutoff)**b)
                 return Models.PLSuperExpCutoff(p=[prefactor, index, cutoff,b], e0=pivot)
+            elif st=='PLExpCutoff':
+                prefactor = flux*np.exp((pivot/cutoff))
+                return Models.PLSuperExpCutoff(p=[prefactor, index, cutoff,1.0], e0=pivot)
             elif st=='LogParabola':
                 return Models.LogParabola(p=[flux, index, beta, pivot])
             elif st=='PowerLaw2':   ### same as PowerLaw in table
@@ -107,7 +116,7 @@ class GLL_PSC(object):
 
         for name, row in df.iterrows():
             models.append(
-                model( *[row[q] for q in 'spectral_type flux pindex beta pivot_energy cutoff'.split()])
+                model( *[row[q] for q in 'spectral_type flux pindex beta pivot_energy cutoff exp_index'.split()])
                 )
         df['model']=models
         return df
