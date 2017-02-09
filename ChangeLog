@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Feb  9 11:07:16 PST 2017
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	fermi_catalog.py 
+Log Message:
+parse a few more fields
+    *
+------------------------------------------------------------
 User: burnett  Thu Feb  9 11:05:38 PST 2017
 pointlike/python/uw/like2/pipeline
 
