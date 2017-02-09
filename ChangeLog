@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Feb  9 10:53:24 PST 2017
+pointlike/python/uw/like2
+
+Modified Files:
+	bandlike.py 
+Log Message:
+Add methods to facilitate weight computation
+    *
+------------------------------------------------------------
 User: burnett  Thu Jan 26 14:07:20 PST 2017
 pointlike/cmt
 
