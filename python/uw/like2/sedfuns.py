@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.45 2016/07/01 15:51:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.46 2016/10/28 21:21:15 burnett Exp $
 
 """
 import os, pickle
@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 from uw.utilities import ( keyword_options)
-from . import ( plotting, tools, loglikelihood, sources)
+from . import ( plotting, tools, loglikelihood, sources, bands)
 # 2/decade above 31.6 GeV
 energybins=np.concatenate( [np.logspace(2,4.25,10), np.logspace(4.5,6,4)])
        
@@ -28,22 +28,23 @@ class SED(tools.WithMixin):
         self.func = self.rs.energy_flux_view(source_name, bound=-20) # note very low bound
         self.source_name = source_name
         # make a list of energies with data; only have info if there is data in the ROI
-        hasdata = np.array([b.pixels>0 for b in self.rs])
-        self.energies = self.rs.energies[hasdata[0::2] | hasdata[1::2]] ## note assumption about energies 
-        self.energybins=np.logspace(2,6,17)
+        self.energies = np.array(set(np.array([b.band.energy for b in self.rs if b.pixels>0])))  
+        #self.energybins=np.logspace(2,6,17)
         # combines the bands above 100 GeV 
         global energybins
         self.energybins=energybins
     
     def full(self):
         try:
-            self.full_poiss = self.select(None).poiss
+            fp = self.select(None)
+            self.full_poiss = fp.poiss
         except Exception, msg:
             print 'Failed poisson fit to source %s: "%s"' % (self.source_name, msg)
             raise
-
+        return fp.poiss, fp.maxdev
+        
     def __repr__(self):
-        return '%s.%s : %d bands selected for source, %s energy range %.0f-%.0f'% (
+        return '%s.%s : %d bands selected for source %s, energy range %.0f-%.0f'% (
                     self.__module__, self.__class__.__name__,len(self.rs.selected), self.source_name, 
                     self.rs.emin, self.rs.emax)
     
@@ -56,14 +57,14 @@ class SED(tools.WithMixin):
                 and use the current spectral model, otherwise a powerlaw to 
                 represent an model-independent flux over the band.
             event_type : None or integer
-                if None, select both front and back, otherwise 0/1 for front/back
+                if None, select all, otherwise 0/1 for front/back, 2-5 for PSF0-3
             elow, ehigh : None or float
                 If set, use to select bands, allowing combined
                 For this case only, check to see if there is any data, return None if not 
 
         returns an equivalent Poisson object.
         """
-        if index is None and elow is None:
+        if index is None and elow is None and event_type is None:
             self.rs.select()
             self.func.set_energy(None)# =func = self.rs.energy_flux_view(self.source_name)
         elif index is not None:
@@ -75,7 +76,7 @@ class SED(tools.WithMixin):
             assert self.func(0) != self.func(1), 'Function not variable? energy %.0f' % energy
         else:
             # case to perhaps combine bands
-            self.rs.select(elow=elow, ehigh=ehigh)
+            self.rs.select(event_type=event_type, elow=elow, ehigh=ehigh)
             has_data = np.any([b.band.has_pixels for b in self.rs.selected])
             if not has_data: return None
             energy = np.sqrt(elow*ehigh)
@@ -114,7 +115,10 @@ class SED(tools.WithMixin):
         names = 'elow ehigh flux lflux uflux npred pindex ts mflux  delta_ts pull maxdev zero_fract'.split()
         rec = tools.RecArray(names, dtype=dict(names=names, formats=['>f4']*len(names)) )
         
-        for i,(elow,ehigh) in enumerate(zip(self.energybins[:-1], self.energybins[1:])):
+        ebins = self.energybins
+        if event_type is not None:
+            ebins = filter(lambda e: e>=bands.event_type_min_energy[event_type], ebins)
+        for i,(elow,ehigh) in enumerate(zip(ebins[:-1], ebins[1:])):
         #for i,energy in enumerate(self.energies):
                 
             try:
