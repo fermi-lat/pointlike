@@ -1,7 +1,7 @@
 """
 Basic analyis of source spectra
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.30 2016/04/27 02:22:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.31 2016/10/28 20:48:14 burnett Exp $
 
 """
 
@@ -16,6 +16,7 @@ import pandas as pd
 from uw.utilities import makepivot
 from . import analysis_base, _html
 from .. import extended, configuration
+from ..tools import create_jname
 from analysis_base import html_table, FloatFormat
 from skymaps import SkyDir, Band
 
@@ -128,6 +129,8 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             dec = [x.dec() for x in df.skydir]
             df['ra'] = ra
             df['dec'] = dec
+            df['jname']= map(create_jname,ra,dec)
+            df.jname[df.isextended]=df.index
             self.df = df.sort_index(by='ra')
             self.df['hassed'] = np.array([self.df.ix[i]['sedrec'] is not None for i in range(len(self.df))])
             self.curvature(setup=True) # add curvature item
@@ -912,7 +915,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         version = os.path.split(os.getcwd())[-1]
         plt.close('all')
         csvfile='sources_%s.csv' % version
-        colstosave="""ra dec ts modelname freebits fitqual e0 flux flux_unc pindex pindex_unc index2 index2_unc
+        colstosave="""ra dec jname ts modelname  freebits fitqual e0 flux flux_unc pindex pindex_unc index2 index2_unc
                  cutoff cutoff_unc eflux100 eflux100_unc locqual delta_ts a b ang flags roiname""".split()
         self.df.ix[self.df.ts>10][colstosave].to_csv(csvfile)
         print 'saved truncated csv version to "%s"' %csvfile
@@ -923,7 +926,37 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             #self.beta_check, 
             self.pulsar_spectra, self.curvature, self.pivot_vs_e0, self.roi_check, self.extended_table, ]
         )
-    
+    def associate(self, df, angle_cut = 0.1 , tag_uw=False):
+        """Make associations with a another list of source positions
+        df : DataFrame with ra, dec or skydir members
+        angle_cut : float value use use to set flag
+        tag_uw : bool
+            if True, set values in the uw list
+        """
+        def differences(a,b):
+            matrix = np.array([[x.difference(y) for y in b] for x in a], np.float32)
+            return matrix
+        def closest(t):
+            n = t.argmin()
+            return (n, (np.degrees(t[n])*3600).round()) #return rounded arcsec dist
+        oth_skydir = map(SkyDir, np.array(df.ra,float),np.array(df.dec,float)) if 'skydir' not in df else df.skydir
+        dfuw = self.df
+        diff_array =differences(oth_skydir, dfuw.skydir)
+        cl_oth = np.array([closest(r) for r in diff_array[:,]], int)
+        close_cut = 3600*angle_cut
+        dfuw['r95'] = 2.50*(dfuw.a * dfuw.b) ** 0.5
+        df['dist'] = cl_oth[:,1]
+        df['uw_name'] = [dfuw.index[i] for i in cl_oth[:,0]]
+        df['uw_jname'] = [dfuw.jname[i] for i in cl_oth[:,0]]
+        df['uw_ts'] = [dfuw.ix[i].ts for i in cl_oth[:,0]]
+        df['uw_r95'] = [dfuw.ix[i].r95 for i in cl_oth[:,0]]
+        df['uw_pindex'] = [dfuw.ix[i].pindex for i in cl_oth[:,0]]
+        df['uw_roi'] = [int((dfuw.ix[i].roiname)[-4:]) for i in cl_oth[:,0]]
+        df['uwok'] = (df.dist<close_cut)
+        if not tag_uw: return
+        cl_uw = np.array([closest(c) for c in diff_array[:,].T], int) 
+        #todo when needed
+         
 class OldName(object):
     """convert  from post-3FGL to P86Y naming """
     def __init__(self, filename='../../P301_6years/uw965/rename.csv'):
