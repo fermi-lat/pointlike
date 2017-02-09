@@ -1,11 +1,11 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.37 2016/06/27 23:06:36 wallacee Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.38 2016/11/07 03:16:32 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.37 $'.split()[1]
+version='$Revision: 1.38 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np
@@ -13,7 +13,6 @@ import skymaps, pointlike #from the science tools
 from uw.data import dataman, dssman
 from uw.utilities import keyword_options
 from uw.irfs import caldb # new code
-from uw.like import pycaldb # old one to keep during transitioi
 
 class DataSetError(Exception):pass
 
@@ -68,8 +67,12 @@ class DataSpecification(object):
             for ft1 in ft1s:
                 if not os.path.exists(ft1):
                     raise DataSetError('FT1 file {} does not exist, needed to create binned photon data file'.format(ft1))
-        if not os.path.exists(data['ltcube']):
+        # check for livetime cube file or files
+        nltcube= glob.glob(data['ltcube'])
+        if len(nltcube)==0:
             ft2s = data['ft2files'] if hasattr(data['ft2files'],'__iter__') else (data['ft2files'],)
+            if ft2s[0]=='none':
+                raise DataSetError('No ltcube file or files found, no FT2 specified')
             for ft2 in ft2s:
                 if not os.path.exists(ft2):
                     raise DataSetError('FT2 file {} does not exist, needed to create binned photon data file'.format(ft2))
@@ -121,7 +124,7 @@ class DataSet(dataman.DataSpec):
         ('bins',  None,  ''),
         ('interval', None, 'Name for a specific time period: key in a dictionary to (start, stop)'),
 
-        ('legacy', True, 'needed to allow no DSS in livetime cubes'),
+        ('legacy', False, 'needed to allow no DSS in livetime cubes'),
         
         'keywords controlling instrument response',
         ('irf',None,'Which IRF to use'),
@@ -164,26 +167,24 @@ class DataSet(dataman.DataSpec):
         super(DataSet,self).__init__(  **dataspec)
         assert self.irf is not None, 'irf was not specifed!'
         
-        if self.legacy:
-            # use the old IRF management code
-            if self.CALDB=='$CALDB': self.CALDB=None #restore old default
-            self.CALDBManager = pycaldb.CALDBManager(
-                irf=self.irf, 
-                psf_irf=self.psf_irf,
-                CALDB=self.CALDB,
-                custom_irf_dir=self.custom_irf_dir)
-        else:
-            # new IRF management
-            self.CALDBManager = caldb.CALDB(self.CALDB)
+        # new IRF management
+        self.CALDBManager = caldb.CALDB(self.CALDB)
         if self.exposure_cube is None:
-            self.lt = skymaps.LivetimeCube(self.ltcube,weighted=False) ###<< ok?
+            ltcubes = glob.glob(self.ltcube) #allow for more than one
+            self.lt = [skymaps.LivetimeCube(lt,weighted=False) for lt in ltcubes]
             if self.use_weighted_livetime:
-                self.weighted_lt = skymaps.LivetimeCube(self.ltcube,weighted=True)
+                self.weighted_lt = [skymaps.LivetimeCube(lt,weighted=True) for lt in ltcubes]
         else:
             self.lt = None
         if not self.postpone:
             self._load_binfile()
     
+    def livetime_cube(self, event_type):
+        """return appropriate livetime cube"""
+        if not self.psf_event_types or len(self.lt)==1:
+            return self.lt[0]
+        assert len(self.lt)==len(self.event_types), 'Expected 4 live time cubes'
+        return self.lt[event_type-self.event_types[0]]
 
     def _process_dataset(self, dataset, interval=None, month=None, quiet=False):
         """ Parse the dataset as a string lookup key, or a dict
@@ -257,13 +258,15 @@ class DataSet(dataman.DataSpec):
         for i,band in enumerate(self.dmap):
             fmt = '%5d'+2*'%10d'+2*'%6d'+'%12s'
             print fmt % (i, round(band.emin()), round(band.emax()), 
-                    band.event_class()&3, band.nside(), bignum(band.photons()))
+                    band.event_class()&15, band.nside(), bignum(band.photons()))
             total += band.photons()
         print >>out, 'total%45s'% bignum(total)
 
     def dss_info(self, indent=''):   
         """ return a formatted table of the DSS keywords
         """
+        if self.dss is None:
+            return indent+"DSS: no info since FT1 files not specified"
         s = indent+'DSS: %-15s  %-10s%-10s%-10s\n'% tuple('name value units ref'.split() )
         s+= indent
         s+= indent.join(['       %-15s  %-10s%-10s %s\n' %\

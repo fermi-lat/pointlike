@@ -1,7 +1,7 @@
 """
 manage band classes
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bands.py,v 1.11 2016/06/22 17:02:53 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bands.py,v 1.12 2016/11/07 03:15:36 burnett Exp $
 """
 import os
 import numpy as np
@@ -9,7 +9,8 @@ import skymaps
 
 #energybins = np.logspace(2,5.5,15) # default 100 MeV to 3.16 GeV, 4/decade
 energybins = np.logspace(2,6,17) # 100 MeV to 1 TeV, 4/decade
-  
+event_type_min_energy=(100,100, 1000, 300, 100, 100 ) # minimum energy for given event type
+
 class EnergyBand(object):
     """ Combine three concepts:
     * definition of the binning in solid angle and energy
@@ -57,6 +58,7 @@ class EnergyBand(object):
         self.wsdl = skymaps.WeightedSkyDirList(cband, self.skydir, self.radius_in_rad, False)
         self.pix_counts = np.asarray([x.weight() for x in self.wsdl]) if len(self.wsdl)>0 else []
         self.pixel_area = cband.pixelArea()
+        self.cband=cband
     @property
     def radius_in_rad(self): return np.radians(self.radius)
     @property #alias, for compatibilty, but deprecated
@@ -101,12 +103,9 @@ class BandSet(list):
             self.roi_index = roi_index
             self.roi_dir = skymaps.Band(12).dir(roi_index) # could be defined otherwise
             self.radius=radius
-        if not config.dataset.psf_event_types:
-            event_types = range(2)
-        else:
-            event_types = range(2,5)
         for emin, emax  in zip(energybins[:-1], energybins[1:]):
-            for et in event_types:
+            for et in config.dataset.event_types:
+                if emin<event_type_min_energy[et]: continue
                 self.append(EnergyBand(config, self.roi_dir,  event_type=et, radius=self.radius, emin=emin,emax=emax))
         self.has_data = False
         
@@ -135,6 +134,7 @@ class BandSet(list):
         found = 0
         for i,cband in enumerate(dset.dmap):
             emin, emax, event_type =  cband.emin(), cband.emax(), cband.event_class()
+            if event_type == -2147483648: event_type=0 # previous bug in FITS setup
             try:
                 band = self.find(emin, event_type)
                 found +=1
