@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.86 2016/10/28 21:18:17 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.87 2016/11/07 03:16:33 burnett Exp $
 
 """
 import types, time
@@ -87,8 +87,9 @@ class ROI(views.LikelihoodViews):
         config_dir : string
             file path to a folder containing a file config.txt
             see configuration.Configuration
-        roi_spec : [None |integer | TODO (ra,dec) tuple ]
+        roi_spec : [None |integer | (ra,dec) tuple ]
             If None, require that the input_model dict has a key 'xml_file'
+            if an integer, it must be <1728, the ROI number
             
         """
         keyword_options.process(self, kwargs)
@@ -96,8 +97,12 @@ class ROI(views.LikelihoodViews):
         ecat = extended.ExtendedCatalog(config.extended)
         
         if roi_spec is None or isinstance(roi_spec, str):
-            roi_sources =from_xml.ROImodelFromXML(config, roi_spec)
-            roi_index = roi_sources.index
+            try:
+                roi_sources =from_xml.ROImodelFromXML(config, roi_spec)
+                roi_index = roi_sources.index
+            except:
+                print 'No ROI specification (an index) or presence of an xml file'
+                raise
         elif isinstance(roi_spec, int):
             roi_sources = from_healpix.ROImodelFromHealpix(config, roi_spec, ecat=ecat,load_kw=self.load_kw)
             roi_index = roi_spec
@@ -255,18 +260,15 @@ class ROI(views.LikelihoodViews):
         """ return the SED recarray for the source, including npred info
         source_name : string
             Name of a source in the ROI, with possible wildcards
-        event_type : None, or integer, 0/1 for front/back
+        event_type : None, or integer, 0/1 for front/back, 2-5 for psf0-3
         update : bool
             set True to force recalculation of sed recarray
         """
-        import numpy.lib.recfunctions as rfn 
         source = self.sources.find_source(source_name)
         if not hasattr(source, 'sedrec') or source.sedrec is None or update:
             with sedfuns.SED(self, source.name) as sf:
                 source.sedrec = sf.sed_rec(event_type=event_type, tol=tol)
         
-        # source.sedrec = rfn.rec_append_fields(source.sedrec, 'npred' , 
-        #     self.get_counts(source.name).round(1),)
         return source.sedrec
 
     def band_ts(self, source_name=None, update=False):
