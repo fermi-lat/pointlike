@@ -1,7 +1,7 @@
 /** @file EventList.cxx 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.27 2015/06/26 14:34:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.28 2016/04/21 00:22:22 wallacee Exp $
 */
 
 #include "EventList.h"
@@ -10,7 +10,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.27 2015/06
 
 #include "astro/PointingInfo.h"
 #include "astro/GPS.h"
-
+#include <iostream>
 #include <iomanip>
 #include <cstdlib>
 using namespace pointlike;
@@ -27,7 +27,7 @@ namespace{
     astro::GPS* gps (astro::GPS::instance()); 
 
     int use_earth(0);  // flag to convert to Earth coordinates FIXME!
-
+ 
 #ifdef WIN32
 #include <float.h> // used to check for NaN
 #else
@@ -48,77 +48,81 @@ namespace{
 
 
 }// anon namespace
+int count(100);
 
 void AddPhoton::operator()(const Photon& gamma)
-    {
-        m_found++;
-        int event_class = gamma.eventClass();
-		int event_type = gamma.event_type();
-        int sourceid = gamma.source();
-		if( m_select>-1){
-		    if( m_data_pass < 8){
-	            if( event_class!= m_select) return;
-	        }else{
-		        if( (event_type & (1<<m_select))==0 ) return;
-		    }
-		}
-      
-        // timing: either start/stop interval, or a Gti object
-        if( m_use_gti ){
-        	if( !m_gti.accept(gamma.time()) ) return;}
-        else{
-            	if( m_start>0   && gamma.time()<m_start ||  m_stop>m_start && gamma.time()>m_stop) return;
-        }
-        
-        if( m_source>-1 && sourceid != m_source)return;
+{
+    m_found++;
+    int event_class = gamma.eventClass();
+    int event_type = m_binner.event_type_index(gamma.event_type()); // convert to 0-6 value
+    int sourceid = gamma.source();
 
-        // theta cut: define FOV
-        if( gamma.theta()>Data::theta_cut() || gamma.theta()<=Data::theta_min_cut() ) return;
-
-        // zenith angle cut, unless in Earth coordinates
-        if( ! isFinite(gamma.zenith_angle()) ) return; // catch NaN?
-        if( use_earth==0 && gamma.zenith_angle()> Data::zenith_angle_cut()) return;
-        int class_level( gamma.class_level() ); // NB == ctbclasslevel == EVENT_CLASS
-        // For Pass6, EVENT_CLASS is an integer representing a nested scheme
-        // For Pass7, EVENT_CLASS is a bitmask, and we requre the bit(s) corresponding
-        // to EVENT_CLASS be set
-        //if( !m_pass7 ) {
-		if (m_data_pass<7){
-            if( class_level< pointlike::Data::class_level() ) return; // select class level
-		}
-		// Not sure why the bitmask version is commented out here. No capability to do class level
-		// cuts for pass 7/8? - EEW
-        //else { 
-	  //if(class_level>0 && (( class_level & (1<<pointlike::Data::class_level()) )== 0) ) return;
-        //}
-        m_kept++;
-
-
-        if( apply_correction ){
-            // using GPS to make the correction, including aberration
-            // 10Nov08: this does not seem to work, but now moot. leave code for testing with debugger
-            //gps->enableAberration();
-            //gps->setAlignmentRotation(Data::get_rot(gamma.time()));
-            //SkyDir fixed(gps->correct(gamma.dir(), gamma.time()));
-
-
-#if 0 // to look at a few values with the debugger
-            double ra(gamma.ra()), dec(gamma.dec());
-            double raf(fixed.ra()), decf(fixed.dec());
-#endif
-#if 1 // alternate code, from old version
-            SkyDir fixed( gamma.transform(Data::get_rot(gamma.time())) );
-            //double raf2(oldfix.ra()), decf2(oldfix.dec());
-            //fixed=oldfix; // replace!!!
-
-#endif
-
-            m_map.addPhoton(skymaps::Photon(fixed, gamma.energy(),gamma.time(),gamma.eventClass(),gamma.event_type()));
+#if 0 // disable event type or class or timing selection for now
+    if( m_select>-1){
+        if( m_data_pass < 8){
+            if( event_class!= m_select) return;
         }else{
-            // no correction: just add the photon
-            m_map.addPhoton(gamma);
+            if( (event_type & (1<<m_select))==0 ) return;
         }
     }
+   
+    if( m_source>-1 && sourceid != m_source){
+        if(count>0){std::cout<< "wrong source" << std::endl; }
+        return;
+    }
+#else
+    if(count==100){
+        std::cout << "AddPhoton: not checking event type or sourceid" << std::endl;
+    }
+#endif
+    if (count-- >0){
+            std::cout << "AddPhoton: time, type, energy, theta, zenith: " << gamma.time() <<" "
+            << event_type    <<" " 
+            << gamma.energy() << " "
+            << gamma.theta() << " " << gamma.zenith_angle()<<"..." ;
+        }
+
+    // timing: either start/stop interval, or a Gti object
+    if( m_use_gti ){
+        if( !m_gti.accept(gamma.time()) ) return;}
+    else{
+            if( m_start>0   && gamma.time()<m_start ||  m_stop>m_start && gamma.time()>m_stop){
+                if(count>0){ std::cout << "Failed time check" << std::endl;}
+                 return;
+            }
+    }
+
+    // zenith angle cut, unless in Earth coordinates
+    double zenith_angle = gamma.zenith_angle();
+    double energy(gamma.energy());
+    if( use_earth==0 ){
+        if( event_type>1 ){
+            // Make zenith angle cut: wire in the values for PSF selection
+            if(count>0){std::cout << "PSF zenith chk...";}
+            if ( energy< 100 && zenith_angle > 80 
+            || energy  < 300 && zenith_angle > 90 
+            || energy  <1000 && zenith_angle > 100 
+            || zenith_angle >105 ){
+                if (count>0){std::cout << "fail zcut" << std::endl; }
+                return;
+                }     
+        } else { 
+            // Doing FB: apply theta cut here, not iwn PSF
+            if( gamma.theta()>Data::theta_cut() || gamma.theta()<=Data::theta_min_cut() ){
+                if(count>0){std::cout << "fail theta cut" << std::endl;}
+                return;
+            }
+            if ( zenith_angle > 100 ){
+                if (count>0){std::cout << "fail zcut" << std::endl; }
+                return;
+            } 
+        }
+    }
+    m_kept++;
+    if (count>0){ std::cout << "ok" << std::endl;  }
+    
+    m_map.addPhoton(gamma);
+}
 
 
 EventList::EventList(const std::string infile, bool selectid, bool use_mc_energy,

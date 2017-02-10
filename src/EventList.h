@@ -1,7 +1,7 @@
 /** @file EventList.h 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.h,v 1.14 2015/06/26 14:34:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.h,v 1.15 2016/04/21 00:22:22 wallacee Exp $
 */
 
 
@@ -15,6 +15,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.h,v 1.14 2015/06/2
 #include "astro/SkyDir.h"
 
 #include "skymaps/BinnedPhotonData.h"
+#include "skymaps/PhotonBinner.h"
 #include <string>
 
 /** @class Photon
@@ -72,17 +73,19 @@ private:
 
 class AddPhoton: public std::unary_function<skymaps::Photon, void> {
 public:
-    AddPhoton (skymaps::BinnedPhotonData& map, int select, 
-        double start, double stop, int source,  skymaps::Gti gti=skymaps::Gti(),
-        //bool pass7=true, )
-		int data_pass=8)
+    AddPhoton (skymaps::BinnedPhotonData& map, 
+        const skymaps::PhotonBinner& binner,
+        int select, 
+        double start, double stop, int source,  
+        skymaps::Gti gti=skymaps::Gti(),
+       	int data_pass=8)
         : m_map(map), m_select(select)
         , m_start(start), m_stop(stop), m_source(source)
         , m_found(0), m_kept(0)
         , m_gti(gti)
         , m_use_gti(gti.getNumIntervals()>0)
-        //, m_pass7(pass7)
-		, m_data_pass(data_pass)
+     	, m_data_pass(data_pass)
+        , m_binner(binner)
     {}
     void operator()(const Photon& gamma);
 
@@ -96,6 +99,7 @@ public:
     skymaps::Gti m_gti;
     bool m_use_gti;//,m_pass7;
 	int m_data_pass;
+    const skymaps::PhotonBinner& m_binner;
 };
 
 /**
@@ -110,11 +114,12 @@ public:
 
     /** @brief ctor sets up container
     @param infile name of the input FT1 or ROOT file
+    @param photon binner, for event type decoding
     @param selectid True if will be selecting on eventid
 	@param use_mc_energy True if will be using MC_ENERGY
     @param table_name must be "EVENTS" for FT1, or "MeritTuple"
     */
-    EventList( std::string infile, bool selectid=false, bool use_mc_energy=false,
+    EventList( std::string infile,  bool selectid=false, bool use_mc_energy=false,
         std::string table_name="EVENTS");
 
     EventList(); 
@@ -169,6 +174,6 @@ private:
     //bool m_pass7;
     //bool m_evclass_bitarray;
 	int m_data_pass;
-};
+ };
 #endif
 
