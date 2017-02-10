@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Feb 10 15:32:40 PST 2017
+pointlike/src
+
+Modified Files:
+	Data.cxx EventList.cxx EventList.h 
+Log Message:
+clean up, implement PSF cuts, disable event type/class selection
+    *
+------------------------------------------------------------
 User: burnett  Thu Feb  9 15:23:28 PST 2017
 pointlike/python/uw/data
 
