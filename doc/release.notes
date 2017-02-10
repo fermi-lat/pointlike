@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.229 2017/01/20 19:00:40 burnett Exp $
+$Id: release.notes,v 1.230 2017/01/26 22:07:19 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-09-05-02 10-Feb-2017 burnett clean up EventList, like2 modes
  pointlike-09-05-01 26-Jan-2017 burnett CALDB fixes for old pointlike
  pointlike-09-05-00 20-Jan-2017 burnett fix bug in matplots
  pointlike-09-04-00 30-Mar-2016 burnett version used for uw985
