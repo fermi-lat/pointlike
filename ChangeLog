@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Fri Mar  3 12:15:15 PST 2017
+pointlike/python/uw/pulsar
+
+Modified Files:
+	polyco.py parfiles.py 
+Log Message:
+Fix for short binary period MSPs.
+    *
+------------------------------------------------------------
 User: burnett  Fri Feb 10 15:35:06 PST 2017
 pointlike/cmt
 
