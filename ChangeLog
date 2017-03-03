@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Fri Mar  3 13:06:16 PST 2017
+pointlike/python/uw/pulsar
+
+Modified Files:
+	polyco.py 
+Log Message:
+Oops, fix for case without binary periods...
+    *
+------------------------------------------------------------
 User: kerrm  Fri Mar  3 12:15:15 PST 2017
 pointlike/python/uw/pulsar
 
