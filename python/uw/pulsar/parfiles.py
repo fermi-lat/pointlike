@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.75 2015/10/20 22:37:05 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.76 2017/01/17 15:23:22 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -262,6 +262,13 @@ class ParFile(dict):
         from skymaps import SkyDir
         ra,dec = self.get_ra(), self.get_dec()
         return SkyDir(ra,dec)
+
+    def get_binary_period(self):
+        """ Return binary period in days."""
+        try:
+            return self.get('PB',type=float)
+        except KeyError:
+            return None
 
     def is_ecliptic(self):
         try:

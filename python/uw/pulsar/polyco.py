@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.16 2013/12/02 02:40:40 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.17 2014/12/24 07:52:31 kerrm Exp $
 
 Mange polycos from tempo2.
 
@@ -100,6 +100,7 @@ class Polyco:
             verbose -- spit out more diagnostic output
         """
 
+        self.binary_period = None
         self.bary = bary
         self.working_dir = working_dir
         self.output = output
@@ -109,9 +110,11 @@ class Polyco:
             pf = ParFile(fname)
             self.ra = pf.get_ra()
             self.dec = pf.get_dec()
+            self.binary_period = pf.get_binary_period()
             fname = self.gen_polycos(fname,recalc_polycos=recalc_polycos,mjd0=mjd0,ndays=ndays)
         else:
             self.ra = self.dec = None
+                
         
         self.entries = []
         f = open(fname,"r")
@@ -187,8 +190,14 @@ class Polyco:
             map(os.remove,filter(os.path.isfile,fnames))
             obs_string = '@' if self.bary else 'coe'
             out_string = '' if self.output is None else ' -polyco_file %s'%self.output
-            t2cmd = 'tempo2 -f %s%s -polyco "%s %s 360 12 12 %s 0 0\"'%(
-                polyconame,out_string,mjd0,endMJD,obs_string)
+            # generate a 12th order polynomial over 360 minutes unless this
+            # is short compared to the binary period
+            if self.binary_period > 0.5:
+                minutes = 360
+            else:
+                minutes = max(60,int(self.binary_period*24*20))
+            t2cmd = 'tempo2 -f %s%s -polyco "%s %s %d 12 12 %s 0 0\"'%(
+                polyconame,out_string,mjd0,endMJD,minutes,obs_string)
             if self.verbose:
                 print 'Creating polycos with command:\n',t2cmd
             o = subprocess.check_output(t2cmd,shell=True)
