@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Wed Mar  8 11:21:21 PST 2017
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lctemplate.py phasedata.py toagen.py 
+Log Message:
+Add simple caching of template evaluation.
+    *
+------------------------------------------------------------
 User: kerrm  Fri Mar  3 13:06:16 PST 2017
 pointlike/python/uw/pulsar
 
