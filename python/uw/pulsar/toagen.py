@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.22 2014/05/11 21:30:13 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.23 2014/12/24 07:52:31 kerrm Exp $
 
 Calculate TOAs with a variety of methods.
 
@@ -285,6 +285,116 @@ class UnbinnedTOAGenerator(TOAGenerator):
         self.phase_errs.append(tau_err)
         h = hm(phases) if (weights is None) else hmw(phases,weights)
         return tau,tau_err,sf_hm(h),best_ll
+
+class UnbinnedTOAGeneratorF0Search(UnbinnedTOAGenerator):
+
+    def init(self):
+        super(UnbinnedTOAGeneratorF0Search,self).init()
+        self.max_wraps = 2
+        self.nF0grid = 20
+
+    def __toa_loglikelihood__(self,p,*args):
+        self.template.set_overall_phase(p[0])
+        self.template.set_cache(200)
+        # assign overall phases
+        phases = np.mod(self.phase_offsets + args[0],1)
+        if args[1] is None:
+            tmp = np.log(self.template(phases,use_cache=True)).sum(axis=1)
+        else:
+            tmp = np.log(1+args[1]*(self.template(phases,use_cache=True)-1)).sum(axis=1)
+        amax = np.argmax(tmp)
+        #print 'Best likelihood at offset %d.'%amax
+        return -tmp[amax]
+
+    def get_toas(self,binner,use_midpoint=True):
+        """ Calculate the TOAs specified by the binner."""
+
+        self.phases.clear(); self.phase_errs.clear()
+
+        # Compute observation duration for each TOA
+        toas = np.empty(binner.ntoa)
+        err_toas = np.empty(binner.ntoa)
+        tim_strings = ['FORMAT 1']
+        self.counter = 0
+        tmp_tim_strings = ['FORMAT 1']
+
+        for ii,(mjdstart,mjdstop) in enumerate(binner):
+
+            # Compute freq and period at middle of observation
+            tmid = (mjdstop + mjdstart)/2.
+            pe   = self.polyco.getentry(tmid)
+            freq = pe.evalfreq(tmid)
+            period = 1.0/freq
+            if period < 0:
+                raise ValueError(
+                    'Something went horribly wrong with the folding period.')
+
+            # Compute phase at start of observation or at midpoint
+            phase_time = tmid if use_midpoint else mjdstart
+            pe = self.polyco.getentry(phase_time)
+            polyco_phase0 = pe.evalphase(phase_time)
+            
+            # Select phases
+            phases,weights,mjds = self.data.toa_data(mjdstart,mjdstop,get_mjds=True)
+            if len(phases) == 0: continue
+
+            # set up a cache of F0 search grid
+            dts = mjds - tmid
+            phase_offsets = np.empty([self.nF0grid+1,len(phases)])
+            for igrid in xrange(self.nF0grid):
+                phase_offsets[igrid] = dts/(mjdstop-mjdstart)*(float(igrid*self.max_wraps)/(self.nF0grid))
+            self.phase_offsets = phase_offsets
+            
+            tau,tau_err,prob,logl = \
+                self.get_phase_shift(phases,weights,polyco_phase0)
+            self.mean_err = (self.mean_err*ii + tau_err)/(ii+1)
+
+            # compute RMS between linear assumption and actual polyco
+            # over the integration period
+            #dom = np.linspace(mjdstart,mjdstop,100)
+            #ph = self.polyco.vec_evalabsphase(dom)
+            #ph -= ph.min()
+            #x = dom - tmid
+            #p = np.polyfit(x,ph,1)
+            #rms = (ph-np.polyval(p,x)).std()*(1e6/freq) # mus
+            rms = 0.
+
+            # Prepare a string to write to a .tim file or to send to STDOUT
+            #print period
+            toa = phase_time + (tau*period)/SECSPERDAY
+            if tau_err < 100:
+                toa_err = tau_err*period*1.0e6
+            else:
+                toa_err = 1e7 # hard code to 10s errors for nondetections
+            frac_err = tau_err
+            frame_label = 'BAT' if self.data.bary else 'GEO'
+            weight_string = '' if (weights is None) else '-nwp %.2f'%(weights.sum())
+            duration_string = '-tstart %s -tstop %s'%(mjdstart,mjdstop)
+            rms_string = '-drms %.2f'%(rms)
+            logl_string = '-logl %.2f'%(logl)
+            s = " %s 0.0 %.12f %.2f %s -i LAT %s -np %d %s -chanceprob %.2e -pherr %.3f %s %s" % (frame_label,toa,toa_err,pe.obs,duration_string,len(phases),weight_string,prob,frac_err,rms_string,logl_string)
+            toas[ii] = toa
+            err_toas[ii] = toa_err
+            tim_strings.append(s)
+            self.counter += 1
+
+            """
+            # compute a temporary set of TOAs to sample phi(t) within the
+            # integration period
+            dom = np.append(phase_time,np.linspace(mjdstart,mjdstop,16))
+            taus = tau + polyco_phase0 - self.polyco.vec_evalphase(dom)
+            tmp_toas = dom + (taus*period)/SECSPERDAY
+            resids = self.polyco.vec_evalphase(tmp_toas)
+            print resids-resids.mean()
+            tmp_toa_strings  = [" %s 0.0 %.12f %.2f %s -i LAT" % (frame_label,toa,toa_err,pe.obs) for toa in tmp_toas]
+            tmp_tim_strings.extend(tmp_toa_strings)
+            #tim_strings.extend(tmp_toa_strings)
+            """
+
+        #file('/tmp/blah.tim','w').write('\n'.join(tmp_tim_strings)+'\n'+'\n'.join(tim_strings[1:]))
+
+        # Note TOAS in MJD, err_toas in microseconds, tim_strings a line for a FORMAT 1 .tim file
+        return toas,err_toas,tim_strings
 
 
 class BinnedTOAGenerator(TOAGenerator):

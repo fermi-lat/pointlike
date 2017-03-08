@@ -1,7 +1,7 @@
 """
 A module implementing a mixture model of LCPrimitives to form a
 normalized template representing directional data.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.20 2013/08/01 01:54:35 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.21 2014/03/05 00:20:59 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -30,6 +30,8 @@ class LCTemplate(object):
         self.norms = norms if isinstance(norms,NormAngles) else \
                      NormAngles(norms)
         self._sanity_checks()
+        self._cache = None
+        self._cache_out_of_date = True
 
     def _sanity_checks(self):
         if len(self.primitives) != len(self.norms):
@@ -56,6 +58,7 @@ class LCTemplate(object):
             params_ok = prim.set_parameters(p[start:start+n],free=free) and params_ok
             start += n
         self.norms.set_parameters(p[start:],free)
+        self._cache_out_of_date = True
         return params_ok
 
     def set_errors(self,errs):
@@ -89,6 +92,7 @@ class LCTemplate(object):
 
     def set_overall_phase(self,ph):
         """Put the peak of the first component at phase ph."""
+        self._cache_out_of_date = True
         if self.shift_mode:
             self.primitives[0].p[0] = ph
             return
@@ -139,14 +143,29 @@ class LCTemplate(object):
         norms = self.norms(log10_ens)
         return rvals,norms,norms.sum(axis=0)
 
-    def __call__(self,phases,log10_ens=3,suppress_bg=False):
+    def __call__(self,phases,log10_ens=3,suppress_bg=False,use_cache=False):
         """ Evaluate template at the provided phases and (if provided)
             energies.  If "suppress_bg" is set, ignore the DC component."""
+        if use_cache:
+            if self._cache_out_of_date:
+                self.set_cache()
+            indices = np.array(phases * len(self._cache),dtype=int)
+            try:
+                return self._cache[indices]
+            except Exception:
+                print '%d phases were NaN!'%(np.sum(np.isnan(phases)))
+                indices[np.isnan(phases)] = 0
+                return self._cache[indices]
         rvals,norms,norm = self._get_scales(phases,log10_ens)
         for n,prim in zip(norms,self.primitives):
             rvals += n*prim(phases,log10_ens)
         if suppress_bg: return rvals/norm
         return (1.-norm) + rvals
+
+    def set_cache(self,ncache=1000):
+        t = self(np.linspace(0,1,ncache+1))
+        self._cache = 0.5*(t[1:]+t[:-1]) 
+        self._cache_out_of_date = False
 
     def single_component(self,index,phases,log10_ens=3):
         """ Evaluate a single component of template."""

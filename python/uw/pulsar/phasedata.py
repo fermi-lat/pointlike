@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/phasedata.py,v 1.7 2013/04/10 01:06:24 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/phasedata.py,v 1.8 2014/05/11 21:30:13 kerrm Exp $
 
 Handle loading of FT1 file and phase folding with polycos.
 
@@ -101,8 +101,12 @@ class PhaseData(object):
             f[1] = t
         f.writeto(self.ft1file,clobber=True)
 
-    def toa_data(self,mjd_start,mjd_stop):
+    def toa_data(self,mjd_start,mjd_stop,get_mjds=False):
         mask = (self.mjds >= mjd_start)&(self.mjds < mjd_stop)
+        if get_mjds:
+            if self.weights is None:
+                return self.ph[mask],None,self.mjds[mask]
+            return self.ph[mask],self.weights[mask],self.mjds[mask]
         if self.weights is None:
             return self.ph[mask],None
         return self.ph[mask],self.weights[mask]
