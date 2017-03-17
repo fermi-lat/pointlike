@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Fri Mar 17 14:37:53 PDT 2017
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py lcnorm.py lcprimitives.py lctemplate.py 
+Log Message:
+Add methods for integration with PINT.
+    *
+------------------------------------------------------------
 User: kerrm  Wed Mar  8 11:21:21 PST 2017
 pointlike/python/uw/pulsar
 
