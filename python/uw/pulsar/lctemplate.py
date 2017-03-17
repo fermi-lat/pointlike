@@ -1,7 +1,7 @@
 """
 A module implementing a mixture model of LCPrimitives to form a
 normalized template representing directional data.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.21 2014/03/05 00:20:59 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.22 2017/03/08 19:21:21 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -69,6 +69,17 @@ class LCTemplate(object):
 
     def get_parameters(self,free=True):
         return np.append(np.concatenate( [prim.get_parameters(free) for prim in self.primitives]) , self.norms.get_parameters(free))
+
+    def get_errors(self,free=True):
+        return np.append(np.concatenate( [prim.get_errors(free) for prim in self.primitives]) , self.norms.get_errors(free))
+
+    def get_parameter_names(self,free=True):
+        # I will no doubt hate myself in future for below comprehension
+        # (or rather lack thereof); this comment will not assuage my rage
+        prim_names = ['P%d_%s_%s'%(iprim+1,prim.name[:3]+(prim.name[-1] if prim.name[-1].isdigit() else ''),pname[:3] + (pname[-1] if pname[-1].isdigit() else '')) for iprim,prim in enumerate(self.primitives) for pname in prim.get_parameter_names(free=free)]
+        norm_names = ['Norm_%s'%pname for pname in self.norms.get_parameter_names(free=free)]
+        return prim_names + norm_names
+        #return np.append(np.concatenate( [prim.pnames(free) for prim in self.primitives]) , self.norms.get_parameters(free))
 
     def get_gaussian_prior(self):
         locs,widths,mods,enables = [],[],[],[]

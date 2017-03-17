@@ -3,7 +3,7 @@ components of a pulsar light curve.  Includes primitives (Gaussian,
 Lorentzian), etc.  as well as more sophisticated holistic templates that
 provide single-parameter (location) representations of the light curve.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcprimitives.py,v 1.33 2013/03/18 21:53:27 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcprimitives.py,v 1.34 2013/03/27 17:17:33 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -214,11 +214,17 @@ class LCPrimitive(object):
             return self.p[self.free]
         return self.p
 
+    def get_parameter_names(self,free=True):
+        return [p for (p,b) in zip(self.pnames,self.free) if b]
+
     def set_errors(self,errs):
         n = self.free.sum()
         self.errors[:] = 0.
         self.errors[self.free] = errs[:n]
         return n
+
+    def get_errors(self,free=True):
+        return self.errors[self.free]
 
     def get_bounds(self): return self.bounds[self.free]
 
