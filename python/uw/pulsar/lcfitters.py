@@ -9,7 +9,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.50 2013/10/29 06:47:37 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.51 2013/12/04 02:00:01 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -243,6 +243,21 @@ class UnweightedLCFitter(object):
                 #    self.template.set_errors(np.zeros_like(p0))
         print 'Improved log likelihood by %.2f'%(self.ll-ll0)
         return True
+
+    def fit_position(self, unbinned=True):
+        """ Fit overall template position."""
+        self._set_unbinned(unbinned)
+        # NB use of priors currently not supported by quick_fit, positions first, etc.
+        def logl(phase):
+            self.template.set_overall_phase(phase)
+            return self.loglikelihood(self.template.get_parameters())
+        # coarse grained
+        dom = np.linspace(0,1,101)
+        cod = map(logl,0.5*(dom[1:]+dom[:-1]))
+        idx = np.argmin(cod)
+        ph0 = fmin(logl,[cod[idx]],full_output=True,disp=0)[0][0]
+        # set to best fit phase shift
+        self.template.set_overall_phase(ph0)
 
     def fit_fmin(self,fit_func,ftol=1e-5):
         x0 = self.template.get_parameters()
@@ -765,6 +780,10 @@ def hess_from_grad(grad,par,step=1e-3,iterations=2):
                 C[i,j] = (-1)**(i+j)*mdet(m)
         det = (M[0,:]*C[0,:]).sum()
         return C.transpose()/det
+
+    # why am I using a co-factor expansion?  Reckon this would better be
+    # done as Cholesky in any case
+    minv = np.linalg.inv
 
     def make_hess(p0,steps):
         npar = len(par)

@@ -6,7 +6,7 @@ This is done by treating each primitives' normalization parameter as
 the square of a cartesian variable lying within or on an
 n-dimensional ball of unit radius.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcnorm.py,v 1.6 2013/02/17 00:41:15 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcnorm.py,v 1.7 2013/03/02 21:43:55 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 """
@@ -113,11 +113,17 @@ class NormAngles(object):
             return self.p[self.free]
         return self.p
 
+    def get_parameter_names(self,free=True):
+        return [p for (p,b) in zip(self.pnames,self.free) if b]
+
     def set_errors(self,errs):
         """ errs an array with the 1-sigma error estimates with shape
             equal to the number of free parameters."""
         self.errors[:] = 0.
         self.errors[self.free] = errs
+
+    def get_errors(self,free=True):
+        return self.errors[self.free]
 
     def get_errors(self,propagate=True):
         """ Get errors on components.  If specified, propagate errors from
