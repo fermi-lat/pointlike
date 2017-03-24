@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Fri Mar 24 11:48:52 PDT 2017
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py 
+Log Message:
+Replace numpy matrix inverse with scipy.
+    *
+------------------------------------------------------------
 User: kerrm  Fri Mar 24 11:44:18 PDT 2017
 pointlike/python/uw/pulsar
 
