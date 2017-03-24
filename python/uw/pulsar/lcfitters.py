@@ -9,7 +9,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.52 2017/03/17 21:37:52 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.53 2017/03/24 18:44:18 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -17,6 +17,7 @@ author: M. Kerr <matthew.kerr@gmail.com>
 
 import numpy as np
 from copy import deepcopy
+import scipy
 from scipy.optimize import fmin,fmin_tnc,leastsq
 from uw.pulsar.stats import z2mw,hm,hmw
 
@@ -306,7 +307,7 @@ class UnweightedLCFitter(object):
         ss = calc_step_size(self.loglikelihood,p.copy())
         if use_gradient:
             h1 = hess_from_grad(self.gradient,p.copy(),step=ss)
-            c1 = np.linalg.inv(h1)
+            c1 = scipy.linalg.inv(h1)
             if np.all(np.diag(c1)>0):
                 self.cov_matrix = c1
             else: 
@@ -315,8 +316,8 @@ class UnweightedLCFitter(object):
         else:
             h1 = hessian(self.template,self.loglikelihood,delta=ss)
             try:
-                c1 = np.linalg.inv(h1)
-            except np.linalg.LinAlgError:
+                c1 = scipy.linalg.inv(h1)
+            except scipy.linalg.LinAlgError:
                 print 'Hessian matrix was singular!  Aborting.'
                 return False
             d = np.diag(c1)
@@ -325,8 +326,8 @@ class UnweightedLCFitter(object):
                 # attempt to refine
                 h2 = hessian(self.template,self.loglikelihood,delt=d**0.5)
                 try:
-                    c2 = np.linalg.inv(h2)
-                except np.linalg.LinAlgError:
+                    c2 = scipy.linalg.inv(h2)
+                except scipy.linalg.LinAlgError:
                     print 'Second try at hessian matrix was singular!  Aborting.'
                     return False
                 if np.all(np.diag(c2)>0):
@@ -783,7 +784,7 @@ def hess_from_grad(grad,par,step=1e-3,iterations=2):
 
     # why am I using a co-factor expansion?  Reckon this would better be
     # done as Cholesky in any case
-    minv = np.linalg.inv
+    minv = scipy.linalg.inv
 
     def make_hess(p0,steps):
         npar = len(par)
