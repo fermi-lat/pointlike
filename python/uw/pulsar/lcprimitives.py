@@ -3,7 +3,7 @@ components of a pulsar light curve.  Includes primitives (Gaussian,
 Lorentzian), etc.  as well as more sophisticated holistic templates that
 provide single-parameter (location) representations of the light curve.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcprimitives.py,v 1.34 2013/03/27 17:17:33 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcprimitives.py,v 1.35 2017/03/17 21:37:52 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -267,9 +267,9 @@ class LCPrimitive(object):
             right   [False] if True, return "right" component, else "left".
                             There is no distinction for symmetric dists.
         """
-        scale = self.hwhm(right=right)/self.p[right] if hwhm else 1
-        if error: return np.asarray([self.p[right],self.errors[right]])*scale
-        return self.p[right]*scale
+        scale = self.hwhm(right=right)/self.p[int(right)] if hwhm else 1
+        if error: return np.asarray([self.p[int(right)],self.errors[int(right)]])*scale
+        return self.p[int(right)]*scale
     
     def get_gradient(self,phases,log10_ens=3):
         raise DeprecationWarning()
@@ -513,7 +513,7 @@ class LCGaussian2(LCWrappedFunction):
         return True
 
     def hwhm(self,right=False):
-        return (self.p[right])*(2 * np.log(2))**0.5
+        return (self.p[int(right)])*(2 * np.log(2))**0.5
 
     def base_func(self,phases,log10_ens=3,index=0):
         e,width1,width2,x0 = self._make_p(log10_ens)
@@ -630,7 +630,7 @@ class LCLorentzian2(LCWrappedFunction):
         return True
 
     def hwhm(self,right=False):
-        return self.p[right]
+        return self.p[int(right)]
 
     def _grad_norm(self,nwraps,log10_ens=3):
         e,gamma1,gamma2,x0 = self._make_p(log10_ens)
