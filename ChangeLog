@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Thu Apr  6 13:48:05 PDT 2017
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcprimitives.py 
+Log Message:
+Add explicit int cast to prevent IndexError.
+    *
+------------------------------------------------------------
 User: kerrm  Fri Mar 24 11:48:52 PDT 2017
 pointlike/python/uw/pulsar
 
