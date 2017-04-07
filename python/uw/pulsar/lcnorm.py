@@ -6,7 +6,7 @@ This is done by treating each primitives' normalization parameter as
 the square of a cartesian variable lying within or on an
 n-dimensional ball of unit radius.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcnorm.py,v 1.7 2013/03/02 21:43:55 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcnorm.py,v 1.8 2017/03/17 21:37:52 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 """
@@ -61,7 +61,7 @@ class NormAngles(object):
     def __str__(self):
         # IN PROGRESS
         norms = self()
-        errs = self.get_errors(propagate=True)
+        errs = self.get_errors(free=False,propagate=True)
         dcderiv = 2*sin(self.p[0])*cos(self.p[0])
         dcerr = self.errors[0]*abs(dcderiv)
         def norm_string(i):
@@ -122,19 +122,17 @@ class NormAngles(object):
         self.errors[:] = 0.
         self.errors[self.free] = errs
 
-    def get_errors(self,free=True):
-        return self.errors[self.free]
-
-    def get_errors(self,propagate=True):
+    def get_errors(self,free=True,propagate=True):
         """ Get errors on components.  If specified, propagate errors from
             the internal angle parameters to the external normalizations.
         """
         # TODO -- consider using finite difference instead
-        if not propagate: return self.errors
-        #g = self.get_grads()**2
+        if not propagate:
+            return self.errors[self.free] if free else self.errors
         g = self.gradient()**2
         g *= self.errors**2
-        return g.sum(axis=1)**0.5
+        errors = g.sum(axis=1)**0.5
+        return errors[self.free] if free else errors
 
     def get_bounds(self):
         """ Angles are always [0,pi/2). """
