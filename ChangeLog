@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Fri Apr  7 12:32:20 PDT 2017
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lctemplate.py 
+Log Message:
+Add single_component method.
+    *
+------------------------------------------------------------
 User: kerrm  Fri Apr  7 12:31:37 PDT 2017
 pointlike/python/uw/pulsar
 
