@@ -1,7 +1,7 @@
 """
 A module implementing a mixture model of LCPrimitives to form a
 normalized template representing directional data.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.22 2017/03/08 19:21:21 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.23 2017/03/17 21:37:52 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -182,6 +182,15 @@ class LCTemplate(object):
         """ Evaluate a single component of template."""
         n = self.norms(log10_ens)[index]
         return self.primitives[index](phases,log10_ens)*n
+
+    def single_component(self,index,phases,log10_ens=3,add_bg=False):
+        """ Evaluate a single component of template."""
+        n = self.norms(log10_ens)
+        rvals = self.primitives[index](phases,log10_ens)*n[index]
+        if add_bg:
+            return rvals + n.sum(axis=0)
+        return rvals
+
 
     def gradient(self,phases,log10_ens=3,free=True):
         r = np.empty([len(self.get_parameters(free=free)),len(phases)])
