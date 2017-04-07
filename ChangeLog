@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Fri Apr  7 12:31:37 PDT 2017
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcnorm.py 
+Log Message:
+Fix print bug.
+    *
+------------------------------------------------------------
 User: kerrm  Thu Apr  6 13:48:05 PDT 2017
 pointlike/python/uw/pulsar
 
