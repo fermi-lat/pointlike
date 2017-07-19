@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.76 2017/01/17 15:23:22 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.77 2017/03/03 20:15:14 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -630,7 +630,8 @@ class ParFile(dict):
                     multi *= (dts/(j+2))
         return phase
 
-    def write(self,output):
+    def write(self,output,correct_troposphere='N'):
+        self.add_key('CORRECT_TROPOSPHERE',correct_troposphere)
         # write to buffer until all keys successfully parsed
         f = deque()
         for key in self.ordered_keys:
@@ -1158,7 +1159,7 @@ def get_bats_etc(par,tim,output=None,full_output=False,binary=False,
     errs = np.array([x[1] for x in toks],dtype=np.float128)*(1e-6/86400)
     phas = np.array([x[2] for x in toks],dtype=np.float128)
     offs = np.array([x[3] for x in toks],dtype=np.float128)
-    sats = np.array([x[4] for x in toks],dtype=np.float128)
+    sats = np.array([x[4].strip() for x in toks],dtype=np.float128)
     #phas += np.round(offs)
     if output is not None:
         outstring = '\n'.join(['%.20f %.20f %d'%(b,e,p) for b,e,p in zip(bats,errs,phas)])
