@@ -1,11 +1,13 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.27 2016/10/28 21:19:39 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.28 2016/11/07 03:16:33 burnett Exp $
 
 """
-import os, sys, time, pickle, glob
+import os, sys, time, glob
+import cPickle as pickle
 import numpy as np
 import pandas as pd
+from scipy import optimize
 from skymaps import SkyDir, Band
 from uw.utilities import keyword_options
 from uw.like2 import (main, tools, sedfuns, maps, sources, localization, roimodel, seeds,)
@@ -35,7 +37,8 @@ class Process(main.MultiROI):
         ('quiet',         False,  'Set false for summary output'),
         ('finish',        False,  'set True to turn on all "finish" output flags'),
         ('residual_flag', False,  'set True for special residual run; all else ignored'),
-        ('diffuse_flag',  False,   'set True to evaluate diffuse spectral corrections'),
+        ('diffuse_key',   None,   'set to "gal" or "iso" to evaluate diffuse spectral corrections'),
+        ('profile_flag',  False,    'create profile entries for all free sources'),
         ('tables_flag',   False,  'set True for tables run; all else ignored'),
         #('xtables_flag',  False,  'set True for special tables run; all else ignored'),
         ('tables_nside',  512,    'nside to use for table generation'),
@@ -58,6 +61,7 @@ class Process(main.MultiROI):
                                  sedfig_dir='sedfig',
                                  counts_dir='countfig', 
                                  tsmap_dir='tsmap_fail',
+                                 profile_flag=True,
                                  )
         super(Process,self).__init__(config_dir,quiet=self.quiet,)
         self.stream = os.environ.get('PIPELINE_STREAMPATH', 'interactive')
@@ -96,8 +100,15 @@ class Process(main.MultiROI):
         print '%4d-%02d-%02d %02d:%02d:%02d - %s - %s' %(time.localtime()[:6]+ (roi.name,)+(self.stream,))
 
         # special processing flags
-        if self.diffuse_flag:
-            fit_diffuse(self)
+        if self.diffuse_key is not None:
+            if self.diffuse_key=='iso':
+                fit_isotropic(self)
+            elif self.diffuse_key=='gal':
+                fit_galactic(self)
+            else:
+                raise Exception('Unexpected key: {}'.format(self.diffuse_key))
+            return
+            #fit_diffuse()
             
         if self.residual_flag:
             self.residuals()
@@ -185,6 +196,10 @@ class Process(main.MultiROI):
             skymodel_name = os.path.split(os.getcwd())[-1]
             roi.plot_sed('all', sedfig_dir=sedfig_dir, suffix='_sed_%s'%skymodel_name, )
         
+        if self.profile_flag:
+            print '------creating profile entries for all free sources'; sys.stdout.flush()
+            self.profile('all')
+
         if self.localize_flag:
             print '------localizing all local sources------'; sys.stdout.flush()
             tsmap_dir = getdir(self.tsmap_dir)
@@ -224,7 +239,8 @@ class Process(main.MultiROI):
             #    )
     
    
-    def repivot(self, fit_sources=None, min_ts = 10, max_beta=3.0, emin=200, emax=100000., dampen=1.0, test=False):
+    def repivot(self, fit_sources=None, min_ts = 10, max_beta=3.0, emin=200., emax=100000.,
+             dampen=1.0, tolerance=0.10, test=False):
         """ invoked  if repivot flag set;
         returns True if had to refit, allowing iteration
         """
@@ -266,7 +282,7 @@ class Process(main.MultiROI):
                 model.set_e0(pivot)
                 limited = True
             else: limited=False
-            if abs(pivot/e0-1.)<0.05:
+            if abs(pivot/e0-1.)<tolerance: #0.05:
                 print 'converged'; continue
             print 'will refit'
             need_refit=True
@@ -355,26 +371,83 @@ class Process(main.MultiROI):
                 continue
             print ' %s -> %s, moved %.2f' % (source.skydir,newdir, np.degrees(newdir.difference(source.skydir)))
             source.skydir = newdir
-
-    def special(self):
-        """For making the 3FHL correspondence
+    
+    def fit_beta(self, source_name=None, beta_range=(0.05,2), tsmin=4):
+        """Perform profile fit of beta for a log parabola source
+        if the result is in the range, and ts_beta<tsmin, set beta to the value
         """
-        df =pd.read_pickle('UW-3FHL_correspondence.pkl')
-        local = (df.uw_roi==int(self.name[-4:])) & df.uwok
-        if sum(local)==0:
-            print 'No corresponding sources found'
-            return False
-        for name in df[local].index:
-            gts = df.ix[name]
-            altmodel = gts['model']
-            print 'Comparing gt source {} [{}] with UW {}'.format(name, altmodel.name, gts['uw_name'])
-            s = self.get_source(gts['uw_name'])
+        roi=self
+        source = roi.get_source(source_name)
+        roi.freeze('beta') # Freeze for future
+        model=source.model
+        saved=model['beta']
+
+        def beta_like(beta):
+            model['beta']=beta
+            roi.fit(source.name, summarize=False, estimate_errors=False, ignore_exception=True)
+            return roi.log_like()
+
+        beta_fit = optimize.fmin(lambda beta: -beta_like(beta), saved, disp=0, maxiter=20)[0]
+        ts_beta = 2*(beta_like(beta_fit)-beta_like(0))
+        if beta_fit<beta_range[1] and beta_fit>beta_range[0] and ts_beta>tsmin:
+            model['beta']=beta_fit
+        else:
+            model['beta']=0 if saved<1 else saved
+        return (beta_fit, ts_beta, saved)
+
+    
+    def special(self):
+        """ calculate beta_TS
+        """
+        assert os.path.exists('beta_ts'), "Expect folder to save results"
+        from scipy import optimize
+        roi=self
+        def beta_TS(source_name=None):
+            source = roi.get_source(source_name)
+            roi.freeze('beta')
+            model=source.model
+            saved=model['beta']
             
-            altsrc = sedfuns.alternate_source(self, s, name, gts['skydir'],altmodel)
-            outfile = '3FHL_correspondence/{}.pkl'.format(name.replace('+','p'))
-            pickle.dump(altsrc, open(outfile,'w'))
-            print 'Wrote file {}'.format(outfile)
-        return False
+            def beta_like(beta):
+                model['beta']=beta
+                roi.fit(source.name, summarize=False, estimate_errors=False, ignore_exception=True)
+                return roi.log_like()
+            
+            beta_fit = optimize.fmin(lambda beta: -beta_like(beta), saved, disp=0, maxiter=20)[0]
+            return (beta_fit, 2*(beta_like(beta_fit)-beta_like(0)), saved, 
+                model['Norm'], model['Index'])
+        
+        fit_sources = [s.name for s in self.free_sources 
+                if not s.isglobal and s.model.name=='LogParabola']
+        beta_dict = dict()
+        print 'beta likelihood analysis for {} LogParabola sources'.format(len(fit_sources))
+        for sname in fit_sources:
+            print sname
+            beta_fit, TS, beta ,norm, index= beta_TS(sname)
+            beta_dict[sname]= dict(beta_fit=beta_fit, TS_beta=TS, beta=beta, norm=norm, index=Index) 
+        filename = 'beta_ts/'+self.name+'.pkl'
+        pickle.dump(beta_dict, open(filename,'w'))
+        print pd.DataFrame(beta_dict).T
+        print 'wrote file {}'.format(filename)  
+        return True #          
+        # """For making the 3FHL correspondence
+        # """
+        # df =pd.read_pickle('UW-3FHL_correspondence.pkl')
+        # local = (df.uw_roi==int(self.name[-4:])) & df.uwok
+        # if sum(local)==0:
+        #     print 'No corresponding sources found'
+        #     return False
+        # for name in df[local].index:
+        #     gts = df.ix[name]
+        #     altmodel = gts['model']
+        #     print 'Comparing gt source {} [{}] with UW {}'.format(name, altmodel.name, gts['uw_name'])
+        #     s = self.get_source(gts['uw_name'])
+            
+        #     altsrc = sedfuns.alternate_source(self, s, name, gts['skydir'],altmodel)
+        #     outfile = '3FHL_correspondence/{}.pkl'.format(name.replace('+','p'))
+        #     pickle.dump(altsrc, open(outfile,'w'))
+        #     print 'Wrote file {}'.format(outfile)
+        # return False
         # nset=0
         # for src in self.free_sources:
         #     if not src.name.startswith('P967-'): continue
@@ -433,19 +506,63 @@ class BatchJob(Process):
         self.process_roi(roi_index)
     
 
-def fit_diffuse(roi, nbands=8, select=None, restore=False):
+def fit_isotropic(roi, nbands=8, folder='isotropic_fit'):
+    """ fit only the front and back"""
+    from uw.like import Models
+    iso_source = roi.get_source('isotrop')
+    old_model=iso_source.model.copy()
+    roi.sources.set_model(Models.FrontBackConstant(), 'isotrop')
+    iso_model=iso_source.model
+    roi.reinitialize()
+
+    cx = []
+    for eband in range(nbands):
+        print '*** Energy Band {}: iso counts {}'.format( eband,
+                                [t[1].counts.round() for t in roi[2*eband:2*eband+2]])
+        roi.select(eband)
+        iso_model[0]=1; iso_model[1]=1
+        roi.fit([0,1]); 
+        u = iso_model.get_all_parameters();
+        cx.append(u)
+    roi.select()
+    roi.sources.set_model(old_model)
+    if folder is not None:
+        filename= '{}/{}.pickle'.format(folder, roi.name)
+        pickle.dump(np.array(cx), open(filename, 'w'))
+        print 'wrote file {}'.format(filename)
+    return np.array(cx)
+
+def fit_galactic(roi, nbands=8, folder='galactic_fit'):
+    """ fit only the galactic normalization"""
+    cx = []
+    gal_model = roi.get_source('ring').model
+    roi.thaw('Norm')
+    gal_norm = gal_model[0]
+    roi.reinitialize()
+    for eband in range(nbands):
+        print '*** Energy Band {}: gal counts {}'.format( eband,
+                                [t[0].counts.round() for t in roi[2*eband:2*eband+2]])
+        roi.select(eband)
+        gal_model[0]=gal_norm
+        roi.fit([0], ignore_exception=True); 
+        cx.append(gal_model[0])
+    roi.select()
+    roi.freeze('Norm')
+    if folder is not None:
+        filename= '{}/{}.pickle'.format(folder, roi.name)
+        pickle.dump(np.array(cx), open(filename, 'w'))
+        print 'wrote file {}'.format(filename)
+    return np.array(cx)
+    
+def fit_diffuse(roi, nbands=8, select=[0,1,2], restore=False, folder='diffuse_fit'):
     """
     Perform indpendent fits to the gal, iso_front, and iso_back for each of the first nbands bands
     select: None or list of variables
     """
     from uw.like import Models
     # freeze all free sources, thaw gal and iso
-    free_sources = roi.free_sources
-    saved_free = [s.model.free.copy() for s in free_sources]
-    for s in free_sources:
-        s.model.free[:]=False
-    roi.sources.find_source('ring').model.free[0]=True
-    iso_model =roi.sources.find_source('isotrop').model
+    roi.thaw('Norm', 'ring')
+    iso_model =roi.sources.find_source('isotrop').model.copy()
     roi.sources.set_model(Models.FrontBackConstant(), 'isotrop')
     roi.reinitialize()
     
@@ -454,10 +571,9 @@ def fit_diffuse(roi, nbands=8, select=None, restore=False):
     energies = []
     for ie in range(nbands):
         roi.select(ie); 
-        roi.reinitialize();
         roi.fit(select, ignore_exception=True)
         energies.append(int(roi.energies[0]))
-        dpars.append( roi.sources.parameters.get_parameters())
+        dpars.append( roi.sources.parameters.get_parameters()[:3])
     t =np.power(10, dpars)
     df = pd.DataFrame(t, columns=['gal iso_front iso_back'.split()])
     df.index=energies
@@ -476,11 +592,11 @@ def fit_diffuse(roi, nbands=8, select=None, restore=False):
         
         # update the pickle file
         write_pickle(roi)
-    else:
+    elif folder is not None:
         # simply save results
-        if not os.path.exists('diffuse_fit'):
-            os.mkdir('diffuse_fit')
-        filename= 'diffuse_fit/{}.pickle'.format(roi.name)
+        if not os.path.exists(folder):
+            os.mkdir(folder)
+        filename= '{}/{}.pickle'.format(folder, roi.name)
         pickle.dump(df, open(filename, 'w'))
         print 'wrote file {}'.format(filename)
     return df
