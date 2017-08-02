@@ -1,7 +1,7 @@
 """
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.62 2016/10/28 21:06:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.63 2017/02/09 18:53:24 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -137,6 +137,8 @@ class BandLike(object):
         except FloatingPointError, e:
             print '%s: Floating point error %s evaluating likelihood for band %s' % (e,self,)
             raise
+        except Exception, e:
+            print '{} Exception evaluating likelihood for band {}'.format(e, self)
     
     def gradient(self):
         """ gradient of the likelihood with resepect to the free parameters
