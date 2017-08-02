@@ -1,9 +1,10 @@
 """
 Generate the XML representation of a list of sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.18 2014/04/14 17:43:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.19 2016/03/21 18:54:13 burnett Exp $
 
 """
-import os, collections, argparse, types, glob, pyfits
+import os, collections, argparse, types, glob
+from astropy.io import fits as  pyfits
 import numpy as np
 import pandas as pd
 from uw.like import Models
