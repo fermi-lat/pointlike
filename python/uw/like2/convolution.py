@@ -3,7 +3,7 @@ Convolution interface for like2
 Extends classes from uw.utilities 
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/convolution.py,v 1.5 2013/11/10 20:05:08 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/convolution.py,v 1.6 2014/03/12 15:52:09 burnett Exp $
 author:  Toby Burnett
 """
 import os, pickle, zipfile 
@@ -178,3 +178,116 @@ class ConvolvableGrid(FillMixin, ShowMixin, utilities_convolution.BackgroundConv
         return '%s.%s: center %s npix %d pixelsize %.2f' %(
             self.__module__,self.__class__.__name__, self.center, self.npix, self.pixelsize)
 
+def spherical_harmonic(f, lmax, thetamax=45):
+    """ Calculate spherical harmonics for a function f, l<=lmax
+    thetamax : float, optionial. units degrees
+        integral over costheta is in principle from -1 (180 deg) to +1
+        but the function may be limited to much smaller than that
+    """
+    from scipy.integrate import quad
+    from scipy.special import legendre
+    func = lambda x,n : f(np.sqrt(2*(1-x))) * legendre(n)(x)
+    ctmin = np.cos(np.radians(thetamax))
+    G = lambda n :quad(func, ctmin,1, args=n)[0] #note lower limit not -1
+    norm = G(0)
+    return np.array([G(n) for n in range(lmax+1)])/norm
+
+def convolve_healpix(input_map, func ):
+    """
+    Convolve a HEALPix map with a function
+    input_map : array of float
+        a HEALPix array, RING indexing, nside a power of 2
+    func : The function of an integer el
+        returns the amplitude for spherical harmonic el
+        example: for a Gaussian with sigma in radians: 
+          lambda el : np.exp(-0.5 * (el * (el + 1)) * sigma**2)
+          
+    Returns: the convolved map
+    """
+    import healpy
+    nside = int(np.sqrt(len(input_map)/12))
+    assert 12*nside**2 == len(input_map),'Bad length'
+    alm = healpy.map2alm(input_map);
+    lmax = healpy.Alm.getlmax(len(alm))
+    if lmax < 0:
+        raise TypeError('Wrong alm size for the given '
+                        'mmax (len(alms[%d]) = %d).'%(ialm, len(alm)))
+    ell = np.arange(lmax + 1.)
+    fact = np.array([func(x) for x in ell])
+    
+    healpy.almxfl(alm, fact, inplace=True)
+    return healpy.alm2map(alm, nside=nside, verbose=False)
+
+class SphericalHarmonicContent(object):
+    """ This class is a functor, defining a function of the spherical harmonic index
+    The integral is expensive: it samples the function
+    """
+
+    def __init__(self, f, lmax, thetamax=45., tolerance=1e-3):
+        """Evaluate spherical harmonic content of a funtion of theta
+
+        f : function
+        lmax : int
+        thetamax : limit integral over cos theta
+        tolerance : paramter to adjust points to evaluate
+        """
+        from scipy.integrate import quad
+        from scipy.special import legendre
+        
+        func = lambda x,n : f(np.sqrt(2*(1-x))) * legendre(n)(x)
+        ctmin = np.cos(np.radians(thetamax))
+        norm=1
+        self.G = lambda n :quad(func, ctmin,1, args=n)[0]/norm #note lower limit not -1
+        norm=self.G(0)
+        self.lmax = lmax
+        self.fun=None
+        self.values = []
+        self.addpoint(0)
+        self.addpoint(lmax)
+        if tolerance is not None:
+            self._approximate(tolerance)
+
+    def addpoint(self, el, test=False):
+        if test:
+            cvalue = self(el)
+        self.values.append((el, self.G(el)))
+        if self.fun is not None:
+            self._setup_interpolation()
+        if test: return self(el)/cvalue -1   
+             
+    def _setup_interpolation(self):
+        from scipy import interpolate
+        t = np.array(self.values, dtype = [('el', float), ('value',float)])
+        s = np.sort(t, order='el')
+        self.el=s['el']; self.value=s['value']
+        self.fun = interpolate.interp1d(s['el'],s['value'], 
+                                        kind='quadratic' if len(self.values)>2 else 'linear')
+        
+    def __call__(self, ell):
+        """
+        ell : value or array of int
+        returns the interpolating function output
+        """
+        if self.fun is None:
+            self._setup_interpolation()
+        return self.fun(ell)
+    
+    def _approximate(self, tolerance=1e-3, quiet=True):
+        el=int(self.lmax/2) 
+        done = False
+        while el>2 and not done :
+            x = self.addpoint(el,True)
+            if not quiet:
+                print '{}:{:.4f}'.format(el, x)
+            done = abs(x)<1e-3
+            el= el//2
+
+    def plot(self, title='', ax=None):
+        import matplotlib.pyplot as plt
+        if ax is None: fig,ax = plt.subplots()
+        ax.plot(self(np.arange(self.lmax+1)), '--', label='interpolation')
+        ax.plot(self.el,self.value,'o', label='evaluated')
+        ax.set_xlabel('$l$');
+        ax.set_ylim((0,1.05))
+        ax.set_title(title)
+        ax.legend();
