@@ -1,7 +1,7 @@
 """
 Classes to compute response from various sources
  
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.17 2016/11/07 03:16:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.18 2017/02/09 19:00:56 burnett Exp $
 author:  Toby Burnett
 """
 import os, pickle
@@ -16,6 +16,7 @@ class ResponseException(Exception): pass
 diffuse_grid_defaults = (
         ('pixelsize', 0.25, 'Size of pixels to use for convolution grid'),
         ('npix',      61,   'Number of pixels (must be an odd number'),
+        ('npix2',     91,   'Number of pixels for E<1 GeV'),
         ('quiet',     False, ''),
         ('diffuse_normalization', None, 'dataframe of spectral normalization'),
         )
@@ -146,8 +147,8 @@ class DiffuseResponse(Response):
         super(DiffuseResponse, self).__init__(source, band, roi,  **kwargs)
         self.quiet=kwargs.get('quiet', True)
         
-    def initialize(self):
-        if self.setup: return
+    def initialize(self, force=False):
+        if self.setup or force: return
         self.setup=True
         #set up the spatial model 
         self.dmodel = self.source.dmodel[self.band.event_type]
@@ -157,6 +158,9 @@ class DiffuseResponse(Response):
         
         roi_index = skymaps.Band(12).index(self.roicenter)
         self._keyword_check(roi_index)
+        if hasattr(self, 'preconvolved'):
+            print 'Using preconvoled'
+            assert False, 'breakpoint'
         
         self.create_grid()
         grid = self.grid
@@ -172,7 +176,8 @@ class DiffuseResponse(Response):
     def create_grid(self):
         # create a grid for evaluating counts integral over ROI, individual pixel predictions
         grid = self.grid= convolution.ConvolvableGrid(center=self.roicenter, 
-                npix=self.npix, pixelsize=self.pixelsize)
+                npix=self.npix if self.energy>1000 else self.npix2, 
+                pixelsize=self.pixelsize)
         # this may be overridden
         self.fill_grid()
 
@@ -187,13 +192,7 @@ class DiffuseResponse(Response):
         #now that the grid is filled with the background model values, perhaps change normalization
         # (should be in model? )
         if hasattr(self,'corr') and self.corr is not None:
-            #klugy way to get current list of energies
-            energies = sorted(list(set([x.energy for x in self.roi.bands])))
-            energy_index = energies.index(self.band.energy) 
-            if energy_index>=len(self.corr): energy_index = len(self.corr)-1
-            factor = self.corr[energy_index]
-            #print 'correcting by factor {:.3f}'.format(factor)
-            self.grid.bg_vals *= factor
+            self.grid.bg_vals *= self.corr
         self.grid.convolve()
         
     def evaluate(self):
@@ -218,10 +217,6 @@ class DiffuseResponse(Response):
     
     def _keyword_check(self, roi_index):
         # check for extra keywords from diffuse spec.
-        import pandas as pd
-        if hasattr(self.source,'corr'): 
-            self.corr = self.source.corr
-            return
         dfun = self.dmodel
         
         if hasattr(dfun, 'kw') and dfun.kw is not None and len(dfun.kw.keys())>1: 
@@ -231,22 +226,7 @@ class DiffuseResponse(Response):
                     print '\t%s loading corrections for source %s from %s.kw:' \
                     % (self.__class__.__name__, self.source.name,  dfun.__class__.__name__)
                 corr_file = os.path.expandvars(dfun.kw['correction'])
-                dn = self.roi.sources.diffuse_normalization
-                if dn is not None and corr_file in dn:
-                    diffuse_normalization = dn[corr_file]
-                    self.corr = diffuse_normalization
-                else:
-                    self.corr = DiffuseCorrection(corr_file).roi_norm(roi_index) #correction.ix['HP12_%04d'%roi_index].values
-
-            #    if not os.path.exists(corr_file):
-            #        corr_file = os.path.expandvars(os.path.join('$FERMI','diffuse', corr_file))
-            #    try:
-            #        df = pd.read_csv(corr_file, index_col=0) 
-            #    except Exception, msg:
-            #        raise Exception('Error loading correction file %s: %s'% (corr_file,msg))
-            #    self.corr = df.ix['HP12_%04d'%roi_index].values
-            #    if not self.quiet:print '\tcorrection file: "%s"' % corr_file
-            #    if not self.quiet:print '\tcorrections: %s' %self.corr.round(3)
+                self.corr = DiffuseCorrection(corr_file)(roi_index, self.energy) 
             else: 
                 self.corr=None
             
@@ -254,12 +234,28 @@ class DiffuseResponse(Response):
             self.systematic = dfun.kw.get('systematic', None)
             if self.systematic is not None:
                 if not self.quiet:print '\tsystematic: %.3f' % self.systematic
+            if 'preconvolved' in dfun.kw:
+                self.preconvolved = dfun.kw['preconvolved']
         else: 
             self.corr =self.systematic = None
             
         #cache this result in the diffuse object
-        self.source.corr = self.corr 
+        #self.source.corr = self.corr 
         self.source.systematic = self.systematic
+
+    def rescale(self, scale_factor=1):
+        """For tests with modified spectrum
+        Adjust the model calculation by applying a scale factor
+        Return current correction factor
+        (Note the default gives access)
+        For changes to be taken into account do a "reinitialize()"
+        """
+        if scale_factor != 1.:
+            self.factor *= scale_factor
+            self.pixel_values *= scale_factor
+            self.corr *= scale_factor
+            self.evaluate()
+        return self.corr #new total correction
 
 class DiffuseCorrection(object):
     """load, and provide access to a diffuse correction file
@@ -396,7 +392,7 @@ class IsotropicResponse(DiffuseResponse):
         super(IsotropicResponse, self).__init__(source, band, roi, **kwargs)
         
     def evaluate(self):
-        # deal with FrontBackConstant case, which uses different conatants for front/back
+        # deal with FrontBackConstant case, which uses different constants for front/back
         if hasattr(self.source.model, 'ct'): # bit ugly
             self.source.model.ct=self.band.event_type
         super(IsotropicResponse, self).evaluate()
@@ -624,3 +620,123 @@ class ExtendedResponse(DiffuseResponse):
         self.show_source(ax=axx[1], colorbar=False)
         self.show_cvals(ax=axx[2], colorbar=False)
         return fig    
+class AllSkyDiffuse(Response):
+    """Diffuse response based on HEALPix all sky representation, which uses healpy to 
+    convolve with the PSF
+    """
+        
+    # defaults = diffuse_grid_defaults
+    # @keyword_options.decorate(defaults)
+    def __init__(self, source, band, roi, **kwargs):
+        # keyword_options.process(self, kwargs)
+        self.setup=False
+        self.overlap=1
+        super(DiffuseResponse, self).__init__(source, band, roi,  **kwargs)
+        self.quiet=kwargs.get('quiet', True)
+        
+    def initialize(self, force=False):
+        if self.setup or force: return
+        self.setup=True
+        #set up the spatial model 
+        self.dmodel = self.source.dmodel[self.band.event_type]
+        self.dmodel.load()
+        self.energy = self.band.energy
+        self.dmodel.setEnergy(self.band.energy)
+        
+        roi_index = skymaps.Band(12).index(self.roicenter)
+        self._keyword_check(roi_index)
+        
+        # self.create_grid()
+        # grid = self.grid
+        # inside = grid.dists< self.band.radius_in_rad
+        # self.ap_average = grid.cvals[inside].mean()
+        self.delta_e = self.band.emax - self.band.emin
+        self.factor = self.ap_average * self.band.solid_angle * self.delta_e
+        if self.band.has_pixels:
+            assert False
+            # self.pixel_values = grid(self.band.wsdl, grid.cvals) * self.band.pixel_area * self.delta_e
+
+        self.evaluate()
+        
+    # def create_grid(self):
+    #     # create a grid for evaluating counts integral over ROI, individual pixel predictions
+    #     grid = self.grid= convolution.ConvolvableGrid(center=self.roicenter, 
+    #             npix=self.npix if self.energy>1000 else self.npix2, 
+    #             pixelsize=self.pixelsize)
+    #     # this may be overridden
+    #     self.fill_grid()
+
+            
+    # def fill_grid(self):
+    #     # fill and convolve the grid
+        
+    #     self.grid.psf_fill(self.band.psf)
+    #     self.grid.bg_fill(self.band.exposure, self.dmodel)
+    #     #assert False, 'Break point'
+        
+    #     #now that the grid is filled with the background model values, perhaps change normalization
+    #     # (should be in model? )
+    #     if hasattr(self,'corr') and self.corr is not None:
+    #         self.grid.bg_vals *= self.corr
+    #     self.grid.convolve()
+        
+    def evaluate(self):
+        norm = self.source.model(self.band.energy)
+        self.counts = norm * self.factor
+        if self.band.has_pixels:
+            self.pix_counts = self.pixel_values * norm
+
+    def grad(self, weights, exposure_factor=1): 
+        """ contribution to the overall gradient
+        weights : arrary of float
+            weights = self.data / self.model_pixels
+        """
+        model = self.spectral_model
+        if np.sum(model.free)==0 : 
+            return []
+        pixterm = ( self.pixel_values * weights ).sum() if self.band.has_pixels else 0
+        return (self.factor*exposure_factor - pixterm) * model.gradient(self.energy)[model.free] 
+        
+    def __call__(self, skydir):
+        assert False
+        # return self.grid(skydir, self.grid.cvals)[0] * self.delta_e
+    
+    def _keyword_check(self, roi_index):
+        # check for extra keywords from diffuse spec.
+        dfun = self.dmodel
+        
+        if hasattr(dfun, 'kw') and dfun.kw is not None and len(dfun.kw.keys())>1: 
+            # Manage keywords found in the 
+            if 'correction' in dfun.kw and dfun.kw['correction'] is not None:
+                if not self.quiet:
+                    print '\t%s loading corrections for source %s from %s.kw:' \
+                    % (self.__class__.__name__, self.source.name,  dfun.__class__.__name__)
+                corr_file = os.path.expandvars(dfun.kw['correction'])
+                self.corr = DiffuseCorrection(corr_file)(roi_index, self.energy) 
+            else: 
+                self.corr=None
+            
+            if not self.quiet: print '\tcorrections:{}'.format(self.corr)
+            self.systematic = dfun.kw.get('systematic', None)
+            if self.systematic is not None:
+                if not self.quiet:print '\tsystematic: %.3f' % self.systematic
+        else: 
+            self.corr =self.systematic = None
+            
+        #cache this result in the diffuse object
+        #self.source.corr = self.corr 
+        self.source.systematic = self.systematic
+
+    def rescale(self, scale_factor=1):
+        """For tests with modified spectrum
+        Adjust the model calculation by applying a scale factor
+        Return current correction factor
+        (Note the default gives access)
+        For changes to be taken into account do a "reinitialize()"
+        """
+        if scale_factor != 1.:
+            self.factor *= scale_factor
+            self.pixel_values *= scale_factor
+            self.corr *= scale_factor
+            self.evaluate()
+        return self.corr #new total correction
