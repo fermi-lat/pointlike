@@ -3,8 +3,8 @@ Python support for source association, equivalent to the Fermi Science Tool gtsr
 author:  Eric Wallace <wallacee@uw.edu>
 """
 
-__version__ = "$Revision: 1.39 $"
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.39 2015/03/10 16:58:56 burnett Exp $
+__version__ = "$Revision: 1.40 $"
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.40 2016/05/09 18:34:46 burnett Exp $
 
 import os
 import sys
@@ -15,7 +15,7 @@ import glob
 
 
 import numpy as np
-import pyfits as pf
+from astropy.io import fits as pf
 
 import skymaps
 from uw.utilities import fitstools,keyword_options,path
