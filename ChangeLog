@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Aug  2 15:53:11 PDT 2017
+pointlike/python/uw/like2
+
+Modified Files:
+	parameterset.py 
+Log Message:
+adjust to apparent numpy change
+    *
+------------------------------------------------------------
 User: burnett  Wed Aug  2 15:52:31 PDT 2017
 pointlike/python/uw/like2
 
