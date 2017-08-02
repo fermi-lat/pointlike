@@ -1,6 +1,6 @@
 """
 Code to generate a set of maps for each ROI
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.10 2016/10/28 21:18:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.11 2017/02/09 18:59:34 burnett Exp $
 
 """
 import os, sys,  pickle, types
@@ -109,7 +109,7 @@ class KdeMap(object):
         for  bandlike in roi.selected:
             band = bandlike.band 
             if band.emin < emin[band.event_type]: continue
-            self.r95.append( np.radians(band.psf.inverse_integral(95, on_axis=True)) )
+            self.r95.append( np.radians(band.psf.inverse_integral(95, on_axis=False)) ) #FAIL if True
             self.bands.append(band)
     
     def __call__(self,v,skydir = None):
@@ -319,10 +319,10 @@ class DisplayTable(object):
         fig.set_facecolor('white')
         return zea
 
-table_info={'ts':  (ResidualTS, dict(photon_index=2.2, model='LogParabola(1e-12, 2.2, 0, 1000.)')),
+table_info={'ts':  (ResidualTS, dict(photon_index=2.2, model='LogParabola(1e-13, 2.2, 0, 1000.)')),
             'kde': (KdeMap, dict()),
             'tsx': (ResidualTS, dict(photon_index=2.3, model='LogParabola(1e-12, 2.3, 0, 1000.)')),
-            'tsp': (ResidualTS, dict(model='ExpCutoff(1e-13,2.2, 2000.)')),
+            'tsp': (ResidualTS, dict(model='ExpCutoff(1e-13,1.5, 3000.)')),
             'hard': (ResidualTS, dict(photon_index=1.7, model='LogParabola(1e-15, 1.7, 0, 50000.)')),
             'soft': (ResidualTS, dict(photon_index=2.7, model='LogParabola(1e-12, 2.7, 0, 250.)')),
             'mspsens': (ResidualUpperLimit, dict(model='ExpCutoff(1e-13,1.2,2800.)')),
@@ -348,10 +348,10 @@ def residual_maps(roi, folder='residual_maps'):
         ids = np.array(map( cband.index, wsdl)) # list of ids with nside
         id12 = np.array(map(Band(12).index, wsdl),int) # nside=12 ids
         inside = id12==roi_id
-        data = b.data[inside]
-        model= np.array(b.model_pixels,np.float32)[inside]
+        data = b.data
+        model= np.array(b.model_pixels,np.float32)
         dd = dict(band_index=index, nside=nside,energy=energy, event_type=event_type, 
-                  ids=ids[inside], model= model,data= data,)
+                  ids=ids, model= model,data= data,inside=inside,)
         chi2 = sum((data-model)**2/model)
         print '{:5.0f} {:5d} {:4d}   {:4.0f}/{:4d}   {:+0.1%}'.format(energy, event_type, nside,
                                                                  chi2, len(data), (data/model-1).mean())
