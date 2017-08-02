@@ -1,6 +1,6 @@
 """
 Output the ROI info to as a pickle file.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_healpix.py,v 1.12 2015/12/03 17:08:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_healpix.py,v 1.13 2016/03/21 18:54:13 burnett Exp $
 """
 import os, pickle, time
 import numpy as np
@@ -61,7 +61,7 @@ def pickle_dump(roi,  pickle_dir, dampen, ts_min=5, **kwargs):
         sedrec = s.sedrec
         loc = s.__dict__.get('loc', None)
         ts = s.ts if hasattr(s, 'ts') else roi.TS(s.name)
-        if ts < ts_min and s.name[:3]!='PSR': 
+        if ts < ts_min and (s.name[:3]!='PSR' and not s.isextended): 
             print 'Not saving source %s: ts=%.1f < %.1f' % (s.name, ts, ts_min)
             continue
         sources[s.name]=dict(
@@ -70,6 +70,7 @@ def pickle_dump(roi,  pickle_dir, dampen, ts_min=5, **kwargs):
             isextended=s.isextended,
             ts = ts,
             sedrec = sedrec,
+            profile=s.__dict__.get('profile',None),
             band_ts=0 if sedrec is None else sedrec.ts.sum(),
             ts_beta= s.__dict__.get('ts_beta', np.nan),
             pivot_energy = pivot_energy,

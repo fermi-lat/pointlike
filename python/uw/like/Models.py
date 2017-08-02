@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.149 2015/08/22 00:40:10 mdwood Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.150 2016/05/09 18:34:46 burnett Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -554,7 +554,7 @@ class Model(object):
     def corr_coef(self):
         """Return the linear correlation coefficients for the estimated covariance matrix."""
         M, F = self.internal_cov_matrix, self.free
-        S = np.diag()**0.5[F]
+        S = (np.diag(M)**0.5)[F]
         return M[F].T[F] / np.outer(S,S)
 
     def has_errors(self):
@@ -683,7 +683,7 @@ class Model(object):
                     l+=[t_n+': (1 + %.3f - %.3f) (avg = %.3f) %-10.3g %s'% (tuple(q) + (p[i],frozen))]
                 else:
                     l+=[t_n+': %.3g + %.3g - %.3g (avg = %.3g) %s'%(p[i],hi_p[i],lo_p[i],(hi_p[i]*lo_p[i])**0.5,frozen)]
-            return ('\n'+indent).join(l)
+            return indent+ ('\n'+indent).join(l)
         else: #if no errors are present
             for i in xrange(len(pnames)):
                 t_n = '%-10s' % pnames[i]
@@ -692,7 +692,7 @@ class Model(object):
                 else:
                     frozen = '(DERIVED)'
                 l+=[t_n+': %.3g %s'%(p[i],frozen)]
-            return ('\n'+indent).join(l)
+            return indent+('\n'+indent).join(l)
             
     def __repr__(self): return self.__str__()
 
@@ -952,7 +952,7 @@ class Model(object):
         """
         def f(e):
             return self.flux_relunc(e)
-        if np.isnan(f(500)):
+        if np.isnan(f(500.)):
             if exception:
                 raise ModelException('Spectral fit with at least two free parameters required before calculating pivot energy')
             else: return np.nan
@@ -1942,6 +1942,15 @@ class PLSuperExpCutoff(Model):
     #    print "Pivot energy solution (in MeV) for the PLSuperExpCutoff : ",result
     #    return result
         
+    def flux_relunc(self, energy):
+        """ Return relative uncertainty, ignoring contribution from exponential, if the parameter is free
+        """
+        f2 = self.free[2]
+        self.free[2]=False
+        r = super(PLSuperExpCutoff, self).flux_relunc(energy)
+        self.free[2]=f2
+        return r
+
     def set_e0(self, e0p):
         """ set a new reference energy, adjusting the norm parameter:
 
