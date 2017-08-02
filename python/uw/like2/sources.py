@@ -1,6 +1,6 @@
 """
 Source classes
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.49 2016/03/21 18:54:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.50 2016/10/28 21:23:11 burnett Exp $
 
 """
 import os, copy
@@ -19,6 +19,7 @@ def ExpCutoff(*pars, **kw):  return Models.ExpCutoff(p=pars, **kw)
 def PLSuperExpCutoff(*pars, **kw): return Models.PLSuperExpCutoff(p=pars, **kw)
 def Constant(*pars, **kw):   return Models.Constant(p=pars, **kw)
 def FBconstant(f,b, **kw): return Models.FrontBackConstant(f,b, **kw)
+def PSR_default(): return Models.PLSuperExpCutoff(p=(1e-14,1.5, 3000, 1.0), free=[True,True, True, False])
     
 def ismodel(model):
     """ check that model is an instance of Models.Model"""
@@ -43,7 +44,7 @@ def set_default_bounds( model, force=False):
                 Index=(0.0, 5), 
                 Norm=(10**-18, 10**-7),
                 Scale=(0.001, 4.0),
-                beta=(-0.1, 5.), 
+                beta=(-0.25, 5.), 
                 Cutoff=(100., 1e5),
                 )[pname.split('_')[0]]
         except: pass
@@ -84,7 +85,7 @@ class Source(object):
             try:
                 t =eval(self.model)
             except Exception, exp:
-                print 'Failed to evaluate model expression, %s: %s' %(source.model, exp)
+                print 'Failed to evaluate model expression, %s: %s' %(self.model, exp)
                 raise
             self.model=t
                 
