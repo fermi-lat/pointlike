@@ -1,12 +1,13 @@
 """
 Implementation of various roi printing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/printing.py,v 1.8 2013/12/05 21:16:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/printing.py,v 1.9 2014/01/26 20:07:56 burnett Exp $
 """
 import os
 import numpy as np
 import pandas as pd
+from skymaps import SkyDir
 
-def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_all_ts=False):
+def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_all_ts=False, no_global=False):
     """ formatted table point sources positions and parameter in the ROI, 
         followed by summary of diffuse names, parameters values.
         values are followed by a character to indicate status:
@@ -34,7 +35,10 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
         return '*'
     def beta_string(beta):
         return 8*'' if beta<1e-2 else '%8.2f'%beta
-    if sdir is None: sdir = self.roi_dir
+    if sdir is None:
+        center =roi.roi_dir
+    else:
+        center = sdir if isinstance( sdir,SkyDir,) else SkyDir(*sdir)
     if title is None: 
         title = self.name if hasattr(self,'name') else ''
     print 90*'-', '\n\t Nearby sources within %.1f degrees %s' % (maxdist,title)
@@ -44,13 +48,13 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
     n = len(colnames)-1
     print ('%-13s'+4*'%10s'+' '+(n-4)*'%9s')% colnames
     local_sources =  filter(lambda s: s.skydir is not None, roi.sources[:])
-    local_sources.sort( key=lambda s: s.skydir.difference(roi.roi_dir))
-    global_sources = filter(lambda s: s.skydir is None, roi.sources[:])
+    local_sources.sort( key=lambda s: s.skydir.difference(center))
+    global_sources = filter(lambda s: s.skydir is None, roi.sources[:]) if not no_global else []
 
     for ps in local_sources:
         sdir = ps.skydir
         model = roi.get_model(ps.name)
-        dist=np.degrees(sdir.difference(self.roi_dir))
+        dist=np.degrees(sdir.difference(center))
         if maxdist and dist>maxdist:  continue
         loc = (sdir.l(),sdir.b()) if galactic else (sdir.ra(),sdir.dec())
         try:
@@ -85,7 +89,8 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
         
         print fmt % values
         
-    print 90*'-','\n\tDiffuse sources\n',90*'-'
+    if len(global_sources) > 0 :
+        print 90*'-','\n\tDiffuse sources\n',90*'-'
     for source in global_sources:
         par, sigpar = source.spectral_model.statistical()
         n= len(par)
