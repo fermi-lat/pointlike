@@ -1,7 +1,7 @@
 """
 Extended source code
 Much of this adapts and utilizes 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.14 2016/05/31 17:29:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.15 2016/10/28 21:17:03 burnett Exp $
 
 """
 import os, copy, glob
@@ -71,8 +71,13 @@ class ExtendedSourceCatalog(object):
         for i in range(len(self.names)):
             #print 'unpacking source "{}", form: "{}"'.format(self.names[i], form[i]), 
             if self.force_map or form[i] in ('Map','Ring'):
-                self.spatial_models.append(
-                    SpatialMap(file=self.templates[i].replace(' ', '')))
+                try:
+                    filename=file=os.path.expandvars(self.templates[i].replace(' ', ''))
+                    #assert os.path.exists(filename)
+                    self.spatial_models.append(  SpatialMap(filename))
+                except Exception, msg:
+                    fail = True
+                    print 'source {}: Fail to load {}:{}'.format(self.names[i], filename,msg)
             elif form[i] in ('Disk', 'RadialDisk'):
                 if major[i] == minor[i] and posang[i] == 0:
                     self.spatial_models.append(Disk(p=[major[i]],center=self.dirs[i]))
@@ -95,11 +100,12 @@ class ExtendedSourceCatalog(object):
                     print 'Failure: {}'.format(msg)
                     fail=True
                     
-            assert not fail, 'Quit due to errors'
             #remember the fits file template in case the XML needs to be saved out.
             self.spatial_models[-1].original_template = self.templates[i]
             self.spatial_models[-1].original_parameters = self.spatial_models[-1].p.copy()
 
+        if fail:
+            print 'Warning' #raise Exception( 'spatial model error')
 
         self.spatial_models = np.asarray(self.spatial_models)
 
@@ -124,12 +130,19 @@ class ExtendedSourceCatalog(object):
         spatials  = self.spatial_models[mask][sorting]
 
         sources = []
+        failed=False
         for name,xml,spatial in zip(names,xmls,spatials):
 
             full_xml=os.path.join(self.archive_directory,'XML',os.path.basename(xml))
 
             # Use the built in xml parser to load the extended source.
-            ps,ds=parse_sources(xmlfile=full_xml.replace(' ', ''))
+            xmlfile=full_xml.replace(' ', '')
+            try:
+                ps,ds=parse_sources(xmlfile=xmlfile)
+            except Exception, msg:
+                print 'Source {}: Fail: {}'.format(name, msg)
+                failed=True
+                continue
             if len(ps) > 0: 
                 raise Exception("A point source was found in the extended source file %s" % xmlfile)
             if len(ds) > 1: 
@@ -147,6 +160,8 @@ class ExtendedSourceCatalog(object):
             else:
                 sources.append(source)
 
+        if failed:
+            raise Exception('Could not parse file')
         return sources
 
     def merge_lists(self,skydir,radius=15,user_point_list=[],user_diffuse_list=[]):
@@ -184,11 +199,16 @@ class ExtendedCatalog( ExtendedSourceCatalog):
         
         # create list of sources using superclass, for lookup by name
         self.sources = [self.get_sources(self.dirs[i], 0.1)[0] for i in range(len(self.names))]
+        fail=False
         for source, spatial_model in zip(self.sources, self.spatial_models):
             model = source.model
-            if model.mappers[0].__class__.__name__== 'LimitMapper':
-                #print 'converting mappers for model for source %s, model %s' % (source.name, model.name)
-                source.model = eval('Models.%s(p=%s)' % (model.name, list(model.get_all_parameters())))
+            try:
+                if model.mappers[0].__class__.__name__== 'LimitMapper':
+                    #print 'converting mappers for model for source %s, model %s' % (source.name, model.name)
+                    source.model = eval('Models.%s(p=%s)' % (model.name, list(model.get_all_parameters())))
+            except Exception, msg:
+                fail=True
+                print 'Failed to parse {} spectrum : {}'.format(source.name, msg)
 
             # Replace the spatial model with the one specified by the FITS catalog list    
             dmodel = source.dmodel
@@ -197,6 +217,8 @@ class ExtendedCatalog( ExtendedSourceCatalog):
                      'Center discrepance for {}: {},{}'.format(source.name, spatial_model.center, dmodel[0].center)
                 source.dmodel[0]=source.spatial_model=spatial_model
 
+        if fail:
+            raise Exception('Parse error(s)')
     def __repr__(self):
         return '%s.%s: %s' % (self.__module__, self.__class__.__name__, self.catname)
     def realname(self, cname):
