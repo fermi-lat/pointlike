@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Aug  2 15:57:12 PDT 2017
+pointlike/python/uw/like2
+
+Modified Files:
+	exposure.py 
+Log Message:
+remove pyfits
+    *
+------------------------------------------------------------
 User: burnett  Wed Aug  2 15:56:31 PDT 2017
 pointlike/python/uw/like2
 
