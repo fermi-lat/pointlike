@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.46 2016/10/28 21:21:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.47 2017/02/09 19:01:42 burnett Exp $
 
 """
 import os, pickle
@@ -44,8 +44,8 @@ class SED(tools.WithMixin):
         return fp.poiss, fp.maxdev
         
     def __repr__(self):
-        return '%s.%s : %d bands selected for source %s, energy range %.0f-%.0f'% (
-                    self.__module__, self.__class__.__name__,len(self.rs.selected), self.source_name, 
+        return '{}.{} : SED analysis for source "{}", using {:d} selected bands, {:.0f}-{:.0f} MeV'.format(
+                    self.__module__, self.__class__.__name__,self.source_name,len(self.rs.selected), 
                     self.rs.emin, self.rs.emax)
     
     def select(self, index, event_type=None, poisson_tolerance=0.10, 
@@ -155,6 +155,7 @@ class SED(tools.WithMixin):
             zf =   w.zero_fraction()
             if lf>0 :
                 pull = np.sign(maxl-mf) * np.sqrt(max(0, delta_ts))
+                assert not np.isnan(pull), 'row {}: pull = {}'.format(i,pull)
                 rec.append(xlo, xhi, maxl, lf, uf, npred, pindex, w.ts, mf, delta_ts, pull, err, zf)
             else:
                 pull = -np.sqrt(max(0, delta_ts))
@@ -224,10 +225,10 @@ def sed_table(roi, source_name=None, event_type=None, tol=0.1):
 
 def norm_table(roi, source_name=None, event_type=None, tol=0.25, ignore_exception=True):
     """
-    Return a DataFrame 
+    Return a DataFrame table for the given source with Poisson results
     """
     source = roi.sources.find_source(source_name)
-    
+    #print 'table for {}'.format(source.name)
     roi.select()
     energies = roi.energies
     poiss_list = dict()
@@ -242,8 +243,9 @@ def norm_table(roi, source_name=None, event_type=None, tol=0.25, ignore_exceptio
                 if not ignore_exception: raise
                 poiss_list[int(energy)]= {}
     roi.select()
-    ret = pd.DataFrame(poiss_list, index='maxl lower upper ts pull err'.split() ).T
-    ret.index.nam='energy'
+    ret = pd.DataFrame(poiss_list, index='maxl lower upper ts err'.split() ).T
+    ret['pull'] = (ret.maxl-1)/ret.err
+    ret.index.name='energy'
     return ret
                 
 def residual_tables(roi, tol=0.3, types=None, globals=None, locals=None):
