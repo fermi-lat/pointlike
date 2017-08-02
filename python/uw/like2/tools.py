@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.21 2016/10/28 21:24:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.22 2017/02/09 19:03:23 burnett Exp $
 
 """
 import os, sys, time
@@ -122,10 +122,14 @@ def parse_jname(name):
 def create_jname(ra,dec):
     """Create the format Jhhmm.m+ddmm
     note that last digit is truncated, not rounded
+    http://cds.u-strasbg.fr/vizier/Dic/iau-spec.htx#S3.2.1
     """
-    ram = np.mod(int(ra*40),1440)/10. # RA in minutes, truncate at 0.1 
+    mm = np.mod(ra*4,1440) # RA in minutes 
+    ss = np.mod(mm*60,60) #seconds
+    HH,MM = int(mm/60), int(mm%60)
+    m = int(ss/6) # prescription for .1 min digit
     sign= '+' if dec>=0 else '-'
     dem = int(abs(dec)*60) #abs( DEC) in minutes, truncated
-    return 'J' +   '{:02d}{:04.1f}'.format(int(ram/60),ram%60)\
+    return 'J' +   '{:02d}{:02d}.{:1d}'.format(HH,MM,m)\
             + sign+'{:02d}{:02.0f}'.format(int(dem/60),dem%60)
  
