@@ -1,11 +1,11 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.38 2016/11/07 03:16:32 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.39 2017/02/09 18:56:19 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.38 $'.split()[1]
+version='$Revision: 1.39 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np
@@ -49,10 +49,7 @@ class DataSpecification(object):
 
         interval = data.get('interval', None)
         if interval is not None:
-            if not interval.startswith('month_'):
-                for name in ('binfile', 'ltcube'):
-                    data[name]=data[name].replace('.fit', '_%s.fit'%interval)
-            else:
+            if interval.startswith('month_'):
                 # using 'month_xx' where xx is 01,02,...
                 if interval[-1]=='*':
                     interval = os.path.split(os.getcwd())[-1]
@@ -61,20 +58,34 @@ class DataSpecification(object):
                 for name in ('binfile', 'ltcube', 'ft1files'):
                     if data[name] is not None:
                         data[name]=data[name].replace('*', interval[-2:])
+            elif interval.startswith('year_'):
+               # using 'year_xx' where xx is 01,02,...
+                if interval[-1]=='*':
+                    interval = os.path.split(os.getcwd())[-1]
+                    if interval.find('year')<0 :
+                        raise DataSetError('Specified * for year, but path does not contain yearxx: found %s' % interval)
+                for name in ('binfile', 'ltcube', 'ft1files'):
+                    if data[name] is not None:
+                        data[name]=data[name].replace('*', interval[-1:])
+                
+            else:
+               for name in ('binfile', 'ltcube'):
+                    data[name]=data[name].replace('.fit', '_%s.fit'%interval)
 
         if not os.path.exists(data['binfile']):
             ft1s = data['ft1files'] if hasattr(data['ft1files'],'__iter__') else (data['ft1files'],)
             for ft1 in ft1s:
-                if not os.path.exists(ft1):
+                if ft1 is None or not os.path.exists(ft1):
                     raise DataSetError('FT1 file {} does not exist, needed to create binned photon data file'.format(ft1))
         # check for livetime cube file or files
         nltcube= glob.glob(data['ltcube'])
         if len(nltcube)==0:
+            print 'ltcube file {} not found: checking ft2 files'.format(data['ltcube'])
             ft2s = data['ft2files'] if hasattr(data['ft2files'],'__iter__') else (data['ft2files'],)
             if ft2s[0]=='none':
                 raise DataSetError('No ltcube file or files found, no FT2 specified')
             for ft2 in ft2s:
-                if not os.path.exists(ft2):
+                if ft2 is None or not os.path.exists(ft2):
                     raise DataSetError('FT2 file {} does not exist, needed to create binned photon data file'.format(ft2))
 
         self.__dict__.update(data)
@@ -209,8 +220,8 @@ class DataSet(dataman.DataSpec):
                 ldict = eval(open(dict_file).read())
             except Exception, msg:
                 raise DataSetError( 'Data dictionary file %s not valid: %s' % (dict_file, msg))
-            if interval is not None and not interval.startswith('month_'):
-                # note that the underscore is to specify the designated months, with their own files
+            if interval is not None and not (interval.startswith('month_') or interval.startswith('year_')):
+                # note that the underscore is to specify the designated month or year, with their own files
                 try:
                     pyfile = os.path.join(folder, 'intervals.py')
                     idict = eval(open(pyfile).read()) if os.path.exists(pyfile) else Interval()
