@@ -1,7 +1,7 @@
 """
 Manage a set of parameters
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/parameterset.py,v 1.5 2014/07/02 15:55:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/parameterset.py,v 1.6 2016/03/21 18:54:12 burnett Exp $
 
 """
 import os, types 
@@ -112,7 +112,8 @@ class ParameterSet(object):
     def set_covariance(self, cov):
         """ save the specified convariance matrix into the source models"""
         cnow = np.asarray(self.get_covariance(nomask=True)).flatten()
-        cnow[np.outer(self.mask, self.mask).flatten()] = cov.flatten()
+        
+        cnow[np.outer(self.mask, self.mask).flatten()] = np.array(cov).flatten()
         na = len(self.mask)
         cnew = cnow.reshape(na,na)
         i = 0
