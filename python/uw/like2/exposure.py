@@ -1,12 +1,12 @@
 """
 Implements exposure calcuations
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/exposure.py,v 1.4 2016/06/22 17:02:53 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/exposure.py,v 1.5 2016/11/07 03:16:33 burnett Exp $
 """
 import os
 import numpy as np
 import skymaps
-import pyfits
+from astropy.io import fits as  pyfits
 
 
 class ExposureManager(object):
