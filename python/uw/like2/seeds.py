@@ -1,9 +1,9 @@
 """
 Seed processing code
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/seeds.py,v 1.3 2016/03/30 14:53:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/seeds.py,v 1.4 2016/10/28 21:21:51 burnett Exp $
 
 """
-import os, sys, time, pickle, glob, pyfits, types
+import os, sys, time, pickle, glob,  types
 import numpy as np
 import pandas as pd
 from astropy.io import fits
@@ -38,7 +38,7 @@ def read_seedfile(seedkey,  filename=None, config=None):
 
         
         assert os.path.exists(filename), 'PGWAVE file {} not found'.format( filename)  
-        t = pyfits.open(filename)
+        t = fits.open(filename)
         df=pd.DataFrame(t[1].data)
         selector = lambda month : (df.run=='1m   ') & (df.TBIN=='TBIN_{:<2d}'.format(month-1))
         cut = selector(month)
@@ -74,7 +74,7 @@ def read_seedfile(seedkey,  filename=None, config=None):
     else:
         # reading a TS seeds file
         t = glob.glob('seeds_%s*' % seedkey)
-        assert len(t)==1, 'Seed file search, using %s, failed to find one file' % seedkey
+        assert len(t)==1, 'Seed file search, using key {}, failed to find one file\n\t{}'.format( seedkey,t)
         seedfile=t[0]
         try:
             csv_format=seedfile.split('.')[-1]=='csv'
@@ -133,19 +133,29 @@ def add_seeds(roi, seedkey, config=None,
     srclist = []
     for i,s in seeds[inside].iterrows():
         try:
-            srclist.append(roi.add_source(sources.PointSource(name=s['name'], skydir=s['skydir'], model=model)))
+            src=roi.add_source(sources.PointSource(name=s['name'], skydir=s['skydir'], model=model))
+            if src.model.name=='LogParabola':
+                roi.freeze('beta',src.name)
+            srclist.append(src)
             print '%s: added at %s' % (s['name'], s['skydir'])
         except roimodel.ROImodelException, msg:
             if update_if_exists:
                 srclist.append(roi.get_source(s['name']))
-                print '{}: updating existing at %s '.format((s['name'], s['skydir']))
+                print '{}: updating existing at {} '.format(s['name'], s['skydir'])
             else:
                 print '{}: Fail to add "{}"'.format(s['name'], msg)
     # Fit only fluxes for each seed first
-    parnames = roi.sources.parameter_names
-    #seednorms = np.arange(len(parnames))[np.array([s.startswith(prefix) and s.endswith('_Norm') for s in parnames])]
     seednames = [s.name for s in srclist]
-    seednorms = [s.name+"_Norm" for s in srclist]
+    llbefore = roi.log_like() # for setup?
+
+    # set normalizations with profile fits
+    for src in srclist:
+        prof= roi.profile(src.name, set_normalization=True)
+        src.ts= prof['ts'] if prof is not None else 0
+        print '\tTS={:.1f}'.format(src.ts)
+
+    # now fit all norms at once
+    seednorms = [s.name+"_Norm" for s in srclist if roi.get_source(s.name).ts>0]
     if len(seednorms)==0:
         print 'Did not find any seeds with prefix {}.'.format(prefix)
         return False
@@ -177,7 +187,7 @@ def add_seeds(roi, seedkey, config=None,
         if ts<tsmin:
             print ' TS<%.1f, removing from ROI' % tsmin
             roi.del_source(sname)
-        else:
+        elif tsmin>0:
             # one iteration of pivot change
             s = roi.get_source(sname)
             roi.repivot([s], min_ts=5)
