@@ -1,14 +1,15 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.53 2016/10/28 21:16:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.54 2017/02/09 18:56:59 burnett Exp $
 
 author:  Toby Burnett
 """
-import os, types, pyfits, collections, zipfile, pickle
+import os, types, collections, zipfile, pickle, glob
 import numpy as np
 import skymaps #from Science Tools: for SkyDir, DiffuseFunction, IsotropicSpectrum
 import pandas as pd
+from astropy.io import fits as pyfits
 
 from .pub import healpix_map #make this local in future
 from . import (response, sources    )
@@ -142,6 +143,34 @@ class Isotropic(DiffuseBase):
         return np.exp(    np.log(self.spectrum[i])   * (1-a) 
                         + np.log(self.spectrum[i+1]) * a     ) 
 
+class IsotropicCorrection(object):
+    """ Manage isotropic correction files
+    """
+    def __init__(self, filename):
+        """filename : string
+            
+
+        """
+        self.isocorr_files = glob.glob(os.path.expandvars('$FERMI/diffuse/'+filename))
+        assert self.isocorr_files[0].find('front')>0
+        self.isocorr = [pd.read_csv(f, index_col=0) for f in self.isocorr_files]
+        
+    def __call__(self, roi, eband):
+        return np.array([self.isocorr[x].ix[roi][eband] for x in range(2)])
+    
+    def update(self, roi, eband, corr ):
+        """apply correction to given roi number and band number
+        corr : float or array of float
+        """
+        t = self(roi,eband) * np.asarray(corr)
+        for i in range(2):
+            self.isocorr[i].ix[roi][eband] = t[i]
+        return t
+            
+    def save(self):
+        for f,df in zip(self.isocorr_files, self.isocorr):
+            print 'writing {}'.format(f)
+            df.to_csv(f)
 
 
 class MapCube(DiffuseBase, skymaps.DiffuseFunction):
@@ -243,6 +272,12 @@ class HealpixCube(DiffuseBase):
         data = self.hdulist[1].data
         return np.array([row[0] for row in data])
         
+def AllSkyDiffuse(HealpixCube):
+    """special version adding convolvability
+    """
+    def __init__(self,filename):
+        super(AllSkyDiffuse,self).__init__(filename)
+
 def make_healpix_spectral_cube(spectra, energies, filename=None):
     """
     Generate a FITS format spectral cube from HEALPix data 
@@ -282,7 +317,13 @@ def make_healpix_spectral_cube(spectra, energies, filename=None):
             os.remove(filename)
         hdulist.writeto(os.path.expandvars(filename))
     return hdulist
-    
+
+def make_text_spectrum(spectrum, energies, filename):
+    """
+    Generate a text file table with the energies and spectrum, e.g., for isotropic
+    """
+    np.savetxt(filename, np.asarray([energies, spectrum]).T, fmt='%.3e')
+
 class Healpix(DiffuseBase):
     """Diffuse map using HEALPix representation.
     Presumes that columns have eneregies (found in hdu#3) which exactly
