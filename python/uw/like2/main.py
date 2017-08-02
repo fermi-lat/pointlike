@@ -1,11 +1,12 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.87 2016/11/07 03:16:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.88 2017/02/09 18:58:02 burnett Exp $
 
 """
-import types, time
+import types, time, glob
 import numpy as np
+import pandas as pd
 from uw.utilities import keyword_options
 from skymaps import SkyDir, Band
 from . import (views,  configuration, extended,  roimodel, from_xml, from_healpix,
@@ -79,7 +80,7 @@ class ROI(views.LikelihoodViews):
     )
 
     @keyword_options.decorate(defaults)
-    def __init__(self, config_dir, roi_spec=None, **kwargs):
+    def __init__(self, config_dir, roi_spec=None, xml_file=None, **kwargs):
         """Start pointlike v2 (like2) in the specified ROI
         
         parameters
@@ -90,30 +91,40 @@ class ROI(views.LikelihoodViews):
         roi_spec : [None |integer | (ra,dec) tuple ]
             If None, require that the input_model dict has a key 'xml_file'
             if an integer, it must be <1728, the ROI number
+            if a string, assume a source name and load the ROI containing it
             
         """
         keyword_options.process(self, kwargs)
         self.config=config = configuration.Configuration(config_dir, quiet=self.quiet, postpone=self.postpone)
         ecat = extended.ExtendedCatalog(config.extended)
         
-        if roi_spec is None or isinstance(roi_spec, str):
-            try:
-                roi_sources =from_xml.ROImodelFromXML(config, roi_spec)
-                roi_index = roi_sources.index
-            except:
-                print 'No ROI specification (an index) or presence of an xml file'
-                raise
+        if isinstance(roi_spec, str):
+            # try:
+            #     roi_sources =from_xml.ROImodelFromXML(config, roi_spec)
+            #     roi_index = roi_sources.index
+            # except:
+            #     print 'No ROI specification (an index) or presence of an xml file'
+            #     raise
+            # Change to just expecting the name of a source
+            sourcelist=glob.glob('sources_*.csv')[0]
+            df = pd.read_csv(sourcelist, index_col=3 if roi_spec[0]=='J' else 0)
+            if roi_spec not in df.index:
+                print 'Source name "{}" not found '.format(roi_spec)
+                raise Exception
+            roi_index = int(df.ix[roi_spec]['roiname'][-4:]) 
+            print 'Loading ROI #{}, containing source "{}"'.format(roi_index, roi_spec)
         elif isinstance(roi_spec, int):
-            roi_sources = from_healpix.ROImodelFromHealpix(config, roi_spec, ecat=ecat,load_kw=self.load_kw)
             roi_index = roi_spec
-            config.roi_spec = configuration.ROIspec(healpix_index=roi_spec)
         elif type(roi_spec)==tuple and len(roi_spec)==2:
             roi_index = Band(12).index(SkyDir(*roi_spec))
-            roi_sources = from_healpix.ROImodelFromHealpix(config, roi_index, ecat=ecat,load_kw=self.load_kw)
-            config.roi_spec = configuration.ROIspec(healpix_index=roi_index)
 
         else:
-            raise Exception('Did not recoginze roi_spec: %s' %(roi_spec))
+            raise Exception('Did not recoginze roi_spec: %s' %(roi_spec))             
+            
+        roi_sources = from_healpix.ROImodelFromHealpix(config, roi_index, ecat=ecat,
+                    load_kw=self.load_kw)
+        config.roi_spec = configuration.ROIspec(healpix_index=roi_index)
+
         self.name = config.roi_spec.name if config.roi_spec is not None else roi_spec
         
         roi_bands = bands.BandSet(config, roi_index)
@@ -185,7 +196,7 @@ class ROI(views.LikelihoodViews):
             if qual < tolerance and qual>0:
                 if summarize:
                     print 'Not fitting, estimated improvement, %.2f, is less than tolerance= %.1f' % (qual, tolerance)
-                return
+                    return
             try:
                 fv.maximize(**fit_kw)
                 w = fv.log_like()
@@ -198,7 +209,7 @@ class ROI(views.LikelihoodViews):
                     covariance  = fv.covariance,
                     qual = qual,)
                 fv.modify(update_by)
-                fv.save_covariance()
+                if fit_kw['estimate_errors']: fv.save_covariance()
                 if summarize: fv.summary()
                 
             except Exception, msg:
@@ -206,6 +217,8 @@ class ROI(views.LikelihoodViews):
                 fv.summary() # 
                 if not ignore_exception: raise
         return 
+    
+    
     
     def summarize(self, select=None, exclude=None):
         """construct a summary of the parameters, or subset thereof
@@ -217,7 +230,44 @@ class ROI(views.LikelihoodViews):
         with self.fitter_view(select, exclude=exclude) as fv:
             print 'current likelihood, est. diff to peak: %.1f, %.2f' % (fv.log_like(), fv.delta_loglike())
             fv.summary()
+    
+    def profile(self, source_name=None, set_normalization=False):
+        """Return profile info as a dict. Add profile info to source object
+        
+            source_name : str | 'all'
+            set_normalization : bool
+                if True, use peak likelihood to set normalization of the model
+        """
+        if source_name=='all':
+            for s in self.free_sources:
+                self.profile(s.name)
+            return
+        source = self.sources.find_source(source_name)
+        with sedfuns.SED(self, source.name) as sf:
+            try:
+                p,maxdev= sf.full()
+            except Exception, msg:
+                print 'Failed profile fit for {}: {}'.format(source.name, msg)
+                source.profile=None
+                return 
+            err=p.errors
+            t= dict(peak=p.flux, low=err[0], high=err[1], ts=p.ts, zf=p.zero_fraction())
+            err= np.array(p.errors)/p.flux-1
             
+            if not self.quiet:
+                str = '{:20} flux'.format(source.name)
+                if p.flux>0 and p.errors[0]>0:
+                    print '{} = {:6.3f} (1 + {:.3f} - {:.3f}) eV/cm^2/s '.format(str, p.flux,err[1],-err[0])
+                else:
+                    print '{} < {:6.3f}'.format(str, t['high'])
+
+            source.profile = t
+        if set_normalization:
+            m = source.model
+            m[0]=t['peak']/(m.e0**2 * 1e06) if t['peak']>0 else 1e-15
+        return t
+
+
     def localize(self, source_name=None, update=False, ignore_exception=True, **kwargs):
         """ localize the source, return elliptical parameters 
         """
@@ -265,7 +315,8 @@ class ROI(views.LikelihoodViews):
             set True to force recalculation of sed recarray
         """
         source = self.sources.find_source(source_name)
-        if not hasattr(source, 'sedrec') or source.sedrec is None or update:
+        if not hasattr(source, 'sedrec') or source.sedrec is None\
+                 or (update and np.any(source.model.free)):
             with sedfuns.SED(self, source.name) as sf:
                 source.sedrec = sf.sed_rec(event_type=event_type, tol=tol)
         
