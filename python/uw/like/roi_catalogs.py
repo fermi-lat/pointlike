@@ -1,7 +1,7 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_catalogs.py,v 1.30 2014/07/15 02:16:17 mdwood Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_catalogs.py,v 1.31 2014/07/25 01:08:25 echarles Exp $
 
 author: Joshua Lande
 """
@@ -13,7 +13,7 @@ from os.path import exists, join
 from textwrap import dedent
 from abc import abstractmethod
 
-import pyfits
+from astropy.io import fits as  pyfits
 from skymaps import SkyDir
 
 from . SpatialModels import Disk,EllipticalDisk,Gaussian,EllipticalGaussian,SpatialMap
