@@ -3,8 +3,8 @@
 Author: E. Wallace, M. Kerr
 """
 
-__version__="$Revision: 1.1 $"
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec2.py,v 1.1 2011/12/02 05:39:44 kerrm Exp $
+__version__="$Revision: 1.2 $"
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec2.py,v 1.2 2011/12/02 05:45:02 kerrm Exp $
 
 import os
 import warnings
@@ -42,7 +42,8 @@ class ExposureManager(object):
         ok = [os.path.exists(file) for file in aeff_files]
         if not all(ok):
             raise Exception('one of CALDB aeff files not found: %s' %aeff_files)
-        self.ea  = [skymaps.EffectiveArea('', file) for file in aeff_files]
+        ### THB: Adjust this very late in game, all this pretty obsolete, for pass 8 CALDB format
+        self.ea  = [skymaps.EffectiveArea('', filename, 'EFFECTIVE AREA_'+fb) for filename, fb in zip(aeff_files,['FRONT','BACK'])]
         if self.verbose: print ' -->effective areas at 1 GeV: ', ['%s: %6.1f'% (inst[i],self.ea[i](1000)) for i in range(len(inst))]
         if dm.dataspec.use_weighted_livetime:
             self.exposure = [skymaps.Exposure(dm.lt,dm.weighted_lt,ea) for ea in self.ea]
