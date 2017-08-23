@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: zimmer  Wed Aug 23 09:23:48 PDT 2017
+pointlike/python/uw/pulsar
+
+Modified Files:
+	itemplate.py lcspeclike.py mcphase.py modtest.py phasedata.py 
+	polyfold.py psue_manager.py py_exposure.py timeman.py 
+Log Message:
+refactoring astropy.io.fits for pyfits module
+    *
+------------------------------------------------------------
 User: zimmer  Wed Aug 23 09:23:44 PDT 2017
 pointlike/python/uw/like2/pub
 
