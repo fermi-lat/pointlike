@@ -1,5 +1,5 @@
 """  A module to handle finding irfs
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pycaldb.py,v 1.15 2017/01/26 22:02:37 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pycaldb.py,v 1.16 2017/08/23 16:23:42 zimmer Exp $
 
     author: Joshua Lande """
 import os
@@ -110,8 +110,10 @@ class CALDBManager(object):
         if N.all([os.path.exists(pf) for pf in self.psf_files]):
             return
 
-        # try to read from caldb index
-        psf_indices = [self.irf_files[(self.irf_names.find(irf)!=-1)&(self.irf_types=='RPSF')&(self.conv_types==et)][0]
+        # try to read from caldb index/fo
+        irf_check = N.char.find(self.irf_names,irf)!=-1
+        assert sum(irf_check)>0, 'Did not find the irf name {}'.format(irf)
+        psf_indices = [self.irf_files[(N.char.find(self.irf_names,irf)!=-1)&(self.irf_types=='RPSF')&(self.conv_types==et)][0]
                          for et in self.available_event_types]
 
         # if front & back exist in the caldb.indx
@@ -144,9 +146,12 @@ class CALDBManager(object):
             return
 
         # try to read form caldb index
-        front=N.where((N.char.find(self.irf_names,irf)!=-1)&(self.irf_types=='EFF_AREA')&(self.conv_types=='FRONT'))[0]
-        back=N.where((N.char.find(self.irf_names,irf)!=-1)&(self.irf_types=='EFF_AREA')&(self.conv_types=='BACK'))[0]
-
+        try:
+            front=N.where((N.char.find(self.irf_names,irf)!=-1)&(self.irf_types=='EFF_AREA')&(self.conv_types=='FRONT'))[0]
+            back=N.where((N.char.find(self.irf_names,irf)!=-1)&(self.irf_types=='EFF_AREA')&(self.conv_types=='BACK'))[0]
+        except Exception(msg):
+            print 'Failed Looking for irf {}'.format(irf)
+            raise Exception('Failed Looking for irf {}'.format(irf))
         # if front & back exist in the caldb.indx
         if len(front)==1 and len(back)==1:
             aeffs=self.irf_files[front[0]],self.irf_files[back[0]]
