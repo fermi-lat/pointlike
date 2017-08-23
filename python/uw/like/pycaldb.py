@@ -1,11 +1,11 @@
 """  A module to handle finding irfs
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pycaldb.py,v 1.14 2016/06/22 17:02:52 wallacee Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pycaldb.py,v 1.15 2017/01/26 22:02:37 burnett Exp $
 
     author: Joshua Lande """
 import os
 from os.path import join
 
-import pyfits
+import astropy.io.fits as pyfits
 import numpy as N
 
 from uw.utilities import keyword_options

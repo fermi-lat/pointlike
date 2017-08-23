@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.80 2013/01/10 16:45:19 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_monte_carlo.py,v 1.81 2013/01/25 00:14:10 lande Exp $
 
 author: Joshua Lande
 """
@@ -16,7 +16,7 @@ import collections
 from tempfile import mkdtemp,NamedTemporaryFile
 from GtApp import GtApp
 
-import pyfits
+import astropy.io.fits as pyfits
 import numpy as np
 import pywcs
 

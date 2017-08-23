@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.71 2013/11/30 00:40:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.72 2013/12/05 21:16:34 burnett Exp $
 """
 import os, time, sys, types, glob
 import cPickle as pickle
@@ -816,7 +816,7 @@ class GtlikeCatalog(object):
     """ read in a gll catalog FITS file, then make spectral model available
     """
     def __init__(self, name=None): #'gll_psc4yearclean_v4.fit'):
-        import pyfits
+        import astropy.io.fits as pyfits
         catfile = sorted(glob.glob(os.path.expandvars('$FERMI/catalog/gll*.fit')))[-1]
         print 'opening catalog file %s' % catfile
         self.cat=pyfits.open(catfile)[1].data
@@ -890,7 +890,7 @@ class CompareOtherModel(object):
  
 class GtlikeModels(object):
     def __init__(self, catpath=os.path.expandvars('$FERMI/catalog/gll_psc4yearclean_v4.fit'), otherversion='v4'):
-        import pyfits
+        import astropy.io.fits as pyfits
         self.cat = pyfits.open(catpath)[1].data
         self.otherversion=otherversion
         self.uwversion = os.path.split(os.getcwd())[-1]

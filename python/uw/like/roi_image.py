@@ -6,13 +6,13 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.40 2012/03/15 16:56:14 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_image.py,v 1.41 2012/07/12 19:28:44 lande Exp $
 
 author: Joshua Lande
 """
 from skymaps import SkyImage,SkyDir,PythonUtilities,Band,WeightedSkyDirList
 import numpy as np
-import pyfits
+import astropy.io.fits as pyfits
 import scipy
 import scipy.ndimage
 

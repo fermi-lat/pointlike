@@ -3,8 +3,8 @@ Python support for source association, equivalent to the Fermi Science Tool gtsr
 author:  Eric Wallace <wallacee@uw.edu>
 """
 
-__version__ = "$Revision: 1.40 $"
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.40 2016/05/09 18:34:46 burnett Exp $
+__version__ = "$Revision: 1.41 $"
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.41 2017/08/02 23:10:29 burnett Exp $
 
 import os
 import sys
@@ -745,7 +745,8 @@ def summary_table(srcid_path=None):
     """
     Return a summary table of the catalogs as a list of dictionaries
     """
-    import glob, pyfits
+    import glob
+    import astropy.io.fits as pyfits
     # load the catalogs used
     #if srcid_path is None:
     #    srcid_path = os.path.expandvars('$FERMI/catalog/srcid/')

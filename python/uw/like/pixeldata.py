@@ -2,11 +2,12 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.25 2012/07/16 16:44:08 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.26 2017/01/26 22:03:27 burnett Exp $
 
 """
-version='$Revision: 1.25 $'.split()[1]
-import os, math, pyfits, types, glob
+version='$Revision: 1.26 $'.split()[1]
+import os, math, types, glob
+import astropy.io.fits as pyfits
 import numpy as N; np = N
 import pointlike, skymaps
 

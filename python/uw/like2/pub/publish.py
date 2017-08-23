@@ -1,6 +1,6 @@
 """
 manage publishing 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/publish.py,v 1.7 2012/09/27 14:23:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/publish.py,v 1.9 2013/09/04 12:35:00 burnett Exp $
 """
 import sys, os, pickle, glob, types, time
 #import Image
@@ -8,7 +8,7 @@ import sys, os, pickle, glob, types, time
 # symptom: accessinit-hash-collision-3-both-1-and-1
 import PIL.Image
 sys.modules['Image']=PIL.Image
-import pyfits
+import astropy.io.fits as pyfits
 import numpy as np
 import pylab as plt
 import pandas as pd

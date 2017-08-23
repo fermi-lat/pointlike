@@ -1,5 +1,6 @@
 from __future__ import division
-import os, sys, pyfits
+import os, sys
+import astropy.io.fits as pyfits
 
 """
 NAME: fits_utils.py

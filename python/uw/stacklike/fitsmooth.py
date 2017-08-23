@@ -10,7 +10,7 @@ from uw.like.pypsf import CALDBPsf
 import uw.stacklike.angularmodels as ua
 #import uw.utilities.assigntasks as uta
 from uw.stacklike.stcaldb import scale2
-import pyfits as pf
+import astropy.io.fits as pf
 import pylab as py
 import numpy as N
 import copy as cp

@@ -3,7 +3,7 @@
    author(s): Damien Parent <dmnparent@gmail.com>
    creation Date: July 2011
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/psue_manager.py,v 1.9 2012/11/17 22:56:44 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/psue_manager.py,v 1.10 2012/11/29 00:30:37 kerrm Exp $
 """
 
 __version__ = 1.9
@@ -14,7 +14,8 @@ from sys import exit
 import cPickle, glob
 from shutil import copy, copyfile, move
 import time, random
-import numpy as np, pyfits
+import numpy as np
+import astropy.io.fits as pyfits
 from GtApp import GtApp
 
 import matplotlib

@@ -1,11 +1,11 @@
 """
 Check the residual TS maps for clusters
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/ts_clusters.py,v 1.2 2012/09/27 14:23:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/ts_clusters.py,v 1.3 2014/03/28 14:30:47 burnett Exp $
 
 """
 
 import os,pickle, glob
-import pyfits
+import astropy.io.fits as pyfits
 from skymaps import Band, SkyDir
 import numpy as np
 import pylab as plt

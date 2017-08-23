@@ -4,7 +4,7 @@ A module for calculating the exposure.  The main use case is for a calculation
 at a single position on the sky, e.g., to perform a periodicity search when
 the exposure varies appreciably over a cycle.
 
-$Header:  $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/py_exposure.py,v 1.1 2010/11/01 19:54:18 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -12,7 +12,7 @@ author: M. Kerr <matthew.kerr@gmail.com>
 
 import numpy as N
 from math import sin,cos
-import pyfits as pf
+import astropy.io.fits as pf
 import uw.utilities.fitstools as fitstools
 from skymaps import Gti,Band,Healpix,SkyDir
 from os.path import join

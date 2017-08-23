@@ -1,11 +1,11 @@
 """
 Manage creation of a source Pivot collection from a set of sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/source_pivot.py,v 1.1 2011/12/29 19:17:51 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/source_pivot.py,v 1.2 2012/08/13 19:52:23 burnett Exp $
 
 """
 
 import os, pickle
-import pyfits
+import astropy.io.fits as pyfits
 import numpy as np
 from . import roi_pivot, pivot
 from skymaps import SkyDir, Band 

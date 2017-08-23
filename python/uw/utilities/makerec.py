@@ -1,10 +1,11 @@
 """ Various useful utilities for creating, dumping numpy recarry objects
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/makerec.py,v 1.8 2013/05/14 20:59:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/makerec.py,v 1.9 2013/09/14 05:39:01 burnett Exp $
 
 
 
 """
-import os, pyfits, pickle
+import os, pickle
+import astropy.io.fits as pyfits
 from pylab import mlab
 import numpy as np
 
