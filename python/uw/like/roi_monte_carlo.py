@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_monte_carlo.py,v 1.81 2013/01/25 00:14:10 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_monte_carlo.py,v 1.82 2017/08/23 16:23:42 zimmer Exp $
 
 author: Joshua Lande
 """
@@ -18,7 +18,7 @@ from GtApp import GtApp
 
 import astropy.io.fits as pyfits
 import numpy as np
-import pywcs
+import astropy.wcs as pywcs
 
 from skymaps import IsotropicSpectrum,IsotropicPowerLaw,DiffuseFunction,\
         PySkyFunction,Hep3Vector,SkyImage,SkyDir,PythonUtilities,IsotropicConstant
@@ -546,7 +546,7 @@ class MCModelBuilder(object):
         """ Create an allsky pyfits file with 1s in it.  """
 
         assert 180 % pixelsize == 0
-        import pywcs
+        import astropy.wcs as pywcs
 
         wcs = pywcs.WCS(naxis=2)
 
