@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: zimmer  Wed Aug 23 09:23:42 PDT 2017
+pointlike/python/uw/like
+
+Modified Files:
+	pixeldata.py pycaldb.py roi_catalogs.py roi_image.py 
+	roi_monte_carlo.py srcid.py 
+Log Message:
+refactoring astropy.io.fits for pyfits module
+    *
+------------------------------------------------------------
 User: zimmer  Wed Aug 23 09:23:41 PDT 2017
 pointlike/python
 
