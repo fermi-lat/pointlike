@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.84 2011/04/20 00:36:30 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyfold.py,v 1.1 2011/04/27 18:32:03 kerrm Exp $
 
 Program: polyfold.py
 Version: 1.3
@@ -18,7 +18,7 @@ from toagen import UnbinnedTOAGenerator,BinnedTOAGenerator,EDFTOAGenerator
 from optparse import OptionParser
 from lcfitters import LCTemplate
 import numpy as np
-import pyfits
+import astropy.io.fits as pyfits
 
 try:
     import psr_utils

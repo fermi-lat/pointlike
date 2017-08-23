@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/stacklike.py,v 1.8 2010/12/01 19:40:11 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/stacklike.py,v 1.19 2012/07/17 19:14:24 mar0 Exp $
 author: M.Roth <mar0@u.washington.edu>
 """
 
@@ -7,7 +7,7 @@ import numpy as np
 import pylab as py
 import skymaps as s
 import pointlike as pl
-import pyfits as pf
+import astropy.io.fits as pf
 import glob as glob
 import scipy.integrate as si
 import scipy.optimize as so

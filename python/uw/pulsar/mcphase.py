@@ -1,6 +1,6 @@
 """A module for adding phase to photon events via Monte Carlo.
 
-$Header:  $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/mcphase.py,v 1.1 2010/11/01 19:54:18 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -9,7 +9,7 @@ author: M. Kerr <matthew.kerr@gmail.com>
 from uw.utilities.fitstools import get_fields
 from lcfitters import TaylorMapper
 import numpy as N
-import pyfits
+import astropy.io.fits as pyfits
 
 class MCPhase(object):
     """Support adding phase to photon events.

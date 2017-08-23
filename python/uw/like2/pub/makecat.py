@@ -1,10 +1,10 @@
 """
 Code to generate a standard Fermi-LAT catalog FITS file
 also, see to_xml, to generate XML for the sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/makecat.py,v 1.5 2013/03/21 19:35:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/makecat.py,v 1.6 2013/04/09 23:03:17 burnett Exp $
 """
 import os, argparse
-import pyfits
+import astropy.io.fits as pyfits
 from skymaps import SkyDir
 import numpy as np
 import pandas as pd

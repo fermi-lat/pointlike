@@ -1,4 +1,4 @@
-import pyfits as pf
+import astropy.io.fits as pf
 import numpy as np
 import os as os
 import scipy.integrate as si

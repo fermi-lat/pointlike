@@ -1,11 +1,12 @@
 """
 Pulsar search analysis
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/pulsars.py,v 1.1 2015/07/24 17:56:02 burnett Exp $
 
 """
 
-import os, pyfits
+import os
+import astropy.io.fits as pyfits
 import numpy as np
 import pylab as plt
 import pandas as pd

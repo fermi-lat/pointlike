@@ -1,7 +1,7 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_catalogs.py,v 1.31 2014/07/25 01:08:25 echarles Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_catalogs.py,v 1.32 2017/08/16 19:57:46 burnett Exp $
 
 author: Joshua Lande
 """
@@ -58,7 +58,7 @@ class FermiCatalog(SourceCatalog):
         self.catalog_file=catalog_file
 
     def __open_catalog__(self,catalog_file):
-        import pyfits
+        import astropy.io.fits as pyfits
         f = pyfits.open(catalog_file)
         colnames = [x.name for x in f[1].get_coldefs()]
         sname     = 'NickName' if 'NickName' in colnames else 'Source_Name'
@@ -491,7 +491,7 @@ class ExtendedSourceCatalog(SourceCatalog):
             to get a list of the extended sources. """
         self.archive_directory = archive_directory
 
-        import pyfits
+        import astropy.io.fits as pyfits
         filename=join(self.archive_directory,"LAT_extended_sources*.fit*")
         filename=glob.glob(filename)
         if len(filename)!=1: raise Exception("Unable to find LAT_extended_sources.fit archive file.")

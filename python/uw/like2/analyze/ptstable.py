@@ -1,11 +1,12 @@
 """
 Generate pulsar seed plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/ptstable.py,v 1.3 2013/07/09 03:15:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/ptstable.py,v 1.4 2014/06/09 15:30:06 burnett Exp $
 
 """
 
-import glob, pyfits
+import glob
+import astropy.io.fits as pyfits
 import pandas as pd
 
 from uw.like2.pub import healpix_map

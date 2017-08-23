@@ -1,11 +1,12 @@
 """
 Comparison with the 3FGL catalog
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourcecomparison.py,v 1.7 2015/07/24 17:56:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourcecomparison.py,v 1.8 2015/12/03 17:10:03 burnett Exp $
 
 """
 
-import os, pyfits
+import os
+import astropy.io.fits as pyfits
 import numpy as np
 import pylab as plt
 import pandas as pd

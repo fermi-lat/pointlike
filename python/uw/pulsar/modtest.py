@@ -17,7 +17,7 @@ until the weighted H-test (or other statistic) surprasses some threshold
 for some fraction, e.g. 2/3, of the simulated population.  This gives
 the fractional detection threshold for orbital (or any) modulation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/modtest.py,v 1.2 2012/07/23 00:16:15 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/modtest.py,v 1.3 2012/11/29 00:29:45 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 """
@@ -166,7 +166,7 @@ def test_eclipse(weights,frac=0.95,threshold=8):
 """
 # example
 import pylab as pl
-import pyfits
+import astropy.io.fits as pyfits
 f = pyfits.open('/edata/single_sources/j1124m3653/gamma_products/j1124m3653-ft1_gtselect_gtmktime_r2.fits')
 weights = f[1].data.field('WEIGHT')
 f.close()

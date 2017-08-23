@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/timeman.py,v 1.8 2013/04/27 17:40:39 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/timeman.py,v 1.9 2013/06/26 19:40:08 kerrm Exp $
 
 Handle MET(TT) to MJD(UTC) conversions.
 
@@ -8,7 +8,7 @@ Author: Paul S. Ray <paul.ray@nrl.navy.mil>
 
 import os
 import numpy as np
-import pyfits
+import astropy.io.fits as pyfits
 import warnings
 
 SECSPERDAY = 86400.0

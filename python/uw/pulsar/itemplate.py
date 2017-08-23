@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/itemplate.py,v 1.8 2013/02/05 22:47:48 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/itemplate.py,v 1.9 2017/01/17 15:24:06 kerrm Exp $
 
 Provide a method for interactively fitting a multi-gaussian template to data.
 
@@ -10,7 +10,7 @@ Authors: Paul S. Ray <paul.ray@nrl.navy.mil>
 import numpy as np
 import pylab as pl
 import os
-import pyfits
+import astropy.io.fits as pyfits
 from lcprimitives import LCGaussian,LCKernelDensity,LCEmpiricalFourier
 from lcfitters import LCFitter
 from lctemplate import LCTemplate

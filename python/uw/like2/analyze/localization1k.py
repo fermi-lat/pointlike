@@ -1,14 +1,14 @@
 """
 Description here
 
-$Header: /phys/users/glast/python/uw/like2/analyze/localization1k.py,v 1.144 2013/06/18 12:35:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization1k.py,v 1.1 2013/06/21 20:15:30 burnett Exp $
 
 """
 
 import numpy as np
 import pylab as plt
 import pandas as pd
-import pyfits
+import astropy.io.fits as pyfits
 
 from . import localization
 

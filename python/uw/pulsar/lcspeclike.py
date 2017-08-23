@@ -95,7 +95,7 @@ def calc_ratios2(roi,edict,which=0):
 
 def write_weights(roi,ft1files,colnames=['WEIGHT','TOTAL'],emin=100,which=0,subset_method=True):
     """ Write the signal and the total rates using the current state."""
-    import pyfits
+    import astropy.io.fits as pyfits
     if not hasattr(ft1files,'__iter__'):  ft1files = [ft1files]
     d = dict()
     for ft1 in ft1files:

@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/phasedata.py,v 1.8 2014/05/11 21:30:13 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/phasedata.py,v 1.9 2017/03/08 19:21:21 kerrm Exp $
 
 Handle loading of FT1 file and phase folding with polycos.
 
@@ -8,7 +8,7 @@ Authors: Paul S. Ray <paul.ray@nrl.navy.mil>
 """
 
 import numpy as np
-import pyfits
+import astropy.io.fits as pyfits
 import sys
 from uw.utilities import keyword_options
 from timeman import METConverter
