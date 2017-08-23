@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: zimmer  Wed Aug 23 09:29:44 PDT 2017
+pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+refactoring, pywcs becomes astropy.wcs
+    *
+------------------------------------------------------------
 User: zimmer  Wed Aug 23 09:23:49 PDT 2017
 pointlike/python/uw/utilities
 
