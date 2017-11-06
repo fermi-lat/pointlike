@@ -4,7 +4,7 @@ Duplicates the functionality of the C++ class BinnedPhotonData
 Implements the new standard data format
 http://gamma-astro-data-formats.readthedocs.io/en/latest/skymaps/healpix/index.html#hpx-bands-table
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/binned_data.py,v 1.2 2017/11/06 14:32:53 burnett Exp $
 
 """
 import os, glob, StringIO
@@ -40,17 +40,18 @@ class GTI(object):
 
 
 class BandList(object):
+    """The list of bands, defined by energy range and event type
+    """
     def __init__(self, bands_hdu):
         self.hdu=bands_hdu
         self.bands=np.asarray(bands_hdu.data)
-        self.version = bands_hdu.header['VERSION']
-        if self.version<3:
+        if 'COUNT' in bands_hdu.columns.names:
+            # old format: need this to parse the pixel data
             self.pixelcnt = np.array(map( lambda n: 0 if n<0 else n,
                  bands_hdu.data.field('COUNT')),int)
-            if 'NBRBANDS' not in self.hdu.header:
-                print 'Warning: header in BANDS HDU missing cards'
         else:
             self.pixelcnt=None
+
      
     def __repr__(self):
         df = self.dataframe()
@@ -78,7 +79,7 @@ class BandList(object):
 
     def dataframe(self):
         data = self.hdu.data
-        if self.version>2:
+        if self.pixelcnt is None:
             cdata = [data.E_MIN*1e3, data.E_MAX*1e3, data.EVENT_TYPE, data.NSIDE]
         else:
             cdata = [self.hdu.data.field(cname) for cname in 'emin emax event_class nside'.split()]
@@ -107,7 +108,7 @@ class Pixels(object):
                 chn = chn + [i]*c 
             self.pix = pixeldata.field('INDEX')
             self.cnt = pixeldata.field('COUNT')
-            self.chn = chn
+            self.chn = np.array(chn,int)
         else:
             # read new format
             self.chn = pixeldata.field('CHANNEL')  # band index
@@ -224,16 +225,18 @@ class BinFile(object):
         if not hasattr(filenames, '__iter__'):
             filenames = [filenames]
         for i,filename in enumerate(filenames):
-            if i==0:
+            if i==0: # first one: will add others, if any to this one
                 print '\n"{}" '.format(filename),
                 self.hdus=fits.open(filename)
                 self.gti=GTI(self.hdus['GTI'])
-                if self.hdus[1].name=='BANDS':
+                if 'PIXELS' in self.hdus: 
+                    # old format
                     self.bands=BandList(self.hdus['BANDS'])
                     self.pixels=Pixels(self.hdus['PIXELS'], self.bands.pixelcnt)
                 else:
+                    # new format
                     self.bands=BandList(self.hdus['BANDS'])
-                    self.pixels=Pixels(self.hdus['SKYMAP'], self.bands.pixelcnt)
+                    self.pixels=Pixels(self.hdus['SKYMAP'])
                 print self.pixels.__repr__(),
             else:
                 self.add(BinFile(filename, adding=True))
@@ -266,6 +269,7 @@ class BinFile(object):
         for pix, cnt in self.pixels[index]:
             bb.add(int(pix), int(cnt))
         return bb
+
     def __len__(self): return len(self.bands.bands)
 
     def add(self, other):
