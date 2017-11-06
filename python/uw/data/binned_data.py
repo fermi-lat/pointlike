@@ -4,7 +4,7 @@ Duplicates the functionality of the C++ class BinnedPhotonData
 Implements the new standard data format
 http://gamma-astro-data-formats.readthedocs.io/en/latest/skymaps/healpix/index.html#hpx-bands-table
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/binned_data.py,v 1.2 2017/11/06 14:32:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/binned_data.py,v 1.3 2017/11/06 15:46:15 burnett Exp $
 
 """
 import os, glob, StringIO
@@ -122,8 +122,8 @@ class Pixels(object):
         # Make a Counter, with keys combined from channel and pixel id
         if self.counter is None:
             chn = np.array(self.chn,int) # convert to int for shift
-            keys = list(np.left_shift(32) + self.pix)
-            self.counter = Counter(dict(zip(keys,cnt)))
+            keys = list(np.left_shift(chn,32) + self.pix)
+            self.counter = Counter(dict(zip(keys, self.cnt)))
         return self.counter
  
     def add(self, other):
