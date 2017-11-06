@@ -4,6 +4,8 @@ Duplicates the functionality of the C++ class BinnedPhotonData
 Implements the new standard data format
 http://gamma-astro-data-formats.readthedocs.io/en/latest/skymaps/healpix/index.html#hpx-bands-table
 
+$Header$
+
 """
 import os, glob, StringIO
 from collections import Counter 
