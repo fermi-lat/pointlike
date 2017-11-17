@@ -1,7 +1,7 @@
 """
 Extended source code
 Much of this adapts and utilizes 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.15 2016/10/28 21:17:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.16 2017/08/02 23:00:38 burnett Exp $
 
 """
 import os, copy, glob
@@ -137,12 +137,13 @@ class ExtendedSourceCatalog(object):
 
             # Use the built in xml parser to load the extended source.
             xmlfile=full_xml.replace(' ', '')
-            try:
-                ps,ds=parse_sources(xmlfile=xmlfile)
-            except Exception, msg:
-                print 'Source {}: Fail: {}'.format(name, msg)
-                failed=True
-                continue
+            ps,ds=parse_sources(xmlfile=xmlfile)
+            # try:
+            #     ps,ds=parse_sources(xmlfile=xmlfile)
+            # except Exception, msg:
+            #     print 'Source {}: Fail: {}'.format(name, msg)
+            #     failed=True
+            #     continue
             if len(ps) > 0: 
                 raise Exception("A point source was found in the extended source file %s" % xmlfile)
             if len(ds) > 1: 

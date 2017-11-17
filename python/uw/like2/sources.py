@@ -1,6 +1,6 @@
 """
 Source classes
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.50 2016/10/28 21:23:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.51 2017/08/02 22:54:05 burnett Exp $
 
 """
 import os, copy
@@ -41,10 +41,10 @@ def set_default_bounds( model, force=False):
         plim = (None,None)
         try:
             plim = dict(
-                Index=(0.0, 5), 
+                Index=(0.5, 3.5), 
                 Norm=(10**-18, 10**-7),
                 Scale=(0.001, 4.0),
-                beta=(-0.25, 5.), 
+                beta=(0, 2.), 
                 Cutoff=(100., 1e5),
                 )[pname.split('_')[0]]
         except: pass
@@ -214,6 +214,12 @@ class GlobalSource(Source):
         super(GlobalSource, self).__init__(**kwargs)
         self.dmodel= kwargs.get('dmodel', None)
         assert self.skydir is None # used as a flag
+        # Special option from config['input_model'] to free spectral model for diffuse sources
+        free = kwargs.get('free', False)
+        if free and self.name!="SunMoon":
+            self.model.free[0]=True
+            if self.model.name=='PowerLaw': self.model.free[1]=True,
+            print '{}, free={}'.format(self, free)
 
     def copy(self):
         """ return a new PointSource object, with a copy of the model, others"""
@@ -231,12 +237,16 @@ class GlobalSource(Source):
                 CachedMapCube=response.CachedDiffuseResponse,
                 Healpix   =response.DiffuseResponse,
                 HealpixCube = response.DiffuseResponse,
+                FitsMapCube = response.DiffuseResponse,
                 IsotropicSpectralFunction = response.IsotropicResponse,
                 AziLimb = response.IsotropicResponse,
                 GulliLimb = response.IsotropicResponse,
                 )[self.dmodel.type]
         except Exception, msg:
             raise Exception('Could not find a response class for source %s:"%s"' %(self,msg))
-        return resp_class(self,band,roi, **kwargs) 
+        try:
+            return resp_class(self,band,roi, **kwargs) 
+        except Exception: # assume no overlap
+            return response.NoResponse(self, band, roi, **kwargs)
     
 

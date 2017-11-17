@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.31 2015/07/24 17:57:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.32 2016/03/21 18:54:12 burnett Exp $
 
 """
 import os,sys
@@ -160,7 +160,7 @@ def full_localization(roi, source_name=None, ignore_exception=False,
 
                 except Exception, msg:
                     print 'Plot of %s failed: %s' % (source.name, msg)
-                    raise
+                    return None
                 if peak_fraction<0.8: 
                     done = True
                 else:
@@ -195,6 +195,7 @@ class Localization(object):
         #('bandfits',True,"Default use bandfits"),
         ('maxdist',1,"fail if try to move further than this"),
         ('seedpos', None, 'if set, start from this position instead of the source position'),
+        ('factor', 1.0,  'factor to divide the likelihood for systmatics'),
         ('quiet', False, 'set to suppress output'),
     )
 
@@ -215,6 +216,8 @@ class Localization(object):
                 self.seedpos = SkyDir(*self.seedpos)
             self.skydir = self.seedpos
         self.name = self.tsm.source.name
+        if self.factor!=1.0: 
+            print 'Applying factor {:.2f}'.format(self.factor)
     
     def log_like(self, skydir=None):
         """ return log likelihood at the given position"""
@@ -225,7 +228,7 @@ class Localization(object):
             2x the log(likelihood ratio) from the nominal position
         """
         val= 2*(self.log_like(skydir)-self.maxlike)
-        return val
+        return val / self.factor
 
     # the following 3 functions are for a minimizer
     def get_parameters(self):

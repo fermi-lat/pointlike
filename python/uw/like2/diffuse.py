@@ -1,7 +1,7 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.54 2017/02/09 18:56:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.55 2017/08/02 22:56:31 burnett Exp $
 
 author:  Toby Burnett
 """
@@ -9,7 +9,8 @@ import os, types, collections, zipfile, pickle, glob
 import numpy as np
 import skymaps #from Science Tools: for SkyDir, DiffuseFunction, IsotropicSpectrum
 import pandas as pd
-from astropy.io import fits as pyfits
+from astropy.io import fits
+from astropy import wcs
 
 from .pub import healpix_map #make this local in future
 from . import (response, sources    )
@@ -75,11 +76,12 @@ class DiffuseBase(object):
         ait.imshow(title=self.name if title is None else title, scale=scale, vmin=vmin, vmax=vmax)
         return ait.axes.figure
        
-    def plot_spectra(self, ax=None, glat=0, glon=(0, 2,-2,  30, -30, 90, -90), title=None, label=None):
+    def plot_spectra(self, ax=None, glat=0, glon=(0, 2,-2,  30, -30, 90, -90),
+                erange=None, title=None, label=None):
         """ show spectral for give glat, various glon values """
         from matplotlib import pylab as plt
         if not self.loaded: self.load()
-        ee = np.logspace(1.5,6,101)
+        ee = np.logspace(1.5,6,101) if erange is None else erange
         if ax is None:
             fig, ax = plt.subplots(1,1, figsize=(5,5))
         else:
@@ -95,7 +97,7 @@ class DiffuseBase(object):
         ax.grid(); 
         if len(glon)>1:
             ax.legend(loc='lower left', prop=dict(size=10))
-        plt.setp(ax, xlabel=r'$\mathrm{Energy\ [MeV]}$', ylabel=r'$\mathrm{E^2\ dN/dE\ [Mev\ cm^{-2}\ s^{-1}\ sr^{-1}]}$')
+        plt.setp(ax, xlabel=r'$\mathrm{Energy\ [MeV]}$', ylabel=r'$\mathrm{E^2\ df/dE\ [Mev\ cm^{-2}\ s^{-1}\ sr^{-1}]}$')
         ax.set_title('Galactic diffuse at l=%.0f'%glat if title is None else title, size=12)
         return fig
         
@@ -190,6 +192,9 @@ class MapCube(DiffuseBase, skymaps.DiffuseFunction):
             pass
             #print 'loading diffuse file %s: warning, not interpolating' %self.filename
         super(MapCube,self).__init__(self.filename, 1000., interpolate)
+        # get list of energy planes: a C++ function, replace with local data member
+        self.energies = np.array(self.energies(), float)
+
 
 class HealpixCube(DiffuseBase):
     """ Jean-Marc's vector format, or the column version
@@ -203,7 +208,7 @@ class HealpixCube(DiffuseBase):
             
     def load(self):
         try:
-            self.hdulist = hdus = pyfits.open(self.fullfilename)
+            self.hdulist = hdus = fits.open(self.fullfilename)
             self.energies = hdus[2].data.field(0)
             self.vector_mode = len(hdus[1].columns)==1
             if self.vector_mode:
@@ -224,7 +229,8 @@ class HealpixCube(DiffuseBase):
         except Exception, msg:
             print 'bad file or unexpected FITS format, file %s: %s' % (self.fullfilename, msg)
             raise
-        self.logeratio = np.log(self.energies[1]/self.energies[0])
+        #self.logeratio = np.log(self.energies[1]/self.energies[0])
+        self.loge= np.log(self.energies)
         self.setEnergy(1000.)
         
     
@@ -236,9 +242,17 @@ class HealpixCube(DiffuseBase):
             self.setEnergy(energy)
         skyindex = self.indexfun(skydir)
         a = self.energy_interpolation
-        ret = np.exp( np.log(self.eplane1[skyindex]) * (1-a) 
-                     + np.log(self.eplane2[skyindex]) * a      )
+        if np.abs(a)<1e-2:
+            ret = self.eplane1[skyindex]
+        elif np.abs(1-a)< 1e-2:
+            ret = self.eplane2[skyindex]
+        else:
+            ret = np.exp( np.log(self.eplane1[skyindex]) * (1-a) 
+                        + np.log(self.eplane2[skyindex]) * a      )
         assert np.isfinite(ret), 'Not finite for %s at %s MeV, %f' % (skydir, self.energy, a)
+        if ret<=0:
+            print 'Warning: FLux not positive at {} for {:.0f} MeV a={}'.format(skydir, self.energy,a)
+            ret = 0
         return ret
 
 
@@ -248,9 +262,16 @@ class HealpixCube(DiffuseBase):
         if not self.loaded:
             self.load()
         self.energy=energy
-        r = np.log(energy/self.energies[0])/self.logeratio
-        self.energy_index = i = max(0, min(int(r), len(self.energies)-2))
-        self.energy_interpolation = r-i
+        #r = np.log(energy/self.energies[0])/self.logeratio
+        # get the pair of energies
+        if energy< self.energies[0]: i=0
+        elif energy>self.energies[-1]: i= len(self.energies)-2
+        else:
+            i = np.where(self.energies>=energy)[0][0]-1
+         
+        a,b = self.loge[i], self.loge[i+1]
+        self.energy_index = i #= max(0, min(int(r), len(self.energies)-2))
+        self.energy_interpolation = (np.log(energy)-a)/(b-a)
         if self.vector_mode:
             self.eplane1 = self.spectra[:,i]
             self.eplane2 = self.spectra[:,i+1]
@@ -272,6 +293,77 @@ class HealpixCube(DiffuseBase):
         data = self.hdulist[1].data
         return np.array([row[0] for row in data])
         
+class FitsMapCube(DiffuseBase):
+    """Interpret a FITS layered image, using astropy fits and wcs
+    """
+    def __init__(self,filename):
+        if not self.__dict__.get('loaded', False): #allows for invokation of singleton
+            self.setupfile( filename)
+            
+    def load(self, interpolate=False):
+        if  self.loaded: return
+        self.loaded=True
+        # Load the FITS hdulist using astropy.io.fits
+        self.hdulist =hdulist = fits.open(self.fullfilename)
+        #print hdulist.info()
+
+        # Parse the WCS keywords in the primary HDU
+        self.w = wcs.WCS(hdulist[0].header)
+        self.naxis = self.w._naxis[:2]
+
+        # Refer to the layered image and the energy table
+        self.img=hdulist[0].data
+        self.energies = hdulist[1].data['Energy']
+        self.loge = np.log(self.energies)
+        self.setEnergy(1000.)
+        
+    def setEnergy(self, energy): 
+        # set up logarithmic interpolation
+        if not self.loaded:
+            self.load()
+        self.energy=energy
+        if energy< self.energies[0]: i=0
+        elif energy>self.energies[-1]: i= len(self.energies)-2
+        else:
+            i = np.searchsorted(self.energies,energy)-1
+        self.energy_index=i
+        a,b = self.loge[i], self.loge[i+1]
+        self.energy_interpolation = (np.log(energy)-a)/(b-a)
+        self.eplane1=self.img[i]
+        self.eplane2=self.img[i+1]
+        
+    def skydir2pix(self, skydir):
+        """ return a tuple for indexing into image plane (note it will be int"""
+        ra, dec =skydir.ra(), skydir.dec()
+        # note 0-based indexing for array access
+        return np.array(self.w.wcs_world2pix([[ra,dec,1]], 0)[0][:2],int)
+    
+    def pix2skydir(self, pixel):
+        """ return a skydir from an image index tuple
+        """
+        i,j = pixel
+        c= self.w.wcs_pix2world(np.array([[i,j,2]]),0)[0][:2];
+        return SkyDir(*c)
+
+    def __call__(self, skydir, energy=None):
+        if energy is not None and energy!=self.energy: 
+            self.setEnergy(energy)
+        pix= self.skydir2pix(skydir)
+        if np.any(pix<0) or np.any( pix>=self.naxis): return 0
+        i,j = pix; skyindex=(j,i)
+        a = self.energy_interpolation
+        f1, f2=self.eplane1[skyindex], self.eplane2[skyindex]
+        if f1==0 or f2==0: return 0
+        if np.abs(a)<1e-2:
+            ret = f1
+        elif np.abs(1-a)< 1e-2:
+            ret = f2
+        else:
+            ret = np.exp( np.log(f1) * (1-a) + np.log(f2) * a  )
+        
+        return ret
+
+
 def AllSkyDiffuse(HealpixCube):
     """special version adding convolvability
     """
@@ -293,8 +385,8 @@ def make_healpix_spectral_cube(spectra, energies, filename=None):
     assert nebins== spectra.shape[1] , 'Inconsistent length of energy list'
     nside = int(np.sqrt(naxis2/12))
     assert  12*nside**2 == naxis2, 'Size not consistent with HEALPix'
-    spec_table = pyfits.BinTableHDU.from_columns([
-            pyfits.Column(name='Spectra', format='{:2d}D'.format(nebins), unit='Intensity', array=spectra)
+    spec_table = fits.BinTableHDU.from_columns([
+            fits.Column(name='Spectra', format='{:2d}D'.format(nebins), unit='Intensity', array=spectra)
         ])
     spec_table.name = 'SKYMAP'
     spec_table.header['PIXTYPE']='HEALPIX'
@@ -306,12 +398,12 @@ def make_healpix_spectral_cube(spectra, energies, filename=None):
     spec_table.header['EMIN'] = (energies[0],'Minimum energy')
     spec_table.header['DELTAE']= (np.log(energies[1]/energies[0]), 'Step in energy (log)')
 
-    energy_table = pyfits.BinTableHDU.from_columns([
-            pyfits.Column(name='Energy', format='D', unit='MeV',array=energies)
+    energy_table = fits.BinTableHDU.from_columns([
+            fits.Column(name='Energy', format='D', unit='MeV',array=energies)
         ])
     energy_table.name = 'ENERGIES'
-    hdus = [pyfits.PrimaryHDU(header=None), spec_table, energy_table] 
-    hdulist = pyfits.HDUList(hdus)
+    hdus = [fits.PrimaryHDU(header=None), spec_table, energy_table] 
+    hdulist = fits.HDUList(hdus)
     if filename is not None:
         if os.path.exists(filename):
             os.remove(filename)
@@ -338,7 +430,7 @@ class Healpix(DiffuseBase):
         
     def load(self):
         if self.fits is not None: return
-        self.fits = pyfits.open(self.filename)
+        self.fits = fits.open(self.filename)
         table = self.fits[1]
         self.columns = table.data
         self.col_names = [t.name for t in table.columns]
@@ -540,7 +632,7 @@ class DiffuseList(list):
         return fig
 
 class IsotropicList(DiffuseList):
-    def __init__(self, adict, event_type_names, diffuse_normalization):
+    def __init__(self, adict, event_type_names, diffuse_normalization=None):
         """ Create a list of Isotropic functions, one per entry in event_type_names
             adict: dict
                 contains filename, correction, each with wildcards to be expanded
@@ -554,7 +646,8 @@ class IsotropicList(DiffuseList):
             print "Fail to create IsotropicList: adict=%s, %s" % (adict, msg)
             raise
         for et in event_type_names:
-            filename = fn.replace('*', et)
+            filename = fn.replace('**', et.upper()).replace('*', et)
+            #print fn, filename, et
             correction_data=correction=None
             if corr is not None:
                 correction = corr.replace('*', et)
@@ -567,6 +660,8 @@ class IsotropicList(DiffuseList):
                 raise Exception('Unrecognized extension: {}'.format(ext))
             iso.kw = dict(correction =correction, correction_data=correction_data)
             self.append(iso)
+def ConvolvedList(IsotropicList):
+    pass
 def file_check(files):
     full_files = map( lambda f: os.path.expandvars(os.path.join('$FERMI','diffuse',f)), files)
     check = map(lambda f: os.path.lexists(f) or f[-1]==')', full_files) 
@@ -580,6 +675,90 @@ def expand_file(filename):
         return os.path.join(os.getcwd(),filename)
     return os.path.join(os.path.expandvars('$FERMI/diffuse/'),filename)
 
+def etype_insert(value, et):
+    v = value.copy()
+    for k,x in v.items():
+        if type(x)!=str: continue
+        x=x.replace('**', et.upper())
+        x=x.replace ('*', et)
+        v[k]=x
+    try:
+        g = eval(v['type'])(v['filename'])
+    except Exception, msg:
+        print 'Fail in instantiate: {} {}'.format(v,msg)
+        raise
+    g.kw = v
+    return g
+
+class GalacticCorrection(object):
+    def __init__(self,config):
+        self.galcorr_file = os.path.expandvars('$FERMI/diffuse/'+config.diffuse['ring']['correction'])
+        assert os.path.exists(self.galcorr_file), 'File not found: {}'.format(self.galcorr_file)
+        self.galcorr = pd.read_csv(self.galcorr_file, index_col=0)
+        print 'Loaded correction files {}'.format(self.galcorr_file)
+        
+    def __call__(self, roi):
+        return np.array(self.galcorr.ix[roi] )
+        
+    def load_fits(self):
+        files = sorted(glob.glob('galactic_fit/*.pickle'))
+        assert len(files)==1728, 'Found only {} fit files'.format(len(files))
+        self.fits = np.array([pickle.load(open(f)) for f in files]);
+     
+    def update_from_fits(self, limit=(0.8,1.1)):
+        # check for bad numbers
+        self.galcorr *=self.fits.clip(*limit)
+    
+    def update(self, roi, corr ):
+        t = self(roi) * np.asarray(corr)
+        self.galcorr.ix[roi] = t
+        return t
+            
+    def save(self, inpat=None, outpat=None):
+        if inpat is not None:
+             assert self.galcorr_file.find(inpat)>0 and outpat is not None
+             self.galcorr_file = self.galcorr_file.replace(inpat,outpat)
+        print 'writing {}'.format(self.galcorr_file)
+        self.galcorr.to_csv(self.galcorr_file)
+
+class IsotropicCorrection(object):
+
+    def __init__(self, config):
+        self.isocorr_files = glob.glob(os.path.expandvars('$FERMI/diffuse/'+config.diffuse['isotrop']['correction']))
+        assert self.isocorr_files[0].find('front')>0
+        self.isocorr = [pd.read_csv(f, index_col=0) for f in self.isocorr_files]
+        print 'Loaded correction files {}'.format(self.isocorr_files)
+        
+    def __call__(self, roi, eband):
+        return np.array([self.isocorr[x].ix[roi][eband] for x in range(2)])
+    
+    def load_fits(self):
+        files = sorted(glob.glob('isotropic_fit/*.pickle'))
+        assert len(files)==1728, 'Found only {} fit files'.format(len(files))
+        cc = [pickle.load(open(f)) for f in files];
+        self.fits = [np.array(cc)[:,:,i] for i in range(2)]
+
+    def update_from_fits(self, limit=(0.8,1.1)):
+        # check for bad numbers
+        f,b = self.fits
+        self.isocorr[0] *=f.clip(*limit)
+        self.isocorr[1] *=b.clip(*limit)
+
+    def update(self, roi, eband, corr ):
+        t = self(roi,eband) * np.asarray(corr)
+        for i in range(2):
+            self.isocorr[i].ix[roi][eband] = t[i]
+        return t
+            
+    def save(self, inpat=None, outpat=None):
+        for i,f in enumerate(self.isocorr_files):
+            if inpat is not None:
+                assert f.find(inpat)>0 and outpat is not None
+                self.isocorr_files[i] = f.replace(inpat, outpat)
+        for f,df in zip(self.isocorr_files, self.isocorr):
+            print 'writing {}'.format(f)
+            df.to_csv(f)
+        
 def diffuse_factory(value, diffuse_normalization=None, event_type_names=('front', 'back')):
     """
     Create a DiffuseList object from a text specification
@@ -598,6 +777,7 @@ def diffuse_factory(value, diffuse_normalization=None, event_type_names=('front'
     """
     assert value is not None, 'oops'
     isdict = issubclass(value.__class__, dict)
+    preconvolved = isdict and value.get('preconvolved', False)
     type = None
     if isinstance(value, str):
         if ':' in value:
@@ -606,11 +786,17 @@ def diffuse_factory(value, diffuse_normalization=None, event_type_names=('front'
             value = [value.replace('**', et.upper()) for et in event_type_names]
         elif '*' in value:
             value = [value.replace('*',et) for et in event_type_names]
-        
-    if not hasattr(value, '__iter__') or isdict:
+         
+    if not hasattr(value, '__iter__') or isdict and not preconvolved:
         value  = (value,)
-    
+
+ 
     if isdict:
+        # for new convolved:
+        if preconvolved:
+           z = [etype_insert(value, et) for et in event_type_names] 
+           return DiffuseList(z, event_type_names=event_type_names)
+
         try:
             files = DiffuseList([val['filename'] for val in value], event_type_names)
         except KeyError:
@@ -641,7 +827,7 @@ def diffuse_factory(value, diffuse_normalization=None, event_type_names=('front'
             raise DiffuseException('File type, "%s", for diffuse not recognized, from "%s":%s (message :%s)'\
                 % (ext, files, ext, msg))
     
-    if dfun==IsotropicSpectralFunction:
+    if dfun==IsotropicSpectralFunction or dfun==ConvolvedList:
         diffuse_source = map(dfun,files)
     elif dfun==IsotropicList:
         # special code to handle Isotropic list in a dict with wild cards

@@ -1,6 +1,6 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.28 2016/11/07 03:16:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.29 2017/08/02 23:03:34 burnett Exp $
 
 """
 import os, sys, time, glob
@@ -25,6 +25,7 @@ class Process(main.MultiROI):
         ('betafix_flag',  False, 'check betas, refit if needed'),
         ('ts_beta_zero',  None,   'set to threshold for converting LP<->PL'),
         ('dampen',        1.0,   'damping factor: set <1 to dampen, 0 to not fit'),
+        ('selected_pars', ['_Norm','_Index'],   'Apply to fit, to select subset of parameters for global fit'),
         ('counts_dir',    None,  'folder for the counts plots'),
         ('norms_only',    False, 'fit to norms only'),
         ('fix_spectra_flag',False,  'set variable sources to fit norms only, for this and subsequent iterations'),
@@ -47,6 +48,7 @@ class Process(main.MultiROI):
         ('update_positions_flag',False,  'set True to update positions before fitting'),
         ('add_seeds_flag', False,    'Add seeds found within the ROI, from the table, "plots/seedcheck/good_seeds.csv"'), 
         ('special_flag',  False,  'set for special processing: invoke member func "special"'), 
+        ('model_counts',  None,   'set to run model counts'),
         
     )
     
@@ -100,7 +102,7 @@ class Process(main.MultiROI):
         print '%4d-%02d-%02d %02d:%02d:%02d - %s - %s' %(time.localtime()[:6]+ (roi.name,)+(self.stream,))
 
         # special processing flags
-        if self.diffuse_key is not None:
+        if self.diffuse_key is not None and self.diffuse_key!='post_gal':
             if self.diffuse_key=='iso':
                 fit_isotropic(self)
             elif self.diffuse_key=='gal':
@@ -127,9 +129,13 @@ class Process(main.MultiROI):
             if not seeds.add_seeds(self, key, config=self.config) :
                 # nothing added, so nothing to do with the model for this ROI
                 return
+        if self.model_counts is not None:
+            maps.ModelCountMaps(self, bandlist=self.model_counts, subdir='model_counts' )
+            return
+
         if self.special_flag:
             """ special processing, converting something."""
-            if not self.special() : 
+            if not self.model_count_maps(): #fit_second_order() : 
                 print '-----special processing had nothing to to'
                 return
         if self.add_seeds_flag:
@@ -157,7 +163,7 @@ class Process(main.MultiROI):
                 if self.norms_only:
                     print 'Fitting parameter names ending in "Norm"'
                     roi.fit('_Norm',  **fit_kw)
-                roi.fit(update_by=dampen, **fit_kw)
+                roi.fit(select=self.selected_pars, update_by=dampen, **fit_kw)
                 if self.fix_spectra_flag:
                     # Check for bad errors, 
                     diag = np.asarray(self.hessian().diagonal())[0]
@@ -176,11 +182,14 @@ class Process(main.MultiROI):
                     # repivot, iterating a few times
                     n = 3
                     while n>0:
-                        if not self.repivot( fit_sources): break
+                        if not self.repivot( fit_sources, select=self.selected_pars): break
                         n-=1
                 if self.betafix_flag:
                     if not self.betafix(ts_beta_zero=self.ts_beta_zero):
                         print 'betafix requested, but no refit needed, quitting'
+                        self.fit_galactic()
+                if self.diffuse_key=='post_gal':
+                    fit_galactic(self)
             except Exception, msg:
                 print '============== fit failed, no update!! %s'%msg
                 raise
@@ -240,7 +249,7 @@ class Process(main.MultiROI):
     
    
     def repivot(self, fit_sources=None, min_ts = 10, max_beta=3.0, emin=200., emax=100000.,
-             dampen=1.0, tolerance=0.10, test=False):
+             dampen=1.0, tolerance=0.10, test=False, select=None):
         """ invoked  if repivot flag set;
         returns True if had to refit, allowing iteration
         """
@@ -288,7 +297,7 @@ class Process(main.MultiROI):
             need_refit=True
             if not test and not limited: model.set_e0(pivot*dampen+ e0*(1-dampen))
         if need_refit and not test:
-            roi.fit(tolerance=0, ignore_exception=True)
+            roi.fit(select=select, tolerance=0, ignore_exception=True)
         return need_refit
 
     def betafix(self, ignore_exception=True, ts_beta_zero=9):
@@ -372,112 +381,41 @@ class Process(main.MultiROI):
             print ' %s -> %s, moved %.2f' % (source.skydir,newdir, np.degrees(newdir.difference(source.skydir)))
             source.skydir = newdir
     
-    def fit_beta(self, source_name=None, beta_range=(0.05,2), tsmin=4):
-        """Perform profile fit of beta for a log parabola source
-        if the result is in the range, and ts_beta<tsmin, set beta to the value
-        """
-        roi=self
-        source = roi.get_source(source_name)
-        roi.freeze('beta') # Freeze for future
-        model=source.model
-        saved=model['beta']
-
-        def beta_like(beta):
-            model['beta']=beta
-            roi.fit(source.name, summarize=False, estimate_errors=False, ignore_exception=True)
-            return roi.log_like()
-
-        beta_fit = optimize.fmin(lambda beta: -beta_like(beta), saved, disp=0, maxiter=20)[0]
-        ts_beta = 2*(beta_like(beta_fit)-beta_like(0))
-        if beta_fit<beta_range[1] and beta_fit>beta_range[0] and ts_beta>tsmin:
-            model['beta']=beta_fit
-        else:
-            model['beta']=0 if saved<1 else saved
-        return (beta_fit, ts_beta, saved)
-
     
-    def special(self):
-        """ calculate beta_TS
+    def fit_second_order(self, summarize=False):
         """
-        assert os.path.exists('beta_ts'), "Expect folder to save results"
-        from scipy import optimize
-        roi=self
-        def beta_TS(source_name=None):
-            source = roi.get_source(source_name)
-            roi.freeze('beta')
-            model=source.model
-            saved=model['beta']
-            
-            def beta_like(beta):
-                model['beta']=beta
-                roi.fit(source.name, summarize=False, estimate_errors=False, ignore_exception=True)
-                return roi.log_like()
-            
-            beta_fit = optimize.fmin(lambda beta: -beta_like(beta), saved, disp=0, maxiter=20)[0]
-            return (beta_fit, 2*(beta_like(beta_fit)-beta_like(0)), saved, 
-                model['Norm'], model['Index'])
+        Fit the second order parameter (beta or Cutoff) for all variable sources
+        Leave them frozen.
+        """
+    
+        def fit2(source_name, parname='beta', fmt='{:6.2f}'):
+            s=self.get_source(source_name)
+            sources.set_default_bounds(s.model, True)# force change of bounds
+            self.thaw(parname)
+            parval = s.model[parname]
+            try:
+                self.fit(s.name, summarize=summarize, estimate_errors=True, ignore_exception=False)
+            except Exception, msg:
+                print 'Failed to fit {} for {}: {}'.format(parname,source_name, msg)
+                s.model[parname]=parval
+            self.freeze(parname)
+            print ('{:15}{:8.0f}'+fmt+fmt).format(source_name, s.ts, s.model[parname], s.model.error(parname))
         
-        fit_sources = [s.name for s in self.free_sources 
-                if not s.isglobal and s.model.name=='LogParabola']
-        beta_dict = dict()
-        print 'beta likelihood analysis for {} LogParabola sources'.format(len(fit_sources))
-        for sname in fit_sources:
-            print sname
-            beta_fit, TS, beta ,norm, index= beta_TS(sname)
-            beta_dict[sname]= dict(beta_fit=beta_fit, TS_beta=TS, beta=beta, norm=norm, index=Index) 
-        filename = 'beta_ts/'+self.name+'.pkl'
-        pickle.dump(beta_dict, open(filename,'w'))
-        print pd.DataFrame(beta_dict).T
-        print 'wrote file {}'.format(filename)  
-        return True #          
-        # """For making the 3FHL correspondence
-        # """
-        # df =pd.read_pickle('UW-3FHL_correspondence.pkl')
-        # local = (df.uw_roi==int(self.name[-4:])) & df.uwok
-        # if sum(local)==0:
-        #     print 'No corresponding sources found'
-        #     return False
-        # for name in df[local].index:
-        #     gts = df.ix[name]
-        #     altmodel = gts['model']
-        #     print 'Comparing gt source {} [{}] with UW {}'.format(name, altmodel.name, gts['uw_name'])
-        #     s = self.get_source(gts['uw_name'])
-            
-        #     altsrc = sedfuns.alternate_source(self, s, name, gts['skydir'],altmodel)
-        #     outfile = '3FHL_correspondence/{}.pkl'.format(name.replace('+','p'))
-        #     pickle.dump(altsrc, open(outfile,'w'))
-        #     print 'Wrote file {}'.format(outfile)
-        # return False
-        # nset=0
-        # for src in self.free_sources:
-        #     if not src.name.startswith('P967-'): continue
-        #     m = src.model
-        #     print '%s\n%s' % (src.name, m)
-        #     # Freeze Index at 2.0, thaw E_break, set beta to 1.0 for fit
-        #     if m.name!='LogParabola': continue
-        #     if False:
-        #         if m['beta']<2: continue 
-        #         print '===converting SED function for source %s, initial beta %.2f'  % (src.name, m['beta'])
-        #         self.freeze('Index', src.name, 2.0); 
-        #         self.thaw('E_break', src.name);
-        #         m['beta']=1.0
-        #     if True:
-        #         if m.free[3]:
-        #             print '===converting SED function for source %s, initial beta %.2f'  % (src.name, m['beta'])
-        #             self.thaw('Index', src.name)
-        #             self.freeze('E_break', src.name)
-        #             self.fit(src.name)
-        #             nset +=1
-        # return nset>0
-                
-            #if src.model.name=='LogParabola': continue
-            #m = src.model
-            #newmodel='LogParabola(1e-12, 2.0, %.2f,  %.2f)' %(m.curvature(), m.e0)
-            #print 'Converting source %s to %s' % (src.name, newmodel)
-            #c = src.model.curvature()
-            #self.set_model(newmodel, src.name)
-       
-            
+        LP_sources = [s.name for s in self.free_sources 
+            if not s.isglobal and s.model.name=='LogParabola']
+        PLEX_sources = [s.name for s in self.free_sources 
+            if not s.isglobal and s.model.name=='PLSuperExpCutoff']
+
+        print '{:15}{:>8} {:6} {}'.format('LP source', 'TS', 'beta', 'error')
+        map( lambda s: fit2(s,'beta'), LP_sources) 
+        print '{:15}{:>8} {:6} {:10}'.format('PLEX source', 'TS','Cutoff', 'error')
+        map( lambda s: fit2(s,'Cutoff', '{:6.0f}'), PLEX_sources)
+        return True
+
+    def model_count_maps(self):
+        maps.ModelCountMaps(self, nbands=12, subdir='model_counts' )
+        return False
+
 def fix_spectra(roi):
     for src in roi.free_sources:
         m=src.model
@@ -532,12 +470,15 @@ def fit_isotropic(roi, nbands=8, folder='isotropic_fit'):
         print 'wrote file {}'.format(filename)
     return np.array(cx)
 
-def fit_galactic(roi, nbands=8, folder='galactic_fit'):
+def fit_galactic(roi, nbands=8, folder='galactic_fit', upper_limit=5.0):
     """ fit only the galactic normalization"""
     cx = []
     gal_model = roi.get_source('ring').model
     roi.thaw('Norm')
     gal_norm = gal_model[0]
+    #gal_model.set_limits('Norm', 0.2, 5.0) # override default
+    if upper_limit is not None:
+        gal_model.bounds[0][1]=np.log10(upper_limit)# set upper limit by hand
     roi.reinitialize()
     for eband in range(nbands):
         print '*** Energy Band {}: gal counts {}'.format( eband,

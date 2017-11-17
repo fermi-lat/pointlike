@@ -1,7 +1,7 @@
 """
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.63 2017/02/09 18:53:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.64 2017/08/02 22:54:45 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -10,6 +10,7 @@ import numpy as np
 from  uw.utilities import keyword_options
 from skymaps import SkyDir
 
+config=None
    
 class BandLike(object):
     """ manage the likelihood calculation for a band 
@@ -32,7 +33,7 @@ class BandLike(object):
         self.bandsources = np.array(map(lambda s: s.response(band, quiet=self.quiet, roi=roi), sources))
 
         self.band = band 
-        self.event_type_name = roi.config.event_type_name(band.event_type)
+        self.event_type_name = config.event_type_name(band.event_type)
         self.exposure_factor = band.exposure.correction
         self.data = band.pix_counts  if band.has_pixels else []# data from the band
         self.pixels=len(self.data)
@@ -243,7 +244,14 @@ class BandLike(object):
             except:
                 t.append(0)
         return np.array(t)
+
+    def __call__(self, skydir):
+        """ return the total counts/sr for the given direction
+        skydir : Skydir object | (ra,dec) tuple
         
+        Note: to get counts, multiply by self.band.pixel_area
+        """
+        return np.sum(self.fluxes(skydir)) 
     
          
 class BandLikeList(list):
@@ -266,8 +274,10 @@ class BandLikeList(list):
         """ initialize from bands and sources. 
         If called again, remove current set of BandLike objects
         """
+        global config
         self.sources = roi_sources
         self.bands = roi_bands
+        config = roi_bands.config #set global
         while len(self)>0:
             self.pop()
         for band in roi_bands:
@@ -301,7 +311,7 @@ class BandLikeList(list):
         elow,ehigh : None | float
             If elow[None] is set, override others, select all bands with energy>elow and < ehigh (if set)
         """
-        etindex = self.config.select_event_type(event_type)
+        etindex = config.select_event_type(event_type)
         type_select = lambda x : True if etindex is None else x==etindex
         
 
@@ -448,7 +458,7 @@ class BandLikeList(list):
             self.update()
             gnow = self.gradient()[mask]
             # numerical derivative of gradient with respect to this parameter
-            t.append( (gnow-glast)/(2*delta))
+            t.append( (gnow-glast)/delta)
             glast = gnow
         hess = np.matrix(t)
         parameters.set_parameters(parz) #restore all parameters, check that no difference
