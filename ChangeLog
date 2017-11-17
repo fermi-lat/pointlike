@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Fri Nov 17 14:58:32 PST 2017
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	associate.py check_converge.py check_data.py check_ts.py 
+	processor.py stagedict.py stream.py ts_clusters.py 
+	uwpipeline.py 
+Log Message:
+pre-github
+    *
+------------------------------------------------------------
 User: burnett  Fri Nov 17 14:52:55 PST 2017
 pointlike/python/uw/like2
 
