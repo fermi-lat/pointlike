@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Fri Nov 17 14:44:09 PST 2017
+pointlike/python/uw/like2/analyze
+
+Added Files:
+	diffuse_correction.py diffuse_fits.py residual_maps.py 
+	resolution.py sourcedetection.py ts_tables.py 
+Log Message:
+pre-github
+    *
+------------------------------------------------------------
 User: burnett  Fri Nov 17 14:43:18 PST 2017
 pointlike/python/uw/like2/analyze
 
