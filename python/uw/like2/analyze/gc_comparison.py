@@ -5,14 +5,14 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gc_compa
 """
 
 import os
-import astropy.io.fits as pyfits
+from astropy.io import fits as pyfits
 import numpy as np
 import pylab as plt
 import pandas as pd
 from astropy.io import fits
 
 from skymaps import SkyDir
-from matplotlib_venn import venn2
+# FIX LATER from matplotlib_venn import venn2
 from . import sourceinfo
 from . analysis_base import FloatFormat, html_table
 
