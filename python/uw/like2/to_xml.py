@@ -1,6 +1,6 @@
 """
 Generate the XML representation of a list of sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.19 2016/03/21 18:54:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.20 2017/08/02 23:07:03 burnett Exp $
 
 """
 import os, collections, argparse, types, glob
@@ -78,9 +78,9 @@ def pmodel(source):
             modelname='PowerLaw'
             model = Models.PowerLaw(p=[norm, pindex ], e0=e0)
         else:
-            if index2<0: 
-                print  'Source %s has beta (%.2f) <0: setting to 0.' % (  source.name, index2, )
-                index2=0
+            # if index2<0: 
+            #     print  'Source %s has beta (%.2f) <0: setting to 0.' % (  source.name, index2, )
+            #     index2=0
             model =Models.LogParabola(p= [norm, pindex, index2, e0])
             model.free[-1]=False
             errors.append(index2_unc)

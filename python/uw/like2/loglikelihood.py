@@ -1,9 +1,9 @@
 """Tools for parameterizing log likelihood curves.
 
 Author(s): Eric Wallace, Matthew Kerr, Toby Burnett
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.25 2016/10/28 21:17:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.26 2017/08/02 23:01:28 burnett Exp $
 """
-__version__ = "$Revision: 1.25 $"
+__version__ = "$Revision: 1.26 $"
 
 import numpy as np
 from scipy import optimize, special, polyfit, stats
@@ -76,10 +76,13 @@ class Poisson(object):
         return f - const
 
     def __str__(self):
+
         e, beta, mu = self.altpars()
         return 'Poisson: mu,beta= %.1f, %.1f' %( mu, beta)
     
     def __repr__(self):
+        if self.flux==0:
+            return 'flux is zero for source'
         t = np.array(self.errors)/self.flux-1
         relerr = np.abs(np.array(self.errors)/self.flux-1)
         return '{}.{}: {}[1+{:.2f}-{:.2f}'.format(self.__module__, self.__class__.__name__, self.flux, relerr[0],relerr[1] )

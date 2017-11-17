@@ -3,7 +3,7 @@ Convolution interface for like2
 Extends classes from uw.utilities 
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/convolution.py,v 1.6 2014/03/12 15:52:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/convolution.py,v 1.7 2017/08/02 22:52:31 burnett Exp $
 author:  Toby Burnett
 """
 import os, pickle, zipfile 
@@ -207,6 +207,7 @@ def convolve_healpix(input_map, func ):
     import healpy
     nside = int(np.sqrt(len(input_map)/12))
     assert 12*nside**2 == len(input_map),'Bad length'
+    assert func(thetamax)/func(0) <1e-3
     alm = healpy.map2alm(input_map);
     lmax = healpy.Alm.getlmax(len(alm))
     if lmax < 0:
@@ -223,7 +224,7 @@ class SphericalHarmonicContent(object):
     The integral is expensive: it samples the function
     """
 
-    def __init__(self, f, lmax, thetamax=45., tolerance=1e-3):
+    def __init__(self, f, lmax, thetamax=45., tolerance=1e-3, quiet=True):
         """Evaluate spherical harmonic content of a funtion of theta
 
         f : function
@@ -245,7 +246,7 @@ class SphericalHarmonicContent(object):
         self.addpoint(0)
         self.addpoint(lmax)
         if tolerance is not None:
-            self._approximate(tolerance)
+            self._approximate(tolerance, quiet=quiet)
 
     def addpoint(self, el, test=False):
         if test:

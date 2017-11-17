@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.22 2017/02/09 19:03:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.23 2017/08/02 23:07:28 burnett Exp $
 
 """
 import os, sys, time
@@ -84,23 +84,41 @@ class Profile(object):
     """ Create a "profile" of y, binned in x, according to bins
     """
     def __init__(self,x, y, bins):
-        df = pd.DataFrame({'x': x, 'y': y})
-        df['bin'] = np.digitize(x, bins=bins)
+        self.bins = bins
+        self.xlim=xlim= bins[0], bins[-1]
+        self.df = pd.DataFrame({'x': x.clip(*xlim), 'y': y})
+        self.df['bin'] = np.digitize(x, bins=bins)
          # grouby bin, so we can calculate stuff
-        binned = df.groupby('bin')
+        try: 
+            self.binned = self.df.groupby('bin')
+        except Exception, msg:
+            print 'Failed groupby: {}\n{}'.format(msg, df)
+            raise
+
+    def make_pdf(self):
         # calculate mean and standard error of the mean for y in each bin
-        self.pdf= binned['y'].agg(['mean', 'sem'])
-        self.pdf['x'] = 0.5 * (bins[:-1] + bins[1:])
-        self.pdf['xerr'] = (bins[1] - bins[0]) / 2
+        self.pdf= self.binned['y'].agg(['count','mean', 'sem'])
+        bins = self.bins
+        #assert len(self.pdf)==len(bins)-1,\
+        #     'Len(pdf)={}, len(bins)={}, so Missing bins: {}'.format(len(self.pdf),len(bins),self.pdf)
+        x= [self.xlim[0]] + list(0.5 * (self.bins[:-1] + self.bins[1:])) + [self.xlim[1]]
+        xerr= [0] + list((self.bins[1:] - self.bins[0:-1])/ 2) + [0]
+        if len(x)==len(self.pdf):
+            self.pdf['x'] = x
+            self.pdf['xerr'] = xerr
+        else: # no overflows
+            self.pdf['x'] = x[1:-1]
+            self.pdf['xerr'] = xerr[1:-1]
 
     def plot(self, **kwargs):
         """ Generate a plot using the profile DataFrame
         return the Axes object
         """
+        self.make_pdf()
         return self.pdf.plot(
             x='x',       y='mean',
             xerr='xerr', yerr='sem',
-            linestyle='none', capsize=0,  color='black',
+            linestyle='none', capsize=0, # color=color,
             **kwargs
         )
 

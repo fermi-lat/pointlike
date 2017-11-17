@@ -1,6 +1,6 @@
 """
 Code to generate a set of maps for each ROI
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.11 2017/02/09 18:59:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.12 2017/08/02 22:59:43 burnett Exp $
 
 """
 import os, sys,  pickle, types
@@ -15,7 +15,7 @@ nside=512
 
 # convenience adapters for ResidualTS model
 def LogParabola(*pars):
-    model = Models.LogParabola(p=pars)
+    model = Models.LogParabola(p=pars, free=[True,True,False,False])
     sources.set_default_bounds(model)
     return model
 def PowerLaw(*pars):   
@@ -23,11 +23,11 @@ def PowerLaw(*pars):
     sources.set_default_bounds(model)
     return model
 def ExpCutoff(*pars):  
-    model = Models.ExpCutoff(p=pars)
+    model = Models.ExpCutoff(p=pars, free=[True, True, False])
     sources.set_default_bounds(model)
     return model
 def PLSuperExpCutoff(*pars):  
-    model = Models.PLSuperExpCutoff(p=pars)
+    model = Models.PLSuperExpCutoff(p=pars, free={True,True,False,False})
     sources.set_default_bounds(model)
     return model
 
@@ -75,25 +75,46 @@ class CountsMap(dict):
     def __call__(self,v):
         return self.get(self.indexfun(v), 0)
   
-class ModelMap(CountsMap):
-    """ A map with model prediction per HEALPix bin
+class ModelCountMaps(object):
+    """ This is not the same as other map-producing classes here.
+    It makes, and saves, a list of predicted counts for all the pixel within the central
+    HEALPix pixel.
     """
-        
-    def _fill(self, roi, emin):
-        index_table = make_index_table(12, self.nside)
-        roi_index = Band(12).index(roi.roi_dir)
-        ids = index_table[roi_index]
-        sdirs = [Band(self.nside).dir(int(i)) for i in index_table[roi_index]]
-        grid = np.zeros(len(ids))
-        
-        for bandlike in roi.selected:
-            band = bandlike.band
-            if band.e < emin: continue
-            grid += bandlike.fill_grid(sdirs)
-        solidangle = 4.*np.pi/(12*self.nside**2)
-        grid *= solidangle
-        for i,v in zip(ids, grid):
-            self[i]=v
+    def __init__(self, roi, nbands=None, bandlist=None,  maxnside=1024, subdir='model_counts'):
+        """
+        roi : ROI object
+        bandlist : list of int | None
+            bands to process. If None, do them all
+        maxnside : int
+            Use nside defined by the data, but limit  to this
+        subdir : string | None
+            folder name to write results to
+        """
+        roi_index = Band(12).index(roi.roi_dir)  
+        self.pred = dict()
+        if bandlist is None:
+            if nbands is not None: bandlist=range(nbands)
+            else: bandlist = range(len(roi))
+        for ebi in bandlist:
+            eb = roi[ebi] #EnegyBand object
+            dirfun = eb.band.cband.dir
+
+            nside = min(eb.band.cband.nside(), maxnside)
+            pixel_area = Band(nside).pixelArea()
+            index_table = make_index_table(12, nside)
+            pix_ids = index_table[roi_index]
+            dirs = map(dirfun, pix_ids)
+            cnts = np.array(map(eb, dirs),np.float32) * pixel_area
+            self.pred[ebi] =cnts #(nside, cnts) 
+            print '{:4d} {:4d} {:6d} {:8.2e} {:8.2e} {:8.2e}'.format(
+                ebi,nside,len(cnts), cnts.mean(), cnts.min(), cnts.max())
+            if subdir is not None:
+                subsubdir = subdir+'/{}'.format(ebi)
+                if not os.path.exists(subsubdir): os.makedirs(subsubdir)
+                outfile = subsubdir+'/HP12_{:04d}.pickle'.format(roi_index)
+                pickle.dump(self.pred, open(outfile, 'w'))
+                print '\twrote file {}'.format(outfile)
+
     
 
 class KdeMap(object):

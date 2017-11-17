@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_healpix.py,v 1.14 2016/10/28 21:44:07 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_healpix.py,v 1.15 2017/08/02 22:58:54 burnett Exp $
 """
 import os, pickle, zipfile
 import numpy as np
@@ -119,10 +119,14 @@ class ROImodelFromHealpix(roimodel.ROImodel):
             df = self.config.diffuse[name]
             if df is None: 
                 return None
-            gsrc = sources.GlobalSource(name=name, skydir=None, model=rec,
+            gsrc = sources.GlobalSource(name=name, skydir=None,
+                free=self.config['input_model'].get('free_diffuse',False), 
+                model=rec,
                 dmodel = diffuse.diffuse_factory( df, 
-                event_type_names=self.config.event_type_names, 
-                diffuse_normalization = self.diffuse_normalization))
+                    event_type_names=self.config.event_type_names, 
+                    diffuse_normalization = self.diffuse_normalization,
+                    )
+                )
             gsrc.index =index
             return gsrc
 

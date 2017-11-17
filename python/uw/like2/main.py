@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.88 2017/02/09 18:58:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.89 2017/08/02 23:02:26 burnett Exp $
 
 """
 import types, time, glob
@@ -14,6 +14,12 @@ from . import (views,  configuration, extended,  roimodel, from_xml, from_healpi
                 plotting, associate, printing, to_healpix
         )
 
+import warnings
+warnings.resetwarnings()
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+warnings.filterwarnings('ignore', category=RuntimeWarning)
+from astropy import wcs
+warnings.filterwarnings('ignore', category=wcs.FITSFixedWarning)
 
 class ROI(views.LikelihoodViews):
     """ROI analysis
@@ -172,7 +178,9 @@ class ROI(views.LikelihoodViews):
         tolerance : float, default 0.0
             If current fit quality, an estimate of potential improvent of the log likelihood, which is
             based on gradient and hessian is less than this, do not fit
-            
+        plot : bool
+            if set to True, create plots of the parameter fits
+
             others passed to the fitter minimizer command. defaults are
                 estimate_errors = True
                 use_gradient = True
@@ -184,6 +192,7 @@ class ROI(views.LikelihoodViews):
         ignore_exception = kwargs.pop('ignore_exception', False)
         update_by = kwargs.pop('update_by', 1.0)
         tolerance = kwargs.pop('tolerance', 0.0)
+        plot = kwargs.pop('plot', False)
        
         if setpars is not None: 
             self.sources.parameters.setitems(setpars)
@@ -200,6 +209,7 @@ class ROI(views.LikelihoodViews):
             try:
                 fv.maximize(**fit_kw)
                 w = fv.log_like()
+		self.fmin_ret = fv.fmin_ret
                 if summarize:
                     print '%d calls, function value, improvement, quality: %.1f, %.2f, %.2f'\
                         % (fv.calls, w, w - fv.initial_likelihood, fv.delta_loglike())
@@ -207,10 +217,12 @@ class ROI(views.LikelihoodViews):
                     loglike = fv.log_like(),
                     pars = fv.parameters[:], 
                     covariance  = fv.covariance,
+                    mask = fv.mask,
                     qual = qual,)
                 fv.modify(update_by)
                 if fit_kw['estimate_errors']: fv.save_covariance()
                 if summarize: fv.summary()
+                if plot: fv.plot_all()
                 
             except Exception, msg:
                 print 'Fit Failure %s: quality: %.2f' % (msg, qual)
@@ -252,7 +264,7 @@ class ROI(views.LikelihoodViews):
                 return 
             err=p.errors
             t= dict(peak=p.flux, low=err[0], high=err[1], ts=p.ts, zf=p.zero_fraction())
-            err= np.array(p.errors)/p.flux-1
+            err= np.array(p.errors)/p.flux-1 if p.flux>0 else 0
             
             if not self.quiet:
                 str = '{:20} flux'.format(source.name)
@@ -361,7 +373,7 @@ class ROI(views.LikelihoodViews):
         return plotting.counts.stacked_plots(self, **kwargs)
         
     @tools.decorate_with(plotting.tsmap.plot)
-    def plot_tsmap(self, source_name=None, tsplot=False,  **kwargs):
+    def plot_tsmap(self, source_name=None, tsplot=False, factor=1.0, refit=False, **kwargs):
         """ create a TS map showing the source localization
         """
         source = self.sources.find_source(source_name)
@@ -370,9 +382,9 @@ class ROI(views.LikelihoodViews):
         plot_kw.update(kwargs)
         with self.tsmap_view(source.name) as tsm:
 
-            loc = localization.Localization(tsm)
+            loc = localization.Localization(tsm, factor=factor)
             try: 
-                if not hasattr(source,'ellipse') or source.ellipse is None:
+                if refit or not hasattr(source,'ellipse') or source.ellipse is None:
                     loc.localize()
                     loc.summary()
                 tsize = kwargs.pop('size', source.ellipse[2]*15.) # scale according to major axis s

@@ -1,7 +1,7 @@
 """
 Manage the analysis configuration
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.31 2016/11/07 03:16:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.32 2017/02/09 18:55:11 burnett Exp $
 
 """
 import os, sys, types, StringIO, pprint
@@ -57,6 +57,7 @@ class Configuration(dict):
     """
     defaults =(
         ('bins_per_decade', 4, 'number of bins per decade'),
+        ('CALDB', '$CALDB', 'override the CALDB specified by the env var'),
         ('irf', None,  'Set to override value in config.txt : may find in custom_irf_dir'),
         ('extended', None, 'Set to override value in config.txt'),
         ('nocreate', False, 'Set True to prevent creation of a binned photon file'),
@@ -94,7 +95,6 @@ class Configuration(dict):
 
         config = self.load_config(configdir) 
         self.update(config)            
-             
         # check for override from kwargs
         for key in 'extended irf'.split():
             if self.__dict__.get(key, None) is None: 
@@ -102,10 +102,11 @@ class Configuration(dict):
                     print '%s : override config.txt, "%s" => "%s"' %(key, kwargs.get(key,None), config.get(key,None))
                 self.__dict__[key]=config.get(key, None)
 
-        # set up IRF
+        # set up IRF, possibly special CALDB
         # ----------
         
         irf = config['irf']
+        self.caldb = config.get('CALDB', self.CALDB)
         if 'CUSTOM_IRF_DIR' not in os.environ and os.path.exists(os.path.expandvars('$FERMI/custom_irfs')):
             os.environ['CUSTOM_IRF_DIR'] = os.path.expandvars('$FERMI/custom_irfs')
         custom_irf_dir = os.environ['CUSTOM_IRF_DIR']
@@ -123,6 +124,7 @@ class Configuration(dict):
         if datadict is not None:
             self.dataset = dataset.DataSet(datadict['dataname'], interval=datadict.get('interval',None),
                     nocreate = self.nocreate,
+                    CALDB = self.caldb,
                     irf = irf,
                     quiet = self.quiet,
                     postpone=self.postpone,
@@ -130,6 +132,7 @@ class Configuration(dict):
         elif dataspec is not None:
             self.dataset = dataset.DataSet(dataspec,
                     irf=irf,
+                    CALDB = self.caldb,
                     quiet=self.quiet,
                     nocreate=self.nocreate,
                     postpone = self.postpone,
@@ -153,7 +156,8 @@ class Configuration(dict):
             self.psfman = psf.PSFmanager(self.dataset)
             self.irfs=None
         else:       
-            self.irfs = irfman.IrfManager(self.dataset)
+            self.irfs = irfman.IrfManager(self.dataset, 
+                irf_dir=self.caldb, irfname=self.dataset.irf)
         
         # check location of model
         # possibilites are the all-sky pickle.zip, from which any ROI can be extraccted, or a specific set of
@@ -170,10 +174,10 @@ class Configuration(dict):
         elif input_model is not None:
             if not isinstance(input_model, dict):
                 raise Exception('input_model must be a dictionary')
-            model_keys = ['xml_file','path', 'auxcat']
+            model_keys = ['xml_file','path', 'auxcat', 'free_diffuse']
             if not set(input_model.keys()).issubset(model_keys):
                 raise Exception('input model key(s), %s, not recognized: expect %s'
-                    % (list(set(input_model.keys).difference(model_keys)), model_keys))
+                    % (list(set(input_model.keys()).difference(model_keys)), model_keys))
             input_xml   = input_model.get('xml_file', None)
 
             # no pickle.zip in config: check path if set

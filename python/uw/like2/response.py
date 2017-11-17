@@ -1,12 +1,13 @@
 """
 Classes to compute response from various sources
  
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.18 2017/02/09 19:00:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.19 2017/08/02 23:04:51 burnett Exp $
 author:  Toby Burnett
 """
 import os, pickle
 import numpy as np
 import pandas as pd
+import healpy
 import skymaps
 from uw.utilities import keyword_options
 from . import convolution
@@ -73,6 +74,15 @@ class Response(object):
     @property
     def spectral_model(self):
         return self.source.model
+
+class NoResponse(Response):
+    """Special case for no overlap
+    """
+    def initialize(self): 
+        self.counts=0
+        self.pix_counts=0
+    def __call__(self, skydir):
+        return 0.
 
 class PointResponse(Response):
     """Manage predictions of the response of a point source
@@ -158,18 +168,27 @@ class DiffuseResponse(Response):
         
         roi_index = skymaps.Band(12).index(self.roicenter)
         self._keyword_check(roi_index)
-        if hasattr(self, 'preconvolved'):
-            print 'Using preconvoled'
-            assert False, 'breakpoint'
+        if getattr(self, 'preconvolved', False):
+            #print 'Using preconvolved'
+            c = self.roicenter
+            cv = healpy.dir2vec(c.l(),c.b(),lonlat=True)
+            hplist = healpy.query_disc(self.dmodel.nside,cv, self.band.radius_in_rad)
+            assert skymaps.Band(self.dmodel.nside).index(self.roicenter) in hplist
+            dirs = map(self.dmodel.dirfun, hplist)
+            self.evalpoints = lambda dirs : np.array(map(self.dmodel, dirs)) * self.corr
+            self.ap_average = self.evalpoints(dirs).mean()
         
-        self.create_grid()
-        grid = self.grid
-        inside = grid.dists< self.band.radius_in_rad
-        self.ap_average = grid.cvals[inside].mean()
+        else:
+            self.create_grid() # will raise exception if no overlap
+            grid = self.grid
+            inside = grid.dists< self.band.radius_in_rad
+            self.ap_average = grid.cvals[inside].mean()
+            self.evalpoints = lambda dirs : grid(dirs, grid.cvals)
+
         self.delta_e = self.band.emax - self.band.emin
         self.factor = self.ap_average * self.band.solid_angle * self.delta_e
         if self.band.has_pixels:
-            self.pixel_values = grid(self.band.wsdl, grid.cvals) * self.band.pixel_area * self.delta_e
+            self.pixel_values = self.evalpoints(self.band.wsdl) * self.band.pixel_area * self.delta_e
 
         self.evaluate()
         
@@ -213,7 +232,7 @@ class DiffuseResponse(Response):
         return (self.factor*exposure_factor - pixterm) * model.gradient(self.energy)[model.free] 
         
     def __call__(self, skydir):
-        return self.grid(skydir, self.grid.cvals)[0] * self.delta_e
+        return self.evalpoints([skydir])[0] * self.delta_e
     
     def _keyword_check(self, roi_index):
         # check for extra keywords from diffuse spec.
@@ -228,7 +247,7 @@ class DiffuseResponse(Response):
                 corr_file = os.path.expandvars(dfun.kw['correction'])
                 self.corr = DiffuseCorrection(corr_file)(roi_index, self.energy) 
             else: 
-                self.corr=None
+                self.corr=1.0
             
             if not self.quiet: print '\tcorrections:{}'.format(self.corr)
             self.systematic = dfun.kw.get('systematic', None)
@@ -237,7 +256,7 @@ class DiffuseResponse(Response):
             if 'preconvolved' in dfun.kw:
                 self.preconvolved = dfun.kw['preconvolved']
         else: 
-            self.corr =self.systematic = None
+            self.corr =1.0; self.systematic = None
             
         #cache this result in the diffuse object
         #self.source.corr = self.corr 
@@ -534,12 +553,20 @@ class ExtendedResponse(DiffuseResponse):
         
         # calculations needed which depend on this convolution
         cvals = self.cvals
+        badvals = pd.isnull(cvals)
+        if np.any(badvals):
+            print 'bad vals'
+            assert False,'Check strategy here'
         inside = self.overlap_mask() #self.grid.dists< np.radians(self.band.radius)
-        self.ap_average = cvals[inside].mean()
+        if not inside.all():
+            #print 'Inside==0 for band {}'.format(self.band) 
+            self.ap_average=self.psf_overlap = 0
+        else:
+            self.ap_average = cvals[inside].mean()
+            pvals = self.grid.psf_vals
+            self.psf_overlap = pvals[inside].sum() / pvals.sum() 
         self.ap_center = self.grid(self.center, cvals)
         self.overlap = cvals[inside].sum() / cvals.sum()
-        pvals = self.grid.psf_vals
-        self.psf_overlap = pvals[inside].sum() / pvals.sum() 
         self.exposure_at_center = self.band.exposure(self.source.skydir)
         self.exposure_ratio = self.exposure_at_center / self.band.exposure(self.roicenter)
         self.factor = self.overlap * self.exposure_ratio 

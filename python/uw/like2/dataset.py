@@ -1,11 +1,11 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.39 2017/02/09 18:56:19 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.40 2017/08/02 22:55:37 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.39 $'.split()[1]
+version='$Revision: 1.40 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np
@@ -172,14 +172,13 @@ class DataSet(dataman.DataSpec):
                 ft1=dataspec.pop('ft1files',None), 
                 ft2=dataspec.pop('ft2files',None),
                 )
-                
         dataspec.update(kwargs)
         # Now invoke the superclass to actually load the data, which may involve creating the binfile and livetime cube
         super(DataSet,self).__init__(  **dataspec)
         assert self.irf is not None, 'irf was not specifed!'
         
         # new IRF management
-        self.CALDBManager = caldb.CALDB(self.CALDB)
+        self.CALDBManager = caldb.CALDB(CALDB_dir=self.CALDB, irfname=self.irf)
         if self.exposure_cube is None:
             ltcubes = glob.glob(self.ltcube) #allow for more than one
             self.lt = [skymaps.LivetimeCube(lt,weighted=False) for lt in ltcubes]

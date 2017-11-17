@@ -4,7 +4,7 @@ classes presenting views of the likelihood engine in the module bandlike
 Each has a mixin to allow the with ... as ... construction, which should restore the BandLikeList
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.20 2016/10/28 21:25:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/views.py,v 1.21 2017/08/02 23:08:41 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -85,7 +85,7 @@ class FitPlotMixin(object):
         parmax = parz-self.gradient(parz)*sigs**2/2.
         return parz, parmax, sigs
 
-    def plot(self, index, ax=None, nolabels=False , y2lim=(-10,10), estimate=None):
+    def plot(self, index, ax=None, nolabels=False , y2lim=(-5,5), estimate=None):
         """make a plot showing the log likelihood and its derivative as a function of
         expected sigma, evaluated from the second derivative at the current point
         
@@ -111,15 +111,17 @@ class FitPlotMixin(object):
         if not np.isnan(sig):
             xsig = np.linspace(-3, 3, 27)
             x =  x0 + xsig * sig 
-            ax.plot(xsig, map(func,x)-ref, '-')
-            ax.plot(xsig, -((x-x0)/sig)**2, '--')
-            ax.plot((pz-x0)/sig, func(pz)-ref, 'db')
-        plt.setp(ax, ylim=(-9,1), xlim=(-4,4))
+            ax.plot(xsig, map(func,x)-ref, '-b')
+            ax.plot(xsig, -0.5*((x-x0)/sig)**2, '--b')
+            ax.plot((pz-x0)/sig, func(pz)-ref, 'dk')
+        plt.setp(ax, ylim=(-5,0.5), xlim=(-4,4))
         if not nolabels: ax.set_ylabel('log likelihood')
         j = np.arange(len(self.mask))[self.mask][index]if hasattr(self,'mask') else index
-        ax.set_title('#%d: %s' %(j,self.parameter_names[index]), size=10)
-        ax.text( -2,-8, 'par %.3f\nsig %.3f' % (pz,sig), size=10)
-        ax.axvline(0, color='k', ls = ':')
+        ax.set_title('#{}: {}'.format(j,self.parameter_names[index]), size=10)
+        ax.text( -2,-4.5, '{:9.3f}\n+/- {:5.3f}'.format(pz,sig), size=10, family='monospace', 
+            backgroundcolor='w')
+        ax.axvline(0, color='grey', ls = ':')
+        ax.set_xticks([-2,0,2])
         if not np.isnan(sig):
             ax2 = ax.twinx()
             gradvals = -sig*np.array(map(gradf, x))
@@ -144,7 +146,7 @@ class FitPlotMixin(object):
         estimate = self.estimate_solution()
         rows = (n+perrow-1)/perrow
         if figsize is None:
-            figsize = (12, 3*rows)
+            figsize = (12, 2.5*rows)
         fig, axx = plt.subplots(rows,perrow, 
             figsize=figsize, sharex=True, sharey=True)
         for i, ax in enumerate(axx.flatten()):
@@ -216,6 +218,7 @@ class FitterMixin(object):
         # run the fit
         ret = optimize.fmin_l_bfgs_b(self, parz, 
                 bounds=self.bounds,  fprime=self.gradient, **fit_args)
+	self.fmin_ret=ret
         if ret[2]['warnflag']>0: 
             print 'Fit failure: check parameters'
             self.set_parameters(parz) #restore if error  
@@ -257,7 +260,7 @@ class FitterMixin(object):
         for i in range(len(parz)):
             parz[i]+=delta
             fplus = self(parz)
-            assert abs(fplus-fz)>1e-6, 'Fail consistency: variable %d not changing' % i
+            assert abs(fplus-fz)>1e-7, 'Fail consistency: variable %d not changing' % i
             parz[i]-=2*delta
             fminus = self(parz)
             parz[i]+= delta
@@ -266,39 +269,39 @@ class FitterMixin(object):
             fprime.append((fplus-fminus)/(2*delta))
         return grad, np.array(fprime) 
 
-        class FitFunction(FitPlotMixin, FitterMixin, tools.WithMixin): 
-            blike = self
-            def __init__(self, blike,  **kwargs):
-                self.blike = blike
-                self.parameters = blike.sources.parameters
-                self.sources = self.parameters.free_sources
-                self.initial_parameters = self.parameters.get_parameters() #ugly
-            def restore(self):
-                self.set_parameters(self.initial_parameters)
-            def get_parameters(self):
-                return self.parameters.get_parameters()
-            def set_parameters(self, pars):
-                self.parameters.set_parameters(pars)
-                self.blike.update()
-            @property 
-            def bounds(self):
-                return np.concatenate([s.model.bounds[s.model.free] for s in self.sources]) 
-            def __call__(self, pars=None):
-                if pars is not None: self.set_parameters(pars)
-                return -self.blike.log_like()
-            def log_like(self, summed=True):
-                """assume that parameters are set, possibility of individual likelihoods"""
-                return self.blike.log_like(summed)
+        # class FitFunction(FitPlotMixin, FitterMixin, tools.WithMixin): 
+        #     blike = self
+        #     def __init__(self, blike,  **kwargs):
+        #         self.blike = blike
+        #         self.parameters = blike.sources.parameters
+        #         self.sources = self.parameters.free_sources
+        #         self.initial_parameters = self.parameters.get_parameters() #ugly
+        #     def restore(self):
+        #         self.set_parameters(self.initial_parameters)
+        #     def get_parameters(self):
+        #         return self.parameters.get_parameters()
+        #     def set_parameters(self, pars):
+        #         self.parameters.set_parameters(pars)
+        #         self.blike.update()
+        #     @property 
+        #     def bounds(self):
+        #         return np.concatenate([s.model.bounds[s.model.free] for s in self.sources]) 
+        #     def __call__(self, pars=None):
+        #         if pars is not None: self.set_parameters(pars)
+        #         return -self.blike.log_like()
+        #     def log_like(self, summed=True):
+        #         """assume that parameters are set, possibility of individual likelihoods"""
+        #         return self.blike.log_like(summed)
 
-            def gradient(self,pars=None):
-                if pars is not None: self.set_parameters(pars)
-                return self.blike.gradient()
-            def hessian(self, pars=None):
-                if pars is not None: self.set_parameters(pars)
-                return self.blike.hessian()
-            @property
-            def parameter_names(self):
-                return self.parameters.parameter_names
+        #     def gradient(self,pars=None):
+        #         if pars is not None: self.set_parameters(pars)
+        #         return self.blike.gradient()
+        #     def hessian(self, pars=None):
+        #         if pars is not None: self.set_parameters(pars)
+        #         return self.blike.hessian()
+        #     @property
+        #     def parameter_names(self):
+        #         return self.parameters.parameter_names
              
 
 class FitterView(FitPlotMixin, FitterMixin, FitterSummaryMixin, tools.WithMixin): 
