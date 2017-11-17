@@ -4,8 +4,7 @@ Define stages
 $$
 """
 import numpy as np
-from uw.like2 import (process, tools, )
-
+from uw.like2 import process
     
 class Stage(dict):
     def __init__(self, proc, pars={}, job_list='$POINTLIKE_DIR/infrastructure/joblist.txt', help='', **kwargs):
@@ -30,10 +29,12 @@ stagenames = dict(
     update      =  StageBatchJob( dict( dampen=0.5,), sum='config counts',    help='refit, half update' ),
     betafix_only=  StageBatchJob( dict( betafix_flag=True),  sum='counts sourceinfo',help='check beta', ),
     betafix     =  StageBatchJob( dict( betafix_flag=True),  sum='counts sourceinfo',help='check beta', ),
-    update_pivot=  StageBatchJob( dict( repivot_flag=True),  sum='sourceinfo',help='update pivot', ), 
+    update_pivot=  StageBatchJob( dict( repivot_flag=True),  sum='counts sourceinfo',help='update pivot', ), 
     update_only =  StageBatchJob( dict(),                   sum='config counts sourceinfo', help='update, no additional stage', ), 
     update_positions
                 =  StageBatchJob( dict(update_positions_flag=True, dampen=1.0), sum='sourceinfo', help='update positions and refit', ),
+    update_associations
+                =  StageBatchJob( dict(update_associations_flag=True, dampen=1.0), sum='associations', help='update associations', ),
     #update_norms=  StageBatchJob( dict( norms_only=True), sum='menu config counts', help='update that fits the normalization factors only'),
     
     monthlyPGW    =  StageBatchJob( dict( fix_spectra_flag=True), sum='menu config counts', next='addseeds_PGW', help='create a monthly model; followed by adding PGW seeds for that month'),
@@ -50,7 +51,8 @@ stagenames = dict(
         help='start update sequence with very soft source seeds'),
     addseeds_psr =  StageBatchJob( dict(seed_key='tsp'), next='update_full', sum='config counts', 
         help='start update sequence with pulsar-like seeds'),
-    
+    addseeds_all =  StageBatchJob( dict(seed_key='all'), next='update_full', sum='config counts', 
+        help='start update sequence with all seeds'),    
     #update_seeds=  StageBatchJob( dict(add_seeds_flag=True), sum='config counts', help='start update sequence with new seed soruces'),
     finish      =  StageBatchJob( dict(finish=True),     sum='sourceinfo localization associations', help='localize, associations, sedfigs', ),
     finish_month=  StageBatchJob( dict(finish=True),     sum='transientinfo', help='plots for monthly transients', ),
@@ -64,17 +66,23 @@ stagenames = dict(
          job_list='$POINTLIKE_DIR/infrastructure/joblist8.txt', help='Create hard source TS map'),
     tables_soft  =  StageBatchJob( dict(table_keys=['soft'], dampen=0), next='addseeds_soft',
          job_list='$POINTLIKE_DIR/infrastructure/joblist8.txt', help='Create hard source TS map'),
-    residualmaps = StageBatchJob( dict(table_keys=['rmap'], dampen=0),  job_list='$POINTLIKE_DIR/infrastructure/joblist8.txt', help='Create residual maps'),
+    residualmaps = StageBatchJob( dict(table_keys=['rmap'], dampen=0),  job_list='$POINTLIKE_DIR/infrastructure/joblist8.txt',sum='residual_maps', help='Create residual maps'),
     #xtables     =  StageBatchJob( dict(xtables_flag=True, dampen=0), job_list='$POINTLIKE_DIR/infrastructure/joblist8.txt', help='Create special tsmap'),
     seedcheck   =  StageBatchJob( dict(seed_key='ts',  dampen=0), sum='seedcheck', help='Check seeds'),
     #seedcheck_tsp= StageBatchJob( dict(seed_key='tsp', dampen=0),  help='Check pulsar seeds'),
     #seedcheck_pgw= StageBatchJob( dict(seed_key='pgw', dampen=0),  sum='seedcheck', help='Check seeds from PGW'),
     special     =  StageBatchJob( dict(special_flag=True), sum='counts', help='Special processing, then updates'),
     special_only=  StageBatchJob( dict(special_flag=True), sum='counts', help='Special processing only'),
-    fitdiffuse  =  StageBatchJob( dict(diffuse_flag=True), sum='diffuse_correction',  help='special diffuse fits'),
+    fitisotropic=  StageBatchJob( dict(diffuse_key='iso'), sum='diffuse_fits',  help='special diffuse fits'),
+    fitgalactic =  StageBatchJob( dict(diffuse_key='gal'), sum='diffuse_fits',  help='special diffuse fits'),
     tables_mspsens =StageBatchJob( dict(table_keys=['mspsens'], dampen=0, tables_nside=256),
          job_list='$POINTLIKE_DIR/infrastructure/joblist8.txt', help='Create MSP sensitivity map'), 
-    )
+    postfitgalactic =  StageBatchJob( dict(diffuse_key='post_gal'), sum='counts diffuse_fits',  help='update then gal diffuse fit'),
+
+    sourcefinding=StageBatchJob( dict(table_keys='ts tsp hard soft'.split(), dampen=0),  job_list='$POINTLIKE_DIR/infrastructure/joblist8.txt', 
+                    sum='ts_tables',help='Create TS maps for all templates'),
+    modelcounts12=  StageBatchJob( dict(model_counts=[12,13,]),  help='model counts from 12'),
+)
 keys = stagenames.keys()
 help = '\nstage name, or sequential stages separated by "y:" names are\n\t' \
     +  '\n\t'.join(['%-15s: %s' % (key,stagenames[key]['help']) \

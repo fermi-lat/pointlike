@@ -5,7 +5,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/ts_clus
 """
 
 import os,pickle, glob
-import astropy.io.fits as pyfits
+from astropy.io import fits as pyfits
 from skymaps import Band, SkyDir
 import numpy as np
 import pylab as plt

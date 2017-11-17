@@ -1,11 +1,11 @@
 """
 Check the residual TS maps for clusters
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_ts.py,v 1.11 2016/10/28 21:11:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_ts.py,v 1.12 2017/08/23 16:23:44 zimmer Exp $
 
 """
 
 import os, sys, pickle, argparse, glob
-import astropy.io.fits as pyfits
+from astropy.io import fits as pyfits
 from skymaps import Band, SkyDir
 import numpy as np
 import pylab as plt
@@ -190,10 +190,12 @@ def make_seeds(tsdata,  filename, fieldname='ts', nside=512 ,rcut=10, bcut=0,
     if out is not None: out.close()
     return len(clusters)
     
-def pipe_make_seeds(skymodel, filename,  fieldname='ts', minsize=1): # changed from 2!
+def pipe_make_seeds(skymodel, fieldname='ts', prefix_char='S', filenamepattern='seeds/seeds_{}.txt',  minsize=1): # changed from 2!
     """
         # Special check for a month, which should mask out the Sun
     """
+    if not os.path.exists('seeds'):
+        os.mkdir('seeds')
     if skymodel.startswith('month'):
         month=int(skymodel[5:]);
         try:
@@ -206,7 +208,7 @@ def pipe_make_seeds(skymodel, filename,  fieldname='ts', minsize=1): # changed f
             seedroot='TSxx'
     else: 
         mask=None
-        seedroot=skymodel.replace('uw','S')
+        seedroot=skymodel.replace('uw', prefix_char)
     fnames = glob.glob('hptables_*_%d.fits' % nside )
     assert len(fnames)>0, 'did not find hptables_*_%d.fits file' %nside
     fname=None
@@ -218,11 +220,12 @@ def pipe_make_seeds(skymodel, filename,  fieldname='ts', minsize=1): # changed f
     assert fname is not None, 'Table %s not found in files %s' %(fieldname, fnames)
 
     # Create the seed list by clustering the pixels in the tsmap
-    rec = open('seeds_%s.txt' %fieldname, 'w')
+    filename = filenamepattern.format( fieldname )
+    rec = open(filename, 'w')
     nseeds = make_seeds('test', fname, fieldname=fieldname, rec=rec,
         seedroot=seedroot, minsize=minsize,
         mask=~mask if mask is not None else None)
-    print '%d seeds' % nseeds
+    print 'Wrote file {} with {} seeds'.format(filename, nseeds)
 
  
 def main(args):

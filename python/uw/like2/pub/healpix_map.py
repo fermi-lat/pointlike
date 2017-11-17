@@ -1,11 +1,12 @@
 """
 Utilities for managing Healpix arrays
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.19 2016/10/28 21:11:46 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.20 2017/08/23 16:23:44 zimmer Exp $
 """
 import os,glob,pickle, types, copy, zipfile
 import pylab as plt
+from matplotlib.colors import LogNorm
 import numpy as np
-import astropy.io.fits as pyfits
+from astropy.io import fits as pyfits
 from skymaps import Band, SkyDir, Hep3Vector, PySkyFunction, SkyImage, Healpix
 import skymaps
 from pointlike import IntVector
@@ -25,7 +26,13 @@ class HParray(object):
     def __getitem__(self, index):
         return self.vec[index]
     def __len__(self): return 12*self.nside**2
-    def getcol(self, type=np.float32): return np.asarray(self.vec, type)
+    def getcol(self, type=np.float32,nside=None):
+        """return an array with the values:
+        if nside is set, resample
+        """ 
+        if nside is None:
+            return np.asarray(self.vec, type)
+        return HPresample(self, nside=nside).getcol(type=type)
     
     def skyfun(self, skydir):
         return self[Band(self.nside).index(skydir)]
@@ -36,7 +43,7 @@ class HParray(object):
     def __call__(self, skydir):
         return self[self._indexfun(skydir)]
     
-    def plot(self, title='', axes=None, fignum=30, ait_kw={}, **kwargs):
+    def plot(self, title='', axes=None, fignum=30, ait_kw={}, log=False, **kwargs):
         """ make an AIT skyplot from the array 
         title : string
             set the figure title
@@ -49,6 +56,10 @@ class HParray(object):
         It returns a image.AIT object, which has a colorbar member that can be adjusted.
         """
         cbtext = kwargs.pop('cbtext', '')
+        if log:
+            vmin=kwargs.pop('vmin', None)
+            vmax=kwargs.pop('vmax', None)
+            kwargs['norm']=LogNorm(vmin=vmin,vmax=vmax)
         ait_kw.update(cbtext=cbtext)
         band = Band(self.nside)
         def skyplotfun(v):
@@ -69,7 +80,7 @@ class HParray(object):
         """ center : tuple
                 RA,DEc or L,B depending on galactic
         """
-        zea = image.ZEA(center, size=size, axes=axes, pixelsize=pixelsize, galactic=galactic)
+        zea = image.ZEA(center, size=size, axes=axes, pixelsize=pixelsize, galactic=galactic, **zea_kw)
         zea.fill(self)
         zea.imshow( **kwargs)
         if title is not None:
@@ -319,7 +330,7 @@ class HEALPixFITS(list):
                 ('FIRSTPIX',  0,                 'First pixel (0 based)'),
                 ('LASTPIX',  12*nside**2-1, 'Last pixel (0 based)')]]
         table = pyfits.BinTableHDU.from_columns(cols, header=pyfits.Header(cards))
-        table.name = 'healpix' 
+        table.name = 'SKYMAP' 
         return table
         
     def make_hdus(self):
@@ -327,11 +338,11 @@ class HEALPixFITS(list):
                    self.make_table(),           # this table
                ]
 
-    def write(self, outfile):
+    def write(self, outfile, clobber=True):
         hdus = self.make_hdus()
         if os.path.exists(outfile):
             os.remove(outfile)
-        pyfits.HDUList(hdus).writeto(outfile)
+        pyfits.HDUList(hdus).writeto(outfile,clobber=clobber)
         print '\nwrote FITS file to %s' % outfile
 
 class HEALPixSkymap():
