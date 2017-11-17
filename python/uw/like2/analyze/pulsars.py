@@ -1,7 +1,7 @@
 """
 Pulsar search analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/pulsars.py,v 1.1 2015/07/24 17:56:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/pulsars.py,v 1.2 2017/08/23 16:23:43 zimmer Exp $
 
 """
 
@@ -10,7 +10,7 @@ import astropy.io.fits as pyfits
 import numpy as np
 import pylab as plt
 import pandas as pd
-
+from astropy.io import fits as pyfits
 from skymaps import SkyDir
 from . import sourceinfo
 from analysis_base import html_table, FloatFormat
@@ -126,11 +126,38 @@ class PulsarSearch(sourceinfo.SourceInfo):
             <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>,
             which requires Silverlight."""  % cid
 
+    def load_list(self, filename):
+        df = self.df
+        print 'Reading the LOFAR list "{}"'.format(filename)
+        self.lofar=lofar= pd.read_csv(filename, index_col=0)
+        lofarset=set(lofar.index)
+        print '{}/{} found in uw7000'.format(len(lofarset.intersection(set(df.index))), len(lofarset))
+        dfb = pd.read_pickle('beta_fts.pkl')
+        for col in 'TS_beta beta beta_fit roiname'.split():
+            lofar[col]=dfb[col]
+        print 'reading 6-year variability table...',
+        s6y=pd.read_pickle('../../P301_monthly/six_yr_source_variability.pkl')
+        s6yset= set(s6y.index)
+        print 'Found variability info for {}/{} sources'.format(len(s6yset.intersection(lofarset)),len(lofarset))
+        for col in 'mean ngood nmonths pull_rms tsmax tssum'.split():
+            lofar[col]=s6y[col]
+            lofar['ts6y']=s6y['ts']
+        return lofar
+    
+    def check_a_list(self, filename='../uw7002/7yr_LOFAR_uw7000.txt'):
+        """Make a table with curvature and variability
+        %(check_list)s
+        """
+        lofar = self.load_list(filename)
+        self.check_list = html_table(lofar, name=self.plotfolder+'/checked_sources',
+            heading='<h4>%d checked sources</h4>'%len(lofarset),
+            float_format=FloatFormat(2))
+
     def all_plots(self):
         self.runfigures([self.efratio,
             self.selection, 
             self.no_curvature,
-            #  self.collection, 
+            self.check_a_list, 
         ]       )
 
     
