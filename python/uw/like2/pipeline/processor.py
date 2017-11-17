@@ -1,11 +1,12 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.72 2013/12/05 21:16:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.73 2017/08/23 16:23:44 zimmer Exp $
 """
 import os, time, sys, types, glob
 import cPickle as pickle
 import numpy as np
 import pylab as plt
+from astropy.io import fits as pyfits
 import pandas as pd
 from skymaps import SkyDir, Hep3Vector
 from uw.like import srcid  
@@ -816,10 +817,12 @@ class GtlikeCatalog(object):
     """ read in a gll catalog FITS file, then make spectral model available
     """
     def __init__(self, name=None): #'gll_psc4yearclean_v4.fit'):
-        import astropy.io.fits as pyfits
-        catfile = sorted(glob.glob(os.path.expandvars('$FERMI/catalog/gll*.fit')))[-1]
+      
+        catfile = sorted(glob.glob(os.path.expandvars('$FERMI/catalog/gll_psc8yearPSF*.fit')))[-1]
         print 'opening catalog file %s' % catfile
         self.cat=pyfits.open(catfile)[1].data
+        self.fieldnames ='Flux_density PL_Index Cutoff '
+        #'Flux_Density Spectral_Index Cutoff Index2 Pivot_Energy beta'.split() 
         
     def __call__(self, nickname):
         """ Return a Model corresponding to the nickname field
@@ -832,21 +835,25 @@ class GtlikeCatalog(object):
         catsource = self.cat[cselect][0]
         try:
             st = catsource.field('SpectrumType')
-            flux,index,cutoff,b,pivot,beta=[catsource.field(f) for f in 'Flux_Density Spectral_Index Cutoff Index2 Pivot_Energy beta'.split()]
+            flux,pivot= map(catsource.field, ['Flux_Density','Pivot_Energy'])
+            if np.isnan(flux):
+                print '*** source {} has undefined flux ***'.format(nickname) 
+                return None
             if st=='PowerLaw':
+                index = catsource.field('PL_Index')
                 return Models.PowerLaw(p=[flux, index], e0=pivot)
             elif st=='PLSuperExpCutoff':
+                index, cutoff, b =map(catsource.field, ['PLEC_Index','PLEC_Cutoff','Exp_Index'])
                 prefactor = flux*np.exp((pivot/cutoff)**b)
                 return Models.PLSuperExpCutoff(p=[prefactor, index, cutoff,b], e0=pivot)
             elif st=='LogParabola':
+                index,beta = map(catsource.field, ['LP_Index', 'LP_beta'])
                 return Models.LogParabola(p=[flux, index, beta, pivot])
-            elif st=='PowerLaw2':   ### same as PowerLaw in table
-                return Models.PowerLaw(p=[flux, index], e0=pivot)
             else:
                 raise Exception('unexpected spectrum type %s'%st)
                 catmodel = cat_model(catsource); 
-        except:
-            print 'Source %s failed' % nickname
+        except Exception, msg:
+            print 'Source {} failed: {}'.format( nickname,msg)
             return None
 
 
@@ -889,8 +896,7 @@ class CompareOtherModel(object):
         self.other_models.append(dict(name=source_name, m_other=othermodel, m_pt=saved_model, ts_pt=ptts, ts_other=gtts))
  
 class GtlikeModels(object):
-    def __init__(self, catpath=os.path.expandvars('$FERMI/catalog/gll_psc4yearclean_v4.fit'), otherversion='v4'):
-        import astropy.io.fits as pyfits
+    def __init__(self, catpath=os.path.expandvars('$FERMI/catalog/gll_psc8yearPSF_v2.fit'), otherversion='v2'):
         self.cat = pyfits.open(catpath)[1].data
         self.otherversion=otherversion
         self.uwversion = os.path.split(os.getcwd())[-1]

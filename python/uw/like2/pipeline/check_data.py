@@ -1,6 +1,6 @@
 """
 Check that the data specification for this stream is valid, perhaps creating the intermediate files
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_data.py,v 1.9 2014/05/08 20:29:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_data.py,v 1.10 2015/12/03 17:33:07 burnett Exp $
 """
 import os, sys, glob, zipfile, logging, datetime
 import numpy as np
@@ -8,7 +8,8 @@ import numpy as np
 from uw.like2 import (dataset, tools)
 
 def main(args=None):
-
+    if os.path.exists('kill'):
+        raise Exception('Kill this job')
     if args is not None:
         stage = args.stage[0]
         nocreate = False # Was True, but only important to run the creation for large data sets

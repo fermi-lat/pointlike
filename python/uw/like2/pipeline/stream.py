@@ -1,7 +1,7 @@
 """
 manage creating new PipelineII stream
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/stream.py,v 1.3 2015/07/24 17:56:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/stream.py,v 1.4 2015/08/16 01:12:11 burnett Exp $
 """
 import os, datetime
 import numpy as np
@@ -76,9 +76,13 @@ class StreamInfo(dict):
     def __call__(self, stream ):
         return self[stream]
 
-def recent_stream(model_name, filter=None):
+def recent_stream(model_name=None, filter=None):
     """ return a dict, key the model name of the most recent stream, with stage and date
+
+    model_name : str | None
+        the full name of the model, e.g. P302_8years/uw8000. If None, use the current folder path
     """
+    if model_name is None: model_name='/'.join(os.getcwd().split('/')[-2:])
     sinfo = StreamInfo(model_name)
     sdf = pd.DataFrame(sinfo).T
     # select last one for each model

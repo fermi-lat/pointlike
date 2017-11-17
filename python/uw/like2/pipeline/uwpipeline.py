@@ -1,7 +1,7 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.52 2015/04/29 18:07:39 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.53 2015/07/24 17:56:30 burnett Exp $
 """
 import os, argparse,  datetime
 import numpy as np
@@ -9,7 +9,9 @@ from uw.like2 import (process, tools, )
 from uw.like2.pipeline import (check_data, pipeline_job, stagedict, check_converge, stream)
 from uw.like2.analyze import app
 
-
+# import warnings
+# warnings.filterwarnings('error')
+# print 'warnings set to error'
 # Instances of these classes are in the procnames dictionary below. They must implement a main function which will
 # by run by the Proc
 class StartStream(object):
