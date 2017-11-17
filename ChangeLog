@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Fri Nov 17 14:43:18 PST 2017
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	gc_comparison.py pulsars.py sourcecomparison.py 
+Removed Files:
+	diagnostics.py 
+Log Message:
+pre-github
+    *
+------------------------------------------------------------
 User: burnett  Mon Nov  6 15:44:47 PST 2017
 pointlike/python/uw/data
 
