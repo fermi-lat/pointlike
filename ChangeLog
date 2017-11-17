@@ -1,4 +1,18 @@
 ------------------------------------------------------------
+User: burnett  Fri Nov 17 14:50:36 PST 2017
+pointlike/python/uw/like2
+
+Modified Files:
+	bandlike.py configuration.py convolution.py dataset.py 
+	diffuse.py extended.py from_healpix.py localization.py 
+	loglikelihood.py main.py maps.py process.py response.py 
+	seeds.py sources.py to_xml.py tools.py views.py 
+Added Files:
+	count_density.py from_dataframe.py 
+Log Message:
+pre-github
+    *
+------------------------------------------------------------
 User: burnett  Fri Nov 17 14:44:09 PST 2017
 pointlike/python/uw/like2/analyze
 
