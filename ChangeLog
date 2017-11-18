@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: burnett  Sat Nov 18 14:26:38 PST 2017
+pointlike/python/uw/like2/analyze
+
+Modified Files:
+	__init__.py hptables.py timedependence.py transient_catalog.py 
+	transientinfo.py 
+Removed Files:
+	maps.py 
+Log Message:
+pyfits
+    *
+------------------------------------------------------------
 User: burnett  Fri Nov 17 14:59:53 PST 2017
 pointlike/python/uw/like2/pub
 
