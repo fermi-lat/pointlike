@@ -1,11 +1,12 @@
 """
 Analysis plots of transient sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/transientinfo.py,v 1.4 2016/03/21 18:54:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/transientinfo.py,v 1.6 2016/10/28 20:48:14 burnett Exp $
 
 """
 
-import os, pickle, pyfits, glob
+import os, pickle,  glob
+from astropy.io import fits as pyfits
 from uw.like2.analyze import (sourceinfo, associations,)
 from uw.like2.tools import DateStamp
 from pointlike import IntVector

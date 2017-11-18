@@ -1,11 +1,12 @@
 """
 Analysis of a set of monthly transients to generate a subset suitable for a catalog
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/transient_catalog.py,v 1.3 2016/04/27 00:04:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/transient_catalog.py,v 1.5 2016/10/28 20:48:14 burnett Exp $
 
 """
 
-import os, pickle, pyfits, glob, json
+import os, pickle, glob, json
+from astropy.io import fits as pyfits
 from uw.like2.analyze import (transientinfo, analysis_base)
 from uw.like2.tools import DateStamp
 from uw.like2 import to_fits

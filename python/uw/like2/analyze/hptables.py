@@ -1,11 +1,12 @@
 """
 Analyze the contents of HEALPix tables, especially the tsmap
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/hptables.py,v 1.11 2016/04/27 02:22:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/hptables.py,v 1.12 2016/10/28 20:48:14 burnett Exp $
 
 """
 
-import os, glob, time, pyfits
+import os, glob, time
+from astropy.io import fits as pyfits
 import numpy as np
 import pylab as plt
 import pandas as pd
