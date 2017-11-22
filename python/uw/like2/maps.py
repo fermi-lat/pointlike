@@ -1,10 +1,12 @@
 """
 Code to generate a set of maps for each ROI
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.12 2017/08/02 22:59:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.13 2017/11/17 22:50:36 burnett Exp $
 
 """
-import os, sys,  pickle, types
+import os, sys,  types, glob
+import cPickle as pickle
 import numpy as np
+import pandas as pd
 from skymaps import Band, SkyDir, PySkyFunction, Hep3Vector, PythonUtilities 
 from uw.like import Models
 from . import sources, sedfuns 
@@ -33,6 +35,7 @@ def PLSuperExpCutoff(*pars):
 
 def make_index_table(nside=12, subnside=512, usefile=True):
     """create, and/or use a table to convert between different nside pixelizations
+    The indexing is RING
     """
     filename = os.path.expandvars('$FERMI/misc/index_table_%02d_%03d.pickle' % (nside, subnside) )
     if os.path.exists(filename) and usefile:
@@ -74,48 +77,123 @@ class CountsMap(dict):
                 
     def __call__(self,v):
         return self.get(self.indexfun(v), 0)
-  
+
+def default_geom():
+    """return a DataFrame with indexed by the band, containing emin, emax, event_type, nside
+    """
+    energies = np.logspace(2, 6, 17)
+    elow = energies[:-1]
+    ehigh=energies[1:]
+    nside_list = ModelCountMaps.nside_array
+    geom = dict()
+    for ib in range(32):
+        ie = ib/2; it=ib%2
+        geom[ib]=dict(elow=elow[ie],ehigh=ehigh[ie], 
+                      event_type=it, nside=nside_list[ib])
+    g = pd.DataFrame(geom).T['elow ehigh event_type nside'.split()]
+    g.event_type = g.event_type.astype(int)
+    g.nside = g.nside.astype(int)
+    return g
+
 class ModelCountMaps(object):
     """ This is not the same as other map-producing classes here.
-    It makes, and saves, a list of predicted counts for all the pixel within the central
+    It makes, and saves, a list of predicted counts for all the pixels within the central
     HEALPix pixel.
     """
-    def __init__(self, roi, nbands=None, bandlist=None,  maxnside=1024, subdir='model_counts'):
+    nside_array = np.ones(32,int) * 1024
+    nside_array[:10] = 64,64, 128,64 ,256,128, 256,256, 512,512
+
+    def __init__(self, roi, nbands=None, bandlist=None,  subdir='model_counts'):
         """
         roi : ROI object
+            Expect it to behave like an array, indexed by the banad index,
+            and each element is a SkyFunction, returning the count density.
         bandlist : list of int | None
             bands to process. If None, do them all
-        maxnside : int
-            Use nside defined by the data, but limit  to this
+
         subdir : string | None
             folder name to write results to
         """
         roi_index = Band(12).index(roi.roi_dir)  
-        self.pred = dict()
+
         if bandlist is None:
             if nbands is not None: bandlist=range(nbands)
             else: bandlist = range(len(roi))
         for ebi in bandlist:
             eb = roi[ebi] #EnegyBand object
-            dirfun = eb.band.cband.dir
 
-            nside = min(eb.band.cband.nside(), maxnside)
+            # choose nside to be power of 2, override the data
+            nside =  ModelCountMaps.nside_array[ebi]
+            dirfun = Band(nside).dir
             pixel_area = Band(nside).pixelArea()
             index_table = make_index_table(12, nside)
             pix_ids = index_table[roi_index]
             dirs = map(dirfun, pix_ids)
             cnts = np.array(map(eb, dirs),np.float32) * pixel_area
-            self.pred[ebi] =cnts #(nside, cnts) 
+            
             print '{:4d} {:4d} {:6d} {:8.2e} {:8.2e} {:8.2e}'.format(
                 ebi,nside,len(cnts), cnts.mean(), cnts.min(), cnts.max())
             if subdir is not None:
                 subsubdir = subdir+'/{}'.format(ebi)
                 if not os.path.exists(subsubdir): os.makedirs(subsubdir)
                 outfile = subsubdir+'/HP12_{:04d}.pickle'.format(roi_index)
-                pickle.dump(self.pred, open(outfile, 'w'))
-                print '\twrote file {}'.format(outfile)
+                pickle.dump(cnts, open(outfile, 'w'))
+                print '\t\t--> {}'.format(outfile)
 
-    
+class BandCounts(object):
+    """Manage results of the Model counts
+    """
+    def __init__(self, band_index, path='model_counts', reload=False):
+        """Assume in a skymodel folder, containg a model_counts subfolder
+        """
+        self.bi = band_index
+        self.path=path+'/{}'.format(band_index)
+        nside_list = ModelCountMaps.nside_array
+        self.nside = nside_list[band_index]
+        self.filename = self.path+'/combined.pickle'
+        if os.path.exists(self.filename) and not reload:
+            self.load()
+        else:
+            self.combine()
+            self.dump()
+
+    def combine(self):
+        index_table = make_index_table(12, self.nside)
+        d = dict()
+        ff = sorted(glob.glob(self.path+'/HP12*.pickle'.format(self.bi)));
+        assert len(ff)==1728, 'only found {} pickle files in {}'.format(len(ff), self.path)
+        for i,f in enumerate(ff):
+            ids = index_table[i]
+            try:
+                values = pickle.load(open(f))
+            except Exception, msg:
+                print 'Failed to load file {}: {}'.format(f, msg)
+                raise
+            assert len(ids)==len(values), 'oops: {} ids, but {} values'.format(len(ids), len(values))
+            d.update(zip(ids, values))
+        self.counts= np.array(d.values(),np.float32)
+
+    def plot(self, **kwargs):
+        from uw.like2.pub import healpix_map as hpm
+        name = 'band{:02d}'.format(self.bi)
+        hpm.HParray(name, self.counts).plot(log=True, title=name, **kwargs)
+
+    def dump(self):
+        pickle.dump(self.counts, open(self.filename, 'w'))
+        print 'Saved file {}'.format(self.filename)
+
+    def load(self):
+        self.counts = pickle.load(open(self.filename))
+        
+    def simulate(self):
+        """Return sparsified Poisson simulation
+        """
+        sim =np.random.poisson(self.counts)
+        nonzero = sim>0
+        ids=np.arange(len(sim))[nonzero]
+        counts = sim[nonzero]
+        return np.array([ids, counts], np.int32)
+
 
 class KdeMap(object):
     """ Implement a SkyFunction that returns KDE data for a given ROI"""
