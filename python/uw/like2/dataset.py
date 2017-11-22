@@ -1,16 +1,16 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.40 2017/08/02 22:55:37 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.41 2017/11/17 22:50:36 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.40 $'.split()[1]
+version='$Revision: 1.41 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np
 import skymaps, pointlike #from the science tools
-from uw.data import dataman, dssman
+from uw.data import dataman, dssman, binned_data
 from uw.utilities import keyword_options
 from uw.irfs import caldb # new code
 
@@ -248,10 +248,13 @@ class DataSet(dataman.DataSpec):
  
     def _load_binfile(self):
         if not self.quiet: print 'loading binfile %s ...' % self.binfile ,
-        self.dmap = skymaps.BinnedPhotonData(self.binfile)  
-        if not self.quiet: print 'found %d photons in %d bands, energies %.0f-%.0f MeV'\
-                % (self.dmap.photonCount(),len(self.dmap), self.dmap[1].emin(), self.dmap[len(self.dmap)-1].emax())
-
+        try:
+            self.dmap = skymaps.BinnedPhotonData(self.binfile)  
+            if not self.quiet: print 'found %d photons in %d bands, energies %.0f-%.0f MeV'\
+                    % (self.dmap.photonCount(),len(self.dmap), self.dmap[1].emin(), self.dmap[len(self.dmap)-1].emax())
+        except RuntimeError:
+            self.dmap = binned_data.BinFile(self.binfile)
+            if not self.quiet: print self.dmap
         if self.verbose:
             self.dmap.info()
             print '---------------------'
