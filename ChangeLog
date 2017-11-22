@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Nov 21 16:52:07 PST 2017
+pointlike/python/uw/data
+
+Modified Files:
+	binned_data.py 
+Log Message:
+implement photonCount for C++ class consistency
+    *
+------------------------------------------------------------
 User: burnett  Tue Nov 21 16:50:43 PST 2017
 pointlike/python/uw/like2
 
