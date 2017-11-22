@@ -4,7 +4,7 @@ Duplicates the functionality of the C++ class BinnedPhotonData
 Implements the new standard data format
 http://gamma-astro-data-formats.readthedocs.io/en/latest/skymaps/healpix/index.html#hpx-bands-table
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/binned_data.py,v 1.3 2017/11/06 15:46:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/binned_data.py,v 1.4 2017/11/06 23:44:46 burnett Exp $
 
 """
 import os, glob, StringIO
@@ -154,6 +154,7 @@ class Pixels(object):
             c = self.cnt[self.chn==channel]
             d[channel] = {'pixels': len(c), 'photons': sum(c)}
         df = pd.DataFrame(d).T[['pixels', 'photons']]
+        df.index.name='band'
         return df
 
     def __getitem__(self, channel):
@@ -197,6 +198,7 @@ class Pixels(object):
             ORDERING='RING',
             COORDSYS='GAL',
             BANDSHDU='BANDS',
+            AXCOLS='E_MIN,E_MAX',
             )
         return skymap_hdu
     
@@ -205,7 +207,7 @@ class Pixels(object):
             npix, nphot = len(self.counter), sum(self.counter.values())
         else:
             npix, nphot = len(self.cnt), sum(self.cnt)
-        return '{:,} pixels, {:,} photons'.format(npix, nphot) 
+        return '{}: {:,} pixels, {:,} photons'.format(self.__class__, npix, nphot) 
 
     
 class BinFile(object):
@@ -308,5 +310,9 @@ class BinFile(object):
         hdus=[self.hdus[0], pixels_hdu, bands_hdu, gti_hdu]
         fits.HDUList(hdus).writeto(filename, clobber=clobber)
         print 'wrote file {}'.format(filename)
-        
+
+    def photonCount(self):
+        """ method to be consistent with skymaps.BinnedPhotonData
+        """
+        return sum(self.pixels.cnt)    
        
