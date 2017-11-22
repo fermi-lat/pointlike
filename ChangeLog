@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Nov 21 16:50:43 PST 2017
+pointlike/python/uw/like2
+
+Modified Files:
+	dataset.py 
+Log Message:
+mod to use binned_data.BinFile to read new-format FITS data
+    *
+------------------------------------------------------------
 User: burnett  Tue Nov 21 16:49:25 PST 2017
 pointlike/python/uw/like2
 
