@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.89 2017/08/02 23:02:26 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.91 2018/01/27 15:37:17 burnett Exp $
 
 """
 import types, time, glob
@@ -18,8 +18,9 @@ import warnings
 warnings.resetwarnings()
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', category=RuntimeWarning)
-from astropy import wcs
-warnings.filterwarnings('ignore', category=wcs.FITSFixedWarning)
+import astropy
+warnings.filterwarnings('ignore', category=astropy.wcs.FITSFixedWarning)
+warnings.filterwarnings('ignore', category=astropy.io.fits.verify.VerifyWarning,)
 
 class ROI(views.LikelihoodViews):
     """ROI analysis
@@ -81,7 +82,7 @@ class ROI(views.LikelihoodViews):
     
     defaults = (
         ('quiet', True, 'set to suppress output'),
-        ('load_kw', {'rings':2}, 'a dict specific for the loading'),
+        ('load_kw', {'rings':2, 'tsmin':0}, 'a dict specific for the loading'),
         ('postpone', False, 'Set True to not load data until requested'),
     )
 
@@ -127,8 +128,7 @@ class ROI(views.LikelihoodViews):
         else:
             raise Exception('Did not recoginze roi_spec: %s' %(roi_spec))             
             
-        roi_sources = from_healpix.ROImodelFromHealpix(config, roi_index, ecat=ecat,
-                    load_kw=self.load_kw)
+        roi_sources = from_healpix.ROImodelFromHealpix(config, roi_index, ecat=ecat,)
         config.roi_spec = configuration.ROIspec(healpix_index=roi_index)
 
         self.name = config.roi_spec.name if config.roi_spec is not None else roi_spec
@@ -252,6 +252,7 @@ class ROI(views.LikelihoodViews):
         """
         if source_name=='all':
             for s in self.free_sources:
+                if s.isglobal: continue
                 self.profile(s.name)
             return
         source = self.sources.find_source(source_name)
@@ -515,8 +516,7 @@ class MultiROI(ROI):
         roi_bands = bands.BandSet(self.config, roi_index)
         roi_bands.load_data()
         if self.config.modeldir is not None:
-            roi_sources = from_healpix.ROImodelFromHealpix(self.config, roi_index, ecat=self.ecat,
-                load_kw=self.load_kw)
+            roi_sources = from_healpix.ROImodelFromHealpix(self.config, roi_index, ecat=self.ecat,)
         else:
             roi_sources = from_xml.ROImodelFromXML(self.config, roi_index, ecat=self.ecat)
             

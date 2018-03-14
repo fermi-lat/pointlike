@@ -1,6 +1,6 @@
 """
 Generate the XML representation of a list of sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.20 2017/08/02 23:07:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.22 2018/01/27 15:37:18 burnett Exp $
 
 """
 import os, collections, argparse, types, glob
@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from uw.like import Models
 from skymaps import SkyDir
-from . import ( sources, extended)
+from uw.like2 import ( sources, extended)
 from uw.utilities import xml_parsers
 from collections import OrderedDict
 

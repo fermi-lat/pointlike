@@ -1,7 +1,7 @@
 """
 Manage a set of parameters
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/parameterset.py,v 1.6 2016/03/21 18:54:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/parameterset.py,v 1.7 2017/08/02 22:53:11 burnett Exp $
 
 """
 import os, types 

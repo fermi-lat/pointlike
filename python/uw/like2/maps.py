@@ -1,6 +1,6 @@
 """
 Code to generate a set of maps for each ROI
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.13 2017/11/17 22:50:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.15 2018/01/27 15:37:17 burnett Exp $
 
 """
 import os, sys,  types, glob
@@ -428,8 +428,10 @@ table_info={'ts':  (ResidualTS, dict(photon_index=2.2, model='LogParabola(1e-13,
            'mspsens2': (ResidualUpperLimit, dict(model='ExpCutoff(1e-13,1.2,2800.)')),
            'mspts': (ResidualTS, dict(model='ExpCutoff(1e-13,1.2, 2800.)')),
             'mspts2': (ResidualTS, dict(model='ExpCutoff(1e-13,1.2, 2800.)')),
-
            }
+table_info['med']=table_info['ts']
+table_info['psr']=table_info['tsp']
+
 
 def residual_maps(roi, folder='residual_maps'):
     

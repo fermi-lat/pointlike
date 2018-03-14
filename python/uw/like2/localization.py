@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.32 2016/03/21 18:54:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.34 2018/01/27 15:37:17 burnett Exp $
 
 """
 import os,sys
@@ -94,7 +94,7 @@ class MomentAnalysis(object):
 
         
 def full_localization(roi, source_name=None, ignore_exception=False, 
-            update=False, associator=None, tsmap_dir='tsmap_fail', tsfits=False):
+            update=False, associator=None, tsmap_dir='tsmap_fail', tsfits=False, delta_ts_bad=10):
     import pylab as plt
 
     source = roi.sources.find_source(source_name)
@@ -131,9 +131,9 @@ def full_localization(roi, source_name=None, ignore_exception=False,
             if  hasattr(loc,'ellipse'): 
                 a, qual, delta_ts = loc.ellipse['a'], loc.ellipse['qual'], loc.delta_ts
                 tsize = min(a*15., 2.0)
-                bad = a>0.25 or qual>5 or abs(delta_ts)>3
+                bad = a>0.25 or qual>5 or abs(delta_ts)>delta_ts_bad
                 if bad:
-                    print 'Flagged as possibly bad: a=%.2f>0.25 or qual=%.1f>5 or abs(delta_ts=%.1f)>3:'% (a, qual, delta_ts)
+                    print 'Flagged as possibly bad: a=%.2f>0.25 or qual=%.1f>5 or abs(delta_ts=%.1f)>%f:'% (a, qual, delta_ts,delta_ts_bad)
             else: 
                 print 'no localization'
                 bad = True

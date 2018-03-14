@@ -1,11 +1,11 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.41 2017/11/17 22:50:36 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.42 2017/11/22 00:50:43 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.41 $'.split()[1]
+version='$Revision: 1.42 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np

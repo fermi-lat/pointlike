@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_healpix.py,v 1.15 2017/08/02 22:58:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_healpix.py,v 1.17 2018/01/27 15:37:17 burnett Exp $
 """
 import os, pickle, zipfile
 import numpy as np
@@ -56,10 +56,10 @@ class ROImodelFromHealpix(roimodel.ROImodel):
         self.name = 'HP12_%04d' % roi_index
         self._z = zipfile.ZipFile(os.path.expandvars(self.pickle_file))
         global_only = rings==-1
-        self.load_sources_from_healpix((roi_index,0), global_only=global_only)
+        self.load_sources_from_healpix((roi_index,0),global_only=global_only)
         if global_only: return
         for neighbor_index in neighbors(roi_index, rings=rings):
-            self.load_sources_from_healpix(neighbor_index, neighbors=True)
+            self.load_sources_from_healpix(neighbor_index,  neighbors=True)
 
         
     def load_sources_from_healpix(self, index, neighbors=False, global_only=False):
@@ -71,6 +71,7 @@ class ROImodelFromHealpix(roimodel.ROImodel):
         """
 
         def load_local_source(name, rec):
+
             if not rec['isextended']:
                 src = sources.PointSource(name=name, skydir=rec['skydir'], 
                     model=rec['model'],
@@ -120,7 +121,7 @@ class ROImodelFromHealpix(roimodel.ROImodel):
             if df is None: 
                 return None
             gsrc = sources.GlobalSource(name=name, skydir=None,
-                free=self.config['input_model'].get('free_diffuse',False), 
+                free=self.config['input_model'].get('free_diffuse',None), 
                 model=rec,
                 dmodel = diffuse.diffuse_factory( df, 
                     event_type_names=self.config.event_type_names, 
@@ -139,19 +140,29 @@ class ROImodelFromHealpix(roimodel.ROImodel):
         if not neighbors:
             self.prev_logl = p.get('prev_logl', []) # make history available
             self.history = p.get('history', []) # will manage history of likelihood, stage, time, stream, cpu time
-            # add 
             self.diffuse_normalization = p.get('diffuse_normalization', None)
+
+            if 'globals' in p.keys():
+                # new, after Jan 2018. A simple dict with global info for ROI
+                global_sources = [load_global_source(name, val['model']) for name, val in p['globals'].items()]
+            else:
+                #old: names, models are lists in "diffuse_names" and "diffuse"
+                # value for "diffuse_names" may have additional names (historical)
+                global_sources = [load_global_source(name, rec) for name, rec 
+                    in zip(p['diffuse_names'], p['diffuse']) if name in self.config.diffuse.keys()] #self.ecat.lookup(name) is None]
             
-            # value for "diffuse_names" may have additional names (historical)
-            global_sources = [load_global_source(name, rec) for name, rec 
-                in zip(p['diffuse_names'], p['diffuse']) if name in self.config.diffuse.keys()] #self.ecat.lookup(name) is None]
             self.global_count = len(global_sources)
             for s in global_sources:
                 if s is not None: self.append(s)
             if global_only: return
+ 
         local_sources = [load_local_source(name, rec) for name,rec in p['sources'].items()]
         if not neighbors: self.local_count = len(local_sources)
-        for s in local_sources: self.append(s)
+        tsmin = self.config['input_model'].get('tsmin',0)
+        for s in local_sources:
+
+            if tsmin==0 or s.name.startswith('PSR') or s.ts>tsmin: 
+                self.append(s)
         
 
     def __repr__(self):

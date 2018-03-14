@@ -1,7 +1,7 @@
 """
 Set up and manage the model for all the sources in an ROI
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.27 2015/08/16 01:13:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.29 2018/01/27 15:37:17 burnett Exp $
 
 """
 import os, pickle
@@ -30,7 +30,7 @@ class ROImodel(list):
     defaults = (
         ('quiet', True, 'set False for info'),
         ('ecat',  None, 'If present, use for catalog'),
-        ('load_kw', {}, 'a dict specific for the loading'),
+       # ('load_kw',dict(tsmin=5), 'a dict specific for the loading'),
         )
     @keyword_options.decorate(defaults)
     def __init__(self, config, roi_spec, **kwargs):
@@ -51,7 +51,7 @@ class ROImodel(list):
             self.pop()
             
         # sources loaded by a subclass that must implement this function
-        self.load_sources(roi_spec, **self.load_kw)
+        self.load_sources(roi_spec,)# **self.load_kw)
         
         if config.auxcat is not None:
             self.add_sources(config.auxcat)

@@ -1,6 +1,6 @@
 """
 Seed processing code
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/seeds.py,v 1.5 2017/08/02 23:06:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/seeds.py,v 1.7 2018/01/27 15:37:17 burnett Exp $
 
 """
 import os, sys, time, pickle, glob,  types
@@ -223,10 +223,12 @@ def add_seeds(roi, seedkey, config=None,
     else:
         return False
 
-def create_seeds(stagename='sourcefinding', seed_folder='seeds', merge_tolerance=1.0, skip=False):
+def create_seeds(keys = ['ts', 'tsp', 'hard', 'soft'], seed_folder='seeds', tsmin=10, 
+            merge_tolerance=1.0, skip=False, max_pixels=30000,):
     """Process the 
     """
-    keys =stagedict.stagenames[stagename]['pars']['table_keys'] 
+    #keys =stagedict.stagenames[stagename]['pars']['table_keys'] 
+    
     modelname = os.getcwd().split('/')[-1]; 
     # list of prefix characters for each template
     prefix = dict(ts='M', tsp='P', hard='H', soft='L')
@@ -255,18 +257,30 @@ def create_seeds(stagename='sourcefinding', seed_folder='seeds', merge_tolerance
     # generate txt files with seeds
     print 'Run cluster analysis for each TS table'
     seedfiles = ['{}/seeds_{}.txt'.format(seed_folder, key) for key in keys]
+    nseeds = dict()
+    tables=[]
     for key, seedfile in zip(keys, seedfiles):
         print '{}: ...'.format(key),
         rec = open(seedfile, 'w')
         seedroot = modelname.replace('uw',prefix[key])
-        nseeds = check_ts.make_seeds('test', table_name, fieldname=key, rec=rec,
-            seedroot=seedroot, minsize=1,mask=None)
-        print 'Wrote file {} with {} seeds'.format(seedfile, nseeds)
+        nseeds[key] = check_ts.make_seeds('test', table_name, fieldname=key, rec=rec,
+            seedroot=seedroot, rcut=tsmin, minsize=1,mask=None, max_pixels=max_pixels,)
+        if nseeds[key]>0:
+            #read back, set skydir column, add to list of tables
+            print '\tWrote file {} with {} seeds'.format(seedfile, nseeds[key])
+            table = pd.read_table(seedfile, index_col=0)
+            table['skydir'] = map(SkyDir, table.ra, table.dec)
+            tables.append(table)
+        else:
+            print '\tFailed to find seeds: file {} not processed.'.format(seedfile)
      
-    keys = [f[f.find('_')+1:-4] for f in seedfiles]; 
-    tables = [pd.read_table(seedfile, index_col=0) for seedfile in seedfiles]
-    for table in tables:
-        table['skydir'] = map(SkyDir, table.ra, table.dec)
+    if len(tables)<2:
+        print 'No files to merge'
+        return
+    #keys = [f[f.find('_')+1:-4] for f in seedfiles]; 
+    #tables = [pd.read_table(seedfile, index_col=0) for seedfile in seedfiles ]
+    #for table in tables:
+    #    table['skydir'] = map(SkyDir, table.ra, table.dec)
 
     u = merge_seed_files(tables,merge_tolerance);
     print 'Result of merge with tolerance {} deg: {}/{} kept'.format(merge_tolerance,len(u), sum([len(t) for t in tables]))
@@ -283,6 +297,8 @@ def merge_seed_files(tables, dist_deg=1.0):
         tables : list of data frames
     """
     dist_rad = np.radians(dist_deg)
+    for t in tables:
+        t['skydir'] = map(SkyDir, t.ra, t.dec)
     
     def find_close(A,B):
         """ helper function: make a DataFrame with A index containg

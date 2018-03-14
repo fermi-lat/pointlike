@@ -1,7 +1,7 @@
 """
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.64 2017/08/02 22:54:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.67 2018/01/28 21:27:58 kerrm Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -194,14 +194,16 @@ class BandLike(object):
     def dataframe(self, **kw):
         """ return a pandas.DataFrame for diagnostics """
         import pandas as pd
-        df = pd.DataFrame(dict([(s.source.name, 
-                dict(counts=s.counts.round(1), 
-                    overlap=s.overlap, 
+        df = pd.DataFrame(
+            dict([(s.source.name, 
+                dict(counts=round(s.counts,1), 
+                    overlap=round(s.overlap,2), 
                     free=self.free[i],
+                    distance=round(np.degrees(s.band.skydir.difference(s.source.skydir)) if s.source.skydir is not None else 0 ,2),
                     extended=s.source.skydir is not None and hasattr(s.source, 'dmodel'),
                     diffuse=s.source.skydir is None,
-                    distance=np.degrees(s.band.skydir.difference(s.source.skydir)) if s.source.skydir is not None else 0 ),
                     )
+                )
                 for i,s in enumerate(self)])
             ).T
         return df
@@ -241,7 +243,8 @@ class BandLike(object):
         for bb in self:
             try:
                 t.append( bb(loc))
-            except:
+            except Exception, msg:
+                print 'Fail flux calculation for {}:{}'.format(bb, msg)
                 t.append(0)
         return np.array(t)
 
@@ -537,10 +540,17 @@ class BandLikeList(list):
     def source_weight(self, source_index, ra,dec, energy, et):
         """ Return weight for a source
 
-        source_index : integer
+        source_index : integer | string  | None
+            if string, look up source (allow wild cards)
+            if None, assume already selected
         ra, dec, energy: float
         et : event type, (0,1) for (front,back)
         """
+        try:
+            source_index = int(source_index)
+        except ValueError,TypeError:
+            self.get_source(source_index)
+            source_index=self.sources.selected_source_index
         # get the BandLike object for energy and event type
         bl = self.select_band(energy,et)
         f =bl.fluxes((ra,dec) ) 

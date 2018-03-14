@@ -1,6 +1,6 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.29 2017/08/02 23:03:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.31 2018/01/27 15:37:17 burnett Exp $
 
 """
 import os, sys, time, glob
@@ -11,6 +11,7 @@ from scipy import optimize
 from skymaps import SkyDir, Band
 from uw.utilities import keyword_options
 from uw.like2 import (main, tools, sedfuns, maps, sources, localization, roimodel, seeds,)
+
 
 
 class Process(main.MultiROI):
@@ -24,8 +25,9 @@ class Process(main.MultiROI):
         ('repivot_flag',  False, 'repivot the sources'),
         ('betafix_flag',  False, 'check betas, refit if needed'),
         ('ts_beta_zero',  None,   'set to threshold for converting LP<->PL'),
+        ('ts_min',        5,      'Minimum TS for saving after an iteration'),
         ('dampen',        1.0,   'damping factor: set <1 to dampen, 0 to not fit'),
-        ('selected_pars', ['_Norm','_Index'],   'Apply to fit, to select subset of parameters for global fit'),
+        ('selected_pars', None,   'Apply to fit, to select subset of parameters for global fit'),
         ('counts_dir',    None,  'folder for the counts plots'),
         ('norms_only',    False, 'fit to norms only'),
         ('fix_spectra_flag',False,  'set variable sources to fit norms only, for this and subsequent iterations'),
@@ -105,12 +107,12 @@ class Process(main.MultiROI):
         if self.diffuse_key is not None and self.diffuse_key!='post_gal':
             if self.diffuse_key=='iso':
                 fit_isotropic(self)
+                return
             elif self.diffuse_key=='gal':
-                fit_galactic(self)
+                if not fit_galactic(self):return
             else:
                 raise Exception('Unexpected key: {}'.format(self.diffuse_key))
-            return
-            #fit_diffuse()
+             #fit_diffuse()
             
         if self.residual_flag:
             self.residuals()
@@ -135,9 +137,10 @@ class Process(main.MultiROI):
 
         if self.special_flag:
             """ special processing, converting something."""
-            if not self.model_count_maps(): #fit_second_order() : 
-                print '-----special processing had nothing to to'
-                return
+            # if not self.model_count_maps(): #fit_second_order() : 
+            #     print '-----special processing had nothing to to'
+            psc_check(self)
+            return
         if self.add_seeds_flag:
             self.add_sources()
         
@@ -187,7 +190,7 @@ class Process(main.MultiROI):
                 if self.betafix_flag:
                     if not self.betafix(ts_beta_zero=self.ts_beta_zero):
                         print 'betafix requested, but no refit needed, quitting'
-                        self.fit_galactic()
+
                 if self.diffuse_key=='post_gal':
                     fit_galactic(self)
             except Exception, msg:
@@ -306,6 +309,7 @@ class Process(main.MultiROI):
                 if a float, convert source so that log parabola are greater
         """
         for source in self.free_sources:
+            if source.isglobal: continue #skip global
             print '----------------- %s (%.1f)-------------' % (source.name, source.ts)
             t=source.ts_beta = self.ts_beta(source.name, ignore_exception=ignore_exception)
             if t is None: continue
@@ -470,30 +474,78 @@ def fit_isotropic(roi, nbands=8, folder='isotropic_fit'):
         print 'wrote file {}'.format(filename)
     return np.array(cx)
 
-def fit_galactic(roi, nbands=8, folder='galactic_fit', upper_limit=5.0):
-    """ fit only the galactic normalization"""
-    cx = []
-    gal_model = roi.get_source('ring').model
-    roi.thaw('Norm')
-    gal_norm = gal_model[0]
-    #gal_model.set_limits('Norm', 0.2, 5.0) # override default
-    if upper_limit is not None:
-        gal_model.bounds[0][1]=np.log10(upper_limit)# set upper limit by hand
-    roi.reinitialize()
-    for eband in range(nbands):
-        print '*** Energy Band {}: gal counts {}'.format( eband,
-                                [t[0].counts.round() for t in roi[2*eband:2*eband+2]])
-        roi.select(eband)
-        gal_model[0]=gal_norm
-        roi.fit([0], ignore_exception=True); 
-        cx.append(gal_model[0])
-    roi.select()
-    roi.freeze('Norm')
-    if folder is not None:
-        filename= '{}/{}.pickle'.format(folder, roi.name)
-        pickle.dump(np.array(cx), open(filename, 'w'))
-        print 'wrote file {}'.format(filename)
-    return np.array(cx)
+class FitGalactic(object):
+    """Manage the galactic correction fits
+    """
+    def __init__(self, roi, nbands=8, folder=None, upper_limit=5.0):
+        """ fit only the galactic normalization"""
+        if folder is not None and not os.path.exists(folder):
+            os.mkdir(folder)
+        self.roi=roi
+        gal_model = roi.get_source('ring').model
+        roi.thaw('Norm')
+        gal_norm = gal_model[0]
+        #gal_model.set_limits('Norm', 0.2, 5.0) # override default
+        if upper_limit is not None:
+            gal_model.bounds[0][1]=np.log10(upper_limit)# set upper limit by hand
+        roi.reinitialize()
+        cx = []
+        for eband in range(nbands):
+            print '*** Energy Band {}: gal counts {}'.format( eband,
+                                    [t[0].counts.round() for t in roi[2*eband:2*eband+2]])
+            roi.select(eband)
+            gal_model[0]=gal_norm
+            roi.fit([0], ignore_exception=True); 
+            cx.append((gal_model[0], gal_model.error(0)))
+        self.fitpars= cx = np.array(cx) # convert to array, shape (nbands, 2)
+        x,s = cx.T
+        self.chisq= sum(((x-1)/s)**2)
+        # re-select all bands, freeze galactic again    
+        roi.select()
+        roi.freeze('Norm')
+
+        if folder is not None:
+            filename= '{}/{}.pickle'.format(folder, roi.name)
+            pickle.dump(cx[:,0], open(filename, 'w'))
+            print 'wrote file {}'.format(filename)
+    
+    def update(self):
+        from uw.like2 import (response,diffuse)
+        r = self.roi
+        if r.sources.diffuse_normalization is None:
+            print 'FitGalactic: Setting up diffuse normalization'
+            roi_index= int(r.name[-4:])
+            dn = self.create_corr_dict(r.config['diffuse'], roi_index)
+            r.sources.diffuse_normalization = diffuse.normalization = dn
+
+        a = self.roi.sources.diffuse_normalization
+        b = self.fitpars[:,0]
+        before = a['gal']
+        a['gal'] = before * self.fitpars[:,0]
+        print before, '\n',a['gal']
+        # update the Galactic Response objects
+        for gr in self.roi[:16]:
+            gr[0].initialize(force=True)
+
+    def create_corr_dict(self, diffuse_dict,  roi_index, event_type_names=('front','back')):
+        import response
+        corr_dict = {}
+        galf = diffuse_dict['ring']['correction']
+        corr_dict['gal'] = response.DiffuseCorrection(galf).roi_norm(roi_index)
+
+        isof =  diffuse_dict['isotrop']['correction']
+        corr_dict['iso']= dict()
+        for x in event_type_names:
+            isoc = response.DiffuseCorrection(isof.replace('*',x));
+            corr_dict['iso'][x]= isoc.roi_norm(roi_index)
+        return corr_dict
+
+def fit_galactic(roi, nbands=8, folder=None, upper_limit=5.0):
+    t = FitGalactic(roi, nbands, folder, upper_limit)
+    print 'Chisq: {:.1f}'.format(t.chisq)
+    
+    t.update()
+    return True
     
 def fit_diffuse(roi, nbands=8, select=[0,1,2], restore=False, folder='diffuse_fit'):
     """
@@ -548,8 +600,60 @@ def write_pickle(roi):
     roi.to_healpix( pickle_dir, dampen=1.0, 
         counts=roi.get_count_dict(),
         stream=os.environ.get('PIPELINE_STREAMPATH', 'interactive'),
-
+        ts_min = roi.ts_min,
         )
+
+
+def psc_check(roi, psc_name='gll_psc*uw8011*' , outdir='psc_check'):
+    """Compare the spectra of sources from a "gll" file with the corresponding
+    pointlike original fits.
+    """
+
+    from uw.like2.analyze import fermi_catalog
+    from uw.like2.plotting import sed
+
+    #load the catalog
+    fgl = roi.config.get('fgl', None)
+    if fgl is None:
+        fgl = fermi_catalog.GLL_PSC2(psc_name)
+        roi.config['fgl']= fgl
+    
+    # Replace sources, keep list of (old,new)
+    changed = []
+    source_pairs=[]
+    for s in roi.free_sources:
+        cname=s.name.replace(' ','')
+        if cname not in fgl.df.index: 
+            print '{:14s} {:6.0f} '.format(s.name, s.ts)
+            continue
+        fl8y = fgl.df.loc[cname]
+        trunc = fl8y.sname[5:]
+        print '{:14s} {:6.0f} --> {:14s} {:6.0f}'.format(s.name, s.ts, trunc, fl8y.ts),
+        if fl8y.extended:
+            sx = sources.ExtendedSource(name=trunc, skydir=(fl8y.ra,fl8y.dec), 
+                model=fl8y.model, dmodel=s.dmodel)
+        else:
+            sx = sources.PointSource(name=trunc, skydir=(fl8y.ra,fl8y.dec), model=fl8y.model)
+        roi.del_source(s.name)
+        roi.add_source(sx)
+        newts=roi.TS(trunc)
+        print ' -->{:6.0f}'.format(newts)
+        changed.append(( (s.name,s.model,s.ts),
+            (sx.name,sx.model,sx.ts))) #avoid saving dmodel?
+        source_pairs.append((s, sx))
+        
+    if outdir is None: return
+    # save info for comparison
+    def path_check(x):
+        if not os.path.exists(x): os.mkdir(x)
+
+    map( path_check, [outdir, outdir+'/info', outdir+'/sed'])        
+    pickle.dump(changed, open('psc_check/info/HP12_{}.pickle'.format(roi.name[5:]),'w'))
+
+    # save plots
+    for old,new in source_pairs:
+        sed.plot_pair(old,new).savefig('psc_check/sed/{}_sed.jpg'.format(new.name.replace('+','p')))
+    
 
 #### TODO
 #def run(rois, **kw):

@@ -3,7 +3,7 @@ Convolution interface for like2
 Extends classes from uw.utilities 
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/convolution.py,v 1.7 2017/08/02 22:52:31 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/convolution.py,v 1.9 2018/01/27 15:37:17 burnett Exp $
 author:  Toby Burnett
 """
 import os, pickle, zipfile 
@@ -192,22 +192,29 @@ def spherical_harmonic(f, lmax, thetamax=45):
     norm = G(0)
     return np.array([G(n) for n in range(lmax+1)])/norm
 
-def convolve_healpix(input_map, func ):
+def convolve_healpix(input_map, func=None, sigma=None, thetamax=10 ):
     """
-    Convolve a HEALPix map with a function
+    Convolve a HEALPix map with a function, or Gaussian
     input_map : array of float
         a HEALPix array, RING indexing, nside a power of 2
-    func : The function of an integer el
+    func : The function of an integer el | None
         returns the amplitude for spherical harmonic el
         example: for a Gaussian with sigma in radians: 
           lambda el : np.exp(-0.5 * (el * (el + 1)) * sigma**2)
+
+    sigma : None | float (deg)
+        If not None, use gaussian for func
           
     Returns: the convolved map
     """
     import healpy
     nside = int(np.sqrt(len(input_map)/12))
-    assert 12*nside**2 == len(input_map),'Bad length'
-    assert func(thetamax)/func(0) <1e-3
+    assert 12*nside**2 == len(input_map),'Bad length: expect power of 2'
+    if func is None: 
+        assert sigma is not None, 'If no func, must specify sigma'
+        func= lambda el : np.exp(-0.5 * (el * (el + 1)) * np.radians(sigma)**2)
+    else: 
+        assert func(thetamax)/func(0) <1e-3
     alm = healpy.map2alm(input_map);
     lmax = healpy.Alm.getlmax(len(alm))
     if lmax < 0:

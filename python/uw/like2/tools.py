@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.23 2017/08/02 23:07:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.25 2018/01/27 15:37:18 burnett Exp $
 
 """
 import os, sys, time
@@ -95,9 +95,9 @@ class Profile(object):
             print 'Failed groupby: {}\n{}'.format(msg, df)
             raise
 
-    def make_pdf(self):
+    def make_pdf(self, overflows=True):
         # calculate mean and standard error of the mean for y in each bin
-        self.pdf= self.binned['y'].agg(['count','mean', 'sem'])
+        self.pdf= self.binned['y'].agg(['count','mean', 'sem', 'std', 'min', 'max'])
         bins = self.bins
         #assert len(self.pdf)==len(bins)-1,\
         #     'Len(pdf)={}, len(bins)={}, so Missing bins: {}'.format(len(self.pdf),len(bins),self.pdf)
@@ -109,12 +109,15 @@ class Profile(object):
         else: # no overflows
             self.pdf['x'] = x[1:-1]
             self.pdf['xerr'] = xerr[1:-1]
+        if not overflows:
+            self.pdf = self.pdf[1:-1]
 
     def plot(self, **kwargs):
         """ Generate a plot using the profile DataFrame
         return the Axes object
         """
-        self.make_pdf()
+        if not hasattr(self, 'pdf'):
+            self.make_pdf()
         return self.pdf.plot(
             x='x',       y='mean',
             xerr='xerr', yerr='sem',

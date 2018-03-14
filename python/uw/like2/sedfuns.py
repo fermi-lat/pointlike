@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.47 2017/02/09 19:01:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.49 2018/01/27 15:37:17 burnett Exp $
 
 """
 import os, pickle
@@ -28,11 +28,12 @@ class SED(tools.WithMixin):
         self.func = self.rs.energy_flux_view(source_name, bound=-20) # note very low bound
         self.source_name = source_name
         # make a list of energies with data; only have info if there is data in the ROI
-        self.energies = np.array(set(np.array([b.band.energy for b in self.rs if b.pixels>0])))  
-        #self.energybins=np.logspace(2,6,17)
+        self.energies = list(set(np.array([b.band.energy for b in self.rs if b.pixels>0])))  
+
         # combines the bands above 100 GeV 
+        emax = rstat[-1].band.emax
         global energybins
-        self.energybins=energybins
+        self.energybins=filter(lambda e: e<=emax, energybins)
     
     def full(self):
         try:

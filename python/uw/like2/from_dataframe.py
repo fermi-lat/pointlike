@@ -1,6 +1,6 @@
 """
 Load a skymodel fror a dataframe (under development)
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_dataframe.py,v 1.1 2017/11/17 22:50:36 burnett Exp $
 """
 import os, glob
 import cPickle as pickle

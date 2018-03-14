@@ -1,7 +1,7 @@
 """
 Manage the analysis configuration
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.32 2017/02/09 18:55:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.34 2018/01/27 15:37:17 burnett Exp $
 
 """
 import os, sys, types, StringIO, pprint
@@ -174,7 +174,7 @@ class Configuration(dict):
         elif input_model is not None:
             if not isinstance(input_model, dict):
                 raise Exception('input_model must be a dictionary')
-            model_keys = ['xml_file','path', 'auxcat', 'free_diffuse']
+            model_keys = ['xml_file','path', 'auxcat', 'free_diffuse', 'tsmin']
             if not set(input_model.keys()).issubset(model_keys):
                 raise Exception('input model key(s), %s, not recognized: expect %s'
                     % (list(set(input_model.keys()).difference(model_keys)), model_keys))

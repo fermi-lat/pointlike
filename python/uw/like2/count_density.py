@@ -1,7 +1,7 @@
 """
 Create observed count density files
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/count_density.py,v 1.1 2017/11/17 22:50:36 burnett Exp $
 
 author:  Toby Burnett
 """

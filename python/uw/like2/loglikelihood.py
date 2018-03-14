@@ -1,9 +1,9 @@
 """Tools for parameterizing log likelihood curves.
 
 Author(s): Eric Wallace, Matthew Kerr, Toby Burnett
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.26 2017/08/02 23:01:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/loglikelihood.py,v 1.27 2017/11/17 22:50:36 burnett Exp $
 """
-__version__ = "$Revision: 1.26 $"
+__version__ = "$Revision: 1.27 $"
 
 import numpy as np
 from scipy import optimize, special, polyfit, stats

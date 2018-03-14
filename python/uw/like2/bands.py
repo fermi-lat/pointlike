@@ -1,7 +1,7 @@
 """
 manage band classes
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bands.py,v 1.12 2016/11/07 03:15:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bands.py,v 1.14 2018/01/27 15:37:17 burnett Exp $
 """
 import os
 import numpy as np
@@ -142,7 +142,9 @@ class BandSet(list):
                 continue
             band.load_data(cband)
         if found!=len(self):
-            raise Exception('%s: Did not load all bands' % self.__repr__())
+            print '{}: Loaded subset of bands {} instead of {}'.format( self.__repr__(), found, len(self))
+            self[:]= self[:found] 
+            self.config.emax=self[-1].emax
         self.has_data = True
 
     @property

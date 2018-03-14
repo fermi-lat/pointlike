@@ -1,6 +1,6 @@
 """
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/simulation.py,v 1.2 2018/01/27 15:37:17 burnett Exp $
 
 """
 import os, sys,  types, glob
@@ -9,7 +9,25 @@ import numpy as np
 import pandas as pd
 from skymaps import Band
 from ..data import binned_data
+from . import configuration
+from astropy.io import fits
 
+def make_index_table(nside=12, subnside=512, usefile=True):
+    """create, and/or use a table to convert between different nside pixelizations
+    """
+    filename = os.path.expandvars('$FERMI/misc/index_table_%02d_%03d.pickle' % (nside, subnside) )
+    if os.path.exists(filename) and usefile:
+        return pickle.load(open(filename))
+    print 'generating index table for nside, subnside= %d %d' % (nside, subnside)
+    band, subband = Band(nside), Band(subnside)
+    npix, nsubpix = 12*nside**2, 12*subnside**2
+    t=np.array([band.index(subband.dir(i)) for i in xrange(nsubpix)])
+    a = np.arange(nsubpix)
+    index_table = [a[t==i] for i in xrange(npix)]
+    if usefile:
+        pickle.dump(index_table, open(filename,'w'))
+    return index_table
+    
 def default_geom():
     """return a DataFrame with indexed by the band, containing emin, emax, event_type, nside
     """
@@ -126,7 +144,14 @@ class BandCounts(object):
         return np.array([ids, counts], np.int32)
 
 class SimulatedPixels(binned_data.Pixels):
+    """Generate simulated pixel data, using pixel-based count predictions
+    Inherits from the Pixels class in binned_data to export the simuulation to a sparse FITS representation
+    """
     def __init__(self, model_path='.', subfolder='model_counts'):
+        """
+        model_path : str
+            expect to find a sky model folder, containing itself a folder with 
+        """
         self.countsfolder=os.path.join(model_path, subfolder)
         assert os.path.exists(self.countsfolder), 'did not find folder {}'.format(countsfolder)
         band_folders = glob.glob(self.countsfolder+'/*')
@@ -151,14 +176,24 @@ class SimulatedPixels(binned_data.Pixels):
         self.lookup = dict(zip(channels,zip(indexchan[:-1], indexchan[1:])))
 
 class DefaultBands(binned_data.BandList):
-    def __init__(self):
+    """Define a BANDS table corresponding to traditional pointlike setup, but with power-of-2 nside values
+
+    It inherits from Bandlist in binned data, allowing creation of a FITS HDU
+    """
+    def __init__(self, channels=None):
+        """
+        channels : list of int | None
+            if a list, the channel IDs to include
+        """
+        if channels is None:
+            channels = range(32)
         energies = np.logspace(2, 6, 17) # 100 MeV to 1Tev, 4/decade
         elow = energies[:-1]
         ehigh=energies[1:]
         nside_array = np.ones(32,int) * 1024
         nside_array[:10] = 64,64, 128,64 ,256,128, 256,256, 512,512
         geom = dict()
-        for ib in range(32):
+        for ib in channels:
             ie = ib/2; it=ib%2
             geom[ib]=dict(e_min=elow[ie],e_max=ehigh[ie], 
                           event_type=it, nside=nside_array[ib])
@@ -166,5 +201,21 @@ class DefaultBands(binned_data.BandList):
         g.event_type = g.event_type.astype(int)
         g.nside = g.nside.astype(int)
         self.df=g
+
     def dataframe(self):
         return self.df
+
+class Simulate(binned_data.BinFile):
+    """
+    """
+    def __init__(self, model_path='.', subfolder='model_counts'):
+        # get the GTI from the original file? Do we need it?
+        config = configuration.Configuration('.', postpone=True, quiet=True)
+        bf = config.dataset.binfile
+        self.hdus = hdus = fits.open(bf)
+        self.hdu0 = hdus[0]
+        self.gti = binned_data.GTI(hdus['GTI'])
+
+        self.pixels=SimulatedPixels(model_path, subfolder)
+        self.bands = DefaultBands(self.pixels.lookup.keys())
+

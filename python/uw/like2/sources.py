@@ -1,6 +1,6 @@
 """
 Source classes
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.51 2017/08/02 22:54:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.53 2018/01/27 15:37:17 burnett Exp $
 
 """
 import os, copy
@@ -19,7 +19,7 @@ def ExpCutoff(*pars, **kw):  return Models.ExpCutoff(p=pars, **kw)
 def PLSuperExpCutoff(*pars, **kw): return Models.PLSuperExpCutoff(p=pars, **kw)
 def Constant(*pars, **kw):   return Models.Constant(p=pars, **kw)
 def FBconstant(f,b, **kw): return Models.FrontBackConstant(f,b, **kw)
-def PSR_default(): return Models.PLSuperExpCutoff(p=(1e-14,1.5, 3000, 1.0), free=[True,True, True, False])
+def PSR_default(): return Models.PLSuperExpCutoff(p=(1e-13, 1.25, 1500, 0.67), free=[True,True, True, False])
     
 def ismodel(model):
     """ check that model is an instance of Models.Model"""
@@ -214,12 +214,12 @@ class GlobalSource(Source):
         super(GlobalSource, self).__init__(**kwargs)
         self.dmodel= kwargs.get('dmodel', None)
         assert self.skydir is None # used as a flag
-        # Special option from config['input_model'] to free spectral model for diffuse sources
-        free = kwargs.get('free', False)
-        if free and self.name!="SunMoon":
+        # Special option "free_diffuse" from config['input_model'] to free spectral model for diffuse sources
+        free = kwargs.pop('free', None) # expect a list of names
+        if free is not None and self.name in free:
             self.model.free[0]=True
             if self.model.name=='PowerLaw': self.model.free[1]=True,
-            print '{}, free={}'.format(self, free)
+            #print '{}, free={}'.format(self, free)
 
     def copy(self):
         """ return a new PointSource object, with a copy of the model, others"""
@@ -238,6 +238,7 @@ class GlobalSource(Source):
                 Healpix   =response.DiffuseResponse,
                 HealpixCube = response.DiffuseResponse,
                 FitsMapCube = response.DiffuseResponse,
+                FitsMapCubeList = response.DiffuseResponse,
                 IsotropicSpectralFunction = response.IsotropicResponse,
                 AziLimb = response.IsotropicResponse,
                 GulliLimb = response.IsotropicResponse,
@@ -247,6 +248,7 @@ class GlobalSource(Source):
         try:
             return resp_class(self,band,roi, **kwargs) 
         except Exception: # assume no overlap
+            raise
             return response.NoResponse(self, band, roi, **kwargs)
     
 
