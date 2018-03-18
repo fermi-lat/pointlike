@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_image.py,v 1.41 2012/07/12 19:28:44 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_image.py,v 1.42 2017/08/23 16:23:42 zimmer Exp $
 
 author: Joshua Lande
 """

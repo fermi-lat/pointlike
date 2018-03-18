@@ -1,12 +1,12 @@
 """
 Manage the psf, module in uw/irfs
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/psfman.py,v 1.1 2016/11/05 21:40:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/psfman.py,v 1.4 2018/01/27 15:35:07 burnett Exp $
 
 """
-__version__='$Revision$'
+__version__='$Revision: 1.4 $'
 
-import os
+import os, glob
 from astropy.io import fits
 import numpy as np
 from scipy.optimize import fmin
@@ -23,17 +23,28 @@ class PSFmanager(dict):
     Usage: 
         pman = psfman.PSFmanager() # sets up default CALDB, from $CALDB
         psf = pman(event_type, energy) # returns functor describing the PSF
+        psf.plot() # look at it
     
     """
-    def __init__(self, caldb_path='$CALDB', livetimefile=''):
-        """caldb_path   : string
+    def __init__(self, caldb, livetimefile=''):
+        """caldb   : CALDB object
            livetimefile : filename of the livetime cube file
                 used in the weighting, if not empty
+                Could have a wild card
         """
-        self.cdbman = caldb.CALDB(caldb_path)
+        self.cdbman = caldb
         self.hdus = None
-        self.livetimefile = livetimefile
- 
+        if livetimefile !='':
+            self.ltfiles = sorted(glob.glob(livetimefile))
+            assert len(self.ltfiles)>0, 'Expected valid livetime file'
+            assert len(self.ltfiles)==1 or len(self.ltfiles)==4, 'Expected 1 or 4 files to match'
+        else: self.ltfiles=[]
+
+    def _ltfile(self, event_type):
+        if len(self.ltfiles)==0: return ''
+        if event_type<2 or len(self.ltfiles)==1: return self.ltfiles[0]
+        return self.ltfiles[event_type-2]
+
     def __repr__(self):
         return '{self.__class__}\nCALDB: {self.cdbman}\n\tlivetime: {self.livetimefile}'.format(self=self)
 
@@ -105,8 +116,8 @@ class PSFmanager(dict):
 
         elo,ehi,clo,chi = self.e_los,self.e_his,self.c_los[::-1],self.c_his[::-1]
 
-        # note that it is designed to do front and back, so need to copy filenamea and extname
-        ew = ExposureWeighter(filename, filename, self.livetimefile, extname, extname)
+        # note that it is designed to do front and back, so need to copy filenames and extname
+        ew = ExposureWeighter(filename, filename, self._ltfile(event_type), extname, extname)
         
         dummy     = skydir or SkyDir() 
         weights  = np.zeros([len(elo),len(clo)])
@@ -243,21 +254,23 @@ class PSFmanager(dict):
                 from matplotlib import pylab as plt
  
                 if ax is None:
-                    fig,ax = plt.subplots(figsize=(6,6))
+                    fig,ax = plt.subplots(figsize=(5,5))
                 else: fig = ax.figure
                 
                 pct = np.linspace(1,95,95)
                 rpc = np.array([self.inverse_integral(z) for z in pct])
                 x = np.linspace(0,rpc[-1],51)
-                ax.plot(x, self(np.radians(x))/self(0));
+                ax.plot(x, self(np.radians(x))/self(0), lw=2);
                 rax =ax.twinx()
-                rax.plot(rpc, pct, color='green')
+                rax.plot(rpc, pct, color='green', lw=2)
                 rax.set_ylabel('percent integral', color='green')
                 ax.set_ylabel('relative density', color='blue')
                 ax.set_xlabel('angle [deg]')
                 ax.grid(alpha=0.5)
                 ax.set_xlim(0,x[-1])
-                ax.set_title('{:.0f} MeV {}'.format(self.energy,self.etname));       
+                ax.set_title('{:.0f} MeV {}'.format(self.energy,self.etname));  
+                fig.set_facecolor('white')
+                return fig     
 
                
         return BandPSF(event_type, energy)

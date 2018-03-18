@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_monte_carlo.py,v 1.82 2017/08/23 16:23:42 zimmer Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_monte_carlo.py,v 1.83 2017/08/23 16:29:44 zimmer Exp $
 
 author: Joshua Lande
 """

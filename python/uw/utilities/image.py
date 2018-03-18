@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.46 2014/07/11 21:38:17 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.47 2017/02/09 19:04:37 burnett Exp $
 
 """
-version = '$Revision: 1.46 $'.split()[1]
+version = '$Revision: 1.47 $'.split()[1]
 
 import sys, pylab, types, os
 import math
@@ -67,10 +67,12 @@ class Rescale(object):
         self.vmin, self.vmax = lon(0,0), lon(nx/2.,ny)
         ticklocator = ticker.MaxNLocator(nticks, steps=[1,2,5])
         self.uticks = [ix if ix>-1e-6 else ix+360\
-              for ix in ticklocator.bin_boundaries(xr,xl)[::-1]] #reverse
+              #for ix in ticklocator.bin_boundaries(xr,xl)[::-1]] #reverse
+              for ix in ticklocator.tick_values(xr,xl)[::-1]] #reverse
         self.ul = xl
         self.ur = xr
-        self.vticks = ticklocator.bin_boundaries(self.vmin,self.vmax)
+        #self.vticks = ticklocator.bin_boundaries(self.vmin,self.vmax)
+        self.vticks = ticklocator.tick_values(self.vmin,self.vmax)
         if len(self.vticks)==0: # protect against rare situatin
             self.vticks = [self.vmin,self.vmax]
 

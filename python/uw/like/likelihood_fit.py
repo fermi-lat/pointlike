@@ -6,8 +6,8 @@ Classes:
 Authors: Eric Wallace, Matthew Kerr
 """
 
-__version__ = "$Revision: 1.0 $"
-#$Header: $
+__version__ = "$Revision: 1.1 $"
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/likelihood_fit.py,v 1.1 2011/09/27 19:54:39 wallacee Exp $
 
 import numpy as np
 import scipy.optimize as opt

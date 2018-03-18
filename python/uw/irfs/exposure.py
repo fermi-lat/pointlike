@@ -1,9 +1,9 @@
 """Module to handle LAT exposure calculations.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/exposure.py,v 1.1 2016/06/22 17:02:51 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/exposure.py,v 1.3 2018/01/27 15:35:06 burnett Exp $
 Author: Eric Wallace
 """
-__version__='$Revision: 1.1 $'
+__version__='$Revision: 1.3 $'
 
 
 import numpy as np
@@ -29,9 +29,12 @@ class Exposure(object):
         else:
             skymaps.Exposure.set_cutoff(cthetamin)
             if self.weighted_lt is None:
-                self._cpp_exposure = skymaps.Exposure(self.lt,self.aeff)
+                self._cpp_exposure = skymaps.Exposure(self.lt, self.aeff) 
             else:
-                self._cpp_exposure = skymaps.Exposure(self.lt,self.weighted_lt,self.aeff)
+                self._cpp_exposure = skymaps.Exposure(self.lt,self.weighted_lt,self.aeff) 
+
+    def __repr__(self):
+        return '{self.__class__}\n\tlivetime {self.lt}'.format(self=self)
 
     def value(self,skydir,energy):
         return self._cpp_exposure.value(skydir,energy)
@@ -49,6 +52,9 @@ class Exposure(object):
         return BandExposure(self,energy)
 
 class BandExposure(Exposure):
+
+    def __repr__(self):
+        return '{} : \n\tenergy {:.0f}'.format(self.__class__, self.energy)
 
     def __init__(self,exp,energy):
         for attr in ('aeff','lt','weighted_lt','correction','_cpp_exposure'):
@@ -85,7 +91,7 @@ class ExposureCorrection(object):
 
 class ExposureIntegral(object):
 
-    nsp_simps =16#4 # reduced from original 16
+    nsp_simps =4 # reduced from original 16
 
     def __init__(self, exp, skydir, emin, emax):
         """Calulate factors for  evaluating the counts under a given spectral model, 

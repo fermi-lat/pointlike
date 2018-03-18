@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.77 2012/10/01 15:51:58 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_extended.py,v 1.78 2012/10/01 18:12:54 lande Exp $
 
     author: Joshua Lande
 """

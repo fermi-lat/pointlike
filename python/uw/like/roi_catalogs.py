@@ -1,7 +1,7 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_catalogs.py,v 1.32 2017/08/16 19:57:46 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_catalogs.py,v 1.33 2017/08/23 16:23:42 zimmer Exp $
 
 author: Joshua Lande
 """

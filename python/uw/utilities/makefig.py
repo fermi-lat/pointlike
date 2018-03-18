@@ -1,13 +1,13 @@
 """ 
 Make combinded figures for Pivot, perhaps
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/makefig.py,v 1.7 2011/01/12 14:25:38 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/makefig.py,v 1.8 2012/01/27 15:20:45 burnett Exp $
 
 """ 
 
 import Image
 import glob, os, sys, exceptions
 import pylab  as plt
-version='$Revision: 1.7 $'.split()[1]
+version='$Revision: 1.8 $'.split()[1]
 
 class InvalidParameter(exceptions.Exception):
     pass

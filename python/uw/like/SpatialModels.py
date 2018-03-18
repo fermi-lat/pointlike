@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.112 2012/12/05 22:08:53 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/SpatialModels.py,v 1.114 2018/01/27 15:36:15 burnett Exp $
 
    author: Joshua Lande
 
@@ -369,7 +369,9 @@ class SpatialModel(object):
     def get_parameters(self,absolute=False):
         """Return all parameters; used for spatial fitting. 
            This is different from in Models.py """
-        return np.where(self.log,10**self.p,self.p) if absolute else self.p
+#        return np.where(self.log,10**self.p,self.p) if absolute else self.p
+#       THB: this is formally the same, but does not raise runtime overflow
+        return np.array([10**x if y else x for x,y in zip(self.p,self.log)]) if absolute else self.p
 
     def get_param_names(self,absolute=True):
         if absolute:
@@ -393,7 +395,10 @@ class SpatialModel(object):
 
         """
         i=self.mapper(i)
+        #THB avoid log(0)
+        if lower==0: lower=1e-6 
         lim = np.asarray([lower,upper],dtype=float)
+
         self.limits[i,:] = smart_log(lim, log=self.log[i])
 
     def get_limits(self,absolute=True):
@@ -427,7 +432,10 @@ class SpatialModel(object):
             raise Exception("SpatialModel.set_parameters given the wrong number of parameters.")
 
         self.p = smart_log(p,log=self.log) if absolute else np.asarray(p,dtype=float)
-        self.cache()
+        try:
+            self.cache()
+        except RuntimeWarning:
+            print 'Overflow: parameters: before {}\n\t after {}'.format(p, self.p)
 
     def mapper(self,i):
         """ Maps a parameter to an index. 

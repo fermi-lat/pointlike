@@ -2,7 +2,7 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.38 2016/06/22 17:02:52 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.39 2017/08/16 19:57:07 burnett Exp $
 author: M. Kerr
 
 """

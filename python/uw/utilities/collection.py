@@ -1,7 +1,7 @@
 """
 generate collection file for the  Pivot viewer
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/collection.py,v 1.8 2010/09/30 20:54:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/collection.py,v 1.9 2010/12/09 23:31:50 burnett Exp $
 See <http://getpivot.com>
 Author: Toby Burnett <tburnett@uw.edu>
 """

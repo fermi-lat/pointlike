@@ -1,6 +1,6 @@
 """A module for classes that perform spectral fitting.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/specfitter.py,v 1.8 2011/12/07 01:17:53 wallacee Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/specfitter.py,v 1.9 2012/03/29 22:23:25 kerrm Exp $
 
     author: Matthew Kerr
 """

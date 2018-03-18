@@ -2,11 +2,11 @@
     relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
     class.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.46 2012/07/16 16:44:08 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.47 2012/10/04 21:21:22 lande Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.46 $'.split()[1]
+version='$Revision: 1.47 $'.split()[1]
 import types
 import os
 from os.path import join

@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.31 2012/09/12 07:26:24 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.32 2012/09/13 06:16:44 kerrm Exp $
 
 author: Matthew Kerr
 """

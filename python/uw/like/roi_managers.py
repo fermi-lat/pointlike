@@ -1,7 +1,7 @@
 """
 Provides classes for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_managers.py,v 1.34 2011/11/08 21:29:20 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.35 2011/11/10 04:05:39 lande Exp $
 
 author: Matthew Kerr
 """

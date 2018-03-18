@@ -1,6 +1,6 @@
 """
 Implementation of various roi printing
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_printing.py,v 1.9 2012/10/01 05:23:51 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_printing.py,v 1.10 2012/10/04 21:21:07 lande Exp $
 """
 import os, math
 import numpy as N

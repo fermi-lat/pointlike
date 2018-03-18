@@ -139,7 +139,7 @@ class ImageList(object):
     """ manage a list of images, either in a zip file or a folder
     """
 
-    def __init__(self, image_folder, ext='png'):
+    def __init__(self, image_folder, ext='jpg'):
         if os.path.exists(image_folder+'.zip'):
             unzipper = zipfile.ZipFile(image_folder+'.zip')
             self.filenames =  unzipper.namelist()
@@ -157,12 +157,12 @@ class ImageList(object):
         f = os.path.split(filename)[-1]
         if not f.startswith(prefix):
             return False
-        return f[len(prefix)] in ('_', '.') 
+        return True #f[len(prefix)] in ('_', '.', 't')  # for tsmap now
         
     def __call__(self, itemname):
         """ return the binary image, and the filename
         """
-        prefix = itemname.replace(' ', '_').replace('+','p')
+        prefix = itemname.strip().replace(' ', '_').replace('+','p')
         for f in self.filenames:
             if self.match(prefix, f):
                 #if f.find(prefix)>=0: 
@@ -214,7 +214,8 @@ class MakeCollection(object):
     def __init__(self, cname, 
                     image_folder,  table,
                     folder='.',
-                    refresh=False,):
+                    refresh=False,
+                    image_type='jpg',):
         """
         cname : string
             Name to give to the collection
@@ -239,7 +240,7 @@ class MakeCollection(object):
         
         os.chdir(os.path.expanduser(folder))
         self.facets = FacetList(table)
-        self.images = ImageList(image_folder)
+        self.images = ImageList(image_folder, ext=image_type)
         self.fill_from_table()
     
     def image_name(self, filename):
@@ -254,6 +255,7 @@ class MakeCollection(object):
                 self.add_image( self.facets.index[id] , item)
             except Exception, msg:
                 print msg
+                #raise
 
     def add_image(self,  name, item): 
         """ 

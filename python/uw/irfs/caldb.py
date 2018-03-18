@@ -1,11 +1,11 @@
 """
 Module to provide access to CALDB information
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/caldb.py,v 1.3 2016/06/28 18:57:14 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/caldb.py,v 1.5 2018/01/27 15:35:06 burnett Exp $
 Author: Eric Wallace
 
 """
-__version__ = '$Revision: 1.3 $'
+__version__ = '$Revision: 1.5 $'
 
 import os
 
@@ -55,14 +55,14 @@ class CALDB(object):
     event_type_partitions = dict(fb = (0,1),
                                  psf = (2,3,4,5),
                                  edisp = (6,7,8,9))
-    def __init__(self,CALDB_dir="$CALDB", irfname='P8R2_SOURCE_V6'):
+    def __init__(self,CALDB_dir, irfname):
         self.CALDB_dir = os.path.abspath(os.path.expandvars(CALDB_dir))
         self.index = self._load_caldb_index()
         self.irf=irfname
         t = self.irf.split('_')
         self.event_class=t[1]
         self.version = t[0]+'_'+t[2]
-    
+     
     def __repr__(self):
         return "{self.__class__}\n CALDB_dir: {self.CALDB_dir},\
              \n  event_class: {self.event_class} \n  version    : {self.version}".format(self=self)

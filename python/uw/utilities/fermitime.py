@@ -1,5 +1,5 @@
 """ manage times 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fermitime.py,v 1.4 2011/02/11 04:56:34 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fermitime.py,v 1.5 2012/08/16 19:46:36 wallacee Exp $
 
 """
 import datetime

@@ -3,8 +3,8 @@ Python support for source association, equivalent to the Fermi Science Tool gtsr
 author:  Eric Wallace <wallacee@uw.edu>
 """
 
-__version__ = "$Revision: 1.41 $"
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.41 2017/08/02 23:10:29 burnett Exp $
+__version__ = "$Revision: 1.42 $"
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.42 2017/08/23 16:23:42 zimmer Exp $
 
 import os
 import sys
@@ -771,7 +771,7 @@ def summary_table(srcid_path=None):
         catname = cd['catname']
         if not catname.startswith('/'):
             catname = cd['catname'] = os.path.join(srcid_path,'cat',catname)
-        ff = glob.glob(catname)
+        ff = sorted(glob.glob(catname))
         if len(ff)==0: #not found
             cd['objects']=-1
         else:

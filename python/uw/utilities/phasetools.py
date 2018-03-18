@@ -1,7 +1,7 @@
 from os.path import expandvars
 
 import numpy as N
-import astropy.io.fits as PF
+import pyfits as PF
 from types import FunctionType,MethodType
 from skymaps import SkyDir
 from fitstools import rad_extract

@@ -44,7 +44,7 @@ def unparse_extension(spatial_model,extension_color=None,r68=False):
         elif isinstance(sm,Ring) and r68 is False:
             frac=sm.frac
             return ["fk5; circle(%.4f, %.4f, %.4f) # %s" % \
-                          (ra,dec,_,extra) for _ in [frac*sigma,sigma]]
+                          (ra,dec,_,color) for _ in [frac*sigma,sigma]]
         else:    
             return ["fk5; circle(%.4f, %.4f, %.4f) # %s Circle containing 68 percent of the source." % \
                           (ra,dec,sm.r68(),extra)]

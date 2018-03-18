@@ -1,7 +1,7 @@
 """
 Code to plot fancy-looking TS maps, used in pipeline
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/tsmap_plotter.py,v 1.3 2011/01/20 15:49:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/tsmap_plotter.py,v 1.4 2011/02/21 00:42:49 lande Exp $
 
 """
 import math, os

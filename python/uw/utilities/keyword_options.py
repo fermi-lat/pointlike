@@ -3,7 +3,7 @@ Support for generating doc strings, and setting keyword options for class constr
   decorate: decorator to append keyword info to the docstring
   process:  set the class dictionary from the defaults and supplied keywords
   
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/keyword_options.py,v 1.11 2012/03/20 21:18:17 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/keyword_options.py,v 1.12 2014/01/30 16:25:38 burnett Exp $
 
 Author: T. Burnett <tburnett@uw.edu>
 """

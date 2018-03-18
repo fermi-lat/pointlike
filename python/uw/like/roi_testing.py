@@ -1,7 +1,7 @@
 """
 Module to perfrom routine testing of pointlike's many features.'
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.16 2012/06/06 23:10:19 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_testing.py,v 1.17 2012/07/16 16:44:09 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """

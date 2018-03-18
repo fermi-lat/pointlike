@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.150 2016/05/09 18:34:46 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.151 2017/08/02 23:09:51 burnett Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
