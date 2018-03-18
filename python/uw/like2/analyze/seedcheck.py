@@ -12,7 +12,7 @@ from uw.like2.pub import healpix_map as hpm
 import healpy
 from astropy.io import fits
 from .. import associate
-from . import sourceinfo, diagnostics, _html
+from . import sourceinfo, _html
 from .analysis_base import FloatFormat, html_table
 
 b12index = skymaps.Band(12).index
@@ -366,7 +366,7 @@ class SeedCheck(sourceinfo.SourceInfo):
         print 'wrote list that succeeded to %s' % self.csv_file
         filename = 'good_seeds.html'
         html_file = self.plotfolder+'/%s' % filename
-        htmldoc = diagnostics.html_table(t, float_format=diagnostics.FloatFormat(2))
+        ## FIX LATER htmldoc = diagnostics.html_table(t, float_format=diagnostics.FloatFormat(2))
         open(html_file,'w').write('<head>\n'+ _html.style + '</head>\n<body>'+ htmldoc+'\n</body>')
 
         self.info = self.df_good['ts eflux pindex r95 locqual aprob'.split()].describe().to_html(float_format=FloatFormat(2)).replace('%', '%%')
