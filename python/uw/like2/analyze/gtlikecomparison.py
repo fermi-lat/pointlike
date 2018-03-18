@@ -1,11 +1,12 @@
 """
 Comparison with a gtlike model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gtlikecomparison.py,v 1.12 2013/12/12 14:52:08 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gtlikecomparison.py,v 1.13 2014/01/14 21:21:21 burnett Exp $
 
 """
 
-import os, pickle, glob
+import os, glob
+import cPickle as pickle
 import numpy as np
 import pylab as plt
 import matplotlib.gridspec as gridspec
@@ -13,7 +14,7 @@ import pandas as pd
 
 from uw.utilities import makepivot
 from uw.like import Models
-from . import sourcecomparison
+from . import (sourcecomparison, sourceinfo,fermi_catalog,)
 from . analysis_base import html_table, FloatFormat
 
 class GtlikeComparison(sourcecomparison.SourceComparison):
@@ -376,5 +377,188 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         for f, ax in zip([plot1,plot_index, plot2,], ax): f(ax)
         return fig
 
+    # def all_plots(self):
+    #     self.runfigures([self.check_contents, self.missing, self.compare_fits,  
+    #     self.delta_ts, self.galactic_distortion  ])
+
+
+class FL8YComparison(sourceinfo.SourceInfo):
+    """Comparison with FL8Y or 4FGL
+            This analysis uses the FL8Y catalog version %(fhl_version)s.
+    <p>This is using the %(skymodel)s model, with many more sources, and using the same 8-year data set, 
+    with Source class events. There are some differences:
+        <ul>
+<li>The zenith cut is 100 degrees, for all energies, while 3FHL has it at 105. this loses about 3%%
+<li>It restricts theta<66.4 degrees, since the IRF is not reliable above this: also about 3%% loss
+<li>It uses Front/Back event types. Perhaps losing little potential localization resolution.
+<li>It uses binned corrections for the galactic and isotropic corrections. However, above 10 GeV, there is little effect.
+</ul>
+        """
+    def setup(self, pattern='gll_psc*uw8011*', **kwargs):
+        super(FL8YComparison, self).setup(**kwargs)
+        self.plotfolder='FL8Y_comparison'
+
+        self.fhl_version=pattern
+        # make copy dataframe with compressed names
+        self.old_index = self.df.index
+        cindex = [n.replace(' ','') for n in self.df.index]
+        self.df.index = cindex
+        # add info on E>10 GeV
+        systematic = self.config['localization_systematics']
+        f95, quad = 2.45*systematic[0], systematic[1]/60. 
+        self.df['r95'] = (f95**2*(self.df.a * self.df.b) + quad**2)** 0.5
+
+        # get the catalog "gll" entries as a DataFrame and set corresponding values
+        self.gdf = gdf=  fermi_catalog.GLL_PSC2(pattern).df
+        gdf['uw_ts']    = self.df.ts
+        gdf['uw_r95']   = self.df.r95
+        gdf['uw_pindex']= self.df.pindex
+        gdf['uw_eflux100']=self.df.eflux100
+
+        # identify sources missing from FL8Y
+        # 
+        a =set(cindex)
+        b=set(self.gdf.index); 
+        print 'FL8Y sources not here:,{}'.format(np.array(list(set(b.difference(a)))))
+
+    def load_pickled_ts(self, path='psc_check/info'):
+        # get the TS values
+        ff =sorted(glob.glob(path+'/*'))
+        print 'read {} pickle files from {}'.format(len(ff), path)
+        dd = map(lambda f:pickle.load(open(f)), ff)
+        z = dict()
+        for roi,d in enumerate(dd):
+            for a,b in d:
+                z[b[0]] = dict(ts_pt=a[2], ts_gt=b[2], nickname=a[0], roi=roi )
+        self.ts_df=pd.DataFrame(z).T
+
+    def ts_check_plots(self, ylim=(-2,4)):
+        """TS check
+        Compare TS values of this model with that for the FL8Y model, that is, the TS caculated with the pointlike implementation, 
+        but using the FL8Y spectra determined by gtlike.
+        <b><h3>%(deltats_positive)s</h3>
+        <b><he>%(deltats_negative)s</h3>
+        """
+        if not hasattr(self, 'ts_df'):
+            self.load_pickled_ts()
+        q = self.ts_df
+        delta = ((q.ts_pt-q.ts_gt)/np.sqrt(np.array(q.ts_pt,float)))
+        delta_clip = delta.clip(*ylim)
+        q['delta']=delta
+        # make a table of the outliers
+        print 'Outliers: {} negative, {} positive'.format(sum(delta<=ylim[0]), sum(delta>=ylim[1]))
+        self.deltats_positive=html_table(q[delta>=ylim[1]].sort_values(by='delta'), 
+            name=self.plotfolder+'/deltats_positive', 
+            heading='<h4>gtlike model bad: {}</h4>'.format(sum(delta>=ylim[1])),
+            href=True, href_pattern='psc_check/sed/%s*.jpg', )
+        self.deltats_negative=html_table(q[delta<=ylim[0]].sort_values(by='delta'), 
+            name=self.plotfolder+'/deltats_negative', 
+            heading='<h4>gtlike model better: {}</h4>'.format(sum(delta<=ylim[0])),
+            href=True, href_pattern='psc_check/sed/%s*.jpg', )
+
+        fig, axx = plt.subplots(1,3, figsize=(15,5))
+        plt.subplots_adjust(wspace=0.25)
+        ax = axx[0]
+
+        ax.semilogx(q.ts_pt.clip(10, 1e5), delta_clip, '.')
+        ax.axhline(0, color='orange')
+        ax.set(ylabel='(TS_uw - TS_gtlike)/sqrt(TS_uw)', xlabel='TS_uw')
+        ax = axx[1]
+        hkw = dict(bins= np.linspace(ylim[0],ylim[1],36), histtype='step', lw=2, log=False)
+        ax.hist(delta_clip,**hkw);
+        hkw.update(histtype='stepfilled', color='r')
+        ax.hist(delta_clip[delta<=ylim[0]], **hkw)
+        ax.hist(delta_clip[delta>=ylim[1]], **hkw)
+        ax.axvline(0, color='orange')
+        ax.set_xlabel('(TS_uw - TS_gtlike)/sqrt(TS_uw)')
+        
+        ax = axx[2]
+        # add positional info, using nickname field as a key into the model dataframe (which has compressed names)
+        nicknames = map(lambda n:n.replace(' ',''), self.ts_df.nickname.values)
+        sdir = self.df.loc[nicknames,'skydir'].values
+        glon = np.array(map(lambda s:s.l(), sdir),float)
+        glon[glon>180]-=360
+        glat = map(lambda s:s.b(), sdir)
+        singlat = np.sin(np.radians(glat))
+        q['glon']=glon; q['glat']=glat
+        
+        cut = (q.delta>=4) | (q.delta<=-2)
+        self.basic_skyplot(ax, glon[cut], singlat[cut],
+            delta_clip[cut], s=15, cmap=plt.get_cmap('coolwarm'));
+
+        return fig
+
+    def comparison_plots(self, gll_name='FL8Y'):
+        """Comparison plots for corresponding sources
+
+        <br>Upper Left: Test Statistic Comparison; the UW value is for the full energy range, so is nearly always greater.
+        <br>Center left: Localization radius comparison. The UW one is almost always better since it has more data
+        <br>Center right: Spectral index comparison. T
+ 
+        """
+        skymodel=self.skymodel
+        df=self.gdf; dfuw=self.df
+        dfok = df
+
+        def cplot(ax, a,b, xlim, label, ylim=(0.,2.),xscale='log'):
+            ax.semilogx(a.clip(*xlim), (b/a).clip(*ylim), '.b');
+            ax.axhline(1.0, ls='--', color='g');
+            ax.set( xlabel=label, ylabel='UW/gtlike ratio', xlim=xlim,
+                ylim=ylim, xscale=xscale)
+            ax.set_xlabel(label,fontsize=14)
+            ax.grid(alpha=0.5)
+            #ax.set_yticks([0.6, 0.8, 1.0, 1.2, 1.4, 1.6])
+            #ax.set_yticklabels(['0.6','0.8','1.0', '1.2', '1.4', '1.6'])
+
+        fig, axx = plt.subplots(4,1, figsize=(12,15))
+        plt.subplots_adjust(left=0.05, top = 0.95, hspace=0.3    )
+
+        cplot(axx[0], df.ts, df.uw_ts, (20,1e5), 'TS')
+        cplot(axx[1], df.r95,df.uw_r95,(8e-3,0.5),'R95 [deg]')
+        cplot(axx[2], df.eflux100, df.uw_eflux100/1.602e-6, (4e-7, 1e-3),
+            'eflux100 [erg/(s cm^2)]')
+        cplot(axx[3], df.pindex, df.uw_pindex, (1.0, 3.5),'pindex', xscale='linear')
+        fig.suptitle('Comparison of values for common sources', fontsize=14);
+        fig.set_facecolor('white')
+        return fig
+
+
+    def correlation_plots(self, df=None, dfuw=None):
+        """correlation plots
+        We assume that the UW sources correponding to 3FHL sources must have detected photons above 10 GeV. 
+        We use the TS for the energy bands above 
+        10 GeV, called TS10 below, as a measure. Out the ~11K sources with TS>10, %(numuw)d satisfy this.
+        <br>Left: histogram of closested distance
+        <br>Right: Venn diagram, showing number in common, selected from the 3FHL closest
+        """
+        from matplotlib_venn import venn2
+        
+        if df is None: df=self.gdf; 
+        if dfuw is None: dfuw=self.df
+ 
+        fig, axx =plt.subplots(1,2, figsize=(12,6))
+        ax=axx[0]
+        hist_kw=dict(bins=np.linspace(0,0.5, 26), histtype='step', log=True,lw=2)
+        ax.hist(self.cl_fhl[:,1].clip(0,1800)/3600., 
+            label='{} [{}]'.format('3FHL',len(self.cl_fhl)), **hist_kw);
+        ax.hist(self.cl_uw[:,1].clip(0,1800)/3600., 
+            label='{} [{}]'.format('uw7000',len(self.cl_uw)), color='orange',**hist_kw);
+        ax.axvline(self.angle_cut, color='red', ls='--', label='angle cut')
+        plt.setp(ax, ylim=(0.8,None), xlabel='distance (deg)', title='minimum distance')
+        ax.legend(loc='upper left');
+        ax.grid(alpha=0.5)
+
+        # make a Venn diagram
+        self.common=common = sum(df.uwok)
+        self.numuw=len(dfuw)
+        v=venn2(ax=axx[1], subsets=(len(dfuw)-common, len(df.uwok)-common,common)
+            ,set_labels=('uw7000 with TS10>{}'.format(self.uwts10_min),'3FHL'))
+        for text in v.set_labels:
+            text.set_fontsize(14)
+        fig.set_facecolor('white')
+        return fig
+
     def all_plots(self):
-        self.runfigures([self.check_contents, self.missing, self.compare_fits,  self.delta_ts, self.galactic_distortion  ])
+        self.runfigures([
+            self.comparison_plots, self.ts_check_plots,
+        ])

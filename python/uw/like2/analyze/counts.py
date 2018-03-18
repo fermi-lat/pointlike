@@ -1,7 +1,7 @@
 """
 Count plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.15 2016/03/21 18:54:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.17 2018/01/27 15:39:29 burnett Exp $
 
 """
 
@@ -11,14 +11,14 @@ import pylab as plt
 import pandas as pd
 
 from . import analysis_base
-from . analysis_base import FloatFormat
 from ..pipeline import stream
-
+from analysis_base import html_table, FloatFormat
 from uw.utilities import makepivot
 
 class CountPlots(analysis_base.AnalysisBase): 
     """Count plots
-    <br> Plots generated after each iteration, checking quality of counts histogram
+
+    Plots generated after each iteration, checking quality of counts histogram
     %(iteration_info)s
     %(missing_info)s
     """ 
@@ -26,37 +26,48 @@ class CountPlots(analysis_base.AnalysisBase):
     def setup(self, **kwargs):
         self.plotfolder = 'counts'
 
-         # get the basic pickles with the model
-        files, pkls = self.load_pickles()
-        self.pkls = pkls # for development
-        assert len(pkls)==1728, 'expect to find 1728 pickled roi files'
-        def chisq10(counts):
-            total, observed = counts['total'], counts['observed']
-            return ((observed-total)**2/total)[:8].sum()
-        def lat180(l): return l if l<180 else l-360
-        rdict = dict()
-        skipped = 0
-        for r in pkls:
-            if 'counts' not in r or r['counts'] is None:
-                print '***No counts in %s: skipping' % r['name']
-                skipped +=1
-                continue
-            cnts = r['counts']
-            rdict[r['name']]=dict(
-                glon = lat180(r['skydir'].l()),
-                glat = r['skydir'].b(),
-                chisq = cnts['chisq'],
-                chisq10= chisq10(r['counts']),
-                uchisq = cnts['uchisq'] if 'uchisq' in cnts else 0,
-                )
-        if skipped>0:
-            self.missing_info = '<p>%d missing ROIS' % skipped
-            print '***Skipped %d ROIs' % skipped
-        else: self.missing_info = ''
-        self.rois = pd.DataFrame(rdict).transpose()
-        self.rois['singlat'] = np.sin(np.radians(np.asarray(self.rois.glat,float)))
-        self.rois['glon'] = np.asarray(self.rois.glon, float)
+        def load_rois():
+            # get the basic pickles with the model
+            files, pkls = self.load_pickles()
+            self.pkls = pkls # for development
+            assert len(pkls)==1728, 'expect to find 1728 pickled roi files'
+            def chisq10(counts):
+                total, observed = counts['total'], counts['observed']
+                return ((observed-total)**2/total)[:8].sum()
+            def lat180(l): return l if l<180 else l-360
+            rdict = dict()
+            skipped = 0
+            for r in pkls:
+                if 'counts' not in r or r['counts'] is None:
+                    print '***No counts in %s: skipping' % r['name']
+                    skipped +=1
+                    continue
+                cnts = r['counts']
+                rdict[r['name']]=dict(
+                    glon = lat180(r['skydir'].l()),
+                    glat = r['skydir'].b(),
+                    chisq = cnts['chisq'],
+                    chisq10= chisq10(r['counts']),
+                    uchisq = cnts['uchisq'] if 'uchisq' in cnts else 0,
+                    )
+            if skipped>0:
+                self.missing_info = '<p>%d missing ROIS' % skipped
+                print '***Skipped %d ROIs' % skipped
+            else: self.missing_info = ''
+            self.rois = pd.DataFrame(rdict).transpose()
+            self.rois['singlat'] = np.sin(np.radians(np.asarray(self.rois.glat,float)))
+            self.rois['glon'] = np.asarray(self.rois.glon, float)
+            # add columns for total counts
+            d ={}
+            for x in self.pkls:
+                d[x['name']] = dict([(t[0], sum(t[1]).round()) for t in x['counts']['models']])
+            self.rois = pd.concat([self.rois,pd.DataFrame(d).T], axis=1)
+            roi_file='roi_info.pickle'
+            print 'Saved ROI info to {}'.format(roi_file)
+            self.rois.to_pickle(roi_file)
         
+        load_rois()
+
         # dict of dataframes with count info. columns are energies
         self.energy = self.pkls[0]['counts']['energies'] # extract list from first pickle
         counts = [p['counts'] for p in self.pkls if p['counts'] is not None]
@@ -68,7 +79,7 @@ class CountPlots(analysis_base.AnalysisBase):
         #except Exception, msg:
         #    print msg
             
-        if 'history' in pkls[0].keys():
+        if 'history' in self.pkls[0].keys():
             print 'Extracting history info from the ROI analyses'
             self.sinfo =t= self.history_info()
             # check for previous creation, ignore them: look for last "monthly*" or "create"
@@ -77,8 +88,8 @@ class CountPlots(analysis_base.AnalysisBase):
             if sum(y)==0:
                 y= [ (x.startswith('update_full')) for x in t.stage]; 
                 # no create: use update_full
-            lc = t.index[y][-1]; print lc
-            self.toshow = t[t.index>= lc]; print self.toshow
+            lc = t.index[y][-1]
+            self.history = t[t.index>= lc ]; 
             skipped = t.index[y][:-1]; print 'Skipped starts:\n{}'.format(t.ix[skipped])
             
             cfile = 'config.txt' if os.path.exists('config.txt') else '../config.txt'
@@ -87,10 +98,19 @@ class CountPlots(analysis_base.AnalysisBase):
             except Exception, msg:
                 raise Exception('Could not read config file, %s' %msg)
             input_model=config['input_model']['path']
+
+            # note use of 'plots/' below since not done with setup 
+            maxlines = 40
+            toshow_html = analysis_base.html_table(self.history, maxlines=maxlines,
+                name='plots/'+ self.plotfolder+'/iteration_history',
+                heading='<h4>Iteration history: log likelihood change for each stage</h4>',
+                float_format=FloatFormat(1), href=False,)
+            if len(self.history)>maxlines:
+                toshow_html += '<p>Last 10 out of {} stages'.format(len(self.history))\
+                    +self.history.tail(10).to_html(float_format=FloatFormat(1))
+            
             self.iteration_info = """<p>Input model: <a href="../../%s/plots/index.html?skipDecoration">%s</a>
-                <p>Iteration history: log likelihood change for each step: \n%s
-                """ % (input_model,input_model, 
-                    self.toshow.to_html(float_format=FloatFormat(1)) )
+                <p>%s""" % (input_model,input_model, toshow_html) 
         else:
             self.iteration_info=''
 
@@ -128,27 +148,35 @@ class CountPlots(analysis_base.AnalysisBase):
                             gt10=sum(abs(delta)>10), delta_max=delta.max(), nroi=nroi)
             p = s
         return pd.DataFrame(sinfo).T['stage date nroi gt10 delta_sum delta_min delta_max'.split()]
-    
+        
     def loglikelihood(self):
         """log likelihood
 
         Progression of the log likelihood (left scale, blue cirles) and the number of ROI's changing by more than 10 (right scale, red diamonds) 
         for the processing stages.
         """
-        fig, ax = plt.subplots(1,1, figsize=(8,4))
-        sinfo = self.toshow #subset
+        sinfo = self.history.query('stage!="update"') #subset
+        # stagenames = sinfo.stage.values
+        # stagenames[stagenames=='update'] = ''
+        # sinfo.loc[:,'stage']=stagenames
         ds = sinfo.delta_sum
-        x = range(len(sinfo))
+        x = np.arange(len(sinfo))
+        fig, ax = plt.subplots(1,1, figsize=(len(self.sinfo)/3,4))
+        plt.subplots_adjust(left=0.03)
+ 
         ax.plot( x, np.cumsum(ds), 'o--');
         ax.set_xticks(x)
+        ax.axvline(0)
         ax.set_xticklabels(list(sinfo.stage), rotation=45, va='top', ha='right')
-        plt.setp(ax, xlim=(x[0]-0.5, x[-1]+0.5), 
-                 title='change in total log likelihood', xlabel='processing stage', ylabel='log likelihood')
-        ax.grid(True, alpha=0.5)
+        ax.set_title('change in total log likelihood')
+        ax.set_xlabel('processing stage')
         axr = ax.twinx()
-        plt.setp(axr, ylabel='changed ROIs', ylim=(0,sinfo.gt10.max()+5) )
+        ax.set_ylabel('log likelihood', color='blue')
+        axr.set_ylabel('changed ROIs', color='red')
+        axr.set_ylim(0,sinfo.gt10.max()+5)
         axr.plot( x, sinfo.gt10, 'Dr--')
-        return fig    
+        axr.set_xlim(0.5,len(sinfo)-0.5) 
+        return fig
     
     def add_model_info(self):
         for i,key in enumerate(['ring','isotrop', 'SunMoon', 'limb',]): # the expected order
@@ -163,6 +191,11 @@ class CountPlots(analysis_base.AnalysisBase):
                 else:
                     t.append(np.zeros(len(self.energy)))
             self.counts[key]= pd.DataFrame(t, index=self.rois.index)
+        # create DataFrame with total counts for the diffuse, fixt and free source totals
+        d ={}
+        for x in self.pkls:
+            d[x['name']] = dict([(t[0], sum(t[1]).round()) for t in x['counts']['models']])
+        self.total_counts = pd.DataFrame(d).T
 
     def counts_map(self):
         """ Sum, for E>100 Mev
@@ -170,12 +203,12 @@ class CountPlots(analysis_base.AnalysisBase):
         obs = self.counts['observed']
         total = np.array([sum(x[1]) for x in obs.iterrows()])
 
-    def residual(self, ib):
+    def residual(self, ib, normalized=True):
         """ residual DF array for energy band ib 
         """
         obs   = self.counts['observed'].transpose().ix[ib]
         model = self.counts['total'].transpose().ix[ib]
-        resid = (obs-model)/np.sqrt(model)
+        resid = (obs-model)/np.sqrt(model) if normalized else (obs/model -1)
         return resid
      
     def residual_hists(self):
@@ -183,16 +216,16 @@ class CountPlots(analysis_base.AnalysisBase):
         subset for ridge (|b|<10, |l|<60) shown
         """
         fig,axx = plt.subplots(3,4, figsize=(12,9), sharex=True,)
-        ridge = ( np.abs(self.rois.glat)<10) & ( np.abs(self.rois.glon)<60 )
+        hkw = dict(bins=np.linspace(-5,5,21), histtype='stepfilled', log=True)
+        ridge = np.array( (np.abs(self.rois.glat)<10) & (np.abs(self.rois.glon)<60), bool)
 
         for ib,ax in enumerate(axx.flatten()):
-            resid = self.residual(ib)
-            hkw = dict(bins=np.linspace(-5,5,21), histtype='stepfilled')
+            resid = np.array(self.residual(ib))
             ax.hist(resid.clip(-5,5), **hkw)
             ax.hist(resid[ridge].clip(-5,5), color='orange', **hkw)
             ax.set_title('%.0f MeV'% self.energy[ib], fontsize=10)
             ax.axvline(0, color='k')
-            plt.setp(ax, xlim=(-5,5))
+            plt.setp(ax, xlim=(-5,5), ylim=(0.8,None))
             ax.grid(True)
         return fig
     
@@ -210,12 +243,13 @@ class CountPlots(analysis_base.AnalysisBase):
         ax.axhline(0, color='k')
         return fig
         
-    def chisq_plots(self, use10=False, unweight=True, hsize=(1.0, 0.7, 1.5, 0.7), 
+    def chisq_plots(self, use10=True, unweight=False, hsize=(1.0, 0.7, 1.5, 0.7), 
             vmin=0, vmax=50, bcut=10, grid_flag=True, makecollection=True):
         """ chi squared plots
         chi squared distribution
-        <p>Note that this chi squared is modified by the unweighting factors.
+        <p>Only for bins below 10 GeV.
         <p>%(bad_roi_link)s
+        <p>%(bad_roi_html)s
         """
         
         
@@ -246,10 +280,15 @@ class CountPlots(analysis_base.AnalysisBase):
         else:
             self.bad_roi_link=''
         
+        self.bad_roi_html = analysis_base.html_table(bad_rois, name=self.plotfolder+'/bad_rois', 
+                heading='<h4>Table of %d bad rois</h4>'%len(bad_rois),
+                float_format=analysis_base.FloatFormat(2),
+                href_pattern='countfig/%s_counts*.jpg')
+
         def chisky(ax):
             self.basic_skyplot(ax, self.rois.glon, self.rois.singlat, chisq, 
                 s=55, marker='D', vmin=vmin, vmax=vmax,  edgecolor='none', 
-                colorbar=True, cbtext=chisqtxt);
+                cmap=plt.get_cmap('YlOrRd'), colorbar=True, cbtext=chisqtxt);
                 
         def chihist(ax, htype='stepfilled'):
             bins = np.linspace(0, vmax, 26)
@@ -273,7 +312,8 @@ class CountPlots(analysis_base.AnalysisBase):
             ax = axx.flatten()[ib]
             scat=self.basic_skyplot(ax, self.rois.glon, self.rois.singlat, self.residual(ib).clip(vmin,vmax),
                  title='%d MeV'%energy,
-                vmin=vmin,vmax=vmax, s=15, edgecolor='none', colorbar=False, labels=False)
+                vmin=vmin,vmax=vmax, s=15, edgecolor='none', cmap=plt.get_cmap('coolwarm'),
+                 colorbar=False, labels=False)
         #put colorbar at right        
         cbax = fig.add_axes((0.92, 0.15, 0.02, 0.7) )
         cb=plt.colorbar(scat, cbax, orientation='vertical')
@@ -288,6 +328,7 @@ class CountPlots(analysis_base.AnalysisBase):
         if ax is None:
             fig,ax = plt.subplots( figsize=(4,4))
         else: fig = ax.figure
+        self.rois['dec'] = [Band(12).dir(i).dec() for i in range(1728)]
         r = self.residual(ib).clip(*ylim)
         ax.plot(self.rois.dec, r, '.', color='gray')
         galplane = np.abs(self.rois.glat)<5
@@ -300,19 +341,110 @@ class CountPlots(analysis_base.AnalysisBase):
         ax.legend(prop=dict(size=10))
         ax.grid()
         return fig
+    
+    def resid_vs_b(self, ib=0, ax=None, ylim=(-4,4), labels=True):
+        """ residual vs. galactic latitude
+
+        cuts |glon|<60, selecting the ridge.
+        """
+        if ax is None:
+            fig,ax = plt.subplots( figsize=(8,4))
+        else: fig = ax.figure
+        r = self.residual(ib, False).clip(*ylim)*100.
+        glon_cut = np.abs(self.rois.glon)<60
+        ax.plot(self.rois.glat[glon_cut], r[glon_cut], '.', )
+        ax.axhline(0, color='k')
+        plt.setp(ax, ylim=ylim, xlim=(-90,90))
+        if labels: plt.setp(ax, xlabel='glat', ylabel='relative residual (%)')
+        ax.set_xticks((-90,-45,0,45,90))
+        ax.set_title('%d MeV' % self.energy[ib], size=10)
+        #ax.legend(prop=dict(size=10))
+        ax.grid(alpha=0.5)
+        return fig
+
+    def gcorr_vs_b(self, ib=0, ax=None, ylim=(-20,20), labels=True):
+        """ Galactic correction factors vs. declination angle
         
-    def ridge_spectral_residuals(self, ax=None, glat=(-10,10), glon=(-60,60), nolabels=False):
-        """ Spectral residuals along the Galactic ridge
+        Selected |l|<60
+        """
+        if ax is None:
+            fig,ax = plt.subplots( figsize=(8,4))
+        else: fig = ax.figure
+        glon_cut = np.abs(self.rois.glon)<60
+        self.galcorr_file = os.path.expandvars('$FERMI/diffuse/'+self.config.diffuse['ring']['correction'])
+        assert os.path.exists(self.galcorr_file), 'File not found: {}'.format(self.galcorr_file)
+        self.galcorr = pd.read_csv(self.galcorr_file, index_col=0)
+
+        r = (self.galcorr['{}'.format(ib)]-1)*100
+        ax.plot(self.rois.glat[glon_cut], r[glon_cut], '.', )
+        ax.axhline(0, color='k')
+        plt.setp(ax, ylim=ylim, xlim=(-90,90))
+        if labels: plt.setp(ax, xlabel='glat', ylabel='relative correction (%)')
+        ax.set_xticks((-90,-60, -30, 0, 30, 60 ,90))
+        ax.set_title('Galactic correction factor at %d MeV' % self.energy[ib], size=10)
+        #ax.legend(prop=dict(size=10))
+        ax.grid(alpha=0.5)
+        return fig
+
+    def icorr_vs_b(self, ib=0, ax=None, ylim=(-50,50), et='front', labels=True):
+        """ Isotropic correction factors vs. declination angle
+        
+        Selected |l|<60
+        """
+        if ax is None:
+            fig,ax = plt.subplots( figsize=(8,4))
+        else: fig = ax.figure
+        glon_cut = np.abs(self.rois.glon)<60
+        self.isocorr_file = os.path.expandvars('$FERMI/diffuse/'+self.config.diffuse['isotrop']['correction']).replace('*', et)
+        assert os.path.exists(self.isocorr_file), 'File not found: {}'.format(self.isocorr_file)
+        self.isocorr = pd.read_csv(self.isocorr_file, index_col=0)
+
+        r = ((self.isocorr['{}'.format(ib)]-1)*100).clip(*ylim)
+        ax.plot(self.rois.glat[glon_cut], r[glon_cut], '.', )
+        ax.axhline(0, color='k')
+        plt.setp(ax, ylim=ylim, xlim=(-90,90))
+        if labels: plt.setp(ax, xlabel='glat', ylabel='relative correction (%)')
+        ax.set_xticks((-90,-60, -30, 0, 30, 60 ,90))
+        ax.set_title('{} Isotropic correction factor at {:.0f} MeV'.format(et, self.energy[ib]), size=10)
+        #ax.legend(prop=dict(size=10))
+        ax.grid(alpha=0.5)
+        return fig
+
+    def spectral_residuals(self, ylim=(-0.15,0.15)):
+        """ Spectral residuals 
        
-        Designed to match, except for different ROI definitions, the Saclay standard plot.
+       First plot is designed to match, except for different ROI definitions, the Saclay standard plot, 
+       which includes all ROIS with centers  |glat|<10, |glon|<60. The
+       other two are high latitude, all longitudes above 10 degrees or below -10 degrees. 
+       Anticenter is a 30 deg x 20 deg rectangle.
+        """
+        fig,ax = plt.subplots(1,4, figsize=(14,4), sharex=True, sharey=True)
+        self.ridge_spectral_residuals(ax=ax[0], title='Galactic Ridge')
+        self.ridge_spectral_residuals(ax=ax[1], glat=(-90,-10),glon=None, title='South high lat',nolabels=True)
+        self.ridge_spectral_residuals(ax=ax[2], glat=( 10, 90),glon=None, title='North high lat',nolabels=True)
+        self.ridge_spectral_residuals(ax=ax[3], glat=( -10,10),glon=( 165, -165), title='Anti-center',nolabels=True)
+        ax[0].set_ylim(*ylim)
+        ax[0].set_xlim(100, 1e6)
+        return fig
+        
+
+    def ridge_spectral_residuals(self, ax=None, glat=(-10,10), glon=(-60,60), 
+            nolabels=False, title=None):
+        """ Spectral residuals along the Galactic ridge
+        
+        First plot is dDesigned to match, except for different ROI definitions, the Saclay standard plot,
+        the other two are abvove 10 degres, for South and North hemispheres.
         """
         if ax is None:
             fig,ax = plt.subplots( figsize=(4,4))
         else: fig = ax.figure
-        def cut( x, range):
-            return (x>range[0])  & (x<range[1])
-        #ridge = ( np.abs(self.rois.glat)<10) * ( np.abs(self.rois.glon)<60 )
+        def cut( x, xrange):
+            if xrange is None: return True
+            a, b = xrange
+            return (x>a)  & (x<b) if a<b else (x>a) | (x<b)
+        
         ridge = cut(self.rois.glat, glat) & cut(self.rois.glon, glon)
+
         data =self.counts['observed'][ridge].sum()
         model = self.counts['total'][ridge].sum()
         x = self.energy
@@ -323,6 +455,8 @@ class CountPlots(analysis_base.AnalysisBase):
         plt.setp(ax, xscale='log')
         if not nolabels:
             plt.setp(ax, xlabel='energy (MeV)', ylabel='(counts-model)/model')
+        if title is not None:
+            ax.set_title(title)
         ax.axhline(0, color='gray')
         ax.grid()
         return fig
@@ -334,5 +468,6 @@ class CountPlots(analysis_base.AnalysisBase):
             self.residual_maps, 
             self.residual_plot, 
             self.residual_hists, 
-            self.ridge_spectral_residuals,
+            self.resid_vs_b,
+            self.spectral_residuals,
             ])

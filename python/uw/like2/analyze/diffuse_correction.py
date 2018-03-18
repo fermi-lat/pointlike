@@ -1,7 +1,7 @@
 """
 Diffuse Correction
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/diffuse_correction.py,v 1.1 2017/11/17 22:44:09 burnett Exp $
 """
 
 import os, pickle

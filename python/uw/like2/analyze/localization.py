@@ -1,6 +1,6 @@
 """   Analyze localization 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.15 2016/03/21 18:54:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.17 2018/01/27 15:39:29 burnett Exp $
 
 """
 import os, pickle, collections
@@ -113,10 +113,13 @@ class Localization(sourceinfo.SourceInfo):
         axx = axxx[0]
         plt.subplots_adjust(wspace=0.4)
         wp = self.ebox
-        cut = self.df.ts>mints
+        badfit = pd.isnull(wp.locqual)
+        if sum(badfit)>0:
+            print 'Warning: {} sources with no fits'.format(sum(badfit))
+        cut = (self.df.ts>mints) & (~ badfit)
         ax=axx[0]
         for x in (mints, tscut):
-            ax.hist(wp.locqual[self.df.ts>x].clip(0,maxqual), bins,label='TS>%d'%x)
+            ax.hist(wp.locqual[cut & (self.df.ts>x)].clip(0,maxqual), bins,label='TS>%d'%x)
         ax.legend(prop=dict(size=10))
         ax.grid()
         plt.setp(ax, xlabel='localization fit quality')
@@ -197,7 +200,7 @@ class Localization(sourceinfo.SourceInfo):
             dict(source1=name1, source2=name2, distance=distance, 
                     tolerance=tolerance, roi=roi_index, ts1=ts1, ts2=ts2),
                 columns = 'source1 ts1 source2 ts2 distance tolerance roi'.split(),
-            ).sort_index(by='roi')
+            ).sort_values(by='roi')
         self.close_table = html_table(tdf, 
             name=self.plotfolder+'/close',
             heading='<h4>Table of %d pairs of close sources</h4>'%len(name1),
@@ -261,7 +264,7 @@ class Localization(sourceinfo.SourceInfo):
         """
         unloc = self.unloc
         if sum(unloc)>0:
-            unloc_table = self.df.ix[unloc]['ra dec ts roiname'.split()].sort_index(by='roiname')
+            unloc_table = self.df.ix[unloc]['ra dec ts roiname'.split()].sort_values(by='roiname')
             self.unlocalized_sources =html_table(unloc_table,
                 name=self.plotfolder+'/unlocalized',
                 heading='<h4>Table of %d unlocalized sources</h4>'%len(unloc_table),
@@ -379,8 +382,8 @@ class Localization(sourceinfo.SourceInfo):
                 ax.hist(dfs.peak_fract[goodfrac], np.linspace(0,1,26))
                 plt.setp(ax, xlabel='peak fraction', xlim=(0,1))
             elif ix==2:
-                ax.hist(dfs.ax/dfs.size, np.linspace(0,0.5,26))
-                ax.hist(dfs.ax/dfs.size[goodfrac], np.linspace(0,0.5,26))
+                ax.hist(dfs.ax/dfs['size'], np.linspace(0,0.5,26))
+                ax.hist((dfs.ax/dfs['size'])[goodfrac], np.linspace(0,0.5,26))
                 plt.setp(ax, xlabel='major/size')
             elif ix==1:
                 ax.hist(dfs.ax.clip_upper(0.5), np.linspace(0,0.5,26))
@@ -391,8 +394,8 @@ class Localization(sourceinfo.SourceInfo):
                 ax.hist((dfs.bx/dfs.ax)[goodfrac], np.linspace(0,1,26))
                 plt.setp(ax, xlabel='minor/major')
             elif ix==4:
-                ax.hist(dfs.size, np.linspace(0,2,26))
-                ax.hist(dfs.size[goodfrac], np.linspace(0,2,26))
+                ax.hist(dfs['size'], np.linspace(0,2,26))
+                ax.hist(dfs['size'][goodfrac], np.linspace(0,2,26))
                 plt.setp(ax, xlabel='size')
             elif ix==5:
                 ax.hist(dfs.locqual.clip_upper(8), np.linspace(0,8))

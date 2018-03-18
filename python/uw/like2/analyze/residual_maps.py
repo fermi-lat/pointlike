@@ -1,7 +1,7 @@
 """
 Residual maps
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residual_maps.py,v 1.1 2017/11/17 22:44:09 burnett Exp $
 
 """
 
@@ -71,6 +71,7 @@ class BandAnalysis(object):
 
         self.hpdata = healpix_map.HParray('f{}_data'.format(energy), self.data)
         self.pulls = healpix_map.HParray('f{} pulls'.format(energy), (self.data-self.model)/np.sqrt(self.model))
+        self.resid = healpix_map.HParray('f{} residuals'.format(energy), (self.data-self.model)/(self.model))
 
         # Load galactic corrections from configuration info
         config=configuration.Configuration('.', quiet=True,)
@@ -141,14 +142,26 @@ class BandAnalysis(object):
         fig.set_facecolor('w')
         return fig
     
-    def zea_plots(self,center=(0,0),size=90, size2=30):
-        fig, axx = plt.subplots(2,1, figsize=(12,8), sharex=True)
-        lookat=(0,0)
-        self.hpdata.plot_ZEA(center=center,size=size, axes=axx[0] ,zea_kw=dict(size2=size2))
-        axx[0].set_title('Data')
+    def zea_plots(self,center=(0,0),size=90, size2=20):
+        import matplotlib.colors as colors
+        fig, axx = plt.subplots(3,1, figsize=(18,12), sharex=True)
+        plt.subplots_adjust(hspace=0.04) 
+        zea_kw, cmap = dict(size2=size2,), plt.get_cmap('coolwarm')
+        plasma = plt.get_cmap('plasma')
+        labelit = lambda ax, t: ax.text(0.01, 0.90, t, fontsize=16,
+                        bbox=dict(facecolor='white', edgecolor='k',alpha=0.5),transform=ax.transAxes) 
+        ax=axx[0]
+        self.hpdata.plot_ZEA(center=center,size=size, axes=ax ,cmap=plasma, 
+            norm=colors.LogNorm(),zea_kw=zea_kw).grid(color='grey')
+        labelit(ax,'Data')
+        
         self.pulls.plot_ZEA(center=center,size=size,  axes=axx[1], vmin=-5, vmax=5,
-             cmap=plt.get_cmap('coolwarm'), zea_kw=dict(size2=size2)).grid(color='white');
-        axx[1].set_title('pulls');
+             cmap=cmap, zea_kw=zea_kw).grid(color='white');
+        labelit(axx[1],'pulls: (-5,5)');
+
+        self.resid.plot_ZEA(center=center,size=size,  axes=axx[2], vmin=-0.2, vmax=0.2,
+             cmap=cmap, zea_kw=zea_kw).grid(color='white');
+        labelit(axx[2],'residuals: (-0.2,0.2)');
         return fig
 
     def correction_factor_plot(self, xlim=(0.8,1.2)):
@@ -180,9 +193,10 @@ class BandAnalysis(object):
 
 
 class ResidualMaps(analysis_base.AnalysisBase):
-    """Residual Maps
+    """<h2>Residual Maps</h2>
     <br>Combine the maps of the count residuals made for each ROI and each energy band below 1 GeV.
     Only the pixels within the HEALPix tile are used from each ROI: about 1/3 of the total.
+    <br>Most of the residuals here are for 133 MeV Front. 
     """
     def setup(self, **kwargs):
         self.plotfolder='residual_maps'
@@ -258,10 +272,31 @@ class ResidualMaps(analysis_base.AnalysisBase):
         """
         return self.ba0.ait_pulls_plot()
 
-    def residual_maps_zea(self):
-        """Inner Galaxy residual maps
+    def residual_maps_center(self):
+        """Central Galaxy residual maps
         """
         return self.ba0.zea_plots();
+
+    def residual_maps_cygnus(self):
+        """Cygnus residual maps
+
+            Brighest source is PSR J2021+4026.
+        """
+        return self.ba0.zea_plots(center=(90,0));
+        
+    def residual_maps_anti(self):
+        """Anti-center residual maps
+        """
+        return self.ba0.zea_plots(center=(180,0));
+
+    def residual_maps_vela(self):
+        """Vela 133 MeV residual maps
+
+    
+        """
+        return self.ba0.zea_plots(center=(-90,0));
+        
+
     def residual_hist(self):
         """Residual histogram
         """
@@ -273,7 +308,10 @@ class ResidualMaps(analysis_base.AnalysisBase):
             self.gcmap,
             self.gcplots,
             self.residual_maps_ait,
-            self.residual_maps_zea,
+            self.residual_maps_center,
+            self.residual_maps_cygnus,
+            self.residual_maps_vela,
+            self.residual_maps_anti,
             self.residual_hist,
             self.offset_map_0, self.offset_map_1, 
        ]) 

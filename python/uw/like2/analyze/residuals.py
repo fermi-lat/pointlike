@@ -1,7 +1,7 @@
 """
 Residual plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.15 2015/12/03 17:10:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residuals.py,v 1.16 2016/10/28 20:48:14 burnett Exp $
 
 """
 

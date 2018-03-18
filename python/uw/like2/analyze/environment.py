@@ -1,7 +1,7 @@
 """
 Environment plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.18 2016/04/27 02:22:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/environment.py,v 1.20 2018/01/27 15:39:29 burnett Exp $
 
 """
 
@@ -10,7 +10,8 @@ import numpy as np
 import pylab as plt
 import pandas as pd
 from scipy import integrate, misc, optimize
-#from skymaps import SkyDir #?
+
+from skymaps import BinnedPhotonData #,SkyDir
 
 from . import roi_info
 from .. import (configuration, diffuse, response)
@@ -49,9 +50,11 @@ class Environment(roi_info.ROIinfo):
             self.galfile = os.path.expandvars('$FERMI/diffuse/') + u['correction']
         else:
             self.galfile = None
-            
-        [self.isofiles_front, self.isofiles_back] = [os.path.expandvars('$FERMI/diffuse/')+ f for f in self.isofiles ]
-
+        try:    
+            [self.isofiles_front, self.isofiles_back] = [os.path.expandvars('$FERMI/diffuse/')+ f for f in self.isofiles ]
+        except:
+            print "no isofiles found"
+            self.isofiles_front=self.isofiles_back=None
 
     def exposure_plots(self, ix = 8, hsize=(1.0,1.0,2.0,1.0, 2.0, 0.7),):
         """ Exposure dependence
@@ -267,7 +270,7 @@ the second when there is small background, above a few GeV.
         return lon, sinlat
     
     def cartesian_map_array(self, fn, vmin=None, vmax=None, bands=8, 
-            ecliptic=False, equatorial=False, nocolorbar=False):
+            ecliptic=False, equatorial=False, nocolorbar=False, cmap=plt.get_cmap('coolwarm')):
         """
         Plot an array of cartesian maps
         
@@ -292,7 +295,7 @@ the second when there is small background, above a few GeV.
             ax = axx.flatten()[iband]
             scat=self.basic_skyplot(ax, lon, sinlat, fn(iband).clip(vmin,vmax),
                  title='%d MeV'%energy,
-                vmin=vmin,vmax=vmax, s=30, edgecolor='none', colorbar=False, labels=False)
+                vmin=vmin,vmax=vmax, s=30, edgecolor='none', colorbar=False, labels=False, cmap=cmap)
         fig.text(0.5, 0.95, fn.title,  ha='center', size=12)
         if nocolorbar: return fig
         #put colorbar at right        
@@ -317,7 +320,7 @@ the second when there is small background, above a few GeV.
         """Galactic correction factor
         From file %(galfile)s
         """
-        return self.cartesian_map_array(self.GalacticCorrection(self))
+        return self.cartesian_map_array(self.GalacticCorrection(self),vmin=0.5,vmax=1.5)
     
     class IsotropicCorrection(object):
         def __init__(self, residual, event_type_name):
@@ -341,6 +344,24 @@ the second when there is small background, above a few GeV.
         From file %(isofiles_back)s
         """
         return self.cartesian_map_array(self.IsotropicCorrection(self,'back'))
+
+    def dmap_info(self, out=None):
+        """ formatted table of band contents """
+        binfile = self.config.dataset.binfile
+        dmap = BinnedPhotonData(binfile)
+        print >>out, 'File: %s ' %binfile
+        print >>out, '\n  index    emin      emax  type  nside     photons'
+        total = 0
+        def bignum(n):
+            t = '%9d' % n
+            return '  '+' '.join([t[0:3],t[3:6],t[6:]])
+        for i,band in enumerate(dmap):
+            fmt = '%5d'+2*'%10d'+2*'%6d'+'%12s'
+            print fmt % (i, round(band.emin()), round(band.emax()), 
+                    band.event_class()&15, band.nside(), bignum(band.photons()))
+            total += band.photons()
+        print >>out, 'total%45s'% bignum(total)
+        return dmap
 
     def all_plots(self, **kw):
         self.runfigures([self.psf_plot, self.exposure_plots, 

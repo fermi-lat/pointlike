@@ -1,7 +1,7 @@
 """
 Analysis plots of transient sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/transientinfo.py,v 1.6 2016/10/28 20:48:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/transientinfo.py,v 1.7 2017/11/18 22:26:38 burnett Exp $
 
 """
 

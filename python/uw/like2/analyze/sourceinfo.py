@@ -1,7 +1,7 @@
 """
 Basic analyis of source spectra
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.31 2016/10/28 20:48:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.33 2018/01/27 15:39:29 burnett Exp $
 
 """
 
@@ -29,18 +29,24 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         self.plotfolder='sources' #needed by superclass
         filename = 'sources.pickle'
         self.quiet = kwargs.pop('quiet', True)
+        cat=kwargs.get('cat', '3FGL')
         refresh = kwargs.pop('refresh', not os.path.exists(filename) or os.path.getmtime(filename)<os.path.getmtime('pickle.zip'))
         if refresh:
             files, pkls = self.load_pickles('pickle')
             assert len(files)==1728, 'Expected to find 1728 files'
             self.pkls = pkls # for debugging
             sdict= dict()
-            try:
-                get_cat3fgl = Cat_3fgl()
-            except Exception, msg:
-                print 'Could not load 3FGL: %s' % msg
+            if cat=='3FGL':
+                try:
+                    get_cat3fgl = Cat_3fgl()
+                    print 'loaded 3FGL'
+                except Exception, msg:
+                    print 'Could not load 3FGL: %s' % msg
+                    get_cat3fgl=None
+            else: 
+                print 'Not adding 3FGL equivalence'
                 get_cat3fgl=None
-            
+                
             for pkl in pkls:
                 roidir = pkl['skydir']
                 for name, info in pkl['sources'].items():
@@ -65,6 +71,9 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                         badfit = True
                         
                     try:
+                        # should be fixed by setting emax for simulation?
+                        dts = info['sedrec'].delta_ts
+                        dts[np.isnan(dts)]=0
                         fitqual = round(sum(info['sedrec'].delta_ts),2)
                     except:
                         fitqual = np.nan
@@ -115,9 +124,11 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                         fitqual = fitqual,
                         fitndf  = fitndf,
                         eflux = prefactor*pars[0]*model.e0**2*1e6,
+                        eflux_unc=prefactor*errs[0]*model.e0**2*1e6,
                         eflux100 = info.get('eflux', (np.nan,np.nan))[0],
                         eflux100_unc = info.get('eflux', (np.nan,np.nan))[1],
-                        psr = pulsar,
+                        psr = name.startswith('PSR'),
+                        profile=info.get('profile', None),
                         cat3fgl = None if get_cat3fgl is None else get_cat3fgl(name),
                         transient= not info.get('fixed_spectrum', False) and not info['isextended'],
                         roi_dist= np.degrees(info['skydir'].difference(roidir)),
@@ -130,9 +141,9 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             df['ra'] = ra
             df['dec'] = dec
             df['jname']= map(create_jname,ra,dec)
-            df.jname[df.isextended]=df.index
-            self.df = df.sort_index(by='ra')
-            self.df['hassed'] = np.array([self.df.ix[i]['sedrec'] is not None for i in range(len(self.df))])
+            df.loc[df.isextended,'jname']=df.isextended[df.isextended].index
+            self.df = df.sort_values(by='ra')
+            #self.df['hassed'] = np.array([self.df.iloc[i]['sedrec'] is not None for i in range(len(self.df))])
             self.curvature(setup=True) # add curvature item
             self.df.to_pickle(filename)
             if not self.quiet:
@@ -148,13 +159,19 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         self.df['unloc'] = ~(localized | extended)
         self.df['poorloc'] = (self.df.a>0.2) | (self.df.locqual>8) | (self.df.delta_ts>2)
         self.df['flags'] = 0  #used to set bits below
-        flags = self.df.flags
         pl = (self.df.poorloc | self.df.unloc) & (self.df.ts>10)
-        flags[pl] += 8 ### bit 8
+        flags = self.df.flags.values; flags[self.df.poorloc] +=8
+        self.df.loc[:,'flags'] = flags ### bit 8 (avoid warning? MP)
         #print '%d sources flagged (8) as poorly or not localized' % sum(pl)
 
- 
-        self.energy = np.sqrt( self.df.ix[0]['sedrec'].elow * self.df.ix[0]['sedrec'].ehigh )
+
+        sr = self.df.iloc[0]['sedrec'] 
+        if sr is None: sr = self.df.iloc[1]['sedrec'] 
+        if sr is None:
+            self.energy = np.logspace(2.125, 5.875,16)
+            print 'Warning. did not find a secrec'
+        else:
+            self.energy = np.sqrt( sr.elow * sr.ehigh )
             
     def skyplot(self, values, proj=None, ax=None, ecliptic=False, df=None,
                 labels=True, title='', colorbar=True, cbtext='', **scatter_kw):
@@ -177,7 +194,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             df = self.df
         assert len(set(values.index).intersection(df.index))==len(values), 'skyplot: index values unknown'
         # generate arrays of glon and singlat using index 
-        sd = df.ix[values.index, ['glat', 'glon']] # see page 101
+        sd = df.loc[values.index, ['glat', 'glon']] # see page 101
         glon = sd.glon
         glon[glon>180]-=360
         singlat = np.sin(np.radians(list(sd.glat)))
@@ -201,13 +218,13 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         if cut is None: cut=self.df.ts>25
         s = self.df[cut]
         energy = self.energy[ib]
-        fdata = np.array([s.ix[i]['sedrec'].flux[0] for i in range(len(s))])
-        udata = np.array([s.ix[i]['sedrec'].uflux[0] for i in range(len(s))])
-        ldata = np.array([s.ix[i]['sedrec'].lflux[0] for i in range(len(s))])
-        fmodel = np.array([s.ix[i]['model'](energy)*energy**2*1e6 for i in range(len(s))])
+        fdata = np.array([s.loc[i]['sedrec'].flux[0] for i in range(len(s))])
+        udata = np.array([s.loc[i]['sedrec'].uflux[0] for i in range(len(s))])
+        ldata = np.array([s.loc[i]['sedrec'].lflux[0] for i in range(len(s))])
+        fmodel = np.array([s.loc[i]['model'](energy)*energy**2*1e6 for i in range(len(s))])
         return pd.DataFrame(dict(fdata=fdata, udata=udata, ldata=ldata, fmodel=fmodel, 
                 glat=s.glat, glon=s.glon, roiname=s.roiname),
-            index=s.index).sort_index(by='roiname')
+            index=s.index).sort_values(by='roiname')
 
     def cumulative_ts(self, ts=None, tscut=(10,25), check_localized=True, 
             label=None,  other_ts=[], other_label=[], ax=None, legend=True):
@@ -262,8 +279,8 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             self.roi_df = pickle.load(open('rois.pickle'))
         def counts(src_df,roi_df, name):
             """return fit counts for source name"""
-            roiname = src_df.ix[name]['roiname']
-            roi=roi_df.ix[roiname]
+            roiname = src_df.loc[name]['roiname']
+            roi=roi_df.loc[roiname]
             names = list(roi['counts']['names'])
             i = names.index(name)
             if i<0: print name, i
@@ -275,38 +292,52 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                 return 0
         self.df['counts'] = [counts(self.df, self.roi_df, name) for  name in self.df.index]
         
-    def non_psr_spectral_plots(self, index_min=1.0, index_max=3.5, beta_max=2.0):
+    def non_psr_spectral_plots(self, index_min=1.0,tsvals=(10,25,250), index_max=3.5,
+            beta_min=-0.1, beta_max=1.0, tail_check=False, selection='modelname=="LogParabola"'):
         """ Plots showing spectral parameters for PowerLaw and LogParabola spectra
-        Left: energy flux in eV/cm**2/s. This is the differential flux at the pivot energy
-        <br> Center: the spectral index.
-        <br> Right: the curvature index for the subset with log parabola fits.
+        From left to right:
+        <br> energy flux in eV/cm**2/s. This is the differential flux at the pivot energy
+        <br> spectral index.
+        <br> curvature index 
+        <br> Pivot energy
         %(tail_check)s
         %(beta_check)s
         """
-        fig, axx = plt.subplots( 1,3, figsize=(12,4))
+        fig, axx = plt.subplots( 1,4, figsize=(16,4))
         plt.subplots_adjust(wspace=0.2, left=0.05,bottom=0.15)
 
-        t = self.df.ix[(self.df.ts>10)&(self.df.modelname=='LogParabola')]['ts flux pindex beta beta_unc freebits e0 roiname'.split()]
+        t = self.df.query(selection)['ts flux pindex beta beta_unc freebits e0 roiname'.split()]
         t['eflux'] = t.flux * t.e0**2 * 1e6
         ax = axx[0]
-        [ax.hist(t.eflux[t.ts>tscut].clip(4e-2,1e2), np.logspace(-2,2,26), label='TS>%d' % tscut) for tscut in [10,25] ]
-        plt.setp(ax, xscale='log', xlabel='energy flux', xlim=(4e-2,1e2)); ax.grid(); ax.legend(prop=dict(size=10))
+        hkw=dict(histtype='step', lw=2)
+        for tscut in tsvals:
+            print 'tscut:', tscut
+            ax.hist(t.eflux[t.ts>tscut].clip(4e-2,20), np.logspace(np.log10(4e-2),np.log10(20),26), 
+                label='TS>%d' % tscut, **hkw) 
+        plt.setp(ax, xscale='log', xlabel='energy flux', xlim=(4e-2,20)); ax.grid(alpha=0.5); 
+        ax.legend(prop=dict(size=10))
         ax = axx[1]
-        [ax.hist(t.pindex[t.ts>tscut].clip(index_min,index_max), np.linspace(index_min,index_max,26), label='TS>%d' % tscut) for tscut in [10,25] ]
-        plt.setp(ax, xlabel='spectral index'); ax.grid(); ax.legend(prop=dict(size=10))
+        [ax.hist(t.pindex[t.ts>tscut].clip(index_min,index_max), np.linspace(index_min,index_max,26),
+                 label='TS>%d' % tscut, **hkw) for tscut in tsvals ]
+        plt.setp(ax, xlabel='spectral index'); ax.grid(alpha=0.5); ax.legend(prop=dict(size=10))
         ax = axx[2]
-        sel=(t.ts>tscut)&(t.beta>0.01)
-        if sum(sel)>0:
-            [ax.hist(t.beta[sel].clip(0,beta_max), np.linspace(0,beta_max,26), label='TS>%d' % tscut) for tscut in [10,25] ]
-            plt.setp(ax, xlabel='beta'); ax.grid(); ax.legend(prop=dict(size=10))
+        [ax.hist(t.beta[t.ts>tscut].clip(beta_min,beta_max), np.linspace(beta_min,beta_max,26),
+            label='TS>%d' % tscut, **hkw) for tscut in tsvals ]
+        # sel=(t.ts>tscut)&(t.beta>0.01)
+        # if sum(sel)>0:
+        plt.setp(ax, xlabel='beta'); ax.grid(alpha=0.5); ax.legend(prop=dict(size=10))
+ 
+        ax = axx[3]
+        [ax.hist(t.e0[t.ts>tscut], np.logspace(2,5,31), label='TS>%d' % tscut, **hkw) for tscut in tsvals ]
+        plt.setp(ax, xlabel='e0 [MeV]', xscale='log'); ax.grid(alpha=0.5);ax.legend(prop=dict(size=10))        
         # get tails
         tail_cut = (t.eflux<5e-2) | ((t.pindex<index_min) | (t.pindex>index_max))& (t.beta==0) | (t.beta>beta_max) | (t.beta<0)
         
-        if sum(tail_cut)>0:
-            tails=t[tail_cut]['ts eflux pindex beta freebits roiname'.split()].sort_index(by='roiname')
+        if sum(tail_cut)>0 and tail_check:
+            tails=t[tail_cut]['ts eflux pindex beta freebits roiname'.split()].sort_values(by='roiname')
             filename = 'non_pulsar_tails.html'
             html_file = self.plotfolder+'/%s' % filename
-            #html = tails.sort_index(by='roiname').to_html(float_format=FloatFormat(2))
+            #html = tails.sort_values(by='roiname').to_html(float_format=FloatFormat(2))
             self.tail_check = html_table(tails, name=self.plotfolder+'/pulsar_tails', 
                 heading='<h4>Table of %d sources on tails</h4>'%len(tails),
                 float_format=FloatFormat(2))
@@ -314,11 +345,11 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             #self.tail_check = '<p><a href="%s?skipDecoration">Table of %d sources on tails</a>: '% (filename, len(tails))
             self.tail_check += 'Criteria: require index between 1 and 3.5 for powerlaw, beta<2.0 for log parabola'
             
-            # flag sources
-            flags = self.df.flags
-            tails = tails.index
-            flags[tails] += 1 ### bit 1
-            print '%d sources flagged (1) in tails of flux, index, or beta' % len(tails)
+        #     # flag sources
+        #     tflags = self.df.flags[tail_cut]+1
+        #     #tails = tails.index
+        #     self.df.loc[tail_cut,'flags'] = t ### bit 1
+        #     print '%d sources flagged (1) in tails of flux, index, or beta' % sum(tail_cut)
         else:
             self.tail_check ='<p>No sources on tails'
 
@@ -334,7 +365,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             
         return fig
         
-    def beta_check(self):
+    def check_beta(self, xmax=25, lpthresh=0.001):
         """Check beta
         
         <p>Compare TS for power-law vs. log parabola
@@ -349,13 +380,18 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             print 'No ts_beta values set'
             self.beta_check_note='<p>No beta analysis was done'
             return
-        LP= df.freebits==7
-        PL = df.freebits==3
+        
+        logp = np.array([model.name=='LogParabola' for model in df.model],bool)
+        PL = logp & (df.beta<lpthresh)
+        LP = logp & (df.beta>lpthresh)
         fig,ax = plt.subplots(figsize=(6,6))
-        xmax=25; dom=np.linspace(0,xmax,26)
+        dom=np.linspace(0,xmax,26)
         args= dict(log=True, histtype='step', lw=2)
         ax.hist(df.ts_beta[PL].clip(0,xmax), dom,  label='PowerLaw', **args)
-        ax.hist(df.ts_beta[LP].clip(0,xmax),dom, color='orange', label='LogParabola', **args)
+        try:
+            ax.hist(df.ts_beta[LP].clip(0,xmax),dom, color='orange', label='LogParabola', **args)
+        except Exception,msg:
+            print 'fail LP: {}'.format(msg)
         plt.setp(ax, xlabel='TS_beta', ylim=(1,None))
         ax.grid(); ax.legend()
         return fig
@@ -371,7 +407,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         fig, axx = plt.subplots( 1,4, figsize=(14,4))
         plt.subplots_adjust(wspace=0.3, left=0.05,bottom=0.15)
         psrmodel = (self.df.ts>10) & (self.df.modelname=='PLSuperExpCutoff')
-        t = self.df.ix[psrmodel]\
+        t = self.df.loc[psrmodel]\
             ['ts flux pindex cutoff e0 index2 index2_unc roiname freebits fitqual'.split()]
         t['eflux'] = t.flux * t.e0**2 * 1e6
         badfit = t.fitqual>30
@@ -418,15 +454,15 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         for f,ax in zip((plot1,plot2,plot3,plot4,), axx.flatten()): f(ax)
         flags = self.df.flags
         tail_cut = (t.pindex<=index_min) | (t.pindex>index_max) | (t.cutoff>cutoff_max)
-        tails = t.ix[tail_cut].index
-        flags[tails] += 1 ### bit 1
+        tails = t.loc[tail_cut].index
+        #flags[tails] += 1 ### bit 1
         print '%d pulsar sources flagged (1) in tails of  index or cutoff' % sum(tail_cut)
         if sum(tail_cut)>0:
             tails=t[tail_cut]['ts eflux pindex cutoff freebits roiname'.split()]
             filename = 'pulsar_tails.html'
             html_file = self.plotfolder+'/%s' % filename
-            #html = tails.sort_index(by='roiname').to_html(float_format=FloatFormat(2))
-            html = html_table(tails.sort_index(by='roiname'), float_format=FloatFormat(2))
+            #html = tails.sort_values(by='roiname').to_html(float_format=FloatFormat(2))
+            html = html_table(tails.sort_values(by='roiname'), float_format=FloatFormat(2))
             open(html_file,'w').write('<head>\n'+ _html.style + '</head>\n<body>'+ html+'\n</body>')
             self.pulsar_tail_check = '<p><a href="%s?skipDecoration">Table of %d sources on tails</a>: '% (filename, len(tails))
             self.pulsar_tail_check += 'Criteria: require index between 0 and 2.5, cutoff<8 GeV'
@@ -444,7 +480,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         print '%d pulsar sources with b<1' %len(tt)
 
         # table of fits with any fixed parame er other than b
-        tt = t[((np.array(t.freebits,int)&7) != 7)]['ts fitqual pindex cutoff freebits roiname'.split()].sort_index(by='roiname')
+        tt = t[((np.array(t.freebits,int)&7) != 7)]['ts fitqual pindex cutoff freebits roiname'.split()].sort_values(by='roiname')
         if len(tt)>0:
             print '%d pulsar-like sources with fixed parameters' %len(tt)
             self.pulsar_fixed= html_table(tt, name=self.plotfolder+'/pulsar_fixed', 
@@ -483,6 +519,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         s = self.df
         psr = np.asarray(s.psr, bool)
         fq = np.array(s.fitqual, float)
+        fq[pd.isnull(fq)]=0
         beta = s.beta
         logparabola = (~psr) & (beta>0.01)
         powerlaw = (~psr) & (beta.isnull() | (beta<0.01) )
@@ -515,7 +552,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             count = sum(mycut)
             if count==0: return
             if legend_flag:
-                labels = [label+' (%d)' %count,label+' [|b|>5] (%d)' %sum(mycut*hilat),r'$\mathsf{\chi^2\ ndf=%d}$'%ndf]
+                labels = [label+' (%d)' %count,label+' [|b|>5] (%d)' %sum(mycut&hilat),r'$\mathsf{\chi^2\ ndf=%d}$'%ndf]
             else:
                 labels = ['all', '|b|>5', '_nolegend_']
                 ax.set_title(label)
@@ -530,13 +567,15 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         
         right(axx[2])
         self.df['badfit2'] =np.array(self.df.badfit.values, bool)
-        t = self.df.ix[(self.df.badfit2) & (self.df.ts>10)].sort_index(by='roiname')
+        t = self.df.loc[(self.df.badfit2) & (self.df.ts>10)].sort_values(by='roiname')
         print '%d sources with bad fits' %len(t)
         if len(t)>0:
             print '%d sources with missing errors' % len(t)
             self.badfit = t[['ts', 'freebits', 'badbits', 'pindex', 'beta', 'e0','roiname']]
             self.badfit_check = html_table(self.badfit, name=self.plotfolder+'/badfits', 
                 heading='<h4>%d Sources with missing errors</h4>' % len(t), float_format=FloatFormat(1))
+            ids = np.array(sorted([int(name[-4:]) for name in set(self.badfit.roiname)]))
+            self.badfit_check +='<p>List of roi numbers: {}'.format(np.array(ids))
         else: self.badfit_check = '<p>All sources fit ok.'
         self.fit_quality_average =  ', '.join( map(lambda x,n :'%s: %.1f' %(n,x) ,
                             self.average, 'powerlaw logparabola expcutoff(hilat) expcutoff(lolat)'.split()) )
@@ -545,7 +584,8 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         if make_table:
             # Make table of the poor fits
             s['pull0'] = np.array([x.pull[0] if x is not None else np.nan for x in s.sedrec ])
-            t =s.ix[((s.fitqual>30) | (np.abs(s.pull0)>3)) & (s.ts>10) ]['ra dec glat fitqual pull0 ts modelname freebits index2 roiname'.split()].sort_index(by='roiname')
+            t =s.loc[((s.fitqual>30) | (np.abs(s.pull0)>3)) & (s.ts>10) ]\
+                ['ra dec glat fitqual pull0 ts modelname freebits index2 roiname'.split()].sort_values(by='roiname')
             if len(t)==0:
                 self.poorfit_table= '<p>No poor fits found'
             else:
@@ -556,7 +596,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                         formatters=dict(ra=FloatFormat(3), dec=FloatFormat(3), ts=FloatFormat(0),index2=FloatFormat(3)))
 
                 # flag sources that made it into the list
-                self.df.flags[t.index] = np.asarray(self.df.flags[t.index],int) | 2
+                self.df.loc[t.index, 'flags'] = np.asarray(self.df.flags[t.index],int) | 2
                 print '%d sources flagged (2) as poor fits' %len(t)
         return fig
       
@@ -585,7 +625,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                                 | (df.e0<201) & (df.pivot_energy>df.e0*1.05)
                                )
         print 'Pivot needs fixing: %d sources' % sum(not_converged)
-        self.pivotfix = tofix=df[not_converged]['ts pivot_energy e0 offset roiname'.split()].sort_index(by='roiname')
+        self.pivotfix = tofix=df[not_converged]['ts pivot_energy e0 offset roiname'.split()].sort_values(by='roiname')
 
         ax.plot(s.e0[cut].clip(*xylim), s.pivot_energy[cut].clip(*xylim), '.')
         plt.setp(ax, xscale='log',xlabel='e0', xlim=xylim, 
@@ -654,32 +694,40 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             plotf(ax)
         return fig
         
-    def spectral_fit_consistency_plots(self, energy=133., minflux=2.0, 
+    def sed_info(self, iband=0):
+        pass
+
+    def spectral_fit_consistency_plots(self, energy=133., minflux=1.0, 
             title = 'low energy fit consistency',
             three_plots=False,
         ):
         """ Spectral fit consistency for the lowest energy bin
         
         These plots show the consistency of the lowest energy band with the spectrum
-        defined by the full fit. <br>
+        defined by the full fit. Require TS>25, energy flux for the bin > 1 eV. Discard cases where 
+        there is only an upper limit for the flux.<br>
         <b>Left</b>: distribution of the "pull" <br>
         <b>Right</b>: position in the sky of sources with |pull]>3 <br>
+        "Low" means |b|<5 deg.
         """
-        hassed = np.array([self.df.ix[i]['sedrec'] is not None for i in range(len(self.df))]) 
+        hassed = np.array([self.df.iloc[i]['sedrec'] is not None for i in range(len(self.df))]) 
         nosed = (self.df.ts>10) & ~ hassed
         if sum(nosed)>0:
             print '+++Warning: %d TS>10 sources without sed info' % sum(nosed)
             print self.df[~hassed]['ts roiname'.split()][:min(20, sum(nosed))]
-        cut= (self.df.ts>25) & hassed
-        s = self.df[self.df.hassed] #[cut]
+        cut= (self.df.ts>10) & hassed
+        s = self.df[cut].copy()
+        print 'selected {} sources with TS>10 and with SED info'.format(len(s))
         
-        fdata = np.array([s.ix[i]['sedrec'].flux[0] for i in range(len(s))])
-        udata = np.array([s.ix[i]['sedrec'].uflux[0] for i in range(len(s))])
-        ldata = np.array([s.ix[i]['sedrec'].lflux[0] for i in range(len(s))])
-        pull = np.array([s.ix[i]['sedrec'].pull[0] for i in range(len(s))])
-        fmodel = np.array([s.ix[i]['model'](energy)*energy**2*1e6 for i in range(len(s))])
+        sedrec= [s.iloc[i]['sedrec'] for i in range(len(s))]
+
+        fdata = np.array([sr.flux[0] for sr in sedrec]);
+        udata = np.array([sr.uflux[0] for sr in sedrec])
+        ldata = np.array([sr.lflux[0] for sr in sedrec])
+        pull = np.array([sr.pull[0] for sr in sedrec])
+        fmodel = np.array([s.iloc[i]['model'](energy)*energy**2*1e6 for i in range(len(s))])
         glat = np.array([x.b() for x in s.skydir])
-        fluxcut = fmodel>minflux
+        fluxcut = (fmodel>minflux) & (ldata>0) # last cut is to avoid lower limits
         latcut  = abs(glat)>5.0
         hilat = fluxcut & (latcut)
         lolat = fluxcut & (~latcut)
@@ -689,8 +737,10 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         #print 'Tagged %d sources with lowebad bit (4)' % sum(lowebad)
 
         lowebad = np.asarray((np.abs(pull)>3) , bool)
-        self.df.flags[lowebad] = np.array(self.df.flags[lowebad],int) | 4
-        print 'Tagged %d sources with lowebad, abs(pull0)>3, bit (4)' % sum(lowebad)
+        s['lowebad']=lowebad
+        s['pull']=pull
+        #self.df.loc[lowebad,'flags'] = np.array(self.df.flags[lowebad],int) | 4
+        #print 'Tagged %d sources with lowebad, abs(pull0)>3, bit (4)' % sum(lowebad)
 
         y = fdata/fmodel
         ylower, yupper =[(fdata-ldata)/fmodel,(udata-fdata)/fmodel]
@@ -710,19 +760,25 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         def hist(ax):
             hist_kw=dict(bins=np.linspace(-3,3,25), lw=2, histtype='step')
             q=pull.clip(-3,3) 
-            
-            ax.hist(q[hilat], color='g',  label='%d hilat sources'%sum(hilat),  **hist_kw)
-            ax.hist(q[lolat], color='r',  label='%d lowlat sources'%sum(lolat), **hist_kw)
+            assert len(q)== len(hilat)#, len(lolat)
+            for name,color, cut in [('high','g', hilat), (' low','r', lolat)]:
+                vals = q[cut]
+                ax.hist(vals, color=color,  label='{:5}{:4d}{:5.1f}{:5.1f}'.format(
+                        name, len(vals), vals.mean(), vals.std()), **hist_kw)
             ax.set_xlabel('pull')
-            ax.axvline(0, color='k')
+            ax.axvline(0, color='k', ls='--')
             ax.set_xlim((-3,3))
             ax.set_title( title, fontsize='medium')
-            ax.legend(loc='upper right', prop=dict(size=10))
+            leg=ax.legend(loc='upper left', title='      type    #  mean std',prop=dict(size=10, family='monospace'))
+            ltit = leg.get_title(); ltit.set_fontsize(10); ltit.set_family('monospace')
             ax.grid()  
 
+
         def skyplot(ax):
-            pdf = pd.DataFrame(dict(pull=pull), index=s.index) # to atatch indx
-            self.skyplot(pdf.pull[lowebad], ax=ax, vmin=-3, vmax=3, title=title, cbtext='pull')
+
+            pdf = s.query('lowebad==True')# to atatch indx
+            self.skyplot(pdf.pull, ax=ax, vmin=-3, vmax=3,
+                cmap=plt.get_cmap('coolwarm'), title=title, cbtext='pull')
 
         if three_plots:
             fig,ax = plt.subplots(1,3, figsize=(12,5))
@@ -736,7 +792,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                 f(ax=ax)
         return fig
         
-    def census(self, primary_prefix='P86Y'): #'P7R4'):
+    def census(self, primary_prefix='P88Y', cols=[0,5,10,25]): #'P7R4'):
         """Census
         
         %(census_html)s
@@ -750,6 +806,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         pointsource = ~extended
 
         def count(prefix, tsmin):
+            if tsmin==0: tsmin=-10 
             if prefix=='ext':
                 return sum(extended & (df.ts>tsmin))
             elif prefix=='total':
@@ -763,7 +820,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         
         census = dict()
         prefixes = sorted(prefixes)
-        for x in (0, 5, 10, 25):
+        for x in cols:
             census[x] = [count(prefix, x) for prefix in prefixes]
         self.census_data=pd.DataFrame(census, index=prefixes)
         self.census_html = '\n<h4>Prefixes</h4>\n'\
@@ -823,7 +880,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             TS : Test Statistic for the signal
             pull : signed square root of the 
         """
-        si = self.df.ix[source_name]['sedrec']
+        si = self.df.loc[source_name]['sedrec']
         pull = np.sign(si.flux-si.mflux) * np.sqrt(si.delta_ts.clip(0,100))
         return pd.DataFrame(dict(flux=si.flux.round(1), TS=si.ts.round(1), lflux=si.lflux.round(1), 
             uflux=si.uflux.round(1), model=si.mflux.round(1), pull=pull.round(1) ),
@@ -839,7 +896,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         i = dists.index(t)
         return self.df.index[i], np.degrees(t)
 
-    def curvature(self, setup=False):
+    def curvature(self, setup=False, cmax=2.5):
         """Curvature
         
         Distribution of the curvature per source, equivalent to the beta parameter for a LogParabola spectral model.
@@ -852,10 +909,10 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         df = self.df
         psr = np.asarray([n.startswith('PSR') for n in df.index], bool)
         fig,ax = plt.subplots(figsize=(8,6))
-        hkw = dict(bins=np.linspace(0,2,41), log=True, histtype='step', lw=2)
-        ax.hist(df.curvature.clip(0,2), label='all sources', **hkw)
-        ax.hist(df[df.psr].curvature.clip(0,2), label='EC model', **hkw)
-        ax.hist(df[psr].curvature.clip(0,2), label='PSR souce', **hkw)
+        hkw = dict(bins=np.linspace(0,cmax,41), log=True, histtype='step', lw=2)
+        ax.hist(df.curvature.clip(0,cmax), label='all sources', **hkw)
+        ax.hist(df[df.psr].curvature.clip(0,cmax), label='EC model', **hkw)
+        ax.hist(df[psr].curvature.clip(0,cmax), label='PSR souce', **hkw)
         plt.setp(ax, xlabel='Curvature', ylim=(0.5,None))
         ax.legend()
         ax.grid()
@@ -863,9 +920,13 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
     
     def roi_check(self):
         """Distance from ROI center
-        The distribution of source positions from the center of the ROI.
+        Number of sources per ROI and distribution of source positions from the center of the ROI.
         %(roi_check_html)s
         """
+        self.df['roinum'] = [int(s[-4:]) for s in self.df.roiname]
+        pnroi = 1728
+        pocc=np.histogram(self.df.roinum,np.linspace(0,pnroi,pnroi) )[0]
+        pocc.min(), pocc.mean(), pocc.max()
         df = self.df
         df['actual_roi'] = map(Band(12).index, df.skydir)
         df['roi'] = map( lambda n:int(n[-4:]), df.roiname)
@@ -873,17 +934,21 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         df['roi_dist'] = map(lambda s,r: np.degrees(s.difference(Band(12).dir(r))),df.skydir,df.roi)
         check = df.roi!=df.actual_roi; 
         print 'Found {} sources in the wrong ROI'.format(sum(check))
-        fig,ax = plt.subplots(figsize=(5,5))
+        fig,axx = plt.subplots(1,2,figsize=(10,4))
+        ax=axx[0]
+        ax.hist(pocc, np.linspace(1,80,80),log=True);
+        ax.set_xlabel('Number of sources')
         hist_kw = dict(bins=np.linspace(0,8,33), histtype ='stepfilled', log=True)
+        ax=axx[1]
         ax.hist(df.roi_dist.clip(0,8), **hist_kw)
         if sum(check)>0:
             ax.hist(df.roi_dist[check].clip(0.8), color='red', label='wrong ROI', **hist_kw)
         ax.grid(True, alpha=0.5);
         ax.legend()
         plt.setp(ax, xlabel='Distance (deg)', ylim=(0.8,None))
-        to_move = df[check]['roi actual_roi ts'.split()].sort_index(by='roi')
+        to_move = df[check]['roi actual_roi ts'.split()].sort_values(by='roi')
         to_move['roi_dist'] = df.roi_dist
-        self.roi_check_html = ''
+        self.roi_check_html = 'Check for sources outside ROI OK.'
         if sum(check)>0:
             self.roi_check_html = html_table(to_move, name=self.plotfolder+'/outside_roi', 
                 heading='<h4>%d Sources that are outside the HEALPix ROI boundary</h4>' %len(to_move),
@@ -897,10 +962,10 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         """
         
         df = self.df
-        ext = df.isextended; sum(ext)
+        ext = df.isextended
 
         cols = 'ra dec ts fitqual pindex roiname'.split()
-        extdf = pd.DataFrame(df[ext][cols]).sort();
+        extdf = pd.DataFrame(df[ext][cols]);
         config = configuration.Configuration('.', quiet=True, postpone=True)
         ecat = extended.ExtendedCatalog(os.path.expandvars('$FERMI/catalog/')+config.extended)
         extdf['spatial_model'] = [ecat[name].dmodel.name for name in extdf.index]
@@ -917,18 +982,21 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         csvfile='sources_%s.csv' % version
         colstosave="""ra dec jname ts modelname  freebits fitqual e0 flux flux_unc pindex pindex_unc index2 index2_unc
                  cutoff cutoff_unc eflux100 eflux100_unc locqual delta_ts a b ang flags roiname""".split()
-        self.df.ix[self.df.ts>10][colstosave].to_csv(csvfile)
+        self.df.loc[(self.df.ts>10) | self.df.psr ][colstosave].to_csv(csvfile)
         print 'saved truncated csv version to "%s"' %csvfile
         
         self.runfigures([self.census, self.cumulative_ts, 
-            self.fit_quality,self.spectral_fit_consistency_plots, self.poor_fit_positions,
+            self.fit_quality,self.spectral_fit_consistency_plots, 
+            #self.poor_fit_positions,
             self.non_psr_spectral_plots, 
             #self.beta_check, 
             self.pulsar_spectra, self.curvature, self.pivot_vs_e0, self.roi_check, self.extended_table, ]
         )
+    
     def associate(self, df, angle_cut = 0.1 , tag_uw=False):
         """Make associations with a another list of source positions
-        df : DataFrame with ra, dec or skydir members
+        df : DataFrame with ra, dec or skydir members 
+            Note: needs to be a copy if a subset of DataFrame
         angle_cut : float value use use to set flag
         tag_uw : bool
             if True, set values in the uw list
@@ -940,18 +1008,21 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             n = t.argmin()
             return (n, (np.degrees(t[n])*3600).round()) #return rounded arcsec dist
         oth_skydir = map(SkyDir, np.array(df.ra,float),np.array(df.dec,float)) if 'skydir' not in df else df.skydir
+        f95, quad = self.config['localization_systematics']
+        print 'Applying factor of {:.2f} to localization errors, and adding {:.3g} arcmin in quadrature to r95'.format(f95, quad)
         dfuw = self.df
         diff_array =differences(oth_skydir, dfuw.skydir)
         cl_oth = np.array([closest(r) for r in diff_array[:,]], int)
         close_cut = 3600*angle_cut
-        dfuw['r95'] = 2.50*(dfuw.a * dfuw.b) ** 0.5
+        dfuw['r95'] = np.sqrt( np.array((2.45*f95)**2 *dfuw.a * dfuw.b + (quad/60)**2,float))
         df['dist'] = cl_oth[:,1]
         df['uw_name'] = [dfuw.index[i] for i in cl_oth[:,0]]
         df['uw_jname'] = [dfuw.jname[i] for i in cl_oth[:,0]]
-        df['uw_ts'] = [dfuw.ix[i].ts for i in cl_oth[:,0]]
-        df['uw_r95'] = [dfuw.ix[i].r95 for i in cl_oth[:,0]]
-        df['uw_pindex'] = [dfuw.ix[i].pindex for i in cl_oth[:,0]]
-        df['uw_roi'] = [int((dfuw.ix[i].roiname)[-4:]) for i in cl_oth[:,0]]
+        df['uw_ts'] = [dfuw.loc[i].ts for i in cl_oth[:,0]]
+        df['uw_r95'] = [dfuw.loc[i].r95 for i in cl_oth[:,0]]
+        df['uw_pindex'] = [dfuw.loc[i].pindex for i in cl_oth[:,0]]
+        df['uw_roi'] = [int((dfuw.loc[i].roiname)[-4:]) for i in cl_oth[:,0]]
+        df['uw_locqual'] = [dfuw.locqual[i] for i in cl_oth[:,0] ]
         df['uwok'] = (df.dist<close_cut)
         if not tag_uw: return
         cl_uw = np.array([closest(c) for c in diff_array[:,].T], int) 
@@ -964,7 +1035,7 @@ class OldName(object):
         self.d = pd.read_csv(filename, index_col=-1)
     def __call__(self, newname):
         if newname not in self.d.index: return None
-        return self.d.ix[newname]['name']
+        return self.d.loc[newname]['name']
         
 class Cat_3fgl(object):
     """get 3FGL info by oldname"""
@@ -972,6 +1043,7 @@ class Cat_3fgl(object):
         if catname[0]!='/':
             catname = os.path.expandvars('$FERMI/catalog/'+catname)
         assert os.path.exists(catname), 'Did not find file %s' %catname
+        print 'Loading 3FGL catalog file {} for comparison'.format(catname)
         self.ft = ft = pyfits.open(catname)[1].data
         def nickfix(n):
             return n if n[:3]!='PSR' else 'PSR '+n[3:]
@@ -984,25 +1056,26 @@ class Cat_3fgl(object):
 
         self.get_oldname= OldName()
         self.cat = pd.DataFrame(dict(name3=ft.Source_Name_3FGL_1, 
-                nickname=map(nickfix, ft.NickName_3FGL), 
-                ra=ft.RAJ2000,dec= ft.DEJ2000, 
+        #        nickname=map(nickfix, ft.NickName_3FGL), 
+                ra=ft.RAJ2000,dec= ft.DEJ2000, glat=ft.GLAT,
                 ts=ft.Test_Statistic, 
+                pindex=ft.PowerLaw_Index,
                 #skydir=cat_skydirs,
                 #glat=glat, glon=glon, 
-                #pivot=ft.Pivot_Energy, flux=ft.Flux_Density, 
+                pivot=ft.Pivot_Energy,# flux=ft.Flux_Density, 
                 #modelname=ft.SpectrumType, 
                 eflux = ft.Energy_Flux100,
                 id_prob=id_prob,
                 a95=ft.Conf_95_SemiMajor, b95=ft.Conf_95_SemiMinor, ang95=ft.Conf_95_PosAng,
                 flags=np.asarray(ft.Flags_3FGL, int),
                 ), 
-            columns = 'name3 nickname ra dec ts eflux a95 b95 ang95 id_prob flags'.split(), # this to order them
+            columns = 'name3 ra dec glat ts pindex pivot eflux a95 b95 ang95 id_prob flags'.split(), # this to order them
             index=self.index_3fgl, )
 
     def __call__(self, newname):
         oldname = self.get_oldname(newname)
         if oldname not in self.index_3fgl: return None
-        return self.cat.ix[oldname]
+        return self.cat.loc[oldname]
 
 class ExtSourceInfo(SourceInfo):
     """ subclass invoked with a specific path

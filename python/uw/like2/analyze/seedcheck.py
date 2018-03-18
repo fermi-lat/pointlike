@@ -1,7 +1,6 @@
-"""
-Analyze seeds
+"""Analyze seeds
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/seedcheck.py,v 1.12 2015/07/24 17:56:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/seedcheck.py,v 1.14 2018/01/27 15:39:29 burnett Exp $
 
 """
 import os
@@ -9,30 +8,127 @@ import numpy as np
 import pylab as plt
 import pandas as pd
 import skymaps
+from uw.like2.pub import healpix_map as hpm
+import healpy
+from astropy.io import fits
 from .. import associate
 from . import sourceinfo, diagnostics, _html
-from .analysis_base import FloatFormat
+from .analysis_base import FloatFormat, html_table
 
 b12index = skymaps.Band(12).index
 
 class SeedCheck(sourceinfo.SourceInfo):
-    """Analysis of a set of seeds
-    <br>
-    <p>This is a second stage after a run that produced a residual TS map. The first pipeline run, "tables", generates nside=512 HEALPix 
-    tables of the residual TS and kde plots. The plot analysis "hptables" that follows it does a cluster analysis, generating a list of
+    """Seed Analysis
+
+    <p>This is a second stage after a run that produced a residual TS map. The first pipeline run, "sourcefinding", 
+    generates nside=512 HEALPix tables of the residual plots for the following spectral templates:
+    <ul type="circle">
+        <li>ts</li>
+        <li>hard</li>
+        <li>soft</li>
+        <li>tsp</li>    
+    </ul>.
+    <p>
+     The plot analysis "hptables" that follows it does a cluster analysis, generating a list of
     seed positions in the file "seeds.txt". A second pipeline run, "seedcheck", for each ROI, adds seeds falling in the central pixel to the model, 
     performing an inital fit to the flux only, then a localization, and finally a full fit. The fit and localization information are 
     written to a set of pickle files in the folder "seedcheck" or the zip file "seedcheck.zip".
     A selection is applied with there cuts: 
-    %(cut_summary)s
+    % %(cut_summary)s
     <br>and the remaining sources are analyzed here.
     """
-    require='seedcheck.zip'
+
     def setup(self, **kw):
-        self.plotfolder = self.seedname='seedcheck'
-        self.spectral_type='power law'
-        self.load()
+        self.keys=keys = ['ts', 'tsp', 'hard', 'soft'] #keys =stagedict.stagenames['sourcefinding']['pars']['table_keys']
+
+        tt = fits.open('hptables_{}_512.fits'.format('_'.join(keys)))
+        self.tables = tt[1].data;
+        super(SeedCheck, self).setup(**kw) 
+        self.plotfolder ='seedcheck'
+        #self.load()
         
+    def tsmaps(self):
+        """TS maps for the four spectral templates
+
+        Each has 12*512**2 = 3.2M pixels. The following table has the number of pixels above the TS value labeling the column.
+        %(tsmap_info)s
+        """
+        z = dict(); cuts = (10,16,25)
+        keys=self.keys
+        for key in keys:
+            z[key]= [np.sum(self.tables[key]>x) for x in cuts]
+        df=pd.DataFrame(z, index=cuts).T 
+        self.tsmap_info= html_table(df, href=False, )
+
+        fig, axx = plt.subplots(2,2, figsize=(15,15))
+        plt.subplots_adjust(hspace=-0.4,wspace=0.05)
+        for ax,key in zip(axx.flatten(), keys):
+            plt.sca(ax)
+            healpy.mollview(self.tables[key],hold=True, min=10, max=25, title=key, cbar=True)
+        return fig
+
+    def pixel_ts_distribution(self, tsmax=25):
+        """The cumulative TS distribution
+        For single pixels, one might expect the chi-squared distribution for the null hypothesis if 
+        there were no resolvable sources, and the background model was correct.
+        The shaded area is the difference.
+        """
+        def plot_one(seed_key, ax):
+            bins = np.linspace(0,tsmax,501)
+            tsvec=self.tables[seed_key]
+            ax.hist(tsvec, bins, log=True, histtype='step', lw=2, cumulative=-1, label='data');
+            # make array corresponding to the hist
+            h = np.histogram(tsvec, bins, )[0]
+            x = bins[:-1]
+            yh = sum(h)-h.cumsum() 
+            f = lambda x: np.exp(-x/2)
+            ye=6e5*f(x)
+            ax.plot(x, ye, '-g', lw=2, label='exp(-TS/2)')
+            ax.fill_between(x,yh,ye,where=x>5, facecolor='red', alpha=0.6)
+            plt.setp(ax, xscale='linear', xlabel='TS', ylim=(1,None), ylabel='# greater than TS')
+            ax.legend()
+            ax.set_title('seed type {}'.format(seed_key), fontsize=14)
+            ax.grid(True, alpha=0.5)
+
+        fig, axx = plt.subplots(2,2, figsize=(12,12))
+        for key,ax in zip(self.keys, axx.flatten()):
+            plot_one(key, ax)
+        fig.suptitle('Cumulative distribution of single-pixel TS values');        
+        fig.set_facecolor('white')
+        return fig
+
+
+
+    def seed_plots(self, bcut=5, subset=None, title=None):
+        """ Seed plots
+        
+        Results of cluster analysis of the residual TS distribution. Analysis of %(n_seeds)d seeds from file 
+        <a href="../../%(seedfile)s">%(seedfile)s</a>. 
+        <br>Left: size of cluster, in 0.15 degree pixels
+        <br>Center: maximum TS in the cluster
+        <br>Right: distribution in sin(|b|), showing cut if any.
+        """
+        z = self.seeds if subset is None else self.seeds[subset]
+        fig,axx= plt.subplots(1,3, figsize=(12,4))
+        plt.subplots_adjust(left=0.1)
+        bc = np.abs(z.b)<bcut
+        histkw=dict(histtype='step', lw=2)
+        def all_plot(ax, q, dom, label):
+            ax.hist(q.clip(dom[0],dom[-1]),dom, **histkw)
+            ax.hist(q[bc].values.clip(dom[0],dom[-1]),dom, color='orange', label='|b|<%d'%bcut, **histkw)
+            plt.setp(ax, xlabel=label, xlim=(None,dom[-1]))
+            ax.grid()
+            ax.legend(prop=dict(size=10))
+        all_plot(axx[0], z['size'], np.linspace(0.5,10.5,11), 'cluster size')
+        all_plot(axx[1], z.ts, np.linspace(0,50,26), 'TS')
+        all_plot(axx[2], np.sin(np.radians(z.b)), np.linspace(-1,1,41), 'sin(b)')
+        axx[2].axvline(0, color='k')
+        fig.suptitle('{} {} seeds from model {}'.format( len(z), self.tsname, self.input_model,)
+             if title is None else title)
+        fig.set_facecolor('white')
+        return fig
+
+
     def load(self):
         files, sources = self.load_pickles(self.seedname)
         sdict={}
@@ -296,4 +392,9 @@ class SeedCheck(sourceinfo.SourceInfo):
             self.info += '<p>No associations found'
 
     def all_plots(self):
-        self.runfigures([self.seed_list, self.seed_cumulative_ts, self.locations, self.spectral_parameters, self.localization,])
+        self.runfigures(
+            [
+                self.tsmaps,
+                self.pixel_ts_distribution,
+                #self.seed_list, self.seed_cumulative_ts, self.locations, self.spectral_parameters, self.localization,
+            ])

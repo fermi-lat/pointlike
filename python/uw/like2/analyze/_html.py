@@ -1,6 +1,6 @@
 """
 Manage the Web page generation
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/_html.py,v 1.19 2015/07/24 17:56:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/_html.py,v 1.20 2015/08/16 01:11:36 burnett Exp $
 """
 import os, glob, re
 import pandas as pd

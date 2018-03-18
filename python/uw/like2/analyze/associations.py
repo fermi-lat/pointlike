@@ -1,7 +1,7 @@
 """
 Association analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.22 2016/03/21 18:54:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.25 2018/01/27 15:39:29 burnett Exp $
 
 """
 import os, glob, sys, warnings
@@ -23,7 +23,7 @@ class Associations(sourceinfo.SourceInfo):
     were used for 2FGL, except that the latest LAT pulsar catalog is used. Note that priors are not recalculated,
     we use the values determined for 2FGL. The method is explained in the <a href="http://arxiv.org/pdf/1002.2280v1.pdf">1FGL paper</a>, see Appendix B.
     <p>
-    <p>Note that Jurgen's pipeline now has the Planck and WISE catalogs.
+    <p>Note that the current pipeline has the Planck and WISE catalogs.
     """
     
     def setup(self, **kw):
@@ -48,7 +48,7 @@ class Associations(sourceinfo.SourceInfo):
         else: 
             if not self.quiet:
                 print 'using associations found in sourceinfo'
-            df = self.df
+            df = self.df.copy()
         associations = df.associations if fromdf is None else self.df.altassoc
         probfun = lambda x: x['prob'][0] if not pd.isnull(x) else 0
         
@@ -61,7 +61,7 @@ class Associations(sourceinfo.SourceInfo):
         total=len(df)
         self.indf=df
         self.df = df[(df.aprob>minprob) | (df.psr)]
-        self.df10 = self.df.ix[self.df.ts>10]
+        self.df10 = self.df.loc[self.df.ts>10]
         if not self.quiet:
             print 'associated: %d/%d' % (sum(self.df10.aprob>0.8), total)
         
@@ -266,7 +266,7 @@ class Associations(sourceinfo.SourceInfo):
         print 'sources with exp cutoff not in LAT catalog:', np.asarray(list(tt.difference(dc2names)))
         print 'Catalog entries not found:', list(dc2names.difference(tt))
         missing = np.array([ np.isnan(x) or x<10. for x in lat.ts])
-        missing |= np.array(lat.aprob==0)
+        missing |= np.array((lat.aprob==0) & (lat.ts<1000) )
         
         # this used to work but now generates 'endian' message
         #latsel = lat[missing]['RAJ2000 DEJ2000 ts ROI_index'.split()]
@@ -304,16 +304,16 @@ class Associations(sourceinfo.SourceInfo):
                 ff = sorted(glob.glob(os.path.expandvars('$FERMI/catalog/srcid/cat/Pulsars_BigFile_*.fits')))
                 t= pyfits.open(ff[-1])
                 self.d = pd.DataFrame(t[1].data)
-                
+                self.names=[t.strip() for t in self.d.NAME.values]
+
             def __call__(self, name):
                 """Find the entry with given name"""
-                b = np.array(self.d.NAME==name)
-                if sum(b)==0:
+                try:
+                    i = self.names.index(name)
+                except ValueError:
                     print 'Data for source %s not found' %name
                     return None
-                i = np.arange(len(b))[b][0]
-                return self.d.ix[i]
-
+                return self.d.iloc[i]
         
         psrx = np.array([x=='pulsar_big' for x in self.df.acat],bool)
         print '%d sources found in BigFile pulsar catalog' % sum(psrx)
@@ -393,8 +393,8 @@ class Associations(sourceinfo.SourceInfo):
                 z = FitExponential(cut, name);
             except:
                 z = None
-            print '{:12} {:10} {:6.0f} {:6.2f}'.format(name,
-                     rcut, len(z.vcut), z.factor if z is not None else 99)
+            print '{:12} {:3}{:3}  {:6.0f} {:6.2f}'.format(name,
+                     rcut[0],rcut[1], len(z.vcut), z.factor if z is not None else 99)
             zz.append(z)
             
  

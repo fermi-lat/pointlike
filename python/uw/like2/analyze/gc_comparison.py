@@ -1,6 +1,6 @@
 """
 Comparison of a UW model with a GC analysis
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gc_comparison.py,v 1.1 2016/10/28 20:48:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/gc_comparison.py,v 1.3 2017/11/17 22:43:17 burnett Exp $
 
 """
 

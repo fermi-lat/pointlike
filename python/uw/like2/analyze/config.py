@@ -1,7 +1,7 @@
 """
 Configuration information
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/config.py,v 1.4 2013/08/03 19:39:48 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/config.py,v 1.5 2015/07/24 17:56:02 burnett Exp $
 
 """
 

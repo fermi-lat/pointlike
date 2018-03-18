@@ -1,7 +1,7 @@
 """
 Plots involving the 1728 ROIs
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/roi_info.py,v 1.10 2014/09/07 08:48:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/roi_info.py,v 1.12 2018/01/27 15:39:29 burnett Exp $
 
 """
 
@@ -9,7 +9,7 @@ import os, pickle
 import numpy as np
 import pylab as plt
 import pandas as pd
-from skymaps import SkyDir
+from skymaps import SkyDir, Band
 
 from . import analysis_base #diagnostics
 
@@ -35,16 +35,17 @@ class ROIinfo(analysis_base.AnalysisBase):
             assert len(files)==1728, 'Expected to find 1728 files, found %d' % len(files)
             rdict= dict()
             exclude = ('sources', 'name')
-            for pkl in pkls:
+            for i,pkl in enumerate(pkls):
+                skydir = Band(12).dir(i)
                 tdict =dict((key,item) for key,item in pkl.items() if key not in exclude )
                 tdict.update(sources = pkl['sources'].keys())
-                glon = pkl['skydir'].l() 
+                glon = skydir.l() 
                 if glon>180: glon-=360.
-                glat = pkl['skydir'].b(); 
-                ra = pkl['skydir'].ra()
-                dec= pkl['skydir'].dec()
+                glat = skydir.b(); 
+                ra = skydir.ra()
+                dec= skydir.dec()
                 tdict.update(glon = glon, glat=glat, ra=ra, dec=dec )
-                rdict[pkl['name']] = tdict
+                rdict[i] = tdict
             self.df = pd.DataFrame(rdict).transpose()
             self.df.to_pickle(filename)
             print 'saved %s' % filename
@@ -53,7 +54,7 @@ class ROIinfo(analysis_base.AnalysisBase):
             self.df = pd.read_pickle(filename)
         # move this into refresh?
         rois = self.df
-        rx = rois['ra dec glat glon'.split()] 
+        rx = rois['ra dec glat glon'.split()].copy() 
         try:
             rx['chisq'] = [r['chisq'] for r in rois['counts']]
         except:
@@ -61,7 +62,7 @@ class ROIinfo(analysis_base.AnalysisBase):
             return
         rx['npar'] = [len(p) for p in rois.parameters]
         rx.index.name='name'
-        ###
+        ### ??
         #rx['ring'] = [10**p[0] for p in rois.parameters]
         #rx['iso']  = [10**p[1] for p in rois.parameters]
         rx.to_csv('rois.csv')
