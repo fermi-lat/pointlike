@@ -1,7 +1,7 @@
 """
 setup and run pointlike all-sky analysis for subset of ROIs
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.20 2016/03/21 18:55:31 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipeline_job.py,v 1.21 2016/10/28 21:11:15 burnett Exp $
 """
 import os, sys, logging, time, random
 from collections import OrderedDict
@@ -34,6 +34,17 @@ def main( factory=None, **args):
         globals()[key]=value
         print '\t%-20s: %s' % (key, value)
     np.seterr(invalid='warn', divide='warn')
+
+    #### Check to see it abort flag is set
+    ####
+    try:
+        stream = PIPELINE_STREAMPATH.split('.')[0]
+        if os.path.exists(stream):
+            print '**** Found abort file for stream {}: stoping execution!'.format(stream)
+            sys.stdout.flush()
+            return -1
+    except Exception, msg:
+        print 'Failed to get stream: {}: continuing'.format(msg)
     
     # parse the list of ROIs: either a range or comma-delimited list of integers in range 0-1727
     t = roi_list.split('-')
@@ -45,7 +56,7 @@ def main( factory=None, **args):
         roi_list = map(int, u)
     first_roi, last_roi = roi_list[0], roi_list[-1]
     assert set(roi_list).issubset(range(1728)), 'ROI indeces, "%s", not in range 0-1727' % roi_list
-    
+   
 
     skymodeldir =SKYMODEL_SUBDIR #.replace('/a/wain025/g.glast.u55/','/afs/slac/g/glast/groups/') 
         
@@ -94,22 +105,8 @@ def main( factory=None, **args):
     for s in roi_list[roi_list.index(first_roi):] :
         logging.info('Start roi %d' % s )
         g(s)
-        #try:
-        #    g(s)
-        #except Exception, msg:
-        #    print '***Exception raised for roi %d, "%s'  %(s,msg)
-        #    print 'retrying once'
-        #    try:
-        #        g(s)
-        #    except Exception, msg:
-        #        print '***Exception raised for roi %d, "%s'  %(s,msg)
-        #    
-        #        with open('failed_rois.txt', 'a+') as bad:
-        #            bad.write('%d\n' %s)
         tprev, tnow= tnow, logging.time.time()
         logging.info('Finish: elapsed= %.1f (total %.1f)' % ( tnow-tprev, tnow-tzero ))
-        print 'Elapsed time: %.1f' % (tnow-tprev)
+        print 'Elapsed time for ROI {}: {:.1f}'.format(s, tnow-tprev)
         sys.stdout.flush()
-
-#if __name__=='__main__':
-#    main()
+    print '\n####################\nTotal elapsed time: {:.1f}'.format(tnow -tzero); sys.stdout.flush()

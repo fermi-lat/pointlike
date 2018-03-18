@@ -27,6 +27,7 @@ stagenames = dict(
     create      =  StageBatchJob( dict(update_positions_flag=True),     sum='environment menu counts',  help='Create a new skymodel, follow with update_full',),
     update_full =  StageBatchJob( dict(),     sum='config counts',            help='refit, full update' ),
     update      =  StageBatchJob( dict( dampen=0.5,), sum='config counts',    help='refit, half update' ),
+    update_zero =  StageBatchJob( dict( dampen=0.0,), sum='config counts sourceinfo',    help='no fit, keep parameters static' ),
     betafix_only=  StageBatchJob( dict( betafix_flag=True),  sum='counts sourceinfo',help='check beta', ),
     betafix     =  StageBatchJob( dict( betafix_flag=True),  sum='counts sourceinfo',help='check beta', ),
     update_pivot=  StageBatchJob( dict( repivot_flag=True),  sum='counts sourceinfo',help='update pivot', ), 
@@ -81,7 +82,12 @@ stagenames = dict(
 
     sourcefinding=StageBatchJob( dict(table_keys='ts tsp hard soft'.split(), dampen=0),  job_list='$POINTLIKE_DIR/infrastructure/joblist8.txt', 
                     sum='ts_tables',help='Create TS maps for all templates'),
-    modelcounts12=  StageBatchJob( dict(model_counts=[12,13,]),  help='model counts from 12'),
+    modelcounts1=  StageBatchJob( dict(model_counts=range(16)),  help='model counts 0-15'),
+    modelcounts2=  StageBatchJob( dict(model_counts=range(16,18)),  help='model counts 16,17'),
+    modelcounts3=  StageBatchJob( dict(model_counts=range(18,20)),  help='model counts 18,19'),
+    modelcounts4=  StageBatchJob( dict(model_counts=range(20,24)),  help='model counts 20-23'),
+    modelcounts5=  StageBatchJob( dict(model_counts=range(24,28)),  help='model counts 24-27'),
+    gllcompare =   StageBatchJob( dict(special_flag=True), sum='gtlikecomparison', help='gtlike comparison'),
 )
 keys = stagenames.keys()
 help = '\nstage name, or sequential stages separated by "y:" names are\n\t' \

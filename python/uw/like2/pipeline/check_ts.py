@@ -1,6 +1,6 @@
 """
 Check the residual TS maps for clusters
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_ts.py,v 1.12 2017/08/23 16:23:44 zimmer Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/check_ts.py,v 1.14 2018/01/27 15:38:26 burnett Exp $
 
 """
 
@@ -161,7 +161,7 @@ def make_seeds(tsdata,  filename, fieldname='ts', nside=512 ,rcut=10, bcut=0,
     # make list of indices of pixels with ts and b above thresholds
     indices  = tsdata.indices(rcut,bcut,mask)
     if len(indices)>max_pixels:
-        print 'Too many pixels, %d>%d, to cluster' % (len(indices), max_pixels)
+        print 'Too many pixels above TS>{}, {}>{}, to cluster'.format(rcut, len(indices), max_pixels)
         return 0
         
     # create list of the clustered results: each a list of the pixel indeces    
