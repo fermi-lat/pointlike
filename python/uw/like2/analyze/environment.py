@@ -232,8 +232,7 @@ the second when there is small background, above a few GeV.
         return fig
     
     def get_background(self, roi):
-        roiname='HP12_%04d' % roi
-        return [t.ix[roiname] for t in self.bdf]
+        return [t.iloc[roi] for t in self.bdf]
     
     def diffuse_flux(self, rois=[0,888]):
         """Diffuse flux
@@ -307,18 +306,23 @@ the second when there is small background, above a few GeV.
         return fig
 
     class GalacticCorrection():
-        def __init__(self, residual):
-            self.x = response.DiffuseCorrection(residual.config.diffuse['ring']['correction'])
-            self.title = 'Galactic correction'
+        def __init__(self, env):
+            galdict = env.config.diffuse['ring']
+            if galdict.get('key', None)=='gal':
+                self.x = np.array([r['gal'] for r in env.df.diffuse_normalization])
+                self.title = 'Galactic correction from {}'.format(env.skymodel)
+            else:
+                self.x = response.DiffuseCorrection(galdict['correction']).correction.iloc
+                self.title = 'Galactic correction from {}'.format(galdict['correction'])
             self.cblabel='corection factor'
             self.vmin=0.9; self.vmax=1.1
             
         def __call__(self, energy_index,):
-            return self.x[energy_index]
+            return self.x[:,energy_index]
+
 
     def galactic_correction(self):
         """Galactic correction factor
-        From file %(galfile)s
         """
         return self.cartesian_map_array(self.GalacticCorrection(self),vmin=0.5,vmax=1.5)
     
