@@ -292,7 +292,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                 return 0
         self.df['counts'] = [counts(self.df, self.roi_df, name) for  name in self.df.index]
         
-    def non_psr_spectral_plots(self, index_min=1.0,tsvals=(10,25,250), index_max=3.5,
+    def non_psr_spectral_plots(self, index_min=1.0,tsvals=(10,16,25,250), index_max=3.5,
             beta_min=-0.1, beta_max=1.0, tail_check=False, selection='modelname=="LogParabola"'):
         """ Plots showing spectral parameters for PowerLaw and LogParabola spectra
         From left to right:
@@ -480,13 +480,13 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         print '%d pulsar sources with b<1' %len(tt)
 
         # table of fits with any fixed parame er other than b
-        tt = t[((np.array(t.freebits,int)&7) != 7)]['ts fitqual pindex cutoff freebits roiname'.split()].sort_values(by='roiname')
-        if len(tt)>0:
-            print '%d pulsar-like sources with fixed parameters' %len(tt)
-            self.pulsar_fixed= html_table(tt, name=self.plotfolder+'/pulsar_fixed', 
-                heading='<h4>%d pulsar-like sources with fixed parameters</h4>' %len(tt),
-                float_format=FloatFormat(2))
-        else: self.pulsar_fixed=''
+        # tt = t[((np.array(t.freebits,int)&7) != 7)]['ts fitqual pindex cutoff freebits roiname'.split()].sort_values(by='roiname')
+        # if len(tt)>0:
+        #     print '%d pulsar-like sources with fixed parameters' %len(tt)
+        #     self.pulsar_fixed= html_table(tt, name=self.plotfolder+'/pulsar_fixed', 
+        #         heading='<h4>%d pulsar-like sources with fixed parameters</h4>' %len(tt),
+        #         float_format=FloatFormat(2))
+        # else: self.pulsar_fixed=''
         return fig
     
     def ecliptic_hist(self, ax=None, title=''):
@@ -792,7 +792,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                 f(ax=ax)
         return fig
         
-    def census(self, primary_prefix='P88Y', cols=[0,5,10,25]): #'P7R4'):
+    def census(self, primary_prefix='P88Y', cols=[0,5,10,16,25]): #'P7R4'):
         """Census
         
         %(census_html)s
@@ -846,7 +846,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         else:
             self.suffix_html = '\n<p>No suffixes found'
 
-    def flag_proc(self):
+    def flag_proc(self, make_pivot=False):
         """ Flagged source summary:
         %(flagged_link)s
         """
@@ -862,6 +862,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         <p>A number of these sources have been flagged to indicate potential issues with the spectral fit. 
         The flag bits and number flagged as such are:
         %s<br>  """ % html_table(flagtable, href=False)
+        if not make_pivot: return None
         try:
             pc =makepivot.MakeCollection('flagged sources %s' % os.path.split(os.getcwd())[-1], 'sedfig', 'flagged_sources.csv')
             self.flagged_link += """\
