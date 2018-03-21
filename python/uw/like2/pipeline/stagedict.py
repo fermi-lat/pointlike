@@ -75,10 +75,10 @@ stagenames = dict(
     special     =  StageBatchJob( dict(special_flag=True), sum='counts', help='Special processing, then updates'),
     special_only=  StageBatchJob( dict(special_flag=True), sum='counts', help='Special processing only'),
     fitisotropic=  StageBatchJob( dict(diffuse_key='iso'), sum='diffuse_fits',  help='special diffuse fits'),
-    fitgalactic =  StageBatchJob( dict(diffuse_key='gal'), sum='diffuse_fits',  help='special diffuse fits'),
+    update_galactic =  StageBatchJob( dict(diffuse_key='gal'), sum='counts',  help='special diffuse fits'),
     tables_mspsens =StageBatchJob( dict(table_keys=['mspsens'], dampen=0, tables_nside=256),
          job_list='$POINTLIKE_DIR/infrastructure/joblist8.txt', help='Create MSP sensitivity map'), 
-    postfitgalactic =  StageBatchJob( dict(diffuse_key='post_gal'), sum='counts diffuse_fits',  help='update then gal diffuse fit'),
+    postfitgalactic =  StageBatchJob( dict(diffuse_key='post_gal'), sum='counts',  help='update then gal diffuse fit'),
 
     sourcefinding=StageBatchJob( dict(table_keys='ts tsp hard soft'.split(), dampen=0),  job_list='$POINTLIKE_DIR/infrastructure/joblist8.txt', 
                     sum='ts_tables',help='Create TS maps for all templates'),
