@@ -244,7 +244,7 @@ class CountPlots(analysis_base.AnalysisBase):
         return fig
         
     def chisq_plots(self, use10=True, unweight=False, hsize=(1.0, 0.7, 1.5, 0.7), 
-            vmin=0, vmax=50, bcut=10, grid_flag=True, makecollection=True):
+            vmin=0, vmax=50, bcut=10, grid_flag=True, makecollection=False):
         """ chi squared plots
         chi squared distribution
         <p>Only for bins below 10 GeV.
