@@ -1,7 +1,6 @@
 """
-Residual plots
+Diffuse fitting analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/diffuse_fits.py,v 1.2 2018/01/27 15:39:29 burnett Exp $
 """
 
 import os, glob, pickle
@@ -28,8 +27,12 @@ class DiffuseFits(roi_info.ROIinfo):
         <pre>%(logstream)s</pre>
         """
         self.galfits=self.isofits=None
-        self.galfile = self.config.diffuse['ring']['filename'].split('/')[-1]
-        self.galcorr = self.config.diffuse['ring']['correction']
+        galdict = self.config.diffuse['ring'] 
+        self.galfile = galdict['filename'].split('/')[-1]
+        if galdict.get('key', None) == 'gal':
+            self.galcorr = None
+        else:
+            self.galcorr =galdict['correction']
         # Find streams 
         model = '/'.join(os.getcwd().split('/')[-2:])
         streamdf= pd.DataFrame(stream.StreamInfo(model)).T
