@@ -1,8 +1,6 @@
 """
 Association analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.25 2018/01/27 15:39:29 burnett Exp $
-
 """
 import os, glob, sys, warnings
 import numpy as np
@@ -170,7 +168,7 @@ class Associations(sourceinfo.SourceInfo):
                  
     def bzcat_study(self, tsmax=10000, title='Integral TS distribution bzcat associations'):
         """BZCAT associations
-        
+        Study the AGN associations with a BZCAT entry.
         %(bzcat_html)s
         """
         df = self.df
@@ -196,32 +194,39 @@ class Associations(sourceinfo.SourceInfo):
                             deltats=a['deltats'][j],
                             locqual=dfagn.locqual[i],
                             ang=a['ang'][j],
+                            pindex=dfagn.pindex[i],
                             )
         print 'bzdict length:', len(bzdict)
-        bzdf = pd.DataFrame(bzdict).T        
+        self.bzdf = bzdf = pd.DataFrame(bzdict).T        
         t=np.asarray(test)
         u =[sum(t==k) for k in range(-1,4)] ; print u
         self.bzcat_html= '<p>There is a BZCAT association in all but %d out of %d AGN associations' % (u[0], sum(u))
         bzdf['type'] = [n[3] for n in bzdf.index]
+        type_names=dict(B='BL Lac', G='Radio Galaxy', U='Unknown', Q='FSRQ')        
+        
+        # make a table of Blazar types, with and without TS cut
         types=set(bzdf.type)
-        tc = [sum(bzdf.type==type) for type in types]
-        rows=[tc]
-        type_names=dict(B='BL Lac', G='Radio Galaxy', U='Unknown', Q='FSRQ')
-        dfT=pd.DataFrame(rows, index=['all'], columns=[type_names[n] for n in types])
+        tc_all = [sum(bzdf.type==type) for type in types]
+        tc_25  = [sum((bzdf.type==type) & (bzdf.ts>25)) for type in types]
+        rows=[tc_25, tc_all]
+        dfT=pd.DataFrame(rows, index=['TS>25','all'], columns=[type_names[n] for n in types])
         dfT['total'] = [sum(x) for x in rows]
-        df=dfT.T
-        self.bzcat_html += '<p>Frequencies by Blazar type: {}'.format(df.to_html())
 
-        # make an integral logTS plot 
-        fig, ax = plt.subplots(figsize=(8,5))
+        self.bzcat_html += '<p>Frequencies by Blazar type: {}'.format(dfT.to_html())
+        
         if len(bzdict)==0:
             print 'No BZCAT associations found'
             self.bzcat_html += '<p>No BZCAT associations: quitting'
             return fig
-        
+
+        fig, axx = plt.subplots(1,2, figsize=(16,5))
+         
         hist_args=dict(bins=np.logspace(1,np.log10(tsmax),501),
             cumulative=-1, lw=2, histtype='step', log=True)
         #ax.hist(bzdf.ts,  label='all', **hist_args );
+
+        # make an integral logTS plot 
+        ax = axx[0]
         for type,label in zip('QBG', ['FSRQ', 'BL Lac', 'Galaxy']):
             sel = bzdf.type==type
             if sum(sel)>0:
@@ -235,6 +240,14 @@ class Associations(sourceinfo.SourceInfo):
         leg =ax.legend()
         for patch in leg.get_patches():
             pbox = patch; pbox._height=0; pbox._y=5
+
+        # check photon index distribution
+        ax = axx[1]
+        gt = self.bzdf.groupby('type')
+        for name, group in gt:
+            ax.hist(group.pindex, np.linspace(1.0, 3.5, 31), histtype='step', lw=2, label=type_names[name])
+        ax.legend();
+        ax.set(title='Photon index by AGN type', xlabel='Photon spectral index');
 
         # save a summary file
         print 'Writing bzcat summary to %s ' %(self.plotfolder+'/bzcat_summary.csv')
