@@ -8,6 +8,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/binned_data.py,v 
 
 """
 import os, glob, StringIO
+import healpy
 from collections import Counter 
 import numpy as np
 from astropy.io import fits
@@ -316,3 +317,95 @@ class BinFile(object):
         """
         return sum(self.pixels.cnt)    
        
+
+class ConvertFT1(object):
+    def __init__(self, ft1_file, theta_cut=66.4, z_cut=100):
+        self.ft1_hdus=ft1 = fits.open(ft1_file);
+        self.theta_cut=theta_cut
+        self.z_cut = z_cut
+
+        # extract arrays for values of interest
+        data =ft1['EVENTS'].data
+        self.glon, self.glat, self.energy, self.et, self.z, self.theta =\
+             [data[x] for x in 'L B ENERGY EVENT_TYPE ZENITH_ANGLE THETA'.split()]
+        self.front = np.array([x[-1] for x in self.et],bool) # et is arrray of array of bool, last one true if Front
+        self.data_cut = np.logical_and(self.theta<theta_cut, self.z<z_cut)
+        print 'Removed by cuts: {:.2f} %'.format(100.- 100*sum(self.data_cut)/float(len(data)));
+
+        # 4 bins/decade from 100 MeV to 1 GeV
+        self.energies = np.logspace(2,6,17)
+ 
+        # define nside values
+        nside_array = np.ones(32,int) * 1024
+        nside_array[:10] = 64,64, 128,64 ,256,128, 256,256, 512,512
+
+        # DataFrame with component values for energy and event type, nside
+        t = {}
+        for ie in range(len(self.energies)-1):
+            for et in range(2):
+                i = 2*ie+et
+                t[i]= dict(ie=ie, event_type=et, nside=nside_array[i])
+        self.df = pd.DataFrame(t).T
+
+    def cuthist(self):
+        import matplotlib.pyplot  as plt
+        # plot effect of cuts on theta and zenith angle
+        fig, axx = plt.subplots(1,2, figsize=(12,5))
+        ax = axx[0]
+        ax.hist(self.theta, np.linspace(0,90,46));
+        ax.axvline(self.theta_cut, color='red');
+        ax.set(xlabel='theta')
+        ax = axx[1]
+        ax.hist(self.z, np.linspace(0,120,61));
+        ax.axvline(self.z_cut, color='red');
+        ax.set(xlabel='zenith angle')
+
+    def binner(self):
+        # digitize energy: 0 is first bin above 100 MeV, -1 the underflow.
+        eindex = np.digitize(self.energy, self.energies)-1
+        self.pix=[]; self.chn=[];  self.cnt=[]
+
+        print ' ie  et  nside  photons     bins'
+        for i,band in self.df.iterrows():
+            print '{:3} {:3} {:6}'.format( band.ie, band.event_type, band.nside), 
+            esel = np.logical_and(eindex==band.ie, self.data_cut)
+            sel = np.logical_and(esel, self.front if band.event_type==0 else np.logical_not(self.front))
+            glon_sel = self.glon[sel]
+            glat_sel = self.glat[sel]
+            hpindex = healpy.ang2pix(int(band.nside), glon_sel, glat_sel, nest=False, lonlat=True)
+            a,b = np.array(np.unique(hpindex, return_counts=True))
+            self.pix+=list(a)
+            self.cnt+=list(b)
+            self.chn+=[i]*len(a)
+            print '{:8} {:8}'.format(sum(sel), len(a))
+
+    def create_fits(self, outfile='test.fits', clobber=True):
+        elow, ehigh = self.energies[:-1], self.energies[1:]
+        e_min = np.array([elow[i] for i in self.df.ie])
+        e_max = np.array([ehigh[i] for i in self.df.ie])
+
+        band_cols = [
+            fits.Column(name='NSIDE', format='J', array=self.df.nside),
+            fits.Column(name='E_MIN', format='D', array=e_min*1e-3, unit='keV'),
+            fits.Column(name='E_MAX', format='D', array=e_max*1e-3, unit='keV'),
+            fits.Column(name='EVENT_TYPE', format='J', array=self.df.event_type),
+        ]
+        bands_hdu=fits.BinTableHDU.from_columns(band_cols, name='BANDS')
+
+        skymap_cols = [
+            fits.Column(name='PIX', format='J',    array=self.pix),
+            fits.Column(name='CHANNEL', format='I',array=self.chn),
+            fits.Column(name='VALUE', format='J',  array=self.cnt),
+        ]
+        skymap_hdu=fits.BinTableHDU.from_columns(skymap_cols, name='SKYMAP')
+        skymap_hdu.header.update(
+            PIXTYPE='HEALPIX',
+            INDXSCHM='SPARSE',
+            ORDERING='RING',
+            COORDSYS='GAL',
+            BANDSHDU='BANDS',
+            AXCOLS='E_MIN,E_MAX',
+                    )
+        # add the GTI from the FT1 file and write it out
+        hdus = [self.ft1_hdus[0],  skymap_hdu, bands_hdu, self.ft1_hdus['GTI']]
+        fits.HDUList(hdus).writeto(outfile, clobber=clobber)
