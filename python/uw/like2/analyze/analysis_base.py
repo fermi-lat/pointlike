@@ -260,18 +260,19 @@ class AnalysisBase(object):
                 % (tuple(time.localtime()[:6])+
                  (os.environ.get('HOSTNAME',os.environ.get('COMPUTERNAME','?')),
                   os.environ.get('USER',os.environ.get('USERNAME','?'))))
-        try:
-            cvs_header = re.search(r'Header:(.+)\$', sys.modules[self.__module__].__doc__).group(1)
-            t = re.search(r'/cvs/(.+),v (.+) 20', cvs_header)
-            path,version = [t.group(i) for i in range(1,3)]
-            htmldoc+= '\n<br><a href="http://glast.stanford.edu/cgi-bin/cvsweb-SLAC/%s?revision=%s&view=markup">%s</a>'\
-                %(path,version,cvs_header)
-            ## the link that could be generated to the source
-            #http://glast.stanford.edu/cgi-bin/cvsweb-SLAC/pointlike/python/uw/like2/analyze/sourceinfo.py?revision=1.13&view=markup
-            #/nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.13 2013/10/11 16:34:00 burnett Exp
+        # try:
+        #     ## construct link to GitHub source?
+        #     cvs_header = re.search(r'Header:(.+)\$', sys.modules[self.__module__].__doc__).group(1)
+        #     t = re.search(r'/cvs/(.+),v (.+) 20', cvs_header)
+        #     path,version = [t.group(i) for i in range(1,3)]
+        #     htmldoc+= '\n<br><a href="http://glast.stanford.edu/cgi-bin/cvsweb-SLAC/%s?revision=%s&view=markup">%s</a>'\
+        #         %(path,version,cvs_header)
+        #     ## the link that could be generated to the source
+        #     #http://glast.stanford.edu/cgi-bin/cvsweb-SLAC/pointlike/python/uw/like2/analyze/sourceinfo.py?revision=1.13&view=markup
+        #     #/nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.13 2013/10/11 16:34:00 burnett Exp
             
-        except Exception, msg: 
-            print '**** failed to write footer: %s' % msg
+        # except Exception, msg: 
+        #     print '**** failed to write footer: %s' % msg
         htmldoc+='\n</body>'
         self.htmlmenu.save(os.path.join(self.plotfolder,'menu.html'))
         print 'saved local menu to %s' % os.path.join(self.plotfolder,'menu.html')
