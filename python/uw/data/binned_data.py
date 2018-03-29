@@ -13,6 +13,7 @@ from collections import Counter
 import numpy as np
 from astropy.io import fits
 import pandas as pd
+from uw.utilities import keyword_options
 
 class GTI(object):
     def __init__(self, gti_hdu):
@@ -319,32 +320,40 @@ class BinFile(object):
        
 
 class ConvertFT1(object):
-    def __init__(self, ft1_file, theta_cut=66.4, z_cut=100):
+
+    defaults=(
+        # ('ebins', np.hstack([np.logspace(2,4.5, 11), np.logspace(5,6,3)]),'Energy bin array'),
+        # ('levels', [[6,7,8,9]+[10]*10, [6,6,7,8,9]+[10]*9 ], 'healpix level values, etype tuple of band values space'),
+        ('ebins', np.logspace(2, 6, 17),'Energy bin array'),
+        ('levels', [[6,7,8,9]+[10]*12, [6,6,7,8,9]+[10]*11 ], 'healpix level values, etype tuple of band values space'),
+        
+        ('etypes', (0,1), 'event type index'),
+        ('theta_cut', 66.4, 'Maximum instrument theta'),
+        ('z_cut', 100, 'Maximum zenith angle'),
+    )
+
+    @keyword_options.decorate(defaults)
+    def __init__(self, ft1_file,  **kwargs):
+        """
+        """
+        keyword_options.process(self, kwargs)
         self.ft1_hdus=ft1 = fits.open(ft1_file);
-        self.theta_cut=theta_cut
-        self.z_cut = z_cut
 
         # extract arrays for values of interest
         data =ft1['EVENTS'].data
         self.glon, self.glat, self.energy, self.et, self.z, self.theta =\
              [data[x] for x in 'L B ENERGY EVENT_TYPE ZENITH_ANGLE THETA'.split()]
         self.front = np.array([x[-1] for x in self.et],bool) # et is arrray of array of bool, last one true if Front
-        self.data_cut = np.logical_and(self.theta<theta_cut, self.z<z_cut)
+        self.data_cut = np.logical_and(self.theta<self.theta_cut, self.z<self.z_cut)
         print 'Removed by cuts: {:.2f} %'.format(100.- 100*sum(self.data_cut)/float(len(data)));
-
-        # 4 bins/decade from 100 MeV to 1 GeV
-        self.energies = np.logspace(2,6,17)
- 
-        # define nside values
-        nside_array = np.ones(32,int) * 1024
-        nside_array[:10] = 64,64, 128,64 ,256,128, 256,256, 512,512
 
         # DataFrame with component values for energy and event type, nside
         t = {}
-        for ie in range(len(self.energies)-1):
-            for et in range(2):
-                i = 2*ie+et
-                t[i]= dict(ie=ie, event_type=et, nside=nside_array[i])
+        for ie in range(len(self.ebins)-1):
+            for et in self.etypes:
+                level = self.levels[et][ie]
+                nside = 2**level
+                t[2*ie+et]= dict(ie=ie, event_type=et, nside=nside)
         self.df = pd.DataFrame(t).T
 
     def cuthist(self):
@@ -362,7 +371,7 @@ class ConvertFT1(object):
 
     def binner(self):
         # digitize energy: 0 is first bin above 100 MeV, -1 the underflow.
-        eindex = np.digitize(self.energy, self.energies)-1
+        eindex = np.digitize(self.energy, self.ebins)-1
         self.pix=[]; self.chn=[];  self.cnt=[]
 
         print ' ie  et  nside  photons     bins'
@@ -380,7 +389,7 @@ class ConvertFT1(object):
             print '{:8} {:8}'.format(sum(sel), len(a))
 
     def create_fits(self, outfile='test.fits', clobber=True):
-        elow, ehigh = self.energies[:-1], self.energies[1:]
+        elow, ehigh = self.ebins[:-1], self.ebins[1:]
         e_min = np.array([elow[i] for i in self.df.ie])
         e_max = np.array([ehigh[i] for i in self.df.ie])
 
