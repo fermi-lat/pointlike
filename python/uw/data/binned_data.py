@@ -4,7 +4,6 @@ Duplicates the functionality of the C++ class BinnedPhotonData
 Implements the new standard data format
 http://gamma-astro-data-formats.readthedocs.io/en/latest/skymaps/healpix/index.html#hpx-bands-table
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/binned_data.py,v 1.4 2017/11/06 23:44:46 burnett Exp $
 
 """
 import os, glob, StringIO
@@ -14,6 +13,35 @@ import numpy as np
 from astropy.io import fits
 import pandas as pd
 from uw.utilities import keyword_options
+
+def set_dskeys(header, 
+           circle=None, #(ra=162.3879746, dec=24.20062613,radius=5),
+           emin=100,emax=177.82794100399999593, # must be set
+           event_type=1, #the bit: 1 or 2 for front or back
+           zmax=100,  thetamax=66.4, #wired in for pointlike
+           ):
+    
+    dsvals = [      
+      ('BIT_MASK(EVENT_CLASS,128,P8R3)','DIMENSIONLESS','1:1'),
+      ('TIME',        's','TABLE', ':GTI'),
+      ('BIT_MASK(EVENT_TYPE,{},P8R3)'.format(event_type),'DIMENSIONLESS','1:1'),
+      ('ENERGY',      'MeV' ,'{}:{}'.format(emin,emax), ),
+      ('ZENITH_ANGLE','deg','0:{} '.format(zmax) ,),
+      ('THETA',       'deg','0:{} '.format(thetamax),),
+             ]
+    if circle is not None:
+        dsvals = dsvals +[ ('POS(RA,DEC)', 'deg ','CIRCLE({},{},{})'.format(*circle)),]
+    header.append(('NDSKEYS', 0))
+    for n, x in enumerate(dsvals):
+        type, unit, value = x[:3]
+        fn = '{:1d}'.format(n)
+        header.append( ('DSTYP'+fn,  type))
+        header.append( ('DSUNI'+fn,  unit))
+        header.append( ('DSVAL'+fn , value))
+        if len(x)>3:
+             header.append(('DSREF'+fn, x[3]))
+    header['NDSKEYS']=n
+    return header
 
 class GTI(object):
     def __init__(self, gti_hdu):
@@ -71,8 +99,8 @@ class BandList(object):
         df = self.dataframe()
         band_cols = [
             fits.Column(name='NSIDE', format='J', array=df.nside),
-            fits.Column(name='E_MIN', format='D', array=df.e_min*1e-3, unit='keV'),
-            fits.Column(name='E_MAX', format='D', array=df.e_max*1e-3, unit='keV'),
+            fits.Column(name='E_MIN', format='D', array=df.e_min*1e+3, unit='keV'),
+            fits.Column(name='E_MAX', format='D', array=df.e_max*1e+3, unit='keV'),
             fits.Column(name='EVENT_TYPE', format='J', array=df.event_type),
         ]
         bands_hdu=fits.BinTableHDU.from_columns(band_cols, name='BANDS')
@@ -211,6 +239,7 @@ class Pixels(object):
             npix, nphot = len(self.cnt), sum(self.cnt)
         return '{}: {:,} pixels, {:,} photons'.format(self.__class__, npix, nphot) 
 
+
     
 class BinFile(object):
     """ A Binned photon data file
@@ -317,7 +346,85 @@ class BinFile(object):
         """ method to be consistent with skymaps.BinnedPhotonData
         """
         return sum(self.pixels.cnt)    
-       
+
+    def roi_subset(self,  roi_number, channel, radius=5):
+        """Return a DataFrame with data values for the HEALPix pixels within the pointlike ROI
+        Creates empty pixels if no data in the pixel (input is sparse, output not)
+        """
+        skymap = self.hdus['SKYMAP'].data
+        nside = self.hdus['BANDS'].data.NSIDE[channel]
+        
+        # select pixels for the given channel
+        def select_pixels(channel):
+            sel = skymap.CHANNEL==channel
+            return pd.DataFrame( np.array(skymap.VALUE[sel], int), index=np.array(skymap.PIX[sel],int), columns=['value'])
+
+
+        # the set of pixels in an ROI
+        def qdisk(nside, glon, glat, radius):
+            return healpy.query_disc(nside, healpy.dir2vec(glon,glat,lonlat=True), np.radians(radius))
+        
+        # parameters for a pointlike ROI
+        def roi_circle(roi_index, galactic=True, radius=5.0):
+            from skymaps import Band
+            sdir = Band(12).dir(roi_index)    
+            return (sdir.l(),sdir.b(), radius) if galactic else (sdir.ra(),sdir.dec(), radius)
+
+        pix=qdisk(nside, *roi_circle(roi_number) )
+        roi_pix = pd.DataFrame(np.zeros_like(pix), index=pix, columns=['value'])
+        data_pix = select_pixels(channel)
+        data_in_roi=list(set(data_pix.index).intersection(set(roi_pix.index)))
+        print 'Found {} nside={} data pixels for channel {} in ROI {}'.format(len(data_in_roi),nside, channel, roi_number)
+        z = data_pix.loc[data_in_roi]
+        data_pix_in_roi = data_pix.loc[data_in_roi]
+        roi_pix.value = z.value
+        roi_pix[pd.isnull(roi_pix.value)]=0
+        return roi_circle(roi_number, galactic=False), nside, roi_pix
+
+    def write_roi_fits(self, filename, roi_number, channel, radius=5, clobber=True):
+        """Write a gtlike-format FITS file with the subset of pixels, for a single channel
+        """ 
+        circle, nside, pixels = self.roi_subset(roi_number, channel, radius); 
+        bandsinfo = self.hdus['BANDS'].data 
+        emin, emax = bandsinfo.E_MAX[channel], bandsinfo.E_MIN[channel] 
+
+        # PRIMARY
+        primary = self.hdus[0]
+        header = primary.header
+        set_dskeys(header, circle=circle, emin=emin,emax=emax, 
+            event_type= 1<< bandsinfo.EVENT_TYPE[channel]) 
+        header['FILENAME']=filename.split('/')[-1]
+        header['ORIGIN']='UW software team'
+        header['CREATOR'] = 'uw/data/binned_data.py'
+
+        # SKYMAP
+        skymap_cols = [
+            fits.Column(name='PIX', format='J', null=-2147483648, array=pixels.index ),
+            fits.Column(name='CHANNEL1', format='D', array=pixels.value) 
+        ]
+        skymap_hdu=fits.BinTableHDU.from_columns(skymap_cols, name='SKYMAP')
+        skymap_hdu.header.update(
+            PIXTYPE='HEALPIX',
+            COORDSYS='GAL',
+            ORDERING='RING',
+            ORDER=int(np.log2(nside)),
+            NSIDE=nside,
+            FIRSTPIX =0,
+            LASTPIX = 12*nside**2-1,
+            INDXSCHM='EXPLICIT',)
+          
+        # EBOUNDS
+        fudge=1e6
+        ebounds_cols = [
+            fits.Column(name = 'CHANNEL', format = 'I', array=[1]),
+            fits.Column(name= 'E_MIN', format = '1E', unit = 'keV', array=[emin*fudge]),
+            fits.Column(name= 'E_MAX', format = '1E', unit = 'keV', array=[emax*fudge])
+        ]
+        ebounds_hdu = fits.BinTableHDU.from_columns(ebounds_cols, name='EBOUNDS')
+
+        hdus=[primary, skymap_hdu, ebounds_hdu, self.gti.make_hdu()]
+        fits.HDUList(hdus).writeto(filename, clobber=clobber)
+        print 'Wrote file {}'.format(filename)
 
 class ConvertFT1(object):
 
@@ -325,8 +432,7 @@ class ConvertFT1(object):
         # ('ebins', np.hstack([np.logspace(2,4.5, 11), np.logspace(5,6,3)]),'Energy bin array'),
         # ('levels', [[6,7,8,9]+[10]*10, [6,6,7,8,9]+[10]*9 ], 'healpix level values, etype tuple of band values space'),
         ('ebins', np.logspace(2, 6, 17),'Energy bin array'),
-        ('levels', [[6,7,8,9]+[10]*12, [6,6,7,8,9]+[10]*11 ], 'healpix level values, etype tuple of band values space'),
-        
+        ('orders', [[6,7,8,9]+[10]*12, [6,6,7,8,9]+[10]*11 ], 'healpix order values, etype tuple of band values space'),
         ('etypes', (0,1), 'event type index'),
         ('theta_cut', 66.4, 'Maximum instrument theta'),
         ('z_cut', 100, 'Maximum zenith angle'),
@@ -345,14 +451,14 @@ class ConvertFT1(object):
              [data[x] for x in 'L B ENERGY EVENT_TYPE ZENITH_ANGLE THETA'.split()]
         self.front = np.array([x[-1] for x in self.et],bool) # et is arrray of array of bool, last one true if Front
         self.data_cut = np.logical_and(self.theta<self.theta_cut, self.z<self.z_cut)
-        print 'Removed by cuts: {:.2f} %'.format(100.- 100*sum(self.data_cut)/float(len(data)));
+        print 'Found {} events. Removed: {:.2f} %'.format(len(data), 100.- 100*sum(self.data_cut)/float(len(data)));
 
         # DataFrame with component values for energy and event type, nside
         t = {}
         for ie in range(len(self.ebins)-1):
             for et in self.etypes:
-                level = self.levels[et][ie]
-                nside = 2**level
+                order = self.orders[et][ie]
+                nside = 2**order
                 t[2*ie+et]= dict(ie=ie, event_type=et, nside=nside)
         self.df = pd.DataFrame(t).T
 
@@ -369,14 +475,15 @@ class ConvertFT1(object):
         ax.axvline(self.z_cut, color='red');
         ax.set(xlabel='zenith angle')
 
-    def binner(self):
+    def binner(self, quiet=True):
         # digitize energy: 0 is first bin above 100 MeV, -1 the underflow.
         eindex = np.digitize(self.energy, self.ebins)-1
         self.pix=[]; self.chn=[];  self.cnt=[]
 
-        print ' ie  et  nside  photons     bins'
+        if not quiet: print ' ie  et  nside  photons     bins'
         for i,band in self.df.iterrows():
-            print '{:3} {:3} {:6}'.format( band.ie, band.event_type, band.nside), 
+            if not quiet:
+                print '{:3} {:3} {:6}'.format( band.ie, band.event_type, band.nside), 
             esel = np.logical_and(eindex==band.ie, self.data_cut)
             sel = np.logical_and(esel, self.front if band.event_type==0 else np.logical_not(self.front))
             glon_sel = self.glon[sel]
@@ -386,7 +493,8 @@ class ConvertFT1(object):
             self.pix+=list(a)
             self.cnt+=list(b)
             self.chn+=[i]*len(a)
-            print '{:8} {:8}'.format(sum(sel), len(a))
+            if not quiet:
+                print '{:8} {:8}'.format(sum(sel), len(a))
 
     def create_fits(self, outfile='test.fits', clobber=True):
         elow, ehigh = self.ebins[:-1], self.ebins[1:]
@@ -395,8 +503,8 @@ class ConvertFT1(object):
 
         band_cols = [
             fits.Column(name='NSIDE', format='J', array=self.df.nside),
-            fits.Column(name='E_MIN', format='D', array=e_min*1e-3, unit='keV'),
-            fits.Column(name='E_MAX', format='D', array=e_max*1e-3, unit='keV'),
+            fits.Column(name='E_MIN', format='D', array=e_min*1e+3, unit='keV'),
+            fits.Column(name='E_MAX', format='D', array=e_max*1e+3, unit='keV'),
             fits.Column(name='EVENT_TYPE', format='J', array=self.df.event_type),
         ]
         bands_hdu=fits.BinTableHDU.from_columns(band_cols, name='BANDS')
@@ -418,3 +526,4 @@ class ConvertFT1(object):
         # add the GTI from the FT1 file and write it out
         hdus = [self.ft1_hdus[0],  skymap_hdu, bands_hdu, self.ft1_hdus['GTI']]
         fits.HDUList(hdus).writeto(outfile, clobber=clobber)
+
