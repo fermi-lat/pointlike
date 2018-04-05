@@ -1,8 +1,6 @@
 """
 Count plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/counts.py,v 1.17 2018/01/27 15:39:29 burnett Exp $
-
 """
 
 import os, pickle
@@ -88,9 +86,11 @@ class CountPlots(analysis_base.AnalysisBase):
             if sum(y)==0:
                 y= [ (x.startswith('update_full')) for x in t.stage]; 
                 # no create: use update_full
-            lc = t.index[y][-1]
-            self.history = t[t.index>= lc ]; 
-            skipped = t.index[y][:-1]; print 'Skipped starts:\n{}'.format(t.ix[skipped])
+            if sum(y)>0:
+                lc = t.index[y][-1]
+                self.history = t[t.index>= lc ]; 
+                skipped = t.index[y][:-1]; print 'Skipped starts:\n{}'.format(t.ix[skipped])
+            else: self.history=t
             
             cfile = 'config.txt' if os.path.exists('config.txt') else '../config.txt'
             try:

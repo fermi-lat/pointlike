@@ -173,8 +173,8 @@ class Associations(sourceinfo.SourceInfo):
         """
         df = self.df
         assoc = df.aprob>0.8; sum(assoc)
-        dfa = df[assoc]; len(dfa)
-        agn = [ n in ('crates bzcat bllac agn').split() for n in dfa.acat]; 
+        dfa = df[assoc]; 
+        agn = [ n in ('crates bzcat bllac agn cgrabs').split() for n in dfa.acat]; 
         print 'agns:', sum(agn)
         dfagn = dfa[agn]
         ###Look for cases where the second or third association is above 0.8, and is 'bzcat'

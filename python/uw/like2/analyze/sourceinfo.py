@@ -241,7 +241,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         dom = np.logspace(np.log10(9),5,1601)
         ax.axvline(25, color='gray', lw=1, ls='--',label='TS=25')
         hist_kw=dict(cumulative=-1, lw=2,  histtype='step')
-        ax.hist( usets ,dom,  color='k', label=label, **hist_kw)
+        ax.hist( np.array(usets,float) ,dom, color='k',  label=label, **hist_kw)
         if len(other_ts)>0 :
             for ots, olab in zip(other_ts,other_label):
                 ax.hist( ots, dom,  label=olab, **hist_kw)
@@ -250,7 +250,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             ul = df[(unloc | df.poorloc) & (usets>tscut[0])] 
             n = len(ul)
             if n>10:
-                ax.hist(ul.ts ,dom,  color='r', 
+                ax.hist(np.array(ul.ts,float) ,dom,  color='r', 
                     label='none or poor localization', **hist_kw)
                 ax.text(12, n, 'none or poor localization (TS>%d) :%d'%(tscut[0],n), fontsize=12, color='r')
         plt.setp(ax,  ylabel='# sources with greater TS', xlabel='TS',
@@ -311,24 +311,24 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         ax = axx[0]
         hkw=dict(histtype='step', lw=2)
         for tscut in tsvals:
-            print 'tscut:', tscut
-            ax.hist(t.eflux[t.ts>tscut].clip(4e-2,20), np.logspace(np.log10(4e-2),np.log10(20),26), 
+            #print 'tscut:', tscut
+            ax.hist(np.array(t.eflux[t.ts>tscut],float).clip(4e-2,20), np.logspace(np.log10(4e-2),np.log10(20),26), 
                 label='TS>%d' % tscut, **hkw) 
         plt.setp(ax, xscale='log', xlabel='energy flux', xlim=(4e-2,20)); ax.grid(alpha=0.5); 
         ax.legend(prop=dict(size=10))
         ax = axx[1]
-        [ax.hist(t.pindex[t.ts>tscut].clip(index_min,index_max), np.linspace(index_min,index_max,26),
+        [ax.hist(np.array(t.pindex[t.ts>tscut],float).clip(index_min,index_max), np.linspace(index_min,index_max,26),
                  label='TS>%d' % tscut, **hkw) for tscut in tsvals ]
         plt.setp(ax, xlabel='spectral index'); ax.grid(alpha=0.5); ax.legend(prop=dict(size=10))
         ax = axx[2]
-        [ax.hist(t.beta[t.ts>tscut].clip(beta_min,beta_max), np.linspace(beta_min,beta_max,26),
+        [ax.hist(np.array(t.beta[t.ts>tscut],float).clip(beta_min,beta_max), np.linspace(beta_min,beta_max,26),
             label='TS>%d' % tscut, **hkw) for tscut in tsvals ]
         # sel=(t.ts>tscut)&(t.beta>0.01)
         # if sum(sel)>0:
         plt.setp(ax, xlabel='beta'); ax.grid(alpha=0.5); ax.legend(prop=dict(size=10))
  
         ax = axx[3]
-        [ax.hist(t.e0[t.ts>tscut], np.logspace(2,5,31), label='TS>%d' % tscut, **hkw) for tscut in tsvals ]
+        [ax.hist(np.array(t.e0[t.ts>tscut],float), np.logspace(2,5,31), label='TS>%d' % tscut, **hkw) for tscut in tsvals ]
         plt.setp(ax, xlabel='e0 [MeV]', xscale='log'); ax.grid(alpha=0.5);ax.legend(prop=dict(size=10))        
         # get tails
         tail_cut = (t.eflux<5e-2) | ((t.pindex<index_min) | (t.pindex>index_max))& (t.beta==0) | (t.beta>beta_max) | (t.beta<0)
@@ -414,7 +414,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
 
         def plot1(ax, efmin=1e-1,efmax=1e3):
             bins = np.logspace(np.log10(efmin),np.log10(efmax),26)
-            vals = t.eflux.clip(efmin,efmax)
+            vals = np.array(t.eflux,float).clip(efmin,efmax)
             ax.hist(vals, bins )
             if sum(badfit)>0:
                 ax.hist(vals[badfit], bins, color='red', label='poor fit')
@@ -423,7 +423,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
 
         def plot2(ax):
             bins = np.linspace(index_min,index_max,26)
-            vals = t.pindex.clip(index_min,index_max)
+            vals = np.array(t.pindex,float).clip(index_min,index_max)
             ax.hist(vals, bins)
             if sum(badfit)>0:
                 ax.hist(vals[badfit], bins, color='red', label='poor fit')
@@ -432,7 +432,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             
         def plot3(ax):
             bins = np.linspace(0,cutoff_max/1e3,26)
-            vals = t.cutoff.clip(0,cutoff_max) /1e3
+            vals = np.array(t.cutoff,float).clip(0,cutoff_max) /1e3
             ax.hist(vals, bins)
             if sum(badfit)>0:
                 ax.hist(vals[badfit], bins, color='red', label='poor fit')
@@ -440,8 +440,8 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             ax.legend(prop=dict(size=10))
             
         def plot4(ax, xlim=(0,cutoff_max)):
-            xvals = t.cutoff.clip(*xlim) / 1e3
-            yvals = t.pindex.clip(index_min,index_max)
+            xvals = np.array(t.cutoff,float).clip(*xlim) / 1e3
+            yvals = np.array(t.pindex,float).clip(index_min,index_max)
             ax.plot(xvals, yvals, 'o')
             if sum(badfit)>0:
                 ax.plot(xvals[badfit], yvals[badfit], 'or', label='poor fit')
@@ -986,12 +986,19 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         self.df.loc[(self.df.ts>10) | self.df.psr ][colstosave].to_csv(csvfile)
         print 'saved truncated csv version to "%s"' %csvfile
         
-        self.runfigures([self.census, self.cumulative_ts, 
-            self.fit_quality,self.spectral_fit_consistency_plots, 
+        self.runfigures([self.census, 
+            self.cumulative_ts, 
+            self.fit_quality,
+            #self.spectral_fit_consistency_plots, 
             #self.poor_fit_positions,
             self.non_psr_spectral_plots, 
             #self.beta_check, 
-            self.pulsar_spectra, self.curvature, self.pivot_vs_e0, self.roi_check, self.extended_table, ]
+            self.pulsar_spectra, 
+            self.curvature, 
+            self.pivot_vs_e0, 
+            self.roi_check, 
+            self.extended_table, 
+            ]
         )
     
     def associate(self, df, angle_cut = 0.1 , tag_uw=False):
