@@ -448,11 +448,11 @@ class ROI(views.LikelihoodViews):
         to_healpix.pickle_dump(self, pickle_dir, dampen=dampen, **kwargs)
         
     
-    def to_xml(self, filename):
+    def to_xml(self, filename, **kwargs):
         """Save the current ROI to an XML file. 
         Note that it will include info on the diffuse components not consistent with gtlike
         """
-        return self.sources.to_xml(filename)
+        return self.sources.to_xml(filename, **kwargs)
         
     def move(self, new_location, source_name=None):
         """Move the position of a source

@@ -436,10 +436,10 @@ table_info['psr']=table_info['tsp']
 def residual_maps(roi, folder='residual_maps'):
     
     def residual_map(index):
-        cband = roi.config.dataset.dmap[index+8]
+        cband = roi.config.dataset.dmap[index] # need to find appropriate one
         nside = cband.nside()
         b=roi[index] # the BandLike object
-        assert cband.emin()==b.band.emin
+        assert abs(cband.emin()-b.band.emin)<1.0, '{},{}'.format(cband.emin(), b.band.emin)
         energy = b.band.energy
         event_type = b.band.event_type
         band_label = '{:.0f} Mev {}'.format(energy, ['Front','Back'][event_type])

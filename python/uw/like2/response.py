@@ -10,7 +10,7 @@ import pandas as pd
 import healpy
 import skymaps
 from uw.utilities import keyword_options
-from . import convolution
+from . import convolution, diffuse
 
 class ResponseException(Exception): pass
 
@@ -240,7 +240,11 @@ class DiffuseResponse(Response):
         
         if hasattr(dfun, 'kw') and dfun.kw is not None and len(dfun.kw.keys())>1: 
             # Manage keywords found in the 
-            if 'correction' in dfun.kw and dfun.kw['correction'] is not None:
+            if dfun.kw.get('key', '') == 'gal':
+                #print 'Using gal key for galactic correction ', 
+                self.corr = DiffuseCorrection(None, diffuse.normalization['gal'])(roi_index,self.energy)
+                #print self.corr
+            elif 'correction' in dfun.kw and dfun.kw['correction'] is not None:
                 if not self.quiet:
                     print '\t%s loading corrections for source %s from %s.kw:' \
                     % (self.__class__.__name__, self.source.name,  dfun.__class__.__name__)
@@ -349,7 +353,9 @@ class DiffuseCorrection(object):
         except:
             raise Exception('energy %f not found in list %s' % (round(energy), self.elist))
         if self.dn is not None:
-            return self.correction.ix[energy_index]
+            if self.correction is None: # new case
+                return self.dn[energy_index]
+            return self.correction.ix[energy_index] 
         return self.correction.ix[roi_index][energy_index] if self.correction is not None else 1.0
         
     def roi_norm(self, roi_index):

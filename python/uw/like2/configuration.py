@@ -249,20 +249,7 @@ class Configuration(dict):
                 
         config = get_dict(os.path.join(self.configdir, '../'))
         config.update(get_dict(self.configdir))
-        # if os.path.exists(os.path.join(self.configdir, '../'+config_file, )):
-        #     if not self.quiet: print 'Reading default parameters from ../{}'.format(config_file)
-        #     try:
-        #         config = eval(open(os.path.join(self.configdir, '../'+config_file)).read())
-        #     except Exception, msg:
-        #         raise Exception('Failed to evaluate config file: %s' % msg)
-        # else: config = dict()
 
-        # if os.path.exists(os.path.join(self.configdir, config_file)):
-        #     if not self.quiet: print 'Updating parameters from {}'.format(config_file)
-        #     try: local = eval(open(os.path.join(self.configdir, config_file)).read())
-        #     except Exception, msg:
-        #         raise Exception('Failed to evaluate config file: %s' % msg)
-        #     config.update(local)
         assert len(config.keys())>0, 'No dicts found'
         return config
         

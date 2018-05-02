@@ -1,11 +1,10 @@
 """
 manage band classes
-
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bands.py,v 1.14 2018/01/27 15:37:17 burnett Exp $
 """
 import os
 import numpy as np
 import skymaps
+import healpy
 
 #energybins = np.logspace(2,5.5,15) # default 100 MeV to 3.16 GeV, 4/decade
 energybins = np.logspace(2,6,17) # 100 MeV to 1 TeV, 4/decade
@@ -65,7 +64,13 @@ class EnergyBand(object):
     def sd(self): return self.skydir
     @property
     def solid_angle(self):
-        return np.pi*self.radius_in_rad**2 
+        sd = self.skydir
+        try:
+            nside = self.cband.nside()
+            npix= len(healpy.query_disc(nside, healpy.dir2vec(sd.l(),sd.b(),lonlat=True), self.radius_in_rad))
+            return npix*self.pixel_area
+        except ValueError:
+            return np.pi*self.radius_in_rad**2 
     @property
     def has_pixels(self): return self.wsdl is not None and self.pixels>0
     @property 

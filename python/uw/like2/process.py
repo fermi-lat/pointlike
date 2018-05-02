@@ -543,7 +543,6 @@ class FitGalactic(object):
 def fit_galactic(roi, nbands=8, folder=None, upper_limit=5.0):
     t = FitGalactic(roi, nbands, folder, upper_limit)
     print 'Chisq: {:.1f}'.format(t.chisq)
-    
     t.update()
     return True
     

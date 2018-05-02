@@ -102,7 +102,7 @@ def pmodel(source):
     return model
         
 
-def from_roi(roimodel, title=None, stream=None, strict=True, maxi=None):
+def from_roi(roimodel, title=None, stream=None, maxi=None, **kwargs):
     """
     Create an XML file describing the complete data model for an ROI
     
@@ -110,16 +110,21 @@ def from_roi(roimodel, title=None, stream=None, strict=True, maxi=None):
         Expect to be a list of sources.Source objects
     """
     Element.stream = stream
-    m2x = xml_parsers.Model_to_XML(strict=strict)
+    m2x = xml_parsers.Model_to_XML(strict=kwargs.get('strict', False))
     if title is None:
         title = 'Sources from roi %04d' % roimodel.index
-        
+
+    noglobals=kwargs.get('noglobals', True)
+    if noglobals:
+        print 'Supressing global sources'
+
     with Element('source_library', title=title,  
         ignore=('selected_source','quiet'), **roimodel.__dict__) as sl:
     
         for source in roimodel:
             stype = source.__class__.__name__
-
+            if noglobals and stype=='GlobalSource':
+                continue
             with Element('source',  type=stype, ignore=('model','sedrec', 'free', 'changed', 'spatial_model'),
                         **source.__dict__) as src:
                 # insert model, a spectrum element. Uses class from xml_parsers
