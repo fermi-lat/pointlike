@@ -418,7 +418,41 @@ class FromFITS(HParray):
         assert 'NSIDE' in hdu.header, 'Bad header in file "{}"? No NSIDE'.format(filename)
         self.nside = hdu.header['NSIDE']
         super(FromFITS, self).__init__(colname, data[colname])
+
+class FromCCube(HParray):
+    """Manage the gtlike HEALPix counts map
+    """
+    def __init__(self, filename):
+        """ load array from a HEALPix-format FITS file
+        """
+        assert os.path.exists(filename), 'File "{}" not found'.format(filename)
+        self.hdus = pyfits.open(filename) 
+        self.data = self.hdus[1].data
+        self.nside = self.hdus[1].header['NSIDE']
         
+        # expect to find circle in header
+        hdr = self.hdus[0].header
+        try:
+            dstypes = sorted(filter(lambda n:n.startswith('DSTYP'), hdr.keys())); 
+            i = [hdr[x] for x in dstypes].index('POS(RA,DEC)'); i
+            circ=hdr['DSVAL{}'.format(i)]; 
+            ra,dec, self.radius = np.array(circ[7:-1].split(','),float)
+        except Exception, msg:
+            print 'failed to parse file {}: expected header to have a DSVAL with POS(RA,DEC)'.format(filename), msg
+            raise
+        self.center = SkyDir(ra, dec)
+        self.indexfun = Band(self.nside).index
+        self.lookup = dict(zip(self.data.PIX, self.data.CHANNEL1))
+        
+        
+    def __call__(self, skydir ):
+        index = self.indexfun(skydir)
+        return self.lookup.get(index, np.nan)
+        
+    def plot(self, **kwargs):
+        return self.plot_ZEA( self.center, 2.1 *self.radius, **kwargs)
+        
+
 def mapcube_to_healpix(inputfile, 
             suffix='_nside256_bpd4',
             inpath= '$FERMI/diffuse',
