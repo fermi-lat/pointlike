@@ -92,12 +92,7 @@ class CountPlots(analysis_base.AnalysisBase):
                 skipped = t.index[y][:-1]; print 'Skipped starts:\n{}'.format(t.ix[skipped])
             else: self.history=t
             
-            cfile = 'config.txt' if os.path.exists('config.txt') else '../config.txt'
-            try:
-                config = eval(open(cfile).read()) 
-            except Exception, msg:
-                raise Exception('Could not read config file, %s' %msg)
-            input_model=config['input_model']['path']
+            input_model=self.config['input_model']['path']
 
             # note use of 'plots/' below since not done with setup 
             maxlines = 40

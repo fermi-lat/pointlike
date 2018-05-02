@@ -1,8 +1,6 @@
 """
 Residual maps
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/residual_maps.py,v 1.1 2017/11/17 22:44:09 burnett Exp $
-
 """
 
 import os, pickle, glob
@@ -74,11 +72,14 @@ class BandAnalysis(object):
         self.resid = healpix_map.HParray('f{} residuals'.format(energy), (self.data-self.model)/(self.model))
 
         # Load galactic corrections from configuration info
-        config=configuration.Configuration('.', quiet=True,)
-        cfile=os.path.expandvars('$FERMI/diffuse/'+config.diffuse['ring']['correction'])
-        print 'Loading corrections from file "{}"'.format(cfile)
-        gc = pd.read_csv(cfile)
-        self.galcorr = healpix_map.HParray('galcorr', gc['{}'.format(band_index/2)])
+        config=configuration.Configuration('.', quiet=True, postpone=True)
+        try:
+            cfile=os.path.expandvars('$FERMI/diffuse/'+config.diffuse['ring']['correction'])
+            print 'Loading corrections from file "{}"'.format(cfile)
+            gc = pd.read_csv(cfile)
+            self.galcorr = healpix_map.HParray('galcorr', gc['{}'.format(band_index/2)])
+        except:
+            self.galcorr=None
 
         self.label = '{:.0f} Mev {}'.format(energy, ['Front','Back'][event_type])
         #print self.label
@@ -193,8 +194,9 @@ class BandAnalysis(object):
 
 
 class ResidualMaps(analysis_base.AnalysisBase):
-    """<h2>Residual Maps</h2>
-    <br>Combine the maps of the count residuals made for each ROI and each energy band below 1 GeV.
+    """<h3>Residual Maps</h3>
+    <br>Combine the maps of the count residuals made for each ROI and each energy band below 1 GeV,
+    using the pipe run residualmaps.
     Only the pixels within the HEALPix tile are used from each ROI: about 1/3 of the total.
     <br>Most of the residuals here are for 133 MeV Front. 
     """
@@ -203,10 +205,19 @@ class ResidualMaps(analysis_base.AnalysisBase):
         ff = sorted(glob.glob('residual_maps/*.pickle')); 
         assert len(ff)==1728, 'Did not find all files'
         self.dd = [pickle.load(open(f)) for f in ff]
-        self.gc = GalacticCorrectionMaps()
+
         self.band_index,nside=0,None
         self.ba0 =self.band_analysis(band_index=0)
         plt.style.use('seaborn-bright')
+
+        # generate a DF with ROI positions
+        sd12 = map(Band(12).dir, range(1728))
+        glon12 = np.array(map(lambda d: round(d.l(),1), sd12))
+        glon12[glon12>180]-=360
+        glat12 = np.array(map(lambda d: round(d.b(),1), sd12))
+        self.df12 = pd.DataFrame(dict(glon=glon12, glat=glat12), index=range(1728))
+
+        self.gc = GalacticCorrectionMaps()
 
     def band_analysis(self, band_index, nside=None):
         self.ba= BandAnalysis(self.dd, band_index, nside)
@@ -260,11 +271,12 @@ class ResidualMaps(analysis_base.AnalysisBase):
         """Galactic correction map for 133 MeV
         """
         return self.gc.plot_map();
-    def gcplots(self):
+        
+    def gcplots(self, glon_cut=60, ii=range(0,3), ylim=(0.75,1.25)):
         """Galactic corrections
         Scan through the galactic plane.
         """
-        return self.gc.gcplots()
+        return self.gc.gcplots(glon_cut=glon_cut, ii=ii, ylim=ylim,)
 
     def residual_maps_ait(self):
         """All-sky Residual maps 
@@ -291,18 +303,88 @@ class ResidualMaps(analysis_base.AnalysisBase):
 
     def residual_maps_vela(self):
         """Vela 133 MeV residual maps
-
-    
         """
         return self.ba0.zea_plots(center=(-90,0));
-        
 
     def residual_hist(self):
         """Residual histogram
         """
         return self.ba0.residual_hist();
 
+    def residual_df(self, roi, i=0):
+        """return a DF with the residuals for the given ROI number and energy band
+        """
+        d = self.dd[roi][i]
+        nside = d['nside']
+        model = d['model']
+        index = d['ids']
+        bdir = np.array(map(lambda i: Band(nside).dir(i).b(), index)).round(2)
+        ldir = np.array(map(lambda i: Band(nside).dir(i).l(), index)).round(2)
+        ldir[ldir>180] -=360
+        return pd.DataFrame(dict(model=model.round(1), 
+                                resid=d['data']-model, inside=d['inside'], 
+                                glat=bdir, glon=ldir), index=index)
+   
+    def residual_scats(self, qstring, band_index=0,ax=None, scat=True, nocolorbar=True):
+    
+        fig,ax = plt.subplots(figsize=(12,5)) if ax is None else ax.figure, ax
+            
+        scatkw = dict( marker='d',vmin=-0.1, vmax=0.1, 
+                    s=80, cmap=plt.get_cmap('coolwarm')) 
+        
+        plotkw = dict(marker='o', ls='')
+        
+        def residual_scat(roi_index):
+            df=self.residual_df(roi_index, band_index)
+            r = df.resid/df.model    
+            return ax.scatter(df.glon, df.glat, c=r, **scatkw)
+
+        def residual_plot(roi_index):
+            df=self.residual_df(roi_index, band_index)
+            r = df.resid/df.model   
+            ax.plot(df.glat, r, color='blue', **plotkw)
+            ax.plot(df.glat[df.inside], (r)[df.inside],color='red', **plotkw)
+    
+        roi_indeces = self.df12.query(qstring).index
+        if scat:
+            ax.set(xlim=(30,-30), ylim=(-15,15))
+
+            scat =map(residual_scat, roi_indeces)[0]
+            if not nocolorbar: plt.colorbar(scat)
+        else:
+            map(residual_plot, roi_indeces)
+            ax.set(xlim=(-15,15), ylim=(-0.2,0.2))
+
+        ax.axvline(0, color='lightgrey')
+        ax.axhline(0, color='lightgrey')
+        ax.set_title(qstring)
+        return fig
+
+    def ridge_systematics_scat(self):
+        """Ridge systematic scatter plots
+
+        scatter plots of pixels in subsets of ROIs in the ridge area
+        color shows sytematic offset (range -20%% to 20%%)
+        """
+        fig,axx = plt.subplots(3,1, figsize=(12,15), sharex=True)  
+        self.residual_scats('abs(glat)==6.4 and abs(glon)<30', ax=axx[0])
+        self.residual_scats('(abs(glat)==9.6 or glat==0) and abs(glon)<30', ax=axx[1]);
+        self.residual_scats('(abs(glat)==3.2) and abs(glon)<30', ax=axx[2])
+        return fig
+
+    def ridge_systematics_plot(self):
+        """Ridge systematic plots
+        for selected ROIs along ridge, plots of fractional residual vs. galactic latitude.
+            red points are pisles within the ROI active area, blue out to the 5 deg radius. 
+        """
+        fig,axx = plt.subplots(3,1, figsize=(12,15), sharex=True)  
+        self.residual_scats( 'abs(glat)==6.4 and abs(glon)<30', ax=axx[0], scat=False);
+        self.residual_scats( 'abs(glat)==3.2 and abs(glon)<30', ax=axx[1], scat=False);
+        self.residual_scats( '(abs(glat)==9.6 or glat==0) and abs(glon)<30', ax=axx[2], scat=False);
+        return fig
+
     def all_plots(self, **kw):
+
         self.runfigures([
                  #self.offset_profile_0, self.offset_profile_1,
             self.gcmap,
@@ -313,20 +395,35 @@ class ResidualMaps(analysis_base.AnalysisBase):
             self.residual_maps_vela,
             self.residual_maps_anti,
             self.residual_hist,
-            self.offset_map_0, self.offset_map_1, 
+            self.offset_map_0, self.offset_map_1,
+            self.ridge_systematics_scat,
+            self.ridge_systematics_plot,
+             
        ]) 
 
 class GalacticCorrectionMaps(object):
     def __init__(self):
-        config=configuration.Configuration('.', quiet=True,)
-        self.gc = gc=pd.read_csv(os.path.expandvars('$FERMI/diffuse/'+config.diffuse['ring']['correction']))
+        config=configuration.Configuration('.', quiet=True,postpone=True)
+        corr_key = config.diffuse['ring'].get('key', None)
+        corr_file = config.diffuse['ring'].get('correction', None)
+        if corr_key=='gal':
+            ff,pp= analysis_base.load_pickles_from_zip()
+            gcorr =  np.array([p['diffuse_normalization']['gal'] for p in pp])
+            gc= pd.DataFrame(gcorr, columns=' 0 1 2 3 4 5 6 7'.split())
+
+        elif corr_file is not None:
+            gc=pd.read_csv(os.path.expandvars('$FERMI/diffuse/'+corr_file))
+        else:
+            raise Exception('Correction info not found')
+        
         sdirs = map(Band(12).dir, range(1728))
         gc['glat']= map(lambda s:s.b(), sdirs)
         gc['glon']= map(lambda s: s.l(),sdirs)
         gc.loc[gc.glon>180,'glon'] -= 360   
+        self.gc = gc
 
     def plot_map(self, energy_index=0 ):
-        gc0 = self.gc['0']
+        gc0 = self.gc['{}'.format(energy_index)]
         c0 = healpix_map.HParray('gc0', gc0/gc0.mean())
         c0.plot(vmin=0.6, vmax=1.4, cmap=plt.get_cmap('coolwarm'),
                 title='133 MeV Galactic correction factor relative to {:.2f}'.format(gc0.mean()));
@@ -337,7 +434,7 @@ class GalacticCorrectionMaps(object):
             if ax is None:
                 fig, ax = plt.subplots(figsize=(8,5))
             energy = 10**(2.125 + 0.25*(energy_index))
-            ax.plot(ct.glat, ct['{}'.format(energy_index)], 'd');
+            ax.plot(ct.glat, ct['{}'.format(energy_index)], '.');
             ax.grid(alpha=0.5)
             ax.axhline(1, color='k')
             ax.text(0.05,0.9, '{:.0f} MeV '.format(energy),

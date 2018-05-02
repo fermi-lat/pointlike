@@ -349,6 +349,37 @@ the second when there is small background, above a few GeV.
         """
         return self.cartesian_map_array(self.IsotropicCorrection(self,'back'))
 
+    def isotropic_correction(self):
+        """Isotropic correction summary.
+        From files  %(isofiles_back)s and  %(isofiles_front)s
+        
+        <br>While the files are 1728x8 arrays of corrections applied to each ROI and band, only the Back 
+        varies for the first two energy bins.
+        The first plot, for those back energy bins, I plot the average for |Dec|<30
+         """
+        isob = self.IsotropicCorrection(self,'back')
+        isof = self.IsotropicCorrection(self,'front')
+        sindec = np.sin(np.radians(np.array(self.df.dec.values,float)))
+        fig, axx = plt.subplots(1,2, figsize=(12,5), sharey=True)
+        ax=axx[1]
+        for i in range(2):
+            ax.plot(sindec, isob(i), '.', label='Energy Bin {}'.format(i));
+        ax.set(xlabel='sin(Dec)',  title='Back correction vs. Dec.')
+
+        ax=axx[0]
+        for f, name in [(isof, 'Front'), (isob, 'Back')]:
+            means = [f(i)[np.abs(sindec)<0.25].mean() for i in range(8)]
+            ax.plot(means, 'o', label=name)
+        ax.set_title('Correction factor vs Energy Bin')
+        ax.set(xlabel='Energy Bin',ylabel='Correction Factor',)
+
+        for ax in axx:
+            ax.grid(alpha=0.5);
+            ax.axhline(1.0, color='k', ls='--')
+            ax.legend()
+
+        return fig
+
     def dmap_info(self, out=None):
         """ formatted table of band contents """
         binfile = self.config.dataset.binfile
@@ -370,6 +401,8 @@ the second when there is small background, above a few GeV.
     def all_plots(self, **kw):
         self.runfigures([self.psf_plot, self.exposure_plots, 
             self.isotropic_spectrum,self.diffuse_flux, #self.limb_flux,
-            self.galactic_correction, self.isotropic_correction_front, self.isotropic_correction_back,
+            self.galactic_correction, 
+            self.isotropic_correction,
+            #self.isotropic_correction_front, self.isotropic_correction_back,
             ])
     

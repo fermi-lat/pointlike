@@ -119,7 +119,7 @@ class Localization(sourceinfo.SourceInfo):
         cut = (self.df.ts>mints) & (~ badfit)
         ax=axx[0]
         for x in (mints, tscut):
-            ax.hist(wp.locqual[cut & (self.df.ts>x)].clip(0,maxqual), bins,label='TS>%d'%x)
+            ax.hist(np.array(wp.locqual[cut & (self.df.ts>x)],float).clip(0,maxqual), bins,label='TS>%d'%x)
         ax.legend(prop=dict(size=10))
         ax.grid()
         plt.setp(ax, xlabel='localization fit quality')
@@ -243,7 +243,7 @@ class Localization(sourceinfo.SourceInfo):
         ax = axx[0]
         ax.errorbar(x, h/dA ,yerr=np.sqrt(h)/dA,  fmt='.', label='TS>%d: %d sources above |b|=%d'%(tsmin, len(sdirs),bmin))
         ax.plot(bins,f(bins), '--g')
-        plt.setp(ax, yscale='log', ylim=(1,1000), 
+        ax.set( yscale='log', ylim=(1,None), 
             ylabel='Number of sources per square degree', xlabel='closest distance (deg)')
         ax.legend(prop=dict(size=10))
         ax.grid()
@@ -252,7 +252,7 @@ class Localization(sourceinfo.SourceInfo):
         ax.errorbar(x, h/dA/f(x), yerr=np.sqrt(h)/dA/f(x),  fmt='o', )
         ax.axhline(1.0, color='k')
         ax.grid()
-        plt.setp(ax, xlim=(0,3), ylim=(0,1.5),  xlabel='closest distance (deg)',
+        ax.set( xlim=(0,3), ylim=(0,1.5),  xlabel='closest distance (deg)',
             ylabel='ratio of detected to expected')
         return fig
     
@@ -398,7 +398,7 @@ class Localization(sourceinfo.SourceInfo):
                 ax.hist(dfs['size'][goodfrac], np.linspace(0,2,26))
                 plt.setp(ax, xlabel='size')
             elif ix==5:
-                ax.hist(dfs.locqual.clip_upper(8), np.linspace(0,8))
+                ax.hist(np.array(dfs.locqual.clip_upper(8),float), np.linspace(0,8))
                 plt.setp(ax, xlabel='locqual')
         return fig
     

@@ -8,7 +8,9 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis
 import os, sys, pickle, glob, zipfile, time, re
 import numpy as np
 import pylab as plt
-from mpl_toolkits.axes_grid import axes_grid, axes_size, Divider, make_axes_locatable
+# Seems to be commented out???
+#from mpl_toolkits.axes_grid import axes_grid, axes_size, Divider, make_axes_locatable
+from mpl_toolkits.axes_grid1 import  axes_size, Divider, make_axes_locatable
 
 from . import _html
 from .. import configuration
@@ -126,7 +128,7 @@ class AnalysisBase(object):
             os.chdir(self.skymodel_dir)
             print 'chdir to {}'.format(self.skymodel_dir)
         self.skymodel = os.path.split(os.getcwd())[-1]
-        self.config = configuration.Configuration(skymodel_dir, quiet=True, postpone=True)
+        self.config = configuration.Configuration(skymodel_dir, quiet=kwargs.get('quiet',True), postpone=True)
         self.setup(**kwargs)
         if not os.path.exists('plots'):
             os.mkdir('plots')

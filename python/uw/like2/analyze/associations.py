@@ -69,7 +69,7 @@ class Associations(sourceinfo.SourceInfo):
         <br>Left: histogram of TS, showing the fraction that have associations.
         <br>Right: The fractions themselves.
         """
-        ts = self.indf.ts #self.df10.ts
+        ts = np.array(self.indf.ts,float) #self.df10.ts
         lowlat = np.abs(self.indf.glat)<5
         assoc = self.indf.aprob>aprob_min
         def plota(ax, bins=np.logspace(1,5,41) ):
@@ -197,17 +197,18 @@ class Associations(sourceinfo.SourceInfo):
                             pindex=dfagn.pindex[i],
                             )
         print 'bzdict length:', len(bzdict)
-        self.bzdf = bzdf = pd.DataFrame(bzdict).T        
+        self.bzdf = bzdf = pd.DataFrame(bzdict).T 
+        bzdf_ts = np.array(bzdf.ts, float)       
         t=np.asarray(test)
         u =[sum(t==k) for k in range(-1,4)] ; print u
         self.bzcat_html= '<p>There is a BZCAT association in all but %d out of %d AGN associations' % (u[0], sum(u))
         bzdf['type'] = [n[3] for n in bzdf.index]
-        type_names=dict(B='BL Lac', G='Radio Galaxy', U='Unknown', Q='FSRQ')        
+        type_names=dict(B='BL Lac', G='Radio Galaxy', U=None, Q='FSRQ', i=None)        
         
         # make a table of Blazar types, with and without TS cut
-        types=set(bzdf.type)
+        types=filter(lambda x: x is not None, set(bzdf.type))
         tc_all = [sum(bzdf.type==type) for type in types]
-        tc_25  = [sum((bzdf.type==type) & (bzdf.ts>25)) for type in types]
+        tc_25  = [sum((bzdf.type==type) & (bzdf_ts>25)) for type in types]
         rows=[tc_25, tc_all]
         dfT=pd.DataFrame(rows, index=['TS>25','all'], columns=[type_names[n] for n in types])
         dfT['total'] = [sum(x) for x in rows]
@@ -223,7 +224,7 @@ class Associations(sourceinfo.SourceInfo):
          
         hist_args=dict(bins=np.logspace(1,np.log10(tsmax),501),
             cumulative=-1, lw=2, histtype='step', log=True)
-        #ax.hist(bzdf.ts,  label='all', **hist_args );
+        #ax.hist(bzdf_ts,  label='all', **hist_args );
 
         # make an integral logTS plot 
         ax = axx[0]
@@ -231,7 +232,7 @@ class Associations(sourceinfo.SourceInfo):
             sel = bzdf.type==type
             if sum(sel)>0:
                 try:
-                    ax.hist(bzdf.ts[sel],  label=label, **hist_args)
+                    ax.hist(bzdf_ts[sel],  label=label, **hist_args)
                 except: pass
         plt.setp(ax, xscale='log', xlabel='TS', ylim=(1,None), xlim=(10, tsmax),
                 title=title,)
@@ -245,7 +246,9 @@ class Associations(sourceinfo.SourceInfo):
         ax = axx[1]
         gt = self.bzdf.groupby('type')
         for name, group in gt:
-            ax.hist(group.pindex, np.linspace(1.0, 3.5, 31), histtype='step', lw=2, label=type_names[name])
+            if type_names[name] is None: continue
+            ax.hist(np.array(group.pindex,float), np.linspace(1.0, 3.5, 31), 
+                histtype='step', lw=3, label=type_names[name])
         ax.legend();
         ax.set(title='Photon index by AGN type', xlabel='Photon spectral index');
 
@@ -383,6 +386,8 @@ class Associations(sourceinfo.SourceInfo):
 
         t = self.df.acat
         df = self.df
+        ts = np.array(df.ts,float)
+        locqual = np.array(df.locqual,float)
         r95 = 60* 2.45 * np.sqrt(np.array(df.a, float)*np.array(df.b,float))
         agn = np.array([x in 'crates bzcat agn bllac'.split() for x in t])
         psr = np.array([x in 'pulsar_lat'.split() for x in t])
@@ -393,7 +398,7 @@ class Associations(sourceinfo.SourceInfo):
         deltats = df.adeltats / (systematic[0]**2 + (systematic[1]/r95)**2)
 
         def select(sel, rlim=(0,5) ,):
-            cut = sel & (df.aprob>0.8) & (df.ts>tsmin) & (df.locqual<qualmax) & (r95>rlim[0]) & (r95<rlim[1])
+            cut = sel & (df.aprob>0.8) & (ts>tsmin) & (locqual<qualmax) & (r95>rlim[0]) & (r95<rlim[1])
             return deltats[cut]
             
         cases = [(agn, 'AGN strong', (0,1)), (agn,'AGN moderate', (1,2)), (agn,'AGN weak',(2,20)),
