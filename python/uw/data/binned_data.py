@@ -20,6 +20,8 @@ def set_dskeys(header,
            event_type=1, #the bit: 1 or 2 for front or back
            zmax=100,  thetamax=66.4, #wired in for pointlike
            ):
+    """Set the DS keys in the FITS header for Fermi analysis
+    """
     
     dsvals = [      
       ('BIT_MASK(EVENT_CLASS,128,P8R3)','DIMENSIONLESS','1:1'),
@@ -40,6 +42,7 @@ def set_dskeys(header,
         header.append( ('DSVAL'+fn , value))
         if len(x)>3:
              header.append(('DSREF'+fn, x[3]))
+    assert n>0
     header['NDSKEYS']=n
     return header
 
@@ -386,10 +389,10 @@ class BinFile(object):
         """ 
         circle, nside, pixels = self.roi_subset(roi_number, channel, radius); 
         bandsinfo = self.hdus['BANDS'].data 
-        emin, emax = bandsinfo.E_MAX[channel], bandsinfo.E_MIN[channel] 
+        emin, emax = bandsinfo.E_MIN[channel], bandsinfo.E_MAX[channel] 
 
         # PRIMARY
-        primary = self.hdus[0]
+        primary = self.hdus[0].copy()
         header = primary.header
         set_dskeys(header, circle=circle, emin=emin,emax=emax, 
             event_type= 1<< bandsinfo.EVENT_TYPE[channel]) 
@@ -425,6 +428,29 @@ class BinFile(object):
         hdus=[primary, skymap_hdu, ebounds_hdu, self.gti.make_hdu()]
         fits.HDUList(hdus).writeto(filename, clobber=clobber)
         print 'Wrote file {}'.format(filename)
+    
+    def generate_ccube_files(self, path, roi_index, channels=range(8), overwrite=False):
+        """Write out a set of ccube files for Fermi analysis, 
+        path: string
+            path to the folder with the files. They will be added to a subfolder 
+            given by the roi_index
+        roi_index: int
+            HEALPix index for nside=12 tesselation, range 0-1727
+        channels: list of channel numbers, in range 0-31
+        overwrite : bool
+
+        TODO: set maximum nside, downsample if needed
+        """
+        assert os.path.exists(path)
+        roi_folder = os.path.join(path, '{:04d}'.format(roi_index))
+        if not os.path.exists(roi_folder):
+            os.mkdir(roi_folder)
+        for cindex in channels:
+            fname = roi_folder+'/ccube_{:02d}.fits'.format(cindex)
+            if os.path.exists(fname) and not overwrite:
+                print 'File {} exists'.format(fname)
+            else:
+                self.write_roi_fits(fname, roi_index, cindex)
 
 class ConvertFT1(object):
 
