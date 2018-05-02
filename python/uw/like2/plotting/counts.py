@@ -12,7 +12,7 @@ import pandas as pd
 from matplotlib import font_manager
 from uw.utilities import image
 
-def get_counts(roi, event_type=None, tsmin=10):
+def get_counts(roi, event_type=None, tsmin=10, emax=None):
     """
     return a dictionary with counts information for plotting
     
@@ -43,6 +43,7 @@ def get_counts(roi, event_type=None, tsmin=10):
     names = np.array([s.name for s in np.hstack([global_sources,free_sources])])
     bandts = np.array([s.sedrec.ts.sum() if hasattr(s,'sedrec') and s.sedrec is not None else None for s in free_sources])
     energies = roi.energies #sorted(list(set([b.energy for b in bands])))
+    if emax is not None: energies = filter(lambda e:e<emax, energies)
     nume = len(energies)
     numsrc = sum(global_mask)# | strong_mask)
     observed = np.zeros(nume)
@@ -179,13 +180,19 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
                 plot_kw=dict( linestyle=' ', marker='o', color='black',),
                 show_chisq=True, plot_pulls=True,
                 ):
-        energy, obs,tot = count_data['energies'],count_data['observed'],count_data['total']
+        energy, obs,tot = np.array(count_data['energies']),count_data['observed'],count_data['total']
         ax.set_xscale('log')
         if not plot_pulls:
-            ax.errorbar(energy, (obs-tot)/(tot), yerr=tot**-0.5, **plot_kw)
-            ybound=0.1 # ybound = min( 0.5, np.abs(np.array(ax.get_ylim())).max() )
+            fdev = 100*(obs-tot)/(tot)
+            ax.errorbar(energy, fdev, yerr=100*(tot**-0.5), **plot_kw)
+            ybound=2.0 
             ylabel='fract. dev'
-
+            ax.set(xscale='log', ylabel='fract. dev (%)', ylim=(-ybound*1.1,ybound*1.1))
+            nhigh = sum(fdev>ybound)
+            if nhigh>0:  ax.plot(energy[fdev>ybound], [ybound]*nhigh, '^r', markersize=10) 
+            nlow = sum(fdev<-ybound)
+            if nlow >0:  ax.plot(energy[fdev<-ybound], [-ybound]*nlow, 'vr', markersize=10)
+            ax.set_yticks([-1,0, 1])
         else:
             ylabel = 'pull'
             ybound = 3.5
@@ -196,11 +203,12 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
             if nhigh>0:  ax.plot(energy[pull>3], [3]*nhigh, '^r', markersize=10) 
             nlow = sum(pull<-3)
             if nlow >0:  ax.plot(energy[pull<-3], [-3]*nlow, 'vr', markersize=10) 
-            plt.setp(ax, xscale='log', ylabel='pull', ylim=(-3.5,3.5) )
+            ax.set( xscale='log', ylabel='pull', ylim=(-3.5,3.5) )
+            ax.set_yticks([-2,0,2])
 
-        ax.axhline(0, color = 'black')
-        ax.set_ylim((-ybound,ybound))
-        ax.set_ylabel(ylabel)
+
+        ax.axhline(0, color = 'grey', ls='--')
+
         def gevticklabel(x):
             if x<100 or x>1e5: return ''
             elif x==100: return '0.1'
@@ -219,8 +227,8 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
         fig, axes = plt.subplots(1,2, sharex=True, num=fignum, figsize=(12,6))
 
     tsmin = kwargs.pop('tsmin', 10)
-    count_data = get_counts(roi, event_type, tsmin=tsmin
-    ) #, integral=integral, merge_non_free=merge_non_free, merge_all=merge_all)
+    emax = kwargs.pop('emax', None)
+    count_data = get_counts(roi, event_type, tsmin=tsmin, emax=emax) #, integral=integral, merge_non_free=merge_non_free, merge_all=merge_all)
 
     plot_counts_and_models(axes[0], count_data)
     if len(axes>1): plot_residuals(axes[1], count_data, 
@@ -254,7 +262,6 @@ def stacked_plots(roi, counts_dir=None, fignum=6, title=None, **kwargs):
 
     axes[0].set_position([left, bottom+(1-fraction)*height, width, fraction*height])
     axes[1].set_position([left, bottom, width, (1-fraction)*height])
-    axes[1].set_yticks([-2,0,2])
     plot_counts(roi, axes=axes, outfile=None, **kwargs)
     
     plt.rcParams['axes.linewidth'] = oldlw
