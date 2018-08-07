@@ -219,13 +219,13 @@ class HealpixCube(DiffuseBase):
             self.setEnergy(energy)
         skyindex = self.indexfun(skydir)
         a = self.energy_interpolation
-        if np.abs(a)<1e-2:
-            ret = self.eplane1[skyindex]
-        elif np.abs(1-a)< 1e-2:
-            ret = self.eplane2[skyindex]
+        u, v = self.eplane1[skyindex], self.eplane2[skyindex]
+        if np.abs(a) < 1e-2 or v<=0:
+            ret = u
+        elif np.abs(1-a)< 1e-2 or u<=0:
+            ret = v
         else:
-            ret = np.exp( np.log(self.eplane1[skyindex]) * (1-a) 
-                        + np.log(self.eplane2[skyindex]) * a      )
+            ret = np.exp( np.log(u) * (1-a) + np.log(v) * a      )
         assert np.isfinite(ret), 'Not finite for %s at %s MeV, %f' % (skydir, self.energy, a)
         if ret<=0:
             #print 'Warning: FLux not positive at {} for {:.0f} MeV a={}'.format(skydir, self.energy,a)

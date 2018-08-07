@@ -255,10 +255,11 @@ class CountPlots(analysis_base.AnalysisBase):
             chisq = self.rois.chisq if not use10 else self.rois.chisq10
         chisqtxt= r'$\chi^2$'
         
-        # make a table of the bad ones
+        # make a table of the bad ones, sorted by chisq
         
         bad_rois = self.rois[chisq>vmax]['glat glon chisq'.split()]
         bad_rois['chisq'] = chisq
+        bad_rois.sort_values(by='chisq', ascending=False)
         bad_rois.to_csv('bad_rois.csv')
         if not self.skymodel.startswith('month') and makecollection:
             try:

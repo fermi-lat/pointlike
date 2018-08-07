@@ -83,7 +83,16 @@ class MyLogger(object):
         else: print msg
     def warning(self, msg):
         if self.logger: self.logger.warning(msg)
-        else: print msg
+        else: print 'WARNING', msg
+    def error(self, msg):
+        if self.logger: self.logger.error(msg)
+        else: print 'ERROR', msg
+    def log(self, level, msg, appname='', arg=None):
+        if self.logger: self.logger.log(level, msg, appname, arg )
+        else: 
+            if arg is not None: 
+                print 'INFO', msg % (appname, arg)
+            else: print 'INFO', msg
 
 class UWtoGT(object):
     """ manage adaption of a UW model to gtanalysis
@@ -108,26 +117,33 @@ class UWtoGT(object):
 
         # expect to find "ccube" files here, under folders with roi index values
         self.ccube_root=os.path.join(self.datapath,'8years_ccube')
-        # the "bexpmap" files go here
+        # the "bexpmap" files go herea
         self.bexpmap_dir=os.path.join(self.datapath, '8years_bexpmap')
 
         # extract component info from the FITS file
         t = fits.open(cfg.dataset.binfile)
-        cmp=[]
-        for i, (nside, emin, emax, et) in enumerate(t['BANDS'].data):
-            cmp.append(
-                dict(
-                    name='{:02d}'.format(i),
-                    selection=dict(evtype=1<<et,
-                        emin=emin, emax=emax,),
-                    binning=dict(hpx_order=int(np.log2(nside)), enumbins=1), ##allow to change
-                    model=dict(
-                        isodiff=self.isodiff[et],
-                        galdiff = self.galdiff,
-                        ),
-                )
-            )  
-        self.components=cmp
+        assert 'BANDS' in t, 'Expected new-format binned data file'
+        try:
+            cmp=[]
+            for i, (nside, emin, emax, et) in enumerate(t['BANDS'].data):
+                cmp.append(
+                    dict(
+                        name='{:02d}'.format(i),
+                        selection=dict(evtype=1<<et,
+                            emin=1e3*emin, emax=1e3*emax,), #convert to GeV??
+                        binning=dict(hpx_order=int(np.log2(nside)), enumbins=1), ##allow to change
+                        model=dict(
+                            isodiff=self.isodiff[et],
+                            galdiff = self.galdiff,
+                            ),
+                    )
+                )  
+            self.components=cmp
+        except Exception, msg:
+            logger.error('Failed to interpret file {}: {}'.format(cfg.dataset.binfile, msg))
+            raise
+        except:
+            logger.error('Failed to interpret file {}'.format(cfg.dataset.binfile))
 
     
     def __call__(self, roi_index, ncomp=None, overwrite=False, **kwargs):
@@ -154,7 +170,6 @@ class UWtoGT(object):
         if not os.path.exists(roi_root):
             os.mkdir(roi_root)
 
-
         clist = range(len(gt_config['components']))
         ccfiles = [os.path.join(self.ccube_root,\
              '{:04d}'.format(roi_index), gt_config['gtlike']['ccube']% '_{:02d}'.format(j) )for j in clist]
@@ -168,21 +183,22 @@ class UWtoGT(object):
         assert os.path.exists(self.bexpmap_dir), 'expected to find folder {}'.format(self.bexpmap_dir)
         self.create_expcubes(gt_config['components'], overwrite=overwrite)
         
-        
         logger.info('Create the gtanalysis')
         self.gta = gtanalysis.GTAnalysis(gt_config, **kwargs)
 
         # Check for srcmaps
-        try:
-            logger.info('Checking srcmap files')
-            srcmap_ok = [os.path.exists(c.files['srcmap']) for c in self.gta]
-            if np.any(np.logical_not(srcmap_ok)) or overwrite:
-                logger.info('Will create srcmap files')
+        logger.info('Checking srcmap files')
+        srcmap_ok = [os.path.exists(c.files['srcmap']) for c in self.gta]
+        
+        if np.any(np.logical_not(srcmap_ok)) or overwrite:
+            logger.info('Will create srcmap files')
+            try:
                 self.create_srcmaps(overwrite)
-            
-            logger.info('GRanalysis ready to complete setup')
-        except Exception:
-            logger.info('Failed srcmap creation')
+            except Exception, msg:
+                logger.error('Failed : {}. Returning anyway'.format(msg))
+                return self.gta
+        
+        logger.info('GRanalysis ready to complete setup')
         return self.gta
 
     def file_check(self):
@@ -229,6 +245,8 @@ class UWtoGT(object):
 
     def create_srcmaps(self, overwrite=False):
         for cmp in self.gta:
+            if not os.path.isfile(cmp.files['srcmdl'] or overwrite):
+                cmp.roi.write_xml(cmp.files['srcmdl'], cmp.config['model'])
             cmp._create_srcmaps(overwrite=overwrite)
 
     def __getitem__(self, i):
@@ -236,30 +254,3 @@ class UWtoGT(object):
     def __len__(self):
         return len(self.components)
 
-# class UWGTroi( fermipy.config.Configurable,):
-
-#     def __init__(self, parent, roi_index, config, **kwargs):
-#         self.gt = fermipy.gtanalysis.GTAnalysis(config, **kwargs)
-#         self._components = self.gt._components
-#         self.parent = parent 
-#         self.roi_index=roi_index
-#         self._config = config
-#         self.workdir = None
-
-#     def setup(self):
-#         self.gt.setup()
-
-#     def file_check(self):
-#         checklist = ' ccube bexpmap srcmap srcmdl'.split()
-#         fstat = pd.DataFrame(
-#             np.array([[os.path.isfile(cmp.files[check]) for check in checklist] for  cmp in self]),
-#             columns=checklist)
-#         return fstat
-
-#     def __getitem__(self, i):
-#         """return the ith component, an object of the class GTBinnedAnalysis
-#         """
-#         return self._components[i]
-
-#     def __len__(self):
-#         return len(self._components)

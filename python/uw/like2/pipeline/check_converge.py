@@ -156,6 +156,8 @@ def main(args):
                 create_stream(next_stage)
         elif 'mspsens' in names:
             healpix_map.assemble_tables(names, nside=256) # assume nside
+        elif 'all' in names:
+            print 'Finished tables_all'
         else:
             print 'Unexpected table name: {}'.format(names)
             

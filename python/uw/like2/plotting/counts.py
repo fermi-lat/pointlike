@@ -256,7 +256,7 @@ def stacked_plots(roi, counts_dir=None, fignum=6, title=None, **kwargs):
     figsize = kwargs.pop('figsize', (5,8))
     fig, axes = plt.subplots(2,1, sharex=True, num=fignum, figsize=figsize)
     fig.subplots_adjust(hspace=0)
-    axes[0].tick_params(labelbottom='off')
+    axes[0].tick_params(labelbottom=False)
     left, bottom, width, height = (0.15, 0.10, 0.75, 0.85)
     fraction = 0.8
 

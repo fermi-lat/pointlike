@@ -110,6 +110,9 @@ class Process(main.MultiROI):
                 return
             elif self.diffuse_key=='gal':
                 if not fit_galactic(self):return
+            elif self.diffuse_key=='gal_only':
+                fit_galactic(self)
+                return
             else:
                 raise Exception('Unexpected key: {}'.format(self.diffuse_key))
              #fit_diffuse()

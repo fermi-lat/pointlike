@@ -3,7 +3,7 @@
 $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/seedcheck.py,v 1.14 2018/01/27 15:39:29 burnett Exp $
 
 """
-import os
+import os, glob
 import numpy as np
 import pylab as plt
 import pandas as pd
@@ -23,28 +23,38 @@ class SeedCheck(sourceinfo.SourceInfo):
     <p>This is a second stage after a run that produced a residual TS map. The first pipeline run, "sourcefinding", 
     generates nside=512 HEALPix tables of the residual plots for the following spectral templates:
     <ul type="circle">
-        <li>ts</li>
+        <li>flat</li>
         <li>hard</li>
         <li>soft</li>
-        <li>tsp</li>    
+        <li>peaked</li>    
     </ul>.
     <p>
      The plot analysis "hptables" that follows it does a cluster analysis, generating a list of
     seed positions in the file "seeds.txt". A second pipeline run, "seedcheck", for each ROI, adds seeds falling in the central pixel to the model, 
     performing an inital fit to the flux only, then a localization, and finally a full fit. The fit and localization information are 
     written to a set of pickle files in the folder "seedcheck" or the zip file "seedcheck.zip".
-    A selection is applied with there cuts: 
+    A selection is applied with these cuts: 
     % %(cut_summary)s
     <br>and the remaining sources are analyzed here.
     """
 
     def setup(self, **kw):
-        self.keys=keys = ['ts', 'tsp', 'hard', 'soft'] #keys =stagedict.stagenames['sourcefinding']['pars']['table_keys']
+        import seaborn as sns
+        f = glob.glob('hptables_*_512.fits')[0]; 
+        keys = f.split('_')[1:-1];
+        self.keys=keys #= ['ts', 'tsp', 'hard', 'soft'] #keys =stagedict.stagenames['sourcefinding']['pars']['table_keys']
 
         tt = fits.open('hptables_{}_512.fits'.format('_'.join(keys)))
         self.tables = tt[1].data;
         super(SeedCheck, self).setup(**kw) 
+        seedfile = kw.pop('seedfile', 'seeds/seeds_all.csv')
         self.plotfolder ='seedcheck'
+        self.seeds = pd.read_csv(seedfile, index_col=0)
+        self.input_model=self.skymodel
+        self.seeds.index.name='name'
+        print 'Loaded {} seeds from file "{}"'.format(len(self.seeds), seedfile)
+        unique, counts = np.unique(self.seeds.key, return_counts=True)
+        print 'seed keys: {}'.format(dict(zip(unique, counts)))
         #self.load()
         
     def tsmaps(self):
@@ -64,7 +74,9 @@ class SeedCheck(sourceinfo.SourceInfo):
         plt.subplots_adjust(hspace=-0.4,wspace=0.05)
         for ax,key in zip(axx.flatten(), keys):
             plt.sca(ax)
-            healpy.mollview(self.tables[key],hold=True, min=10, max=25, title=key, cbar=True)
+            healpy.mollview(self.tables[key],hold=True, min=10, max=25, title=key, cbar=True, 
+            cmap=plt.get_cmap('YlOrRd'))
+            healpy.graticule(dmer=180, dpar=90, color='lightgrey')
         return fig
 
     def pixel_ts_distribution(self, tsmax=25):
@@ -99,7 +111,7 @@ class SeedCheck(sourceinfo.SourceInfo):
 
 
 
-    def seed_plots(self, bcut=5, subset=None, title=None):
+    def seed_plots(self, subset='all', bcut=5, title=None):
         """ Seed plots
         
         Results of cluster analysis of the residual TS distribution. Analysis of %(n_seeds)d seeds from file 
@@ -108,25 +120,27 @@ class SeedCheck(sourceinfo.SourceInfo):
         <br>Center: maximum TS in the cluster
         <br>Right: distribution in sin(|b|), showing cut if any.
         """
-        z = self.seeds if subset is None else self.seeds[subset]
+        z = self.seeds if subset=='all' else self.seeds.query(subset)
+        bc = np.abs(z['b'])<bcut
+        
         fig,axx= plt.subplots(1,3, figsize=(12,4))
         plt.subplots_adjust(left=0.1)
-        bc = np.abs(z.b)<bcut
         histkw=dict(histtype='step', lw=2)
         def all_plot(ax, q, dom, label):
-            ax.hist(q.clip(dom[0],dom[-1]),dom, **histkw)
+            ax.hist(q.clip(dom[0],dom[-1]),dom, label=None, **histkw)
             ax.hist(q[bc].values.clip(dom[0],dom[-1]),dom, color='orange', label='|b|<%d'%bcut, **histkw)
             plt.setp(ax, xlabel=label, xlim=(None,dom[-1]))
             ax.grid()
             ax.legend(prop=dict(size=10))
         all_plot(axx[0], z['size'], np.linspace(0.5,10.5,11), 'cluster size')
-        all_plot(axx[1], z.ts, np.linspace(0,50,26), 'TS')
+        all_plot(axx[1], z.ts, np.linspace(10,50,21), 'TS')
         all_plot(axx[2], np.sin(np.radians(z.b)), np.linspace(-1,1,41), 'sin(b)')
         axx[2].axvline(0, color='k')
-        fig.suptitle('{} {} seeds from model {}'.format( len(z), self.tsname, self.input_model,)
+        fig.suptitle('{} {} seeds from model {}'.format( len(z), subset, self.input_model,)
              if title is None else title)
         fig.set_facecolor('white')
         return fig
+
 
 
     def load(self):

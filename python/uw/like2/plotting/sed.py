@@ -253,7 +253,7 @@ def stacked_plots(sed,  outdir=None,  **kwargs):
         
     fig, axes = plt.subplots(2,1, sharex=True,  figsize=figsize,dpi=100)
     fig.subplots_adjust(hspace=0)
-    axes[0].tick_params(labelbottom='off')
+    axes[0].tick_params(labelbottom=False)
     left, bottom, width, height = (0.15, 0.10, 0.75, 0.85)
     fraction = 0.8
 

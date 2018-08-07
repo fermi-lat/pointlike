@@ -95,6 +95,10 @@ class Profile(object):
             print 'Failed groupby: {}\n{}'.format(msg, df)
             raise
 
+    @property
+    def mean(self):
+        return self.df.y.mean() #should be weighted
+
     def make_pdf(self, overflows=True):
         # calculate mean and standard error of the mean for y in each bin
         self.pdf= self.binned['y'].agg(['count','mean', 'sem', 'std', 'min', 'max'])
@@ -124,6 +128,7 @@ class Profile(object):
             linestyle='none', capsize=0, # color=color,
             **kwargs
         )
+
 
 def html_table(dataframe, float_precision=2):
     """Return an HTML table of a DataFrame with given precision

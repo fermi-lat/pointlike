@@ -3,8 +3,6 @@ Manage the sparse pointlike data.
 Duplicates the functionality of the C++ class BinnedPhotonData
 Implements the new standard data format
 http://gamma-astro-data-formats.readthedocs.io/en/latest/skymaps/healpix/index.html#hpx-bands-table
-
-
 """
 import os, glob, StringIO
 import healpy
@@ -15,8 +13,8 @@ import pandas as pd
 from uw.utilities import keyword_options
 
 def set_dskeys(header, 
-           circle=None, #(ra=162.3879746, dec=24.20062613,radius=5),
-           emin=100,emax=177.82794100399999593, # must be set
+           circle=None, #(ra=162.387, dec=24.200,radius=5),
+           emin=100,emax=177.82, # must be set
            event_type=1, #the bit: 1 or 2 for front or back
            zmax=100,  thetamax=66.4, #wired in for pointlike
            ):
@@ -45,6 +43,14 @@ def set_dskeys(header,
     assert n>0
     header['NDSKEYS']=n
     return header
+
+def roi_circle(roi_index, galactic=True, radius=5.0):
+    """ return (lon,lat,radius) tuple for given nside=12 position
+    """
+    from skymaps import Band
+    sdir = Band(12).dir(roi_index)    
+    return (sdir.l(),sdir.b(), radius) if galactic else (sdir.ra(),sdir.dec(), radius)
+
 
 class GTI(object):
     def __init__(self, gti_hdu):
@@ -113,10 +119,12 @@ class BandList(object):
     def dataframe(self):
         data = self.hdu.data
         if self.pixelcnt is None:
-            cdata = [data.E_MIN*1e3, data.E_MAX*1e3, data.EVENT_TYPE, data.NSIDE]
+            cdata = [data.E_MIN, data.E_MAX, data.EVENT_TYPE, data.NSIDE]
         else:
             cdata = [self.hdu.data.field(cname) for cname in 'emin emax event_class nside'.split()]
+        cdata
         df = pd.DataFrame(cdata, index='e_min e_max event_type nside'.split()).T
+        df.e_min /=1e3; df.e_max/=1e3 # convert to MeV from keV
         df['event_type']= df.event_type.astype(int)
         df.nside = df.nside.astype(int)
         return df
@@ -351,7 +359,8 @@ class BinFile(object):
         return sum(self.pixels.cnt)    
 
     def roi_subset(self,  roi_number, channel, radius=5):
-        """Return a DataFrame with data values for the HEALPix pixels within the pointlike ROI
+        """Return a tuple:
+            (l,b,radius), nside, DataFrame with data values for the HEALPix pixels within the pointlike ROI
         Creates empty pixels if no data in the pixel (input is sparse, output not)
         """
         skymap = self.hdus['SKYMAP'].data
@@ -366,13 +375,6 @@ class BinFile(object):
         # the set of pixels in an ROI
         def qdisk(nside, glon, glat, radius):
             return healpy.query_disc(nside, healpy.dir2vec(glon,glat,lonlat=True), np.radians(radius))
-        
-        # parameters for a pointlike ROI
-        def roi_circle(roi_index, galactic=True, radius=5.0):
-            from skymaps import Band
-            sdir = Band(12).dir(roi_index)    
-            return (sdir.l(),sdir.b(), radius) if galactic else (sdir.ra(),sdir.dec(), radius)
-
         pix=qdisk(nside, *roi_circle(roi_number) )
         roi_pix = pd.DataFrame(np.zeros_like(pix), index=pix, columns=['value'])
         data_pix = select_pixels(channel)
@@ -415,9 +417,12 @@ class BinFile(object):
             FIRSTPIX =0,
             LASTPIX = 12*nside**2-1,
             INDXSCHM='EXPLICIT',)
+
+        skymap_hdu.header['HIERARCH HPXREGION'] =\
+             'DISK({:.3f},{:.3f},{:.3f})'.format(*roi_circle(roi_number, radius, galactic=True))
           
         # EBOUNDS
-        fudge=1e6
+        fudge=1 # 1e6 from GeV?
         ebounds_cols = [
             fits.Column(name = 'CHANNEL', format = 'I', array=[1]),
             fits.Column(name= 'E_MIN', format = '1E', unit = 'keV', array=[emin*fudge]),
@@ -458,7 +463,7 @@ class ConvertFT1(object):
         # ('ebins', np.hstack([np.logspace(2,4.5, 11), np.logspace(5,6,3)]),'Energy bin array'),
         # ('levels', [[6,7,8,9]+[10]*10, [6,6,7,8,9]+[10]*9 ], 'healpix level values, etype tuple of band values space'),
         ('ebins', np.logspace(2, 6, 17),'Energy bin array'),
-        ('orders', [[6,7,8,9]+[10]*12, [6,6,7,8,9]+[10]*11 ], 'healpix order values, etype tuple of band values space'),
+        ('orders', [ [6, 6,7,8,9,10]+[12]*10, [6,7, 8,9,10,11]+[12]*10 ], 'healpix order values, etype tuple of band values space'),
         ('etypes', (0,1), 'event type index'),
         ('theta_cut', 66.4, 'Maximum instrument theta'),
         ('z_cut', 100, 'Maximum zenith angle'),

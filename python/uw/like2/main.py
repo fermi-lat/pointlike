@@ -118,7 +118,7 @@ class ROI(views.LikelihoodViews):
             if roi_spec not in df.index:
                 print 'Source name "{}" not found '.format(roi_spec)
                 raise Exception
-            roi_index = int(df.ix[roi_spec]['roiname'][-4:]) 
+            roi_index = int(df.loc[roi_spec]['roiname'][-4:]) 
             print 'Loading ROI #{}, containing source "{}"'.format(roi_index, roi_spec)
         elif isinstance(roi_spec, int):
             roi_index = roi_spec
@@ -270,7 +270,8 @@ class ROI(views.LikelihoodViews):
             if not self.quiet:
                 str = '{:20} flux'.format(source.name)
                 if p.flux>0 and p.errors[0]>0:
-                    print '{} = {:6.3f} (1 + {:.3f} - {:.3f}) eV/cm^2/s '.format(str, p.flux,err[1],-err[0])
+                    print '{} = {:6.3f} (1 + {:.3f} - {:.3f}) eV/cm^2/s, TS={:.1f} '.format(
+                        str, p.flux,err[1],-err[0], p.ts)
                 else:
                     print '{} < {:6.3f}'.format(str, t['high'])
 

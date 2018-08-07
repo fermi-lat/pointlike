@@ -58,9 +58,12 @@ class HPtables(sourceinfo.SourceInfo):
         self.plotfolder = 'hptables_%s' % tsname
         self.seedfile, self.seedroot, self.bmin = \
             'seeds_%s.txt'%tsname, '%s%s'%( (tsname[-1]).upper(),self.input_model[-3:] ) , 0
-        
-        self.make_seeds(refresh=kw.pop('refresh', False))
-
+        seed_df=    'seeds_{}.csv'.format(self.tsname)
+        if not os.path.exists(seed_df):
+            self.make_seeds(refresh=kw.pop('refresh', False), tcut=kw.pop('tsmin',10))
+        else:
+            print 'Loading seed file {}'.format(seed_df)
+            self.seeds = pd.read_csv(seed_df, index_col=0)
     
     def make_seeds(self, refresh=False,  tcut=10, bcut=0, minsize=1):
         """ may have to run the clustering application """

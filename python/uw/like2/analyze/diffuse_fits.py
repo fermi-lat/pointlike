@@ -29,7 +29,7 @@ class DiffuseFits(roi_info.ROIinfo):
         self.galfits=self.isofits=None
         galdict = self.config.diffuse['ring'] 
         self.galfile = galdict['filename'].split('/')[-1]
-        if galdict.get('key', None) == 'gal':
+        if galdict.get('key', None) == 'gal' or 'correction' not in galdict:
             self.galcorr = None
         else:
             self.galcorr =galdict['correction']
@@ -85,7 +85,7 @@ class DiffuseFits(roi_info.ROIinfo):
             fig,axx = plt.subplots(2,4, figsize=(14,7), sharex=True, sharey=False)
             plt.subplots_adjust(wspace=0.3)
         else:
-            fig, axx = plt.subplots(2,4, figsize=(16,8), sharex=True, sharey=True)
+            fig, axx = plt.subplots(2,4, figsize=(12,6), sharex=True, sharey=True)
             plt.subplots_adjust(left=0.10, wspace=0.1, hspace=0.1,right=0.92, top=0.92)
         for i,ax in enumerate(axx.flatten()):
             if hist:
@@ -157,3 +157,21 @@ def update_correction(self):
         #corr_version=
     #pd.DataFrame(self.galfits).to_csv(outfile)
     print 'wrote file {}'.format(outfile)
+
+
+def get_diffuse_norm():
+    import pickle,glob
+    pf = sorted(glob.glob('pickle/HP12*.pickle'))
+    assert len(pf)==1728
+    pd = [pickle.load(open(f)) for f in pf]
+    r = np.array([p['diffuse_normalization']['gal'] for p in pd])
+    return r
+
+def clear_diffuse_norm():
+    import pickle,glob
+    pf = sorted(glob.glob('pickle/HP12*.pickle'))
+    assert len(pf)==1728
+    for f in pf:
+        p = pickle.load(open(f))
+        p['diffuse_normalization']['gal']= np.ones(8)
+        pickle.dump(p, open(f, 'w'))

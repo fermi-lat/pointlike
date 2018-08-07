@@ -9,8 +9,9 @@ import numpy as np
 import pandas as pd
 from skymaps import Band, SkyDir, PySkyFunction, Hep3Vector, PythonUtilities 
 from uw.like import Models
-from . import sources, sedfuns 
+from . import (sources, sedfuns, ) 
 from uw.utilities import image
+from uw.like2.pipeline import check_ts
 
 # the default nside
 nside=512
@@ -227,26 +228,24 @@ class KdeMap(object):
 class ResidualTS(object):
     """ manage a residual TS plot 
     """
-
-    def __init__(self, roi, **kwargs):
+    def __init__(self, roi,  **kwargs):
         """
         roi : a ROI_user object
-        kwargs:
-            index : float
-                default 2.2 the photon index to use
-            model : None, or a Models.model instance, or a string like 
-                    'LogParabola(p=[6e-14, 1.44, 1.22, 4500])'
+
+        model : a string
+            must evaluate to a Models.Model. e.g. 'LogParabola(6e-14, 1.2, 0, 4500)'
+
+        par_sets : list of list of float or None
+            if not None, sets of parameters to apply to the model
         """
         self.roi = roi
-        model = kwargs.pop('model', None)
-        if type(model)==types.StringType:
-            print 'ResidualTS: using spectral model: %s' %model
-            model = eval(model)
-        self.sourcename=kwargs.pop('sourcename', 'resid')
-        self.source =roi.add_source(name=self.sourcename, skydir = roi.roi_dir, model=model)
-        self.model = self.source.spectral_model
+        self.model = eval(kwargs.pop('model'))
+        sources.set_default_bounds(self.model)
+        self.pars = kwargs.pop('par_sets', None)
+        self.sourcename='test'
+        self.source = roi.add_source(name=self.sourcename, skydir = roi.roi_dir, model=self.model)
         roi.get_source(self.sourcename) # to select
-        sources.set_default_bounds(self.model) # in case no bounds already
+        # the function to miniumze
         self.func = roi.fitter_view(self.sourcename+'_Norm')
         
     def __enter__(self):
@@ -261,22 +260,35 @@ class ResidualTS(object):
         
     def reset(self):
         self.roi.del_source(self.sourcename)
-        
-    def tsfun(self, skydir):
-        self.source.skydir = skydir
-        self.roi.calls =0
-        self.model[0]=1e-13 # initial value 
-        self.roi.initialize(sourcename=self.sourcename)
+    
+    def trial_fit(self, pars=None):
+        if pars is not None:
+            self.model.set_all_parameters(pars)
+            self.source.changed=True
+        else:
+            self.model[0]=1e-13 # initial value 
         try:
             self.func.maximize(estimate_errors=False)
             ts = self.roi.TS()
         except:
             ts=0
         return max(0, ts)
+
+    def tsfun(self, skydir):
+        # move to new position, reinitialze
+        self.source.skydir = skydir
+        self.roi.calls =0
+        self.roi.initialize(sourcename=self.sourcename)
+
+        if self.pars is None:
+            return self.trial_fit()
+        return map(self.trial_fit, self.pars)
+
         
     def __call__(self, v):
         skydir = SkyDir(Hep3Vector(v[0],v[1],v[2]))
         return self.tsfun(skydir)
+
         
 
 class ResidualUpperLimit(ResidualTS):
@@ -327,7 +339,7 @@ class ROItables(object):
         for subdir in self.subdirs: 
             if not os.path.exists(subdir):  os.makedirs(subdir)
                     
-    def process_table(self, skyfun,name, pos_list, outfile=None, **kwargs):
+    def process_table(self, skyfun, name, pos_list, outfile=None, **kwargs):
         sys.stdout.flush()
         skytable = np.array([skyfun(p) for p in pos_list])
         print ' min=%6.2e, max=%6.2e, mean=%6.2e ' \
@@ -342,10 +354,6 @@ class ROItables(object):
         index = int(roi.name[5:])
         pos_list = [self.subdirfun(int(i)) for i in self.index_table[index]]
           
-        #if not hasattr(roi, 'bands'):
-        #    roi.bands = [s.band for s in roi.selected_bands]
-        #    roi.phase_factor = 1.0 
-            
         for i,fun in enumerate(self.skyfuns):
             skyfun = fun[0] if type(fun[0])!=types.StringType else eval(fun[0])
             self.process_table(skyfun(roi, **fun[2]), fun[1], pos_list, 
@@ -418,18 +426,25 @@ class DisplayTable(object):
         fig.set_facecolor('white')
         return zea
 
-table_info={'ts':  (ResidualTS, dict(photon_index=2.2, model='LogParabola(1e-13, 2.2, 0, 1000.)')),
+table_info={'ts':  (ResidualTS, dict(model='LogParabola(1e-13, 2.2, 0, 1000.)')),
             'kde': (KdeMap, dict()),
-            'tsx': (ResidualTS, dict(photon_index=2.3, model='LogParabola(1e-12, 2.3, 0, 1000.)')),
+            'tsx': (ResidualTS, dict(model='LogParabola(1e-12, 2.3, 0, 1000.)')),
             'tsp': (ResidualTS, dict(model='ExpCutoff(1e-13,1.5, 3000.)')),
-            'hard': (ResidualTS, dict(photon_index=1.7, model='LogParabola(1e-15, 1.7, 0, 50000.)')),
-            'soft': (ResidualTS, dict(photon_index=2.7, model='LogParabola(1e-12, 2.7, 0, 250.)')),
+            'hard': (ResidualTS, dict( model='LogParabola(1e-15, 1.7, 0, 50000.)')),
+            'soft': (ResidualTS, dict(model='LogParabola(1e-12, 2.7, 0, 250.)')),
+            'peaked': (ResidualTS, dict(model='LogParabola(1e-14, 2.0, 0.5, 2000.)')),
             'mspsens': (ResidualUpperLimit, dict(model='ExpCutoff(1e-13,1.2,2800.)')),
            'mspsens2': (ResidualUpperLimit, dict(model='ExpCutoff(1e-13,1.2,2800.)')),
            'mspts': (ResidualTS, dict(model='ExpCutoff(1e-13,1.2, 2800.)')),
             'mspts2': (ResidualTS, dict(model='ExpCutoff(1e-13,1.2, 2800.)')),
+            'all':  (ResidualTS, dict(model='LogParabola(1e-13, 2.2, 0, 1000.)', 
+                    par_sets= [[1e-13, 1.7, 0,  50000.], #hard
+                            [1e-13, 2.2, 0,   1000.], #flat
+                            [1e-13, 2.7, 0,    250.], #soft
+                            [1e-13, 2.0, 0.5, 2000.]] #peaked
+                            ) )
            }
-table_info['med']=table_info['ts']
+table_info['flat']=table_info['ts']
 table_info['psr']=table_info['tsp']
 
 
@@ -466,3 +481,96 @@ def residual_maps(roi, folder='residual_maps'):
     filename = '{}/ROI_{:04d}.pickle'.format(folder,roi_id)
     pickle.dump(maps, open(filename,'w'))
     print 'Wrote file {}'.format(filename)
+
+
+def assemble_tables(table_names, outputfile=None, folder= '.', nside=512):
+    """ assemble one or more healpix tables from individual ROIs into a single FITS file
+    parameters
+    ----------
+    table_names : list of strings
+        prefix names, with suffix '_table'. Can be either zip or folders
+    outputfile : string
+        path, relative to folder, to write output file; default constructed from list of table names
+    folder : string
+        path name, default current dir.
+    """
+    tables = [HPtables(name, folder, nside=nside) for name in table_names]
+    if outputfile is None:
+        outputfile='hptables_'+'_'.join(table_names)+'_%d.fits' %nside
+    f = HEALPixFITS(tables)
+    f.write(os.path.join(folder,outputfile))
+  
+def make_index_table(nside=12, subnside=512, usefile=True):
+    """create, and/or use a table to convert between different nside pixelizations
+    """
+    filename = os.path.expandvars('$FERMI/misc/index_table_%02d_%03d.pickle' % (nside, subnside) )
+    if os.path.exists(filename) and usefile:
+        return pickle.load(open(filename))
+    print 'generating index table for nside, subnside= %d %d' % (nside, subnside)
+    band, subband = Band(nside), Band(subnside)
+    npix, nsubpix = 12*nside**2, 12*subnside**2
+    t=np.array([band.index(subband.dir(i)) for i in xrange(nsubpix)])
+    a = np.arange(nsubpix)
+    index_table = [a[t==i] for i in xrange(npix)]
+    if usefile:
+        pickle.dump(index_table, open(filename,'w'))
+    return index_table
+
+class MultiMap(object):
+    
+    def __init__(self, names=['hard','flat','soft', 'peaked'], 
+                 outdir='.', tname='all', nside=512, roi_nside=12, fill=np.nan):
+        """ combine the tables generarated at each ROI
+
+        names : names to give the columns, 
+        nside : nside parameter that the table was generated with, default 512
+        tname : name of the table, default 'all'
+        fill  : scalar, defaul NaN
+            Use to fill missing tables, if any (warning issued)
+        """
+        self.names=names
+        folder = '%s_table_%d'% (tname, nside)
+        if os.path.exists('%s.zip' % folder):
+            z=zipfile.ZipFile('%s.zip'% folder)
+            files = sorted(z.namelist()) # skip  folder?
+            opener = z.open
+        else:
+            if not os.path.exists(folder):
+                raise Exception('Did not find zip file %s.zip or folder  %s'% (folder,folder))
+            opener = open
+            files = sorted(glob.glob(os.path.join(outdir, folder,'*.pickle')))
+        nf = len(files)
+        assert nf>0, 'no pickle files found in %s' % os.path.join(outdir, folder)
+        if nf<1728: print 'warning: missing %d files in folder %s_table; will fill with %s' % ((1728-nf), tname,fill)
+
+        mvec = np.zeros((12*nside**2,len(names)))
+        mvec.fill(fill)
+        pklist = [pickle.load(opener(f)) for f in files]
+        i12 = [int(f[-11:-7]) for f in files]
+        index_table = make_index_table(roi_nside, nside)
+        for index, pk in zip(i12,pklist):
+            indeces = index_table[index]
+            for i,v in enumerate(pk):
+                mvec[indeces[i]] = v 
+        bad = sum(mvec==fill)
+        if np.any(bad)>0: print 'WARNING: %d pixels not filled in table %s' % (bad, tname)
+        else:
+            print 'Table "{}" Filled with columns {}'.format(tname, names)
+        self.mvec= mvec
+
+        
+    def summary(self, tsmin=(10,25,100)):
+        stats = lambda n: (self.mvec>n).sum(axis=0)
+        return pd.DataFrame([stats(n) for n in tsmin], columns=self.names, index=['TS>{}'.format(x) for x in tsmin]).T
+        return (self.mvec>tsmin).sum(axis=0)
+
+    def write_fits(self,  folder='.' ):
+        """combine the tables into a FITS file
+        """
+        from uw.like2.pub import healpix_map as hpm
+        tables = [hpm.HParray(name, self.mvec[:,i]) for i,name in enumerate(self.names)]
+        self.fitsfile='hptables_'+'_'.join(self.names)+'_%d.fits' % tables[0].nside
+        f = hpm.HEALPixFITS(tables)
+        f.write(os.path.join(folder,self.fitsfile))
+
+

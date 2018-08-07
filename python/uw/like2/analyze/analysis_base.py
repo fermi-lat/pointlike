@@ -291,13 +291,15 @@ class AnalysisBase(object):
             print '*** failed header generation %s- missing key: %s' % (title, msg)
         except TypeError, msg:
             print '*** TypeError with string "%s": %s' % (htmldoc, msg)
+            raise
+
         open(os.path.join(self.plotfolder,'index.html'), 'w').write(text)
         print 'saved html doc to %s' %os.path.join(self.plotfolder,'index.html')
         h = _html.HTMLindex()
         h.create_menu()
         if self.just_created:
-           h.update_top()
-           
+            h.update_top()
+
             
     def basic_skyplot(self, ax, glon, singlat, c,
                 title=None, ecliptic=False, labels=True, colorbar=False, cbtext='', 

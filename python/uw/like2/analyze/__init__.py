@@ -33,6 +33,7 @@ __all__=[
  #'limb',
  #'limbrefit',
  'localization',
+ 'isotropic',
  #'localization1k',
  # 'pgwseedcheck',
  # 'maps',

@@ -17,8 +17,9 @@ class PipelineStream(object):
         self.summary= os.path.join(self.pointlike_dir,fn)
         self.fullskymodel = os.getcwd()
         assert os.path.exists(self.summary), 'File "%s" not found' % self.summary
-        assert os.path.exists('config.txt') or os.path.exists('../config.txt'), \
-            'File config.txt not found in %s or its parent' %self.fullskymodel
+        # now may have config.yaml; but that checked by uwpipeline
+        # assert os.path.exists('config.txt') or os.path.exists('../config.txt'), \
+        #     'File config.txt not found in %s or its parent' %self.fullskymodel
         t =self.fullskymodel.split('/')
         self.model = '/'.join(t[t.index('skymodels')+1:])
         with open(self.summary, 'r') as slog:
@@ -111,11 +112,14 @@ class StreamInfo(dict):
         model : string, default None
             If set, a filter. 
             the name of a model, e.g. "P301_6years/uw972", or a group with ending wildcard
+            if '.': filter using current directory
         
         """
         self.pointlike_dir=os.path.expandvars('$POINTLIKE_DIR')
         self.summary= os.path.join(self.pointlike_dir,fn)
         t = open(self.summary,'r').read().split('\n')
+        if model=='.':
+            model = '/'.join(os.getcwd().split('/')[-2:])
         for line in t[2:]:
             if len(line)==0: 
                 continue
@@ -267,7 +271,7 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
             description=""" Check stats for current or designated stream
     """)
-    parser.add_argument('stream', nargs='*', default=None, help='optional Strem number')
+    parser.add_argument('stream', nargs='*', default=None, help='optional Stream number')
     args = parser.parse_args()
     stream =(args.stream[0] if len(args.stream)>0 else None)
     os.environ['POINTLIKE_DIR']='/afs/slac/g/glast/groups/catalog/pointlike'

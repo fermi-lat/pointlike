@@ -217,7 +217,11 @@ class ResidualMaps(analysis_base.AnalysisBase):
         glat12 = np.array(map(lambda d: round(d.b(),1), sd12))
         self.df12 = pd.DataFrame(dict(glon=glon12, glat=glat12), index=range(1728))
 
-        self.gc = GalacticCorrectionMaps()
+        try:
+            self.gc = GalacticCorrectionMaps()
+        except Exception, msg:
+            print "No corrections made"
+            self.gc=None
 
     def band_analysis(self, band_index, nside=None):
         self.ba= BandAnalysis(self.dd, band_index, nside)
@@ -364,7 +368,7 @@ class ResidualMaps(analysis_base.AnalysisBase):
         """Ridge systematic scatter plots
 
         scatter plots of pixels in subsets of ROIs in the ridge area
-        color shows sytematic offset (range -20%% to 20%%)
+        color shows sytematic offset (range -20 to 20 pct.)
         """
         fig,axx = plt.subplots(3,1, figsize=(12,15), sharex=True)  
         self.residual_scats('abs(glat)==6.4 and abs(glon)<30', ax=axx[0])

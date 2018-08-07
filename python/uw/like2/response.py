@@ -244,6 +244,10 @@ class DiffuseResponse(Response):
                 #print 'Using gal key for galactic correction ', 
                 self.corr = DiffuseCorrection(None, diffuse.normalization['gal'])(roi_index,self.energy)
                 #print self.corr
+            elif dfun.kw.get('key', '') == 'iso':
+                et = ['front','back'][self.band.event_type]
+                self.corr = DiffuseCorrection(None, diffuse.normalization['iso'][et])(roi_index, self.energy)
+                #raise Exception('isotropic key: corr={}'.format(self.corr))
             elif 'correction' in dfun.kw and dfun.kw['correction'] is not None:
                 if not self.quiet:
                     print '\t%s loading corrections for source %s from %s.kw:' \
@@ -355,8 +359,8 @@ class DiffuseCorrection(object):
         if self.dn is not None:
             if self.correction is None: # new case
                 return self.dn[energy_index]
-            return self.correction.ix[energy_index] 
-        return self.correction.ix[roi_index][energy_index] if self.correction is not None else 1.0
+            return self.correction.iloc[energy_index] 
+        return self.correction.iloc[roi_index][energy_index] if self.correction is not None else 1.0
         
     def roi_norm(self, roi_index):
         """return a array of correction for the bands for a given ROI"""

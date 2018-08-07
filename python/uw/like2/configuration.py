@@ -120,7 +120,9 @@ class Configuration(dict):
         datadict = config.get('datadict', None)
         dataspec = config.get('dataspec', None)
         if datadict is not None:
-            self.dataset = dataset.DataSet(datadict['dataname'], interval=datadict.get('interval',None),
+            self.dataset = dataset.DataSet(datadict['dataname'], 
+                    interval=datadict.get('interval',None),
+                    binfile=datadict.get('binfile', None),
                     nocreate = self.nocreate,
                     CALDB = self.caldb,
                     irf = irf,
