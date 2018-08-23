@@ -219,8 +219,8 @@ class Process(main.MultiROI):
             print '------localizing all local sources------'; sys.stdout.flush()
             tsmap_dir = getdir(self.tsmap_dir)
             skymodel = os.getcwd().split('/')[-1]
-            if skymodel.startswith('month'): 
-                print 'Not running tsmap analysis since monthly subset'
+            if skymodel.startswith('month') or skymodel.startswith('year'): 
+                print 'Not running tsmap analysis since data subset'
                 tsmap_dir=None
             roi.localize('all', tsmap_dir=tsmap_dir)
         
@@ -260,12 +260,15 @@ class Process(main.MultiROI):
         returns True if had to refit, allowing iteration
         """
         roi = self
-        print '\ncheck need to repivot sources with TS>%.0f, beta<%.1f: \n'\
-        'source                     TS        e0      pivot' % (min_ts, max_beta)
-        need_refit =False
         if fit_sources is None:
             fit_sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
-        print 'processing %d sources' % len(fit_sources)
+        if len(fit_sources)>1:
+            print '\ncheck need to repivot % sources with TS>%.0f, beta<%.1f: \n'\
+            'source                     TS        e0      pivot' % (len(fit_sources), min_ts, max_beta)
+        
+        need_refit =False
+
+
         for source in fit_sources:
             model = source.spectral_model
             try:
@@ -472,6 +475,7 @@ def fit_isotropic(roi, nbands=8, folder='isotropic_fit'):
     roi.select()
     roi.sources.set_model(old_model)
     if folder is not None:
+        if not os.path.exists(folder): os.mkdir(folder)
         filename= '{}/{}.pickle'.format(folder, roi.name)
         pickle.dump(np.array(cx), open(filename, 'w'))
         print 'wrote file {}'.format(filename)
