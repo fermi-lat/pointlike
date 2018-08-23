@@ -114,7 +114,7 @@ def select_seeds_in_roi(roi, fn='seeds/seeds_all.csv'):
 def add_seeds(roi, seedkey='all', config=None,
             model='PowerLaw(1e-14, 2.2)', 
             associator=None, tsmap_dir='tsmap_fail',
-            tsmin=5, lqmax=20,
+            tsmin=10, lqmax=20,
             update_if_exists=False,
             location_tolerance=0.5,
             pair_tolerance=0.25,
@@ -132,13 +132,66 @@ def add_seeds(roi, seedkey='all', config=None,
         lqmax : float
             maximum localization quality for tentative source
     """
+
+    def add_seed(s, update_if_exists=True):
+        # use column 'key' to determine the model to use
+        model = maps.table_info[s['key']][1]['model']
+        try:
+            src=roi.add_source(sources.PointSource(name=s.name, skydir=s['skydir'], model=model))
+            if src.model.name=='LogParabola':
+                roi.freeze('beta',src.name)
+            elif src.model.name=='PLSuperExpCutoff':
+                roi.freeze('Cutoff', src.name)
+            print '%s: added at %s' % (s.name, s['skydir'])
+        except Exception, msg:
+            if update_if_exists:
+                src = roi.get_source(s.name)
+                print '{}: updating existing source at {} '.format(s.name, s['skydir'])
+            else:
+                print '{}: Fail to add "{}"'.format(s.name, msg)
+        # profile
+        prof= roi.profile(src.name, set_normalization=True)
+        src.ts= prof['ts'] if prof is not None else 0
+        
+        # fit Norm
+        try:
+            roi.fit(s.name+'_Norm', tolerance=0., ignore_exception=False)
+        except Exception, msg:
+            print '\tFailed to fit seed norm: \n\t{}\nTrying full fit'.format(msg)
+            return False
+        # fit both parameters
+        try:
+            roi.fit(s.name, tolerance=0., ignore_exception=False)
+        except Exception, msg:
+            print '\tFailed to fit seed norm and index:'
+            return False
+        ts = roi.TS()
+        print '\nTS = %.1f' % ts,
+        if ts<tsmin:
+            print ' <%.1f, Fail to add.' % tsmin
+            return False
+        else: print ' OK'
+
+        # one iteration of pivot change
+        iter = 2
+        if iter>0 and roi.repivot([src], min_ts=tsmin,select=src.name ):
+            iter -=1
+
+        # and a localization: remove if fails or poor
+        roi.localize(s.name, update=True, tolerance=1e-3)
+        quality = src.ellipse[5] if hasattr(src, 'ellipse') and src.ellipse is not None else None
+        if quality is None or quality>lqmax:
+            print '\tFailed localization, quality {}, maximum allowed {}'.format(quality, lqmax)
+        
+        return True
+    
     seedfile = kwargs.pop('seedfile', 'seeds/seeds_{}.csv'.format(seedkey))
-    seeds = select_seeds_in_roi(roi, seedfile)
-    if len(seeds)==0:
+    seedlist = select_seeds_in_roi(roi, seedfile)
+    if len(seedlist)==0:
         print 'no seeds in ROI'
         return False
     else:
-        print 'Found {} seeds in ROI: check positions'.format(len(seeds))
+        print 'Found {} seeds from {} in this ROI: check positions'.format(len(seedlist),seedfile)
 
     # check locations: remove too close to sources in ROI, close pairs
     # get free sources to check close
@@ -150,18 +203,18 @@ def add_seeds(roi, seedkey='all', config=None,
         n = np.argmin(d)
         return n,  np.degrees(d[n])
     if len(skydirs)>0:
-        dd = np.array(map(mindist, seeds.skydir))[:,1]
-        seeds['distance']=dd
+        dd = np.array(map(mindist, seedlist.skydir))[:,1]
+        seedlist['distance']=dd
         ok = dd>location_tolerance
         nbad = len(ok)-sum(ok)
         if nbad>0:
             print 'Found {} too close (<{} deg) to existing source:\n\t{}'.format(
-                nbad, location_tolerance, list(seeds[~ok].index))    
+                nbad, location_tolerance, list(seedlist[~ok].index))    
     else:
-        ok = np.ones(len(seeds))
+        ok = np.ones(len(seedlist))
 
     # check for close pairs
-    zz = []; sd = seeds.skydir.values
+    zz = []; sd = seedlist.skydir.values
     for i, a in enumerate(sd[:-1]):
         for j, b in enumerate(sd[i+1:]):
             d = np.degrees(a.difference(b))
@@ -171,101 +224,105 @@ def add_seeds(roi, seedkey='all', config=None,
         print 'Found {} close pairs, within {} deg, keeping one with larger TS:'.format(len(zz),pair_tolerance)
         for z in zz:
             i,j,d = z
-            a,b = seeds.iloc[i], seeds.iloc[j] 
+            a,b = seedlist.iloc[i], seedlist.iloc[j] 
             print '\t{:10} {:.1f} {:10}{:.1f} {:.2f}'.format(a.name, a.ts, b.name, b.ts, z[2])
             ok[j if a.ts>b.ts else i]=False
-    seeds['ok'] = ok
-    seeds = seeds.query('ok==True')
+    seedlist['ok'] = ok
+    seeds = seedlist.query('ok==True')
+    if kwargs.get('test', False): 
+        print 'return since in test mode'
+        return seeds
+
+    # # add remaining seeds to ROI to allow fitting
+    # srclist = []
+    # for i,s in seeds.iterrows():
+    #     if seedkey=='all':
+    #         # use column 'key' to determine the model to use
+    #         model = maps.table_info[s['key']][1]['model']
+    #     try:
+    #         src=roi.add_source(sources.PointSource(name=s.name, skydir=s['skydir'], model=model))
+    #         if src.model.name=='LogParabola':
+    #             roi.freeze('beta',src.name)
+    #         elif src.model.name=='PLSuperExpCutoff':
+    #             roi.freeze('Cutoff', src.name)
+    #         srclist.append(src)
+    #         print '%s: added at %s' % (s.name, s['skydir'])
+    #     except roimodel.ROImodelException, msg:
+    #         if update_if_exists:
+    #             srclist.append(roi.get_source(s.name))
+    #             print '{}: updating existing at {} '.format(s.name, s['skydir'])
+    #         else:
+    #             print '{}: Fail to add "{}"'.format(s.name, msg)
+    # # Fit only fluxes for each seed first
+    # seednames = [s.name for s in srclist]
+    # llbefore = roi.log_like() # for setup?
 
 
-    # add remaining seeds to ROI to allow fitting
-    srclist = []
-    for i,s in seeds.iterrows():
-        if seedkey=='all':
-            # use column 'key' to determine the model to use
-            model = maps.table_info[s['key']][1]['model']
-        try:
-            src=roi.add_source(sources.PointSource(name=s.name, skydir=s['skydir'], model=model))
-            if src.model.name=='LogParabola':
-                roi.freeze('beta',src.name)
-            elif src.model.name=='PLSuperExpCutoff':
-                roi.freeze('Cutoff', src.name)
-            srclist.append(src)
-            print '%s: added at %s' % (s.name, s['skydir'])
-        except roimodel.ROImodelException, msg:
-            if update_if_exists:
-                srclist.append(roi.get_source(s.name))
-                print '{}: updating existing at {} '.format(s.name, s['skydir'])
-            else:
-                print '{}: Fail to add "{}"'.format(s.name, msg)
-    # Fit only fluxes for each seed first
-    seednames = [s.name for s in srclist]
-    llbefore = roi.log_like() # for setup?
-
-
-    # set normalizations with profile fits
-    print 'Performing profile fits to set normalization'
-    for src in srclist:
-        prof= roi.profile(src.name, set_normalization=True)
-        src.ts= prof['ts'] if prof is not None else 0
+    # # set normalizations with profile fits
+    # print 'Performing profile fits to set normalization'
+    # for src in srclist:
+    #     prof= roi.profile(src.name, set_normalization=True)
+    #     src.ts= prof['ts'] if prof is not None else 0
  
 
-    # now fit all norms at once
-    seednorms = [s.name+"_Norm" for s in srclist if roi.get_source(s.name).ts>0]
-    if len(seednorms)==0:
-        print 'Did not find any seeds to fit'
-        return False
-    try:
-        roi.fit(seednorms, tolerance=0.2, ignore_exception=False)
-    except Exception, msg:
-        print 'Failed to fit seed norms: \n\t{}\nTrying full fit'.format(msg)
-        roi.fit(ignore_exception=True)
-    #remove those with low TS
-    print 'TS values'
-    goodseeds = []
-    for sname in seednames:
-        ts = roi.TS(sname)
-        print '%8s %5.1f ' %(sname, ts),
-        if ts<tsmin:
-            print '<-- remove'
-            roi.del_source(sname)
-        else:
-            goodseeds.append(sname)
-            print 'OK'
+    # # now fit all norms at once
+    # seednorms = [s.name+"_Norm" for s in srclist if roi.get_source(s.name).ts>0]
+    # if len(seednorms)==0:
+    #     print 'Did not find any seeds to fit'
+    #     return False
+    # try:
+    #     roi.fit(seednorms, tolerance=0.2, ignore_exception=False)
+    # except Exception, msg:
+    #     print 'Failed to fit seed norms: \n\t{}\nTrying full fit'.format(msg)
+    #     roi.fit(ignore_exception=True)
+    # #remove those with low TS
+    # print 'TS values'
+    # goodseeds = []
+    # for sname in seednames:
+    #     ts = roi.TS(sname)
+    #     print '%8s %5.1f ' %(sname, ts),
+    #     if ts<tsmin:
+    #         print '<-- remove'
+    #         roi.del_source(sname)
+    #     else:
+    #         goodseeds.append(sname)
+    #         print 'OK'
         
 
-    # fit all parameter for each one, remove if ts< tsmin 
-    seednames = goodseeds
-    goodseeds = []
-    for sname in seednames:
-        roi.fit(sname, tolerance=0, ignore_exception=True)
-        ts = roi.TS()
-        print '  TS = %.1f' % ts
-        if ts<tsmin:
-            print ' TS<%.1f, removing from ROI' % tsmin
+    # # fit all parameter for each one, remove if ts< tsmin 
+    # seednames = goodseeds
+    # goodseeds = []
+    # for sname in seednames:
+    #     roi.fit(sname, tolerance=0, ignore_exception=True)
+    #     ts = roi.TS()
+    #     print '  TS = %.1f' % ts
+    #     if ts<tsmin:
+    #         print ' TS<%.1f, removing from ROI' % tsmin
+    #         roi.del_source(sname)
+    #     elif tsmin>0:
+    #         # one iteration of pivot change
+    #         s = roi.get_source(sname)
+    #         roi.repivot([s], min_ts=5)
+    #         # and a localization: remove if fails or poor
+    #         roi.localize(sname, update=True)
+    #         ellipse = s.__dict__.get('ellipse', None) 
+    #         if ellipse is None or ellipse[5]>lqmax:
+    #             if tsmap_dir is not None and os.path.exists(tsmap_dir):
+    #                 roi.plot_tsmap(sname, outdir=tsmap_dir)
+    #             print '--> removing {} \n\t since did not localize'.format(s)
+    #             roi.del_source(sname)
+    #             continue
+    #         roi.get_sed(sname)
+    #         goodseeds.append(sname)
+
+    good = 0  
+    for sname,s in seedlist.iterrows():
+        print '='*20, sname, 'Initial TS:{:.1f}'.format(s.ts), '='*20
+        if not add_seed( s):
             roi.del_source(sname)
-        elif tsmin>0:
-            # one iteration of pivot change
-            s = roi.get_source(sname)
-            roi.repivot([s], min_ts=5)
-            # and a localization: remove if fails or poor
-            roi.localize(sname, update=True)
-            ellipse = s.__dict__.get('ellipse', None) 
-            if ellipse is None or ellipse[5]>lqmax:
-                if tsmap_dir is not None and os.path.exists(tsmap_dir):
-                    roi.plot_tsmap(sname, outdir=tsmap_dir)
-                print '--> removing {} \n\t since did not localize'.format(s)
-                roi.del_source(sname)
-                continue
-            roi.get_sed(sname)
-            goodseeds.append(sname)
-      
-    if len(goodseeds)>0:
-        # finally, fit full ROI 
-        roi.fit(ignore_exception=True, tolerance=0.2)
-        return True
-    else:
-        return False
+        else: good +=1
+
+    return good>0
 
 def create_seeds(keys = ['ts', 'tsp', 'hard', 'soft'], seed_folder='seeds', tsmin=10, 
             merge_tolerance=1.0, update=False, max_pixels=30000,):
