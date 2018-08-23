@@ -187,7 +187,12 @@ class HealpixCube(DiffuseBase):
     def load(self):
         try:
             self.hdulist = hdus = fits.open(self.fullfilename)
-            self.energies = hdus[2].data.field(0)
+            if hdus[2].columns[0].name=='CHANNEL':
+                # binned format: assume next 2 columns are min, max and use geometric mean
+                emin,emax = [hdus[2].data.field(i) for i in (1,2)]
+                self.energies = np.sqrt(emin*emax)
+            else:
+                self.energies = hdus[2].data.field(0)
             self.vector_mode = len(hdus[1].columns)==1
             if self.vector_mode:
                 # one vector column, expect 2d array with shape (12*nside**2, len(energies))
@@ -220,13 +225,13 @@ class HealpixCube(DiffuseBase):
         skyindex = self.indexfun(skydir)
         a = self.energy_interpolation
         u, v = self.eplane1[skyindex], self.eplane2[skyindex]
-        if np.abs(a) < 1e-2 or v<=0:
+        if np.abs(a) < 1e-2 or v<=0 or np.isnan(v):
             ret = u
-        elif np.abs(1-a)< 1e-2 or u<=0:
+        elif np.abs(1-a)< 1e-2 or u<=0 or np.isnan(u):
             ret = v
         else:
             ret = np.exp( np.log(u) * (1-a) + np.log(v) * a      )
-        assert np.isfinite(ret), 'Not finite for %s at %s MeV, %f' % (skydir, self.energy, a)
+        assert np.isfinite(ret), 'Not finite for {} at {} MeV, {},{},{}'.format(skydir, self.energy, a, u,v)
         if ret<=0:
             #print 'Warning: FLux not positive at {} for {:.0f} MeV a={}'.format(skydir, self.energy,a)
             ret = 0
