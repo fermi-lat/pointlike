@@ -68,14 +68,16 @@ def main(args):
         ps = stream.PipelineStream()
         ps(newstage, job_list=job_list, test=False)
 
-
+    next = args.next
+    print 'next: {}'.format(next)
     if not args.test:
         tee = tools.OutputTee(os.path.join(absskymodel, 'summary_log.txt'))
 
     if os.path.exists(str(stream_id)):
         print 'Abort since detected file with stream name'
         raise Exception('Abort since detected file with stream name')
-    streamInfo(stream_id, absskymodel)
+    if stream_id!=-1:
+        streamInfo(stream_id, absskymodel)
 
     os.chdir(absskymodel) # useful for diagnostics below
     current = str(datetime.datetime.today())[:16]
