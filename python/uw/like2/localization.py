@@ -293,10 +293,10 @@ class Localization(object):
             if not self.quiet: print ('\t'+7*'%10.4f')% (diff, delt, l.par[0],l.par[1],l.par[3],l.par[4], l.par[6])
             if delt>self.maxdist:
                 if not self.quiet: print '\t -attempt to move beyond maxdist=%.1f' % self.maxdist
-                break # hope this does not screw things up
+                return False # hope this does not screw things up
                 #raise Exception('localize failure: -attempt to move beyond maxdist=%.1f' % self.maxdist)
             if (diff < tolerance) and (abs(sigma-old_sigma) < tolerance):
-                break
+                break # converge
             ld = l.dir
             old_sigma=sigma
 
@@ -319,6 +319,7 @@ class Localization(object):
         self.niter = i
         # if successful, add a list representing the ellipse to the source
         self.tsm.source.ellipse = self.qform.par[0:2]+self.qform.par[3:7] +[self.delta_ts] 
+        return True #success
         
     def summary(self):
         if hasattr(self, 'niter') and self.niter>0: 
