@@ -351,11 +351,13 @@ class DiffuseCorrection(object):
         self.hm.HEALPixFITS(t).write(filename)
         
     def __call__(self, roi_index, energy):
-        if energy > self.elist[-1]: return 1.0
-        try:
-            energy_index = self.elist.index(round(energy))
-        except:
-            raise Exception('energy %f not found in list %s' % (round(energy), self.elist))
+        if energy > self.elist[-1]: 
+            energy_index = len(self.elist)-1 # will apply highest energy correction above table limit
+        else:
+            try:
+                energy_index = self.elist.index(round(energy))
+            except:
+                raise Exception('energy %f not found in list %s' % (round(energy), self.elist))
         if self.dn is not None:
             if self.correction is None: # new case
                 return self.dn[energy_index]
@@ -439,15 +441,22 @@ class IsotropicResponse(DiffuseResponse):
         dmodel = self.dmodel
         self.corr = 1.0
         # TODO: modify this to use the kw "key" if exists
-        if hasattr(dmodel, 'kw') and dmodel.kw is not None and 'correction' in dmodel.kw:
+        haskey = hasattr(dmodel, 'kw') and dmodel.kw is not None
+        if haskey and dmodel.kw.get('key', None)=='iso':
+            et = ['front','back'][self.band.event_type]
+            self.corr = DiffuseCorrection(None, diffuse.normalization['iso'][et])(roi_index, self.energy)
+            #print roi_index, et, self.energy, self.corr
+        elif haskey and 'correction' in dmodel.kw:
             # Set self.corr according to "correction"
               
             corr_file = dmodel.kw.get('correction', None)
             energy=round(self.band.energy)
-            if energy>10000. or corr_file is None:
+            if corr_file is None:
                 self.corr=1.0
             else:
-                self.corr = DiffuseCorrection(corr_file)(roi_index, energy)
+                roi_index = skymaps.Band(12).index(self.roicenter)
+                self.corr = DiffuseCorrection(corr_file)(roi_index, self.energy)
+
             #     dn = self.roi.sources.diffuse_normalization
             #     if False: #dn is not None and 'iso' in dn:
             #         # in processsself.corr = dn['iso'][('front','back')[self.]]
