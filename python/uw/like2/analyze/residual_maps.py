@@ -361,7 +361,7 @@ class ResidualMaps(analysis_base.AnalysisBase):
 
         ax.axvline(0, color='lightgrey')
         ax.axhline(0, color='lightgrey')
-        ax.set_title(qstring)
+        ax.set_title('band {}, {}'.format(band_index,qstring))
         return fig
 
     def ridge_systematics_scat(self):
@@ -376,15 +376,16 @@ class ResidualMaps(analysis_base.AnalysisBase):
         self.residual_scats('(abs(glat)==3.2) and abs(glon)<30', ax=axx[2])
         return fig
 
-    def ridge_systematics_plot(self):
+    def ridge_systematics_plot(self, band_index=0):
         """Ridge systematic plots
         for selected ROIs along ridge, plots of fractional residual vs. galactic latitude.
             red points are pisles within the ROI active area, blue out to the 5 deg radius. 
         """
+        kw = dict(scat=False, band_index=band_index)
         fig,axx = plt.subplots(3,1, figsize=(12,15), sharex=True)  
-        self.residual_scats( 'abs(glat)==6.4 and abs(glon)<30', ax=axx[0], scat=False);
-        self.residual_scats( 'abs(glat)==3.2 and abs(glon)<30', ax=axx[1], scat=False);
-        self.residual_scats( '(abs(glat)==9.6 or glat==0) and abs(glon)<30', ax=axx[2], scat=False);
+        self.residual_scats( 'abs(glat)==6.4 and abs(glon)<30', ax=axx[0], **kw);
+        self.residual_scats( 'abs(glat)==3.2 and abs(glon)<30', ax=axx[1], **kw);
+        self.residual_scats( '(abs(glat)==9.6 or glat==0) and abs(glon)<30', ax=axx[2], **kw);
         return fig
 
     def all_plots(self, **kw):

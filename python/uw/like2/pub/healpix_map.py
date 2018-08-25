@@ -307,6 +307,18 @@ class HPresample(HParray):
     def getcol(self, type=np.float32):
         return np.asarray([self[index] for index in xrange(12*self.nside**2)],type)
 
+def downsize(a):
+    """For an HEAPix RING array with nside a power of two, 
+    return an nside/2 array of the average for each group of pixels 
+    """
+    import healpy
+    nside = int(np.sqrt(len(a)/12.))
+    a1 =a[healpy.nest2ring(nside, range(len(a)))]
+    t=a1.reshape(len(a)/4,4)
+    a2=t.mean(axis=1)
+    return a2[healpy.ring2nest(nside/2, range(len(a2)))]
+
+
 class HEALPixFITS(list):
 
     def __init__(self, cols, nside=None):

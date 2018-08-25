@@ -79,6 +79,9 @@ class IsotropicModel(object):
     def __repr__(self):
         s = 'Isotropic Model\n\t     spectrum: {}\n\tnormalization: {}'.format(
             self.isomodel_file, self.isonorm_file)
+        s += '\n  Normalization means per energy band'
+        s += '\n\tFront: {}'.format(self.isonorm[0].values.mean(axis=0).round(2))
+        s += '\n\tBack:  {}'.format(self.isonorm[1].values.mean(axis=0).round(2))
         return s
 
     def isonorms(self,  roi_index):
@@ -90,8 +93,27 @@ class IsotropicModel(object):
         r['back']= [self.back_model[j][ib] for j in range(2)]+self.back_model[2:]
         return r
 
-    def save_model(self):
-        ff = sorted(glob.glob('pickle/*.pickle')); len(ff)
+    def update_model_with_fit(self, isofits, roisel):
+        """Update the current model with a set of normalization fits
+
+            isofits: float array with shape (1728,8,2) with ROI fits
+            roisel:  bool array with shape (1728) for selection
+        """
+        model = [self.front_model, self.back_model]
+        print 'Adjusting model\n ie ib   model fit'
+        for ib in range(2):
+            for ie in range(8):
+                fit = isofits[:,ie,ib][roisel].mean(axis=0)
+                m = model[ib][ie]
+                print '{:2d}{:2d}{:8.3f}{:8.3f}'.format(ie, ib, np.mean(m), fit)
+                #print m, '->', m * fit
+                model[ib][ie] = m * fit      
+        return model
+
+    def save_model(self, path='pickle/'):
+        # Note, can save normalizations from current model into another folder's pickle
+        ff = sorted(glob.glob('{}*.pickle'.format(path)))
+        assert len(ff)==1728, 'Did not find 1728 pickle files in path {}'.format(path)
         for i,f in enumerate(ff):
             pk =pickle.load(open(f))
             pk['diffuse_normalization']['iso']=self.isonorms(i)
@@ -99,10 +121,9 @@ class IsotropicModel(object):
         print 'Updated the normalizations: you must zip the files'
 
     def plot(self, ax=None):
-        """Isotropic model summary.
-        From files  %(isofiles_back)s and  %(isofiles_front)s
-        
-        <br>While the files are 1728x8 arrays of corrections applied to each ROI and band, only the Back 
+        """Isotropic model summary
+                
+        <br>While the normalization factors are 1728x8 arrays of corrections applied to each ROI and band, only the Back 
         varies for the first two energy bins.
         <ul>
         <li>
@@ -110,7 +131,7 @@ class IsotropicModel(object):
         <li>
         <b>Center</b>: The normalization factor applied to all ROIs, except for the first two Back bands</li>
         <li>
-        <b>Right</b>: The noralization factor for back.
+        <b>Right</b>: The normalization factor for back, vs. latitude
         </li>
         </ul>
          """
@@ -123,7 +144,7 @@ class IsotropicModel(object):
         def left(ax, emin=90,emax=1e4):
             ecut=(100, 1e4)
             fname = os.path.expandvars('$FERMI/diffuse/')+self.isoinfo['filename']
-            idfiles = [fname.replace('**', fb) for fb in ['FRONT','BACK']]
+            idfiles = [fname.replace('**', fb.upper()).replace('*', fb) for fb in ['front','back']]
             nf,nb = map(np.loadtxt, idfiles)
             energies = nf[:,0]; front,back = nf[:,1],nb[:,1]
             ecut= (energies>=emin)& (energies<=emax)
@@ -136,7 +157,7 @@ class IsotropicModel(object):
         def center(ax):
             for f, name in [(self.front_model, 'Front'), (self.back_model, 'Back')]:
                 means = [np.mean(f[i]) for i in range(8)]
-                ax.plot(means, 'o', label=name)
+                ax.plot(means, '--o', label=name)
             ax.set_title('Normalization factor vs Energy Bin')
             ax.set(xlabel='Energy Bin',ylabel='Normalization Factor',)
 
@@ -167,6 +188,7 @@ class Isotropic(diffuse_fits.DiffuseFits):
         self.plotfolder = 'isotropic'
         assert os.path.exists('isotropic_fit'), 'No isotropic analysis to summarize'
         self.fit_profile = {}
+        self.summary()
         
 
     def summary(self, bcut=10):
@@ -176,19 +198,6 @@ class Isotropic(diffuse_fits.DiffuseFits):
         model = '/'.join(os.getcwd().split('/')[-2:])
         streamdf= pd.DataFrame(stream.StreamInfo(model)).T
         self.startlog()
-
-
-        # self.isoinfo = self.config['diffuse']['isotrop']
-        # self.isofiles = [self.isoinfo['correction'].replace('*', etn)
-        #      for etn in self.config.event_type_names]
-        # try:    
-        #     [self.isofiles_front, self.isofiles_back] = \
-        #     [os.path.expandvars('$FERMI/diffuse/')+ f for f in self.isofiles ]
-        # except:
-        #     print "no isofiles found"
-        #     self.isofiles_front=self.isofiles_back=None
-        # self.isonorm = [pd.read_csv(f, index_col=0) 
-        #     for f in (self.isofiles_front,self.isofiles_back)]
 
         self.isomodel = IsotropicModel(self.config)
         print self.isomodel 
@@ -206,7 +215,7 @@ class Isotropic(diffuse_fits.DiffuseFits):
             except:
                 print streamdf
                 raise
-            print 'loaded iso fits, generated by stream {} at {}'.format(snum,streamdf.loc[snum].date )
+            print 'loaded isotropic fits, generated by stream {} at {}'.format(snum,streamdf.loc[snum].date )
         
         # roi selection
         dec = np.array(self.df.dec,float)
@@ -217,14 +226,24 @@ class Isotropic(diffuse_fits.DiffuseFits):
         glon[glon>180]-=360
         self.df['highlat'] = highlat= np.abs(glat)>bcut
 
-        print 'High latitude selection (|b|>{}): {}/{} ROIs'.format(bcut,sum(highlat), len(dec))
+        #print 'High latitude selection (|b|>{}): {}/{} ROIs'.format(bcut,sum(highlat), len(dec))
+
+        def fit_summary( ib):
+            print '\n{} normalization fit summary for |b|>{}\n\t{:4s}{:>8s}{:>8s}'.format(
+                ['front','back'][ib], bcut,'band','mean','std')
+            for i in range(8):
+                t = self.isofits[:,i,ib][self.df.highlat]
+                print '\t{:4d}{:8.3f}{:8.3f}'.format(i, np.mean(t), np.std(t))
+        fit_summary( 0 )
+        fit_summary( 1 )  
+
         #bubble = (np.abs(glat)<53) & (np.abs(glon)<30)
         #hilatnobub = highlat & np.logical_not(bubble)
         #print 'High lat excluding bubble region: {}'.format(sum(hilatnobub))
         self.logstream= self.stoplog()
 
 
-    def multiplot(self, q, suptit, selection, ylim=(0,2.),nbins=20):
+    def multiplot(self, q, suptit, selection, ylim=(0.5,1.5),nbins=20):
 
         def dec_profile(t, ax, title, selection ):
             z=tools.Profile(self.df.sindec[selection],t[selection], np.linspace(-1,1,nbins+1))
@@ -254,28 +273,35 @@ class Isotropic(diffuse_fits.DiffuseFits):
         return self.isomodel.plot()
 
     def front_fit_map(self):
-        """Front fit values
+        """Front fit map
         """
         return self.correction_plots(self.isofits[:,:,0], title='front fit values', vmin=0.5, vmax=1.5)
 
     def back_fit_map(self):
-        """Back fit values
+        """Back fit map
         """
         return self.correction_plots(self.isofits[:,:,1],  title='back fit values', vmin=0.5, vmax=1.5)
     def front_fit_summary(self):
-        """Front fit summary"""
+        """Front fit vs. Dec"""
         return self.multiplot(self.isofits[:,:,0], 'front', self.df.highlat)
 
     def back_fit_summary(self):
-        """Front fit summary"""
+        """Back fit vs. Dec"""
         return self.multiplot(self.isofits[:,:,1], 'back', self.df.highlat)        
 
     def all_plots(self, **kw):
         self.runfigures([
-            self.summary,
             self.model_plots,
             self.front_fit_map,
             self.back_fit_map,
             self.front_fit_summary,
             self.back_fit_summary,
         ] )
+
+    def update_model(self):
+        """Update the model using the results of the fit
+        (intended for hand use: must call summary() first)
+        """
+        self.isomodel.update_model_with_fit(self.isofits,self.df.highlat )
+        self.isomodel.save_model()
+

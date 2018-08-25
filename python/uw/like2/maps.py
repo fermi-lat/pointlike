@@ -429,7 +429,7 @@ class DisplayTable(object):
 table_info={'ts':  (ResidualTS, dict(model='LogParabola(1e-13, 2.2, 0, 1000.)')),
             'kde': (KdeMap, dict()),
             'tsx': (ResidualTS, dict(model='LogParabola(1e-12, 2.3, 0, 1000.)')),
-            'tsp': (ResidualTS, dict(model='ExpCutoff(1e-13,1.5, 3000.)')),
+            'tsp': (ResidualTS, dict(model='ExpCutoff(1e-13,1.3, 1500.)')),
             'hard': (ResidualTS, dict( model='LogParabola(1e-15, 1.7, 0, 50000.)')),
             'soft': (ResidualTS, dict(model='LogParabola(1e-12, 2.7, 0, 250.)')),
             'peaked': (ResidualTS, dict(model='LogParabola(1e-14, 2.0, 0.5, 2000.)')),
@@ -441,8 +441,9 @@ table_info={'ts':  (ResidualTS, dict(model='LogParabola(1e-13, 2.2, 0, 1000.)'))
                     par_sets= [[1e-13, 1.7, 0,  50000.], #hard
                             [1e-13, 2.2, 0,   1000.], #flat
                             [1e-13, 2.7, 0,    250.], #soft
-                            [1e-13, 2.0, 0.5, 2000.]] #peaked
-                            ) )
+                            [1e-13, 2.0, 0.5, 2000.], #peaked
+                            [1e-13, 2.0, 0.3, 1000.], #psr
+                    ]) )
            }
 table_info['flat']=table_info['ts']
 table_info['psr']=table_info['tsp']
@@ -518,7 +519,7 @@ def make_index_table(nside=12, subnside=512, usefile=True):
 
 class MultiMap(object):
     
-    def __init__(self, names=['hard','flat','soft', 'peaked'], 
+    def __init__(self, names=['hard','flat','soft', 'peaked', 'psr'], 
                  outdir='.', tname='all', nside=512, roi_nside=12, fill=np.nan):
         """ combine the tables generarated at each ROI
 

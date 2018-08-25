@@ -47,6 +47,7 @@ class CountPlots(analysis_base.AnalysisBase):
                     chisq = cnts['chisq'],
                     chisq10= chisq10(r['counts']),
                     uchisq = cnts['uchisq'] if 'uchisq' in cnts else 0,
+                    gnorm = r['diffuse_normalization']['gal'],
                     )
             if skipped>0:
                 self.missing_info = '<p>%d missing ROIS' % skipped
@@ -60,9 +61,9 @@ class CountPlots(analysis_base.AnalysisBase):
             for x in self.pkls:
                 d[x['name']] = dict([(t[0], sum(t[1]).round()) for t in x['counts']['models']])
             self.rois = pd.concat([self.rois,pd.DataFrame(d).T], axis=1)
-            roi_file='roi_info.pickle'
-            print 'Saved ROI info to {}'.format(roi_file)
-            self.rois.to_pickle(roi_file)
+            # roi_file='roi_info.pickle'
+            # print 'Saved ROI info to {}'.format(roi_file)
+            # self.rois.to_pickle(roi_file)
         
         load_rois()
 
@@ -80,6 +81,11 @@ class CountPlots(analysis_base.AnalysisBase):
         if 'history' in self.pkls[0].keys():
             print 'Extracting history info from the ROI analyses'
             self.sinfo =t= self.history_info()
+            if self.sinfo is None:
+                self.iteration_info='No iterations yet'
+                self.history=[]
+                return
+
             # check for previous creation, ignore them: look for last "monthly*" or "create"
             y= [(x.startswith('monthly') or x.startswith('create') #or x.startswith('update_full')
                                 ) for x in t.stage]; 
@@ -116,6 +122,7 @@ class CountPlots(analysis_base.AnalysisBase):
         
         #look up info from stream creation
         model_streams =sorted(sinfo.keys()); # streams in this model
+        if len(model_streams)==0: return
         hd= dict()
         for s in model_streams:
             hd[s]=np.zeros(1728)
@@ -253,6 +260,7 @@ class CountPlots(analysis_base.AnalysisBase):
             chisq = self.rois.uchisq
         else:
             chisq = self.rois.chisq if not use10 else self.rois.chisq10
+
         chisqtxt= r'$\chi^2$'
         
         # make a table of the bad ones, sorted by chisq
@@ -289,8 +297,9 @@ class CountPlots(analysis_base.AnalysisBase):
         def chihist(ax, htype='stepfilled'):
             bins = np.linspace(0, vmax, 26)
             lolat = np.abs(self.rois.glat)<bcut
-            ax.hist(chisq.clip(0,vmax), bins, label='all: mean=%.0f'%chisq.mean(), histtype=htype)
-            ax.hist(chisq.clip(0,vmax)[lolat], bins, color='orange', 
+            x2 = np.array(chisq,float)
+            ax.hist(x2.clip(0,vmax), bins, label='all: mean=%.0f'%chisq.mean(), histtype=htype)
+            ax.hist(x2.clip(0,vmax)[lolat], bins, color='orange', 
                 label='|b|<%d (%.0f)'%(bcut, chisq[lolat].mean()), histtype=htype)
             ax.legend(loc='upper right', prop=dict(size=10)) 
             plt.setp(ax, xlabel=chisqtxt, xlim=(0,vmax))
@@ -406,7 +415,7 @@ class CountPlots(analysis_base.AnalysisBase):
         ax.grid(alpha=0.5)
         return fig
 
-    def spectral_residuals(self, ylim=(-0.15,0.15)):
+    def spectral_residuals(self, ylim=(-0.4,0.4)):
         """ Spectral residuals 
        
        First plot is designed to match, except for different ROI definitions, the Saclay standard plot, 
@@ -415,18 +424,18 @@ class CountPlots(analysis_base.AnalysisBase):
        Anticenter is a 30 deg x 20 deg rectangle.
         """
         fig,ax = plt.subplots(1,4, figsize=(14,4), sharex=True, sharey=True)
-        self.ridge_spectral_residuals(ax=ax[0], title='Galactic Ridge')
-        self.ridge_spectral_residuals(ax=ax[1], glat=(-90,-10),glon=None, title='South high lat',nolabels=True)
-        self.ridge_spectral_residuals(ax=ax[2], glat=( 10, 90),glon=None, title='North high lat',nolabels=True)
-        self.ridge_spectral_residuals(ax=ax[3], glat=( -10,10),glon=( 165, -165), title='Anti-center',nolabels=True)
+        self.region_spectral_residuals(ax=ax[0], title='Galactic Ridge')
+        self.region_spectral_residuals(ax=ax[1], glat=(-90,-10),glon=None, title='South high lat',nolabels=True)
+        self.region_spectral_residuals(ax=ax[2], glat=( 10, 90),glon=None, title='North high lat',nolabels=True)
+        self.region_spectral_residuals(ax=ax[3], glat=( -10,10),glon=( 165, -165), title='Anti-center',nolabels=True)
         ax[0].set_ylim(*ylim)
         ax[0].set_xlim(100, 1e6)
         return fig
         
 
-    def ridge_spectral_residuals(self, ax=None, glat=(-10,10), glon=(-60,60), 
+    def region_spectral_residuals(self, ax=None, glat=(-10,10), glon=(-60,60), 
             nolabels=False, title=None):
-        """ Spectral residuals along the Galactic ridge
+        """ Spectral residuals in a region
         
         First plot is dDesigned to match, except for different ROI definitions, the Saclay standard plot,
         the other two are abvove 10 degres, for South and North hemispheres.
@@ -447,14 +456,19 @@ class CountPlots(analysis_base.AnalysisBase):
         y = data/model-1
         yerr = 1/np.sqrt(model) # needs correlation factor
         self.ridge_correction = pd.DataFrame(dict(energy=x, corr=y, error=yerr))
-        ax.errorbar(x, y, yerr=yerr, fmt='o')
+        ax.errorbar(x, y, yerr=yerr, fmt='o', label='residual')
+        # normalizations
+        normoff = np.array(self.rois.gnorm[ridge])-1
+        ax.errorbar(x[:8], y=normoff.mean(axis=0), yerr=normoff.std(axis=0),
+                    fmt='D', label='norms')
+        
         plt.setp(ax, xscale='log')
         if not nolabels:
             plt.setp(ax, xlabel='energy (MeV)', ylabel='(counts-model)/model')
         if title is not None:
             ax.set_title(title)
         ax.axhline(0, color='gray')
-        ax.grid()
+        ax.grid(); ax.legend()
         return fig
 
     def all_plots(self):

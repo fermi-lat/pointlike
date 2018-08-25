@@ -396,13 +396,11 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         ax.grid(); ax.legend()
         return fig
     
-    def pulsar_spectra(self, index_min=0.0, index_max=2.5, cutoff_max=8000):
+    def pulsar_spectra(self, index_min=0.0, index_max=2.5, cutoff_max=4000):
         """ Distributions for sources fit with PLSuperExpCutoff spectral model, mostly LAT pulsars
         
         For each plot, the subset with a poor fit is shown.
         %(pulsar_tail_check)s
-        %(pulsar_fixed)s
-        %(pulsar_b)s
         """
         fig, axx = plt.subplots( 1,4, figsize=(14,4))
         plt.subplots_adjust(wspace=0.3, left=0.05,bottom=0.15)
@@ -465,28 +463,10 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             html = html_table(tails.sort_values(by='roiname'), float_format=FloatFormat(2))
             open(html_file,'w').write('<head>\n'+ _html.style + '</head>\n<body>'+ html+'\n</body>')
             self.pulsar_tail_check = '<p><a href="%s?skipDecoration">Table of %d sources on tails</a>: '% (filename, len(tails))
-            self.pulsar_tail_check += 'Criteria: require index between 0 and 2.5, cutoff<8 GeV'
+            self.pulsar_tail_check += 'Criteria: require index between 0 and 2.5, cutoff < {:.1f} GeV'.format(cutoff_max*1e-3)
         else:
             self.pulsar_tail_check ='<p>No sources on tails'
 
-        # table of pulsars with b<1
-
-        tt=t[t.index2<1]['ts fitqual pindex cutoff index2 index2_unc'.split()]
-        tt['significance'] = (1-tt.index2)/tt.index2_unc
-        self.pulsar_b = html_table(tt,
-            name=self.plotfolder+'/pulsar_b',
-            heading='<h4>Table of %d sources with b&lt;1</h4>' % len(tt),
-            float_format=FloatFormat(2))
-        print '%d pulsar sources with b<1' %len(tt)
-
-        # table of fits with any fixed parame er other than b
-        # tt = t[((np.array(t.freebits,int)&7) != 7)]['ts fitqual pindex cutoff freebits roiname'.split()].sort_values(by='roiname')
-        # if len(tt)>0:
-        #     print '%d pulsar-like sources with fixed parameters' %len(tt)
-        #     self.pulsar_fixed= html_table(tt, name=self.plotfolder+'/pulsar_fixed', 
-        #         heading='<h4>%d pulsar-like sources with fixed parameters</h4>' %len(tt),
-        #         float_format=FloatFormat(2))
-        # else: self.pulsar_fixed=''
         return fig
     
     def ecliptic_hist(self, ax=None, title=''):
@@ -897,7 +877,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         i = dists.index(t)
         return self.df.index[i], np.degrees(t)
 
-    def curvature(self, setup=False, cmax=2.5):
+    def curvature(self, setup=False, cmax=1.0):
         """Curvature
         
         Distribution of the curvature per source, equivalent to the beta parameter for a LogParabola spectral model.

@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from skymaps import SkyDir
 
-def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_all_ts=False, no_global=False):
+def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_all_ts=False, no_global=True, free_only=True):
     """ formatted table point sources positions and parameter in the ROI, 
         followed by summary of diffuse names, parameters values.
         values are followed by a character to indicate status:
@@ -25,6 +25,8 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
              radius in degrees
          title: None or a string
             if None, use the name of the ROI. 
+        free_only : bool
+
 
     """
     self = roi
@@ -41,7 +43,10 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
         center = sdir if isinstance( sdir,SkyDir,) else SkyDir(*sdir)
     if title is None: 
         title = self.name if hasattr(self,'name') else ''
-    print 90*'-', '\n\t Nearby sources within %.1f degrees %s' % (maxdist,title)
+    if free_only:
+        print 90*'-', '\n\tFree sources {}'.format(title)
+    else:
+        print 90*'-', '\n\t Nearby sources within %.1f degrees %s' % (maxdist,title)
     colstring = 'name dist ra dec TS eflux(eV) index energy beta/b'
     if galactic: colstring =colstring.replace('ra dec', 'l b')
     colnames = tuple(colstring.split())
@@ -54,6 +59,7 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
     for ps in local_sources:
         sdir = ps.skydir
         model = roi.get_model(ps.name)
+        if free_only and not np.any(model.free): continue
         dist=np.degrees(sdir.difference(center))
         if maxdist and dist>maxdist:  continue
         loc = (sdir.l(),sdir.b()) if galactic else (sdir.ra(),sdir.dec())

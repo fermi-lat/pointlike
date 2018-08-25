@@ -133,6 +133,7 @@ class Process(main.MultiROI):
             key = self.seed_key
             if not seeds.add_seeds(self, key, config=self.config) :
                 # nothing added, so nothing to do with the model for this ROI
+                write_pickle(self) # make sure to update anyway
                 return
         if self.model_counts is not None:
             maps.ModelCountMaps(self, bandlist=self.model_counts, subdir='model_counts' )
