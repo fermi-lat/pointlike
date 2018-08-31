@@ -232,8 +232,9 @@ class DiffuseResponse(Response):
         return (self.factor*exposure_factor - pixterm) * model.gradient(self.energy)[model.free] 
         
     def __call__(self, skydir):
+        self.dmodel.setEnergy(self.band.energy) # needed if convolved
         return self.evalpoints([skydir])[0] * self.delta_e
-    
+
     def _keyword_check(self, roi_index):
         # check for extra keywords from diffuse spec.
         dfun = self.dmodel
