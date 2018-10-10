@@ -22,6 +22,7 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
     Gtlike version:  %(catname)s <br>Compare the two lists of sources and spectral parameters, assuming that the skymodel names 
     correspond to the "NickName" field in the gtlike-generated FITS file.
     Assume that a special run has been made to evaluate the likelihoods for the gtlike models.
+
     """
     def setup(self, catpat='gll_psc4year*.fit', **kw):
         gllcats = sorted(glob.glob(os.path.expandvars(os.path.join('$FERMI','catalog', catpat))))
@@ -68,7 +69,6 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         df['flux_gt'] = self.cat.flux
         df['modflux'] =[m(e) for (m, e ) in zip(df.model, df.pivot_gt)]
         df['flux_ratio']= df.modflux/df.flux_gt
-
         
         # finally, restore the blanks in the index for self.dfx
         df.index = [gtname_dict[n] for n in df.index]
@@ -384,21 +384,21 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
 
 class FL8YComparison(sourceinfo.SourceInfo):
     """Comparison with FL8Y or 4FGL
-            This analysis uses the FL8Y catalog version %(fhl_version)s.
+            This analysis uses the FL8Y catalog file %(fhl_file)s.
     <p>This is using the %(skymodel)s model, with many more sources, and using the same 8-year data set, 
     with Source class events. There are some differences:
         <ul>
-<li>The zenith cut is 100 degrees, for all energies, while 3FHL has it at 105. this loses about 3%%
-<li>It restricts theta<66.4 degrees, since the IRF is not reliable above this: also about 3%% loss
-<li>It uses Front/Back event types. Perhaps losing little potential localization resolution.
-<li>It uses binned corrections for the galactic and isotropic corrections. However, above 10 GeV, there is little effect.
-</ul>
-        """
+    <li>The zenith cut is 100 degrees, for all energies, while 3FHL has it at 105. this loses about 3%%
+    <li>It restricts theta<66.4 degrees, since the IRF is not reliable above this: also about 3%% loss
+    <li>It uses Front/Back event types. Perhaps losing little potential localization resolution.
+    <li>It uses binned corrections for the galactic and isotropic corrections. However, above 10 GeV, there is little effect.
+    </ul>
+  
+    """
     def setup(self, pattern='gll_psc*uw8011*', **kwargs):
         super(FL8YComparison, self).setup(**kwargs)
         self.plotfolder='FL8Y_comparison'
 
-        self.fhl_version=pattern
         # make copy dataframe with compressed names
         self.old_index = self.df.index
         cindex = [n.replace(' ','') for n in self.df.index]
@@ -409,7 +409,9 @@ class FL8YComparison(sourceinfo.SourceInfo):
         self.df['r95'] = (f95**2*(self.df.a * self.df.b) + quad**2)** 0.5
 
         # get the catalog "gll" entries as a DataFrame and set corresponding values
-        self.gdf = gdf=  fermi_catalog.GLL_PSC2(pattern).df
+        fcat = fermi_catalog.GLL_PSC2(pattern)
+        self.fhl_file = fcat.filename.split('/')[-1]
+        self.gdf = gdf=  fcat.df
         gdf['uw_ts']    = self.df.ts
         gdf['uw_r95']   = self.df.r95
         gdf['uw_pindex']= self.df.pindex
@@ -419,74 +421,108 @@ class FL8YComparison(sourceinfo.SourceInfo):
         # 
         a =set(cindex)
         b=set(self.gdf.index); 
-        print 'FL8Y sources not here:,{}'.format(np.array(list(set(b.difference(a)))))
+        lost = np.array(list(set(b.difference(a))))
+        if len(lost)>10:
+            print '{} FL8Y sources not here:,{}...'.format(len(lost), lost[:10])
+        self.lost=lost # save for further analysis
 
-    def load_pickled_ts(self, path='psc_check/info'):
-        # get the TS values
+    def lost_source_info(self,):
+        """Info on lost sources
+
+        Left: locations
+        Right: TS valuse
+        
+        <p> Link to a csv file containing a list of the sources that were lost:
+        <a href="../../%(lost_sources)s?download=true">%(lost_sources)s</a>
+   
+        """
+        from skymaps import SkyDir
+        tt = self.gdf.query('~(uw_ts>0)')
+        sd = map (SkyDir, tt.ra, tt.dec); sd[:5]
+        glon = np.array(map(lambda x: x.l(), sd))
+        glon[glon>180]-=360
+        glat = map(lambda x: x.b(), sd)
+        singlat = np.sin(np.radians(glat))
+        
+        fig, axx = plt.subplots(1,2, figsize=(12,6))
+        
+        self.basic_skyplot(axx[0], glon,singlat,tt.pindex, s=10, title='Locations')
+
+        ax = axx[1]
+        ts=np.array(tt.ts, float)
+        ax.hist(ts[~pd.isnull(ts)].clip(10,1e3), np.logspace(np.log10(20),3,41), histtype='step',log=True, lw=2);
+        ax.set(xscale='log', xlabel='TS', ylim=(0.9, None));
+        
+        lost_name = '{}/lost_sources.csv'.format(self.plotfolder)
+        tt.index.name='name'
+        tt['sname ra dec ts pindex eflux100 r95'.split()].to_csv(lost_name)
+        print 'Wrote file "{}" with missing source info'.format(lost_name)
+        self.lost_sources = lost_name
+        return fig
+
+    def load_pickled_info(self, path='psc_check/info', debug=False):
+        # if hasattr(self, 'ts_df'):
+        #     return self.ts_df
+
+        # get the TS and chisq values
         ff =sorted(glob.glob(path+'/*'))
         print 'read {} pickle files from {}'.format(len(ff), path)
         dd = map(lambda f:pickle.load(open(f)), ff)
         z = dict()
+        gtmodel=dict()
         for roi,d in enumerate(dd):
             for a,b in d:
-                z[b[0]] = dict(ts_pt=a[2], ts_gt=b[2], nickname=a[0], roi=roi )
-        self.ts_df=pd.DataFrame(z).T
+                try:
+                    eflux_pt=a[1].i_flux(e_weight=1)*1e6;
+                    eflux_gt=b[1].i_flux(e_weight=1)*1e6
+                except Exception, msg:
+                    print b[0],msg                    
+                    eflux_pt=eflux_gt=np.nan
+                z[b[0]] = dict(
+                    ts_pt=a[2],        ts_gt=b[2], 
+                    chisq_pt=a[3],     chisq_gt=b[3], 
+                    eflux_pt=eflux_pt, eflux_gt=eflux_gt,
+                    nickname=a[0], roi=roi)
+                gtmodel[a[0]]=b[1] 
 
-    def ts_check_plots(self, ylim=(-2,4)):
-        """TS check
-        Compare TS values of this model with that for the FL8Y model, that is, the TS caculated with the pointlike implementation, 
-        but using the FL8Y spectra determined by gtlike.
-        <b><h3>%(deltats_positive)s</h3>
-        <b><he>%(deltats_negative)s</h3>
-        """
-        if not hasattr(self, 'ts_df'):
-            self.load_pickled_ts()
-        q = self.ts_df
-        delta = ((q.ts_pt-q.ts_gt)/np.sqrt(np.array(q.ts_pt,float)))
-        delta_clip = delta.clip(*ylim)
-        q['delta']=delta
-        # make a table of the outliers
-        print 'Outliers: {} negative, {} positive'.format(sum(delta<=ylim[0]), sum(delta>=ylim[1]))
-        self.deltats_positive=html_table(q[delta>=ylim[1]].sort_values(by='delta'), 
-            name=self.plotfolder+'/deltats_positive', 
-            heading='<h4>gtlike model bad: {}</h4>'.format(sum(delta>=ylim[1])),
-            href=True, href_pattern='psc_check/sed/%s*.jpg', )
-        self.deltats_negative=html_table(q[delta<=ylim[0]].sort_values(by='delta'), 
-            name=self.plotfolder+'/deltats_negative', 
-            heading='<h4>gtlike model better: {}</h4>'.format(sum(delta<=ylim[0])),
-            href=True, href_pattern='psc_check/sed/%s*.jpg', )
-
-        fig, axx = plt.subplots(1,3, figsize=(15,5))
-        plt.subplots_adjust(wspace=0.25)
-        ax = axx[0]
-
-        ax.semilogx(q.ts_pt.clip(10, 1e5), delta_clip, '.')
-        ax.axhline(0, color='orange')
-        ax.set(ylabel='(TS_uw - TS_gtlike)/sqrt(TS_uw)', xlabel='TS_uw')
-        ax = axx[1]
-        hkw = dict(bins= np.linspace(ylim[0],ylim[1],36), histtype='step', lw=2, log=False)
-        ax.hist(delta_clip,**hkw);
-        hkw.update(histtype='stepfilled', color='r')
-        ax.hist(delta_clip[delta<=ylim[0]], **hkw)
-        ax.hist(delta_clip[delta>=ylim[1]], **hkw)
-        ax.axvline(0, color='orange')
-        ax.set_xlabel('(TS_uw - TS_gtlike)/sqrt(TS_uw)')
-        
-        ax = axx[2]
+        q = self.ts_df=pd.DataFrame(z).T
+        self.gtmodel =gtmodel
+        if debug:
+            return q
         # add positional info, using nickname field as a key into the model dataframe (which has compressed names)
         nicknames = map(lambda n:n.replace(' ',''), self.ts_df.nickname.values)
+
+        # check for now missing nicknames
+        indexset= set(self.df.index); 
+        nicknameset = set(nicknames)
+        missing_nicknames = list(nicknameset.difference(indexset))
+        if len(missing_nicknames)>0:
+            print 'Warning: following nicknames not in current model: {}'.format(np.array(missing_nicknames))
+            nicknames = list(indexset.intersection(nicknameset))
+            cnick = [n.replace(' ','') for n in nicknames]
+            qv = [n.replace(' ','') for n in q.nickname.values];
+            ok = np.array([name in cnick for name in qv], bool)
+            q = self.ts_df = q[ok]
+        if debug:
+            return nicknames    
         sdir = self.df.loc[nicknames,'skydir'].values
+        if debug: return sdir
         glon = np.array(map(lambda s:s.l(), sdir),float)
         glon[glon>180]-=360
         glat = map(lambda s:s.b(), sdir)
         singlat = np.sin(np.radians(glat))
         q['glon']=glon; q['glat']=glat
-        
-        cut = (q.delta>=4) | (q.delta<=-2)
-        self.basic_skyplot(ax, glon[cut], singlat[cut],
-            delta_clip[cut], s=15, cmap=plt.get_cmap('coolwarm'));
 
-        return fig
+        # construct quality difference
+        a,b = q.chisq_pt.values, q.chisq_gt.values
+        for x in a,b:
+            x[pd.isna(x)]=100
+        delta = np.array( b-a, float  )#/ np.array(q.ts_pt,float)**power, float)
+        q['delta']=delta
+
+        # flux ratio
+        q['eflux_ratio'] = q.eflux_pt/q.eflux_gt
+        return q
 
     def comparison_plots(self, gll_name='FL8Y'):
         """Comparison plots for corresponding sources
@@ -522,6 +558,75 @@ class FL8YComparison(sourceinfo.SourceInfo):
         fig.set_facecolor('white')
         return fig
 
+    def quality_check_plots(self, ylim=(-5,25), tsmin=100):
+        """Fit quality check
+        Compare fit consistency values of this model with that for the FL8Y model, that is, 
+        as caculated with the pointlike implementation, 
+        but using the FL8Y spectra determined by gtlike.
+        <br><b>Upper Left:</b> Scatter plot of the TS value difference, normalized by the square root of the uw value
+        <br><b>Upper Right:</b> Histogram of the normalized TS difference, for TS_uw>100.
+        <br><b>Lower Left: </b> Positions of sources in each tail
+        <br><b>Lower Right: </b> Positions of sources in each tail, along gal. plane
+        <b><h3>%(deltax2_positive)s</h3>
+        <b><he>%(deltax2_negative)s</h3>
+        """
+
+        q =   self.load_pickled_info()
+
+        delta_clip = q.delta.clip(*ylim)
+        delta_label = '(chi2_uw - chi2_g)/sqrt(TS_uw)'
+
+        # make a table of the outliers
+        neg =(q.delta<=ylim[0]) & (q.ts_pt>tsmin)
+        pos =(q.delta>=ylim[1]) & (q.ts_pt>tsmin)
+  
+        print 'Outliers (above TS={}): {} negative, {} positive'.format(tsmin, sum(neg), sum(pos))
+        try:
+            self.deltax2_positive=html_table(q[pos].sort_values(by='delta', ascending=False), 
+                name=self.plotfolder+'/deltax2_positive', 
+                heading='<h4>pointlike better: {}</h4>'.format(sum(pos)),
+                href=True, href_pattern='psc_check/sed/%s*.jpg', )
+            self.deltax2_negative=html_table(q[neg].sort_values(by='delta', ascending=True), 
+                name=self.plotfolder+'/deltax2_negative', 
+                heading='<h4>gtlike better: {}</h4>'.format(sum(neg)),
+                href=True, href_pattern='psc_check/sed/%s*.jpg', )
+        except Exception, msg:
+            print 'Failed to create tables of of outliers: "{}"'.format(msg)
+
+        fig, axy = plt.subplots(2,2, figsize=(15,10))
+        plt.subplots_adjust(wspace=0.25)
+        axx = axy.flatten()
+
+        ax = axx[0]  # a)
+        ridge = np.array((abs(q.glon)<60.) & (abs(q.glat)<5), bool)
+        ax.semilogx(q.ts_pt.clip(10, 1e5), delta_clip, '.b')
+        ax.semilogx(q[ridge].ts_pt.clip(10, 1e5), delta_clip[ridge], '.r', label='ridge')
+        ax.axhline(0, color='orange')
+        ax.set(ylabel=delta_label)
+        ax.legend(loc='lower right')
+
+        ax = axx[1]  # b)
+        hkw = dict(bins= np.linspace(ylim[0],ylim[1],36), histtype='step', lw=2, log=False)
+        delta_clip_ts = delta_clip[q.ts_pt>100]
+        ax.hist(delta_clip_ts,**hkw);
+        hkw.update(histtype='stepfilled')
+        ax.hist(delta_clip_ts[delta_clip_ts<=ylim[0]], color='green', **hkw)
+        ax.hist(delta_clip_ts[delta_clip_ts>=ylim[1]], color='red', **hkw)
+        ax.axvline(0, color='orange')
+        ax.set_xlabel(delta_label)
+        
+        ax = axx[2]  # c)
+        cut = (q.delta>=10) | (q.delta<=-2)
+        singlat = np.sin(np.radians(q.glat))
+        self.basic_skyplot(ax, q.glon[cut], singlat[cut],
+            delta_clip[cut], s=20, cmap=plt.get_cmap('coolwarm'));
+
+        ax = axx[3]  # d)
+        self.basic_skyplot(ax, q.glon[cut], singlat[cut],
+            delta_clip[cut], s=20, cmap=plt.get_cmap('coolwarm'), aspect=5*180.);
+        ax.set(ylim = (-0.1,0.1))
+        
+        return fig
 
     def correlation_plots(self, df=None, dfuw=None):
         """correlation plots
@@ -560,5 +665,100 @@ class FL8YComparison(sourceinfo.SourceInfo):
 
     def all_plots(self):
         self.runfigures([
-            self.comparison_plots, self.ts_check_plots,
+            self.lost_source_info,
+            self.comparison_plots, 
+            self.quality_check_plots,
         ])
+
+
+class GardianPrefactors(object):
+    
+    def __init__(self,
+            root = '/nfs/farm/g/glast/g/diffuse/P8diffuse/results/gardian/8yr/',
+            names = ['HighLatTA09', 'OuterGalaxyTA03', 'InnerGalaxyTA01']):
+        
+        files = [root+name+'_FinalVariables.txt' for name in names]
+        regions = 'HighLat Outer Inner'.split()
+        filename = files[0]
+        t = open(filename).read().split('\n')
+        len(t)
+
+        pref = dict()
+        all = dict()
+        for region,filename in zip(regions,files):
+            t = open(filename).read().split('\n')
+            n=0
+            for i,line in enumerate(t):
+                tok = line.split()
+                if len(tok)<4 or  tok[0]!='FL8Y' :continue
+                sname, var = tok[1].split('_')
+                if var!='pref': continue
+                value = float(tok[3])
+                if abs(value-1)>1e-5:
+                    pref[sname] = dict(prefactor=value, region=region)
+                    if sname not in all:
+                        all[sname]= {region:value}
+                    else:
+                        all[sname].update({region:value})
+                    n+=1
+            print 'Found {} variable sources in region {}'.format(n,region)
+        self.df =pd.DataFrame(pref).T
+        self.all = all
+        
+
+
+    def add_fit_comparison(self, catpat='gll_psc*uw8011*', skymodel='$FERMI/skymodels/P305_8years/uw8503'):
+
+        self.gtlc = FL8YComparison(skymodel, pattern=catpat)
+        self.dfcmp = self.gtlc.load_pickled_info()
+
+        self.dfcmp['prefactor'] = self.df.prefactor
+        self.dfcmp['region'] = self.df.region
+        #return self.dfcmp        
+        #cat = fermi_catalog.GLL_PSC2(catpat)
+        qq = self.gtlc.gdf
+        qq['nickname']=qq.index
+        qq.index= [n[5:] for n in qq.sname];
+        self.df['eflux100'] = qq.eflux100*1e6 # to eV
+        self.df['nickname'] = qq.nickname
+    
+    def prefactor_hist(self, ax=None):
+        ax=plt.gca() if ax is None else ax
+        x = np.array(self.df.prefactor,float)
+        ax.hist(x.clip(0.8,1.2), bins=np.linspace(0.8, 1.2, 25),histtype='step', 
+                lw=2, label='mean: {:.2f}'.format(x.mean()))
+        ax.axvline(1.0, ls = '-', color='orange');
+        ax.set(xlabel='prefactor', title='FL8Y prefactors in diffuse fits');
+        ax.legend();
+
+    def flux_hist(self, ax=None):
+        df = self.df
+        ax = plt.gca() if ax is None else ax
+        x = np.array(df.eflux100, float)
+        ax.hist(x, bins=np.logspace(1,3,20), label='all')
+        ax.hist(x[df.region=='Inner'], bins=np.logspace(1,3,20), label='inner')
+
+        ax.set(xscale='log', xlabel='Energy Flux');
+        ax.legend();
+        
+    def prefactor_comparison(self, ax=None):
+        t = self.dfcmp.query('prefactor>0');
+        plt.rc('font', size=14)
+        if ax is None:
+            fig,ax = plt.subplots(figsize=(8,8))
+        else: fig=ax.figure
+        lim = (0.85,1.05)
+        groups = t.groupby('region')
+        for marker, (name, g) in zip('oDs', groups):
+            x = np.array(g.eflux_ratio,float).clip(*lim)
+            y = np.array(g.prefactor,float).clip(*lim)
+            ax.plot(x,y, marker, label=name);
+        ax.plot(lim, lim, '-' ,color='orange' );
+        ax.set(xlabel='pointlike/FL8Y EFlux ratio', ylabel='RH01 prefactor')
+        ax.legend(loc='upper left');
+
+        import matplotlib.patches as patches
+        # Add the patch to the Axes
+        size=lim[1]-lim[0]
+        rect = patches.Rectangle((lim[0],lim[0]),size,size,ls='--',edgecolor='grey',facecolor='none')
+        ax.add_patch(rect);

@@ -6,11 +6,14 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourcein
 """
 
 import os
+from collections import OrderedDict
+
 import astropy.io.fits as pyfits
 import cPickle as pickle
 from collections import Counter
 import numpy as np
 import pylab as plt
+import matplotlib.ticker as ticker
 import pandas as pd
 
 from uw.utilities import makepivot
@@ -23,9 +26,15 @@ from skymaps import SkyDir, Band
 class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
     """Source spectral properties 
     <br>See <a href="../localization/index.html?skipDecoration"> localization </a> for localization plots.
+    <br> Link to a csv file containing a subset of the info used here:
+        <a href="../../%(csvfile)s?download=true">%(csvfile)s</a>
+    
     """
     require='pickle.zip'
+
     def setup(self, **kwargs):
+        version = os.path.split(os.getcwd())[-1]
+        self.csvfile='sources_%s.csv' % version        
         self.plotfolder='sources' #needed by superclass
         filename = 'sources.pickle'
         self.quiet = kwargs.pop('quiet', True)
@@ -253,10 +262,10 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                 ax.hist(np.array(ul.ts,float) ,dom,  color='r', 
                     label='none or poor localization', **hist_kw)
                 ax.text(12, n, 'none or poor localization (TS>%d) :%d'%(tscut[0],n), fontsize=12, color='r')
-        plt.setp(ax,  ylabel='# sources with greater TS', xlabel='TS',
-            xscale='log', yscale='log', xlim=(9, 1e4), ylim=(9,20000))
-        ax.set_xticklabels([' ', ' ', '10', '100', '1000'])
-        #ax.set_yticklabels(['', '10', '100', '1000'])
+        ax.set( ylabel='# sources with greater TS', xlabel='TS',
+            xscale='log', yscale='log', xlim=(9, 1e3), ylim=(90,20000))
+        ax.xaxis.set_major_formatter(ticker.FuncFormatter(
+            lambda val,pos: { 10.0:'10', 100.:'100'}.get(val,'')))
             
         # label the plot with number at given TS
         for t in tscut:
@@ -749,7 +758,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             ax.axvline(0, color='k', ls='--')
             ax.set_xlim((-3,3))
             ax.set_title( title, fontsize='medium')
-            leg=ax.legend(loc='upper left', title='      type    #  mean std',prop=dict(size=10, family='monospace'))
+            leg=ax.legend(loc='upper left', title='     type    #  mean std',prop=dict(size=10, family='monospace'))
             ltit = leg.get_title(); ltit.set_fontsize(10); ltit.set_family('monospace')
             ax.grid()  
 
@@ -778,6 +787,8 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         %(census_html)s
         <p>
         In this table of prefixes, the columns are the number of sources with TS greater than the header value. 
+        The first set of columns, with an "H" in the column label, are for sources with |b|>5.
+
         The row labels are the first four characters of the source name, except 'ext' means extended.
         %(suffix_html)s
         """
@@ -785,23 +796,29 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         extended = np.asarray(df.isextended.values,bool)
         pointsource = ~extended
 
-        def count(prefix, tsmin):
+        def count(prefix, tsmin, cut=None):
             if tsmin==0: tsmin=-10 
+            sel = df.ts>tsmin if cut is None else (df.ts>tsmin) & cut
             if prefix=='ext':
-                return sum(extended & (df.ts>tsmin))
+                return sum(extended & sel)
             elif prefix=='total':
-                return sum(df.ts>tsmin)
-            names = df[pointsource & (df.ts>tsmin)]['name'].values    
+                return sum(sel)
+            names = df[pointsource & sel]['name'].values    
             return sum([n.startswith(prefix) for n in names])
         if count('ext',0)>0:
             prefixes = list(set( n[:4] for n in df[pointsource]['name'])) +['ext', 'total']
         else:
             prefixes = list(set( n[:4] for n in df[pointsource]['name'])) +['total']
         
-        census = dict()
+        census = OrderedDict()
         prefixes = sorted(prefixes)
+
+        highlat = np.abs(df.glat)>5
+        for x in cols:
+            census['{}H'.format(x)] = [count(prefix, x, highlat) for prefix in prefixes]
         for x in cols:
             census[x] = [count(prefix, x) for prefix in prefixes]
+
         self.census_data=pd.DataFrame(census, index=prefixes)
         self.census_html = '\n<h4>Prefixes</h4>\n'\
             +html_table(self.census_data, maxlines=20, href=False)
@@ -954,22 +971,47 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                                         heading='<h4>Table of {} extended sources</h4>'.format(len(extdf)),
                                         float_format=FloatFormat(2))
         return None
-        
-        
+    
+    def get_source(self, name):
+        """ return a sources.PointSource object"""
+        from uw.like2 import sources
+        try:
+            s = self.df.loc[name]
+        except:
+            print 'Name "{}" not found'.format(name)
+            #flag not found
+            return sources.PointSource(name=name, model=None, skydir=None, sedrec=None, ts=-1)
+
+        p=sources.PointSource(name=s.name, model=s.model, skydir=s.skydir)
+        p.sedrec=s.sedrec
+        p.ts = s.ts
+        return p
+
+    def plot_sed(self, name, ax=None, xlim=(1e2,3e4), ylim=(0.04, 20)):
+        from uw.like2.plotting import sed
+        p = self.get_source(name, df=df)
+        if p is None: return
+        sed.Plot(p)(axes=ax, galmap=p.skydir, axis=xlim+ylim)
+
+    def plot_seds(self, namelist, row_size=5):
+        from uw.like2.plotting import sed
+        sed.plot_seds(self, namelist, row_size=row_size)
+
+
     
     def all_plots(self):
-        version = os.path.split(os.getcwd())[-1]
+
         plt.close('all')
-        csvfile='sources_%s.csv' % version
+
         colstosave="""ra dec jname ts modelname  freebits fitqual e0 flux flux_unc pindex pindex_unc index2 index2_unc
                  cutoff cutoff_unc eflux100 eflux100_unc locqual delta_ts a b ang flags roiname""".split()
-        self.df.loc[(self.df.ts>10) | self.df.psr ][colstosave].to_csv(csvfile)
-        print 'saved truncated csv version to "%s"' %csvfile
+        self.df.loc[(self.df.ts>10) | self.df.psr ][colstosave].to_csv(self.csvfile)
+        print 'saved truncated csv version to "%s"' %self.csvfile
         
         self.runfigures([self.census, 
             self.cumulative_ts, 
             self.fit_quality,
-            #self.spectral_fit_consistency_plots, 
+            self.spectral_fit_consistency_plots, 
             #self.poor_fit_positions,
             self.non_psr_spectral_plots, 
             #self.beta_check, 

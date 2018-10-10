@@ -174,7 +174,7 @@ class Configuration(dict):
         elif input_model is not None:
             if not isinstance(input_model, dict):
                 raise Exception('input_model must be a dictionary')
-            model_keys = ['xml_file','path', 'auxcat', 'free_diffuse', 'tsmin']
+            model_keys = ['xml_file','path', 'auxcat', 'free_diffuse', 'tsmin', 'emin']
             if not set(input_model.keys()).issubset(model_keys):
                 raise Exception('input model key(s), %s, not recognized: expect %s'
                     % (list(set(input_model.keys()).difference(model_keys)), model_keys))

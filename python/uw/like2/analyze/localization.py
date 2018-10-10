@@ -307,12 +307,14 @@ class Localization(sourceinfo.SourceInfo):
             self.poorly_localized_table_check ='<p>No poorly localized sources!'
 
         
-    def load_moment_analysis(self, make_collection=True):
+    def load_moment_analysis(self):
         """ check results of moment analysis
         """
         m =self.df.moment
         has_moment = [x is not None for x in m]
         print 'Found %d sources with moment analysls' % sum(has_moment)
+        if sum(has_moment)==0:
+            return None
         mdf = pd.DataFrame(m[has_moment]) 
         u = np.array([list(x) for x in mdf.moment])
         self.dfm=md= pd.DataFrame(u,  index=mdf.index, columns='rax decx ax bx angx size peak_fract'.split())
@@ -333,20 +335,9 @@ class Localization(sourceinfo.SourceInfo):
         filename = 'moment_localizations.csv'
         md.to_csv(filename)
         print 'Write file %s' % filename
-        if not make_collection: return md
+        return md
         
-        # now make a collection with images and data
-        self.moment_collection_html=''
-        try:
-            t = makepivot.MakeCollection('moment analysis localizations %s'%self.skymodel, 'tsmap_fail', 'moment_localizations.csv', 
-                refresh=True) 
-            makepivot.set_format(t.cId)
-            self.moment_collection_html="""
-                <p>The images and associated values can be examined with a 
-                <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>,
-                which requires Silverlight."""  % t.cId
-        except Exception, msg: 
-            print "**** Failed to make moment pivot table: %s" % msg
+
 
         
 
@@ -369,11 +360,15 @@ class Localization(sourceinfo.SourceInfo):
         <p>Subsets correspond to peak fraction betweek 0.1 and 0.5.
          %(moment_collection_html)s
         """
-        
+        if not hasattr(self,'dfm'):
+            dfm = self.load_moment_analysis()
+        if dfm is None:
+            self.moment_collection_html='<b>No moment analysis sources were found!</b>'
+            return 
+
         fig, axx = plt.subplots(2,3, figsize=(10,8))
         plt.subplots_adjust(hspace=0.3, wspace=0.3, left=0.1)
-        if not hasattr(self,'dfm'):
-            self.load_moment_analysis()
+
         dfs = self.dfm
         goodfrac= (dfs.peak_fract<0.5) & (dfs.peak_fract>0.1)
         for ix, ax in enumerate(axx.flatten()):

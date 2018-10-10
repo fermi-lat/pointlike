@@ -449,10 +449,11 @@ table_info['flat']=table_info['ts']
 table_info['psr']=table_info['tsp']
 
 
-def residual_maps(roi, folder='residual_maps'):
+def residual_maps(roi, folder='residual_maps', nbands=8, test=False):
     
     def residual_map(index):
-        cband = roi.config.dataset.dmap[index] # need to find appropriate one
+        b=roi[index] # the BandLike object
+        cband = roi.config.dataset.dmap[b.band.data_index] # need to find appropriate one
         nside = cband.nside()
         b=roi[index] # the BandLike object
         assert abs(cband.emin()-b.band.emin)<1.0, '{},{}'.format(cband.emin(), b.band.emin)
@@ -467,8 +468,12 @@ def residual_maps(roi, folder='residual_maps'):
         inside = id12==roi_id
         data = b.data
         model= np.array(b.model_pixels,np.float32)
+        fixed = np.array(b.fixed_pixels, np.float32)
+        free = np.zeros(b.pixels, np.float32)
+        for m in b.free_sources:
+            free += m.pix_counts
         dd = dict(band_index=index, nside=nside,energy=energy, event_type=event_type, 
-                  ids=ids, model= model,data= data,inside=inside,)
+                  ids=ids, model= model,data= data,inside=inside, fixed=fixed, free=free)
         chi2 = sum((data-model)**2/model)
         print '{:5.0f} {:5d} {:4d}   {:4.0f}/{:4d}   {:+0.1%}'.format(energy, event_type, nside,
                                                                  chi2, len(data), (data/model-1).mean())
@@ -476,7 +481,9 @@ def residual_maps(roi, folder='residual_maps'):
         
     roi_id = Band(12).index(roi.roi_dir)
     print 'energy type nside  chi2/ ndf  offset'
-    maps = [residual_map(index)   for index in range(8)]
+    maps = [residual_map(index)   for index in range(nbands)]
+    if test:
+        return maps
     if not os.path.exists(folder):
         os.mkdir(folder)
     filename = '{}/ROI_{:04d}.pickle'.format(folder,roi_id)

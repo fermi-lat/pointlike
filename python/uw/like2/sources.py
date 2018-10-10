@@ -41,11 +41,11 @@ def set_default_bounds( model, force=False):
         plim = (None,None)
         try:
             plim = dict(
-                Index=(0.5, 3.5), 
+                Index=(0.0, 3.5), 
                 Norm=(10**-18, 10**-7),
                 Scale=(0.001, 4.0),
-                beta=(0, 2.), 
-                Cutoff=(100., 1e5),
+                beta=(-0.1, 1.), 
+                Cutoff=(100., 2e5),
                 )[pname.split('_')[0]]
         except: pass
         bounds.append( to_internal(mp.tointernal, plim) )
@@ -74,7 +74,7 @@ class Source(object):
         self.name = str(self.name) # force to be a string
         if self.skydir is None:
             # global source: keep original model
-            self.free = self.model.free.copy()  # save copy of initial free array to restore
+            self.free = self.model.free.copy() if self.model is not None else None  # save copy of initial free array to restore
             return
         elif hasattr(self.skydir, '__iter__'): #allow a tuple of (ra,dec)
             self.skydir = SkyDir(*self.skydir)

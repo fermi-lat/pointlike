@@ -86,6 +86,7 @@ stagenames = dict(
     fitgalactic =  StageBatchJob( dict(diffuse_key='gal'), sum='counts environment',  help='gal diffuse fit, then fit'),
     fitgalacticonly =  StageBatchJob( dict(diffuse_key='gal_only'), sum='counts environment',  help='gal diffuse fit, then fit'),
 
+    psccheck     = StageBatchJob(dict(psc_flag=True), sum='gtlikecomparison', help='compare with a "psc"-format gtlike catalog'),
     sourcefinding=StageBatchJob( dict(table_keys='ts tsp hard soft'.split(), dampen=0),  job_list='$POINTLIKE_DIR/infrastructure/joblist8.txt', 
                     sum='ts_tables',help='Create TS maps for all templates'),
     modelcounts1=  StageBatchJob( dict(model_counts=range(16)),  help='model counts 0-15'),
@@ -93,7 +94,7 @@ stagenames = dict(
     modelcounts3=  StageBatchJob( dict(model_counts=range(18,20)),  help='model counts 18,19'),
     modelcounts4=  StageBatchJob( dict(model_counts=range(20,24)),  help='model counts 20-23'),
     modelcounts5=  StageBatchJob( dict(model_counts=range(24,28)),  help='model counts 24-27'),
-    gllcompare =   StageBatchJob( dict(special_flag=True), sum='gtlikecomparison', help='gtlike comparison'),
+    #gllcompare =   StageBatchJob( dict(special_flag=True), sum='gtlikecomparison', help='gtlike comparison'),
 )
 keys = stagenames.keys()
 help = '\nstage name, or sequential stages separated by "y:" names are\n\t' \

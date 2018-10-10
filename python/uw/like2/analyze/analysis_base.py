@@ -275,6 +275,8 @@ class AnalysisBase(object):
             
         # except Exception, msg: 
         #     print '**** failed to write footer: %s' % msg
+        pythonpath='http://glast-ground.slac.stanford.edu/Decorator/exp/Fermi/Decorate/groups/catalog/pointlike/git/pointlike/python/'
+        htmldoc+='\n<br><a href="{}{}.py?skipDecoration"?> Local version of code</a>'.format(pythonpath, self.__module__.replace('.','/'))
         htmldoc+='\n</body>'
         self.htmlmenu.save(os.path.join(self.plotfolder,'menu.html'))
         print 'saved local menu to %s' % os.path.join(self.plotfolder,'menu.html')

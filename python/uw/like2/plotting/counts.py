@@ -8,8 +8,9 @@ Authors M. Kerr, T. Burnett
 import os, sys
 import numpy as np
 import pylab as plt
+import matplotlib.ticker as ticker
 import pandas as pd
-from matplotlib import font_manager
+
 from uw.utilities import image
 
 def get_counts(roi, event_type=None, tsmin=10, emax=None):
@@ -55,6 +56,7 @@ def get_counts(roi, event_type=None, tsmin=10, emax=None):
     total = np.zeros(nume)
     utotal = np.zeros(nume)
     uobserved = np.zeros(nume)
+    inside = np.zeros((nume,5)) # for data, gal, iso, sun, sources
     
     for i, energy in enumerate(energies):
         for b in bands:
@@ -70,7 +72,17 @@ def get_counts(roi, event_type=None, tsmin=10, emax=None):
             # model, photons with unweight
             utotal[i] += b.unweight * b.counts
             uobserved[i] += b.unweight * sum(b.data)
-            
+
+
+            # total counts for active part of ROI
+            imask = b.inside
+            if len(imask)==0: #no data pixels inside.
+                continue
+            data = b.data[imask].sum()
+            diffuse = np.array([ x.pix_counts[imask].sum() for x in b[:3]], np.float32)
+            sources = np.array([ x.pix_counts[imask].sum() for x in b[3:]], np.float32).sum()
+            inside[i] += np.hstack([data, diffuse, sources])
+
     
     models = [(names[j] , model_counts[:,j]) for j in range(numsrc)]
     #if sum(weak)>0: models.append( ('TS<%.0f'%tsmin, weak))
@@ -80,7 +92,9 @@ def get_counts(roi, event_type=None, tsmin=10, emax=None):
     chisq = ((observed-total)**2/total).sum()
     uchisq= ((uobserved-utotal)**2/utotal).sum()
     return dict(energies=energies, observed=observed, models=models, 
-        names=names, total=total, bandts=bandts, chisq=chisq, uchisq=uchisq, utotal=utotal, uobserved=uobserved)
+        names=names, total=total, bandts=bandts, chisq=chisq, 
+        uchisq=uchisq, utotal=utotal, uobserved=uobserved,
+        inside=inside)
     
 def get_npred(roi, source_name, event_type=None):
     """
@@ -141,13 +155,23 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
     def plot_counts_and_models(ax, count_data,
                 model_kw = dict(linestyle='-', marker='', lw=2),
                 total_kw = dict(linestyle='steps-mid', color='black', linewidth=2),
-                obs_kw= dict(linestyle=' ', marker='o', color='black',)
+                obs_kw= dict(linestyle=' ', marker='o', color='black',),
                 ):
         ax.set_xscale('log')
         ax.set_yscale('log')
         en,obs,tot = count_data['energies'],count_data['observed'],count_data['total']
         
+        rel=1.0
+        if relto is not None:
+            for name, data in count_data['models']:
+                if name==relto:
+                    rel=data
+                    break
+            assert np.all(rel!=1.0), 'Did not find component {} for relative plots'
+            ax.axhline(1.0, color='grey', ls='--') 
+
         for name, data in count_data['models']:
+            if name==relto: continue
             if np.any(data<=0): continue # ignore models with no predicted counts
             assert len(en)==len(data), 'energy, data mismatch'
             if len(name)>20: name=name[:17]+'...'
@@ -157,24 +181,33 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
             elif name=='SunMoon': tmodel_kw.update(color='grey')
             elif name.startswith('fixed'): tmodel_kw.update(linestyle='-.', color='g', lw=3)
             elif name.startswith('free'): tmodel_kw.update(linestyle='-.', color='r', lw=3)
-            ax.loglog(en, data, label=name, **tmodel_kw)
+            ax.loglog(en, data/rel, label=name, **tmodel_kw)
         
-        ax.loglog( en, tot, label='Total Model', **total_kw)
-        err = obs**0.5
-        low_err = np.where(obs-err <= 0, 0.99*obs, err)
-        ax.errorbar(en,obs,yerr=[low_err,err], label='Counts', **obs_kw )
-        ax.set_ylabel('Counts per Bin', fontsize=12)
-        def gevticklabel(x):
-            if x<100 or x>1e5: return ''
-            elif x==100: return '0.1'
-            return '%d'% (x/1e3)
+        ax.loglog( en, tot/rel, label='Total Model', **total_kw)
+        err = obs**0.5/rel
+        low_err = np.where(obs-err <= 0, 0.99*obs, err)/rel
+        ax.errorbar(en,obs/rel,yerr=[low_err,err], label='Counts', **obs_kw )
+        
+        if relto is not None:
+            # format relative count 
+            ax.set_ylabel('Counts relative to {}'.format(relto), fontsize=12)
+            ax.set( ylim=(1e-1,200.),  ) #default, can be overridden
+            ax.yaxis.set_major_formatter(ticker.FuncFormatter(
+                lambda val,pos: { 1.0:'1', 10.0:'10', 100.:'100'}.get(val,''))) 
+        else:
+            ax.set_ylabel('Counts per Bin', fontsize=12)
+            ax.set( ylim=(100.,None), )
+
         """ make it look nicer """
-        ax.set_xticklabels(map(gevticklabel, ax.get_xticks()))
+        def gev_tf(val, pos=0):
+            lookup ={100.:'0.1', 1e3:'1', 1e4:'10', 1e5:'100'}
+            return lookup.get(val, '') 
+        ax.xaxis.set_major_formatter(ticker.FuncFormatter(gev_tf))  
         ax.set_xlabel(r'$\mathsf{Energy\ (GeV)}$', fontsize=12)
 
         ax.legend(loc=0,prop=dict(size=10))
         ax.grid(b=True, alpha=0.5)
-        ax.set_ylim(ymin=100.)
+
         
     def plot_residuals(ax, count_data, 
                 plot_kw=dict( linestyle=' ', marker='o', color='black',),
@@ -185,14 +218,14 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
         if not plot_pulls:
             fdev = 100*(obs-tot)/(tot)
             ax.errorbar(energy, fdev, yerr=100*(tot**-0.5), **plot_kw)
-            ybound=2.0 
+            ybound=4.0 
             ylabel='fract. dev'
             ax.set(xscale='log', ylabel='fract. dev (%)', ylim=(-ybound*1.1,ybound*1.1))
             nhigh = sum(fdev>ybound)
             if nhigh>0:  ax.plot(energy[fdev>ybound], [ybound]*nhigh, '^r', markersize=10) 
             nlow = sum(fdev<-ybound)
             if nlow >0:  ax.plot(energy[fdev<-ybound], [-ybound]*nlow, 'vr', markersize=10)
-            ax.set_yticks([-1,0, 1])
+            ax.set_yticks([-2,0, 2])
         else:
             ylabel = 'pull'
             ybound = 3.5
@@ -214,8 +247,11 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
             elif x==100: return '0.1'
             return '%d'% (x/1e3)
         """ make it look nicer """
-        ax.set_xticklabels(map(gevticklabel, ax.get_xticks()))
+        #ax.set_xticklabels(map(gevticklabel, ax.get_xticks()))
+        ax.xaxis.set_major_formatter(ticker.FuncFormatter(
+                lambda val,pos: { 100.:'0.1', 1e3:'1', 1e4:'10', 1e5:'100'}.get(val,'')))
         ax.set_xlabel(r'$\mathsf{Energy\ (GeV)}$')
+        ax.set(xlim=(95.,None)) # to get first tick
         ax.grid(b=True,alpha=0.3)
         if show_chisq :
             ax.text(0.75, 0.8,'chisq={:.0f}'.format(count_data['chisq']), 
@@ -226,6 +262,7 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
         plt.close(fignum) # close it if exists
         fig, axes = plt.subplots(1,2, sharex=True, num=fignum, figsize=(12,6))
 
+    relto = kwargs.pop('relto', None)
     tsmin = kwargs.pop('tsmin', 10)
     emax = kwargs.pop('emax', None)
     count_data = get_counts(roi, event_type, tsmin=tsmin, emax=emax) #, integral=integral, merge_non_free=merge_non_free, merge_all=merge_all)
@@ -267,7 +304,7 @@ def stacked_plots(roi, counts_dir=None, fignum=6, title=None, **kwargs):
     plt.rcParams['axes.linewidth'] = oldlw
 
     axes[0].set_xlabel('') 
-    axes[0].set_ylim(ymin=30)
+    #axes[0].set_ylim(ymin=30)
     if title is None:
         if hasattr(roi,'name'): fig.suptitle(roi.name)
     else: fig.suptitle(title)

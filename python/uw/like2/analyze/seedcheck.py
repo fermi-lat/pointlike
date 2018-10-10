@@ -26,7 +26,8 @@ class SeedCheck(sourceinfo.SourceInfo):
         <li>flat</li>
         <li>hard</li>
         <li>soft</li>
-        <li>peaked</li>    
+        <li>peaked</li> 
+        <li>psr</li>   
     </ul>.
     <p>
      The plot analysis "hptables" that follows it does a cluster analysis, generating a list of
@@ -34,7 +35,7 @@ class SeedCheck(sourceinfo.SourceInfo):
     performing an inital fit to the flux only, then a localization, and finally a full fit. The fit and localization information are 
     written to a set of pickle files in the folder "seedcheck" or the zip file "seedcheck.zip".
     A selection is applied with these cuts: 
-    % %(cut_summary)s
+    %(cut_summary)s
     <br>and the remaining sources are analyzed here.
     """
 
@@ -55,28 +56,30 @@ class SeedCheck(sourceinfo.SourceInfo):
         print 'Loaded {} seeds from file "{}"'.format(len(self.seeds), seedfile)
         unique, counts = np.unique(self.seeds.key, return_counts=True)
         print 'seed keys: {}'.format(dict(zip(unique, counts)))
+        self.cut_summary='[Not done yet]'
         #self.load()
         
     def tsmaps(self):
-        """TS maps for the four spectral templates
+        """TS maps for the spectral templates
 
         Each has 12*512**2 = 3.2M pixels. The following table has the number of pixels above the TS value labeling the column.
         %(tsmap_info)s
         """
-        z = dict(); cuts = (10,16,25)
+        z = dict(); cuts = (10,16,25,100)
         keys=self.keys
         for key in keys:
             z[key]= [np.sum(self.tables[key]>x) for x in cuts]
         df=pd.DataFrame(z, index=cuts).T 
         self.tsmap_info= html_table(df, href=False, )
 
-        fig, axx = plt.subplots(2,2, figsize=(15,15))
-        plt.subplots_adjust(hspace=-0.4,wspace=0.05)
+        fig, axx = plt.subplots(2,3, figsize=(18,15))
+        plt.subplots_adjust(hspace=-0.4,wspace=0.05, left=0.05)
         for ax,key in zip(axx.flatten(), keys):
             plt.sca(ax)
             healpy.mollview(self.tables[key],hold=True, min=10, max=25, title=key, cbar=True, 
             cmap=plt.get_cmap('YlOrRd'))
             healpy.graticule(dmer=180, dpar=90, color='lightgrey')
+        axx[1,2].set_visible(False)
         return fig
 
     def pixel_ts_distribution(self, tsmax=25):
@@ -102,13 +105,13 @@ class SeedCheck(sourceinfo.SourceInfo):
             ax.set_title('seed type {}'.format(seed_key), fontsize=14)
             ax.grid(True, alpha=0.5)
 
-        fig, axx = plt.subplots(2,2, figsize=(12,12))
+        fig, axx = plt.subplots(2,3, figsize=(15,12))
         for key,ax in zip(self.keys, axx.flatten()):
             plot_one(key, ax)
+        axx[1,2].set_visible(False)
         fig.suptitle('Cumulative distribution of single-pixel TS values');        
         fig.set_facecolor('white')
         return fig
-
 
 
     def seed_plots(self, subset='all', bcut=5, title=None):
@@ -120,7 +123,11 @@ class SeedCheck(sourceinfo.SourceInfo):
         <br>Center: maximum TS in the cluster
         <br>Right: distribution in sin(|b|), showing cut if any.
         """
-        z = self.seeds if subset=='all' else self.seeds.query(subset)
+        try:
+            z = self.seeds if subset=='all' else self.seeds.query('key=="{}"'.format(subset))
+        except Exception, msg:
+            print 'Failed to find subset {}: {}'.format(subset, msg)
+            raise
         bc = np.abs(z['b'])<bcut
         
         fig,axx= plt.subplots(1,3, figsize=(12,4))
@@ -410,5 +417,7 @@ class SeedCheck(sourceinfo.SourceInfo):
             [
                 self.tsmaps,
                 self.pixel_ts_distribution,
-                #self.seed_list, self.seed_cumulative_ts, self.locations, self.spectral_parameters, self.localization,
+                #self.seed_list, self.seed_cumulative_ts, self.locations, 
+                # self.spectral_parameters, 
+                # self.localization,
             ])

@@ -209,7 +209,11 @@ class Isotropic(diffuse_fits.DiffuseFits):
                 msg= "found {} files, expected 1728".format(len(files))
                 print msg
                 raise Exception(msg)
-            self.isofits = np.array([pickle.load(open(f)) for f in files]);
+            try:
+                self.isofits = np.array([pickle.load(open(f))['val'] for f in files]);
+            except: #old format
+                self.isofits = np.array([pickle.load(open(f)) for f in files]);
+                
             try:
                 snum=streamdf.query('stage=="fitisotropic"').index[-1]
             except:
@@ -227,11 +231,12 @@ class Isotropic(diffuse_fits.DiffuseFits):
         self.df['highlat'] = highlat= np.abs(glat)>bcut
 
         #print 'High latitude selection (|b|>{}): {}/{} ROIs'.format(bcut,sum(highlat), len(dec))
+        return;
 
-        def fit_summary( ib):
+        def fit_summary(self, ib):
             print '\n{} normalization fit summary for |b|>{}\n\t{:4s}{:>8s}{:>8s}'.format(
                 ['front','back'][ib], bcut,'band','mean','std')
-            for i in range(8):
+            for i in range(self.isofits.shape[1]):
                 t = self.isofits[:,i,ib][self.df.highlat]
                 print '\t{:4d}{:8.3f}{:8.3f}'.format(i, np.mean(t), np.std(t))
         fit_summary( 0 )

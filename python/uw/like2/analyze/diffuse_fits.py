@@ -77,15 +77,16 @@ class DiffuseFits(roi_info.ROIinfo):
     def correction_plots(self, cc, vmin=0.5, vmax=1.5, title=None, hist=False):
         if isinstance(cc, pd.DataFrame):
             cc = cc.as_matrix()
-        assert cc.shape[1]==8, 'Found shape {}'.format(cc.shape)
+        nrows = cc.shape[1]/4
+        #assert cc.shape[1]==8, 'Found shape {}'.format(cc.shape)
         if title is None:
             title = 'Galactic adjustments to: {}'.format(self.galcorr)
         if hist:
             hkw=dict(bins=np.linspace(vmin,vmax, 21), lw=1, histtype='step')
-            fig,axx = plt.subplots(2,4, figsize=(14,7), sharex=True, sharey=False)
+            fig,axx = plt.subplots(nrows,4, figsize=(14,3*nrows+1), sharex=True, sharey=False)
             plt.subplots_adjust(wspace=0.3)
         else:
-            fig, axx = plt.subplots(2,4, figsize=(12,6), sharex=True, sharey=True)
+            fig, axx = plt.subplots(nrows,4, figsize=(12,3*nrows), sharex=True, sharey=True)
             plt.subplots_adjust(left=0.10, wspace=0.1, hspace=0.1,right=0.92, top=0.92)
         for i,ax in enumerate(axx.flatten()):
             if hist:

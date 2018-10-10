@@ -432,6 +432,7 @@ def merge_seed_files(tables, dist_deg=1.0):
         close_df  = find_close(A,B).query('distance<{}'.format(dist_rad))
         bdups = close_df.query('ts_b<ts_a')
         bdups.index=bdups.id_b
+        bdups = bdups[~bdups.index.duplicated()]
         adups = close_df.query('ts_b>ts_a')
         A['dup'] = adups['id_b']
         B['dup'] = bdups['id_a']
@@ -440,16 +441,17 @@ def merge_seed_files(tables, dist_deg=1.0):
     
     out = tables[0]
     for t in tables[1:]:
+        print 'merging...'
         out = merge2(out, t)
     return out
 
 def create_seedfiles(self, seed_folder='seeds', update=False, max_pixels=30000, merge_tolerance=1.0, 
-        tsmin=16):
+        tsmin=14):
     """
     Version of create_seeds used for a maps.MultiMap object
     """
     seedfiles = ['{}/seeds_{}.txt'.format(seed_folder, key) for key in self.names];
-    prefix = dict(flat='F', peaked='P', hard='H', soft='S')
+    prefix = dict(flat='F', peaked='P', hard='H', soft='S', psr='N')
     if not os.path.exists(seed_folder):
         os.mkdir(seed_folder)
     table_name = self.fitsfile
@@ -458,7 +460,7 @@ def create_seedfiles(self, seed_folder='seeds', update=False, max_pixels=30000, 
     tables=[]
     modelname = os.getcwd().split('/')[-1]; 
     if modelname.startswith('uw'):
-        seedroot='S'+modelname[-2:]
+        seedroot=modelname[-3:]
     elif modelname.startswith('year'):
         seedroot='Y'+modelname[-2:]
     elif modelname.startswith('month'):
@@ -469,13 +471,14 @@ def create_seedfiles(self, seed_folder='seeds', update=False, max_pixels=30000, 
     outfile ='{}/seeds_all.csv'.format(seed_folder) 
     if os.path.exists(outfile) and not update:
         print 'File {} exists'.format(outfile)
-        return
+        return pd.read_csv(outfile, index_col=0)
 
     for key, seedfile in zip(self.names, seedfiles):
         print '{}: ...'.format(key),
         if os.path.exists(seedfile) and not update:
             print 'Seedfile {} exists: skipping make_seeds step...'.format(seedfile)
             table = pd.read_table(seedfile, index_col=0)
+            table['key']=key
             print 'found {} seeds'.format(len(table))
         else:
             rec = open(seedfile, 'w')
@@ -495,6 +498,8 @@ def create_seedfiles(self, seed_folder='seeds', update=False, max_pixels=30000, 
     u = merge_seed_files(tables, merge_tolerance);
     print 'Result of merge with tolerance {} deg: {}/{} kept'.format(merge_tolerance,len(u), sum([len(t) for t in tables]))
 
-    u.index='name'
-    u['name ra dec ts size key'.split()].to_csv(outfile)
-    print 'Wrote file {} with {} seeds'.format(outfile, len(u))   
+    u.index.name='name'
+    v = u['ra dec b ts size key'.split()]
+    v.to_csv(outfile)
+    print 'Wrote file {} with {} seeds'.format(outfile, len(u)) 
+    return v  

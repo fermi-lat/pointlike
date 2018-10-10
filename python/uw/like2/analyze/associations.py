@@ -18,8 +18,14 @@ class Associations(sourceinfo.SourceInfo):
     """Analysis of associations
     <p>
     A feature of the UW pipeline is the application of the LAT association algorithm, with the same catalogs as
-    were used for 2FGL, except that the latest LAT pulsar catalog is used. Note that priors are not recalculated,
-    we use the values determined for 2FGL. The method is explained in the <a href="http://arxiv.org/pdf/1002.2280v1.pdf">1FGL paper</a>, see Appendix B.
+    were used for 2FGL, except:
+    <ul> 
+        <li>The latest LAT pulsar list</li>
+        <li>All pulsars from the "bigfile" list maintained by D. Smith</li> 
+        <li>The latest BZCAT list of blazars
+    </ul>
+    Note that priors are not recalculated, we use the values determined for 2FGL. 
+    The method is explained in the <a href="http://arxiv.org/pdf/1002.2280v1.pdf">1FGL paper</a>, see Appendix B.
     <p>
     <p>Note that the current pipeline has the Planck and WISE catalogs.
     """
@@ -37,6 +43,7 @@ class Associations(sourceinfo.SourceInfo):
         # these suppresses warnings associated with headers
         warnings.filterwarnings('ignore', category=pyfits.verify.VerifyWarning, append=True)
         warnings.filterwarnings('ignore', category=AstropyUserWarning, append=True)
+        plt.rc('font', size=14)
     
     def load_assoc(self, fromdf=None, minprob=0.8):
         if fromdf is not None:
@@ -95,8 +102,7 @@ class Associations(sourceinfo.SourceInfo):
         fig, axx = plt.subplots(1,2, figsize=(12,5))
         plt.subplots_adjust(left=0.1)
         for f,ax in zip((plota,plotb), axx.flatten()): f(ax) 
-        return fig
-            
+        return fig           
     
     def delta_ts_figure(self, df=None, title='', ax=None, ):
         """Delta ts for association
@@ -422,8 +428,123 @@ class Associations(sourceinfo.SourceInfo):
         axx.flatten()[-1].set_visible(False)           
         return fig
 
+    def unassociated_soft(self, query='isextended==False & pindex>2.2 & curvature<0.05 & psr==False',
+            selection='aprob<0.5 & eflux100>4e-12 & a<0.1 & locqual<5'):
+        """Unassociated soft sources
+
+        This is an analysis of a set of unassociated soft (index>2.2) sources that have a concentration 
+        in the inner galaxy region (|b|<10, |l|<50). We examine soft, near-power-law sources. 
+        <p>The first row is for those that are associated, the second unassociated. THe left plot is energy flux vs.
+        spectral index. It shows a line that is an energy flux minimum for the next two histograms.
+        <p>A list selected with the queries "%(softie_query)s", and then "%(unid_query)s" which are not associated can be downloaded 
+        <a href="../../%(softie_filename)s?download=true">here</a>, and viewed in the following table.
+        <p>%(softie_table)s, 
+        """
+        self.softie_query=query
+        self.unid_query=selection
+        q = self.indf.query(query)\
+            ['ra dec ts pindex glat glon eflux curvature aprob eflux100 a b ang locqual'.split()]
+        q['singlat'] = np.sin(np.radians(np.array(q.glat,float)))
+
+        fig,axx=plt.subplots(2,3, figsize=(12,8),
+                            gridspec_kw={'wspace':0.2, 'hspace':0.3, 'left':0.01, 'top':0.98})
+
+        def scatxy(ax, query='aprob<0.5',  xlim=(2.2,3.2), ylim=(1,40)):
+            una = q.query(query)
+            bcut= np.abs(una.singlat)<0.2
+            x = una.pindex.clip(*xlim)
+            y = (una.eflux100*1e12).clip(*ylim)
+            ax.plot(x[~bcut], y[~bcut], '.r', label='high lat');
+            ax.plot(x[bcut],  y[bcut],  '+g', label='low lat' );
+            ax.set(xlim=xlim, xlabel='Spectral index',
+                ylim=ylim, ylabel=r'$Energy\ FLux \times\ 10^{12}$', yscale='log')
+            ax.legend();
+            ax.axhline(4.0, color='gray')
+
+        scatxy(axx[0,0], 'aprob>0.5')
+        scatxy(axx[1,0])
+
+        idquery = 'aprob>0.5 & eflux100>4e-12'
+        def hist1(ax, query=idquery):
+            df = q.query(query)
+            ax.hist(df.singlat, bins=np.linspace(-1,1,21), histtype='step', lw=2)
+            ax.set(xlabel='sin(glat)')
+        def hist2(ax, query=idquery):
+            df = q.query(query)
+            ax.hist(np.array(df.pindex,float), bins=np.linspace(2.2,3.2,21), histtype='step', lw=2)
+            ax.set(xlabel='Spectral index')
+        def hist3(ax, query=idquery):
+            df = q.query(query)
+            ax.hist(np.array(df.eflux100,float)*1e12, bins=np.logspace(0,2, 21), histtype='step', lw=2)
+            ax.set(xlabel=r'$Energy\ FLux \times\ 10^{12}$', xscale='log')
+
+        hist1(axx[0,1])
+        hist1(axx[1,1],selection)
+        hist2(axx[0,2])
+        hist2(axx[1,2],selection)
+        # hist3(axx[0,3])
+        # hist3(axx[1,3],selection)
+         
+        fig.text(-0.05, 0.99, 'associated')
+        fig.text(-0.05, 0.52, 'unassociated');
+        
+        self.softie_filename = self.plotfolder+'/softies.csv'
+        dfu=q.query(self.unid_query)['ra dec ts pindex curvature glat glon eflux100 a b ang locqual'.split()]
+        dfu.eflux100 *= 1e12 # for readability
+        #scale the ellipse 1-sigma radii with multiplicative systematic factor
+        factor = self.config.get('localization_systematics', [1.,0])[0]
+        dfu.a *= factor
+        dfu.b *= factor
+        dfu.to_csv(self.softie_filename)
+        self.softies=dfu
+        print 'Wrote list of sources to {}'.format(self.softie_filename)
+
+        self.softie_table= \
+            html_table(dfu,                
+                    float_format=FloatFormat(2), 
+                    heading = """<p>Table of %d unassociated soft sources """ % len(dfu),
+                    name=self.plotfolder+'/softie_table',
+                    maxlines=10)        
+
+        return fig
+
+    def softie_geometry(self, vmax=8, bmax=7, vcut=2):
+        """Softie geometry
+
+        Assuming that the square root of the flux might be inversely proportional to distance,
+         I plot it vs. |b|, and in a scatter plot vs. (l,b),
+
+        """
+        df=self.softies
+        l,b,f = df.glon.copy(), df.glat, np.array(df.eflux100,float)
+        sf = np.sqrt(f).clip(0,vmax)
+        l[l>180]-=360
+
+        fig, axx=plt.subplots(1,2, figsize=(15,5))
+
+        def fig1(ax):
+            ax.plot(sf, np.abs(b), 'o', label='|l|>60');
+            loncut = np.abs(l)<60
+            ax.plot(sf[loncut], np.abs(b)[loncut], 'o', label='|l|<60');
+            if vcut is not None: ax.axvline(vcut, color='grey', ls='--')
+            ax.legend()
+            ax.set(ylim=(0,bmax), xlim=(0,vmax), ylabel='$|b|$', xlabel='sqrt(Energy Flux)');
+
+        def fig2(ax):
+            ax = plt.gca()
+            scat=ax.scatter(l,b, c=np.sqrt(f),cmap=plt.get_cmap('YlOrRd'), vmax=vmax) ;
+            ax.set(xlim=(-90,90), ylim=(-bmax,bmax), xlabel='longitude', ylabel='latitude');
+            cb = plt.colorbar(scat)
+            cb.set_label('sqrt(Enegy Flux)')
+            ax.axvline(0, color='lightgrey'); ax.axhline(0, color='lightgrey')
+
+        for ff, ax in zip([fig1,fig2], axx.flatten()): ff(ax)
+        return fig
+
     def all_plots(self):    
-        self.runfigures([self.summary, self.pulsar_check, self.pulsar_candidates, self.association_vs_ts, self.localization_check, self.bzcat_study])
+        self.runfigures([self.summary, self.pulsar_check, self.pulsar_candidates, 
+        self.association_vs_ts, self.localization_check, self.bzcat_study, 
+        self.unassociated_soft, self.softie_geometry,])
 
 
 class FitExponential(object):

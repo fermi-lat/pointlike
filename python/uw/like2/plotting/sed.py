@@ -10,21 +10,33 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,
 import os, types, sys
 import numpy as np
 import pylab as plt
+import matplotlib.ticker as ticker
 import pandas as pd
 from uw.utilities import image
 
-def set_xlabels( axes, gev_scale) :   
-    def gevticklabel(x):
-        if x<100 or x>1e5: return ''
-        elif x==100: return '0.1'
-        return '%d'% (x/1e3)
+def set_xlabels( axes, gev_scale) : 
+    def mev_tf(val, pos=0):
+        lookup ={0.1:'0.1', 1.0:'1', 10.0:'10', 100.:'100'}
+        return lookup.get(val, '') 
+    def gev_tf(val, pos=0):
+        lookup ={100.:'0.1', 1e3:'1', 1e4:'10', 1e5:'100'}
+        return lookup.get(val, '') 
+
     if gev_scale:
         """ make it look nicer """
-        axes.set_xticklabels(map(gevticklabel, axes.get_xticks()))
+        axes.xaxis.set_major_formatter(ticker.FuncFormatter(gev_tf))  
         axes.set_xlabel(r'$\mathsf{Energy\ (GeV)}$')
     else:
         axes.set_xlabel(r'$\mathsf{Energy\ (MeV)}$')
+        axes.xaxis.set_major_formatter(ticker.FuncFormatter(gev_tf))  
 
+def set_ylabels(axes, unit):
+    axes.set_ylabel(r'$\mathsf{Energy\ Flux\ (%s\ cm^{-2}\ s^{-1})}$' %unit, labelpad=0)
+    def ev_tf(val, pos=0):
+        lookup ={0.1:'0.1', 1.0:'1', 10.0:'10', 100.:'100'}
+        return lookup.get(val, '') 
+    if unit=='eV':
+        axes.yaxis.set_major_formatter(ticker.FuncFormatter(ev_tf))
      
 class Plot(object):
     """
@@ -64,8 +76,7 @@ class Plot(object):
                 # plot arrow 0.6 long by 0.4 wide, triangular head (in log coords)
                 axes.plot([x, x,     x*1.2, x,     x/1.2, x],
                           [y, y*0.6, y*0.6, y*0.4, y*0.6, y*0.6], **ul_kwargs)
- 
-                      
+                       
     def plot_model(self,  m,  butterfly=False, **kwargs):
         """ 
             m: the model, implements Models.Model
@@ -187,11 +198,9 @@ class Plot(object):
         plt.rcParams['xtick.labelsize']=plt.rcParams['ytick.labelsize']=oldticksize
 
         # the axis labels (note reduced labelpad for y) 
-        axes.set_ylabel(r'$\mathsf{Energy\ Flux\ (%s\ cm^{-2}\ s^{-1})}$' % self.energy_flux_unit, labelpad=0)
-        axes.set_xlabel(r'$\mathsf{Energy\ (GeV)}$')
-        # not flexible
-        #if self.energy_flux_unit=='eV':
-        #  axes.set_yticklabels(['', '1', '10', '100', r'$\mathdefault{10^{3}}$'])
+        #axes.set_ylabel(r'$\mathsf{Energy\ Flux\ (%s\ cm^{-2}\ s^{-1})}$' % self.energy_flux_unit, labelpad=0)
+        set_ylabels(axes, self.energy_flux_unit)
+        #axes.set_xlabel(r'$\mathsf{Energy\ (GeV)}$')
 
         axes.set_title(name, size=14)
         set_xlabels(axes, self.gev_scale)
@@ -291,7 +300,7 @@ def stacked_plots(sed,  outdir=None,  **kwargs):
     return fig
 
 def plot_other_source(source, other_source, emin=None,
-             uwname='uw7000', gtname='3FHL v9r1',
+             uwname=None, gtname='FL8Y', #3FHL v9r1',
              ax=None, **kwargs):
     """Make a sed plot with an alternative model overlaid
 
@@ -301,6 +310,7 @@ def plot_other_source(source, other_source, emin=None,
     """
     source_name = source.name
     othermodel=other_source.model
+    if uwname is None: uwname=os.getcwd().split('/')[-1]
     
     sdf=pd.DataFrame(source.sedrec)
     def chisq(source):
@@ -318,7 +328,7 @@ def plot_other_source(source, other_source, emin=None,
              gev_scale=kwargs.pop('gev_scale',True))
     
     ps = Plot(source,  **plot_kw)
-    ps.name = '{}/{}'.format(source_name, other_source.name)
+    ps.name = '{} / {}'.format(source_name, other_source.name)
     #annotation =(0.05,0.9, 'TS=%.0f'% self.TS(source.name))
     
 
@@ -332,6 +342,53 @@ def plot_other_source(source, other_source, emin=None,
                  )
     
     ax.legend(prop=dict(size=10))
-    plt.setp(ax, xlim=(100, 1e6), ylim=(0.01,1000))
+    ax.set( xlim=(100, 1e6), ylim=(0.01,1000))
     fig.set_facecolor('white')
     return fig
+
+def plot_seds(roi, snames, xlim=(100, 30000), ylim=(.2,200), row_size=5  ):
+    """Plot a set of SEDs in an array.
+
+    roi : current main.ROI object
+    snames : list of string
+        names of sources to plot
+    """
+    srclist = [roi.get_source(n) for n in snames]
+    n = len(snames)
+    nx = row_size
+    ny = n//row_size+1
+
+    fig, axx = plt.subplots(ny, nx, squeeze=False, figsize=(nx*3,ny*3),
+        gridspec_kw=dict(wspace=0.10, hspace=0.15),  sharex=False, sharey=False)
+    
+    for iy in range(ny): # per row
+        for ix in range(nx): # per column
+            i = ix+iy*row_size
+            ax =axx[iy,ix]
+            if i>=n:
+                ax.set(visible=False)
+                continue
+            src = srclist[i]
+            if src.model is not None:
+                # only plot stuff if a model
+                Plot(src, gev_scale=True, )(axes=ax)
+            else:
+                ax.text(0.5,0.5, '(Not found)', ha='center',transform=ax.transAxes, fontsize=12)
+
+            if ix>0:
+                ax.set_ylabel('')
+                ax.yaxis.set_major_formatter(ticker.NullFormatter())
+            else: #left column
+                ax.yaxis.set_major_formatter(ticker.FuncFormatter(
+                    lambda val,pos:{0.1:'0.1', 1.0:'1', 10.0:'10', 100.:'100'}.get(val,'') 
+                ))
+            if i<n-nx or src.model is None:
+                ax.set_xlabel('')
+                ax.xaxis.set_major_formatter(ticker.NullFormatter())
+            else: #gev format
+                ax.xaxis.set_major_formatter(ticker.FuncFormatter(
+                    lambda val,pos:{100.:'0.1', 1e3:'1', 1e4:'10',}.get(val,'') 
+                ))
+            ax.set(xlim=xlim, ylim=ylim, title='')
+            ax.text(0.02, 0.92, src.name, ha='left', transform=ax.transAxes, fontsize=10)
+            ax.text(0.98, 0.92, '{:.0f}'.format(src.ts), ha='right',  transform=ax.transAxes, fontsize=10)

@@ -778,3 +778,9 @@ g = healpix_map.ZEAdisplayTasks("%(title)s","%(outdir)s", nside=%(nside)s, %(ext
 """ %dict(cwd=os.getcwd(), title=title, outdir=outdir, extra=extra, nside=nside)
     return setup_string
  
+def neighbor_pixels(index, nside=12):
+    """return set of pixel indeces (RING indexing)
+    """
+    nb= IntVector()
+    Band(nside).findNeighbors(index,nb);
+    return np.array( nb, int)

@@ -105,12 +105,14 @@ def full_localization(roi, source_name=None, ignore_exception=False,
         loc = Localization(tsm)
         try:
             loc.localize()
-            t = loc.ellipse
-            # Automatically update position if good fit.
-            if update or loc['qual']<1.0 and loc['a']<0.1: 
+            if hasattr(loc, 'ellipse') and  (update or loc['qual']<1.0 and loc['a']<0.1):
+                # Automatically update position if good fit.
+                t = loc.ellipse
                 prev = tsm.saved_skydir
                 tsm.saved_skydir = SkyDir(t['ra'], t['dec'])
                 print 'updated position: %s --> %s' % (prev, tsm.saved_skydir)
+            else:
+                print 'Failed localization'
         except Exception, msg:
             print 'Localization of %s failed: %s' % (source.name, msg)
             if not ignore_exception: raise
@@ -139,7 +141,8 @@ def full_localization(roi, source_name=None, ignore_exception=False,
                 bad = True
                 tsize= 2.0
             if tsmap_dir.endswith('fail') and not bad: return
-            # Make tsmap and apply moment analysis if fail quality cuts, and 
+
+            # Make tsmap and apply moment analysis if failed fit or quality cuts
             done = False
             while not done:
                 try:
@@ -175,7 +178,7 @@ def full_localization(roi, source_name=None, ignore_exception=False,
             tsp.plot(SkyDir(rax,decx), color='w', symbol='o' );
             filename = source.name.replace(' ','_').replace('+','p')
             fout = os.path.join(tsmap_dir, ('%s_tsmap.jpg'%filename) )
-            print 'saving updated tsplot with moment analysis ellipse to %s...' % fout , ; sys.stdout.flush()
+            print 'saving updated tsplot with moment analysis ellipse to %s...' % fout ; sys.stdout.flush()
             plt.savefig(fout, bbox_inches='tight', padinches=0.2) #cuts off outherwise  
             
         return tsp

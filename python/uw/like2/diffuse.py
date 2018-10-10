@@ -807,9 +807,11 @@ class Normalization(object):
         self().T.plot.line(logx=True)
 
 def create_corr_dict(diffuse_dict,  roi_index, event_type_names=('front','back')):
+    from uw.like2 import response
     corr_dict = {}
-    galf = diffuse_dict['ring']['correction']
-    corr_dict['gal'] = response.DiffuseCorrection(galf).roi_norm(roi_index)
+
+    galf = diffuse_dict['ring'].get('correction',None)
+    corr_dict['gal'] = np.ones(8) if galf is None else response.DiffuseCorrection(galf).roi_norm(roi_index)
 
     isof =  diffuse_dict['isotrop']['correction']
     corr_dict['iso']= dict()

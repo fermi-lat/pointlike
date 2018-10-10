@@ -173,9 +173,16 @@ class DiffuseResponse(Response):
             c = self.roicenter
             cv = healpy.dir2vec(c.l(),c.b(),lonlat=True)
             hplist = healpy.query_disc(self.dmodel.nside,cv, self.band.radius_in_rad)
-            assert skymaps.Band(self.dmodel.nside).index(self.roicenter) in hplist
+            smband = skymaps.Band(self.dmodel.nside)
+            assert smband.index(self.roicenter) in hplist, 'Problem HEALPix indexing, ROI center not consistent?'
+
+            if self.dmodel.hdulist[1].header.get('TUNIT1',None)=='photons':
+                #must rescale from photons/pixel to density: photons/Mev/Sr 
+                scale_factor = (self.band.emax-self.band.emin) * smband.pixelArea()
+            else: scale_factor=1
+
             dirs = map(self.dmodel.dirfun, hplist)
-            self.evalpoints = lambda dirs : np.array(map(self.dmodel, dirs)) * self.corr
+            self.evalpoints = lambda dirs : np.array(map(self.dmodel, dirs)) * self.corr / scale_factor
             self.ap_average = self.evalpoints(dirs).mean()
         
         else:

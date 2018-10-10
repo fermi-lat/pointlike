@@ -10,7 +10,7 @@ from astropy.io import fits as pyfits
 from skymaps import SkyDir
 from uw.like import  Models
 from uw.like.SpatialModels import Disk,EllipticalDisk,Gaussian,EllipticalGaussian,SpatialMap
-
+from uw.utilities.xml_parsers import parse_sources
 from . import sources, response
 
 
@@ -179,6 +179,7 @@ class ExtendedSourceCatalog(object):
 class ExtendedCatalog( ExtendedSourceCatalog):
     """ subclass to add this lookup function 
     TODO: merge, keeping only needed features
+     if a folder 'XML2' is found, add sources to it. Must be analytic I guess.
     """
 
     def __init__(self, extended_catalog_name, force_map=False,  **kwargs):
@@ -220,6 +221,29 @@ class ExtendedCatalog( ExtendedSourceCatalog):
 
         if fail:
             raise Exception('Parse error(s)')
+
+        # Now check for XML2
+        ff =glob.glob('{}/XML2/*.xml'.format(extended_catalog_name))
+        #print '{} sources found in folder {}:'.format(len(ff), 'XML2')
+        if len(ff)==0: return
+
+        for f in ff:
+            ps,ds=parse_sources(f)
+            assert len(ps)==0 and len(ds)==1,'expected a single extended source in file {}'.format(f)
+            s = ds[0]
+            name = s.name
+            if name[4]=='J': # insert space
+                name = name[:4]+' '+name[4:]
+            s.name = name
+            i = self.lookup(name)
+            if i is not None:
+                if not self.quiet: print 'replacing spectral model for {}'.format(name)
+                self.sources[i].dmodel = s.dmodel
+            else:
+                if not self.quiet: print 'adding extended source {} at {}'.format(s.name, s.skydir)
+                self.names = np.append(self.names,name)
+                self.sources.append(s)
+
     def __repr__(self):
         return '%s.%s: %s' % (self.__module__, self.__class__.__name__, self.catname)
     def realname(self, cname):
@@ -248,7 +272,7 @@ class ExtendedCatalog( ExtendedSourceCatalog):
 
         ### seems to be necessary for some models created from 
         if model.mappers[0].__class__.__name__== 'LimitMapper':
-            print 'wrong mappers: converting model for source %s, model %s' % (name, model.name)
+            #print 'wrong mappers: converting model for source %s, model %s' % (name, model.name)
             model = eval('Models.%s(p=%s)' % (model.name, list(model.get_all_parameters())))
         extsource = sources.ExtendedSource(name=self.realname(aname), 
             skydir=source.skydir,

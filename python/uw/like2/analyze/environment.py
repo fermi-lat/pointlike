@@ -16,6 +16,31 @@ from skymaps import BinnedPhotonData #,SkyDir
 from . import roi_info
 from .. import (configuration, diffuse, response)
 from ..pipeline import stream
+from ..pub import healpix_map as hpm;
+
+# class GalacticCorrection():
+#     def __init__(self, config):
+#         galdict = config.diffuse['ring']
+#         self.internal = galdict.get('key', None)=='gal'
+#         if self.internal:
+#             self.x = np.array([r['gal'] for r in env.df.diffuse_normalization])
+#             self.title = 'Galactic correction from {}'.format(env.skymodel)
+#             self.from_file=False
+#         else:
+#             self.x = response.DiffuseCorrection(galdict['correction']).correction.iloc
+#             self.title = 'Galactic correction from {}'.format(galdict['correction'])
+#         self.cblabel='correction factor'
+#         self.vmin=0.9; self.vmax=1.1
+        
+#     def __call__(self, energy_index,):
+#         return self.x[:,energy_index]
+    
+#     def roi(self, index):
+#         return self.x[index, :] if self.internal else self.x[index,:].values
+
+
+
+
 
 class Environment(roi_info.ROIinfo):
     """ Environment plots"""
@@ -283,7 +308,7 @@ the second when there is small background, above a few GeV.
         nrows, ncols = ((bands+1)//4, 4 ) if bands>=4 else (1, bands)
         
         fig, axx = plt.subplots(nrows, ncols, figsize=(3+3*ncols,1+3*nrows), sharex=True, sharey=True)
-        plt.subplots_adjust(right=0.9, hspace=0.15, wspace=0.1)
+        plt.subplots_adjust(left=0.1, right=0.92, hspace=0.15, wspace=0.01, bottom=0.15)
         if ecliptic:
             lon, sinlat = self.ecliptic_coords()
         elif equatorial:
@@ -292,18 +317,18 @@ the second when there is small background, above a few GeV.
             lon = self.df.glon
             sinlat = self.singlat
         for iband,energy in enumerate(self.energy[:bands]):
-            ax = axx.flatten()[iband]
+            ax = axx.flatten()[iband] if bands>1 else axx
             scat=self.basic_skyplot(ax, lon, sinlat, fn(iband).clip(vmin,vmax),
                  title='%d MeV'%energy,
                 vmin=vmin,vmax=vmax, s=30, edgecolor='none', colorbar=False, labels=False, cmap=cmap)
-        fig.text(0.5, 0.95, fn.title,  ha='center', size=12)
+        fig.text(0.5, 0.95, fn.title,  ha='center', size=14)
         if nocolorbar: return fig
         #put colorbar at right        
         cbax = fig.add_axes((0.92, 0.15, 0.02, 0.7) )
         cb=plt.colorbar(scat, cbax, orientation='vertical')
         cb.set_label(fn.cblabel)
-        fig.text(0.5, 0.05, 'longitude', ha='center')
-        fig.text(0.05, 0.5, 'sin(latitude)', rotation='vertical', va='center')
+        fig.text(0.5, 0.025, 'longitude', ha='center', fontsize=14)
+        fig.text(0.05, 0.5, 'sin(latitude)', rotation='vertical', va='center', fontsize=14)
         return fig
 
     class GalacticCorrection():
@@ -315,11 +340,28 @@ the second when there is small background, above a few GeV.
             else:
                 self.x = response.DiffuseCorrection(galdict['correction']).correction.iloc
                 self.title = 'Galactic correction from {}'.format(galdict['correction'])
-            self.cblabel='corection factor'
+            self.cblabel='correction factor'
             self.vmin=0.9; self.vmax=1.1
             
         def __call__(self, energy_index,):
             return self.x[:,energy_index]
+
+    def anom(self):
+        class Anom:
+            # Functor to return array for plotting anomaly
+            def __init__(self, gal):
+                self.gal=gal
+                self.title='ROI anomaly'
+                self.clip = (-.1,.1)
+                self.cblabel='Anomaly'
+                self.vmin, self.vmax =self.clip
+            def anomaly(self, index, energy_band=0):
+                g = self.gal(energy_band)
+                nbs=hpm.neighbor_pixels(index);
+                return g[index]-g[nbs].mean()
+            def __call__(self, iband):
+                return np.array(map(lambda i: self.anomaly(i,iband), range(1728)))
+        return Anom(self.GalacticCorrection(self))
 
 
     def galactic_correction(self):
@@ -327,6 +369,15 @@ the second when there is small background, above a few GeV.
         """
         return self.cartesian_map_array(self.GalacticCorrection(self),vmin=0.5,vmax=1.5)
     
+    def galactic_correction_anomaly(self):
+        """Galactic correction anomaly
+
+            Maps of the difference of the normalization factor with respect to the average of the four
+            nearest neighbors 
+        """
+        anom = self.anom()
+        return self.cartesian_map_array(anom, vmin=-0.1, vmax=0.1,  bands=2);   
+
     class IsotropicCorrection(object):
         def __init__(self, residual, event_type_name):
             event_type_index = residual.config.event_type_names.index(event_type_name)
@@ -420,7 +471,7 @@ the second when there is small background, above a few GeV.
         self.runfigures([self.psf_plot, self.exposure_plots, 
             self.isotropic_spectrum,self.diffuse_flux, #self.limb_flux,
             self.galactic_correction, 
+            self.galactic_correction_anomaly,
             self.isotropic_correction,
             #self.isotropic_correction_front, self.isotropic_correction_back,
             ])
-    

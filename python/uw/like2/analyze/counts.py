@@ -10,8 +10,26 @@ import pandas as pd
 
 from . import analysis_base
 from ..pipeline import stream
+from .. import response
 from analysis_base import html_table, FloatFormat
 from uw.utilities import makepivot
+
+class GalacticCorrection():
+    def __init__(self, config):
+        galdict = config.diffuse['ring']
+        self.internal = galdict.get('key', None)=='gal'
+        self.nocorr = not self.internal and 'correction' not in galdict
+        if self.nocorr: return
+        if not self.internal:
+            self.x = response.DiffuseCorrection(galdict['correction']).correction.iloc
+        
+    def __call__(self, index, pkl,):
+        if self.nocorr: return np.ones(8)
+        if self.internal:
+            return pkl['diffuse_normalization']['gal']
+        return self.x[index,:].values
+    
+
 
 class CountPlots(analysis_base.AnalysisBase): 
     """Count plots
@@ -23,7 +41,7 @@ class CountPlots(analysis_base.AnalysisBase):
     require='pickle.zip'
     def setup(self, **kwargs):
         self.plotfolder = 'counts'
-
+        gcorr = GalacticCorrection(self.config)
         def load_rois():
             # get the basic pickles with the model
             files, pkls = self.load_pickles()
@@ -35,7 +53,7 @@ class CountPlots(analysis_base.AnalysisBase):
             def lat180(l): return l if l<180 else l-360
             rdict = dict()
             skipped = 0
-            for r in pkls:
+            for index,r in enumerate(pkls):
                 if 'counts' not in r or r['counts'] is None:
                     print '***No counts in %s: skipping' % r['name']
                     skipped +=1
@@ -47,7 +65,7 @@ class CountPlots(analysis_base.AnalysisBase):
                     chisq = cnts['chisq'],
                     chisq10= chisq10(r['counts']),
                     uchisq = cnts['uchisq'] if 'uchisq' in cnts else 0,
-                    gnorm = r['diffuse_normalization']['gal'],
+                    gnorm = gcorr(index,r),
                     )
             if skipped>0:
                 self.missing_info = '<p>%d missing ROIS' % skipped

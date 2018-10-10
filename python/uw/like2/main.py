@@ -7,6 +7,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.91 2
 import types, time, glob
 import numpy as np
 import pandas as pd
+import matplotlib.pylab as plt
 from uw.utilities import keyword_options
 from skymaps import SkyDir, Band
 from . import (views,  configuration, extended,  roimodel, from_xml, from_healpix,
@@ -105,14 +106,37 @@ class ROI(views.LikelihoodViews):
         self.config=config = configuration.Configuration(config_dir, quiet=self.quiet, postpone=self.postpone)
         ecat = extended.ExtendedCatalog(config.extended)
         
+        # if isinstance(roi_spec, str):
+        #     sourcelist=glob.glob('sources_*.csv')[0]
+        #     df = pd.read_csv(sourcelist, index_col=3 if roi_spec[0]=='J' else 0)
+        #     if roi_spec not in df.index:
+        #         print 'Source name "{}" not found '.format(roi_spec)
+        #         raise Exception
+        #     roi_index = int(df.loc[roi_spec]['roiname'][-4:]) 
+        #     print 'Loading ROI #{}, containing source "{}"'.format(roi_index, roi_spec)
+        # elif isinstance(roi_spec, int):
+        #     roi_index = roi_spec
+        # elif type(roi_spec)==tuple and len(roi_spec)==2:
+        #     roi_index = Band(12).index(SkyDir(*roi_spec))
+        # else:
+        #     raise Exception('Did not recoginze roi_spec: %s' %(roi_spec))         
+        roi_index = self.roi_index(roi_spec)    
+            
+        roi_sources = from_healpix.ROImodelFromHealpix(config, roi_index, ecat=ecat,)
+        config.roi_spec = configuration.ROIspec(healpix_index=roi_index)
+
+        self.name = config.roi_spec.name if config.roi_spec is not None else roi_spec
+        
+        roi_bands = bands.BandSet(config, roi_index)
+        roi_bands.load_data()
+        super(ROI, self).__init__( roi_bands, roi_sources)
+    
+    def roi_index(self, roi_spec):
+        """ roi_spec : [integer | (ra,dec) tuple ]
+            if an integer, it must be <1728, the ROI number
+            if a string, assume a source name and load the ROI containing it
+        """
         if isinstance(roi_spec, str):
-            # try:
-            #     roi_sources =from_xml.ROImodelFromXML(config, roi_spec)
-            #     roi_index = roi_sources.index
-            # except:
-            #     print 'No ROI specification (an index) or presence of an xml file'
-            #     raise
-            # Change to just expecting the name of a source
             sourcelist=glob.glob('sources_*.csv')[0]
             df = pd.read_csv(sourcelist, index_col=3 if roi_spec[0]=='J' else 0)
             if roi_spec not in df.index:
@@ -124,19 +148,10 @@ class ROI(views.LikelihoodViews):
             roi_index = roi_spec
         elif type(roi_spec)==tuple and len(roi_spec)==2:
             roi_index = Band(12).index(SkyDir(*roi_spec))
-
         else:
-            raise Exception('Did not recoginze roi_spec: %s' %(roi_spec))             
-            
-        roi_sources = from_healpix.ROImodelFromHealpix(config, roi_index, ecat=ecat,)
-        config.roi_spec = configuration.ROIspec(healpix_index=roi_index)
+            raise Exception('Did not recoginze roi_spec: %s' %(roi_spec)) 
+        return roi_index      
 
-        self.name = config.roi_spec.name if config.roi_spec is not None else roi_spec
-        
-        roi_bands = bands.BandSet(config, roi_index)
-        roi_bands.load_data()
-        super(ROI, self).__init__( roi_bands, roi_sources)
-    
     def __repr__(self):
         if hasattr(self, 'sources'):
             return '%s.%s :\n\t%s\n\t%s' % (self.__module__, self.__class__.__name__, self.config, self.sources)
@@ -293,12 +308,12 @@ class ROI(views.LikelihoodViews):
             loc = localization.Localization(tsm, **kwargs)
             try: 
                 loc.localize()
-                t = loc.ellipse
+                t =  loc.ellipse if hasattr(loc, 'ellipse') else None
             except Exception, e:
                 print 'Failed localization for source %s: %s' % (tsm.source.name, e)
                 if ignore_exception: return None
                 raise 
-        if update:
+        if update and t is not None:
             tsm.source.skydir = SkyDir(t['ra'], t['dec'])
     
     def get_model(self, source_name=None):
@@ -361,27 +376,58 @@ class ROI(views.LikelihoodViews):
             sedfuns.makesed_all(self, **kwargs)
             return
         source = self.sources.find_source(source_name)
+        # check to see if not Free:
+        # need to thaw it temporarily
+        not_free= not np.any(source.model.free)
+        if not_free: self.thaw('Norm')
+        xlim, ylim = [kwargs.pop(x, None) for x in ('xlim','ylim')]
         showts = kwargs.pop('showts', True)
         if kwargs.pop('update', False) or not hasattr(self,'sedrec') or self.sedrec is None:
             self.get_sed(update=True)
         annotation =(0.04,0.88, 'TS=%.0f' % source.ts ) if showts and hasattr(source, 'ts') else None 
         kwargs.update(galmap=self.roi_dir, annotate=annotation)
+        figsize = kwargs.pop('size', (3,3))
         with sedfuns.SED(self, source.name) as sf:
             t = plotting.sed.stacked_plots(sf, **kwargs)
-        return t
+        if not_free:
+            self.freeze('Norm')
+        if figsize is not None:
+            t.set(figwidth=figsize[0], figheight=figsize[1])        
+        if xlim is not None: t.axes[0].set(xlim=xlim)
+        if ylim is not None: t.axes[0].set(ylim=ylim)
+
+    @tools.decorate_with(plotting.sed.plot_seds)
+    def plot_seds(self, snames, xlim=(100, 30000), ylim=(0.2,200),  ):
+        """Plot a set of SEDs in a row.
+        """
+        plotting.sed.plot_seds(self, snames, xlim=xlim, ylim=ylim,)
 
     @tools.decorate_with(plotting.counts.stacked_plots)
-    def plot_counts(self, **kwargs):
-        return plotting.counts.stacked_plots(self, **kwargs)
+    def plot_counts(self, relto='isotrop', plot_pulls=False, 
+            size=(4,6), xlim=None, ylim=(0.1, 200), **kwargs):
+        figsize = size
+
+        t= plotting.counts.stacked_plots(self, plot_pulls=plot_pulls, relto=relto, **kwargs)
+        if figsize is not None:
+            if len(figsize)!=2:
+                print 'expect "size" to be (w,h) tuple'
+            else:
+                t.set(figwidth=figsize[0], figheight=figsize[1])
+        if xlim is not None: t.axes[0].set(xlim=xlim)
+        if ylim is not None: t.axes[0].set(ylim=ylim)
+        return t
+
         
     @tools.decorate_with(plotting.tsmap.plot)
-    def plot_tsmap(self, source_name=None, tsplot=False, factor=1.0, refit=False, **kwargs):
+    def plot_tsmap(self, source_name=None, tsplot=False, factor=1.0, refit=False,size=2.0, **kwargs):
         """ create a TS map showing the source localization
         """
         source = self.sources.find_source(source_name)
+        ignore_exception=kwargs.pop('ignore_exception', False)
         plot_kw = dict(size=0.25, pixelsize=0.25/15, outdir=None, 
             assoc=getattr(source, 'associations', None) ) 
         plot_kw.update(kwargs)
+
         with self.tsmap_view(source.name) as tsm:
 
             loc = localization.Localization(tsm, factor=factor)
@@ -389,12 +435,15 @@ class ROI(views.LikelihoodViews):
                 if refit or not hasattr(source,'ellipse') or source.ellipse is None:
                     loc.localize()
                     loc.summary()
-                tsize = kwargs.pop('size', source.ellipse[2]*15.) # scale according to major axis s
-                plot_kw.update(size=tsize, pixelsize=kwargs.pop('pixelsize', tsize/15.))
+                tsize = kwargs.pop('size', source.ellipse[2]*15.) if hasattr(source, 'ellipse') and source.ellipse is not None \
+                         else size # scale according to major axis s
+                plot_kw.update(size=tsize, pixelsize=kwargs.pop('pixelsize', tsize/15.), maxsize=tsize)
             except Exception, e:
                 print 'Failed localization for source %s: %s' % (source.name, e)
+                if not ignore_exception:
+                    raise
             tsp = plotting.tsmap.plot(loc, **plot_kw)
-        return tsp if tsplot else tsp.axes.figure # might want access to TSplot.
+        return tsp if tsplot else None #tsp.axes.figure # might want access to TSplot.
     
     def plot_roi_position(self, ax=None):
         """ define an Axes with a grid showing the position of this ROI """
@@ -469,7 +518,7 @@ class ROI(views.LikelihoodViews):
                 % (source.name, old_loc, loc, tsv(loc) )
         tsv.set_dir(loc)
         
-    def ts_beta(self, source_name=None, ignore_exception=True): 
+    def ts_beta(self, source_name=None, ignore_exception=True, beta_limit=[-0.1, 1.0]): 
         """evaluate ts_beta for a Log Parabola source
         
             returns TS(beta_fit)-TS(beta=0), or None if the model is not LogParabola
@@ -477,28 +526,16 @@ class ROI(views.LikelihoodViews):
         fit_pars = dict(tolerance=0, ignore_exception=ignore_exception)
         source = self.sources.find_source(source_name)
         if source.model.name != 'LogParabola': return None
-        model_copy = source.model.copy()
         ts_saved=source.ts
-        if source.model.free[2]:
-            self.fit(source.name, **fit_pars)
-            ts2 = self.TS()
-            fit_beta=source.model['beta']
-            self.freeze('beta', source.name, 0)#reeze at zero
-            self.fit(source.name, **fit_pars)
-            ts1=self.TS()
-            self.thaw('beta', source.name)
-            source.model['beta']=fit_beta
-        else: 
-            #frozen, 
-            self.fit(source.name, **fit_pars)
-            ts1=self.TS()
-            self.thaw('beta', source.name)
-            self.fit(source.name, **fit_pars)
-            ts2 = self.TS()
-            self.freeze('beta', source.name, 0)
-        source.model=model_copy #make sure no change
-        source.ts=ts_saved
-        return ts2-ts1
+        self.fit(source.name, **fit_pars)
+        ts1=self.TS()
+        self.thaw('beta', source.name)
+        source.model.bounds[2] = beta_limit
+        self.fit(source.name, **fit_pars)
+        ts2 = self.TS()
+        fit_beta=source.model['beta']
+        self.freeze('beta', source.name, )
+        return ts2-ts1, fit_beta
         
 
 class MultiROI(ROI):
@@ -513,7 +550,12 @@ class MultiROI(ROI):
              **self.config_kw)
         self.ecat = extended.ExtendedCatalog(self.config.extended)
 
-    def setup_roi(self, roi_index):
+    def setup_roi(self, roi_spec):
+        try:
+            roi_index = self.roi_index(roi_spec)
+        except Exception, msg:
+            print 'ROI specification "{}" unrecognized'.format(roi_spec)
+            return
         roi_bands = bands.BandSet(self.config, roi_index)
         roi_bands.load_data()
         if self.config.modeldir is not None:

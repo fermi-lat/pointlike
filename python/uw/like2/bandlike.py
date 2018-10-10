@@ -8,7 +8,7 @@ Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 import sys, types
 import numpy as np
 from  uw.utilities import keyword_options
-from skymaps import SkyDir
+from skymaps import SkyDir, Band
 
 config=None
    
@@ -33,6 +33,7 @@ class BandLike(object):
         self.bandsources = np.array(map(lambda s: s.response(band, quiet=self.quiet, roi=roi), sources))
 
         self.band = band 
+        self.roi = roi
         self.event_type_name = config.event_type_name(band.event_type)
         self.exposure_factor = band.exposure.correction
         self.data = band.pix_counts  if band.has_pixels else []# data from the band
@@ -85,6 +86,16 @@ class BandLike(object):
         """ the list of SkyDirs for the pixels with data"""
         return [SkyDir(w.dir()) for w in self.band.wsdl]
         
+    @property
+    def inside(self):
+        """a list of bools for pixels with data that are inside the active part of the ROI
+        Needed to make a mask
+        """
+        b12index = Band(12).index
+        roi_id =b12index(self.roi.roi_dir)
+        id12 = np.array(map(b12index, self.pixel_dirs),int) #ids of data pixels for nside=12
+        return id12==roi_id
+
     def initialize(self, free):
         """ should only call if free array changes.
             Saves the combined prediction from the models with fixed parameters
@@ -191,13 +202,14 @@ class BandLike(object):
             t+= m.fill_grid(sdirs)
         return t
         
-    def dataframe(self, **kw):
+    def dataframe(self, query=None, sortby=None, ascending=False):
         """ return a pandas.DataFrame for diagnostics """
         import pandas as pd
         df = pd.DataFrame(
             dict([(s.source.name, 
-                dict(counts=round(s.counts,1), 
-                    overlap=round(s.overlap,2), 
+                dict(counts=round(s.counts,), 
+                    overlap=round(s.overlap,2),
+                    ts= np.nan if s.source.isglobal else round(s.source.ts), 
                     free=self.free[i],
                     distance=round(np.degrees(s.band.skydir.difference(s.source.skydir)) if s.source.skydir is not None else 0 ,2),
                     extended=s.source.skydir is not None and hasattr(s.source, 'dmodel'),
@@ -206,6 +218,10 @@ class BandLike(object):
                 )
                 for i,s in enumerate(self)])
             ).T
+        if query is not None:
+            df = df.query(query)
+        if sortby is not None:
+            df = df.sort_values(by=sortby, ascending=ascending)
         return df
 
     def counts_in_pixel(self, source_index, skydir):
@@ -556,3 +572,39 @@ class BandLikeList(list):
         f =bl.fluxes((ra,dec) ) 
         fs= f[source_index]
         return fs/(sum(f))
+
+    def dataframe(self, query=None, sortby=None, ascending=False):
+        """ return a pandas.DataFrame with local source info 
+            query: string | None.
+            sortby: string | None
+        """
+        import pandas as pd
+        def eflux(model):
+            e=model.pivot_energy()
+            return model(e)* e**2 * 1e6
+        df = pd.DataFrame(
+            dict([(s.name, 
+                dict( 
+                    free=np.any(s.model.free),
+                    distance=round(np.degrees(s.skydir.difference(self.roi_dir)),2),
+                    extended = hasattr(s, 'dmodel'),
+                    modelname = s.model.name,
+                    pindex = s.model[1],
+                    curvature= s.model.curvature(),
+                    ts = s.ts,
+                    flux100 = s.model.i_flux(e_weight=2), 
+                    #ra = s.skydir.ra(),
+                    #dec= s.skydir.dec(),
+                    glat = s.skydir.b(),
+                    eflux = eflux(s.model), #energy flux at pivot
+                    pivot = s.model.pivot_energy(),
+                    #f1gev= s.model(1e3) * 1e12, # eflux at 1 GeV
+                    )
+                )
+                for s in self.sources if not s.isglobal])
+            ).T
+        if query is not None:
+            df = df.query(query)
+        if sortby is not None:
+            df = df.sort_values(by=sortby, ascending=ascending)
+        return df
