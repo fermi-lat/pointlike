@@ -385,15 +385,14 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
 class FL8YComparison(sourceinfo.SourceInfo):
     """Comparison with FL8Y or 4FGL
             This analysis uses the FL8Y catalog file %(fhl_file)s.
-    <p>This is using the %(skymodel)s model, with many more sources, and using the same 8-year data set, 
+    <p>This is using the %(skymodel)s model, with the same 8-year data set, 
     with Source class events. There are some differences:
-        <ul>
-    <li>The zenith cut is 100 degrees, for all energies, while 3FHL has it at 105. this loses about 3%%
+    <ul>
+    <li>The zenith cut is 100 degrees, for all energies, while FL8Y varies from 90 to 110.
     <li>It restricts theta<66.4 degrees, since the IRF is not reliable above this: also about 3%% loss
     <li>It uses Front/Back event types. Perhaps losing little potential localization resolution.
     <li>It uses binned corrections for the galactic and isotropic corrections. However, above 10 GeV, there is little effect.
     </ul>
-  
     """
     def setup(self, pattern='gll_psc*uw8011*', **kwargs):
         super(FL8YComparison, self).setup(**kwargs)
@@ -429,35 +428,44 @@ class FL8YComparison(sourceinfo.SourceInfo):
     def lost_source_info(self,):
         """Info on lost sources
 
-        Left: locations
-        Right: TS valuse
+        Left: TS valuse
+        Right: locations, showing the high TS values
         
-        <p> Link to a csv file containing a list of the sources that were lost:
+        <p> Link to a csv file containing a list of the %(number_lost)s sources that were lost:
         <a href="../../%(lost_sources)s?download=true">%(lost_sources)s</a>
    
         """
         from skymaps import SkyDir
         tt = self.gdf.query('~(uw_ts>0)')
-        sd = map (SkyDir, tt.ra, tt.dec); sd[:5]
+        sd = map (SkyDir, tt.ra, tt.dec)
         glon = np.array(map(lambda x: x.l(), sd))
         glon[glon>180]-=360
         glat = map(lambda x: x.b(), sd)
         singlat = np.sin(np.radians(glat))
+        hights = tt.ts>150
         
         fig, axx = plt.subplots(1,2, figsize=(12,6))
-        
-        self.basic_skyplot(axx[0], glon,singlat,tt.pindex, s=10, title='Locations')
-
+    
         ax = axx[1]
+        self.basic_skyplot(ax, glon,singlat, 'blue',  s=10,  title='Locations')
+        self.basic_skyplot(ax, glon[hights],singlat[hights],'red', s=30,  title='Locations')
+
+
+        ax = axx[0]
         ts=np.array(tt.ts, float)
-        ax.hist(ts[~pd.isnull(ts)].clip(10,1e3), np.logspace(np.log10(20),3,41), histtype='step',log=True, lw=2);
+        hkw=dict(bins=np.logspace(np.log10(20),3,41), log=True, lw=2)
+        ax.hist(ts[~pd.isnull(ts)].clip(10,1e3),histtype='step', **hkw);
+        ax.hist(ts[~pd.isnull(ts) & hights].clip(10,1e3), color='red', label='TS>150',histtype='stepfilled', **hkw);
+        ax.legend()
         ax.set(xscale='log', xlabel='TS', ylim=(0.9, None));
         
         lost_name = '{}/lost_sources.csv'.format(self.plotfolder)
         tt.index.name='name'
+        self.number_lost = len(tt)
         tt['sname ra dec ts pindex eflux100 r95'.split()].to_csv(lost_name)
-        print 'Wrote file "{}" with missing source info'.format(lost_name)
+        print 'Wrote file "{}" with info on {} missing sources'.format(lost_name, self.number_lost)
         self.lost_sources = lost_name
+   
         return fig
 
     def load_pickled_info(self, path='psc_check/info', debug=False):
@@ -482,7 +490,9 @@ class FL8YComparison(sourceinfo.SourceInfo):
                     ts_pt=a[2],        ts_gt=b[2], 
                     chisq_pt=a[3],     chisq_gt=b[3], 
                     eflux_pt=eflux_pt, eflux_gt=eflux_gt,
-                    nickname=a[0], roi=roi)
+                    nickname=a[0], roi=roi,
+                    index_pt=a[1][1],
+                    )
                 gtmodel[a[0]]=b[1] 
 
         q = self.ts_df=pd.DataFrame(z).T
@@ -529,31 +539,34 @@ class FL8YComparison(sourceinfo.SourceInfo):
 
         <br>Upper Left: Test Statistic Comparison; the UW value is for the full energy range, so is nearly always greater.
         <br>Center left: Localization radius comparison. The UW one is almost always better since it has more data
-        <br>Center right: Spectral index comparison. T
+        <br>Center right: Spectral index comparison. This is always the index used for the fit spectral model
  
         """
         skymodel=self.skymodel
         df=self.gdf; dfuw=self.df
+        psr = np.array([name.startswith('PSR') for name in df.index],bool); 
         dfok = df
 
         def cplot(ax, a,b, xlim, label, ylim=(0.,2.),xscale='log'):
             ax.semilogx(a.clip(*xlim), (b/a).clip(*ylim), '.b');
+            ax.semilogx(a[psr].clip(*xlim), (b/a)[psr].clip(*ylim), '.r', label='PSR');
             ax.axhline(1.0, ls='--', color='g');
             ax.set( xlabel=label, ylabel='UW/gtlike ratio', xlim=xlim,
                 ylim=ylim, xscale=xscale)
             ax.set_xlabel(label,fontsize=14)
             ax.grid(alpha=0.5)
+            ax.legend()
             #ax.set_yticks([0.6, 0.8, 1.0, 1.2, 1.4, 1.6])
             #ax.set_yticklabels(['0.6','0.8','1.0', '1.2', '1.4', '1.6'])
 
         fig, axx = plt.subplots(4,1, figsize=(12,15))
         plt.subplots_adjust(left=0.05, top = 0.95, hspace=0.3    )
 
-        cplot(axx[0], df.ts, df.uw_ts, (20,1e5), 'TS')
-        cplot(axx[1], df.r95,df.uw_r95,(8e-3,0.5),'R95 [deg]')
-        cplot(axx[2], df.eflux100, df.uw_eflux100/1.602e-6, (4e-7, 1e-3),
+        cplot(axx[0], dfok.ts, dfok.uw_ts, (20,1e5), 'TS')
+        cplot(axx[1], dfok.r95,dfok.uw_r95,(8e-3,0.5),'R95 [deg]')
+        cplot(axx[2], dfok.eflux100, dfok.uw_eflux100/1.602e-6, (4e-7, 1e-3),
             'eflux100 [erg/(s cm^2)]')
-        cplot(axx[3], df.pindex, df.uw_pindex, (1.0, 3.5),'pindex', xscale='linear')
+        cplot(axx[3], dfok.pindex, dfok.uw_pindex, (1.0, 3.5),'pindex', xscale='linear')
         fig.suptitle('Comparison of values for common sources', fontsize=14);
         fig.set_facecolor('white')
         return fig
@@ -568,7 +581,8 @@ class FL8YComparison(sourceinfo.SourceInfo):
         <br><b>Lower Left: </b> Positions of sources in each tail
         <br><b>Lower Right: </b> Positions of sources in each tail, along gal. plane
         <b><h3>%(deltax2_positive)s</h3>
-        <b><he>%(deltax2_negative)s</h3>
+        <b><h3>%(deltax2_positive_psr)s</h3>
+        <b><h3>%(deltax2_negative)s</h3>
         """
 
         q =   self.load_pickled_info()
@@ -579,12 +593,17 @@ class FL8YComparison(sourceinfo.SourceInfo):
         # make a table of the outliers
         neg =(q.delta<=ylim[0]) & (q.ts_pt>tsmin)
         pos =(q.delta>=ylim[1]) & (q.ts_pt>tsmin)
+        psr = np.array([name.startswith('PSR') for name in q.nickname])
   
         print 'Outliers (above TS={}): {} negative, {} positive'.format(tsmin, sum(neg), sum(pos))
         try:
-            self.deltax2_positive=html_table(q[pos].sort_values(by='delta', ascending=False), 
+            self.deltax2_positive=html_table(q[pos & ~psr].sort_values(by='delta', ascending=False), 
                 name=self.plotfolder+'/deltax2_positive', 
-                heading='<h4>pointlike better: {}</h4>'.format(sum(pos)),
+                heading='<h4>pointlike better: (non-pulsars) {}</h4>'.format(sum(pos & ~psr)),
+                href=True, href_pattern='psc_check/sed/%s*.jpg', )
+            self.deltax2_positive_psr=html_table(q[pos & psr].sort_values(by='delta', ascending=False), 
+                name=self.plotfolder+'/deltax2_positive_psr', 
+                heading='<h4>pointlike better (pulsars): {}</h4>'.format(sum(pos & psr)),
                 href=True, href_pattern='psc_check/sed/%s*.jpg', )
             self.deltax2_negative=html_table(q[neg].sort_values(by='delta', ascending=True), 
                 name=self.plotfolder+'/deltax2_negative', 

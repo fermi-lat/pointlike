@@ -224,7 +224,7 @@ class ROI(views.LikelihoodViews):
             try:
                 fv.maximize(**fit_kw)
                 w = fv.log_like()
-		self.fmin_ret = fv.fmin_ret
+                self.fmin_ret = fv.fmin_ret
                 if summarize:
                     print '%d calls, function value, improvement, quality: %.1f, %.2f, %.2f'\
                         % (fv.calls, w, w - fv.initial_likelihood, fv.delta_loglike())
@@ -232,7 +232,7 @@ class ROI(views.LikelihoodViews):
                     loglike = fv.log_like(),
                     pars = fv.parameters[:], 
                     covariance  = fv.covariance,
-                    mask = fv.mask,
+                    mask_indeces = np.arange(len(mask)[mask]),
                     qual = qual,)
                 fv.modify(update_by)
                 if fit_kw['estimate_errors']: fv.save_covariance()
@@ -550,7 +550,7 @@ class MultiROI(ROI):
              **self.config_kw)
         self.ecat = extended.ExtendedCatalog(self.config.extended)
 
-    def setup_roi(self, roi_spec):
+    def setup_roi(self, roi_spec, **load_kw):
         try:
             roi_index = self.roi_index(roi_spec)
         except Exception, msg:
@@ -559,7 +559,8 @@ class MultiROI(ROI):
         roi_bands = bands.BandSet(self.config, roi_index)
         roi_bands.load_data()
         if self.config.modeldir is not None:
-            roi_sources = from_healpix.ROImodelFromHealpix(self.config, roi_index, ecat=self.ecat,)
+            roi_sources = from_healpix.ROImodelFromHealpix(self.config, roi_index, 
+                ecat=self.ecat, **load_kw)
         else:
             roi_sources = from_xml.ROImodelFromXML(self.config, roi_index, ecat=self.ecat)
             

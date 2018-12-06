@@ -36,7 +36,7 @@ def neighbors(index,  rings=1):
 
 class ROImodelFromHealpix(roimodel.ROImodel):
     
-    def load_sources( self, roi_index, rings=1):
+    def load_sources( self, roi_index, rings=1, tsmin=[0,25,100]):
         """ load sources from the roi and its neighbors in the pickle file found in modeldir
         
         roi_index : integer
@@ -44,6 +44,8 @@ class ROImodelFromHealpix(roimodel.ROImodel):
         rings : integer
             number of rings of concentric pixels to search for (fixed) sources to add
             Special value: if -1, do not add any sources at all
+        tsmin : array
+            minimun TS to accept sources in 
         """
 
         self.pickle_file = os.path.join(self.config.modeldir, 'pickle.zip')
@@ -60,8 +62,7 @@ class ROImodelFromHealpix(roimodel.ROImodel):
         if global_only: return
         for neighbor_index in neighbors(roi_index, rings=rings):
             self.load_sources_from_healpix(neighbor_index,  neighbors=True)
-
-        
+         
     def load_sources_from_healpix(self, index, neighbors=False, global_only=False):
         """ select and add sources in the given HEALPix to self.
         Tags each with an index property, which is a tuple (healpix_index, ring number)

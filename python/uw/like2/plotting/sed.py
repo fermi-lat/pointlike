@@ -1,11 +1,10 @@
 """
-Manage a SED plot
+Manage an SED plot
     
-    To generate a plot from a SourceFlux, given:
-            sf an SourceFlux object, 
+    To generate a plot from a Source, given:
+            sf an Source object, 
         Plot(sf)()
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.24 2015/12/03 17:33:45 burnett Exp $
 """
 import os, types, sys
 import numpy as np
@@ -24,14 +23,16 @@ def set_xlabels( axes, gev_scale) :
 
     if gev_scale:
         """ make it look nicer """
-        axes.xaxis.set_major_formatter(ticker.FuncFormatter(gev_tf))  
+        #axes.xaxis.set_major_formatter(ticker.FuncFormatter(gev_tf))  
+        axes.xaxis.set_major_formatter(ticker.FuncFormatter(
+                    lambda val,pos:{100.:'0.1', 1e3:'1', 1e4:'10', 1e5:'100'}.get(val,'') ))
         axes.set_xlabel(r'$\mathsf{Energy\ (GeV)}$')
     else:
         axes.set_xlabel(r'$\mathsf{Energy\ (MeV)}$')
         axes.xaxis.set_major_formatter(ticker.FuncFormatter(gev_tf))  
 
 def set_ylabels(axes, unit):
-    axes.set_ylabel(r'$\mathsf{Energy\ Flux\ (%s\ cm^{-2}\ s^{-1})}$' %unit, labelpad=0)
+    axes.set_ylabel(r'$\mathsf{E^2\ \frac{dN}{dE} \ (%s\ cm^{-2}\ s^{-1})}$' %unit, labelpad=0)
     def ev_tf(val, pos=0):
         lookup ={0.1:'0.1', 1.0:'1', 10.0:'10', 100.:'100'}
         return lookup.get(val, '') 
@@ -51,7 +52,7 @@ class Plot(object):
         """
         self.name = source.name
         self.model = source.spectral_model
-        self.rec = source.sedrec
+        self.rec = getattr(source, 'sedrec', None)
         assert energy_flux_unit in ('erg', 'MeV', 'GeV', 'eV') , 'unrecognized energy flux unit'
         self.energy_flux_unit= energy_flux_unit
         self.scale_factor = dict(erg=1.602e-12, MeV=1e-6, eV=1., GeV=1e-9)[energy_flux_unit]
@@ -391,4 +392,6 @@ def plot_seds(roi, snames, xlim=(100, 30000), ylim=(.2,200), row_size=5  ):
                 ))
             ax.set(xlim=xlim, ylim=ylim, title='')
             ax.text(0.02, 0.92, src.name, ha='left', transform=ax.transAxes, fontsize=10)
-            ax.text(0.98, 0.92, '{:.0f}'.format(src.ts), ha='right',  transform=ax.transAxes, fontsize=10)
+            ts = getattr(src, 'ts', -1) # for no attribute, 
+            ax.text(0.98, 0.92, '{:.0f}'.format(ts), ha='right',
+                  transform=ax.transAxes, fontsize=10)

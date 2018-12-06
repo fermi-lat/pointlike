@@ -203,7 +203,8 @@ def exposure_map(irfman, event_type, energy, nside=128):
     return healpix_map.HPskyfun('exposure', exp, nside=nside).getcol()
 
 
-def main(factor=1.0,energies=None, adjuster=None, simpson_index=[4,4,2,2,1], ebins=None):
+def main(factor=1.0,energies=None, adjuster=None, simpson_index=[4,4,2,2,1], 
+        ebins=np.logspace(2, 6, 17)):
     """
 
     """
@@ -231,7 +232,8 @@ def main(factor=1.0,energies=None, adjuster=None, simpson_index=[4,4,2,2,1], ebi
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
-            description=""" Create count density files, in FITS HEALPix format, for the specified diffuse model
+            description=""" Create count density files, in FITS HEALPix format, for the 
+            specified diffuse model
             uses configuration in current folder to obtain the IRF and exposure info
     """)
     #parser.add_argument('stream', nargs='*', default=None, help='optional Stream number')

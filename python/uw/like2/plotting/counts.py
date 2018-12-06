@@ -57,6 +57,10 @@ def get_counts(roi, event_type=None, tsmin=10, emax=None):
     utotal = np.zeros(nume)
     uobserved = np.zeros(nume)
     inside = np.zeros((nume,5)) # for data, gal, iso, sun, sources
+
+    def pixel_counts(s, imask): # helper needed to avoid invoking pix_counts
+        if s.counts==0: return 0
+        return s.pix_counts[imask].sum()
     
     for i, energy in enumerate(energies):
         for b in bands:
@@ -80,7 +84,8 @@ def get_counts(roi, event_type=None, tsmin=10, emax=None):
                 continue
             data = b.data[imask].sum()
             diffuse = np.array([ x.pix_counts[imask].sum() for x in b[:3]], np.float32)
-            sources = np.array([ x.pix_counts[imask].sum() for x in b[3:]], np.float32).sum()
+
+            sources = np.array([ pixel_counts(x,imask) for x in b[3:]], np.float32).sum()
             inside[i] += np.hstack([data, diffuse, sources])
 
     
@@ -306,7 +311,9 @@ def stacked_plots(roi, counts_dir=None, fignum=6, title=None, **kwargs):
     axes[0].set_xlabel('') 
     #axes[0].set_ylim(ymin=30)
     if title is None:
-        if hasattr(roi,'name'): fig.suptitle(roi.name)
+        l,b = roi.roi_dir.l(), roi.roi_dir.b()
+        if l>180: l-=360
+        if hasattr(roi,'name'): fig.suptitle('{} ({:.0f},{:.0f})'.format(roi.name, l,b))
     else: fig.suptitle(title)
     if counts_dir is not None:
         if os.path.isdir(counts_dir) and hasattr(roi,'name'):

@@ -30,7 +30,7 @@ class ROImodel(list):
     defaults = (
         ('quiet', True, 'set False for info'),
         ('ecat',  None, 'If present, use for catalog'),
-       # ('load_kw',dict(tsmin=5), 'a dict specific for the loading'),
+        ('load_kw',dict(tsmin=[0,25,100], rings=2), 'a dict specific for the loading'),
         )
     @keyword_options.decorate(defaults)
     def __init__(self, config, roi_spec, **kwargs):
@@ -51,7 +51,7 @@ class ROImodel(list):
             self.pop()
             
         # sources loaded by a subclass that must implement this function
-        self.load_sources(roi_spec,)# **self.load_kw)
+        self.load_sources(roi_spec, **self.load_kw)
         
         if config.auxcat is not None:
             self.add_sources(config.auxcat)

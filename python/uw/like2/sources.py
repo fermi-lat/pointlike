@@ -222,7 +222,7 @@ class GlobalSource(Source):
             #print '{}, free={}'.format(self, free)
 
     def copy(self):
-        """ return a new PointSource object, with a copy of the model, others"""
+        """ return a new GlobalSource object, with a copy of the model, others"""
         ret = GlobalSource(**self.__dict__)
         ret.model = self.model.copy()
         return ret

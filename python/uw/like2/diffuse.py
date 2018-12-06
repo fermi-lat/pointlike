@@ -7,18 +7,14 @@ author:  Toby Burnett
 """
 import os, types, collections, zipfile, pickle, glob
 import numpy as np
-import skymaps #from Science Tools: for SkyDir, DiffuseFunction, IsotropicSpectrum
 import pandas as pd
 from astropy.io import fits
 from astropy import wcs
 
-from .pub import healpix_map #make this local in future
-#from uw.like2 import (sources,    )
-
-#def PowerLaw(*pars, **kw):   return sources.PowerLaw(*pars, **kw)
+import skymaps #from Science Tools: for SkyDir, DiffuseFunction, IsotropicSpectrum
+from uw.utilities import healpix_map
 
 class DiffuseException(Exception):pass
-
 
 normalization = None # global for the dict with normalization factors to apply
 
@@ -219,6 +215,18 @@ class HealpixCube(DiffuseBase):
     def close(self):
         self.hdulist.close()
 
+    def __getitem__(self, index):
+        """return a plane as a HParray object"""
+        energy = self.energies[index]
+        col = self.column(energy)
+        return healpix_map.HParray('{:.0f} MeV'.format(energy), col)
+    def __len__(self):
+        return len(self.energies)
+        
+    def __iter__(self): # iterate over all keys
+        for index in range(len(self)):
+            yield self[index]
+
     def __call__(self, skydir, energy=None):
         if energy is not None and energy!=self.energy: 
             self.setEnergy(energy)
@@ -236,8 +244,6 @@ class HealpixCube(DiffuseBase):
             #print 'Warning: FLux not positive at {} for {:.0f} MeV a={}'.format(skydir, self.energy,a)
             ret = 0
         return ret
-
-
 
     def setEnergy(self, energy): 
         # set up logarithmic interpolation
@@ -266,6 +272,10 @@ class HealpixCube(DiffuseBase):
         """
         self.setEnergy(energy)
         a = self.energy_interpolation
+        if a<0.002:
+            return self.eplane1
+        elif a>0.998:
+            return self.eplane2
         return np.exp( np.log(self.eplane1) * (1-a) 
              + np.log(self.eplane2) * a      )
     @property        
@@ -291,6 +301,7 @@ class FitsMapCube(DiffuseBase):
 
         # Parse the WCS keywords in the primary HDU
         self.w = wcs.WCS(hdulist[0].header)
+        self.galactic = self.w.axis_type_names[0]=='GLON'
         self.naxis = self.w._naxis[:2]
 
         # Refer to the layered image and the energy table
@@ -298,6 +309,7 @@ class FitsMapCube(DiffuseBase):
         self.energies = hdulist[1].data['Energy']
         self.loge = np.log(self.energies)
         self.setEnergy(1000.)
+
         
     def setEnergy(self, energy): 
         # set up logarithmic interpolation
@@ -316,7 +328,7 @@ class FitsMapCube(DiffuseBase):
         
     def skydir2pix(self, skydir):
         """ return a tuple for indexing into image plane (note it will be int"""
-        ra, dec =skydir.ra(), skydir.dec()
+        ra, dec =(skydir.ra(), skydir.dec()) if not self.galactic else (skydir.l(), skydir.b())
         # note 0-based indexing for array access
         return np.array(self.w.wcs_world2pix([[ra,dec,1]], 0)[0][:2],int)
     
@@ -325,6 +337,8 @@ class FitsMapCube(DiffuseBase):
         """
         i,j = pixel
         c= self.w.wcs_pix2world(np.array([[i,j,2]]),0)[0][:2];
+        if self.galactic:
+            return SkyDir(c[0],c[1], SkyDir.GALACTIC)
         return SkyDir(*c)
 
     def __call__(self, skydir, energy=None):
@@ -347,7 +361,8 @@ class FitsMapCube(DiffuseBase):
 
 class FitsMapCubeList():
     def __init__(self, filename):
-        filenames = open(filename).read().split('\r\n')
+        filenames = open(filename).read().split('\n')
+        assert len(filenames)>1, 'Expected more than one filename:\n{}'.format(filenames)
         self.cubelist = map(FitsMapCube, filenames)
         self.loaded=False
     def load(self):

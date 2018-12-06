@@ -312,7 +312,7 @@ class Localization(sourceinfo.SourceInfo):
         """
         m =self.df.moment
         has_moment = [x is not None for x in m]
-        print 'Found %d sources with moment analysls' % sum(has_moment)
+        print 'Found %d sources with moment analysis' % sum(has_moment)
         if sum(has_moment)==0:
             return None
         mdf = pd.DataFrame(m[has_moment]) 
@@ -334,13 +334,9 @@ class Localization(sourceinfo.SourceInfo):
         
         filename = 'moment_localizations.csv'
         md.to_csv(filename)
-        print 'Write file %s' % filename
+        print 'Wrote file %s' % filename
         return md
         
-
-
-        
-
     def moment_plots(self):
         """Plots of properties of the moment analysis
         This analysis was done on localizations that had  locqual>5, or a>0.25, or delta_ts>2. 
@@ -393,7 +389,9 @@ class Localization(sourceinfo.SourceInfo):
                 ax.hist(dfs['size'][goodfrac], np.linspace(0,2,26))
                 plt.setp(ax, xlabel='size')
             elif ix==5:
-                ax.hist(np.array(dfs.locqual.clip_upper(8),float), np.linspace(0,8))
+                lq = np.array(dfs.locqual,float)
+                cut=np.logical_not(np.isnan(lq))
+                ax.hist(lq[cut].clip(0,8), np.linspace(0,8,17))
                 plt.setp(ax, xlabel='locqual')
         return fig
     

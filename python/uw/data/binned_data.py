@@ -168,7 +168,7 @@ class Pixels(object):
         return self.counter
  
     def add(self, other):
-        """combind the current list of pixels with another
+        """combine the current list of pixels with another
         other : Pixels object
         """
         # combine the pixels by updating the Counter dictionary-like objects
@@ -434,6 +434,15 @@ class BinFile(object):
         fits.HDUList(hdus).writeto(filename, clobber=clobber)
         print 'Wrote file {}'.format(filename)
     
+    def make_map(self, channel, nside=64):
+        """Make a map with the given nside (which must be the same as the channel, but no check
+        """
+        m = np.zeros(12*nside**2, int)
+        for i, n in self.pixels[channel]:
+            m[i] = n
+        return m
+        
+    
     def generate_ccube_files(self, path, roi_index, channels=range(8), overwrite=False):
         """Write out a set of ccube files for Fermi analysis, 
         path: string
@@ -480,25 +489,31 @@ class ConvertFT1(object):
         data =ft1['EVENTS'].data
         self.glon, self.glat, self.energy, self.et, self.z, self.theta =\
              [data[x] for x in 'L B ENERGY EVENT_TYPE ZENITH_ANGLE THETA'.split()]
-        self.front = np.array([x[-1] for x in self.et],bool) # et is arrray of array of bool, last one true if Front
+        #self.front = np.array([x[-1] for x in self.et],bool) # et is arrray of array of bool, last one true if Front
+        # generate event_type masks
+        self.et_mask={}
+        for et in self.etypes:
+            self.et_mask[et]= self.et[:,-1-et]
         self.data_cut = np.logical_and(self.theta<self.theta_cut, self.z<self.z_cut)
         print 'Found {} events. Removed: {:.2f} %'.format(len(data), 100.- 100*sum(self.data_cut)/float(len(data)));
 
         # DataFrame with component values for energy and event type, nside
         t = {}
+        band=0
         for ie in range(len(self.ebins)-1):
             for et in self.etypes:
-                order = self.orders[et][ie]
+                order = self.orders[et if et<2 else 0][ie] # use max if PSF
                 nside = 2**order
-                t[2*ie+et]= dict(ie=ie, event_type=et, nside=nside)
+                t[band]= dict(ie=ie, event_type=et, nside=nside)
+                band+=1
         self.df = pd.DataFrame(t).T
 
     def cuthist(self):
         import matplotlib.pyplot  as plt
         # plot effect of cuts on theta and zenith angle
-        fig, axx = plt.subplots(1,2, figsize=(12,5))
+        fig, axx = plt.subplots(1,2, figsize=(10,4))
         ax = axx[0]
-        ax.hist(self.theta, np.linspace(0,90,46));
+        ax.hist(self.theta, np.linspace(0,90,91));
         ax.axvline(self.theta_cut, color='red');
         ax.set(xlabel='theta')
         ax = axx[1]
@@ -516,7 +531,8 @@ class ConvertFT1(object):
             if not quiet:
                 print '{:3} {:3} {:6}'.format( band.ie, band.event_type, band.nside), 
             esel = np.logical_and(eindex==band.ie, self.data_cut)
-            sel = np.logical_and(esel, self.front if band.event_type==0 else np.logical_not(self.front))
+            sel = np.logical_and(esel, self.et_mask[band.event_type])
+            #sel = np.logical_and(esel, self.front if band.event_type==0 else np.logical_not(self.front))
             glon_sel = self.glon[sel]
             glat_sel = self.glat[sel]
             hpindex = healpy.ang2pix(int(band.nside), glon_sel, glat_sel, nest=False, lonlat=True)

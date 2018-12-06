@@ -18,33 +18,8 @@ from .. import (configuration, diffuse, response)
 from ..pipeline import stream
 from ..pub import healpix_map as hpm;
 
-# class GalacticCorrection():
-#     def __init__(self, config):
-#         galdict = config.diffuse['ring']
-#         self.internal = galdict.get('key', None)=='gal'
-#         if self.internal:
-#             self.x = np.array([r['gal'] for r in env.df.diffuse_normalization])
-#             self.title = 'Galactic correction from {}'.format(env.skymodel)
-#             self.from_file=False
-#         else:
-#             self.x = response.DiffuseCorrection(galdict['correction']).correction.iloc
-#             self.title = 'Galactic correction from {}'.format(galdict['correction'])
-#         self.cblabel='correction factor'
-#         self.vmin=0.9; self.vmax=1.1
-        
-#     def __call__(self, energy_index,):
-#         return self.x[:,energy_index]
-    
-#     def roi(self, index):
-#         return self.x[index, :] if self.internal else self.x[index,:].values
-
-
-
-
-
 class Environment(roi_info.ROIinfo):
     """ Environment plots"""
-
     
     def setup(self, **kw):
         super(Environment, self).setup(**kw)
@@ -82,45 +57,20 @@ class Environment(roi_info.ROIinfo):
             print "no isofiles found"
             self.isofiles_front=self.isofiles_back=None
 
-    def exposure_plots(self, ix = 8, hsize=(1.0,1.0,2.0,1.0, 2.0, 0.7),):
-        """ Exposure dependence
-        Examine the relative exposure, per ROI. Express in terms of the mean. Note that
-        ROIs are distributed uniformly over the sky.
-        <p>We examine the isotopic diffuse component for front, 1333 GeV, and measure the ratio of predicted counts to 
-        tne normalization factor. This is proportional
-        to the exposure. 
-        
-        <br>Left: histogram, center: scatter plot vs. Declination; right: map on sky, in Galactic coordinates.
-        
+    def exposure_plots(self, energy=1000.):
+        """ Exposure
+        The ratio of the exposure to is mean  for the given energy and event type
         """
-        # use the fact that the isotopic diffuse compoenent is isotropic, so that
-        # the ratio of the computed counts, to the fit normalization, is proportional
-        # to the exposure.
-        iso_counts = self.model_counts('isotrop', ix) # note ix is the sequential band index, over front and back
-        models = self.diffuse_models('isotrop')
-        norms = np.array([m.getp(0) if m is not None else np.nan for m in models])
-        norms *= response.DiffuseCorrection(self.isofiles[ix%2])[str(ix/2)] 
-        relative_exp = iso_counts/(iso_counts/norms).mean()
-        #fig, axx = plt.subplots(1,3, figsize=(15,4))
-        fig, axx = self.subplot_array(hsize, figsize=(12,4))
-        label = 'exposure relative to mean'
-        lim = (0.7, 1.6)
-        def left(ax):
-            ax.hist(relative_exp, np.linspace(*lim, num=25))
-            plt.setp(ax, xlim=lim)# xlabel=label)
-            ax.axvline(1.0, color='k')
-            ax.grid()
+        cfg = configuration.Configuration(os.path.expandvars('.'), quiet=True);
+        exp = cfg.irfs.exposure(0, energy)                                
+        hf = hpm.HPskyfun('front-1000 exp', exp, 64);
+        expf = hf.getcol()
+        emeanf = expf.mean()
+        euw=hpm.HParray('FRONT exposure @ {} MeV / {:.2e}'.format(energy, emeanf), expf/emeanf)
+        fig,ax=plt.subplots(figsize=(12,6))
+        euw.plot(axes=ax,vmin=0.80,vmax=1.20, title=euw.name,   
+               cmap=plt.get_cmap('coolwarm')).grid(color='grey');
 
-        def center(ax):
-            ax.plot(self.df.dec, relative_exp, '.')
-            ax.grid()
-            plt.setp(ax, xlim=(-90,90), xlabel='Dec (deg)',ylabel=label, ylim=lim)
-            ax.set_xticks(range(-90,91,30))
-            ax.axhline(1, color='k')
-        def right(ax):
-            self.skyplot(relative_exp, ax=ax, s=40)
-        
-        for f,ax in zip((left, center, right), axx.flatten()): f(ax)
         return fig
      
     def get_psf(self, irfname=None, ):
@@ -142,22 +92,22 @@ class Environment(roi_info.ROIinfo):
         $$\begin{equation}
         1 / \sqrt{\pi \int_0^\pi P(\delta)^2 2\pi \sin\delta \ \mathrm{d}\delta}
         \end{equation}$$
- <li> Measurement of the position of a source. Assuming no background, this requires the expected value for the log of the
- PSF, which is the likelihood, as a function of $\delta$
-$$\begin{equation} 
-w(\delta) = \int_0^\pi  \sin\theta\ \mathrm{d} \theta\ P(\theta) \int_0^{2\pi} \mathrm{d}\phi \ln P\left(\sqrt{\delta^2 -2\delta\  \theta \cos\phi+\theta^2}\right)
-\end{equation}$$
-The resolution is the curvature, or second derivative of this function evaluated at $\delta=0$. The curvature at $\delta=0$ is
-$$\begin{equation} 
-\frac{\partial^2 w(\delta)}{\partial \delta^2} = \pi \int_0^\pi \sin\theta \ \mathrm{d}\theta \frac{P'(\theta)^2}{P(\theta)}
-\end{equation}$$
-where $P'(\theta) = \frac{\partial P(\theta)}{\partial \theta}$. This is consistent with equation (A2) in the 2FGL paper, 
-for the case with no background.
-</li>
-</ol>  
-<p>Of course the first measure is relevant in the background-dominated case, below a GeV or so, 
-the second when there is small background, above a few GeV.    
-<p>
+        <li> Measurement of the position of a source. Assuming no background, this requires the expected value for the log of the
+        PSF, which is the likelihood, as a function of $\delta$
+        $$\begin{equation} 
+        w(\delta) = \int_0^\pi  \sin\theta\ \mathrm{d} \theta\ P(\theta) \int_0^{2\pi} \mathrm{d}\phi \ln P\left(\sqrt{\delta^2 -2\delta\  \theta \cos\phi+\theta^2}\right)
+        \end{equation}$$
+        The resolution is the curvature, or second derivative of this function evaluated at $\delta=0$. The curvature at $\delta=0$ is
+        $$\begin{equation} 
+        \frac{\partial^2 w(\delta)}{\partial \delta^2} = \pi \int_0^\pi \sin\theta \ \mathrm{d}\theta \frac{P'(\theta)^2}{P(\theta)}
+        \end{equation}$$
+        where $P'(\theta) = \frac{\partial P(\theta)}{\partial \theta}$. This is consistent with equation (A2) in the 2FGL paper, 
+        for the case with no background.
+        </li>
+        </ol>  
+        <p>Of course the first measure is relevant in the background-dominated case, below a GeV or so, 
+        the second when there is small background, above a few GeV.    
+        <p>
         For a Gaussian PSF, $P(\delta)=\frac{1}{2\pi \sigma^2} \exp(-\frac{\delta^2}{2\sigma^2})$, these values are
         respectively $2\sigma$ and $\sigma$. (The 68 percent is in between, at 1.5 $\sigma$.)
         <br><br>PSF filenames: %(psf_files)s
@@ -206,30 +156,29 @@ the second when there is small background, above a few GeV.
         <br>See also the corrections.
         """
         # look up filenames used to define the isotropic spectrum: either new or old diffuse spec; list or dict
-        #diffuse=self.config['diffuse']
-        #isokey = 'isotrop' if type(diffuse)==types.DictType else 1
-        #self.idfiles = [os.path.join(os.environ['FERMI'],'diffuse',diffuse[isokey][i]) for i in (0,1)]
         df=diffuse.diffuse_factory(self.config.diffuse['isotrop'])
         self.idfiles = [x.fullfilename for x in df]
         nf,nb = map(np.loadtxt, self.idfiles)
-        energies = nf[:,0]; front,back = nf[:,1],nb[:,1]
-        fig, axs = plt.subplots(1,2, figsize=(10,5), dpi=50)
+        df = pd.DataFrame([nf[:,0],nf[:,1],nb[:,1]],
+            index='energy front back'.split()).T.query('900<energy<110000')
+
+        fig, axs = plt.subplots(1,2, figsize=(12,5), dpi=50)
         def right(ax):
-            ax.plot(energies, front/back, '-o');
+            ax.plot(df.energy, df.front/df.back, '-o');
             ax.axhline(1.0, color='k')
             plt.setp(ax, xscale='log', xlabel='Energy');ax.grid(True);
             ax.set_title('Isotropic flux front/back ratio', fontsize='small');
         def left(ax):
-            ax.plot(energies, front*energies**2, '-g', label='front')
-            ax.plot(energies, back*energies**2, '-r', label='back')
+            ax.plot(df.energy, df.front*df.energy**2, '-g', label='front')
+            ax.plot(df.energy, df.back*df.energy**2, '-r', label='back')
             plt.setp(ax, xlabel='Energy', ylabel='flux*e**2', xscale='log')
             ax.set_title('isotropic diffuse spectra', fontsize='small')
             ax.grid(True); ax.legend()
         for f,a in zip((left,right), axs.flatten()): f(a)
-        self.iso_df = pd.DataFrame(dict(front=front*energies**2, back=back*energies**2), index=(energies/1e3).round(3))
-        self.iso_df.index.name='energy'
-        self.iso_df.to_csv(os.path.join(self.plotfolder, 'isotropic.csv'))
-        print 'wrote file %s' % os.path.join(self.plotfolder, 'isotropic.csv')
+        # self.iso_df = pd.DataFrame(dict(front=front*energies**2, back=back*energies**2), index=(energies/1e3).round(3))
+        # self.iso_df.index.name='energy'
+        # self.iso_df.to_csv(os.path.join(self.plotfolder, 'isotropic.csv'))
+        # print 'wrote file %s' % os.path.join(self.plotfolder, 'isotropic.csv')
         return fig
 
     def limb_map(self, energy=100):
@@ -345,6 +294,8 @@ the second when there is small background, above a few GeV.
             
         def __call__(self, energy_index,):
             return self.x[:,energy_index]
+        def __getitem__(self,energy_index ):
+            return self.x[:,energy_index]
 
     def anom(self):
         class Anom:
@@ -363,12 +314,54 @@ the second when there is small background, above a few GeV.
                 return np.array(map(lambda i: self.anomaly(i,iband), range(1728)))
         return Anom(self.GalacticCorrection(self))
 
-
-    def galactic_correction(self):
+    def galactic_correction_maps(self, vmin=0.8, vmax=1.2):
         """Galactic correction factor
         """
-        return self.cartesian_map_array(self.GalacticCorrection(self),vmin=0.5,vmax=1.5)
+        return self.cartesian_map_array(self.GalacticCorrection(self),vmin=vmin,vmax=vmax)
     
+    def galactic_correction_summary(self):
+        """Galactic correction offsets
+        
+        Plot of the mean devition form 1.0, and RMS as the errorbar, of the galatic correction factors, per energy plane.
+        """
+        t = self.GalacticCorrection(self).x
+        dd = dict()
+        for i,c in enumerate(t.T):
+            dd[i] = dict(offset=c.mean()-1,std=c.std())
+        df = pd.DataFrame(dd).T
+        fig, ax = plt.subplots()
+        ax.errorbar(x=range(8), y=df.offset.values, yerr=df['std'].values, fmt='o')
+        ax.axhline(0, color='grey')
+        ax.set(xlabel='energy band', ylabel='offset', title='galactic correction offsets')
+        return fig
+
+    def gal_extra(self, sinbcut=0.4):
+        """Special plots for galactic correction
+
+        Each point is the normalization factor for an ROI in the range of $b$. 
+        The shaded area is the range of the "patch" component of the glactic diffuse
+        """
+        def tplot(ax, glon, corr):
+            ax.plot(glon, corr,  '.')
+            ax.set(xlim=(180,-180),xlabel='longitude', ylabel='normalization factor');
+            ax.axvspan(-90,60, color='orange' , alpha=0.2)
+            ax.axhline(1.0, color='lightgrey');
+            ax.axvline(0, color='lightgrey')
+            ax.set_xticks(np.linspace(-180,180,9));
+
+        t = self.GalacticCorrection(self)
+        lon = self.df.glon
+        sinlat = self.singlat
+        scut = self.singlat>sinbcut; sum(scut)
+        fig,axx=plt.subplots(4,2, figsize=(14,14), sharex=True,sharey=True,
+                    gridspec_kw=dict(hspace=0.1, wspace=0.1, left=0.05, top=0.95))
+        for i, ax in enumerate(axx.flatten()):
+            tplot(ax,lon[scut], (t.x[:,i])[scut])
+            ax.text(0.04, 0.9, '{:.0f} MeV'.format(self.energy[i]),transform=ax.transAxes )
+
+        fig.suptitle('Normalization factors for sin(b)>{:.1f}'.format(sinbcut))
+        return fig
+
     def galactic_correction_anomaly(self):
         """Galactic correction anomaly
 
@@ -468,10 +461,14 @@ the second when there is small background, above a few GeV.
         return dmap
 
     def all_plots(self, **kw):
-        self.runfigures([self.psf_plot, self.exposure_plots, 
+        self.runfigures([
+            #self.psf_plot, 
+            self.exposure_plots, 
             self.isotropic_spectrum,self.diffuse_flux, #self.limb_flux,
-            self.galactic_correction, 
+            self.galactic_correction_maps,
+            self.galactic_correction_summary, 
             self.galactic_correction_anomaly,
-            self.isotropic_correction,
+            self.gal_extra,
+            #self.isotropic_correction,
             #self.isotropic_correction_front, self.isotropic_correction_back,
             ])

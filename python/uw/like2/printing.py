@@ -47,7 +47,7 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
         print 90*'-', '\n\tFree sources {}'.format(title)
     else:
         print 90*'-', '\n\t Nearby sources within %.1f degrees %s' % (maxdist,title)
-    colstring = 'name dist ra dec TS eflux(eV) index energy beta/b'
+    colstring = 'name dist ra dec TS enorm(eV) index energy beta/b'
     if galactic: colstring =colstring.replace('ra dec', 'l b')
     colnames = tuple(colstring.split())
     n = len(colnames)-1
@@ -75,7 +75,7 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
         ts = '%10.0f'% self.TS(ps.name) if (np.any(model.free) or print_all_ts) else 10*' '
         fmt = '%-18s%5.1f'+2*'%10.3f'+ '%10s'+ '%10.1f%1s'
         freeflag = map(makefreeflag, model.free, sigpar)
-        values = (ps.name.strip(), dist) +loc+ (ts,)+( model.i_flux(e_weight=1, emax=1e5)*1e6, freeflag[0], )
+        values = (ps.name.strip(), dist) +loc+ (ts,)+( model.enorm, freeflag[0], )
         
         #index
         fmt += '%8.2f%1s' 

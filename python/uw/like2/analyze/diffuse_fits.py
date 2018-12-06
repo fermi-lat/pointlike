@@ -3,7 +3,7 @@ Diffuse fitting analysis
 
 """
 
-import os, glob, pickle
+import os, glob, pickle, healpy
 import numpy as np
 import pylab as plt
 import pandas as pd
@@ -12,6 +12,8 @@ from skymaps import SkyDir
 from . import (roi_info,  analysis_base)
 from .. import (tools, configuration, response, diffuse)
 from ..pipeline import stream
+
+from uw.utilities import healpix_map
 
 class DiffuseFits(roi_info.ROIinfo):
     """<b>Diffuse fit plots</b>
@@ -74,7 +76,7 @@ class DiffuseFits(roi_info.ROIinfo):
         print 'galactic:\n{}'.format(self.gal)
         self.logstream= self.stoplog()
 
-    def correction_plots(self, cc, vmin=0.5, vmax=1.5, title=None, hist=False):
+    def correction_plots(self, cc, vmin=0.5, vmax=1.5, title=None, hist=False, start=0):
         if isinstance(cc, pd.DataFrame):
             cc = cc.as_matrix()
         nrows = cc.shape[1]/4
@@ -89,6 +91,9 @@ class DiffuseFits(roi_info.ROIinfo):
             fig, axx = plt.subplots(nrows,4, figsize=(12,3*nrows), sharex=True, sharey=True)
             plt.subplots_adjust(left=0.10, wspace=0.1, hspace=0.1,right=0.92, top=0.92)
         for i,ax in enumerate(axx.flatten()):
+            if i<start:
+                ax.set_visible(False)
+                continue
             if hist:
                 h = cc[:,i]
                 ax.hist(h.clip(vmin, vmax),  **hkw)
@@ -176,3 +181,98 @@ def clear_diffuse_norm():
         p = pickle.load(open(f))
         p['diffuse_normalization']['gal']= np.ones(8)
         pickle.dump(p, open(f, 'w'))
+
+def check_bubble_maps(cubefile):
+    if not os.path.exists(cubefile):
+
+        bubble = [diffuse.HealpixCube(f) for f in 
+                ['../uw8600/bubbles.fits',    '../uw8604/bubbles_v2.fits',
+                '../uw8605/bubbles_v3.fits', '../uw8606/bubbles_v4.fits']]
+        for b in bubble:
+            b.load()
+
+        # multiply them all together
+        energies = bubble[0].energies
+        pr = np.array([b.vec for b in  bubble[0]])
+
+        for bb in bubble[1:]:
+            pr *= np.array([b.vec for b  in bb])   
+
+        t = [healpix_map.HParray('{:.0f} MeV'.format(energy), v) for energy,v in zip(energies, pr)]
+        bcube = healpix_map.HEALPixFITS(t, energies=energies);
+        healpix_map.multi_ait(t, vmin=0.8, vmax=2.0, cmap=plt.get_cmap('jet'), 
+                    grid_color='grey', cblabel='ratio to diffuse', title='bubbles correction to diffuse');
+
+        bcube.write(cubefile)
+    else:
+        print 'Using existing file {}'.format(cubefile)
+    
+
+class Polyfit(object):
+    """ Manage a log parabola fit to every pixel"""
+    def __init__(self, cubefile, sigsfile, start=0, stop=8, deg=2):
+        
+        check_bubble_maps(cubefile)
+        m = diffuse.HealpixCube(cubefile); m.load()
+        msig = diffuse.HealpixCube(sigsfile); msig.load()
+        meas = np.array([m[i].vec for i in range(8)])
+        sig  = np.array([msig[i].vec for i in range(8)])
+
+        self.planes = np.array(range(start,stop)) # plane numbers
+        self.values = meas[start:,:]
+        weights = 100./sig[start:,:] #from percent
+        self.wtmean = weights.mean(axis=1)
+
+        self.fit, self.residuals, self.rank, self.svals, self.rcond =\
+            np.polyfit(self.planes,self.values, deg=deg, full=True, w=self.wtmean)
+            
+        labels= 'intercept slope curvature'.split()   
+        self.hpfit=[healpix_map.HParray(labels[deg-i], self.fit[i,:]) for i in range(deg,-1,-1)]
+        
+    def __getitem__(self, i):
+        return self.fit[i]
+    
+    def ait_plots(self):
+        healpix_map.multi_ait(self.hpfit, cmap=plt.get_cmap('jet'),  grid_color='grey')
+
+    def __call__(self, x, n):
+        if not hasattr(x, '__iter__'):
+            x = np.array([x])
+        fit= self.fit[:,n]; 
+        t =fit.reshape(3,1)
+        return ( t * np.vstack([x**2, x, np.ones(len(x))] )).sum(axis=0)
+    
+    def ang2pix(self, glon, glat):
+        return healpy.ang2pix(64, glon, glat, lonlat=True)
+        
+    def get_fit(self, pix):
+             
+        y = self.values[:,pix]
+        yerr = 1/self.wtmean
+        fn = lambda xx : self(xx, pix)
+        return y, yerr, fn
+    
+    def plot_fit(self, glon, glat, ax=None, axis_labels=True):
+        pix = self.ang2pix(glon, glat)
+        y, yerr, fn = self.get_fit(pix)
+
+        fig, ax =plt.subplots() if ax is None else (ax.figure, ax)
+        npl = len(self.planes)
+        xx = np.linspace(self.planes[0]-0.5,self.planes[-1]+0.5,2*npl+1)
+
+        ax.errorbar(self.planes, y, yerr=yerr, fmt='o', ms=8);
+        ax.plot(xx, fn(xx), '-', lw=2);
+        ax.text(0.05,0.9,'({:3.0f}, {:+2.0f})'.format(glon, glat), transform=ax.transAxes)
+        if axis_labels:
+            ax.set(ylabel='flux factor', xlabel='energy plane')
+        ax.axhline(1.0, color='lightgrey')
+        ax.grid(alpha=0.3)
+        ax.set_xticks(self.planes[::2])
+
+    def multiplot(self, glons, glats, grid_shape=(4,5), title=''):
+ 
+        fig, axx = plt.subplots(grid_shape[0],grid_shape[1], figsize=(12,12), sharex=True, sharey=True,
+                            gridspec_kw=dict(left=0.05, right = 0.95,top=0.95, wspace=0, hspace=0)  )
+        for glon, glat, ax in zip(glons, glats, axx.flatten()):
+            self.plot_fit( glon, glat, ax, axis_labels=False)
+        fig.suptitle(title); 

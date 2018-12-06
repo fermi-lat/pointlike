@@ -407,7 +407,7 @@ class Associations(sourceinfo.SourceInfo):
             cut = sel & (df.aprob>0.8) & (ts>tsmin) & (locqual<qualmax) & (r95>rlim[0]) & (r95<rlim[1])
             return deltats[cut]
             
-        cases = [(agn, 'AGN strong', (0,1)), (agn,'AGN moderate', (1,2)), (agn,'AGN weak',(2,20)),
+        cases = [(agn, 'AGN strong', (0,1)), (agn,'AGN mod.', (1,2)), (agn,'AGN weak',(2,20)),
                 (psr, 'LAT PSR',(0,20)), (otherid, 'other ids',(0,20))]
         zz=[]
         print '{:12} {:10} {:6} {:6}'.format(*'Selection range number factor'.split())
@@ -422,10 +422,10 @@ class Associations(sourceinfo.SourceInfo):
             zz.append(z)
             
  
-        fig, axx = plt.subplots(2,3, figsize=(12,12), sharex=True)
+        fig, axx = plt.subplots(1,5, figsize=(15,4), sharex=True)
         for ax, z in zip(axx.flatten(), zz):
             z.plot(ax=ax, xlabel=r'$\Delta TS$');
-        axx.flatten()[-1].set_visible(False)           
+        #axx.flatten()[-1].set_visible(False)           
         return fig
 
     def unassociated_soft(self, query='isextended==False & pindex>2.2 & curvature<0.05 & psr==False',
@@ -438,7 +438,8 @@ class Associations(sourceinfo.SourceInfo):
         spectral index. It shows a line that is an energy flux minimum for the next two histograms.
         <p>A list selected with the queries "%(softie_query)s", and then "%(unid_query)s" which are not associated can be downloaded 
         <a href="../../%(softie_filename)s?download=true">here</a>, and viewed in the following table.
-        <p>%(softie_table)s, 
+        <p>%(softie_table)s 
+
         """
         self.softie_query=query
         self.unid_query=selection
@@ -495,6 +496,9 @@ class Associations(sourceinfo.SourceInfo):
         factor = self.config.get('localization_systematics', [1.,0])[0]
         dfu.a *= factor
         dfu.b *= factor
+        # add a column with circular radius in arc min
+        dfu['r95'] = np.sqrt(np.array(dfu.a*dfu.b,float))*2.45*60
+
         dfu.to_csv(self.softie_filename)
         self.softies=dfu
         print 'Wrote list of sources to {}'.format(self.softie_filename)
@@ -508,11 +512,11 @@ class Associations(sourceinfo.SourceInfo):
 
         return fig
 
-    def softie_geometry(self, vmax=8, bmax=7, vcut=2):
+    def softie_geometry(self, vmax=8, vmin=0, bmax=10, vcut=2):
         """Softie geometry
 
-        Assuming that the square root of the flux might be inversely proportional to distance,
-         I plot it vs. |b|, and in a scatter plot vs. (l,b),
+        For a point source population, the square root of the flux should be inversely proportional 
+        to distance. These plots show it vs. |b|, and in a scatter plot vs. (l,b),
 
         """
         df=self.softies
@@ -532,8 +536,8 @@ class Associations(sourceinfo.SourceInfo):
 
         def fig2(ax):
             ax = plt.gca()
-            scat=ax.scatter(l,b, c=np.sqrt(f),cmap=plt.get_cmap('YlOrRd'), vmax=vmax) ;
-            ax.set(xlim=(-90,90), ylim=(-bmax,bmax), xlabel='longitude', ylabel='latitude');
+            scat=ax.scatter(l,b, c=np.sqrt(f),cmap=plt.get_cmap('YlOrRd'), vmax=vmax, vmin=vmin) ;
+            ax.set(xlim=(90,-90), ylim=(-bmax,bmax), xlabel='longitude', ylabel='latitude');
             cb = plt.colorbar(scat)
             cb.set_label('sqrt(Enegy Flux)')
             ax.axvline(0, color='lightgrey'); ax.axhline(0, color='lightgrey')
@@ -580,9 +584,10 @@ class FitExponential(object):
             fig,ax = plt.subplots(figsize=(5,5))
         else:fig = ax.figure
         x = np.linspace(0, self.vmax, int(self.vmax/self.binsize)+1) 
+        ax.plot(x, self(x), '-r', lw=2,  label='factor=%.2f'% self.factor)
         ax.hist( self.vcut, x, label='%d %s'%(len(self.vcut),self.label), histtype='stepfilled')
         ax.set_ylim(ymin=0)
-        ax.plot(x, self(x), '-r', lw=2,  label='factor=%.2f'% self.factor)
+
         ax.grid(); ax.legend()
         plt.setp(ax, ylim=(0, 1.1*self.alpha), xlabel=xlabel)
 

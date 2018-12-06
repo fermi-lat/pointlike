@@ -1243,6 +1243,17 @@ class Model(object):
         
         return -0.5*derivative(lambda x: dfun(x), x, dx=0.01)
 
+    @property
+    def enorm(self):
+        """return nu f_nu in eV at the reference energy e0"""
+        return self(self.e0)*self.e0**2*1e6
+
+    def set_enorm(self, enorm):
+        """ set the Norm parameter to the nu f_nu (in eV) value"""
+        factor = enorm / (self(self.e0)*self.e0**2*1e6)
+        self.setp(0, self.getp(0)*factor)
+
+        
 
 
 class PowerLaw(Model):
@@ -1663,7 +1674,7 @@ class LogParabola(Model):
     default_limits = dict(
         Norm=LimitMapper(1e-17,1e-3,1e-9),
         Index=LimitMapper(-5,5,1),
-        beta=LimitMapper(0,5,1),
+        beta=LimitMapper(-0.2,3,1),
         E_break=LimitMapper(30,5e5,1))
     default_oomp_limits=['Norm','E_break']
 

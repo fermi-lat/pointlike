@@ -196,7 +196,7 @@ class MakeCat(object):
     def __call__(self, outfile, localization_systematic=(1.1, 5e-3) ):
         self.cols = []
         z = self.z
-        z.sort_index(by='ra')
+        z.sort_values(by='ra')
         self.check=False
         self.bad = z.ts<9
         self.add('SourceName', z.jname)

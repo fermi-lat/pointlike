@@ -3,21 +3,21 @@ Residual maps
 
 """
 
-import os, pickle, glob
+import os, pickle, glob, healpy
 import numpy as np
 import pylab as plt
 import pandas as pd
 
 from . import analysis_base
 from . analysis_base import FloatFormat
-from uw.like2.pub import healpix_map
+from uw.utilities import healpix_map
 from uw.like2 import tools, configuration
 from skymaps import Band
 
 class BandAnalysis(object):
     """ Manage data for a given band index
     """
-    def __init__(self, dd,  band_index, nside=None):
+    def __init__(self, dd,  band_index, nside=None, outfile=None):
         """
         dd : list of dicts with info for each ROI, in order
         band_index : integer
@@ -32,10 +32,15 @@ class BandAnalysis(object):
         self.nside = dd[0][i]['nside']
         nexpect=12*self.nside**2
 
-        if 'inside' in dd[0][0]:
+        keys = dd[0][0].keys()
+        print 'keys: {}'.format(keys)
+        cat = lambda q : np.concatenate([d[i][q][d[i]['inside']] for d in dd])
+        if 'inside' in keys:
             # new format: all pixels for each ROI, so need to select those in the HEALPix dimond
-            ids,model_s,data_s = [np.concatenate([d[i][q][d[i]['inside']] for d in dd]) 
-                for q in ['ids','model','data']]
+            ids,model_s,data_s, source_s, diffuse_s = [cat(q) 
+                for q in ['ids','model','data', 'source', 'galactic', ]]
+            if 'isotropic' in keys:
+                isotropic_s = cat('isotropic')
         else:
             # old format: preselected
             ids,model_s,data_s = [np.concatenate([d[i][q] for d in dd]) 
@@ -50,6 +55,10 @@ class BandAnalysis(object):
             s = np.argsort(ids)
             self.model = model_s[s]
             self.data = data_s[s]
+            sources = (source_s)[s]
+            galactic = diffuse_s[s]
+            if 'isotropic' in keys:
+                isotropic = isotropic_s[s]
  
         else:
             # resample
@@ -67,9 +76,14 @@ class BandAnalysis(object):
                 self.data[j] +=d
                 self.model[j]+=m
 
-        self.hpdata = healpix_map.HParray('f{}_data'.format(energy), self.data)
-        self.pulls = healpix_map.HParray('f{} pulls'.format(energy), (self.data-self.model)/np.sqrt(self.model))
-        self.resid = healpix_map.HParray('f{} residuals'.format(energy), (self.data-self.model)/(self.model))
+        self.hpdata = healpix_map.HParray('data', self.data)
+        self.pulls = healpix_map.HParray('pulls', (self.data-self.model)/np.sqrt(self.model))
+        self.resid = healpix_map.HParray('residuals', (self.data-self.model)/(self.model))
+        self.sources = healpix_map.HParray('sources', sources)
+        self.galactic = healpix_map.HParray('galactic', galactic)
+        if 'isotropic' in keys:
+            self.isotropic =  healpix_map.HParray('isotropic', isotropic)
+
 
         # Load galactic corrections from configuration info
         config=configuration.Configuration('.', quiet=True, postpone=True)
@@ -84,10 +98,17 @@ class BandAnalysis(object):
         self.label = '{:.0f} Mev {}'.format(energy, ['Front','Back'][event_type])
         #print self.label
 
+        if outfile:
+            cols = [self.sources, self.galactic, self.resid, self.hpdata,]
+            if 'isotropic' in keys:
+                cols = cols + [self.isotropic]
+            t=healpix_map.HEALPixFITS( cols)
+            t.write(outfile)
+            print 'Wrote file {}'.format(outfile)
+
     def __repr__(self):
         return 'BandAnalysis for {}, nside={}'.format(self.label, self.nside)
-
-    
+            
     def offset_map(self, **kwargs):
         u = healpix_map.HParray('', self.data/self.model-1) 
         u.plot(cmap=plt.get_cmap('coolwarm'), **kwargs);
@@ -105,7 +126,6 @@ class BandAnalysis(object):
         plt.setp(ax,xlabel='glat',ylim=ylim, ylabel='<offset>', title=self.label);
         ax.figure.set_facecolor('white')
 
- 
     def ait_pulls_plot(self):
         fig,ax=plt.subplots(figsize=(16,8))
         t=self.pulls.plot(axes=ax, vmin=-5, vmax=5, cmap=plt.get_cmap('coolwarm'),
@@ -120,12 +140,12 @@ class BandAnalysis(object):
         bdir=Band(nside).dir
         fig=plt.figure()
         glat= [bdir(i).b() for i in range(12*nside**2)]
-        lolat,loname=np.array(np.abs(glat)<5, bool), '|b|<5'
+        lolat,loname=np.array(np.abs(glat)<5, bool), '|b|< 5'
         hilat,hiname=np.array(np.abs(glat)>10, bool), '|b|>10'
         hkw=dict(bins=np.linspace(-5,5,51), histtype='step', lw=2, log=True)
         def plotit(cut, name):
             ds = self.pulls.vec[cut]
-            label='{} {:.2f} {:.2f}'.format(name, ds.mean(),ds.std())
+            label='{} {:4.2f} {:4.2f}'.format(name, ds.mean(),ds.std())
             plt.hist(ds.clip(-5,5),label=label, **hkw )
         plotit(lolat, loname)
         plotit(hilat, hiname)
@@ -136,7 +156,8 @@ class BandAnalysis(object):
         b =hkw['bins'];delta= b[1]-b[0]
         norm=sum(lolat)/delta/np.sqrt(np.pi)/4
         plt.plot(x, norm*g(x), '--g')
-        plt.legend(title='select mean std')
+        leg=plt.legend( title='   select mean std',prop=dict(size=10, family='monospace'))
+        ltit = leg.get_title(); ltit.set_fontsize(10); ltit.set_family('monospace')
         plt.ylim(ymin=0.8); plt.xlim(-5,5)
         plt.title('Normalized residuals for {}'.format(self.label));
         fig = plt.gcf()
@@ -191,6 +212,14 @@ class BandAnalysis(object):
             ).grid(color='white')
         return fig     
 
+class Components(object):
+    """For interactive analysis of the all-sky components saved by a ResidualMaps run
+    """
+    def __init__(self, filename = 'plots/residual_maps/f131maps.fits'):
+        from astropy.table import Table
+        assert os.path.exists(filename)
+        self.df=Table.read(filename, hdu=1).to_pandas()
+        print 'Read file {} with columns {}'.format(filename, self.df.columns)
 
 
 class ResidualMaps(analysis_base.AnalysisBase):
@@ -207,7 +236,11 @@ class ResidualMaps(analysis_base.AnalysisBase):
         self.dd = [pickle.load(open(f)) for f in ff]
 
         self.band_index,nside=0,None
-        self.ba0 =self.band_analysis(band_index=0)
+        try:
+            self.ba0 =self.band_analysis(band_index=0, outfile=self.plotfolder+'/f131maps.fits')
+        except Exception, msg:
+            print 'Fail to load maps: {}'.format(msg)
+
         plt.style.use('seaborn-bright')
 
         # generate a DF with ROI positions
@@ -223,8 +256,8 @@ class ResidualMaps(analysis_base.AnalysisBase):
             print "No corrections made"
             self.gc=None
 
-    def band_analysis(self, band_index, nside=None):
-        self.ba= BandAnalysis(self.dd, band_index, nside)
+    def band_analysis(self, band_index, nside=None, outfile=None):
+        self.ba= BandAnalysis(self.dd, band_index, nside, outfile)
         return self.ba
     
     def extract(self, i=0):
@@ -237,24 +270,22 @@ class ResidualMaps(analysis_base.AnalysisBase):
     def offset_map(self, band_index=0, vmin=-0.1, vmax=0.1):
         """Residual maps
         """
-        ba = BandAnalysis(self.dd,band_index)
+        ba = self.ba0 if band_index==0 else BandAnalysis(self.dd,band_index)
         ba.offset_map(title=ba.label, vmin=vmin, vmax=vmax)
         return plt.gcf()
 
     def offset_profile(self, band_index=0, **kwargs):
-        ba = BandAnalysis(self.dd,band_index)
+        ba = self.ba0 if band_index==0 else BandAnalysis(self.dd,band_index)
         fig, ax = plt.subplots(figsize=(8,6))
         ba.offset_profile(ax=ax, **kwargs)
         return fig
 
     def offset_map_0(self):
         """Offset map for 133 MeV Front
-
         """
         return self.offset_map(0)
     def offset_map_1(self):
         """Offset map for 133 MeV Back
-
         """
         return self.offset_map(1)
 
@@ -395,18 +426,74 @@ class ResidualMaps(analysis_base.AnalysisBase):
             self.gcmap,
             self.gcplots,
             self.residual_maps_ait,
+            self.residual_hist,
             self.residual_maps_center,
             self.residual_maps_cygnus,
             self.residual_maps_vela,
             self.residual_maps_anti,
-            self.residual_hist,
+
             self.offset_map_0, self.offset_map_1,
             self.ridge_systematics_scat,
             self.ridge_systematics_plot,
              
        ]) 
 
+class AllSkyMaps(object):
+    """For interactive analysis of the all-sky maps saved by a ResidualMaps run
+    """
+    def __init__(self, filename = 'residual_maps/f131maps.fits'):
+        from astropy.table import Table
+        assert os.path.exists(filename)
+        self.df=Table.read(filename, hdu=1).to_pandas()
+        nside = int(np.sqrt(len(self.df)/12))
+        print 'Read file "{}" nside={}, with columns {}'.format(filename, nside, list(self.df.columns))
+        self.modelname = os.path.split(os.getcwd())[-1]
+
+        # add locations to the DataFrame
+        glon,glat=healpy.pix2ang(nside, range(12*nside**2), lonlat=True)
+        glon[glon>180] -= 360
+        self.df['glon']=glon
+        self.df['glat']=glat
+    
+    def __repr__(self):
+        cols = self.df.columns
+        r = 'All-sky maps for model {}\n{:10} {:>12}\n'.format(self.modelname, 'column', 'sum')
+        for col in self.df.columns:
+            r += '{:10} {:12,}\n'.format(col, int(sum(self.df[col])))
+        return r
+                
+    def __getitem__(self, name):
+        """return HParray object """
+        return healpix_map.HParray(name, self.df[name])
+    
+    def ait_plot(self, comp, grid_color='white', **kwargs):
+        """ make an AIT map with grid and colorbar
+        """
+        fig,ax=plt.subplots(figsize=(12,6))
+        kw= dict(cmap=None, title=comp)
+        kw.update(kwargs)
+        t=self[comp].plot(axes=ax, cbtext='counts/pixel',**kw)
+        if grid_color: t.grid(color=grid_color)
+
+    def pie(self, ax=None, query=None, colors=None):  
+        """ make a pie chart with components
+        """ 
+        labels = 'galactic isotropic sources'.split()
+        df = self.df if query is None else self.df.query(query)
+        gal, src, data = [sum(df[c]) for c in 'galactic sources data'.split()  ]
+        if not colors: colors = ['#1f77b4', '#8c564b', '#e377c2'] # hack to make same as gardian
+        # extract by: colors=np.array(plt.rcParams["axes.prop_cycle"].by_key()["color"])
+        sizes = np.array([gal, data-gal-src, src])*100. #iso is all but galactic and sources
+        explode= [0,0, 0.1]
+        fig, ax = plt.subplots(figsize=(6,6)) if ax is None else (ax.figure, ax)
+        ax.pie(sizes, explode=explode, labels=labels, colors=colors, autopct='%1.1f%%',
+                shadow=True, startangle=90)
+        ax.axis('equal'); # Equal aspect ratio ensures that pie is drawn as a circle.
+        ax.set_title('{} component sizes for 133-MeV band'.format(self.modelname))
+
 class GalacticCorrectionMaps(object):
+    """Access to the galactic diffuse corrections
+    """
     def __init__(self):
         config=configuration.Configuration('.', quiet=True,postpone=True)
         corr_key = config.diffuse['ring'].get('key', None)
@@ -426,12 +513,23 @@ class GalacticCorrectionMaps(object):
         gc['glon']= map(lambda s: s.l(),sdirs)
         gc.loc[gc.glon>180,'glon'] -= 360   
         self.gc = gc
+        self.energies = np.logspace(2.125,3.875,8) # band energies
+
+    def hparray(self, nside=64, sigma=2.5):
+        """ return a list ot HParray object for plots, etc
+        Convert to the specified nside, smoothing by sigma (deg)
+        """
+        hpa = [(healpix_map.HParray(a, self.gc[a])) for a in '01234567']
+        hpb = [healpix_map.HParray('{} MeV'.format(int(energy)), x.getcol(nside=64), sigma=sigma)
+                 for x, energy in zip(hpa, self.energies)]   
+        return hpb
 
     def plot_map(self, energy_index=0 ):
         gc0 = self.gc['{}'.format(energy_index)]
         c0 = healpix_map.HParray('gc0', gc0/gc0.mean())
-        c0.plot(vmin=0.6, vmax=1.4, cmap=plt.get_cmap('coolwarm'),
-                title='133 MeV Galactic correction factor relative to {:.2f}'.format(gc0.mean()));
+        t=c0.plot(vmin=0.6, vmax=1.4, cmap=plt.get_cmap('coolwarm'),
+                title='133 MeV Galactic correction factor relative to {:.2f}'.format(gc0.mean()))
+        t.grid(color='grey')
         return plt.gcf()
 
     def gcplots(self, ii=range(0,5), glon_cut=30,ylim=(0.5,1.6)):

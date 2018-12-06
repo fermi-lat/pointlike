@@ -12,9 +12,8 @@ import os, sys, glob, zipfile, logging, datetime, argparse, subprocess
 import numpy as np
 import pandas as pd
 
-from uw.like2 import (tools, )
+from uw.like2 import (tools, maps, seeds,)
 from uw.like2.pipeline import (pipe, stream, stagedict, check_ts, )
-from uw.like2.pub import healpix_map
 
 
 def streamInfo(stream_id ,path='.'):
@@ -141,8 +140,9 @@ def main(args):
     #elif stage=='finish' or stage=='counts':
 
     elif stage=='tables':
-        names = 'ts kde'.split() if stage_args==['none'] else stage_args
-        
+        if len(stage_args)>0:
+            names = 'ts kde'.split() if stage_args==['none'] else stage_args
+
         if 'ts' in names:
             if not os.path.exists('hptables_ts_kde_512.fits'):
                 healpix_map.assemble_tables(names)
@@ -159,9 +159,14 @@ def main(args):
         elif 'mspsens' in names:
             healpix_map.assemble_tables(names, nside=256) # assume nside
         elif 'all' in names:
-            print 'Finished tables_all'
+            tsmin=16
+            print 'Performing analysis of tables_all, with tsmin={}'.format(tsmin)
+            mm = maps.MultiMap()
+            print mm.summary()
+            mm.write_fits()
+            seeds.create_seedfiles(mm, seed_folder='seeds', tsmin=tsmin)
         else:
-            print 'Unexpected table name: {}'.format(names)
+            raise Exception( 'Unexpected table name: {}'.format(names))
             
 
     elif stage=='ptables':

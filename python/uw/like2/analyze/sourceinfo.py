@@ -154,6 +154,8 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             self.df = df.sort_values(by='ra')
             #self.df['hassed'] = np.array([self.df.iloc[i]['sedrec'] is not None for i in range(len(self.df))])
             self.curvature(setup=True) # add curvature item
+            probfun = lambda x: x['prob'][0] if not pd.isnull(x) else 0
+            df['aprob'] = np.array([ probfun(assoc) for  assoc in df.associations])
             self.df.to_pickle(filename)
             if not self.quiet:
                 print 'saved %s' % filename
@@ -178,7 +180,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         if sr is None: sr = self.df.iloc[1]['sedrec'] 
         if sr is None:
             self.energy = np.logspace(2.125, 5.875,16)
-            print 'Warning. did not find a secrec'
+            print 'Warning. did not find a sedrec'
         else:
             self.energy = np.sqrt( sr.elow * sr.ehigh )
             
@@ -236,21 +238,36 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             index=s.index).sort_values(by='roiname')
 
     def cumulative_ts(self, ts=None, tscut=(10,25), check_localized=True, 
-            label=None,  other_ts=[], other_label=[], ax=None, legend=True):
+            label=None,  other_ts=[], other_label=[],  legend=True):
         """ Cumulative test statistic TS
         
         A logN-logS plot, but using TS. Important thresholds at TS=10 and 25 are shown.
+        The lower plot shows the difference between the cumulative counts, and expected distribution
+        with a -3/2 slope.
         """
         usets = self.df.ts if ts is None else ts
         df = self.df
-        if ax is None:
-            fig,ax = plt.subplots( figsize=(8,6))
-        else: fig=ax.figure
+        fig, axes= plt.subplots(2,1, figsize=(8,8), sharex=True, gridspec_kw={'hspace':0.})
+        axes[0].tick_params(labelbottom=False)
+        left, bottom, width, height = (0.15, 0.10, 0.75, 0.85)
+        fraction = 0.8
+
+        axes[0].set_position([left, bottom+(1-fraction)*height, width, fraction*height])
+        axes[1].set_position([left, bottom, width, (1-fraction)*height])
         
+        ax=axes[0]
         dom = np.logspace(np.log10(9),5,1601)
-        ax.axvline(25, color='gray', lw=1, ls='--',label='TS=25')
+        ax.axvline(25, color='green', lw=1, ls='--',label='TS=25')
         hist_kw=dict(cumulative=-1, lw=2,  histtype='step')
-        ax.hist( np.array(usets,float) ,dom, color='k',  label=label, **hist_kw)
+        ht=ax.hist( np.array(usets,float) ,dom, color='k',  label=label, **hist_kw)
+        # add logN-logS line with slope -2/3
+        anchor=300 #100 
+        y = sum(usets>anchor)
+        b=-2/3.
+        a = np.log(y) - b*np.log(anchor)
+        popf = lambda x: np.exp(a + b*np.log(x))
+        ax.plot(dom, popf(dom), '--r', label='-3/2 slope');
+
         if len(other_ts)>0 :
             for ots, olab in zip(other_ts,other_label):
                 ax.hist( ots, dom,  label=olab, **hist_kw)
@@ -279,6 +296,28 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             leg =ax.legend()
             for patch in leg.get_patches():
                 pbox = patch; pbox._height=0; pbox._y=5
+
+        # stack over difference from the logN-logS
+        ax = axes[1]
+        dom2 = dom[1:]
+        ax.plot(dom2, ht[0] -popf(dom2) ,  label=label, lw=2,  )
+
+        n = sum(usets>25) -popf(25)
+        ax.plot([25,50], [n/2,-100], '--r')
+        ax.plot([25,25], [n, 0], '-r', lw=4)
+        txt = ' deficit: {}'.format(-int(n)) if n<0 else ' surplus: {}'.format(int(n))
+        ax.text(50, -100, txt, fontsize=14, va='center')
+
+        ax.set( ylabel='difference', xlabel='TS',
+            xscale='log',  xlim=(9, 1000),ylim=(-400,100) )
+        ax.axvline(25, color='green', lw=1, ls='--',label='TS=25')
+        ax.axhline(0, color='gray')
+
+        ax.xaxis.set_major_formatter(ticker.FuncFormatter(
+            lambda val,pos: { 10.0:'10', 100.:'100'}.get(val,'')))
+
+        ax.grid(True, alpha=0.3)
+
         return fig
 
     def cumulative_counts(self):
@@ -488,13 +527,15 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         ax.grid(True)
         return fig
         
-    def fit_quality(self, xlim=(0,50), ndf=10, tsbandcut=20, grid_flag=True, make_table=True, legend_flag=True):
+    def fit_quality(self, xlim=(0,30), ndf=8, tsbandcut=25, grid_flag=True, make_table=True, legend_flag=True):
         """ Spectral fit quality
         This is the difference between the TS from the fits in the individual energy bands, and that for the spectral fit.
-        It should be distributed approximately as chi squared of at most 14-2 =12 degrees of freedom. 
-        However, high energy bins usually do not contribute, so we compare with ndf=%(ndf)d.
-        All sources with TS_bands>%(tsbandcut)d are shown.<br>
-        <b>Left</b>: Power-law fits. Tails in this distribution perhaps could be improved by converting to log parabola. 
+        It should be distributed approximately as chi squared of the number of degrees of freedom. 
+        However, high energy bins usually do not contribute, there is a range of effective bins that peaks at 8.
+        So we compare with ndf=%(ndf)d.
+        All sources with TS>%(tsbandcut)d are shown.<br>
+        <b>Left</b>: Power-law fits. Tails in this distribution perhaps could be improved by changing the curvature 
+        parameter. 
         <br><b>Center</b>: Log parabola fits.
         <br><b>Right</b>: Fits for the pulsars, showing high latitude subset.
         <br><br> Averages: %(fit_quality_average)s
@@ -514,7 +555,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         powerlaw = (~psr) & (beta.isnull() | (beta<0.01) )
 
         self.tsbandcut=tsbandcut
-        cut = np.array((s.band_ts>tsbandcut) & (fq>0) , bool)
+        cut = np.array((s.ts>tsbandcut) & (fq>0) , bool)
         
         dom = np.linspace(xlim[0],xlim[1],26)
         d = np.linspace(xlim[0],xlim[1],51); delta=dom[1]-dom[0]
@@ -728,6 +769,8 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         lowebad = np.asarray((np.abs(pull)>3) , bool)
         s['lowebad']=lowebad
         s['pull']=pull
+        self.spec_con= s[fluxcut] # for interactive checks
+
         #self.df.loc[lowebad,'flags'] = np.array(self.df.flags[lowebad],int) | 4
         #print 'Tagged %d sources with lowebad, abs(pull0)>3, bit (4)' % sum(lowebad)
 
@@ -754,6 +797,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                 vals = q[cut]
                 ax.hist(vals, color=color,  label='{:5}{:4d}{:5.1f}{:5.1f}'.format(
                         name, len(vals), vals.mean(), vals.std()), **hist_kw)
+                print name, vals.std(), np.sqrt((vals[vals>0]**2).mean()), np.sqrt((vals[vals<0]**2).mean())
             ax.set_xlabel('pull')
             ax.axvline(0, color='k', ls='--')
             ax.set_xlim((-3,3))
@@ -963,7 +1007,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         ext = df.isextended
 
         cols = 'ra dec ts fitqual pindex roiname'.split()
-        extdf = pd.DataFrame(df[ext][cols]);
+        extdf = pd.DataFrame(df[ext][cols]).sort_values(by='roiname')
         config = configuration.Configuration('.', quiet=True, postpone=True)
         ecat = extended.ExtendedCatalog(os.path.expandvars('$FERMI/catalog/')+config.extended)
         extdf['spatial_model'] = [ecat[name].dmodel.name for name in extdf.index]
@@ -993,18 +1037,20 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         if p is None: return
         sed.Plot(p)(axes=ax, galmap=p.skydir, axis=xlim+ylim)
 
-    def plot_seds(self, namelist, row_size=5):
+    def plot_seds(self, namelist, row_size=5, **kwargs):
         from uw.like2.plotting import sed
-        sed.plot_seds(self, namelist, row_size=row_size)
+        sed.plot_seds(self, namelist, row_size=row_size, **kwargs)
 
 
     
     def all_plots(self):
 
         plt.close('all')
+        probfun = lambda x: x['prob'][0] if not pd.isnull(x) else 0
+        self.df['aprob'] = np.array([ probfun(assoc) for  assoc in self.df.associations])
 
-        colstosave="""ra dec jname ts modelname  freebits fitqual e0 flux flux_unc pindex pindex_unc index2 index2_unc
-                 cutoff cutoff_unc eflux100 eflux100_unc locqual delta_ts a b ang flags roiname""".split()
+        colstosave="""ra dec roiname ts aprob eflux100 modelname freebits fitqual e0 flux flux_unc pindex pindex_unc index2 index2_unc
+                 cutoff cutoff_unc  eflux100_unc locqual delta_ts a b ang flags jname""".split()
         self.df.loc[(self.df.ts>10) | self.df.psr ][colstosave].to_csv(self.csvfile)
         print 'saved truncated csv version to "%s"' %self.csvfile
         

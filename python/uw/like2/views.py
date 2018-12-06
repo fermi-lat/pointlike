@@ -52,7 +52,8 @@ class FitterSummaryMixin(object):
             prev = sname
             fmt = '%-21s%6d%10.4g%10s'
             psig = '%.1f'%(rsig*100) if rsig>0 and not np.isnan(rsig) else '***'
-            tup = (name, index_array[index], value,psig)
+            truncname = name[:20]+'*' if len(name)>20 else name
+            tup = (truncname, index_array[index], value,psig)
             if gradient:
                 fmt +='%10.1f'; tup += (grad[index],)
             print >>out,  fmt % tup
@@ -218,7 +219,7 @@ class FitterMixin(object):
         # run the fit
         ret = optimize.fmin_l_bfgs_b(self, parz, 
                 bounds=self.bounds,  fprime=self.gradient, **fit_args)
-	self.fmin_ret=ret
+        self.fmin_ret=ret
         if ret[2]['warnflag']>0: 
             print 'Fit failure: check parameters'
             self.set_parameters(parz) #restore if error  

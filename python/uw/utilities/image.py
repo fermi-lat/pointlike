@@ -289,6 +289,7 @@ class AIT(object):
         ('cbtext',    None,   'text for colorbar'),
         ('background',None,   'if set, a value to apply to NaN: default is to not set pixels\n' 
                                 'nb: do not set 0 if log scale'),
+        ('grid_color',None,  'if set, draw a grid with given color. To annotate it, use the grid method'),
         )
     
     @keyword_options.decorate(defaults)
@@ -436,6 +437,7 @@ class AIT(object):
             the string can specify linear [default], log for log10, sqrt, or asinh
         """
         nocolorbar =kwargs.pop('nocolorbar', self.nocolorbar)
+        grid_color = kwargs.pop('grid_color', None)
         cb_kw = kwargs.pop('colorbar_kw',
                 dict(orientation='vertical', shrink=0.6 if self.size==180 else 1.0))
         from numpy import ma
@@ -460,6 +462,9 @@ class AIT(object):
         else:
             self.mappable=m
         self.title(title, **title_kw)
+
+        if grid_color:
+            self.grid(color=grid_color)
 
         # for interactive formatting of the coordinates when hovering
         ##pylab.gca().format_coord = self.format_coord # replace the function on the fly!
@@ -661,7 +666,7 @@ class ZEA(object):
 
         r.apply(self.axes)
 
-        labels = ['l','b'] if self.galactic else ['RA','Dec'] 
+        labels = ['$l$','$b$'] if self.galactic else ['RA','Dec'] 
         self.axes.set_xlabel(labels[0]);self.axes.set_ylabel(labels[1])
         
     def grid(self, nticks=None, **kwargs):

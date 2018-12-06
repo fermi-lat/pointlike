@@ -163,8 +163,9 @@ class BandFlux(object):
                 spectral index 
         """
         assert len(gamma)==len(e1), 'Wrong list of energies'
-        c = (gamma-1)/(e1**(1-gamma)-e2**(1-gamma))
-        return c*(e1*e2)**(1-gamma/2) * 1e6
+        denom = e1**(1-gamma)-e2**(1-gamma) +1e-8 # avoid divide by zero
+        c = (gamma-1)/denom
+        return c*(e1*e2)**(1-gamma/2) * 1e6 + 1e-6 # cannot be zero.
  
 
     def __init__(self, cat_entry):
@@ -268,7 +269,7 @@ class CreateFermiFITS(object):
         self.df=df
         # get an entry from the source list to extract elow, ehigh
         # (assume that all are the same!)
-        sr = df.ix[0]['sedrec']
+        sr = df.iloc[0]['sedrec']
         self.elow = sr['elow']; 
         self.ehigh = sr['ehigh']
 
@@ -310,7 +311,7 @@ class CreateFermiFITS(object):
             if name not in self.df.index:
                 print 'Warning: name {} not found'.format(name)
                 continue
-            sr = self.df.ix[name]['sedrec']
+            sr = self.df.loc[name]['sedrec']
             if sr is None: 
                 print 'No sedrec for {} at with TS={:.0f}'.format(name,  row['roiname'],row['ts'],)
                 continue
@@ -394,6 +395,7 @@ class GLL_PSC2(object):
             cat_entry: pandas.Series opject
                 row from a psc 2018+ catalog
             """
+            # Functions that return the model
             def plec( ):
                 index, a,b = ce.PLEC_Index, ce.PLEC_Expfactor, ce.PLEC_Exp_Index
                 cutoff = (1/a)**(1/b)
@@ -405,18 +407,21 @@ class GLL_PSC2(object):
             def pl():
                 index,beta=  ce.PL_Index, 0
                 return Models.LogParabola(p=[flux, index, beta, pivot],free=free)
-            spectrum = dict(PowerLaw=pl, LogParabola=lp, PLSuperExpCutoff2=plec)
+
+            #spectrum = dict(PowerLaw=pl, LogParabola=lp, PLSuperExpCutoff2=plec)
             free= np.array([True,True,False,False])
             ce=cat_entry
             pivot =ce.Pivot_Energy 
             stype =ce.SpectrumType.strip()
+
             # deal with change.
             flux_name = 'Flux_Density'
             if not flux_name in ce:
                 flux_name = dict(PowerLaw='PL', LogParabola='LP', PLSuperExpCutoff2='PLEC')[stype]+'_Flux_Density'
             flux = ce[flux_name]
             
-            model=spectrum[stype]()
+            # get model, selecting function to evaluate
+            model = dict(PowerLaw=pl, LogParabola=lp, PLSuperExpCutoff2=plec)[stype]()
 
             return dict(sname=ce.Source_Name.strip(), 
                         ra=ce.RAJ2000, dec=ce.DEJ2000, 
@@ -424,7 +429,7 @@ class GLL_PSC2(object):
                         extended=ce.Extended,
                         ts=ce.Test_Statistic,
                         eflux100=ce.Energy_Flux100,
-                        pindex=ce.LP_Index,
+                        pindex=model['Index'], 
                         r95=np.sqrt(ce.Conf_95_SemiMajor*ce.Conf_95_SemiMinor),)
          
         cat=dict()

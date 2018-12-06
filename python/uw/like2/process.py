@@ -112,7 +112,7 @@ class Process(main.MultiROI):
             elif self.diffuse_key=='gal':
                 if not fit_galactic(self):return
             elif self.diffuse_key=='gal_only':
-                fit_galactic(self)
+                fit_galactic(self, folder='galfit')
                 return
             else:
                 raise Exception('Unexpected key: {}'.format(self.diffuse_key))
@@ -243,7 +243,7 @@ class Process(main.MultiROI):
                 fig=roi.plot_counts( tsmin=self.countsplot_tsmin)
                 fout = os.path.join(counts_dir, ('%s_counts.jpg'%roi.name) )
                 print '----> %s' % fout ; sys.stdout.flush()
-                fig.savefig(fout, dpi=60)
+                fig.savefig(fout, dpi=60, bbox_inches='tight')
             except Exception,e:
                 print '***Failed to analyze counts for roi %s: %s' %(roi.name,e)
                 chisq = -1
@@ -482,32 +482,6 @@ class FitIsotropic(object):
     
 def fit_isotropic(roi, nbands=8, folder='isotropic_fit'):
     return  FitIsotropic(roi, nbands, folder)()
-# def fit_isotropic(roi, nbands=8, folder='isotropic_fit'):
-#     """ fit only the front and back"""
-#     from uw.like import Models
-#     iso_source = roi.get_source('isotrop')
-#     old_model=iso_source.model.copy()
-#     roi.sources.set_model(Models.FrontBackConstant(), 'isotrop')
-#     iso_model=iso_source.model
-#     roi.reinitialize()
-
-#     cx = []
-#     for eband in range(nbands):
-#         print '*** Energy Band {}: iso counts {}'.format( eband,
-#                                 [t[1].counts.round() for t in roi[2*eband:2*eband+2]])
-#         roi.select(eband)
-#         iso_model[0]=1; iso_model[1]=1
-#         roi.fit([0,1]); 
-#         u = iso_model.get_all_parameters();
-#         cx.append(u)
-#     roi.select()
-#     roi.sources.set_model(old_model)
-#     if folder is not None:
-#         if not os.path.exists(folder): os.mkdir(folder)
-#         filename= '{}/{}.pickle'.format(folder, roi.name)
-#         pickle.dump(np.array(cx), open(filename, 'w'))
-#         print 'wrote file {}'.format(filename)
-#     return np.array(cx)
 
 class FitGalactic(object):
     """Manage the galactic correction fits
@@ -517,32 +491,39 @@ class FitGalactic(object):
         if folder is not None and not os.path.exists(folder):
             os.mkdir(folder)
         self.roi=roi
+        cx = self.fit( nbands)
+        self.fitpars= cx[:,:2] 
+        x,s,cf,cb = cx.T
+        self.chisq= sum(((x-1)/s)**2)
+  
+        if folder is not None:
+            filename= '{}/{}.pickle'.format(folder, roi.name)
+            pickle.dump(cx, open(filename, 'w'))
+            print 'wrote file {}'.format(filename)
+
+    def fit(self, nbands=8): 
+        roi = self.roi
         gal_model = roi.get_source('ring').model
         roi.thaw('Norm')
         gal_norm = gal_model[0]
-        #gal_model.set_limits('Norm', 0.2, 5.0) # override default
-        if upper_limit is not None:
-            gal_model.bounds[0][1]=np.log10(upper_limit)# set upper limit by hand
+
         roi.reinitialize()
         cx = []
+
         for eband in range(nbands):
-            print '*** Energy Band {}: gal counts {}'.format( eband,
-                                    [t[0].counts.round() for t in roi[2*eband:2*eband+2]])
+            counts = [t[0].counts.round() for t in roi[2*eband:2*eband+2]]
+            print '*** Energy Band {}: gal counts {}'.format( eband, counts)
             roi.select(eband)
             gal_model[0]=gal_norm
             roi.fit([0], ignore_exception=True); 
-            cx.append((gal_model[0], gal_model.error(0)))
-        self.fitpars= cx = np.array(cx) # convert to array, shape (nbands, 2)
-        x,s = cx.T
-        self.chisq= sum(((x-1)/s)**2)
+            cx.append((gal_model[0], gal_model.error(0), counts[0], counts[1]))
+        cx = np.array(cx) # convert to array, shape (nbands, 4)
         # re-select all bands, freeze galactic again    
         roi.select()
         roi.freeze('Norm')
+        return np.array(cx) 
 
-        if folder is not None:
-            filename= '{}/{}.pickle'.format(folder, roi.name)
-            pickle.dump(cx[:,0], open(filename, 'w'))
-            print 'wrote file {}'.format(filename)
+
     
     def update(self):
         from uw.like2 import (response,diffuse)
@@ -578,7 +559,9 @@ class FitGalactic(object):
 def fit_galactic(roi, nbands=8, folder=None, upper_limit=5.0):
     t = FitGalactic(roi, nbands, folder, upper_limit)
     print 'Chisq: {:.1f}'.format(t.chisq)
-    t.update()
+    if folder is None:
+        t.update()
+        return False
     return True
     
 def fit_diffuse(roi, nbands=8, select=[0,1,2], restore=False, folder='diffuse_fit'):

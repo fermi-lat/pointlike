@@ -55,7 +55,9 @@ class Response(object):
         self.roicenter = self.band.skydir
         self.quiet = kwargs.pop('quiet', True)
         self.roi = roi
-        self.initialize()
+        self.active=True # so distant PointSource can be inactive
+        self.initialize() # can disable the response
+
         
     def update(self):
         self.evaluate()
@@ -93,9 +95,15 @@ class PointResponse(Response):
         grad : gradient
         
     """
-
+    max_overlap = 1e-2 # zero response below this
     def initialize(self):
         self.overlap = self.band.psf.overlap(self.roicenter, self.band.radius, self.source.skydir)
+
+        # declare inactive if not free, and small overlap
+        self.active= self.overlap>PointResponse.max_overlap or np.sum(self.source.model.free)>0
+        if not self.active:
+            self.counts=0
+            return
         self._exposure_ratio = self.band.exposure(self.source.skydir)/self.band.exposure(self.roicenter)
         if self.band.has_pixels:
             if hasattr(self.band.psf, 'cpsf'):
@@ -113,10 +121,11 @@ class PointResponse(Response):
         self.evaluate()
 
         
-    def evaluate(self): #, weights=None, exposure_factor=1):
+    def evaluate(self): 
         """ update values of counts, pix_counts used for likelihood calculation, derivatives
         Called when source parameters change
         """
+        if not self.active: return
         model = self.spectral_model
         self.expected = self.band.integrator(model)
         assert not np.isinf(self.expected), 'model integration failure'
@@ -132,6 +141,7 @@ class PointResponse(Response):
             weights = self.data / self.model_pixels
         Assume that evaluate has set model_grad
         """
+        if not self.active: return None # don't expect to be called
         model = self.spectral_model
         if np.sum(model.free)==0 : return []
         # Calculate the gradient of a spectral model (wrt its parameters) integrated over the exposure.
@@ -142,6 +152,7 @@ class PointResponse(Response):
         return g * (apterm - pixterm)
 
     def __call__(self, skydir):
+        if not self.active: return 0
         return self.band.psf(skydir.difference(self.source.skydir))[0]  * self.expected
      
 

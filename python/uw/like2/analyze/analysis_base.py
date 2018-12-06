@@ -129,6 +129,7 @@ class AnalysisBase(object):
             print 'chdir to {}'.format(self.skymodel_dir)
         self.skymodel = os.path.split(os.getcwd())[-1]
         self.config = configuration.Configuration(skymodel_dir, quiet=kwargs.get('quiet',True), postpone=True)
+        plt.rc('font', size= 14)
         self.setup(**kwargs)
         if not os.path.exists('plots'):
             os.mkdir('plots')

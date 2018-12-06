@@ -3,13 +3,13 @@ Generate the XML representation of a list of sources
 $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.22 2018/01/27 15:37:18 burnett Exp $
 
 """
-import os, collections, argparse, types, glob
+import os, collections, argparse, types, glob, yaml
 from astropy.io import fits as  pyfits
 import numpy as np
 import pandas as pd
 from uw.like import Models
 from skymaps import SkyDir
-from uw.like2 import ( sources, extended)
+from uw.like2 import ( sources, )
 from uw.utilities import xml_parsers
 from collections import OrderedDict
 
@@ -156,10 +156,13 @@ def source_library(source_list, title='sources', stream=None, strict=False, maxi
     Element.stream = stream
     m2x = xml_parsers.Model_to_XML(strict=True)
     ns=ne=0
+    ### Remove this check since hard to get proper list
     try:
-        extended = pd.DataFrame(pyfits.open(glob.glob(
-            os.path.expandvars('$FERMI/catalog/Extended_archive*/LAT_extended_sources*.fit*'))[-1]
-            )[1].data)
+        config = yaml.load(open('config.yaml'))
+        ext_name =config['extended']
+        ext_pat = os.path.expandvars('$FERMI/catalog/'+ext_name+'/LAT_extended_sources*.fit*')
+        ext_file = glob.glob(ext_pat)[0]
+        extended = pd.DataFrame( pyfits.open(ext_file)[1].data )
         extended.index= [x.strip() for x in extended['Source_Name']]
     except Exception, msg:
         raise Exception('Failed to find the Extended archive: %s' %msg)
@@ -178,7 +181,7 @@ def source_library(source_list, title='sources', stream=None, strict=False, maxi
                 else:
                     sname = source['name']
                     if sname not in extended.index:
-                        print 'Failed to find %s, with no localizaiton, in extended sources' %sname
+                        raise Exception( 'Failed to find %s, with no localization, in extended sources' %sname)
                         print 'Skipping ...'
                         continue
                     with Element('spatialModel', type='SpatialMap', 

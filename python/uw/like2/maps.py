@@ -107,7 +107,7 @@ class ModelCountMaps(object):
     def __init__(self, roi, nbands=None, bandlist=None,  subdir='model_counts'):
         """
         roi : ROI object
-            Expect it to behave like an array, indexed by the banad index,
+            Expect it to behave like an array, indexed by the band index,
             and each element is a SkyFunction, returning the count density.
         bandlist : list of int | None
             bands to process. If None, do them all
@@ -120,6 +120,7 @@ class ModelCountMaps(object):
         if bandlist is None:
             if nbands is not None: bandlist=range(nbands)
             else: bandlist = range(len(roi))
+        print '{:4} {:4} {:6} {:8} {:8} {:8} '.format(*'eb nside cnts mean min max'.split())
         for ebi in bandlist:
             eb = roi[ebi] #EnegyBand object
 
@@ -133,13 +134,15 @@ class ModelCountMaps(object):
             cnts = np.array(map(eb, dirs),np.float32) * pixel_area
             
             print '{:4d} {:4d} {:6d} {:8.2e} {:8.2e} {:8.2e}'.format(
-                ebi,nside,len(cnts), cnts.mean(), cnts.min(), cnts.max())
+                ebi,nside,len(cnts), cnts.mean(), cnts.min(), cnts.max()),
             if subdir is not None:
-                subsubdir = subdir+'/{}'.format(ebi)
+                subsubdir = subdir+'/{:02d}'.format(ebi)
                 if not os.path.exists(subsubdir): os.makedirs(subsubdir)
                 outfile = subsubdir+'/HP12_{:04d}.pickle'.format(roi_index)
                 pickle.dump(cnts, open(outfile, 'w'))
-                print '\t\t--> {}'.format(outfile)
+                print '\t--> {}'.format(outfile)
+            else:
+                print '\t (not saved)'
 
 class BandCounts(object):
     """Manage results of the Model counts
@@ -224,6 +227,14 @@ class KdeMap(object):
             rval +=(band.psf(rvals[mask])*band.pix_counts[mask]).sum()
         return rval
 
+class DiffuseMap(object):
+
+    def __init__(self, roi, **kwargs):
+        pass 
+        #TDO
+    def __call__(self, v, skydir=None):
+        sd = skydir or SkyDir(Hep3Vector(v[0],v[1],v[2]))
+        # TODO
 
 class ResidualTS(object):
     """ manage a residual TS plot 
@@ -428,6 +439,7 @@ class DisplayTable(object):
 
 table_info={'ts':  (ResidualTS, dict(model='LogParabola(1e-13, 2.2, 0, 1000.)')),
             'kde': (KdeMap, dict()),
+            'diffuse': (DiffuseMap, dict()),
             'tsx': (ResidualTS, dict(model='LogParabola(1e-12, 2.3, 0, 1000.)')),
             'tsp': (ResidualTS, dict(model='ExpCutoff(1e-13,1.3, 1500.)')),
             'hard': (ResidualTS, dict( model='LogParabola(1e-15, 1.7, 0, 50000.)')),
@@ -449,7 +461,7 @@ table_info['flat']=table_info['ts']
 table_info['psr']=table_info['tsp']
 
 
-def residual_maps(roi, folder='residual_maps', nbands=8, test=False):
+def residual_maps(roi, folder='residual_maps', nbands=4, test=False):
     
     def residual_map(index):
         b=roi[index] # the BandLike object
@@ -468,12 +480,19 @@ def residual_maps(roi, folder='residual_maps', nbands=8, test=False):
         inside = id12==roi_id
         data = b.data
         model= np.array(b.model_pixels,np.float32)
-        fixed = np.array(b.fixed_pixels, np.float32)
-        free = np.zeros(b.pixels, np.float32)
-        for m in b.free_sources:
-            free += m.pix_counts
+        galactic = np.array(b[0].pix_counts) #assume!
+        isotropic= np.array(b[1].pix_counts)
+        
+        # combine counts for all local sources
+        source_cnts = np.zeros(b.pixels, np.float32)
+        for m in b.bandsources:
+            if m.source.skydir is None: continue
+            if m.counts>0:
+                source_cnts += m.pix_counts
+
         dd = dict(band_index=index, nside=nside,energy=energy, event_type=event_type, 
-                  ids=ids, model= model,data= data,inside=inside, fixed=fixed, free=free)
+                  ids=ids, model= model,data= data,inside=inside, source=source_cnts, 
+                  galactic=galactic,isotropic=isotropic)
         chi2 = sum((data-model)**2/model)
         print '{:5.0f} {:5d} {:4d}   {:4.0f}/{:4d}   {:+0.1%}'.format(energy, event_type, nside,
                                                                  chi2, len(data), (data/model-1).mean())

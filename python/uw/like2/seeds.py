@@ -133,7 +133,7 @@ def add_seeds(roi, seedkey='all', config=None,
             maximum localization quality for tentative source
     """
 
-    def add_seed(s, update_if_exists=True):
+    def add_seed(s):
         # use column 'key' to determine the model to use
         model = maps.table_info[s['key']][1]['model']
         try:
@@ -144,11 +144,13 @@ def add_seeds(roi, seedkey='all', config=None,
                 roi.freeze('Cutoff', src.name)
             print '%s: added at %s' % (s.name, s['skydir'])
         except Exception, msg:
+            print '*** fail to add source:', msg
             if update_if_exists:
                 src = roi.get_source(s.name)
                 print '{}: updating existing source at {} '.format(s.name, s['skydir'])
             else:
                 print '{}: Fail to add "{}"'.format(s.name, msg)
+                return
         # profile
         prof= roi.profile(src.name, set_normalization=True)
         src.ts= prof['ts'] if prof is not None else 0

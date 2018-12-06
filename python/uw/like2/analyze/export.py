@@ -45,7 +45,7 @@ class Export(sourceinfo.SourceInfo):
         self.error_box_cut = 0.5
         self.cuts = '(sources.ts>10) & (sources.a<%.2f) | pd.isnull(sources.locqual)' %self.error_box_cut
     
-    def analysis(self, fits_only=False):
+    def analysis(self, fits_only=True): # for now
         """Analysis log
         <pre>%(logstream)s</pre>"""
         self.startlog()
@@ -65,11 +65,12 @@ class Export(sourceinfo.SourceInfo):
         """Links to output files
         <ul>
          <li>FITS <a href="../../%(fits_file)s?download=true">%(fits_file)s</a></li>
-         <li>XML  <a href="../../%(xml)s?download=true">%(xml)s</a></li>
+         <li>XML  (not generated)
         </ul>
         
         """
-        self.xml = glob.glob('*.xml')[0]
+        # <a href="../../%(xml)s?download=true">%(xml)s</a></li>
+        #self.xml = glob.glob('*.xml')[0]
         
     def fits_summary(self):
         """FITS file summary

@@ -30,7 +30,10 @@ class BandLike(object):
         """
         keyword_options.process(self, kwargs)
         # make a list of the Response objects
-        self.bandsources = np.array(map(lambda s: s.response(band, quiet=self.quiet, roi=roi), sources))
+        self.bandsources = np.array(
+                map(lambda s: s.response(band, quiet=self.quiet, roi=roi), sources)
+        )
+        self.active_mask = map(lambda s: s.active, self.bandsources)
 
         self.band = band 
         self.roi = roi
@@ -66,7 +69,7 @@ class BandLike(object):
     def __str__(self):
         b = self.band
         return '%s.%s: %d models (%d free) applied to band %.0f-%.0f, %s with %d pixels, %d photons'\
-                % (self.__module__,self.__class__.__name__,len(self.bandsources), sum(self.free), b.emin, b.emax, 
+                % (self.__module__,self.__class__.__name__,sum(self.active_mask), sum(self.free), b.emin, b.emax, 
                  self.event_type_name, self.pixels, sum(self.data), )
                  
     def __repr__(self): return self.__str__()
@@ -103,16 +106,23 @@ class BandLike(object):
         assert free is not None, 'bad call?'
         self.free = free
         self.free_sources = self.bandsources[self.free]
-        self.counts = self.fixed_counts = sum([b.counts for b in self.bandsources[ ~ self.free]])
+        self.active_mask = map(lambda s: s.active, self.bandsources)
+        #compile counts and count masks only for pointsources that are "active", i.e. not too far away or weak
+        fixed_sources = self.bandsources[~self.free & self.active_mask]
+        self.counts = self.fixed_counts = sum([b.counts for b in fixed_sources])
         if not self.band.has_pixels: 
             self.model_pixels=self.fixed_pixels = self.weights= np.array([])
             return
         self.fixed_pixels = np.zeros(self.pixels)
-        for m in self.bandsources[ ~ self.free]:
+        for m in fixed_sources:
             self.fixed_pixels += m.pix_counts
         self.model_pixels = self.fixed_pixels.copy()
         for m in self.free_sources:
+            if m.counts==0:
+                print 'Source {} is inactive, but free'.format(m.source.name) 
+                continue # should be no inactive free sources?
             self.model_pixels += m.pix_counts
+
         
     def update(self, reset=False, force=False, **kwargs):
         """ assume that parameters have changed. Update only contributions 
@@ -202,21 +212,24 @@ class BandLike(object):
             t+= m.fill_grid(sdirs)
         return t
         
-    def dataframe(self, query=None, sortby=None, ascending=False):
+    def dataframe(self, query=None, sortby='counts', ascending=False):
         """ return a pandas.DataFrame for diagnostics """
         import pandas as pd
         df = pd.DataFrame(
             dict([(s.source.name, 
                 dict(counts=round(s.counts,), 
-                    overlap=round(s.overlap,2),
+                    overlap=round(s.overlap,3),
                     ts= np.nan if s.source.isglobal else round(s.source.ts), 
                     free=self.free[i],
                     distance=round(np.degrees(s.band.skydir.difference(s.source.skydir)) if s.source.skydir is not None else 0 ,2),
                     extended=s.source.skydir is not None and hasattr(s.source, 'dmodel'),
                     diffuse=s.source.skydir is None,
+                    index = s.source.index[0],
+                    ring = s.source.index[1],
                     )
                 )
-                for i,s in enumerate(self)])
+                for i,s in enumerate(self[self.active_mask])]
+                )
             ).T
         if query is not None:
             df = df.query(query)
@@ -335,7 +348,7 @@ class BandLikeList(list):
         
 
         if elow is not None:
-            esel = lambda b: b.band.energy>elow and b.band.energy<ehigh if ehigh is not None else True
+            esel = lambda b: b.band.energy>elow and (b.band.energy<ehigh if ehigh is not None else True)
             etsel= lambda b: b.band.event_type==etindex if event_type is not None else True
             t = filter(lambda b: esel(b) and etsel(b) , self[:]) 
 
