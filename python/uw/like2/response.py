@@ -601,6 +601,10 @@ class ExtendedResponse(DiffuseResponse):
             self.psf_overlap = pvals[inside].sum() / pvals.sum() 
         self.ap_center = self.grid(self.center, cvals)
         self.overlap = cvals[inside].sum() / cvals.sum()
+        if self.overlap<1e-6:
+            self.active=False
+            self.counts = 0
+            return
         self.exposure_at_center = self.band.exposure(self.source.skydir)
         self.exposure_ratio = self.exposure_at_center / self.band.exposure(self.roicenter)
         self.factor = self.overlap * self.exposure_ratio 
@@ -612,6 +616,8 @@ class ExtendedResponse(DiffuseResponse):
         self.initmodel = self.source.model.copy()
         
     def evaluate(self):
+        if not self.active:
+            return
         total_counts = self.exposure_integral()
         self.counts = total_counts * self.factor
         if self.band.has_pixels:
@@ -636,6 +642,7 @@ class ExtendedResponse(DiffuseResponse):
         """ return value of perhaps convolved grid for the position
         skydir : SkyDir object | [SkyDir]
         """
+        if not self.active: return 0
         return self.grid(skydir, self.cvals) / self.exposure_at_center * self.counts/self.factor
         
     def __repr__(self):

@@ -283,7 +283,9 @@ class BandLike(object):
         
         Note: to get counts, multiply by self.band.pixel_area
         """
-        return np.sum(self.fluxes(skydir)) 
+        ret= np.sum(self.fluxes(skydir)) 
+        assert not np.isnan(ret), 'NaN value detected at skydir {}'.format(skydir)
+        return ret
     
          
 class BandLikeList(list):

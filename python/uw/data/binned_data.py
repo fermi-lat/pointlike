@@ -185,7 +185,7 @@ class Pixels(object):
         self.cnt = items[:,1]
 
     def dataframe(self):
-        """return a DataFrame with number of pixels and photons per band
+        """return a DataFrame with number of pixels and photons per channel
         """
         if self.counter is not None:
             self._decode_counter()
@@ -195,7 +195,7 @@ class Pixels(object):
             c = self.cnt[self.chn==channel]
             d[channel] = {'pixels': len(c), 'photons': sum(c)}
         df = pd.DataFrame(d).T[['pixels', 'photons']]
-        df.index.name='band'
+        df.index.name='chanel'
         return df
 
     def __getitem__(self, channel):
