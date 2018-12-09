@@ -122,7 +122,7 @@ class ModelCountMaps(object):
             else: bandlist = range(len(roi))
         print '{:4} {:4} {:6} {:8} {:8} {:8} '.format(*'eb nside cnts mean min max'.split())
         for ebi in bandlist:
-            eb = roi[ebi] #EnegyBand object
+            eb = roi[ebi] #EnergyBand object
 
             # choose nside to be power of 2, override the data
             nside =  ModelCountMaps.nside_array[ebi]
@@ -132,6 +132,7 @@ class ModelCountMaps(object):
             pix_ids = index_table[roi_index]
             dirs = map(dirfun, pix_ids)
             cnts = np.array(map(eb, dirs),np.float32) * pixel_area
+            assert sum(np.isnan(cnts))==0, 'NaN value(s) found'
             
             print '{:4d} {:4d} {:6d} {:8.2e} {:8.2e} {:8.2e}'.format(
                 ebi,nside,len(cnts), cnts.mean(), cnts.min(), cnts.max()),
@@ -144,59 +145,61 @@ class ModelCountMaps(object):
             else:
                 print '\t (not saved)'
 
-class BandCounts(object):
-    """Manage results of the Model counts
-    """
-    def __init__(self, band_index, path='model_counts', reload=False):
-        """Assume in a skymodel folder, containg a model_counts subfolder
-        """
-        self.bi = band_index
-        self.path=path+'/{}'.format(band_index)
-        nside_list = ModelCountMaps.nside_array
-        self.nside = nside_list[band_index]
-        self.filename = self.path+'/combined.pickle'
-        if os.path.exists(self.filename) and not reload:
-            self.load()
-        else:
-            self.combine()
-            self.dump()
+# (Moved to simulation)
+# class BandCounts(object):
+#     """Manage results of the Model counts
+#     """
+#     def __init__(self, band_index, path='model_counts', reload=False):
+#         """Assume in a skymodel folder, containg a model_counts subfolder
+#         """
+#         self.bi = band_index
+#         self.path=path+'/{:02d}'.format(band_index)
+#         nside_list = ModelCountMaps.nside_array
+#         self.nside = nside_list[band_index]
+#         self.filename = self.path+'/combined.pickle'
+#         if os.path.exists(self.filename) and not reload:
+#             self.load()
+#         else:
+#             self.combine()
+#             self.dump()
 
-    def combine(self):
-        index_table = make_index_table(12, self.nside)
-        d = dict()
-        ff = sorted(glob.glob(self.path+'/HP12*.pickle'.format(self.bi)));
-        assert len(ff)==1728, 'only found {} pickle files in {}'.format(len(ff), self.path)
-        for i,f in enumerate(ff):
-            ids = index_table[i]
-            try:
-                values = pickle.load(open(f))
-            except Exception, msg:
-                print 'Failed to load file {}: {}'.format(f, msg)
-                raise
-            assert len(ids)==len(values), 'oops: {} ids, but {} values'.format(len(ids), len(values))
-            d.update(zip(ids, values))
-        self.counts= np.array(d.values(),np.float32)
+#     def combine(self):
+#         index_table = make_index_table(12, self.nside)
+#         d = dict()
+#         ff = sorted(glob.glob(self.path+'/HP12*.pickle'.format(self.bi)));
+#         assert len(ff)==1728, 'only found {} pickle files in {}'.format(len(ff), self.path)
+#         for i,f in enumerate(ff):
+#             ids = index_table[i]
+#             try:
+#                 values = pickle.load(open(f))
+#                 assert sum(np.isnan(values))==0, 'Found Nan values'
+#             except Exception, msg:
+#                 print 'Failed to load file {}: {}'.format(f, msg)
+#                 raise
+#             assert len(ids)==len(values), 'oops: {} ids, but {} values'.format(len(ids), len(values))
+#             d.update(zip(ids, values))
+#         self.counts= np.array(d.values(),np.float32)
 
-    def plot(self, **kwargs):
-        from uw.like2.pub import healpix_map as hpm
-        name = 'band{:02d}'.format(self.bi)
-        hpm.HParray(name, self.counts).plot(log=True, title=name, **kwargs)
+#     def plot(self, **kwargs):
+#         from uw.like2.pub import healpix_map as hpm
+#         name = 'band{:02d}'.format(self.bi)
+#         hpm.HParray(name, self.counts).plot(log=True, title=name, **kwargs)
 
-    def dump(self):
-        pickle.dump(self.counts, open(self.filename, 'w'))
-        print 'Saved file {}'.format(self.filename)
+#     def dump(self):
+#         pickle.dump(self.counts, open(self.filename, 'w'))
+#         print 'Saved file {}'.format(self.filename)
 
-    def load(self):
-        self.counts = pickle.load(open(self.filename))
+#     def load(self):
+#         self.counts = pickle.load(open(self.filename))
         
-    def simulate(self):
-        """Return sparsified Poisson simulation
-        """
-        sim =np.random.poisson(self.counts)
-        nonzero = sim>0
-        ids=np.arange(len(sim))[nonzero]
-        counts = sim[nonzero]
-        return np.array([ids, counts], np.int32)
+#     def simulate(self):
+#         """Return sparsified Poisson simulation
+#         """
+#         sim =np.random.poisson(self.counts)
+#         nonzero = sim>0
+#         ids=np.arange(len(sim))[nonzero]
+#         counts = sim[nonzero]
+#         return np.array([ids, counts], np.int32)
 
 
 class KdeMap(object):

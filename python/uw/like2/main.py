@@ -232,7 +232,7 @@ class ROI(views.LikelihoodViews):
                     loglike = fv.log_like(),
                     pars = fv.parameters[:], 
                     covariance  = fv.covariance,
-                    mask_indeces = np.arange(len(mask)[mask]),
+                    mask_indeces = np.arange(len(fv.mask))[fv.mask],
                     qual = qual,)
                 fv.modify(update_by)
                 if fit_kw['estimate_errors']: fv.save_covariance()
