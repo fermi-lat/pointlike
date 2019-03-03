@@ -10,6 +10,7 @@ import numpy as np
 import pylab as plt
 import matplotlib.ticker as ticker
 import pandas as pd
+from ..import diffuse
 
 from uw.utilities import image
 
@@ -56,7 +57,7 @@ def get_counts(roi, event_type=None, tsmin=10, emax=None):
     total = np.zeros(nume)
     utotal = np.zeros(nume)
     uobserved = np.zeros(nume)
-    inside = np.zeros((nume,5)) # for data, gal, iso, sun, sources
+    inside = np.zeros((nume,5)) # for data, gal, iso, sun, sources, 
 
     def pixel_counts(s, imask): # helper needed to avoid invoking pix_counts
         if s.counts==0: return 0
@@ -78,15 +79,17 @@ def get_counts(roi, event_type=None, tsmin=10, emax=None):
             uobserved[i] += b.unweight * sum(b.data)
 
 
-            # total counts for active part of ROI
-            imask = b.inside
-            if len(imask)==0: #no data pixels inside.
-                continue
-            data = b.data[imask].sum()
-            diffuse = np.array([ x.pix_counts[imask].sum() for x in b[:3]], np.float32)
+            # # total counts for active part of ROI
+            # imask = b.inside
+            # npix = len(imask); datapix=sum(imask)
+            # inside[i,-1] =  datapix
+            # if len(imask)==0: #no data pixels inside.
+            #     continue
+            # data = b.data[imask].sum()
+            # diffuse = np.array([ x.pix_counts[imask].sum() for x in b[:3]], np.float32)
 
-            sources = np.array([ pixel_counts(x,imask) for x in b[3:]], np.float32).sum()
-            inside[i] += np.hstack([data, diffuse, sources])
+            # sources = np.array([ pixel_counts(x,imask) for x in b[3:]], np.float32).sum()
+            # inside[i, :5] += np.hstack([data, diffuse, sources])
 
     
     models = [(names[j] , model_counts[:,j]) for j in range(numsrc)]
@@ -99,7 +102,8 @@ def get_counts(roi, event_type=None, tsmin=10, emax=None):
     return dict(energies=energies, observed=observed, models=models, 
         names=names, total=total, bandts=bandts, chisq=chisq, 
         uchisq=uchisq, utotal=utotal, uobserved=uobserved,
-        inside=inside)
+        # inside=inside,
+        )
     
 def get_npred(roi, source_name, event_type=None):
     """
@@ -167,12 +171,27 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
         en,obs,tot = count_data['energies'],count_data['observed'],count_data['total']
         
         rel=1.0
+        def get_data(name):
+            for n, data in count_data['models']:
+                if n==name:
+                    return data.copy()
+            raise Exception('Counts from model "{}" not found for relative plots'.format(name))
+       
         if relto is not None:
-            for name, data in count_data['models']:
-                if name==relto:
-                    rel=data
-                    break
-            assert np.all(rel!=1.0), 'Did not find component {} for relative plots'
+            if relto=='isotropic':
+                # special case to scale the isotrop model with the ratio of this roi's factors
+                rel = get_data('isotrop')
+
+                if 'factors' in roi.config['diffuse']['isotrop']:
+                    global_iso =roi.config['diffuse']['isotrop']['factors']['front']
+                    local_iso=diffuse.normalization['iso']['front']
+                    ratio=local_iso/global_iso
+                    rel[:8] /= ratio
+                else: ratio=1
+                print 'using isotropic...\n {}'.format(ratio.round(3))
+            else:  
+                rel = get_data(relto)  
+ 
             ax.axhline(1.0, color='grey', ls='--') 
 
         for name, data in count_data['models']:
@@ -295,8 +314,11 @@ def stacked_plots(roi, counts_dir=None, fignum=6, title=None, **kwargs):
     plt.close(fignum)
     oldlw = plt.rcParams['axes.linewidth']
     plt.rcParams['axes.linewidth'] = 2
-    figsize = kwargs.pop('figsize', (5,8))
-    fig, axes = plt.subplots(2,1, sharex=True, num=fignum, figsize=figsize)
+    xlim, ylim = [kwargs.pop(x, None) for x in ('xlim','ylim')]
+    figsize = kwargs.pop('size', (4,6))
+
+    fig, axes = plt.subplots(2,1, sharex=True, num=fignum)
+
     fig.subplots_adjust(hspace=0)
     axes[0].tick_params(labelbottom=False)
     left, bottom, width, height = (0.15, 0.10, 0.75, 0.85)
@@ -309,7 +331,7 @@ def stacked_plots(roi, counts_dir=None, fignum=6, title=None, **kwargs):
     plt.rcParams['axes.linewidth'] = oldlw
 
     axes[0].set_xlabel('') 
-    #axes[0].set_ylim(ymin=30)
+
     if title is None:
         l,b = roi.roi_dir.l(), roi.roi_dir.b()
         if l>180: l-=360
@@ -324,6 +346,10 @@ def stacked_plots(roi, counts_dir=None, fignum=6, title=None, **kwargs):
         fig.savefig(fout)
         print 
     fig.set_facecolor('white')
+    if figsize is not None:
+            fig.set(figwidth=figsize[0], figheight=figsize[1])        
+    if xlim is not None: fig.axes[0].set(xlim=xlim)
+    if ylim is not None: feg.axes[0].set(ylim=ylim)
     return fig
 
 

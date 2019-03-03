@@ -17,9 +17,9 @@ import matplotlib.ticker as ticker
 import pandas as pd
 
 from uw.utilities import makepivot
-from . import analysis_base, _html
+from . import analysis_base, _html, fitquality
 from .. import extended, configuration
-from ..tools import create_jname
+from ..tools import create_jname, decorate_with 
 from analysis_base import html_table, FloatFormat
 from skymaps import SkyDir, Band
 
@@ -250,7 +250,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         fig, axes= plt.subplots(2,1, figsize=(8,8), sharex=True, gridspec_kw={'hspace':0.})
         axes[0].tick_params(labelbottom=False)
         left, bottom, width, height = (0.15, 0.10, 0.75, 0.85)
-        fraction = 0.8
+        fraction = 0.75
 
         axes[0].set_position([left, bottom+(1-fraction)*height, width, fraction*height])
         axes[1].set_position([left, bottom, width, (1-fraction)*height])
@@ -309,7 +309,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         ax.text(50, -100, txt, fontsize=14, va='center')
 
         ax.set( ylabel='difference', xlabel='TS',
-            xscale='log',  xlim=(9, 1000),ylim=(-400,100) )
+            xscale='log',  xlim=(9, 1000),ylim=(-250,250) )
         ax.axvline(25, color='green', lw=1, ls='--',label='TS=25')
         ax.axhline(0, color='gray')
 
@@ -527,108 +527,12 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         ax.grid(True)
         return fig
         
-    def fit_quality(self, xlim=(0,30), ndf=8, tsbandcut=25, grid_flag=True, make_table=True, legend_flag=True):
-        """ Spectral fit quality
-        This is the difference between the TS from the fits in the individual energy bands, and that for the spectral fit.
-        It should be distributed approximately as chi squared of the number of degrees of freedom. 
-        However, high energy bins usually do not contribute, there is a range of effective bins that peaks at 8.
-        So we compare with ndf=%(ndf)d.
-        All sources with TS>%(tsbandcut)d are shown.<br>
-        <b>Left</b>: Power-law fits. Tails in this distribution perhaps could be improved by changing the curvature 
-        parameter. 
-        <br><b>Center</b>: Log parabola fits.
-        <br><b>Right</b>: Fits for the pulsars, showing high latitude subset.
-        <br><br> Averages: %(fit_quality_average)s
-        %(badfit_check)s
-        %(poorfit_table)s
+    @decorate_with(fitquality.FitQualityPlots)
+    def fit_quality(self, xlim=(0,30), ndf=(9,8,8), ):
 
-        """
-        from scipy import stats
-        fig, axx = plt.subplots(1,3, figsize=(12,6))
-        plt.subplots_adjust(left=0.1)
-        s = self.df
-        psr = np.asarray(s.psr, bool)
-        fq = np.array(s.fitqual, float)
-        fq[pd.isnull(fq)]=0
-        beta = s.beta
-        logparabola = (~psr) & (beta>0.01)
-        powerlaw = (~psr) & (beta.isnull() | (beta<0.01) )
-
-        self.tsbandcut=tsbandcut
-        cut = np.array((s.ts>tsbandcut) & (fq>0) , bool)
-        
-        dom = np.linspace(xlim[0],xlim[1],26)
-        d = np.linspace(xlim[0],xlim[1],51); delta=dom[1]-dom[0]
-        chi2 = lambda x: stats.chi2.pdf(x,ndf)
-        fudge = 1.0 # to scale, not sure why
-        hilat = np.abs(self.df.glat)>5
-        self.average = [0]*4; i=0
-        def tobool(a): return np.array(a, bool)
-        for ax, label, cut_expr in zip(axx[:2], ('power law', 'log-normal',), ('powerlaw','logparabola')):
-            mycut=tobool(cut&eval(cut_expr))
-            count = sum(mycut)
-            if count==0:
-                print 'Not generating plot for %s' % label
-                continue
-            ax.hist(fq[mycut].clip(*xlim), dom, histtype='stepfilled',  label=label+' (%d)'%count)
-            self.average[i] = fq[mycut].mean(); i+=1
-            ax.plot(d, chi2(d)*count*delta/fudge, 'r', lw=2, label=r'$\mathsf{\chi^2\ ndf=%d}$'%ndf)
-            ax.grid(grid_flag); ax.set_xlabel('fit quality')
-            if legend_flag: ax.legend(prop=dict(size=10))
-            else: ax.set_title(label)
-            
-        def right(ax, label='exponential cutoff', cut_expr='psr'):
-            mycut= cut & (psr) #tobool(cut&eval(cut_expr))
-            count = sum(mycut)
-            if count==0: return
-            if legend_flag:
-                labels = [label+' (%d)' %count,label+' [|b|>5] (%d)' %sum(mycut&hilat),r'$\mathsf{\chi^2\ ndf=%d}$'%ndf]
-            else:
-                labels = ['all', '|b|>5', '_nolegend_']
-                ax.set_title(label)
-            ax.hist(fq[tobool(mycut)].clip(*xlim), dom, histtype='stepfilled', label=labels[0])
-            ax.hist(fq[tobool(mycut&hilat)].clip(*xlim), dom, histtype='stepfilled', color='orange', 
-                label=labels[1])
-            self.average[i]   = fq[tobool(mycut&hilat)].mean()
-            self.average[i+1] = fq[tobool(mycut&(~hilat))].mean()
-            ax.plot(d, chi2(d)*count*delta/fudge, 'r', lw=2, label=labels[2])
-            ax.grid(grid_flag);ax.set_xlabel('fit quality')
-            ax.legend(loc='upper right', prop=dict(size=10))
-        
-        right(axx[2])
-        self.df['badfit2'] =np.array(self.df.badfit.values, bool)
-        t = self.df.loc[(self.df.badfit2) & (self.df.ts>10)].sort_values(by='roiname')
-        print '%d sources with bad fits' %len(t)
-        if len(t)>0:
-            print '%d sources with missing errors' % len(t)
-            self.badfit = t[['ts', 'freebits', 'badbits', 'pindex', 'beta', 'e0','roiname']]
-            self.badfit_check = html_table(self.badfit, name=self.plotfolder+'/badfits', 
-                heading='<h4>%d Sources with missing errors</h4>' % len(t), float_format=FloatFormat(1))
-            ids = np.array(sorted([int(name[-4:]) for name in set(self.badfit.roiname)]))
-            self.badfit_check +='<p>List of roi numbers: {}'.format(np.array(ids))
-        else: self.badfit_check = '<p>All sources fit ok.'
-        self.fit_quality_average =  ', '.join( map(lambda x,n :'%s: %.1f' %(n,x) ,
-                            self.average, 'powerlaw logparabola expcutoff(hilat) expcutoff(lolat)'.split()) )
-        self.ndf=ndf
-        print 'fit quality averages:', self.fit_quality_average
-        if make_table:
-            # Make table of the poor fits
-            s['pull0'] = np.array([x.pull[0] if x is not None else np.nan for x in s.sedrec ])
-            t =s.loc[((s.fitqual>30) | (np.abs(s.pull0)>3)) & (s.ts>10) ]\
-                ['ra dec glat fitqual pull0 ts modelname freebits index2 roiname'.split()].sort_values(by='roiname')
-            if len(t)==0:
-                self.poorfit_table= '<p>No poor fits found'
-            else:
-            
-                self.poorfit_table  = html_table(t, name=self.plotfolder+'/poorfit', 
-                        heading='<h4>Table of %d poor spectral fits</h4>'%len(t),
-                        float_format=FloatFormat(2),
-                        formatters=dict(ra=FloatFormat(3), dec=FloatFormat(3), ts=FloatFormat(0),index2=FloatFormat(3)))
-
-                # flag sources that made it into the list
-                self.df.loc[t.index, 'flags'] = np.asarray(self.df.flags[t.index],int) | 2
-                print '%d sources flagged (2) as poor fits' %len(t)
-        return fig
+        fq = fitquality.FitQualityPlots(self, xlim=xlim, ndf=ndf )
+        fq.badfit()
+        return plt.gcf()
       
     def poor_fit_positions(self):
         """ Positions of poorly-fit sources

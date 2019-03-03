@@ -74,7 +74,7 @@ class Source(object):
         self.name = str(self.name) # force to be a string
         if self.skydir is None:
             # global source: keep original model
-            self.free = self.model.free.copy() if self.model is not None else None  # save copy of initial free array to restore
+            self.free = np.array(self.model.free).copy() if self.model is not None else None  # save copy of initial free array to restore
             return
         elif hasattr(self.skydir, '__iter__'): #allow a tuple of (ra,dec)
             self.skydir = SkyDir(*self.skydir)

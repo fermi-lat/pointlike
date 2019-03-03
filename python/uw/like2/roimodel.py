@@ -170,7 +170,9 @@ class ROImodel(list):
             newsource = sources.PointSource(**kw)
             
         if newsource.name in self.source_names:
-            raise ROImodelException('Attempt to add source "%s": a source with that name already exists' % newsource.name)
+            print 'Attempt to add source "{}" from ROI {}: a source with that name already exists'.format(
+                 newsource.name, newsource.index)
+            return None
         self.append(newsource)
         self.initialize()
         return newsource

@@ -169,7 +169,7 @@ class DiffuseResponse(Response):
         self.quiet=kwargs.get('quiet', True)
         
     def initialize(self, force=False):
-        if self.setup or force: return
+        if self.setup and not force: return
         self.setup=True
         #set up the spatial model 
         self.dmodel = self.source.dmodel[self.band.event_type]

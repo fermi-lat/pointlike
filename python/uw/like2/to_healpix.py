@@ -9,7 +9,7 @@ from skymaps import Band
 def pickle_dump(roi,  pickle_dir, dampen, ts_min=5, **kwargs):
     """ dump the source information from an ROI constructed from the sources here
     ts_min : float
-        threshold for saving. But if name starts with 'PSR' save anyway
+        threshold for saving. But if name starts with 'PSR' or extended save anyway
     """
     assert os.path.exists(pickle_dir), 'output folder not found: %s' %pickle_dir
     name = roi.name.strip()

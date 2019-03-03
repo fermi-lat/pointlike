@@ -172,15 +172,19 @@ class GComp(object):
 
      """
     def __init__(self, modelname, energy=131, 
-            root='/nfs/farm/g/glast/g/catalog/pointlike/fermi/gardian/' ):
+            root='/nfs/farm/g/glast/g/catalog/pointlike/fermi/gardian/' , reload=False):
         from astropy.table import Table
  
-        filename = '{}{}_{:d}.fits'.format(root, modelname, energy)
-        assert os.path.exists(filename), 'File "{}" not found'.format(filename)
-        self.df=Table.read(filename, hdu=1).to_pandas(); 
+        cfile = '{}{}_{:d}.fits'.format(root, modelname, energy)
+        if not os.path.exists(cfile) or reload:
+            print 'Will create file {}'.format(cfile)
+            GarDian(modelname=mname, energy=energy).write(cfile)
+
+        assert os.path.exists(cfile), 'File "{}" not found'.format(cfile)
+        self.df=Table.read(cfile, hdu=1).to_pandas(); 
         self.modelname, self.energy = modelname, energy
         self.nside = nside=int(np.sqrt(len(self.df)/12))
-        print 'read file {}'.format(filename)
+        print 'read file {}'.format(cfile)
 
         # add locations to the DataFrame
         glon,glat=healpy.pix2ang(nside, range(12*nside**2), lonlat=True)
@@ -214,8 +218,8 @@ class GComp(object):
         if name=='isotropic': 
             return hpm.HParray(name, self.df['egb'])
         if name=='sources' : return hpm.HParray(name, self.df['src']+self.df['UN'])
-
-        return hpm.HParray(name, self.df[name.lower()])
+        
+        return hpm.HParray(name, self.df[name])
 
     
     def along_plane(self, components, ylim=(0.1,None)):
@@ -270,9 +274,9 @@ class GComp(object):
     def ait_plot(self, comp, fraction=False, **kwargs):
         fig,ax=plt.subplots(figsize=(16,8))
         if not fraction:
-            defaults = dict(log=True, vmin=1, vmax=1000.)
+            defaults = dict(log=True, vmin=1, vmax=1000., title=kwargs.get('title',comp),)
             defaults.update(**kwargs)
-            t =self[comp].plot(axes=ax, title=comp, **defaults)
+            t =self[comp].plot(axes=ax,  **defaults)
         else:
             defaults=dict(vmin=0, vmax=100.); defaults.update(**kwargs)
             a = self[comp].vec; b = self['final'].vec - self['src'].vec

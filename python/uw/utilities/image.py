@@ -437,7 +437,7 @@ class AIT(object):
             the string can specify linear [default], log for log10, sqrt, or asinh
         """
         nocolorbar =kwargs.pop('nocolorbar', self.nocolorbar)
-        grid_color = kwargs.pop('grid_color', None)
+        grid_color = kwargs.pop('grid_color', self.grid_color)
         cb_kw = kwargs.pop('colorbar_kw',
                 dict(orientation='vertical', shrink=0.6 if self.size==180 else 1.0))
         from numpy import ma

@@ -210,30 +210,32 @@ class ROI(views.LikelihoodViews):
         plot = kwargs.pop('plot', False)
        
         if setpars is not None: 
-            self.sources.parameters.setitems(setpars)
+            self.sources.parameters.setitems(setpars, quiet=True)
             
         fit_kw = dict(use_gradient=True, estimate_errors=True)
         fit_kw.update(kwargs)
 
         with self.fitter_view(select, exclude=exclude) as fv:
-            qual = fv.delta_loglike()
-            if qual < tolerance and qual>0:
-                if summarize:
-                    print 'Not fitting, estimated improvement, %.2f, is less than tolerance= %.1f' % (qual, tolerance)
-                    return
+            if tolerance>0:
+                qual = fv.delta_loglike()
+                if qual < tolerance and qual>0:
+                    if summarize:
+                        print 'Not fitting, estimated improvement, %.2f, is less than tolerance= %.1f' % (qual, tolerance)
+                        return
             try:
+                qual=99.
                 fv.maximize(**fit_kw)
                 w = fv.log_like()
                 self.fmin_ret = fv.fmin_ret
                 if summarize:
                     print '%d calls, function value, improvement, quality: %.1f, %.2f, %.2f'\
                         % (fv.calls, w, w - fv.initial_likelihood, fv.delta_loglike())
-                self.fit_info = dict(
-                    loglike = fv.log_like(),
-                    pars = fv.parameters[:], 
-                    covariance  = fv.covariance,
-                    mask_indeces = np.arange(len(fv.mask))[fv.mask],
-                    qual = qual,)
+                # self.fit_info = dict(
+                #     loglike = fv.log_like(),
+                #     pars = fv.parameters[:], 
+                #     covariance  = fv.covariance,
+                #     mask_indeces = np.arange(len(fv.mask))[fv.mask],
+                #     qual = fv.delta_loglike(),)
                 fv.modify(update_by)
                 if fit_kw['estimate_errors']: fv.save_covariance()
                 if summarize: fv.summary()
@@ -243,6 +245,12 @@ class ROI(views.LikelihoodViews):
                 print 'Fit Failure %s: quality: %.2f' % (msg, qual)
                 fv.summary() # 
                 if not ignore_exception: raise
+            self.fit_info = dict(
+                loglike = fv.log_like(),
+                pars = fv.parameters[:], 
+                covariance  = fv.covariance,
+                mask_indeces = np.arange(len(fv.mask))[fv.mask],
+                qual = fv.delta_loglike(),)
         return 
     
     
@@ -335,7 +343,7 @@ class ROI(views.LikelihoodViews):
         """
         return plotting.counts.get_counts(self, event_type=event_type)
         
-    def get_sed(self, source_name=None, event_type=None, update=False, tol=0.1):
+    def get_sed(self, source_name=None, event_type=None, update=False, tol=0.2):
         """ return the SED recarray for the source, including npred info
         source_name : string
             Name of a source in the ROI, with possible wildcards
@@ -379,7 +387,7 @@ class ROI(views.LikelihoodViews):
         # check to see if not Free:
         # need to thaw it temporarily
         not_free= not np.any(source.model.free)
-        if not_free: self.thaw('Norm')
+        if not_free: self.thaw('Norm', source.name)
         xlim, ylim = [kwargs.pop(x, None) for x in ('xlim','ylim')]
         showts = kwargs.pop('showts', True)
         if kwargs.pop('update', False) or not hasattr(self,'sedrec') or self.sedrec is None:

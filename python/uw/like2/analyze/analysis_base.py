@@ -317,7 +317,7 @@ class AnalysisBase(object):
             ax.set_title(title, fontsize='small')
         
         plt.setp(ax, xlim=(180,-180),  ylim=(-1.02, 1.02));
-        ax.axhline(0, color='k');ax.axvline(0,color='k');
+        ax.axhline(0, color='grey'); ax.axvline(0,color='grey')
         if labels: 
             ax.set_xlabel('glon')
             ax.set_ylabel('sin(glat)', labelpad=-5) #note move label to right

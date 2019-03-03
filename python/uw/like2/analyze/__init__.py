@@ -16,7 +16,7 @@ __all__=[
  'config',
  #'cputime',
  #'data',
- #'diffuse_info',
+ 'diffuse_fits',
  'diffuse_correction',
  'environment',
  'export',

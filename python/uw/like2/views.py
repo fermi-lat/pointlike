@@ -62,11 +62,15 @@ class FitterSummaryMixin(object):
         """ estimate change in log likelihood from current gradient 
         """
         try:
-            gm = np.matrix(self.gradient())
-            H = self.hessian()
-            return (gm * H.I * gm.T)[0,0]/4
+            # Old code assuming now-deprecated numpy.matrix
+            # gm = np.matrix(self.gradient())
+            # H = self.hessian()
+            # return (gm * H.I * gm.T)[0,0]/4
+            gv = self.gradient()
+            H = np.array(self.hessian()) # in case matrix type
+            return np.dot(np.dot(gv, np.linalg.inv(H)), gv)/4
         except Exception, msg:
-            if not quiet:print 'Failed log likelihood estimate, returning 99.: %s' % msg
+            print 'Failed log likelihood estimate, returning 99.: %s' % msg
             return 99.
 
 
@@ -222,13 +226,14 @@ class FitterMixin(object):
         self.fmin_ret=ret
         if ret[2]['warnflag']>0: 
             print 'Fit failure: check parameters'
-            self.set_parameters(parz) #restore if error  
+            self.set_parameters(parz) #restore if error 
+            self.covariance = None 
             raise Exception( 'Fit failure:\n%s' % ret[2])
         if not quiet:
             print ret[2]
         f = ret 
         if estimate_errors:
-            self.covariance = cov = self.hessian(f[0]).I
+            self.covariance = cov = np.linalg.inv(self.hessian(f[0])) # was .I
             diag = np.array(cov.diagonal()).flatten()
             bad = diag<0
             if np.any(bad):

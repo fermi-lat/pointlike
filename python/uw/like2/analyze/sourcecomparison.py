@@ -1,7 +1,6 @@
 """
 Comparison with a gtlike catalog output
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourcecomparison.py,v 1.11 2018/01/27 15:39:29 burnett Exp $
 
 """
 
@@ -377,12 +376,16 @@ class SourceComparison(sourceinfo.SourceInfo):
 class CompareSimulation(object):
     """Plots for comparison of uw8011t with FL8Y
     """
-    def __init__(self, fl8y_file='gll_pscP305uw8011_v2.fit'):
-        os.chdir(os.path.expandvars('$FERMI/skymodels/P302_8years/uw8011t'))
-        dfm = pd.read_csv('sources_uw8011t.csv', index_col=0); 
-        print 'uw8011t:' ,len(dfm)
-        dfa = pd.read_csv('../uw8011/sources_uw8011.csv', index_col=0); 
-        print 'uw8011:',len(dfa)
+    def __init__(self, fl8y_file='gll_pscP305uw8011_v2.fit', uwmodel='uw8607', sim='uw8607s2'):
+        os.chdir(os.path.expandvars('$FERMI/skymodels/P305_8years/{}'.format(sim)))
+        self.uwmodel=uwmodel
+        self.sim = sim
+        dfm = pd.read_csv('sources_{}.csv'.format(sim), index_col=0); 
+        print '{}:'.format(sim) ,len(dfm)
+        dfa = pd.read_csv('../{0}/sources_{0}.csv'.format(uwmodel), index_col=0); 
+        print '{}:'.format(uwmodel),len(dfa)
+        self.dfm=dfm
+        self.dfa=dfa
         def set_glat(df):
             from skymaps import SkyDir
             sds = map(SkyDir, df.ra, df.dec);
@@ -391,9 +394,11 @@ class CompareSimulation(object):
             df['hilat'] = (df.glat<-5) | (df.glat>5)
         set_glat(dfa); 
         set_glat(dfm)
+
+        #return
         # tag MC seed sources
         def seedcheck(name):
-            if name.find('8011s')>0:
+            if name.find( sim[-2:] )>0:
                 return 'MC seed'
             else: return 'fit source'
         grouped =dfm.groupby([seedcheck])
@@ -407,8 +412,7 @@ class CompareSimulation(object):
         del df_fl8y['NickName'];
 
         dfa['in_fl8y']=[name in df_fl8y.index for name in dfa.index]
-        self.dfm=dfm
-        self.dfa=dfa
+
 
     def scat_ts_pindex(self,):
         dfa, mc_seed = self.dfa, self.mc_seed
@@ -426,14 +430,14 @@ class CompareSimulation(object):
 
         fig,axx = plt.subplots(2,2, figsize=(12,12), sharex=True, sharey=True)
         axf = axx.flatten()
-        plotit(dfa, 'green', ax=axf[0], title='uw8011')
-        plotit(dfa.query('in_fl8y==False'), 'grey', ax=axf[2], title='uw8011 not in FL8Y')
+        plotit(dfa, 'green', ax=axf[0], title=self.uwmodel)
+        plotit(dfa.query('in_fl8y==False'), 'grey', ax=axf[2], title=self.uwmodel+' not in FL8Y')
         plotit(mc_seed, 'orange', ax=axf[3], title='MC seeds')
         plotit(dfa.query('in_fl8y==True'), 'blue', ax=axf[1], title='FL8Y')
 
         return fig
 
-    def purity_plots(self, cut=None, tsbins=(10,40, 16)):
+    def purity_plots(self, cut=None, tsbins=(16, 40, 13), ylim=(50,105)):
         mc_seed, dfa = self.mc_seed, self.dfa
     
         fig, axx =plt.subplots(3,2, figsize=(10,12), sharex=True,)
@@ -453,7 +457,7 @@ class CompareSimulation(object):
             ax=axx[i,0]
             ax.text(0.1,0.9, label, fontsize=16, transform=ax.transAxes)
             tslim=tsbins[:2]
-            ax.hist(data_ts.clip(*tslim), label='uw8011',color='green', **hkw);
+            ax.hist(data_ts.clip(*tslim), label=self.uwmodel,color='green', **hkw);
             ax.hist(mc_ts.clip(*tslim),label='MC seed', color='orange', **hkw);
             ax.legend();
             ax.grid(alpha=0.5)
@@ -469,7 +473,7 @@ class CompareSimulation(object):
             t=bins[:-1]+0.5*delta
             yerr=100.*np.sqrt(mc*(mc+data)/data**3)
             ax.errorbar(x=t,y=purity*100, xerr=delta/2,yerr=yerr, fmt='o', marker='o')
-            ax.set(xlabel='TS',  ylim=(-3, 103))
+            ax.set(xlabel='TS',  ylim=ylim)
             ax.set_ylabel(ylabel='purity [%]',fontsize=14)
  
             ax.axvline(25, ls=':', color='red')
@@ -482,7 +486,7 @@ class CompareSimulation(object):
         mc_seed, dfa = self.mc_seed, self.dfa
         dfa_cut = dfa.query(cut)
         mc_cut = mc_seed.query(cut)
-        titles = ('uw8011', 'uw8011 sources not in FL8Y', 'MC seed sources')
+        titles = (self.uwmodel, self.uwmodel+ ' sources not in FL8Y', 'MC seed sources')
 
         fig,axx = plt.subplots(len(titles),1, figsize=(8,8), sharex=True, sharey=True)
         hkw = dict(bins=np.logspace(1,3,26), log=True, histtype='step', lw=2)
@@ -507,7 +511,7 @@ class CompareSimulation(object):
         b['gdelta'] = (b.pindex-b.pindex_a)/b.pindex_unc
 
         fig,axx = plt.subplots(1,2, figsize=(12,6), sharey=True)
-        hkw = dict(bins=np.linspace(-5,5,26), histtype='step', lw=2, normed=True)
+        hkw = dict(bins=np.linspace(-5,5,26), histtype='step', lw=2, density=True)
 
         cut =  (b.ts>50) & ~pd.isnull(b.deflux) & ~pd.isnull(b.gdelta) &\
                     (b.modelname=="LogParabola") & (b.pindex<3) & (b.e0>500) &(b.eflux100_unc>0)

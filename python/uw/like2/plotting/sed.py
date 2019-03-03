@@ -32,7 +32,7 @@ def set_xlabels( axes, gev_scale) :
         axes.xaxis.set_major_formatter(ticker.FuncFormatter(gev_tf))  
 
 def set_ylabels(axes, unit):
-    axes.set_ylabel(r'$\mathsf{E^2\ \frac{dN}{dE} \ (%s\ cm^{-2}\ s^{-1})}$' %unit, labelpad=0)
+    axes.set_ylabel(r'$\mathsf{E^2\ dN/dE \ (%s\ cm^{-2}\ s^{-1})}$' %unit, labelpad=0)
     def ev_tf(val, pos=0):
         lookup ={0.1:'0.1', 1.0:'1', 10.0:'10', 100.:'100'}
         return lookup.get(val, '') 
@@ -96,11 +96,11 @@ class Plot(object):
         # show position of e0, possibly the pivot energy
         if butterfly:
             try:
-                self.plot_butterfly(m)
+                self.plot_butterfly(m, color=kwargs.get('color', 'red'))
             except Exception, msg:
                 print 'fail to plot butterfly for {}:{}'.format(self.name, msg)
 
-    def plot_butterfly(self, m, ):
+    def plot_butterfly(self, m, color='green', alpha=0.25 ):
         energy_flux_factor = self.scale_factor*1e6 # from MeV to eV
         axes = self.axes
         dom = self.dom
@@ -114,7 +114,7 @@ class Plot(object):
         bfun  = lambda e: m.flux_relunc(e)
 
         axes.errorbar([e0], [eflux(e0)], yerr=[eflux(e0)*bfun(e0)], 
-                    fmt='+r', elinewidth=2, markersize=8)
+                    fmt='D', color=color, elinewidth=2, markersize=5)
                 
         dom_r = np.array([dom[-i-1] for i in range(len(dom))]) #crude reversal.
         upper = eflux(dom)  * (1 + bfun(dom)  ) 
@@ -123,8 +123,8 @@ class Plot(object):
         lower[lower<ymin] = ymin
         upper[upper>ymax] = ymax
         t =axes.fill(np.hstack( [dom,   dom_r] ), 
-                    np.hstack( [upper, lower] ), 'r')
-        t[0].set_alpha(0.4)
+                    np.hstack( [upper, lower] ), color)
+        t[0].set_alpha(alpha)
         
     def plot_residual(self, axes, model, dom, **kwargs):
         energy_flux_factor = self.scale_factor*1e6 # from MeV to eV
@@ -142,7 +142,7 @@ class Plot(object):
                 fignum=5, axes=None,
                 axis=None, #(1e2,1e6,1e-7,1e-2),
                 data_kwargs=dict(linewidth=2, color='k',),
-                fit_kwargs =dict(lw=2,        color='r',),
+                fit_kwargs =dict(lw=2,        color='red',),
                 butterfly = True,
                 outdir = None,
                 suffix = '_sed',
@@ -207,7 +207,7 @@ class Plot(object):
         set_xlabels(axes, self.gev_scale)
         # add a galactic map if requested
         if galmap is not None:
-            image.galactic_map(galmap, axes=self.axes, color='lightblue', marker='s', markercolor='r', markersize=20)
+            image.galactic_map(galmap, axes=self.axes, color='lightblue', marker='s', markercolor='r', markersize=12)
 
         if annotate is not None:
             axes.text(annotate[0],annotate[1], annotate[2],transform=axes.transAxes, fontsize=8)
@@ -315,35 +315,38 @@ def plot_other_source(source, other_source, emin=None,
     
     sdf=pd.DataFrame(source.sedrec)
     def chisq(source):
-        sdf = pd.DataFrame(source.sedrec)
-        if emin is not None:
-            ee=sdf.elow 
-            return sum(sdf.pull[ee>=emin]**2)
-        return sum(sdf.pull**2)
+        try:
+            sdf = pd.DataFrame(source.sedrec)
+            if emin is not None:
+                ee=sdf.elow 
+                return sum(sdf.pull[ee>=emin]**2)
+            return sum(sdf.pull**2)
+        except:
+            return 99 ##Fail??
         
     if ax is None:
-        fig, ax = plt.subplots(figsize=(4,5))
+        fig, ax = plt.subplots(figsize=(4,4))
     else:
         fig = plt.gcf()
     plot_kw=dict(energy_flux_unit=kwargs.pop('energy_flux_unit','eV'),
-             gev_scale=kwargs.pop('gev_scale',True))
+             gev_scale=kwargs.pop('gev_scale',True), )
     
     ps = Plot(source,  **plot_kw)
     ps.name = '{} / {}'.format(source_name, other_source.name)
-    #annotation =(0.05,0.9, 'TS=%.0f'% self.TS(source.name))
-    
+  
 
-    plot_kw = dict( label= '%s: %.1f'%(uwname, chisq(source))) #annotate=annotation)
+    plot_kw = dict( label= '{:6s} {:5.1f}'.format(uwname, chisq(source)),
+        lw=2, color='red') #annotate=annotation)
     ps(axes=ax,  fit_kwargs=plot_kw)
     
     ps.plot_model( other_source.model, butterfly=False, 
-                  label='%s: %.1f'%(gtname, chisq(other_source)), 
-                  color='g', lw=4, 
+                  label='{:6s} {:5.1f}'.format(gtname, chisq(other_source)), 
+                  color='b', lw=2, 
                   dom=np.logspace(np.log10(emin),6,17) if emin is not None else None,
                  )
     
-    ax.legend(prop=dict(size=10))
-    ax.set( xlim=(100, 1e6), ylim=(0.01,1000))
+    ax.legend(prop=dict(size=10,family='monospace'))
+    ax.set( xlim=(100, 1e6), ylim=(0.06,200))
     fig.set_facecolor('white')
     return fig
 

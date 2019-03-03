@@ -7,11 +7,11 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.
 import os, copy, glob
 import numpy as np
 from astropy.io import fits as pyfits
-from skymaps import SkyDir
+from skymaps import SkyDir, Band
 from uw.like import  Models
 from uw.like.SpatialModels import Disk,EllipticalDisk,Gaussian,EllipticalGaussian,SpatialMap
 from uw.utilities.xml_parsers import parse_sources
-from . import sources, response
+from . import sources, response #, configuration
 
 
 class ExtendedSourceCatalog(object):
@@ -314,3 +314,53 @@ def make_pictures(config_dir='.', image_folder = 'extended_images'):
 
 
 
+
+def make_map_and_list(config_dir='.', nside=512, extended_folder='extended'):
+    
+    import healpy as hp
+    from uw.like2.pub import healpix_map as hpm
+    import pandas as pd
+
+    import yaml
+    ecatdir =yaml.load(open('config.yaml'))['extended']
+    ecat = ExtendedCatalog(ecatdir)
+   
+    band = Band(nside)
+    dirs = map(band.dir, range(12*nside**2))
+
+    def qdisk(nside, skydir, radius):
+        l, b = np.radians(skydir.l()), np.radians(skydir.b())
+        vec = (np.cos(l)*np.cos(b), np.sin(l)*np.cos(b), np.sin(b) )
+        return hp.query_disc(nside=nside, vec=vec, radius=np.radians(radius))
+
+    d = dict()
+    sky = np.zeros(12*nside**2)
+    print
+    for ename in sorted(ecat.names):
+        dm = ecat[ename].dmodel
+        print '{:20}{:20}'.format(ename, dm.name) ,
+        p = qdisk(nside, dm.center, 10)
+        v = np.array([dm(dirs[i]) for i in p])
+        pixels=np.sum(v>0.1)
+        total = np.sum(v)
+        sky[p]+=v
+        print '{:8.0f} {:8d}'.format(np.max(v), pixels)
+        d[ename]= dict(ra=dm.center.ra(), dec=dm.center.dec(), 
+                          modelname=dm.name, pmax=np.max(v), total=total, pixels=pixels)
+    print 
+
+    df = pd.DataFrame(d).T['ra dec modelname pixels pmax total'.split()]
+    df.index.name = 'name'
+
+    if extended_folder is not None:
+        if not os.path.exists(extended_folder):
+            os.mkdir(extended_folder)
+        csvfile = extended_folder+'/sources.csv'
+        df.to_csv(csvfile)
+        print 'wrote csv file {}'.format(csvfile)
+        
+        fitsfile = extended_folder+'/map.fits'
+        ext = hpm.HParray('extended', sky)
+        hpm.HEALPixFITS([ext]).write(fitsfile)
+
+    return df

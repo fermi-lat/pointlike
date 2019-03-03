@@ -195,127 +195,7 @@ def add_seeds(roi, seedkey='all', config=None,
     else:
         print 'Found {} seeds from {} in this ROI: check positions'.format(len(seedlist),seedfile)
 
-    # check locations: remove too close to sources in ROI, close pairs
-    # get free sources to check close
-    skydirs = [s.skydir for s  in roi.free_sources]
 
-    nbad = 0
-    def mindist(a):
-        d = map(a.difference, skydirs)
-        n = np.argmin(d)
-        return n,  np.degrees(d[n])
-    if len(skydirs)>0:
-        dd = np.array(map(mindist, seedlist.skydir))[:,1]
-        seedlist['distance']=dd
-        ok = dd>location_tolerance
-        nbad = len(ok)-sum(ok)
-        if nbad>0:
-            print 'Found {} too close (<{} deg) to existing source:\n\t{}'.format(
-                nbad, location_tolerance, list(seedlist[~ok].index))    
-    else:
-        ok = np.ones(len(seedlist))
-
-    # check for close pairs
-    zz = []; sd = seedlist.skydir.values
-    for i, a in enumerate(sd[:-1]):
-        for j, b in enumerate(sd[i+1:]):
-            d = np.degrees(a.difference(b))
-            if d< pair_tolerance:
-                zz.append(( i, i+j+1, d ))
-    if len(zz)>0:
-        print 'Found {} close pairs, within {} deg, keeping one with larger TS:'.format(len(zz),pair_tolerance)
-        for z in zz:
-            i,j,d = z
-            a,b = seedlist.iloc[i], seedlist.iloc[j] 
-            print '\t{:10} {:.1f} {:10}{:.1f} {:.2f}'.format(a.name, a.ts, b.name, b.ts, z[2])
-            ok[j if a.ts>b.ts else i]=False
-    seedlist['ok'] = ok
-    seeds = seedlist.query('ok==True')
-    if kwargs.get('test', False): 
-        print 'return since in test mode'
-        return seeds
-
-    # # add remaining seeds to ROI to allow fitting
-    # srclist = []
-    # for i,s in seeds.iterrows():
-    #     if seedkey=='all':
-    #         # use column 'key' to determine the model to use
-    #         model = maps.table_info[s['key']][1]['model']
-    #     try:
-    #         src=roi.add_source(sources.PointSource(name=s.name, skydir=s['skydir'], model=model))
-    #         if src.model.name=='LogParabola':
-    #             roi.freeze('beta',src.name)
-    #         elif src.model.name=='PLSuperExpCutoff':
-    #             roi.freeze('Cutoff', src.name)
-    #         srclist.append(src)
-    #         print '%s: added at %s' % (s.name, s['skydir'])
-    #     except roimodel.ROImodelException, msg:
-    #         if update_if_exists:
-    #             srclist.append(roi.get_source(s.name))
-    #             print '{}: updating existing at {} '.format(s.name, s['skydir'])
-    #         else:
-    #             print '{}: Fail to add "{}"'.format(s.name, msg)
-    # # Fit only fluxes for each seed first
-    # seednames = [s.name for s in srclist]
-    # llbefore = roi.log_like() # for setup?
-
-
-    # # set normalizations with profile fits
-    # print 'Performing profile fits to set normalization'
-    # for src in srclist:
-    #     prof= roi.profile(src.name, set_normalization=True)
-    #     src.ts= prof['ts'] if prof is not None else 0
- 
-
-    # # now fit all norms at once
-    # seednorms = [s.name+"_Norm" for s in srclist if roi.get_source(s.name).ts>0]
-    # if len(seednorms)==0:
-    #     print 'Did not find any seeds to fit'
-    #     return False
-    # try:
-    #     roi.fit(seednorms, tolerance=0.2, ignore_exception=False)
-    # except Exception, msg:
-    #     print 'Failed to fit seed norms: \n\t{}\nTrying full fit'.format(msg)
-    #     roi.fit(ignore_exception=True)
-    # #remove those with low TS
-    # print 'TS values'
-    # goodseeds = []
-    # for sname in seednames:
-    #     ts = roi.TS(sname)
-    #     print '%8s %5.1f ' %(sname, ts),
-    #     if ts<tsmin:
-    #         print '<-- remove'
-    #         roi.del_source(sname)
-    #     else:
-    #         goodseeds.append(sname)
-    #         print 'OK'
-        
-
-    # # fit all parameter for each one, remove if ts< tsmin 
-    # seednames = goodseeds
-    # goodseeds = []
-    # for sname in seednames:
-    #     roi.fit(sname, tolerance=0, ignore_exception=True)
-    #     ts = roi.TS()
-    #     print '  TS = %.1f' % ts
-    #     if ts<tsmin:
-    #         print ' TS<%.1f, removing from ROI' % tsmin
-    #         roi.del_source(sname)
-    #     elif tsmin>0:
-    #         # one iteration of pivot change
-    #         s = roi.get_source(sname)
-    #         roi.repivot([s], min_ts=5)
-    #         # and a localization: remove if fails or poor
-    #         roi.localize(sname, update=True)
-    #         ellipse = s.__dict__.get('ellipse', None) 
-    #         if ellipse is None or ellipse[5]>lqmax:
-    #             if tsmap_dir is not None and os.path.exists(tsmap_dir):
-    #                 roi.plot_tsmap(sname, outdir=tsmap_dir)
-    #             print '--> removing {} \n\t since did not localize'.format(s)
-    #             roi.del_source(sname)
-    #             continue
-    #         roi.get_sed(sname)
-    #         goodseeds.append(sname)
 
     good = 0  
     for sname,s in seedlist.iterrows():
@@ -505,3 +385,35 @@ def create_seedfiles(self, seed_folder='seeds', update=False, max_pixels=30000, 
     v.to_csv(outfile)
     print 'Wrote file {} with {} seeds'.format(outfile, len(u)) 
     return v  
+#############################################################
+# code to deal with accidentally removed sources
+def add_old_sources(roi, filename='../uw8608/lost.csv'):
+    """add sources from a csv file
+    """
+    lost = pd.read_csv(filename, index_col=0)
+    print 'read file {} with {} sources'.format(filename, len(lost))
+    sel = lost[lost.roiname==roi.name]
+    if len(sel)>0:
+        print 'adding sources {}'.format(list(sel.index))
+    else:
+        print 'No sources found in this ROI'
+        return False
+    ok = False
+    for name, x in sel.iterrows():
+        psr = name.startswith('PSR')
+        if x.ts<25: continue
+        try:
+            roi.add_source(name=x.name, skydir=(x.ra,x.dec),
+                        model='LogParabola({},{},{},{})'.format(x.flux, x.pindex, x.index2,x.e0))
+            roi.fit(x.name); 
+            ts = roi.TS()
+            roi.freeze('beta')
+            if ts<25:
+                print 'Not good fit: removing'
+                roi.del_source(x.name)
+            else:
+                ok = True
+                roi.get_sed(update=True)# add SED
+        except Exception, msg:
+            print 'Failed to add : {}'.format(msg)
+    return ok

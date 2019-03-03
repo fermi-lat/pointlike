@@ -126,7 +126,7 @@ class BandAnalysis(object):
         plt.setp(ax,xlabel='glat',ylim=ylim, ylabel='<offset>', title=self.label);
         ax.figure.set_facecolor('white')
 
-    def ait_pulls_plot(self):
+    def ait_pulls_plot(self, ax=None):
         fig,ax=plt.subplots(figsize=(16,8))
         t=self.pulls.plot(axes=ax, vmin=-5, vmax=5, cmap=plt.get_cmap('coolwarm'),
             title='{} normalized residuals'.format(self.label))
@@ -238,6 +238,8 @@ class ResidualMaps(analysis_base.AnalysisBase):
         self.band_index,nside=0,None
         try:
             self.ba0 =self.band_analysis(band_index=0, outfile=self.plotfolder+'/f131maps.fits')
+            self.ba1 =self.band_analysis(band_index=1, outfile=self.plotfolder+'/f237maps.fits')
+
         except Exception, msg:
             print 'Fail to load maps: {}'.format(msg)
 

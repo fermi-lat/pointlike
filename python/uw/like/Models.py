@@ -928,10 +928,17 @@ class Model(object):
         M, F = self.get_cov_matrix(), self.free
         if len(F)<2 or M[0,0]==0: return np.nan #no solution unless 2 or more free, fit info
             
-        C = np.matrix(M[F].T[F])
+
+        ##### replace this since matrix being deprecated
+        # C = np.matrix(M[F].T[F])
+        # def unc(energy):
+        #     g = np.matrix(self.external_gradient(energy)[F])
+        #     t = ( g * C * g.T ).item() 
+        #     return np.sqrt(t)/self(energy) if t>0 else t
+        C = (M[F].T[F])
         def unc(energy):
-            g = np.matrix(self.external_gradient(energy)[F])
-            t = ( g * C * g.T ).item() 
+            g = (self.external_gradient(energy)[F])
+            t = ( np.dot(g, np.dot( C , g.T ))).item() 
             return np.sqrt(t)/self(energy) if t>0 else t
         return np.array(map(unc,energy)) if hasattr(energy, '__iter__') else unc(energy)
 

@@ -14,8 +14,8 @@ from ..pipeline import stream
 
 
 class IsotropicModel(object):
-    """Characterize the configuration for an isotroic diffuse model, 
-       which includes effects of background from the Earth limb.
+    """Characterize the configuration for an isotropic diffuse model, 
+       which may include effects of background from the Earth limb.
     """
     def __init__(self, config=None, sdbins=40):
         """config: a Configuration object, containing the IRF and isotropic files
@@ -134,25 +134,34 @@ class IsotropicModel(object):
             pickle.dump(pk, open(f, 'w'))
         print 'Updated the normalizations: you must zip the files'
 
-    def plot(self, ax=None):
+    def plot(self, ax=None, yerr=None):
         """Isotropic model summary
                 
-        <br>While the normalization factors are 1728x8 arrays of corrections applied to each ROI and band, only the Back 
-        varies for the first two energy bins.
+        <br>Comparison of this measurement of the isotropic background component with the input spectral model, and
+        an IGRB estimmate.
         <ul>
         <li>
-        <b>Left</b>: The isotropic spectral model, based on %(isomodel_file)s</li>
+        <b>Left</b>: The isotropic spectra. Dashed ines are from the files %(isomodel_file)s, and points are
+        the actual values used for the binned data. Errors represent the RMS deviations of ROI fits for
+        |b|>10.
+        Also shown is an 
+         <a href="http://iopscience.iop.org/article/10.1088/0004-637X/799/1/86/meta">IGRB estimate based on 4 years
+         of data</a>, background model C</li>
         <li>
-        <b>Right</b>: The normalization factor applied to all ROIs</li>
-        
+        <b>Right</b>: The normalization factor applied to the input spectrum for all ROIs, as reflected in the left plot.</li>       
 
         </ul>
          """
 
         if ax is None:
-            fig, axx = plt.subplots(1,2, figsize=(10,5))
+            fig, axx = plt.subplots(1,2, figsize=(12,5))
             plt.subplots_adjust(wspace=0.3)
         else: fig=ax.figure
+
+        #IGRB estimate with background model C
+        # http://iopscience.iop.org/article/10.1088/0004-637X/799/1/86/meta
+        igrb = lambda E: 0.7e-7 * (100./E)**2.26 * np.exp(-E/233e3) * E**2
+
 
         def left(ax, emin=90,emax=1e4):
             ecut=(100, 1e4)
@@ -161,12 +170,35 @@ class IsotropicModel(object):
             nf,nb = map(np.loadtxt, idfiles)
             energies = nf[:,0]; front,back = nf[:,1],nb[:,1]
             ecut= (energies>=emin)& (energies<=emax)
-            ax.plot(energies[ecut], (front*energies**2)[ecut], 'xg', label='front')
+            ax.plot(energies[ecut], (front*energies**2)[ecut], '--g', label='front')
+            ax.plot(energies[ecut], (back*energies**2)[ecut], '--r', label='back')
 
-            ax.plot(energies[ecut], (back*energies**2)[ecut], '+r', label='back')
-            plt.setp(ax, xlabel='Energy', ylabel=r'$E^2\ \times \ Flux$', xscale='log')
+            ebins = np.logspace(2,4,9)
+            ehi = ebins[1:]
+            elo = ebins[:-1]
+            energies = np.sqrt(ehi*elo) 
+            xerr=np.array([energies-elo, ehi-energies])
+
+            # add info on actual flux values used.
+
+            isofile = self.config['diffuse']['isotrop']['filename']
+            isofun = [diffuse.Isotropic(isofile.replace('**',fb))  for fb in 'FRONT BACK'.split()]
+            isovals = np.array([[ f(None, e)* e**2 for e in energies] for f in isofun])
+            yf=isovals[0,:] * self.front_model 
+            yb=isovals[1,2:] * self.back_model[2:]
+            if yerr is not None:
+                ferr, berr = yf * yerr[:,0], yb*yerr[2:,1]
+            else: ferr=berr=None
+            ax.errorbar(energies, yf, xerr=xerr , yerr=ferr, fmt='og', label='measured Front')
+            ax.errorbar(energies[2:], yb, xerr=xerr[:,2:], yerr=berr, fmt='Dr', label='measured Back');
+
+            edom = np.logspace(2,4)
+            ax.plot(edom, igrb(edom), ':', lw=2, label='IGRB estimate')
+            
+            plt.setp(ax, xlabel=r'$Energy\ [MeV]$', ylabel=r'$E^2\ dN/dE\ [MeV\ cm^{-2} s^{-1} sr^{-1}]$', 
+               xscale='log', ylim=(0,None))
             ax.set_title('isotropic diffuse spectra')
-            ax.grid(True); ax.legend()
+            ax.grid(alpha=0.4); ax.legend()
 
         def center(ax):
             for f, name,start in [(self.front_model, 'Front',0), (self.back_model, 'Back',2)]:
@@ -182,7 +214,8 @@ class IsotropicModel(object):
                 ax.plot(x, self.back_model[i], '.', label='Energy Bin {}'.format(i));
             ax.set(xlabel='sin(Dec)', ylabel='Normalization factor',  title='Back normalization vs. Dec.')
 
-        left(axx[0]); center(axx[1])#; right(axx[2]); 
+        left(axx[0]);
+        center(axx[1]) #; right(axx[2]); 
         for ax in axx[1:]:
             ax.grid(alpha=0.5);
             ax.axhline(1.0, color='k', ls='--')
@@ -247,6 +280,7 @@ class Isotropic(diffuse_fits.DiffuseFits):
         # check fit data, collect means for |b|.bcut    
         print 'High latitude selection (|b|>{}): {}/{} ROIs'.format(bcut,sum(highlat), len(dec))
         self.fit_means = np.ones((8,2))
+        self.fit_std = np.zeros((8,2))
 
         def fit_sum(ib, start=0):
             print '\n{} normalization fit summary for |b|>{}\n\t{:4s}{:>8s}{:>8s}'.format(
@@ -254,12 +288,21 @@ class Isotropic(diffuse_fits.DiffuseFits):
             for i in range(start, self.isofits.shape[1]):
                 t = self.isofits[:,i,ib][self.df.highlat]
                 self.fit_means[i,ib]= np.mean(t)
+                self.fit_std[i,ib] = np.std(t)
                 print '\t{:4d}{:8.3f}{:8.3f}'.format(i, np.mean(t), np.std(t))
         fit_sum( 0 )
         fit_sum( 1, 2 )  
 
         self.logstream= self.stoplog()
 
+    def fit_plots(self, ax=None):
+        ax = plt.gca() if ax is None else ax
+        for fm, label in zip(self.fit_means.T, 'front back'.split()):
+            i = 0 if label=='front' else 2
+            ax.plot(range(i,8), fm[i:], '--o' ,label=label)
+        ax.grid(alpha=0.25)
+        ax.set(ylabel ='average normalization', xlabel='Energy bin', title='|b|>10 isotropic fits')
+        ax.axhline(1.0, color='lightgrey'); ax.legend()
 
     def set_new_iso(self, update=False):
         t = np.array([iso.values.mean(axis=0) for iso in self.isomodel.isonorm]); 
@@ -303,7 +346,7 @@ class Isotropic(diffuse_fits.DiffuseFits):
     @tools.decorate_with(IsotropicModel.plot)
     def model_plots(self):
         self.isomodel_file = self.isomodel.isomodel_file
-        return self.isomodel.plot()
+        return self.isomodel.plot(None, self.fit_std)
 
     def front_fit_map(self):
         """Front fit map

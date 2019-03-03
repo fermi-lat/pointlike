@@ -526,7 +526,7 @@ class HEALPixFITS(list):
         hdus = self.make_hdus()
         if os.path.exists(outfile):
             os.remove(outfile)
-        pyfits.HDUList(hdus).writeto(outfile,clobber=clobber)
+        pyfits.HDUList(hdus).writeto(outfile,overwrite=clobber)
         print '\nwrote FITS file to %s' % outfile
 
 class HEALPixSkymap():

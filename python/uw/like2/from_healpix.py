@@ -93,6 +93,7 @@ class ROImodelFromHealpix(roimodel.ROImodel):
             else:
                 # extended source: get from extended catalog list, replace model, add info from previous fit
                 src = self.ecat.lookup(name)
+                assert src is not None, 'Extended look up did not find source {}'.format(name)
                 src.model = rec['model']
                 # don't know why this is necessary
                 def tuple_check( attr):
@@ -156,14 +157,17 @@ class ROImodelFromHealpix(roimodel.ROImodel):
             for s in global_sources:
                 if s is not None: self.append(s)
             if global_only: return
- 
+        #print 'Found local sources: {}'.format(p['sources'].keys())
         local_sources = [load_local_source(name, rec) for name,rec in p['sources'].items()]
         if not neighbors: self.local_count = len(local_sources)
         tsmin = self.config['input_model'].get('tsmin',0)
         for s in local_sources:
-
-            if tsmin==0 or s.name.startswith('PSR') or s.ts>tsmin: 
-                self.append(s)
+            if s.name in self:
+                print 'Source {} from {} already loaded: its info: {}'.format(s.name,  s.index, s)
+            if tsmin==0 or s.name.startswith('PSR') or s.ts>tsmin or s.isextended: 
+                self.add_source(s)
+            else:
+                print 'Not adding source {}: ts={}, extended, {}'.format(s.name, s.ts, s.isextended)
         
 
     def __repr__(self):

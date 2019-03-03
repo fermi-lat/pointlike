@@ -494,7 +494,9 @@ class BandLikeList(list):
             # numerical derivative of gradient with respect to this parameter
             t.append( (gnow-glast)/delta)
             glast = gnow
-        hess = np.matrix(t)
+        hess = np.array(t)
+        # depricated
+        #hess = np.matrix(t)
         parameters.set_parameters(parz) #restore all parameters, check that no difference
         self.update()
         assert abs(fzero-self.log_like())<1e-2
@@ -504,9 +506,13 @@ class BandLikeList(list):
         """ estimate change in log likelihood from current gradient 
         """
         try:
-            gm = np.matrix(self.gradient())
+            # rewrite due to deprication of numpy.matrix
+            # gm = np.matrix(self.gradient())
+            # H = self.hessian()
+            # return (gm * H.I * gm.T)[0,0]/4
+            g = self.gradient()
             H = self.hessian()
-            return (gm * H.I * gm.T)[0,0]/4
+            return np.dot( np.dot(g, np.linalg.inv(H)) , g)/4
         except Exception, msg:
             print 'Failed log likelihood estimate, returning 99.: %s' % msg
             return 99.
@@ -552,10 +558,14 @@ class BandLikeList(list):
         source_name: None or string
             if None, use currently selected source
         """
+        sunmoon_free = self.get_source('SunMoon').model.free[:]
         if parname.find('_')>0 and source_name is None:
             source_name, parname = parname.split('_')
         source = self.get_source(source_name)
         source.thaw(parname)
+        #print 'Thawed: {}_{}'.format(source_name, parname)
+        # make sure SunMoon does not change - don't understand how this seems to happen!
+        self.get_source('SunMoon').model.free=[False]
         self.reinitialize()
 
     def select_band(self, energy, et):

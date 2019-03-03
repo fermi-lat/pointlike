@@ -70,8 +70,9 @@ class DiffuseBase(object):
         from uw.utilities import image
         vmin = kwargs.pop('vmin', None)
         vmax = kwargs.pop('vmax', None)
+        cmap = kwargs.pop('cmap', None)
         ait = image.AIT(self, **kwargs)
-        ait.imshow(title=self.name if title is None else title, scale=scale, vmin=vmin, vmax=vmax)
+        ait.imshow(title=self.name if title is None else title, scale=scale, vmin=vmin, vmax=vmax, cmap=cmap)
         return ait.axes.figure
        
     def plot_spectra(self, ax=None, glat=0, glon=(0, 2,-2,  30, -30, 90, -90),
@@ -90,7 +91,7 @@ class DiffuseBase(object):
                         label='b=%.0f'%x if label is None else label)
             if hasattr(self, 'energies'):
                 et = self.energies
-                ax.loglog(et, map(lambda e: e**2*self(sd,e), et), '+k')
+                ax.loglog(et, map(lambda e: e**2*self(sd,e), et), '--')
         
         ax.grid(); 
         if len(glon)>1:
@@ -99,11 +100,14 @@ class DiffuseBase(object):
         ax.set_title('Galactic diffuse at l=%.0f'%glat if title is None else title, size=12)
         return fig
         
-    def plot_map(self, energy=1000, title=None, cbtext='log10(flux)', **kwargs):
+    def plot_map(self, energy=1000, title=None, **kwargs):
         """show a map at the given energy"""
         if not self.loaded: self.load()
         self.setEnergy(energy)
-        if kwargs.get('scale', '')=='linear': cbtext='flux'
+        if not kwargs.pop('log', True):
+            kwargs['scale']='linear'
+        cbtext = 'flux' if kwargs.get('scale', '')=='linear' else 'log10(flux)' 
+        cbtext = kwargs.pop('cbtext', cbtext) # override if set
         fig = self.show(cbtext=cbtext, **kwargs)
         fig.axes[0].set_title('%.0f MeV'%energy if title is None else title, size=12)
         return fig
@@ -182,7 +186,10 @@ class HealpixCube(DiffuseBase):
             
     def load(self):
         try:
-            self.hdulist = hdus = fits.open(self.fullfilename)
+            try:
+                self.hdulist = hdus = fits.open(self.fullfilename)
+            except Exception, msg:
+                raise DiffuseException('FITS: Failed to open {}: {}'.format(self.fullfilename, msg))
             if hdus[2].columns[0].name=='CHANNEL':
                 # binned format: assume next 2 columns are min, max and use geometric mean
                 emin,emax = [hdus[2].data.field(i) for i in (1,2)]
