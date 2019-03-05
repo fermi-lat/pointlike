@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.32 2016/03/21 18:54:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.34 2018/01/27 15:37:17 burnett Exp $
 
 """
 import os,sys
@@ -94,7 +94,7 @@ class MomentAnalysis(object):
 
         
 def full_localization(roi, source_name=None, ignore_exception=False, 
-            update=False, associator=None, tsmap_dir='tsmap_fail', tsfits=False):
+            update=False, associator=None, tsmap_dir='tsmap_fail', tsfits=False, delta_ts_bad=10):
     import pylab as plt
 
     source = roi.sources.find_source(source_name)
@@ -105,12 +105,14 @@ def full_localization(roi, source_name=None, ignore_exception=False,
         loc = Localization(tsm)
         try:
             loc.localize()
-            t = loc.ellipse
-            # Automatically update position if good fit.
-            if update or loc['qual']<1.0 and loc['a']<0.1: 
+            if hasattr(loc, 'ellipse') and  (update or loc['qual']<1.0 and loc['a']<0.1):
+                # Automatically update position if good fit.
+                t = loc.ellipse
                 prev = tsm.saved_skydir
                 tsm.saved_skydir = SkyDir(t['ra'], t['dec'])
                 print 'updated position: %s --> %s' % (prev, tsm.saved_skydir)
+            else:
+                print 'Failed localization'
         except Exception, msg:
             print 'Localization of %s failed: %s' % (source.name, msg)
             if not ignore_exception: raise
@@ -131,15 +133,16 @@ def full_localization(roi, source_name=None, ignore_exception=False,
             if  hasattr(loc,'ellipse'): 
                 a, qual, delta_ts = loc.ellipse['a'], loc.ellipse['qual'], loc.delta_ts
                 tsize = min(a*15., 2.0)
-                bad = a>0.25 or qual>5 or abs(delta_ts)>3
+                bad = a>0.25 or qual>5 or abs(delta_ts)>delta_ts_bad
                 if bad:
-                    print 'Flagged as possibly bad: a=%.2f>0.25 or qual=%.1f>5 or abs(delta_ts=%.1f)>3:'% (a, qual, delta_ts)
+                    print 'Flagged as possibly bad: a=%.2f>0.25 or qual=%.1f>5 or abs(delta_ts=%.1f)>%f:'% (a, qual, delta_ts,delta_ts_bad)
             else: 
                 print 'no localization'
                 bad = True
                 tsize= 2.0
             if tsmap_dir.endswith('fail') and not bad: return
-            # Make tsmap and apply moment analysis if fail quality cuts, and 
+
+            # Make tsmap and apply moment analysis if failed fit or quality cuts
             done = False
             while not done:
                 try:
@@ -175,7 +178,7 @@ def full_localization(roi, source_name=None, ignore_exception=False,
             tsp.plot(SkyDir(rax,decx), color='w', symbol='o' );
             filename = source.name.replace(' ','_').replace('+','p')
             fout = os.path.join(tsmap_dir, ('%s_tsmap.jpg'%filename) )
-            print 'saving updated tsplot with moment analysis ellipse to %s...' % fout , ; sys.stdout.flush()
+            print 'saving updated tsplot with moment analysis ellipse to %s...' % fout ; sys.stdout.flush()
             plt.savefig(fout, bbox_inches='tight', padinches=0.2) #cuts off outherwise  
             
         return tsp
@@ -293,10 +296,10 @@ class Localization(object):
             if not self.quiet: print ('\t'+7*'%10.4f')% (diff, delt, l.par[0],l.par[1],l.par[3],l.par[4], l.par[6])
             if delt>self.maxdist:
                 if not self.quiet: print '\t -attempt to move beyond maxdist=%.1f' % self.maxdist
-                break # hope this does not screw things up
+                return False # hope this does not screw things up
                 #raise Exception('localize failure: -attempt to move beyond maxdist=%.1f' % self.maxdist)
             if (diff < tolerance) and (abs(sigma-old_sigma) < tolerance):
-                break
+                break # converge
             ld = l.dir
             old_sigma=sigma
 
@@ -319,6 +322,7 @@ class Localization(object):
         self.niter = i
         # if successful, add a list representing the ellipse to the source
         self.tsm.source.ellipse = self.qform.par[0:2]+self.qform.par[3:7] +[self.delta_ts] 
+        return True #success
         
     def summary(self):
         if hasattr(self, 'niter') and self.niter>0: 

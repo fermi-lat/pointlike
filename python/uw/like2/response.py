@@ -1,7 +1,7 @@
 """
 Classes to compute response from various sources
  
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.19 2017/08/02 23:04:51 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/response.py,v 1.21 2018/01/27 15:37:17 burnett Exp $
 author:  Toby Burnett
 """
 import os, pickle
@@ -10,7 +10,7 @@ import pandas as pd
 import healpy
 import skymaps
 from uw.utilities import keyword_options
-from . import convolution
+from . import convolution, diffuse
 
 class ResponseException(Exception): pass
 
@@ -19,7 +19,7 @@ diffuse_grid_defaults = (
         ('npix',      61,   'Number of pixels (must be an odd number'),
         ('npix2',     91,   'Number of pixels for E<1 GeV'),
         ('quiet',     False, ''),
-        ('diffuse_normalization', None, 'dataframe of spectral normalization'),
+        ('diffuse_normalization', None, 'dict of spectral normalization'),
         )
         
 extended_grid_defaults = [
@@ -55,7 +55,9 @@ class Response(object):
         self.roicenter = self.band.skydir
         self.quiet = kwargs.pop('quiet', True)
         self.roi = roi
-        self.initialize()
+        self.active=True # so distant PointSource can be inactive
+        self.initialize() # can disable the response
+
         
     def update(self):
         self.evaluate()
@@ -93,9 +95,15 @@ class PointResponse(Response):
         grad : gradient
         
     """
-
+    max_overlap = 1e-2 # zero response below this
     def initialize(self):
         self.overlap = self.band.psf.overlap(self.roicenter, self.band.radius, self.source.skydir)
+
+        # declare inactive if not free, and small overlap
+        self.active= self.overlap>PointResponse.max_overlap or np.sum(self.source.model.free)>0
+        if not self.active:
+            self.counts=0
+            return
         self._exposure_ratio = self.band.exposure(self.source.skydir)/self.band.exposure(self.roicenter)
         if self.band.has_pixels:
             if hasattr(self.band.psf, 'cpsf'):
@@ -113,10 +121,11 @@ class PointResponse(Response):
         self.evaluate()
 
         
-    def evaluate(self): #, weights=None, exposure_factor=1):
+    def evaluate(self): 
         """ update values of counts, pix_counts used for likelihood calculation, derivatives
         Called when source parameters change
         """
+        if not self.active: return
         model = self.spectral_model
         self.expected = self.band.integrator(model)
         assert not np.isinf(self.expected), 'model integration failure'
@@ -132,6 +141,7 @@ class PointResponse(Response):
             weights = self.data / self.model_pixels
         Assume that evaluate has set model_grad
         """
+        if not self.active: return None # don't expect to be called
         model = self.spectral_model
         if np.sum(model.free)==0 : return []
         # Calculate the gradient of a spectral model (wrt its parameters) integrated over the exposure.
@@ -142,6 +152,7 @@ class PointResponse(Response):
         return g * (apterm - pixterm)
 
     def __call__(self, skydir):
+        if not self.active: return 0
         return self.band.psf(skydir.difference(self.source.skydir))[0]  * self.expected
      
 
@@ -158,7 +169,7 @@ class DiffuseResponse(Response):
         self.quiet=kwargs.get('quiet', True)
         
     def initialize(self, force=False):
-        if self.setup or force: return
+        if self.setup and not force: return
         self.setup=True
         #set up the spatial model 
         self.dmodel = self.source.dmodel[self.band.event_type]
@@ -173,9 +184,16 @@ class DiffuseResponse(Response):
             c = self.roicenter
             cv = healpy.dir2vec(c.l(),c.b(),lonlat=True)
             hplist = healpy.query_disc(self.dmodel.nside,cv, self.band.radius_in_rad)
-            assert skymaps.Band(self.dmodel.nside).index(self.roicenter) in hplist
+            smband = skymaps.Band(self.dmodel.nside)
+            assert smband.index(self.roicenter) in hplist, 'Problem HEALPix indexing, ROI center not consistent?'
+
+            if self.dmodel.hdulist[1].header.get('TUNIT1',None)=='photons':
+                #must rescale from photons/pixel to density: photons/Mev/Sr 
+                scale_factor = (self.band.emax-self.band.emin) * smband.pixelArea()
+            else: scale_factor=1
+
             dirs = map(self.dmodel.dirfun, hplist)
-            self.evalpoints = lambda dirs : np.array(map(self.dmodel, dirs)) * self.corr
+            self.evalpoints = lambda dirs : np.array(map(self.dmodel, dirs)) * self.corr / scale_factor
             self.ap_average = self.evalpoints(dirs).mean()
         
         else:
@@ -232,15 +250,24 @@ class DiffuseResponse(Response):
         return (self.factor*exposure_factor - pixterm) * model.gradient(self.energy)[model.free] 
         
     def __call__(self, skydir):
+        self.dmodel.setEnergy(self.band.energy) # needed if convolved
         return self.evalpoints([skydir])[0] * self.delta_e
-    
+
     def _keyword_check(self, roi_index):
         # check for extra keywords from diffuse spec.
         dfun = self.dmodel
         
         if hasattr(dfun, 'kw') and dfun.kw is not None and len(dfun.kw.keys())>1: 
             # Manage keywords found in the 
-            if 'correction' in dfun.kw and dfun.kw['correction'] is not None:
+            if dfun.kw.get('key', '') == 'gal':
+                #print 'Using gal key for galactic correction ', 
+                self.corr = DiffuseCorrection(None, diffuse.normalization['gal'])(roi_index,self.energy)
+                #print self.corr
+            elif dfun.kw.get('key', '') == 'iso':
+                et = ['front','back'][self.band.event_type]
+                self.corr = DiffuseCorrection(None, diffuse.normalization['iso'][et])(roi_index, self.energy)
+                #raise Exception('isotropic key: corr={}'.format(self.corr))
+            elif 'correction' in dfun.kw and dfun.kw['correction'] is not None:
                 if not self.quiet:
                     print '\t%s loading corrections for source %s from %s.kw:' \
                     % (self.__class__.__name__, self.source.name,  dfun.__class__.__name__)
@@ -343,14 +370,18 @@ class DiffuseCorrection(object):
         self.hm.HEALPixFITS(t).write(filename)
         
     def __call__(self, roi_index, energy):
-        if energy > self.elist[-1]: return 1.0
-        try:
-            energy_index = self.elist.index(round(energy))
-        except:
-            raise Exception('energy %f not found in list %s' % (round(energy), self.elist))
+        if energy > self.elist[-1]: 
+            energy_index = len(self.elist)-1 # will apply highest energy correction above table limit
+        else:
+            try:
+                energy_index = self.elist.index(round(energy))
+            except:
+                raise Exception('energy %f not found in list %s' % (round(energy), self.elist))
         if self.dn is not None:
-            return self.correction.ix[energy_index]
-        return self.correction.ix[roi_index][energy_index] if self.correction is not None else 1.0
+            if self.correction is None: # new case
+                return self.dn[energy_index]
+            return self.correction.iloc[energy_index] 
+        return self.correction.iloc[roi_index][energy_index] if self.correction is not None else 1.0
         
     def roi_norm(self, roi_index):
         """return a array of correction for the bands for a given ROI"""
@@ -428,27 +459,31 @@ class IsotropicResponse(DiffuseResponse):
         roi_index = skymaps.Band(12).index(self.roicenter)
         dmodel = self.dmodel
         self.corr = 1.0
-        if hasattr(dmodel, 'kw') and dmodel.kw is not None and 'correction' in dmodel.kw:
-        
-            #dc = DiffuseCorrection(dmodel.kw['correction'], diffuse_normalization=self.diffuse_normalization)
-            #self.corr = dc(roi_index, self.band.energy)
-            ##print 'energy, correction: %.0f %.3f' % (self.band.energy, self.corr)
-            
+        # TODO: modify this to use the kw "key" if exists
+        haskey = hasattr(dmodel, 'kw') and dmodel.kw is not None
+        if haskey and dmodel.kw.get('key', None)=='iso':
+            et = ['front','back'][self.band.event_type]
+            self.corr = DiffuseCorrection(None, diffuse.normalization['iso'][et])(roi_index, self.energy)
+            #print roi_index, et, self.energy, self.corr
+        elif haskey and 'correction' in dmodel.kw:
+            # Set self.corr according to "correction"
+              
             corr_file = dmodel.kw.get('correction', None)
             energy=round(self.band.energy)
-            if energy>10000. or corr_file is None:
+            if corr_file is None:
                 self.corr=1.0
             else:
-                dn = self.roi.sources.diffuse_normalization
-                if dn is not None and corr_file in dn:
-                    diffuse_normalization = dn[corr_file]
-                    if energy not in diffuse_normalization.index:
-                        energy -=1 # kluge!!
-                    assert energy in diffuse_normalization.index, 'Bad index? {} not in {}'.format(energy, diffuse_normalization.index)
-                    self.corr = diffuse_normalization[energy] 
-                else:
-                    self.corr = DiffuseCorrection(corr_file)(roi_index, energy)
-            #print 'ISO: {} {} MeV: apply correction {} '.format(corr_file, energy, self.corr)
+                roi_index = skymaps.Band(12).index(self.roicenter)
+                self.corr = DiffuseCorrection(corr_file)(roi_index, self.energy)
+
+            #     dn = self.roi.sources.diffuse_normalization
+            #     if False: #dn is not None and 'iso' in dn:
+            #         # in processsself.corr = dn['iso'][('front','back')[self.]]
+            #         assert False, 'need to add if I want'
+            #     # load the correction value from the correction file
+            #     else:
+            #         self.corr = DiffuseCorrection(corr_file)(roi_index, energy)
+            # #print 'ISO: {} {} MeV: apply correction {} '.format(corr_file, energy, self.corr)
 
         grid = self.grid
         grid.cvals = grid.fill(self.band.exposure) * dmodel(self.band.skydir) * self.corr
@@ -473,7 +508,6 @@ class ExtendedResponse(DiffuseResponse):
         """
         return self.band.exposure.integrator(self.source.skydir, 
                 self.band.emin, self.band.emax)(self.source.model)
-
       
     def initialize(self):
         #set up the spatial model NOTE THIS NEEDS TO BE SAVED
@@ -506,7 +540,7 @@ class ExtendedResponse(DiffuseResponse):
         
     def create_grid(self):
         """create a grid for all convolutions, evaluate exended model on it
-        Note that is is normalized so the integral over solid angle should be 1
+        Note that it is normalized so the integral over solid angle should be 1
         Have the source own the grid; each band has 
         """
         if not hasattr(self.source, 'grid'):
@@ -567,6 +601,10 @@ class ExtendedResponse(DiffuseResponse):
             self.psf_overlap = pvals[inside].sum() / pvals.sum() 
         self.ap_center = self.grid(self.center, cvals)
         self.overlap = cvals[inside].sum() / cvals.sum()
+        if self.overlap<1e-6:
+            self.active=False
+            self.counts = 0
+            return
         self.exposure_at_center = self.band.exposure(self.source.skydir)
         self.exposure_ratio = self.exposure_at_center / self.band.exposure(self.roicenter)
         self.factor = self.overlap * self.exposure_ratio 
@@ -578,6 +616,8 @@ class ExtendedResponse(DiffuseResponse):
         self.initmodel = self.source.model.copy()
         
     def evaluate(self):
+        if not self.active:
+            return
         total_counts = self.exposure_integral()
         self.counts = total_counts * self.factor
         if self.band.has_pixels:
@@ -602,11 +642,8 @@ class ExtendedResponse(DiffuseResponse):
         """ return value of perhaps convolved grid for the position
         skydir : SkyDir object | [SkyDir]
         """
-        # TODO: if not convolved, just evaluate product of exposure and 
-        #if force or self.cvals[self.energy] is None:
-        #    return self.band.exposure(skydir) * self.grid(skydir, self.dm_vals)
-            
-        return self.grid(skydir, self.cvals[self.energy])
+        if not self.active: return 0
+        return self.grid(skydir, self.cvals) / self.exposure_at_center * self.counts/self.factor
         
     def __repr__(self):
         return '%s.%s: \n\tsource: %s\n\tband  : %s\n\tpixelsize: %.1f, npix: %d' % (

@@ -1,6 +1,6 @@
 """
 Seed processing code
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/seeds.py,v 1.5 2017/08/02 23:06:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/seeds.py,v 1.7 2018/01/27 15:37:17 burnett Exp $
 
 """
 import os, sys, time, pickle, glob,  types
@@ -97,22 +97,34 @@ def read_seedfile(seedkey,  filename=None, config=None):
         return seeds[np.logical_not(dups)]
     return seeds
 
-def add_seeds(roi, seedkey, config=None,
+def select_seeds_in_roi(roi, fn='seeds/seeds_all.csv'):
+    """ Read seeds from csv file, return those in the given ROI
+
+    roi : int or Process instance
+        if the latter, look up index from roi direction. direction
+    """
+    if type(roi)!=int:
+        roi = Band(12).index(roi.roi_dir)
+    seeds = pd.read_csv(fn, index_col=0)
+    seeds['skydir'] = map(SkyDir, seeds.ra, seeds.dec)
+    seeds.index.name = 'name' 
+    sel = np.array(map( Band(12).index, seeds.skydir))==roi
+    return seeds[sel]
+
+def add_seeds(roi, seedkey='all', config=None,
             model='PowerLaw(1e-14, 2.2)', 
-            prefix=None,
             associator=None, tsmap_dir='tsmap_fail',
-            tsmin=5, lqmax=20,
+            tsmin=10, lqmax=20,
             update_if_exists=False,
+            location_tolerance=0.5,
+            pair_tolerance=0.25,
             **kwargs):
     """ add "seeds" from a text file the the current ROI
     
         roi : the ROI object
         seedkey : string
             Expect one of 'pgw' or 'ts' for now. Used by read_seedfile to find the list
-        model : string
-            model to use for the generated source, unless found in maps.table_info
-        prefix : None or string
-            Name to 
+
         associator :
         tsmap_dir
         mints : float
@@ -120,119 +132,102 @@ def add_seeds(roi, seedkey, config=None,
         lqmax : float
             maximum localization quality for tentative source
     """
-    if seedkey=='all':
-        seeds = pd.read_csv('seeds/seeds_all.csv')
-        seeds['skydir'] = map(SkyDir, seeds.ra, seeds.dec)
-        seeds['hpindex'] = map( Band(12).index, seeds.skydir)
-    else:
-        seeds = read_seedfile(seedkey, config=config)
-    inside = seeds.hpindex==Band(12).index(roi.roi_dir)
-    seednames=np.array(seeds.index[inside])
-    if sum(inside)==0:
-        print 'no seeds in ROI'
-        return
-    if prefix is None:
-        prefix = seeds.name[0][:4]
-    if seedkey in maps.table_info.keys():
-        model = maps.table_info[seedkey][1]['model']
-        print 'Using model {} for seed {}'.format(model, seedkey)
-    elif seedkey!='all':
-        raise Exception('Unrecognized seed key {}'.format(seedkey))
- 
-    srclist = []
-    for i,s in seeds[inside].iterrows():
-        if seedkey=='all':
-            model = maps.table_info[s['key']][1]['model']
+
+    def add_seed(s):
+        # use column 'key' to determine the model to use
+        model = maps.table_info[s['key']][1]['model']
         try:
-            src=roi.add_source(sources.PointSource(name=s['name'], skydir=s['skydir'], model=model))
+            src=roi.add_source(sources.PointSource(name=s.name, skydir=s['skydir'], model=model))
             if src.model.name=='LogParabola':
                 roi.freeze('beta',src.name)
             elif src.model.name=='PLSuperExpCutoff':
                 roi.freeze('Cutoff', src.name)
-            srclist.append(src)
-            print '%s: added at %s' % (s['name'], s['skydir'])
-        except roimodel.ROImodelException, msg:
+            print '%s: added at %s' % (s.name, s['skydir'])
+        except Exception, msg:
+            print '*** fail to add source:', msg
             if update_if_exists:
-                srclist.append(roi.get_source(s['name']))
-                print '{}: updating existing at {} '.format(s['name'], s['skydir'])
+                src = roi.get_source(s.name)
+                print '{}: updating existing source at {} '.format(s.name, s['skydir'])
             else:
-                print '{}: Fail to add "{}"'.format(s['name'], msg)
-    # Fit only fluxes for each seed first
-    seednames = [s.name for s in srclist]
-    llbefore = roi.log_like() # for setup?
-
-    # set normalizations with profile fits
-    for src in srclist:
+                print '{}: Fail to add "{}"'.format(s.name, msg)
+                return
+        # profile
         prof= roi.profile(src.name, set_normalization=True)
         src.ts= prof['ts'] if prof is not None else 0
-        print '\tTS={:.1f}'.format(src.ts)
-
-    # now fit all norms at once
-    seednorms = [s.name+"_Norm" for s in srclist if roi.get_source(s.name).ts>0]
-    if len(seednorms)==0:
-        print 'Did not find any seeds with prefix {}.'.format(prefix)
-        return False
-    try:
-        roi.fit(seednorms, tolerance=0.2, ignore_exception=False)
-    except Exception, msg:
-        print 'Failed to fit seed norms: \n\t{}\nTrying full fit'.format(msg)
-        roi.fit(ignore_exception=True)
-    #remove those with low TS
-    print 'TS values'
-    goodseeds = []
-    for sname in seednames:
-        ts = roi.TS(sname)
-        print '%8s %5.1f ' %(sname, ts),
-        if ts<tsmin:
-            print '<-- remove'
-            roi.del_source(sname)
-        else:
-            goodseeds.append(sname)
-            print 'OK'
         
-    # fit all parameter for each one, remove if ts< tsmin 
-    seednames = goodseeds
-    goodseeds = []
-    for sname in seednames:
-        roi.fit(sname, tolerance=0, ignore_exception=True)
+        # fit Norm
+        try:
+            roi.fit(s.name+'_Norm', tolerance=0., ignore_exception=False)
+        except Exception, msg:
+            print '\tFailed to fit seed norm: \n\t{}\nTrying full fit'.format(msg)
+            return False
+        # fit both parameters
+        try:
+            roi.fit(s.name, tolerance=0., ignore_exception=False)
+        except Exception, msg:
+            print '\tFailed to fit seed norm and index:'
+            return False
         ts = roi.TS()
-        print '  TS = %.1f' % ts
+        print '\nTS = %.1f' % ts,
         if ts<tsmin:
-            print ' TS<%.1f, removing from ROI' % tsmin
-            roi.del_source(sname)
-        elif tsmin>0:
-            # one iteration of pivot change
-            s = roi.get_source(sname)
-            roi.repivot([s], min_ts=5)
-            # and a localization: remove if fails or poor
-            roi.localize(sname, update=True)
-            ellipse = s.__dict__.get('ellipse', None) 
-            if ellipse is None or ellipse[5]>lqmax:
-                if tsmap_dir is not None and os.path.exists(tsmap_dir):
-                    roi.plot_tsmap(sname, outdir=tsmap_dir)
-                print '--> removing {} \n\t since did not localize'.format(s)
-                roi.del_source(sname)
-                continue
-            roi.get_sed(sname)
-            goodseeds.append(sname)
-            
-    if len(goodseeds)>0:
-        # finally, fit full ROI 
-        roi.fit(ignore_exception=True, tolerance=0.2)
-        return True
-    else:
-        return False
+            print ' <%.1f, Fail to add.' % tsmin
+            return False
+        else: print ' OK'
 
-def create_seeds(stagename='sourcefinding', seed_folder='seeds', merge_tolerance=1.0, skip=False):
+        # one iteration of pivot change
+        iter = 2
+        if iter>0 and roi.repivot([src], min_ts=tsmin,select=src.name ):
+            iter -=1
+
+        # and a localization: remove if fails or poor
+        roi.localize(s.name, update=True, tolerance=1e-3)
+        quality = src.ellipse[5] if hasattr(src, 'ellipse') and src.ellipse is not None else None
+        if quality is None or quality>lqmax:
+            print '\tFailed localization, quality {}, maximum allowed {}'.format(quality, lqmax)
+        
+        return True
+    
+    seedfile = kwargs.pop('seedfile', 'seeds/seeds_{}.csv'.format(seedkey))
+    seedlist = select_seeds_in_roi(roi, seedfile)
+    if len(seedlist)==0:
+        print 'no seeds in ROI'
+        return False
+    else:
+        print 'Found {} seeds from {} in this ROI: check positions'.format(len(seedlist),seedfile)
+
+
+
+    good = 0  
+    for sname,s in seedlist.iterrows():
+        print '='*20, sname, 'Initial TS:{:.1f}'.format(s.ts), '='*20
+        if not add_seed( s):
+            roi.del_source(sname)
+        else: good +=1
+
+    return good>0
+
+def create_seeds(keys = ['ts', 'tsp', 'hard', 'soft'], seed_folder='seeds', tsmin=10, 
+            merge_tolerance=1.0, update=False, max_pixels=30000,):
     """Process the 
     """
-    keys =stagedict.stagenames[stagename]['pars']['table_keys'] 
+    #keys =stagedict.stagenames[stagename]['pars']['table_keys'] 
+    
     modelname = os.getcwd().split('/')[-1]; 
+    if modelname.startswith('uw'):
+        seedroot=''
+    elif modelname.startswith('year'):
+        seedroot='y'+modelname[-2:]
+    elif modelname.startswith('month'):
+        seedroot='m'+modelname[-2:]
+    else:
+        raise Exception('Unrecognized model name, {}. '.format(modelname))
+
     # list of prefix characters for each template
     prefix = dict(ts='M', tsp='P', hard='H', soft='L')
     if not os.path.exists(seed_folder):
         os.mkdir(seed_folder)
-    if not skip:
+    table_name = 'hptables_{}_512.fits'.format('_'.join(keys))
+    if not (update or os.path.exists(table_name)):
         print "Checking that all ROI map pickles are present..."
         ok = True;
         for key in keys:
@@ -249,30 +244,42 @@ def create_seeds(stagename='sourcefinding', seed_folder='seeds', merge_tolerance
 
         print 'Filling tables...'
         healpix_map.assemble_tables(keys)
-    table_name = 'hptables_{}_512.fits'.format('_'.join(keys))
     assert os.path.exists(table_name)
 
     # generate txt files with seeds
     print 'Run cluster analysis for each TS table'
     seedfiles = ['{}/seeds_{}.txt'.format(seed_folder, key) for key in keys]
+
+    # make DataFrame tables from seedfiles
+    tables=[]
     for key, seedfile in zip(keys, seedfiles):
         print '{}: ...'.format(key),
-        rec = open(seedfile, 'w')
-        seedroot = modelname.replace('uw',prefix[key])
-        nseeds = check_ts.make_seeds('test', table_name, fieldname=key, rec=rec,
-            seedroot=seedroot, minsize=1,mask=None)
-        print 'Wrote file {} with {} seeds'.format(seedfile, nseeds)
-     
-    keys = [f[f.find('_')+1:-4] for f in seedfiles]; 
-    tables = [pd.read_table(seedfile, index_col=0) for seedfile in seedfiles]
-    for table in tables:
-        table['skydir'] = map(SkyDir, table.ra, table.dec)
+        if os.path.exists(seedfile) and not update:
+            print 'Seedfile {} exists: skipping make_seeds step...'.format(seedfile)
+            table = pd.read_table(seedfile, index_col=0)
+            print 'found {} seeds'.format(len(table))
+        else:
+            rec = open(seedfile, 'w')
+            nseeds = check_ts.make_seeds('test', table_name, fieldname=key, rec=rec,
+                seedroot=seedroot+prefix[key], rcut=tsmin, minsize=1,mask=None, max_pixels=max_pixels,)
+            if nseeds>0:
+                #read back, set skydir column, add to list of tables
+                print '\tWrote file {} with {} seeds'.format(seedfile, nseeds)
+                table = pd.read_table(seedfile, index_col=0)
+                table['skydir'] = map(SkyDir, table.ra, table.dec)
+                table['key'] = key
+            else:
+                print '\tFailed to find seeds: file {} not processed.'.format(seedfile)
+                continue
+        tables.append(table)
 
-    u = merge_seed_files(tables,merge_tolerance);
+    if len(tables)<2:
+        print 'No files to merge'
+        return
+
+    u = merge_seed_files(tables, merge_tolerance);
     print 'Result of merge with tolerance {} deg: {}/{} kept'.format(merge_tolerance,len(u), sum([len(t) for t in tables]))
-    # Add a column with the table key for model refercne
-    unprefix = dict([[v,k] for k,v in prefix.items()])
-    u['key'] = [unprefix[n[0]] for n in u.index]
+
     outfile ='{}/seeds_all.csv'.format(seed_folder) 
     u.to_csv(outfile)
     print 'Wrote file {} with {} seeds'.format(outfile, len(u))
@@ -283,6 +290,8 @@ def merge_seed_files(tables, dist_deg=1.0):
         tables : list of data frames
     """
     dist_rad = np.radians(dist_deg)
+    for t in tables:
+        t['skydir'] = map(SkyDir, t.ra, t.dec)
     
     def find_close(A,B):
         """ helper function: make a DataFrame with A index containg
@@ -305,6 +314,7 @@ def merge_seed_files(tables, dist_deg=1.0):
         close_df  = find_close(A,B).query('distance<{}'.format(dist_rad))
         bdups = close_df.query('ts_b<ts_a')
         bdups.index=bdups.id_b
+        bdups = bdups[~bdups.index.duplicated()]
         adups = close_df.query('ts_b>ts_a')
         A['dup'] = adups['id_b']
         B['dup'] = bdups['id_a']
@@ -313,5 +323,97 @@ def merge_seed_files(tables, dist_deg=1.0):
     
     out = tables[0]
     for t in tables[1:]:
+        print 'merging...'
         out = merge2(out, t)
     return out
+
+def create_seedfiles(self, seed_folder='seeds', update=False, max_pixels=30000, merge_tolerance=1.0, 
+        tsmin=14):
+    """
+    Version of create_seeds used for a maps.MultiMap object
+    """
+    seedfiles = ['{}/seeds_{}.txt'.format(seed_folder, key) for key in self.names];
+    prefix = dict(flat='F', peaked='P', hard='H', soft='S', psr='N')
+    if not os.path.exists(seed_folder):
+        os.mkdir(seed_folder)
+    table_name = self.fitsfile
+
+    # make DataFrame tables from seedfiles
+    tables=[]
+    modelname = os.getcwd().split('/')[-1]; 
+    if modelname.startswith('uw'):
+        seedroot=modelname[-3:]
+    elif modelname.startswith('year'):
+        seedroot='Y'+modelname[-2:]
+    elif modelname.startswith('month'):
+        seedroot='M'+modelname[-2:]
+    else:
+        raise Exception('Unrecognized model name, {}. '.format(modelname))
+
+    outfile ='{}/seeds_all.csv'.format(seed_folder) 
+    if os.path.exists(outfile) and not update:
+        print 'File {} exists'.format(outfile)
+        return pd.read_csv(outfile, index_col=0)
+
+    for key, seedfile in zip(self.names, seedfiles):
+        print '{}: ...'.format(key),
+        if os.path.exists(seedfile) and not update:
+            print 'Seedfile {} exists: skipping make_seeds step...'.format(seedfile)
+            table = pd.read_table(seedfile, index_col=0)
+            table['key']=key
+            print 'found {} seeds'.format(len(table))
+        else:
+            rec = open(seedfile, 'w')
+            nseeds = check_ts.make_seeds('test', table_name, fieldname=key, rec=rec,
+                seedroot=seedroot+prefix[key], rcut=tsmin, minsize=1, mask=None, max_pixels=max_pixels,)
+            if nseeds>0:
+                #read back, set skydir column, add to list of tables
+                print '\tWrote file {} with {} seeds'.format(seedfile, nseeds)
+                table = pd.read_table(seedfile, index_col=0)
+                table['skydir'] = map(SkyDir, table.ra, table.dec)
+                table['key'] = key
+            else:
+                print '\tFailed to find seeds: file {} not processed.'.format(seedfile)
+                continue
+        tables.append(table)
+
+    u = merge_seed_files(tables, merge_tolerance);
+    print 'Result of merge with tolerance {} deg: {}/{} kept'.format(merge_tolerance,len(u), sum([len(t) for t in tables]))
+
+    u.index.name='name'
+    v = u['ra dec b ts size key'.split()]
+    v.to_csv(outfile)
+    print 'Wrote file {} with {} seeds'.format(outfile, len(u)) 
+    return v  
+#############################################################
+# code to deal with accidentally removed sources
+def add_old_sources(roi, filename='../uw8608/lost.csv'):
+    """add sources from a csv file
+    """
+    lost = pd.read_csv(filename, index_col=0)
+    print 'read file {} with {} sources'.format(filename, len(lost))
+    sel = lost[lost.roiname==roi.name]
+    if len(sel)>0:
+        print 'adding sources {}'.format(list(sel.index))
+    else:
+        print 'No sources found in this ROI'
+        return False
+    ok = False
+    for name, x in sel.iterrows():
+        psr = name.startswith('PSR')
+        if x.ts<25: continue
+        try:
+            roi.add_source(name=x.name, skydir=(x.ra,x.dec),
+                        model='LogParabola({},{},{},{})'.format(x.flux, x.pindex, x.index2,x.e0))
+            roi.fit(x.name); 
+            ts = roi.TS()
+            roi.freeze('beta')
+            if ts<25:
+                print 'Not good fit: removing'
+                roi.del_source(x.name)
+            else:
+                ok = True
+                roi.get_sed(update=True)# add SED
+        except Exception, msg:
+            print 'Failed to add : {}'.format(msg)
+    return ok

@@ -1,6 +1,6 @@
 """
  Manage associations
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/associate.py,v 1.4 2015/08/16 01:13:19 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/associate.py,v 1.5 2015/12/03 17:08:06 burnett Exp $
  author: T. Burnett <tburnett@uw.edu>
 """
 import os, glob

@@ -1,7 +1,7 @@
 """
 Manage the psf
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/psf.py,v 1.1 2013/11/07 17:21:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/psf.py,v 1.2 2016/10/28 21:20:15 burnett Exp $
 
 """
 import numpy as np

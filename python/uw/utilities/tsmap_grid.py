@@ -1,6 +1,6 @@
 """
 HTML clickable map stuff
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/tsmap_grid.py,v 1.3 2010/06/10 21:41:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/tsmap_grid.py,v 1.4 2010/06/20 14:16:30 burnett Exp $
 
 author: Toby Burnett <tburnett@uw.edu>
 """

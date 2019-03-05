@@ -1,6 +1,6 @@
 """   Analyze localization 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.15 2016/03/21 18:54:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/localization.py,v 1.17 2018/01/27 15:39:29 burnett Exp $
 
 """
 import os, pickle, collections
@@ -113,10 +113,13 @@ class Localization(sourceinfo.SourceInfo):
         axx = axxx[0]
         plt.subplots_adjust(wspace=0.4)
         wp = self.ebox
-        cut = self.df.ts>mints
+        badfit = pd.isnull(wp.locqual)
+        if sum(badfit)>0:
+            print 'Warning: {} sources with no fits'.format(sum(badfit))
+        cut = (self.df.ts>mints) & (~ badfit)
         ax=axx[0]
         for x in (mints, tscut):
-            ax.hist(wp.locqual[self.df.ts>x].clip(0,maxqual), bins,label='TS>%d'%x)
+            ax.hist(np.array(wp.locqual[cut & (self.df.ts>x)],float).clip(0,maxqual), bins,label='TS>%d'%x)
         ax.legend(prop=dict(size=10))
         ax.grid()
         plt.setp(ax, xlabel='localization fit quality')
@@ -197,7 +200,7 @@ class Localization(sourceinfo.SourceInfo):
             dict(source1=name1, source2=name2, distance=distance, 
                     tolerance=tolerance, roi=roi_index, ts1=ts1, ts2=ts2),
                 columns = 'source1 ts1 source2 ts2 distance tolerance roi'.split(),
-            ).sort_index(by='roi')
+            ).sort_values(by='roi')
         self.close_table = html_table(tdf, 
             name=self.plotfolder+'/close',
             heading='<h4>Table of %d pairs of close sources</h4>'%len(name1),
@@ -240,7 +243,7 @@ class Localization(sourceinfo.SourceInfo):
         ax = axx[0]
         ax.errorbar(x, h/dA ,yerr=np.sqrt(h)/dA,  fmt='.', label='TS>%d: %d sources above |b|=%d'%(tsmin, len(sdirs),bmin))
         ax.plot(bins,f(bins), '--g')
-        plt.setp(ax, yscale='log', ylim=(1,1000), 
+        ax.set( yscale='log', ylim=(1,None), 
             ylabel='Number of sources per square degree', xlabel='closest distance (deg)')
         ax.legend(prop=dict(size=10))
         ax.grid()
@@ -249,7 +252,7 @@ class Localization(sourceinfo.SourceInfo):
         ax.errorbar(x, h/dA/f(x), yerr=np.sqrt(h)/dA/f(x),  fmt='o', )
         ax.axhline(1.0, color='k')
         ax.grid()
-        plt.setp(ax, xlim=(0,3), ylim=(0,1.5),  xlabel='closest distance (deg)',
+        ax.set( xlim=(0,3), ylim=(0,1.5),  xlabel='closest distance (deg)',
             ylabel='ratio of detected to expected')
         return fig
     
@@ -261,7 +264,7 @@ class Localization(sourceinfo.SourceInfo):
         """
         unloc = self.unloc
         if sum(unloc)>0:
-            unloc_table = self.df.ix[unloc]['ra dec ts roiname'.split()].sort_index(by='roiname')
+            unloc_table = self.df.ix[unloc]['ra dec ts roiname'.split()].sort_values(by='roiname')
             self.unlocalized_sources =html_table(unloc_table,
                 name=self.plotfolder+'/unlocalized',
                 heading='<h4>Table of %d unlocalized sources</h4>'%len(unloc_table),
@@ -304,12 +307,14 @@ class Localization(sourceinfo.SourceInfo):
             self.poorly_localized_table_check ='<p>No poorly localized sources!'
 
         
-    def load_moment_analysis(self, make_collection=True):
+    def load_moment_analysis(self):
         """ check results of moment analysis
         """
         m =self.df.moment
         has_moment = [x is not None for x in m]
-        print 'Found %d sources with moment analysls' % sum(has_moment)
+        print 'Found %d sources with moment analysis' % sum(has_moment)
+        if sum(has_moment)==0:
+            return None
         mdf = pd.DataFrame(m[has_moment]) 
         u = np.array([list(x) for x in mdf.moment])
         self.dfm=md= pd.DataFrame(u,  index=mdf.index, columns='rax decx ax bx angx size peak_fract'.split())
@@ -329,24 +334,9 @@ class Localization(sourceinfo.SourceInfo):
         
         filename = 'moment_localizations.csv'
         md.to_csv(filename)
-        print 'Write file %s' % filename
-        if not make_collection: return md
+        print 'Wrote file %s' % filename
+        return md
         
-        # now make a collection with images and data
-        self.moment_collection_html=''
-        try:
-            t = makepivot.MakeCollection('moment analysis localizations %s'%self.skymodel, 'tsmap_fail', 'moment_localizations.csv', 
-                refresh=True) 
-            makepivot.set_format(t.cId)
-            self.moment_collection_html="""
-                <p>The images and associated values can be examined with a 
-                <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>,
-                which requires Silverlight."""  % t.cId
-        except Exception, msg: 
-            print "**** Failed to make moment pivot table: %s" % msg
-
-        
-
     def moment_plots(self):
         """Plots of properties of the moment analysis
         This analysis was done on localizations that had  locqual>5, or a>0.25, or delta_ts>2. 
@@ -366,11 +356,15 @@ class Localization(sourceinfo.SourceInfo):
         <p>Subsets correspond to peak fraction betweek 0.1 and 0.5.
          %(moment_collection_html)s
         """
-        
+        if not hasattr(self,'dfm'):
+            dfm = self.load_moment_analysis()
+        if dfm is None:
+            self.moment_collection_html='<b>No moment analysis sources were found!</b>'
+            return 
+
         fig, axx = plt.subplots(2,3, figsize=(10,8))
         plt.subplots_adjust(hspace=0.3, wspace=0.3, left=0.1)
-        if not hasattr(self,'dfm'):
-            self.load_moment_analysis()
+
         dfs = self.dfm
         goodfrac= (dfs.peak_fract<0.5) & (dfs.peak_fract>0.1)
         for ix, ax in enumerate(axx.flatten()):
@@ -379,8 +373,8 @@ class Localization(sourceinfo.SourceInfo):
                 ax.hist(dfs.peak_fract[goodfrac], np.linspace(0,1,26))
                 plt.setp(ax, xlabel='peak fraction', xlim=(0,1))
             elif ix==2:
-                ax.hist(dfs.ax/dfs.size, np.linspace(0,0.5,26))
-                ax.hist(dfs.ax/dfs.size[goodfrac], np.linspace(0,0.5,26))
+                ax.hist(dfs.ax/dfs['size'], np.linspace(0,0.5,26))
+                ax.hist((dfs.ax/dfs['size'])[goodfrac], np.linspace(0,0.5,26))
                 plt.setp(ax, xlabel='major/size')
             elif ix==1:
                 ax.hist(dfs.ax.clip_upper(0.5), np.linspace(0,0.5,26))
@@ -391,11 +385,13 @@ class Localization(sourceinfo.SourceInfo):
                 ax.hist((dfs.bx/dfs.ax)[goodfrac], np.linspace(0,1,26))
                 plt.setp(ax, xlabel='minor/major')
             elif ix==4:
-                ax.hist(dfs.size, np.linspace(0,2,26))
-                ax.hist(dfs.size[goodfrac], np.linspace(0,2,26))
+                ax.hist(dfs['size'], np.linspace(0,2,26))
+                ax.hist(dfs['size'][goodfrac], np.linspace(0,2,26))
                 plt.setp(ax, xlabel='size')
             elif ix==5:
-                ax.hist(dfs.locqual.clip_upper(8), np.linspace(0,8))
+                lq = np.array(dfs.locqual,float)
+                cut=np.logical_not(np.isnan(lq))
+                ax.hist(lq[cut].clip(0,8), np.linspace(0,8,17))
                 plt.setp(ax, xlabel='locqual')
         return fig
     

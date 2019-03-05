@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.91 2013/09/14 05:39:07 burnett Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.93 2018/01/28 19:52:34 burnett Exp $
 
    author: Matthew Kerr
 """
@@ -322,6 +322,10 @@ class XML_to_SpatialModel(object):
                         SpatialModels.RadialProfile]
 
     spatialdict = {i.__name__:i for i in extended_sources}
+    ## add these for consistency with new convention
+    spatialdict['RadialDisk'] = SpatialModels.Disk
+    spatialdict['RadialGaussian'] = SpatialModels.Gaussian
+    
 
     @staticmethod
     def get_spatial_model(xml_dict,source_name,diffdir=None):
@@ -364,6 +368,8 @@ class XML_to_SpatialModel(object):
             return spatial_model
 
         for i,p in enumerate(spatial_model.param_names):
+            if p=='Sigma' and p not in d: 
+                d['Sigma'] = d['Radius'] #kluge to adapt to new convention
             pdict =d[p]
 
             scale = float(pdict['scale'])
@@ -380,8 +386,8 @@ class XML_to_SpatialModel(object):
                 max = float(pdict['max'])
 
                 if i == 0:
-                    if min != -360 or max != 360:
-                        raise Exception("Error reading spatial parameter %s for source %s. Parameter range must be -360 to 360" % (p,source_name))
+                    if (min != -360 and min !=0) or max != 360:
+                        raise Exception("Error reading spatial parameter %s for source %s. Parameter range must be -360 (or 0) to 360" % (p,source_name))
                 elif i == 1:
                     if min != -90 or max != 90:
                         raise Exception("Error reading spatial parameter %s for source %s. Parameter range must be -90 to 90" % (p,source_name))
@@ -1154,7 +1160,8 @@ def parse_diffuse_sources(handler, roi_dir, max_roi, diffdir=None):
                                              model=spectral_model,
                                              spatial_model=spatial_model))
         else:
-            raise XMLException('Diffuse spatial model "%s" not recognized' % spatial['type'])
+            raise XMLException('Diffuse spatial model "{}", source {}, not recognized'.format(
+                 spatial['type'], name))
     return list(ds)
 
 def parse_sources(xmlfile,diffdir=None,roi_dir=None,max_roi=None):

@@ -1,7 +1,7 @@
 """
 Resolution study
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/resolution.py,v 1.1 2017/11/17 22:44:09 burnett Exp $
 
 author:  Toby Burnett
 """

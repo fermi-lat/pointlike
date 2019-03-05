@@ -1,7 +1,7 @@
 """
 Pulsar search analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/pulsars.py,v 1.2 2017/08/23 16:23:43 zimmer Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/pulsars.py,v 1.3 2017/11/17 22:43:17 burnett Exp $
 
 """
 

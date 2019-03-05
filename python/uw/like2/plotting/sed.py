@@ -1,30 +1,43 @@
 """
-Manage a SED plot
+Manage an SED plot
     
-    To generate a plot from a SourceFlux, given:
-            sf an SourceFlux object, 
+    To generate a plot from a Source, given:
+            sf an Source object, 
         Plot(sf)()
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.24 2015/12/03 17:33:45 burnett Exp $
 """
 import os, types, sys
 import numpy as np
 import pylab as plt
+import matplotlib.ticker as ticker
 import pandas as pd
 from uw.utilities import image
 
-def set_xlabels( axes, gev_scale) :   
-    def gevticklabel(x):
-        if x<100 or x>1e5: return ''
-        elif x==100: return '0.1'
-        return '%d'% (x/1e3)
+def set_xlabels( axes, gev_scale) : 
+    def mev_tf(val, pos=0):
+        lookup ={0.1:'0.1', 1.0:'1', 10.0:'10', 100.:'100'}
+        return lookup.get(val, '') 
+    def gev_tf(val, pos=0):
+        lookup ={100.:'0.1', 1e3:'1', 1e4:'10', 1e5:'100'}
+        return lookup.get(val, '') 
+
     if gev_scale:
         """ make it look nicer """
-        axes.set_xticklabels(map(gevticklabel, axes.get_xticks()))
+        #axes.xaxis.set_major_formatter(ticker.FuncFormatter(gev_tf))  
+        axes.xaxis.set_major_formatter(ticker.FuncFormatter(
+                    lambda val,pos:{100.:'0.1', 1e3:'1', 1e4:'10', 1e5:'100'}.get(val,'') ))
         axes.set_xlabel(r'$\mathsf{Energy\ (GeV)}$')
     else:
         axes.set_xlabel(r'$\mathsf{Energy\ (MeV)}$')
+        axes.xaxis.set_major_formatter(ticker.FuncFormatter(gev_tf))  
 
+def set_ylabels(axes, unit):
+    axes.set_ylabel(r'$\mathsf{E^2\ dN/dE \ (%s\ cm^{-2}\ s^{-1})}$' %unit, labelpad=0)
+    def ev_tf(val, pos=0):
+        lookup ={0.1:'0.1', 1.0:'1', 10.0:'10', 100.:'100'}
+        return lookup.get(val, '') 
+    if unit=='eV':
+        axes.yaxis.set_major_formatter(ticker.FuncFormatter(ev_tf))
      
 class Plot(object):
     """
@@ -39,7 +52,7 @@ class Plot(object):
         """
         self.name = source.name
         self.model = source.spectral_model
-        self.rec = source.sedrec
+        self.rec = getattr(source, 'sedrec', None)
         assert energy_flux_unit in ('erg', 'MeV', 'GeV', 'eV') , 'unrecognized energy flux unit'
         self.energy_flux_unit= energy_flux_unit
         self.scale_factor = dict(erg=1.602e-12, MeV=1e-6, eV=1., GeV=1e-9)[energy_flux_unit]
@@ -64,8 +77,7 @@ class Plot(object):
                 # plot arrow 0.6 long by 0.4 wide, triangular head (in log coords)
                 axes.plot([x, x,     x*1.2, x,     x/1.2, x],
                           [y, y*0.6, y*0.6, y*0.4, y*0.6, y*0.6], **ul_kwargs)
- 
-                      
+                       
     def plot_model(self,  m,  butterfly=False, **kwargs):
         """ 
             m: the model, implements Models.Model
@@ -84,11 +96,11 @@ class Plot(object):
         # show position of e0, possibly the pivot energy
         if butterfly:
             try:
-                self.plot_butterfly(m)
+                self.plot_butterfly(m, color=kwargs.get('color', 'red'))
             except Exception, msg:
                 print 'fail to plot butterfly for {}:{}'.format(self.name, msg)
 
-    def plot_butterfly(self, m, ):
+    def plot_butterfly(self, m, color='green', alpha=0.25 ):
         energy_flux_factor = self.scale_factor*1e6 # from MeV to eV
         axes = self.axes
         dom = self.dom
@@ -102,7 +114,7 @@ class Plot(object):
         bfun  = lambda e: m.flux_relunc(e)
 
         axes.errorbar([e0], [eflux(e0)], yerr=[eflux(e0)*bfun(e0)], 
-                    fmt='+r', elinewidth=2, markersize=8)
+                    fmt='D', color=color, elinewidth=2, markersize=5)
                 
         dom_r = np.array([dom[-i-1] for i in range(len(dom))]) #crude reversal.
         upper = eflux(dom)  * (1 + bfun(dom)  ) 
@@ -111,8 +123,8 @@ class Plot(object):
         lower[lower<ymin] = ymin
         upper[upper>ymax] = ymax
         t =axes.fill(np.hstack( [dom,   dom_r] ), 
-                    np.hstack( [upper, lower] ), 'r')
-        t[0].set_alpha(0.4)
+                    np.hstack( [upper, lower] ), color)
+        t[0].set_alpha(alpha)
         
     def plot_residual(self, axes, model, dom, **kwargs):
         energy_flux_factor = self.scale_factor*1e6 # from MeV to eV
@@ -130,7 +142,7 @@ class Plot(object):
                 fignum=5, axes=None,
                 axis=None, #(1e2,1e6,1e-7,1e-2),
                 data_kwargs=dict(linewidth=2, color='k',),
-                fit_kwargs =dict(lw=2,        color='r',),
+                fit_kwargs =dict(lw=2,        color='red',),
                 butterfly = True,
                 outdir = None,
                 suffix = '_sed',
@@ -187,17 +199,15 @@ class Plot(object):
         plt.rcParams['xtick.labelsize']=plt.rcParams['ytick.labelsize']=oldticksize
 
         # the axis labels (note reduced labelpad for y) 
-        axes.set_ylabel(r'$\mathsf{Energy\ Flux\ (%s\ cm^{-2}\ s^{-1})}$' % self.energy_flux_unit, labelpad=0)
-        axes.set_xlabel(r'$\mathsf{Energy\ (GeV)}$')
-        # not flexible
-        #if self.energy_flux_unit=='eV':
-        #  axes.set_yticklabels(['', '1', '10', '100', r'$\mathdefault{10^{3}}$'])
+        #axes.set_ylabel(r'$\mathsf{Energy\ Flux\ (%s\ cm^{-2}\ s^{-1})}$' % self.energy_flux_unit, labelpad=0)
+        set_ylabels(axes, self.energy_flux_unit)
+        #axes.set_xlabel(r'$\mathsf{Energy\ (GeV)}$')
 
         axes.set_title(name, size=14)
         set_xlabels(axes, self.gev_scale)
         # add a galactic map if requested
         if galmap is not None:
-            image.galactic_map(galmap, axes=self.axes, color='lightblue', marker='s', markercolor='r', markersize=20)
+            image.galactic_map(galmap, axes=self.axes, color='lightblue', marker='s', markercolor='r', markersize=12)
 
         if annotate is not None:
             axes.text(annotate[0],annotate[1], annotate[2],transform=axes.transAxes, fontsize=8)
@@ -253,7 +263,7 @@ def stacked_plots(sed,  outdir=None,  **kwargs):
         
     fig, axes = plt.subplots(2,1, sharex=True,  figsize=figsize,dpi=100)
     fig.subplots_adjust(hspace=0)
-    axes[0].tick_params(labelbottom='off')
+    axes[0].tick_params(labelbottom=False)
     left, bottom, width, height = (0.15, 0.10, 0.75, 0.85)
     fraction = 0.8
 
@@ -291,7 +301,7 @@ def stacked_plots(sed,  outdir=None,  **kwargs):
     return fig
 
 def plot_other_source(source, other_source, emin=None,
-             uwname='uw7000', gtname='3FHL v9r1',
+             uwname=None, gtname='FL8Y', #3FHL v9r1',
              ax=None, **kwargs):
     """Make a sed plot with an alternative model overlaid
 
@@ -301,37 +311,90 @@ def plot_other_source(source, other_source, emin=None,
     """
     source_name = source.name
     othermodel=other_source.model
+    if uwname is None: uwname=os.getcwd().split('/')[-1]
     
     sdf=pd.DataFrame(source.sedrec)
     def chisq(source):
-        sdf = pd.DataFrame(source.sedrec)
-        if emin is not None:
-            ee=sdf.elow 
-            return sum(sdf.pull[ee>=emin]**2)
-        return sum(sdf.pull**2)
+        try:
+            sdf = pd.DataFrame(source.sedrec)
+            if emin is not None:
+                ee=sdf.elow 
+                return sum(sdf.pull[ee>=emin]**2)
+            return sum(sdf.pull**2)
+        except:
+            return 99 ##Fail??
         
     if ax is None:
-        fig, ax = plt.subplots(figsize=(4,5))
+        fig, ax = plt.subplots(figsize=(4,4))
     else:
         fig = plt.gcf()
     plot_kw=dict(energy_flux_unit=kwargs.pop('energy_flux_unit','eV'),
-             gev_scale=kwargs.pop('gev_scale',True))
+             gev_scale=kwargs.pop('gev_scale',True), )
     
     ps = Plot(source,  **plot_kw)
-    ps.name = '{}/{}'.format(source_name, other_source.name)
-    #annotation =(0.05,0.9, 'TS=%.0f'% self.TS(source.name))
-    
+    ps.name = '{} / {}'.format(source_name, other_source.name)
+  
 
-    plot_kw = dict( label= '%s: %.1f'%(uwname, chisq(source))) #annotate=annotation)
+    plot_kw = dict( label= '{:6s} {:5.1f}'.format(uwname, chisq(source)),
+        lw=2, color='red') #annotate=annotation)
     ps(axes=ax,  fit_kwargs=plot_kw)
     
     ps.plot_model( other_source.model, butterfly=False, 
-                  label='%s: %.1f'%(gtname, chisq(other_source)), 
-                  color='g', lw=4, 
+                  label='{:6s} {:5.1f}'.format(gtname, chisq(other_source)), 
+                  color='b', lw=2, 
                   dom=np.logspace(np.log10(emin),6,17) if emin is not None else None,
                  )
     
-    ax.legend(prop=dict(size=10))
-    plt.setp(ax, xlim=(100, 1e6), ylim=(0.01,1000))
+    ax.legend(prop=dict(size=10,family='monospace'))
+    ax.set( xlim=(100, 1e6), ylim=(0.06,200))
     fig.set_facecolor('white')
     return fig
+
+def plot_seds(roi, snames, xlim=(100, 30000), ylim=(.2,200), row_size=5  ):
+    """Plot a set of SEDs in an array.
+
+    roi : current main.ROI object
+    snames : list of string
+        names of sources to plot
+    """
+    srclist = [roi.get_source(n) for n in snames]
+    n = len(snames)
+    nx = row_size
+    ny = n//row_size+1
+
+    fig, axx = plt.subplots(ny, nx, squeeze=False, figsize=(nx*3,ny*3),
+        gridspec_kw=dict(wspace=0.10, hspace=0.15),  sharex=False, sharey=False)
+    
+    for iy in range(ny): # per row
+        for ix in range(nx): # per column
+            i = ix+iy*row_size
+            ax =axx[iy,ix]
+            if i>=n:
+                ax.set(visible=False)
+                continue
+            src = srclist[i]
+            if src.model is not None:
+                # only plot stuff if a model
+                Plot(src, gev_scale=True, )(axes=ax)
+            else:
+                ax.text(0.5,0.5, '(Not found)', ha='center',transform=ax.transAxes, fontsize=12)
+
+            if ix>0:
+                ax.set_ylabel('')
+                ax.yaxis.set_major_formatter(ticker.NullFormatter())
+            else: #left column
+                ax.yaxis.set_major_formatter(ticker.FuncFormatter(
+                    lambda val,pos:{0.1:'0.1', 1.0:'1', 10.0:'10', 100.:'100'}.get(val,'') 
+                ))
+            if i<n-nx or src.model is None:
+                ax.set_xlabel('')
+                ax.xaxis.set_major_formatter(ticker.NullFormatter())
+            else: #gev format
+                ax.xaxis.set_major_formatter(ticker.FuncFormatter(
+                    lambda val,pos:{100.:'0.1', 1e3:'1', 1e4:'10',}.get(val,'') 
+                ))
+            ax.set(xlim=xlim, ylim=ylim, title='')
+            ax.text(0.02, 0.92, src.name, ha='left', transform=ax.transAxes, fontsize=10)
+            ts = getattr(src, 'ts', -1) # for no attribute, 
+            ax.text(0.98, 0.92, '{:.0f}'.format(ts), ha='right',
+                  transform=ax.transAxes, fontsize=10)

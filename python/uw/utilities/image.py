@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.46 2014/07/11 21:38:17 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.47 2017/02/09 19:04:37 burnett Exp $
 
 """
-version = '$Revision: 1.46 $'.split()[1]
+version = '$Revision: 1.47 $'.split()[1]
 
 import sys, pylab, types, os
 import math
@@ -67,10 +67,12 @@ class Rescale(object):
         self.vmin, self.vmax = lon(0,0), lon(nx/2.,ny)
         ticklocator = ticker.MaxNLocator(nticks, steps=[1,2,5])
         self.uticks = [ix if ix>-1e-6 else ix+360\
-              for ix in ticklocator.bin_boundaries(xr,xl)[::-1]] #reverse
+              #for ix in ticklocator.bin_boundaries(xr,xl)[::-1]] #reverse
+              for ix in ticklocator.tick_values(xr,xl)[::-1]] #reverse
         self.ul = xl
         self.ur = xr
-        self.vticks = ticklocator.bin_boundaries(self.vmin,self.vmax)
+        #self.vticks = ticklocator.bin_boundaries(self.vmin,self.vmax)
+        self.vticks = ticklocator.tick_values(self.vmin,self.vmax)
         if len(self.vticks)==0: # protect against rare situatin
             self.vticks = [self.vmin,self.vmax]
 
@@ -287,6 +289,7 @@ class AIT(object):
         ('cbtext',    None,   'text for colorbar'),
         ('background',None,   'if set, a value to apply to NaN: default is to not set pixels\n' 
                                 'nb: do not set 0 if log scale'),
+        ('grid_color',None,  'if set, draw a grid with given color. To annotate it, use the grid method'),
         )
     
     @keyword_options.decorate(defaults)
@@ -434,6 +437,7 @@ class AIT(object):
             the string can specify linear [default], log for log10, sqrt, or asinh
         """
         nocolorbar =kwargs.pop('nocolorbar', self.nocolorbar)
+        grid_color = kwargs.pop('grid_color', self.grid_color)
         cb_kw = kwargs.pop('colorbar_kw',
                 dict(orientation='vertical', shrink=0.6 if self.size==180 else 1.0))
         from numpy import ma
@@ -458,6 +462,9 @@ class AIT(object):
         else:
             self.mappable=m
         self.title(title, **title_kw)
+
+        if grid_color:
+            self.grid(color=grid_color)
 
         # for interactive formatting of the coordinates when hovering
         ##pylab.gca().format_coord = self.format_coord # replace the function on the fly!
@@ -659,7 +666,7 @@ class ZEA(object):
 
         r.apply(self.axes)
 
-        labels = ['l','b'] if self.galactic else ['RA','Dec'] 
+        labels = ['$l$','$b$'] if self.galactic else ['RA','Dec'] 
         self.axes.set_xlabel(labels[0]);self.axes.set_ylabel(labels[1])
         
     def grid(self, nticks=None, **kwargs):

@@ -1,7 +1,7 @@
 """
 Implements exposure calcuations
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/exposure.py,v 1.5 2016/11/07 03:16:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/exposure.py,v 1.6 2017/08/02 22:57:11 burnett Exp $
 """
 import os
 import numpy as np

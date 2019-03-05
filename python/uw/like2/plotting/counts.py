@@ -8,11 +8,13 @@ Authors M. Kerr, T. Burnett
 import os, sys
 import numpy as np
 import pylab as plt
+import matplotlib.ticker as ticker
 import pandas as pd
-from matplotlib import font_manager
+from ..import diffuse
+
 from uw.utilities import image
 
-def get_counts(roi, event_type=None, tsmin=10):
+def get_counts(roi, event_type=None, tsmin=10, emax=None):
     """
     return a dictionary with counts information for plotting
     
@@ -43,6 +45,7 @@ def get_counts(roi, event_type=None, tsmin=10):
     names = np.array([s.name for s in np.hstack([global_sources,free_sources])])
     bandts = np.array([s.sedrec.ts.sum() if hasattr(s,'sedrec') and s.sedrec is not None else None for s in free_sources])
     energies = roi.energies #sorted(list(set([b.energy for b in bands])))
+    if emax is not None: energies = filter(lambda e:e<emax, energies)
     nume = len(energies)
     numsrc = sum(global_mask)# | strong_mask)
     observed = np.zeros(nume)
@@ -54,6 +57,11 @@ def get_counts(roi, event_type=None, tsmin=10):
     total = np.zeros(nume)
     utotal = np.zeros(nume)
     uobserved = np.zeros(nume)
+    inside = np.zeros((nume,5)) # for data, gal, iso, sun, sources, 
+
+    def pixel_counts(s, imask): # helper needed to avoid invoking pix_counts
+        if s.counts==0: return 0
+        return s.pix_counts[imask].sum()
     
     for i, energy in enumerate(energies):
         for b in bands:
@@ -69,7 +77,20 @@ def get_counts(roi, event_type=None, tsmin=10):
             # model, photons with unweight
             utotal[i] += b.unweight * b.counts
             uobserved[i] += b.unweight * sum(b.data)
-            
+
+
+            # # total counts for active part of ROI
+            # imask = b.inside
+            # npix = len(imask); datapix=sum(imask)
+            # inside[i,-1] =  datapix
+            # if len(imask)==0: #no data pixels inside.
+            #     continue
+            # data = b.data[imask].sum()
+            # diffuse = np.array([ x.pix_counts[imask].sum() for x in b[:3]], np.float32)
+
+            # sources = np.array([ pixel_counts(x,imask) for x in b[3:]], np.float32).sum()
+            # inside[i, :5] += np.hstack([data, diffuse, sources])
+
     
     models = [(names[j] , model_counts[:,j]) for j in range(numsrc)]
     #if sum(weak)>0: models.append( ('TS<%.0f'%tsmin, weak))
@@ -79,7 +100,10 @@ def get_counts(roi, event_type=None, tsmin=10):
     chisq = ((observed-total)**2/total).sum()
     uchisq= ((uobserved-utotal)**2/utotal).sum()
     return dict(energies=energies, observed=observed, models=models, 
-        names=names, total=total, bandts=bandts, chisq=chisq, uchisq=uchisq, utotal=utotal, uobserved=uobserved)
+        names=names, total=total, bandts=bandts, chisq=chisq, 
+        uchisq=uchisq, utotal=utotal, uobserved=uobserved,
+        # inside=inside,
+        )
     
 def get_npred(roi, source_name, event_type=None):
     """
@@ -140,13 +164,38 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
     def plot_counts_and_models(ax, count_data,
                 model_kw = dict(linestyle='-', marker='', lw=2),
                 total_kw = dict(linestyle='steps-mid', color='black', linewidth=2),
-                obs_kw= dict(linestyle=' ', marker='o', color='black',)
+                obs_kw= dict(linestyle=' ', marker='o', color='black',),
                 ):
         ax.set_xscale('log')
         ax.set_yscale('log')
         en,obs,tot = count_data['energies'],count_data['observed'],count_data['total']
         
+        rel=1.0
+        def get_data(name):
+            for n, data in count_data['models']:
+                if n==name:
+                    return data.copy()
+            raise Exception('Counts from model "{}" not found for relative plots'.format(name))
+       
+        if relto is not None:
+            if relto=='isotropic':
+                # special case to scale the isotrop model with the ratio of this roi's factors
+                rel = get_data('isotrop')
+
+                if 'factors' in roi.config['diffuse']['isotrop']:
+                    global_iso =roi.config['diffuse']['isotrop']['factors']['front']
+                    local_iso=diffuse.normalization['iso']['front']
+                    ratio=local_iso/global_iso
+                    rel[:8] /= ratio
+                else: ratio=1
+                print 'using isotropic...\n {}'.format(ratio.round(3))
+            else:  
+                rel = get_data(relto)  
+ 
+            ax.axhline(1.0, color='grey', ls='--') 
+
         for name, data in count_data['models']:
+            if name==relto: continue
             if np.any(data<=0): continue # ignore models with no predicted counts
             assert len(en)==len(data), 'energy, data mismatch'
             if len(name)>20: name=name[:17]+'...'
@@ -156,36 +205,51 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
             elif name=='SunMoon': tmodel_kw.update(color='grey')
             elif name.startswith('fixed'): tmodel_kw.update(linestyle='-.', color='g', lw=3)
             elif name.startswith('free'): tmodel_kw.update(linestyle='-.', color='r', lw=3)
-            ax.loglog(en, data, label=name, **tmodel_kw)
+            ax.loglog(en, data/rel, label=name, **tmodel_kw)
         
-        ax.loglog( en, tot, label='Total Model', **total_kw)
-        err = obs**0.5
-        low_err = np.where(obs-err <= 0, 0.99*obs, err)
-        ax.errorbar(en,obs,yerr=[low_err,err], label='Counts', **obs_kw )
-        ax.set_ylabel('Counts per Bin', fontsize=12)
-        def gevticklabel(x):
-            if x<100 or x>1e5: return ''
-            elif x==100: return '0.1'
-            return '%d'% (x/1e3)
+        ax.loglog( en, tot/rel, label='Total Model', **total_kw)
+        err = obs**0.5/rel
+        low_err = np.where(obs-err <= 0, 0.99*obs, err)/rel
+        ax.errorbar(en,obs/rel,yerr=[low_err,err], label='Counts', **obs_kw )
+        
+        if relto is not None:
+            # format relative count 
+            ax.set_ylabel('Counts relative to {}'.format(relto), fontsize=12)
+            ax.set( ylim=(1e-1,200.),  ) #default, can be overridden
+            ax.yaxis.set_major_formatter(ticker.FuncFormatter(
+                lambda val,pos: { 1.0:'1', 10.0:'10', 100.:'100'}.get(val,''))) 
+        else:
+            ax.set_ylabel('Counts per Bin', fontsize=12)
+            ax.set( ylim=(100.,None), )
+
         """ make it look nicer """
-        ax.set_xticklabels(map(gevticklabel, ax.get_xticks()))
+        def gev_tf(val, pos=0):
+            lookup ={100.:'0.1', 1e3:'1', 1e4:'10', 1e5:'100'}
+            return lookup.get(val, '') 
+        ax.xaxis.set_major_formatter(ticker.FuncFormatter(gev_tf))  
         ax.set_xlabel(r'$\mathsf{Energy\ (GeV)}$', fontsize=12)
 
         ax.legend(loc=0,prop=dict(size=10))
         ax.grid(b=True, alpha=0.5)
-        ax.set_ylim(ymin=100.)
+
         
     def plot_residuals(ax, count_data, 
                 plot_kw=dict( linestyle=' ', marker='o', color='black',),
                 show_chisq=True, plot_pulls=True,
                 ):
-        energy, obs,tot = count_data['energies'],count_data['observed'],count_data['total']
+        energy, obs,tot = np.array(count_data['energies']),count_data['observed'],count_data['total']
         ax.set_xscale('log')
         if not plot_pulls:
-            ax.errorbar(energy, (obs-tot)/(tot), yerr=tot**-0.5, **plot_kw)
-            ybound=0.1 # ybound = min( 0.5, np.abs(np.array(ax.get_ylim())).max() )
+            fdev = 100*(obs-tot)/(tot)
+            ax.errorbar(energy, fdev, yerr=100*(tot**-0.5), **plot_kw)
+            ybound=4.0 
             ylabel='fract. dev'
-
+            ax.set(xscale='log', ylabel='fract. dev (%)', ylim=(-ybound*1.1,ybound*1.1))
+            nhigh = sum(fdev>ybound)
+            if nhigh>0:  ax.plot(energy[fdev>ybound], [ybound]*nhigh, '^r', markersize=10) 
+            nlow = sum(fdev<-ybound)
+            if nlow >0:  ax.plot(energy[fdev<-ybound], [-ybound]*nlow, 'vr', markersize=10)
+            ax.set_yticks([-2,0, 2])
         else:
             ylabel = 'pull'
             ybound = 3.5
@@ -196,18 +260,22 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
             if nhigh>0:  ax.plot(energy[pull>3], [3]*nhigh, '^r', markersize=10) 
             nlow = sum(pull<-3)
             if nlow >0:  ax.plot(energy[pull<-3], [-3]*nlow, 'vr', markersize=10) 
-            plt.setp(ax, xscale='log', ylabel='pull', ylim=(-3.5,3.5) )
+            ax.set( xscale='log', ylabel='pull', ylim=(-3.5,3.5) )
+            ax.set_yticks([-2,0,2])
 
-        ax.axhline(0, color = 'black')
-        ax.set_ylim((-ybound,ybound))
-        ax.set_ylabel(ylabel)
+
+        ax.axhline(0, color = 'grey', ls='--')
+
         def gevticklabel(x):
             if x<100 or x>1e5: return ''
             elif x==100: return '0.1'
             return '%d'% (x/1e3)
         """ make it look nicer """
-        ax.set_xticklabels(map(gevticklabel, ax.get_xticks()))
+        #ax.set_xticklabels(map(gevticklabel, ax.get_xticks()))
+        ax.xaxis.set_major_formatter(ticker.FuncFormatter(
+                lambda val,pos: { 100.:'0.1', 1e3:'1', 1e4:'10', 1e5:'100'}.get(val,'')))
         ax.set_xlabel(r'$\mathsf{Energy\ (GeV)}$')
+        ax.set(xlim=(95.,None)) # to get first tick
         ax.grid(b=True,alpha=0.3)
         if show_chisq :
             ax.text(0.75, 0.8,'chisq={:.0f}'.format(count_data['chisq']), 
@@ -218,9 +286,10 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
         plt.close(fignum) # close it if exists
         fig, axes = plt.subplots(1,2, sharex=True, num=fignum, figsize=(12,6))
 
+    relto = kwargs.pop('relto', None)
     tsmin = kwargs.pop('tsmin', 10)
-    count_data = get_counts(roi, event_type, tsmin=tsmin
-    ) #, integral=integral, merge_non_free=merge_non_free, merge_all=merge_all)
+    emax = kwargs.pop('emax', None)
+    count_data = get_counts(roi, event_type, tsmin=tsmin, emax=emax) #, integral=integral, merge_non_free=merge_non_free, merge_all=merge_all)
 
     plot_counts_and_models(axes[0], count_data)
     if len(axes>1): plot_residuals(axes[1], count_data, 
@@ -245,24 +314,28 @@ def stacked_plots(roi, counts_dir=None, fignum=6, title=None, **kwargs):
     plt.close(fignum)
     oldlw = plt.rcParams['axes.linewidth']
     plt.rcParams['axes.linewidth'] = 2
-    figsize = kwargs.pop('figsize', (5,8))
-    fig, axes = plt.subplots(2,1, sharex=True, num=fignum, figsize=figsize)
+    xlim, ylim = [kwargs.pop(x, None) for x in ('xlim','ylim')]
+    figsize = kwargs.pop('size', (4,6))
+
+    fig, axes = plt.subplots(2,1, sharex=True, num=fignum)
+
     fig.subplots_adjust(hspace=0)
-    axes[0].tick_params(labelbottom='off')
+    axes[0].tick_params(labelbottom=False)
     left, bottom, width, height = (0.15, 0.10, 0.75, 0.85)
     fraction = 0.8
 
     axes[0].set_position([left, bottom+(1-fraction)*height, width, fraction*height])
     axes[1].set_position([left, bottom, width, (1-fraction)*height])
-    axes[1].set_yticks([-2,0,2])
     plot_counts(roi, axes=axes, outfile=None, **kwargs)
     
     plt.rcParams['axes.linewidth'] = oldlw
 
     axes[0].set_xlabel('') 
-    axes[0].set_ylim(ymin=30)
+
     if title is None:
-        if hasattr(roi,'name'): fig.suptitle(roi.name)
+        l,b = roi.roi_dir.l(), roi.roi_dir.b()
+        if l>180: l-=360
+        if hasattr(roi,'name'): fig.suptitle('{} ({:.0f},{:.0f})'.format(roi.name, l,b))
     else: fig.suptitle(title)
     if counts_dir is not None:
         if os.path.isdir(counts_dir) and hasattr(roi,'name'):
@@ -273,6 +346,10 @@ def stacked_plots(roi, counts_dir=None, fignum=6, title=None, **kwargs):
         fig.savefig(fout)
         print 
     fig.set_facecolor('white')
+    if figsize is not None:
+            fig.set(figwidth=figsize[0], figheight=figsize[1])        
+    if xlim is not None: fig.axes[0].set(xlim=xlim)
+    if ylim is not None: feg.axes[0].set(ylim=ylim)
     return fig
 
 

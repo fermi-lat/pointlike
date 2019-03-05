@@ -2,7 +2,7 @@
 doc_inherit decorator
 
 from ## {{{ http://code.activestate.com/recipes/576862/ (r1)
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/doc_inherit.py,v 1.1 2012/06/24 14:12:11 burnett Exp $
 
 Usage:
 

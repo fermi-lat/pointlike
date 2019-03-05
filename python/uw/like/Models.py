@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.150 2016/05/09 18:34:46 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.151 2017/08/02 23:09:51 burnett Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -928,10 +928,17 @@ class Model(object):
         M, F = self.get_cov_matrix(), self.free
         if len(F)<2 or M[0,0]==0: return np.nan #no solution unless 2 or more free, fit info
             
-        C = np.matrix(M[F].T[F])
+
+        ##### replace this since matrix being deprecated
+        # C = np.matrix(M[F].T[F])
+        # def unc(energy):
+        #     g = np.matrix(self.external_gradient(energy)[F])
+        #     t = ( g * C * g.T ).item() 
+        #     return np.sqrt(t)/self(energy) if t>0 else t
+        C = (M[F].T[F])
         def unc(energy):
-            g = np.matrix(self.external_gradient(energy)[F])
-            t = ( g * C * g.T ).item() 
+            g = (self.external_gradient(energy)[F])
+            t = ( np.dot(g, np.dot( C , g.T ))).item() 
             return np.sqrt(t)/self(energy) if t>0 else t
         return np.array(map(unc,energy)) if hasattr(energy, '__iter__') else unc(energy)
 
@@ -1243,6 +1250,17 @@ class Model(object):
         
         return -0.5*derivative(lambda x: dfun(x), x, dx=0.01)
 
+    @property
+    def enorm(self):
+        """return nu f_nu in eV at the reference energy e0"""
+        return self(self.e0)*self.e0**2*1e6
+
+    def set_enorm(self, enorm):
+        """ set the Norm parameter to the nu f_nu (in eV) value"""
+        factor = enorm / (self(self.e0)*self.e0**2*1e6)
+        self.setp(0, self.getp(0)*factor)
+
+        
 
 
 class PowerLaw(Model):
@@ -1663,7 +1681,7 @@ class LogParabola(Model):
     default_limits = dict(
         Norm=LimitMapper(1e-17,1e-3,1e-9),
         Index=LimitMapper(-5,5,1),
-        beta=LimitMapper(0,5,1),
+        beta=LimitMapper(-0.2,3,1),
         E_break=LimitMapper(30,5e5,1))
     default_oomp_limits=['Norm','E_break']
 

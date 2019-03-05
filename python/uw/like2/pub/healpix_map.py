@@ -307,6 +307,18 @@ class HPresample(HParray):
     def getcol(self, type=np.float32):
         return np.asarray([self[index] for index in xrange(12*self.nside**2)],type)
 
+def downsize(a):
+    """For an HEAPix RING array with nside a power of two, 
+    return an nside/2 array of the average for each group of pixels 
+    """
+    import healpy
+    nside = int(np.sqrt(len(a)/12.))
+    a1 =a[healpy.nest2ring(nside, range(len(a)))]
+    t=a1.reshape(len(a)/4,4)
+    a2=t.mean(axis=1)
+    return a2[healpy.ring2nest(nside/2, range(len(a2)))]
+
+
 class HEALPixFITS(list):
 
     def __init__(self, cols, nside=None):
@@ -418,7 +430,41 @@ class FromFITS(HParray):
         assert 'NSIDE' in hdu.header, 'Bad header in file "{}"? No NSIDE'.format(filename)
         self.nside = hdu.header['NSIDE']
         super(FromFITS, self).__init__(colname, data[colname])
+
+class FromCCube(HParray):
+    """Manage the gtlike HEALPix counts map
+    """
+    def __init__(self, filename):
+        """ load array from a HEALPix-format FITS file
+        """
+        assert os.path.exists(filename), 'File "{}" not found'.format(filename)
+        self.hdus = pyfits.open(filename) 
+        self.data = self.hdus[1].data
+        self.nside = self.hdus[1].header['NSIDE']
         
+        # expect to find circle in header
+        hdr = self.hdus[0].header
+        try:
+            dstypes = sorted(filter(lambda n:n.startswith('DSTYP'), hdr.keys())); 
+            i = [hdr[x] for x in dstypes].index('POS(RA,DEC)'); i
+            circ=hdr['DSVAL{}'.format(i)]; 
+            ra,dec, self.radius = np.array(circ[7:-1].split(','),float)
+        except Exception, msg:
+            print 'failed to parse file {}: expected header to have a DSVAL with POS(RA,DEC)'.format(filename), msg
+            raise
+        self.center = SkyDir(ra, dec)
+        self.indexfun = Band(self.nside).index
+        self.lookup = dict(zip(self.data.PIX, self.data.CHANNEL1))
+        
+        
+    def __call__(self, skydir ):
+        index = self.indexfun(skydir)
+        return self.lookup.get(index, np.nan)
+        
+    def plot(self, **kwargs):
+        return self.plot_ZEA( self.center, 2.1 *self.radius, **kwargs)
+        
+
 def mapcube_to_healpix(inputfile, 
             suffix='_nside256_bpd4',
             inpath= '$FERMI/diffuse',
@@ -732,3 +778,9 @@ g = healpix_map.ZEAdisplayTasks("%(title)s","%(outdir)s", nside=%(nside)s, %(ext
 """ %dict(cwd=os.getcwd(), title=title, outdir=outdir, extra=extra, nside=nside)
     return setup_string
  
+def neighbor_pixels(index, nside=12):
+    """return set of pixel indeces (RING indexing)
+    """
+    nb= IntVector()
+    Band(nside).findNeighbors(index,nb);
+    return np.array( nb, int)

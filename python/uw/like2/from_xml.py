@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_xml.py,v 1.4 2014/03/12 15:52:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/from_xml.py,v 1.5 2014/04/14 17:42:21 burnett Exp $
 """
 import os, numpy as np
 from uw.utilities import  xml_parsers

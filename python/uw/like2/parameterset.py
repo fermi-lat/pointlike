@@ -1,7 +1,7 @@
 """
 Manage a set of parameters
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/parameterset.py,v 1.6 2016/03/21 18:54:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/parameterset.py,v 1.7 2017/08/02 22:53:11 burnett Exp $
 
 """
 import os, types 
@@ -55,7 +55,7 @@ class ParameterSet(object):
         source.changed=True
         model.set_parameters(pars)
     
-    def setitems(self, set_dict):
+    def setitems(self, set_dict, quiet=False):
         """ set a set of items by index: the dict has keys that are either the index, or the name of the variabe, and float values,
             e.g. {1:1e-14, 2:2.1, 'Source_Index': 2.0}
         """
@@ -72,7 +72,7 @@ class ParameterSet(object):
                     raise Exception('Parameter name "%s" not found' % i)
         for key,value in set_dict.items():
             i = par_index(self,key)
-            print key, i, self[i], '-->', value
+            if not quiet: print key, i, self[i], '-->', value
             self[i]=value
             
     def __len__(self):
@@ -99,7 +99,10 @@ class ParameterSet(object):
         """ get the covariance matrix from the souurce models
         """
         na,nt =len(self.mask), sum(self.mask)
-        cov = np.matrix( np.zeros(na*na).reshape(na,na))
+        # deprecated
+        # cov = np.matrix( np.zeros(na*na).reshape(na,na))
+        cov =  np.zeros(na*na).reshape(na,na)
+
         i = 0
         for source, n in self.ms:
             model = source.model
@@ -107,7 +110,7 @@ class ParameterSet(object):
             cov[i:i+n,i:i+n] = mcov.reshape(n,n)
             i += n
         if nomask: return cov
-        return np.matrix(cov[np.outer(self.mask, self.mask)].reshape(nt,nt))
+        return cov[np.outer(self.mask, self.mask)].reshape(nt,nt)
     
     def set_covariance(self, cov):
         """ save the specified convariance matrix into the source models"""

@@ -1,7 +1,7 @@
 """
 Code to generate a standard Fermi-LAT catalog FITS file
 also, see to_xml, to generate XML for the sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_fits.py,v 1.15 2016/10/28 21:23:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_fits.py,v 1.16 2017/02/09 19:02:30 burnett Exp $
 """
 import os, argparse, glob
 from astropy.io import fits as pyfits
@@ -196,7 +196,7 @@ class MakeCat(object):
     def __call__(self, outfile, localization_systematic=(1.1, 5e-3) ):
         self.cols = []
         z = self.z
-        z.sort_index(by='ra')
+        z.sort_values(by='ra')
         self.check=False
         self.bad = z.ts<9
         self.add('SourceName', z.jname)

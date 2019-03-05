@@ -9,7 +9,7 @@
 INT_TYPES  = ['EVENT_CLASS','CONVERSION_TYPE']
 
 
-import astropy.io.fits as pyfits
+from astropy.io import fits as pyfits; pf= pyfits
 import numpy as N; import numpy as np
 from types import ListType,FunctionType,MethodType
 from math import cos,sin,pi
@@ -119,7 +119,7 @@ def rad_extract(eventfiles,center,radius_function,return_cols=['PULSE_PHASE'],cu
     total = 0
 
     for eventfile in eventfiles:
-        #e = pyfits.open(eventfile,memmap=1)
+        #e = pf.open(eventfile,memmap=1)
         #nrows = e[1].data.shape[0]
         #e.close()
         nrows = pyfits.getheader(eventfile,'EVENTS')['NAXIS2']
@@ -241,7 +241,7 @@ def get_fields(files, fields, cuts = None, memmap = False):
    files = __FITS_parse__(files)
 
    #Process the cuts
-   f = pyfits.open(files[0],memmap=memmap)
+   f = pf.open(files[0],memmap=memmap)
    if cuts is not None:
       cut_fields = set()
       for i,cut in enumerate(cuts): #put cut columns in namespace
@@ -258,7 +258,7 @@ def get_fields(files, fields, cuts = None, memmap = False):
    counts = N.empty(len(files),dtype=int)
 
    for nfi,fi in enumerate(files):
-      f = pyfits.open(fi,memmap=memmap)
+      f = pf.open(fi,memmap=memmap)
       counts[nfi] = len(f['EVENTS'].data) #f['EVENTS'].data.getshape()[0]
       f.close()
       del(f)
@@ -269,7 +269,7 @@ def get_fields(files, fields, cuts = None, memmap = False):
    #Get fields
    counter = 0
    for fi,counts in zip(files,counts):
-      f = pyfits.open(fi,memmap=memmap)
+      f = pf.open(fi,memmap=memmap)
       for field in fields + cut_fields:
          #data[field] += [N.array(f['EVENTS'].data.field(field),dtype=N.float32)]
          data[field][counter:counter+counts] = f['EVENTS'].data.field(field)
@@ -320,7 +320,7 @@ def sum_ltcubes(files,outputfile = 'summed_ltcube.fits'):
     files = __FITS_parse__(files)
 
     try:
-        f = pyfits.open(files[0])
+        f = pf.open(files[0])
         header = f['EXPOSURE'].header
         exposures = [f['EXPOSURE'].data.field('COSBINS')] 
     except KeyError:
@@ -331,7 +331,7 @@ def sum_ltcubes(files,outputfile = 'summed_ltcube.fits'):
 
     for file in files[1:]:
         try:
-            f = pyfits.open(file)
+            f = pf.open(file)
             h = f['EXPOSURE'].header
             for key in header.keys():
                 if key not in ['DATE','DATE-OBS','DATE-END','TSTART','TSTOP']:
@@ -348,8 +348,8 @@ def sum_ltcubes(files,outputfile = 'summed_ltcube.fits'):
 
     summed_exposure = N.array(exposures).sum(axis=0)
     null = header.get('TNULL1', None) #THB: kluge fix.
-    coldef = pyfits.ColDefs([pyfits.Column(name='COSBINS',format=header['TFORM1'],null=null,array=summed_exposure)])
-    exp_table = pyfits.new_table(coldef,header=header,nrows=exposures[0].shape[0])
+    coldef = pf.ColDefs([pf.Column(name='COSBINS',format=header['TFORM1'],null=null,array=summed_exposure)])
+    exp_table = pf.new_table(coldef,header=header,nrows=exposures[0].shape[0])
     gti = merge_gti(files)
     exp_table.writeto(outputfile,clobber=True)
     gti.writeExtension(outputfile)
@@ -392,7 +392,7 @@ def merge_lt(lt_files,outfile = 'merged_lt.fits',weighted = True):
     files = __FITS_parse__(lt_files)
 
     try:
-        f = pyfits.open(files[0])
+        f = pf.open(files[0])
         p_header = f['PRIMARY'].header
         err = 'EXPOSURE'
         header = f['EXPOSURE'].header
@@ -409,7 +409,7 @@ def merge_lt(lt_files,outfile = 'merged_lt.fits',weighted = True):
 
     for file in files[1:]:
         try:
-            f = pyfits.open(file)
+            f = pf.open(file)
             ext = 'EXPOSURE'
             h = f['EXPOSURE'].header
             for key in header.keys():
@@ -431,18 +431,18 @@ def merge_lt(lt_files,outfile = 'merged_lt.fits',weighted = True):
             return
         finally:
             f.close()
-    primary = pyfits.PrimaryHDU(data=None,header = p_header)
-    hdulist = pyfits.HDUList([primary])
+    primary = pf.PrimaryHDU(data=None,header = p_header)
+    hdulist = pf.HDUList([primary])
     summed_exposure = N.array(exposures).sum(axis=0)
     null = header.get('TNULL1',None)
-    coldef = pyfits.ColDefs([pyfits.Column(name='COSBINS',format=header['TFORM1'],null=null,array=summed_exposure)])
-    exp_table = pyfits.new_table(coldef,header=header,nrows=exposures[0].shape[0])
+    coldef = pf.ColDefs([pf.Column(name='COSBINS',format=header['TFORM1'],null=null,array=summed_exposure)])
+    exp_table = pf.new_table(coldef,header=header,nrows=exposures[0].shape[0])
     hdulist.append(exp_table)
     if weighted:
         summed_w_exposure = N.array(w_exposures).sum(axis=0)
         null = w_header.get('TNULL1',None)
-        coldef_w = pyfits.ColDefs([pyfits.Column(name='COSBINS',format=w_header['TFORM1'],null=null,array=summed_w_exposure)])
-        w_exp_table = pyfits.new_table(coldef_w,header=w_header,nrows=w_exposures[0].shape[0])
+        coldef_w = pf.ColDefs([pf.Column(name='COSBINS',format=w_header['TFORM1'],null=null,array=summed_w_exposure)])
+        w_exp_table = pf.new_table(coldef_w,header=w_header,nrows=w_exposures[0].shape[0])
         hdulist.append(w_exp_table)
     hdulist.writeto(outfile,clobber=True)
     gti = merge_gti(files)
@@ -462,7 +462,7 @@ def __FITS_parse__(files):
       return files
 
    try: #See if it's a FITS file
-      f = pyfits.open(files)
+      f = pf.open(files)
       f[0]
       f.close()
       return [files]
@@ -475,7 +475,7 @@ def __FITS_parse__(files):
 
 def __get_handles__(files):
    files = __FITS_parse__(files)
-   handles = [pyfits.open(x,memmap=1) for x in files] #some versions may need to disable memmap (=0)
+   handles = [pf.open(x,memmap=1) for x in files] #some versions may need to disable memmap (=0)
    return handles
 
 def __merge_events__(handles,table_name = 'EVENTS'):
@@ -483,7 +483,7 @@ def __merge_events__(handles,table_name = 'EVENTS'):
 
    num_events = [x[table_name].data.shape[0] for x in handles]
    columns,header = __common_columns__(handles,table_name)
-   event_table = pyfits.new_table(columns,header=header,nrows=sum(num_events))
+   event_table = pf.new_table(columns,header=header,nrows=sum(num_events))
    previous_loc = 0
    for i,handle in enumerate(handles):
       for j in xrange(len(columns)):
@@ -533,7 +533,7 @@ def __merge_gti__(handles,no_table=False,interval=None):
    if no_table: return (starts,stops)
 
    #Put GTI in new table
-   gti_table = pyfits.new_table(handles[0]['GTI'].columns,nrows = len(starts))
+   gti_table = pf.new_table(handles[0]['GTI'].columns,nrows = len(starts))
    gti_table.data.field('START')[:] = starts
    gti_table.data.field('STOP')[:] = stops
 
@@ -559,7 +559,7 @@ def __arbitrary_cuts__(events,cuts):
    for cut in cuts: #build mask cumulatively
       exec('mask = logical_and(mask,%s)'%cut)
 
-   new_table = pyfits.new_table(events.columns,nrows=len(mask[mask]))
+   new_table = pf.new_table(events.columns,nrows=len(mask[mask]))
    for i in xrange(len(events.columns)):
       new_table.data.field(i)[:] = events.data.field(i)[mask]
    events.data = new_table.data

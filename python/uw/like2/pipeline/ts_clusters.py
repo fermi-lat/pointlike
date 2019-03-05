@@ -1,6 +1,6 @@
 """
 Check the residual TS maps for clusters
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/ts_clusters.py,v 1.3 2014/03/28 14:30:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/ts_clusters.py,v 1.5 2017/11/17 22:58:32 burnett Exp $
 
 """
 

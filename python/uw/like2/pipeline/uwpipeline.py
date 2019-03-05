@@ -1,7 +1,5 @@
 """
 task UWpipeline Interface to the ISOC PipelineII
-
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/uwpipeline.py,v 1.53 2015/07/24 17:56:30 burnett Exp $
 """
 import os, argparse,  datetime
 import numpy as np
@@ -9,9 +7,7 @@ from uw.like2 import (process, tools, )
 from uw.like2.pipeline import (check_data, pipeline_job, stagedict, check_converge, stream)
 from uw.like2.analyze import app
 
-# import warnings
-# warnings.filterwarnings('error')
-# print 'warnings set to error'
+
 # Instances of these classes are in the procnames dictionary below. They must implement a main function which will
 # by run by the Proc
 class StartStream(object):
@@ -126,8 +122,11 @@ def check_environment(args):
         assert os.path.exists(skymodel), 'Bad path for skymodel folder: %s' %skymodel
         os.chdir(skymodel)
     cwd = os.getcwd()
-    assert os.path.exists('config.txt') or os.path.exists('../config.txt'), \
-        'expect this folder (%s), or its parent, to have a file config.txt'%cwd
+
+    def checkit(f):
+        return os.path.exists(f) or os.path.exists('../'+f)
+    assert checkit('config.txt') or checkit('config.yaml'), \
+        'expect this folder (%s), or its parent, to have a file config.txt or config.yaml'%cwd
     
     if args.scripts is None:
         script_folder = find_script_folder(cwd)
@@ -192,6 +191,7 @@ if __name__=='__main__':
     parser.add_argument('--rois', default='', help='allow setting of list for special job'),
     parser.add_argument('--stream', default=os.environ.get('PIPELINE_STREAM', -1), help='pipeline stream number, default %(default)s')
     parser.add_argument('--test', action='store_true', help='Do not run' )
+    parser.add_argument('--next', default=None, help='Command to run after successful completion')
     #parser.add_argument('--processor',  help='specify the processor' )
     args = parser.parse_args()
     main(args)

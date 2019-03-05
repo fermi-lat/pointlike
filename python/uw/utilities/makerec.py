@@ -5,7 +5,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/makerec.py,v
 
 """
 import os, pickle
-import astropy.io.fits as pyfits
+from astropy.io import fits as pyfits
 from pylab import mlab
 import numpy as np
 

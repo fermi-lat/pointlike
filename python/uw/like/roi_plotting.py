@@ -8,7 +8,7 @@ Plotting routines to display results of an ROI analysis.
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.92 2012/06/26 18:01:54 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_plotting.py,v 1.93 2012/07/12 20:03:04 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """

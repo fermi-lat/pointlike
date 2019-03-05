@@ -5,12 +5,14 @@
     author: Matthew Kerr
 """
 
+from astropy.io import fits as pyfits
+
 def get_coords(ft1):
     """Try to get ROI center from the FITS header."""
     possible_keys = ['DSVAL%d'%x for x in range(1,5)]
     for key in possible_keys:
         try:
-            from astropy.io.fits import getheader
+            from pyfits import getheader
             val = getheader(ft1,'EVENTS').get(key)
             ra,dec,orig_rad = val.split('(')[-1].split(')')[0].split(',') # note strings
             return ra,dec,orig_rad
@@ -202,7 +204,7 @@ def get_binned_obs(ltcube,binned_expmap,irf='P6_V3_DIFFUSE',srcmaps=None):
 def make_resids(cmap,mmap,outfile=None,weighted=False,renormalize=False):
     if outfile is None:
         outfile = cmap[:-5]+'-RMAP.fits'
-    import astropy.io.fits as pyfits
+   
     f1 = pyfits.open(cmap)
     f2 = pyfits.open(mmap)
     ocounts = f1[0].data.sum()

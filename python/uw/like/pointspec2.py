@@ -3,8 +3,8 @@
 Author: E. Wallace, M. Kerr
 """
 
-__version__="$Revision: 1.2 $"
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec2.py,v 1.2 2011/12/02 05:45:02 kerrm Exp $
+__version__="$Revision: 1.3 $"
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec2.py,v 1.3 2017/08/23 23:40:24 burnett Exp $
 
 import os
 import warnings

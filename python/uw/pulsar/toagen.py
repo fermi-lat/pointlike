@@ -1,6 +1,4 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.23 2014/12/24 07:52:31 kerrm Exp $
-
 Calculate TOAs with a variety of methods.
 
 Authors: Paul S. Ray <paul.ray@nrl.navy.mil>
@@ -396,6 +394,44 @@ class UnbinnedTOAGeneratorF0Search(UnbinnedTOAGenerator):
         # Note TOAS in MJD, err_toas in microseconds, tim_strings a line for a FORMAT 1 .tim file
         return toas,err_toas,tim_strings
 
+class UnbinnedTOAGeneratorProfileAmplitude(UnbinnedTOAGenerator):
+
+    def init(self):
+        super(UnbinnedTOAGeneratorProfileAmplitude,self).init()
+        #self._saved_p = self.template.get_parameters()
+        self.basic_likelihood = super(UnbinnedTOAGeneratorProfileAmplitude,self).__toa_loglikelihood__
+
+    def __toa_loglikelihood__(self,p,*args):
+
+        self.template.set_overall_phase(p[0])
+        self.template.norms.set_total(1)
+        # evaluate template with no background
+        prof = self.template(args[0])-1 # -1 for speed later
+
+        def logl(tot):
+            #self.template.set_cache(100)
+            if args[1] is None:
+                #return -np.log(self.template(args[0])).sum()
+                return -np.log(1+tot*prof).sum()
+            return -np.log(1+tot*args[1]*prof).sum()
+
+        grid = np.linspace(0,1,41)[1:]
+        logls = np.asarray(map(logl,grid))
+        bestidx = np.argmin(logls)
+        if bestidx == 0:
+            gmax = grid[1]
+            gmin = grid[0]
+        elif bestidx == len(grid)-1:
+            gmax = grid[-1]
+            gmin = grid[-2]
+        else:
+            gmin = grid[bestidx-1]
+            gmax = grid[bestidx+1]
+        grid = np.linspace(gmin,gmax,41)
+        logls = np.asarray(map(logl,grid))
+        bestidx = np.argmin(logls)
+        self.template.norms.set_total(grid[bestidx])
+        return self.basic_likelihood(p,*args)
 
 class BinnedTOAGenerator(TOAGenerator):
 

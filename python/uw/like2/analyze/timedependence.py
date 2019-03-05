@@ -1,7 +1,7 @@
 """
 Analyze time dependence of transient sources 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/timedependence.py,v 1.1 2016/03/21 18:54:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/timedependence.py,v 1.2 2017/11/18 22:26:38 burnett Exp $
 
 """
 import os, pickle, glob

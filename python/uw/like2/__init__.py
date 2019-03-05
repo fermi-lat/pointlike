@@ -1,7 +1,7 @@
 """
 Package containing likelihood analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/__init__.py,v 1.4 2012/01/29 02:01:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/__init__.py,v 1.5 2013/11/25 01:27:46 burnett Exp $
 Authors:  T. Burnett, M. Kerr, E. Wallace, M. Roth, J. Lande
 
 Modules in this package, and basic dependencies

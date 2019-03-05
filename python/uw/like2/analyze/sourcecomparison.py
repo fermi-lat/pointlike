@@ -1,16 +1,17 @@
 """
 Comparison with a gtlike catalog output
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourcecomparison.py,v 1.9 2017/08/23 16:23:43 zimmer Exp $
 
 """
 
 import os, glob
 from collections import OrderedDict
 import astropy.io.fits as pyfits
+from astropy.table import Table
 import numpy as np
 import pylab as plt
 import pandas as pd
+from scipy import stats
 
 from skymaps import SkyDir
 from . import sourceinfo
@@ -23,7 +24,7 @@ class SourceComparison(sourceinfo.SourceInfo):
     def setup(self, **kw):
         plt.style.use('seaborn-bright')
         catname = kw.pop('catname', 'psc8')#'3FGL')
-        cat = kw.pop('cat','*psc8*') #''3FGL-v13r3_v6r9p1_3lacv12p1_v7.fits', )
+        cat = kw.pop('cat','*pscP305*') #''3FGL-v13r3_v6r9p1_3lacv12p1_v7.fits', )
         self.catname=catname
 
         if cat[0]!='/':
@@ -80,14 +81,15 @@ class SourceComparison(sourceinfo.SourceInfo):
         if len(not_found)>0:
             print '{} entries not found in {}, names starting with {}'.format(len(not_found), 
                 self.skymodel, list(set(map(lambda n:n[:4], not_found))))
+        self.not_found= not_found
         self.gtlike_info['missing'] = len(not_found)
         flags = np.asarray(ft.Flags_3FGL,int) if 'Flags_3FGL' in ft.dtype.fields else [0]*len(ft)
         self.cat = pd.DataFrame(dict(namec=sourcenames, #_3FGL_1, 
-                nickname=nicknames, #map(nickfix, nicknames), 
+                #nickname=nicknames, #map(nickfix, nicknames), 
                 ra=ft.RAJ2000,dec= ft.DEJ2000, 
                 ts=ft.Test_Statistic,
-                pindex=ft.LP_Index,
-                unc_pindex =ft.Unc_LP_Index,
+                pindex=ft.PL_Index,
+                unc_pindex =ft.Unc_PL_Index,
                 beta=ft.LP_beta,
                 pivot=ft.Pivot_Energy,
                 flux = ft.Flux_Density,
@@ -114,7 +116,11 @@ class SourceComparison(sourceinfo.SourceInfo):
         self.cat['pt_index']=self.df.pindex
         self.cat['pt_index_unc']=self.df.pindex_unc
         self.cat['pt_eflux'] = self.df.eflux
-        self.cat['pt_eflux_unc']=self.df.eflux_unc
+        try:
+            self.cat['pt_eflux_unc']=self.df.eflux_unc
+        except:
+            print 'No eflux_unc in input.'
+            self.cat['pt_eflux_unc'] = np.nan
         self.cat['pt_pivot'] =self.df.pivot_energy
         self.cat['ispsr']= map(lambda name:name.startswith('PSR'), self.cat.index)
         self.cat['ismissing'] = [name in not_found for name in self.cat.index]
@@ -164,8 +170,8 @@ class SourceComparison(sourceinfo.SourceInfo):
         #occ.min(), occ.mean(), occ.max()
         fig, axx = plt.subplots(1,2, figsize=(10,4))
         ax=axx[0]
-        ax.hist(occ, np.linspace(1,9,9));
-        ax.set_xlabel('Number of sources')
+        ax.hist(occ, np.linspace(0.5,10.5,11), histtype='step', lw=2);
+        ax.set_xlabel('Sources/RoI')
         #ax.hist(ft.ROI_num, np.linspace(1,nroi+1,nroi+1), histtype='step');
         ax=axx[1]
         ax.hist(ft.ROI_dist, np.linspace(0,5,26), histtype='step', lw=2);
@@ -180,7 +186,7 @@ class SourceComparison(sourceinfo.SourceInfo):
 
         return fig
     
-    def fit_comparison(self, select=['P88Y2704', 'P88Y0282', 'P88Y1919']):
+    def fit_comparison(self, select=[]): #select=['P88Y2704', 'P88Y0282', 'P88Y1919']):
         """Comparison of fit parameters
 
         """
@@ -191,10 +197,11 @@ class SourceComparison(sourceinfo.SourceInfo):
         fig, axx = plt.subplots(3,2, figsize=(15,10), sharex=True, sharey=True)
         plt.subplots_adjust(hspace=0.,wspace=0, top=0.96)
         good_sel = filter( lambda x: x in same.index, select)
-        print 'selecting sources {}'.format(good_sel)
+        if len(good_sel)>0:
+            print 'selecting sources {}'.format(good_sel)
         ratio_plots = OrderedDict([
             ('TS',        same.pt_ts/same.ts), 
-            ('pivot',      same.pt_pivot/same['pivot']),
+            ('pivot',     same.pt_pivot/same['pivot']),
             ('eflux',     same.pt_eflux/same.eflux),
             ('eflux_unc', same.pt_eflux_unc/same.unc_eflux),
             ('index',     same.pt_index/same.pindex),
@@ -365,3 +372,157 @@ class SourceComparison(sourceinfo.SourceInfo):
         except Exception, msg:
             print 'Source %s not found (%s)' % (namec, msg)
             return None
+
+class CompareSimulation(object):
+    """Plots for comparison of uw8011t with FL8Y
+    """
+    def __init__(self, fl8y_file='gll_pscP305uw8011_v2.fit', uwmodel='uw8607', sim='uw8607s2'):
+        os.chdir(os.path.expandvars('$FERMI/skymodels/P305_8years/{}'.format(sim)))
+        self.uwmodel=uwmodel
+        self.sim = sim
+        dfm = pd.read_csv('sources_{}.csv'.format(sim), index_col=0); 
+        print '{}:'.format(sim) ,len(dfm)
+        dfa = pd.read_csv('../{0}/sources_{0}.csv'.format(uwmodel), index_col=0); 
+        print '{}:'.format(uwmodel),len(dfa)
+        self.dfm=dfm
+        self.dfa=dfa
+        def set_glat(df):
+            from skymaps import SkyDir
+            sds = map(SkyDir, df.ra, df.dec);
+            glat = map(lambda x: x.b(), sds)
+            df['glat'] = glat
+            df['hilat'] = (df.glat<-5) | (df.glat>5)
+        set_glat(dfa); 
+        set_glat(dfm)
+
+        #return
+        # tag MC seed sources
+        def seedcheck(name):
+            if name.find( sim[-2:] )>0:
+                return 'MC seed'
+            else: return 'fit source'
+        grouped =dfm.groupby([seedcheck])
+        self.mc_seed= grouped.get_group('MC seed')
+
+        # load gll version of FL8Y 
+        file = os.path.expandvars('$FERMI/catalog/'+fl8y_file) 
+        df_fl8y=Table.read(file, hdu=1).to_pandas()
+        print 'FL8Y: {} w/ {} sources'.format(fl8y_file, len(df_fl8y))
+        df_fl8y.index=df_fl8y.NickName
+        del df_fl8y['NickName'];
+
+        dfa['in_fl8y']=[name in df_fl8y.index for name in dfa.index]
+
+
+    def scat_ts_pindex(self,):
+        dfa, mc_seed = self.dfa, self.mc_seed
+        def plotit(df, color, ax=None, title=None):
+            if ax is None:
+                fig, ax = plt.subplots(figsize=(8,8))
+            else: fig=ax.figure
+            ax.plot(df.ts, df.pindex.clip(0.5,3.5), '.', color=color);
+            ax.axvline(25, ls=':', color='red')
+            ax.set(xlim=(10,40), ylim=(0.5,3.5));
+            ax.set(xlabel='TS', ylabel=r'$\Gamma$')
+            ax.axhline(2.8, ls=':', color='red')
+            ax.axhline(1.5, ls=':', color='red')
+            if title is not None: ax.set_title(title)
+
+        fig,axx = plt.subplots(2,2, figsize=(12,12), sharex=True, sharey=True)
+        axf = axx.flatten()
+        plotit(dfa, 'green', ax=axf[0], title=self.uwmodel)
+        plotit(dfa.query('in_fl8y==False'), 'grey', ax=axf[2], title=self.uwmodel+' not in FL8Y')
+        plotit(mc_seed, 'orange', ax=axf[3], title='MC seeds')
+        plotit(dfa.query('in_fl8y==True'), 'blue', ax=axf[1], title='FL8Y')
+
+        return fig
+
+    def purity_plots(self, cut=None, tsbins=(16, 40, 13), ylim=(50,105)):
+        mc_seed, dfa = self.mc_seed, self.dfa
+    
+        fig, axx =plt.subplots(3,2, figsize=(10,12), sharex=True,)
+        plt.subplots_adjust(wspace=0.3, hspace=0.3)
+
+        hkw=dict(bins=np.linspace(*tsbins), histtype='step',log=True, lw=2)
+
+        for i, cut, label in zip(range(3), [None,'pindex<1.6', '3.5>pindex>2.8'], ['All', 'Hard', 'Soft']):
+            # get the MC group
+            if cut is None:
+                mc_ts=mc_seed.ts
+                data_ts=dfa.ts
+            else:
+                mc_ts=mc_seed.query(cut).ts
+                data_ts=dfa.query(cut).ts
+
+            ax=axx[i,0]
+            ax.text(0.1,0.9, label, fontsize=16, transform=ax.transAxes)
+            tslim=tsbins[:2]
+            ax.hist(data_ts.clip(*tslim), label=self.uwmodel,color='green', **hkw);
+            ax.hist(mc_ts.clip(*tslim),label='MC seed', color='orange', **hkw);
+            ax.legend();
+            ax.grid(alpha=0.5)
+            ax.set(xlim=tslim, ylim=(0.8,None), xlabel='TS');
+            ax.axvline(25, ls=':', color='red')
+
+            ax=axx[i,1]
+            bins=hkw['bins']
+            mc = np.histogram(mc_ts,bins=bins)[0]
+            data = np.array(np.histogram(data_ts, bins=bins)[0], float)
+            purity = 1-(mc/data).clip(0,1)
+            delta=bins[1]-bins[0]
+            t=bins[:-1]+0.5*delta
+            yerr=100.*np.sqrt(mc*(mc+data)/data**3)
+            ax.errorbar(x=t,y=purity*100, xerr=delta/2,yerr=yerr, fmt='o', marker='o')
+            ax.set(xlabel='TS',  ylim=ylim)
+            ax.set_ylabel(ylabel='purity [%]',fontsize=14)
+ 
+            ax.axvline(25, ls=':', color='red')
+            ax.grid(alpha=0.5);
+            
+        #fig.suptitle(suptitle, fontsize=14)
+        return fig
+
+    def latitude_dependence(self, cut='pindex<3.4 and locqual<10 and delta_ts<4'):
+        mc_seed, dfa = self.mc_seed, self.dfa
+        dfa_cut = dfa.query(cut)
+        mc_cut = mc_seed.query(cut)
+        titles = (self.uwmodel, self.uwmodel+ ' sources not in FL8Y', 'MC seed sources')
+
+        fig,axx = plt.subplots(len(titles),1, figsize=(8,8), sharex=True, sharey=True)
+        hkw = dict(bins=np.logspace(1,3,26), log=True, histtype='step', lw=2)
+        for df,ax,title in zip((dfa_cut, dfa_cut[~dfa_cut.in_fl8y], mc_cut), axx.flatten(),titles):
+            ax.hist(df[df.hilat].ts.clip(10,1e3), label='high lat', **hkw);
+            ax.hist(df[~df.hilat].ts.clip(10,1e3), label='low lat', **hkw)
+            ax.set(xlabel='TS', xscale='log', ylim=(0.8,None), title=title)
+            ax.grid(alpha=0.5)
+            ax.legend();  
+        return fig
+
+    def spectral_check(self, ):
+        """Compare spectral parameters to check uncertainties
+        """
+        a, b = self.dfa, self.dfm.copy()
+        b['ts_a']=a.ts
+        b['flux_a'] = a.flux
+        b['dflux'] = (b.flux-b.flux_a)/b.flux_unc
+        b['eflux100_a'] = a.eflux100
+        b['deflux'] = (b.eflux100-b.eflux100_a)/b.eflux100_unc
+        b['pindex_a'] = a.pindex
+        b['gdelta'] = (b.pindex-b.pindex_a)/b.pindex_unc
+
+        fig,axx = plt.subplots(1,2, figsize=(12,6), sharey=True)
+        hkw = dict(bins=np.linspace(-5,5,26), histtype='step', lw=2, density=True)
+
+        cut =  (b.ts>50) & ~pd.isnull(b.deflux) & ~pd.isnull(b.gdelta) &\
+                    (b.modelname=="LogParabola") & (b.pindex<3) & (b.e0>500) &(b.eflux100_unc>0)
+        for ax, title, val in zip(axx.flatten(), ['Energy Flux', 'Spectral index'], [b.deflux, b.gdelta]):    
+
+            df=val[cut]
+            ax.hist(df.clip(-5,5), label='mean {:.2f} std {:.2f}'.format(df.mean(),df.std()), **hkw);
+            ax.grid(alpha=0.5); 
+            x=np.linspace(-4,4)
+            ax.plot(x, stats.norm.pdf(x), '--g' );
+            ax.set(xlabel='normalized fit deviation', title=title, );
+        fig.suptitle('Normalized devations of fit from model', fontsize=16);
+
+        return fig

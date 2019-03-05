@@ -1,6 +1,6 @@
 """
 Classes for pipeline processing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.29 2017/08/02 23:03:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.31 2018/01/27 15:37:17 burnett Exp $
 
 """
 import os, sys, time, glob
@@ -11,6 +11,7 @@ from scipy import optimize
 from skymaps import SkyDir, Band
 from uw.utilities import keyword_options
 from uw.like2 import (main, tools, sedfuns, maps, sources, localization, roimodel, seeds,)
+
 
 
 class Process(main.MultiROI):
@@ -24,8 +25,9 @@ class Process(main.MultiROI):
         ('repivot_flag',  False, 'repivot the sources'),
         ('betafix_flag',  False, 'check betas, refit if needed'),
         ('ts_beta_zero',  None,   'set to threshold for converting LP<->PL'),
+        ('ts_min',        5,      'Minimum TS for saving after an iteration'),
         ('dampen',        1.0,   'damping factor: set <1 to dampen, 0 to not fit'),
-        ('selected_pars', ['_Norm','_Index'],   'Apply to fit, to select subset of parameters for global fit'),
+        ('selected_pars', None,   'Apply to fit, to select subset of parameters for global fit'),
         ('counts_dir',    None,  'folder for the counts plots'),
         ('norms_only',    False, 'fit to norms only'),
         ('fix_spectra_flag',False,  'set variable sources to fit norms only, for this and subsequent iterations'),
@@ -48,6 +50,7 @@ class Process(main.MultiROI):
         ('update_positions_flag',False,  'set True to update positions before fitting'),
         ('add_seeds_flag', False,    'Add seeds found within the ROI, from the table, "plots/seedcheck/good_seeds.csv"'), 
         ('special_flag',  False,  'set for special processing: invoke member func "special"'), 
+        ('psc_flag',      False,   'Run comparisons with a corresponding psc file'),
         ('model_counts',  None,   'set to run model counts'),
         
     )
@@ -105,12 +108,15 @@ class Process(main.MultiROI):
         if self.diffuse_key is not None and self.diffuse_key!='post_gal':
             if self.diffuse_key=='iso':
                 fit_isotropic(self)
+                return
             elif self.diffuse_key=='gal':
-                fit_galactic(self)
+                if not fit_galactic(self):return
+            elif self.diffuse_key=='both':
+                fit_diffuse(self)
+                return
             else:
                 raise Exception('Unexpected key: {}'.format(self.diffuse_key))
-            return
-            #fit_diffuse()
+             #fit_diffuse()
             
         if self.residual_flag:
             self.residuals()
@@ -126,18 +132,26 @@ class Process(main.MultiROI):
         #    return
         if self.seed_key is not None:
             key = self.seed_key
-            if not seeds.add_seeds(self, key, config=self.config) :
-                # nothing added, so nothing to do with the model for this ROI
-                return
+            if key=='lost':
+                if not seeds.add_old_sources(self):
+                    return
+            else:
+                if not seeds.add_seeds(self, key, config=self.config) :
+                    # nothing added, so nothing to do with the model for this ROI
+                    write_pickle(self) # make sure to update anyway
+                    return
         if self.model_counts is not None:
             maps.ModelCountMaps(self, bandlist=self.model_counts, subdir='model_counts' )
             return
 
+        if self.psc_flag:
+            psc_check(self)
+            return 
+
         if self.special_flag:
             """ special processing, converting something."""
-            if not self.model_count_maps(): #fit_second_order() : 
-                print '-----special processing had nothing to to'
-                return
+            self.fit_second_order(); 
+
         if self.add_seeds_flag:
             self.add_sources()
         
@@ -185,9 +199,9 @@ class Process(main.MultiROI):
                         if not self.repivot( fit_sources, select=self.selected_pars): break
                         n-=1
                 if self.betafix_flag:
-                    if not self.betafix(ts_beta_zero=self.ts_beta_zero):
-                        print 'betafix requested, but no refit needed, quitting'
-                        self.fit_galactic()
+                    if not self.betafit():
+                        print 'betafit requested, but no refit needed, quitting'
+
                 if self.diffuse_key=='post_gal':
                     fit_galactic(self)
             except Exception, msg:
@@ -213,8 +227,8 @@ class Process(main.MultiROI):
             print '------localizing all local sources------'; sys.stdout.flush()
             tsmap_dir = getdir(self.tsmap_dir)
             skymodel = os.getcwd().split('/')[-1]
-            if skymodel.startswith('month'): 
-                print 'Not running tsmap analysis since monthly subset'
+            if skymodel.startswith('month') or skymodel.startswith('year'): 
+                print 'Not running tsmap analysis since data subset'
                 tsmap_dir=None
             roi.localize('all', tsmap_dir=tsmap_dir)
         
@@ -230,10 +244,10 @@ class Process(main.MultiROI):
         if counts_dir is not None:
             print '------- saving counts plot ------'; sys.stdout.flush()
             try:
-                fig = roi.plot_counts( tsmin=self.countsplot_tsmin)
+                fig=roi.plot_counts( tsmin=self.countsplot_tsmin, relto='isotropic')
                 fout = os.path.join(counts_dir, ('%s_counts.jpg'%roi.name) )
                 print '----> %s' % fout ; sys.stdout.flush()
-                fig.savefig(fout, dpi=60)
+                fig.savefig(fout, dpi=60, bbox_inches='tight')
             except Exception,e:
                 print '***Failed to analyze counts for roi %s: %s' %(roi.name,e)
                 chisq = -1
@@ -248,18 +262,21 @@ class Process(main.MultiROI):
             #    )
     
    
-    def repivot(self, fit_sources=None, min_ts = 10, max_beta=3.0, emin=200., emax=100000.,
+    def repivot(self, fit_sources=None, min_ts = 10, max_beta=1.0, emin=200., emax=100000.,
              dampen=1.0, tolerance=0.10, test=False, select=None):
         """ invoked  if repivot flag set;
         returns True if had to refit, allowing iteration
         """
         roi = self
-        print '\ncheck need to repivot sources with TS>%.0f, beta<%.1f: \n'\
-        'source                     TS        e0      pivot' % (min_ts, max_beta)
-        need_refit =False
         if fit_sources is None:
             fit_sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
-        print 'processing %d sources' % len(fit_sources)
+        if len(fit_sources)>1:
+            print '\ncheck need to repivot % sources with TS>%.0f, beta<%.1f: \n'\
+            'source                     TS        e0      pivot' % (len(fit_sources), min_ts, max_beta)
+        
+        need_refit =False
+
+
         for source in fit_sources:
             model = source.spectral_model
             try:
@@ -300,34 +317,19 @@ class Process(main.MultiROI):
             roi.fit(select=select, tolerance=0, ignore_exception=True)
         return need_refit
 
-    def betafix(self, ignore_exception=True, ts_beta_zero=9):
+    def betafit(self, ignore_exception=True,):
         """ evalute ts_beta for all sources, add to source info
             ts_beta_zero: float or None
-                if a float, convert source so that log parabola are greater
         """
         for source in self.free_sources:
+            if source.isglobal: continue #skip global
             print '----------------- %s (%.1f)-------------' % (source.name, source.ts)
-            t=source.ts_beta = self.ts_beta(source.name, ignore_exception=ignore_exception)
+            t = self.ts_beta(source.name, ignore_exception=ignore_exception)
             if t is None: continue
-            print 'ts_beta ', t,
-            if ts_beta_zero is None: 
-                print ' -- not checking'
-                continue
-            changed=True
-            powerlaw = not source.model.free[2]
-            if t<ts_beta_zero and not powerlaw:
-                self.freeze('beta', source.name, 0.)
-                print '--> PowerLaw'
-            elif t>ts_beta_zero and powerlaw:
-                self.thaw('beta', source.name)
-                print '--> LogParabola'
-            else:
-                print ': OK'
-                changed=False
-            if changed:
-                self.fit(source.name)
-        self.fit(ignore_exception=ignore_exception) # seems necessary
-        return False # nofollowup
+            print 'deltaTS {:.1f} beta {:.2f}'.format(t[0],t[1])
+
+        self.fit(ignore_exception=ignore_exception)
+        return True 
 
         
     def residuals(self, tol=0.3):
@@ -381,8 +383,7 @@ class Process(main.MultiROI):
             print ' %s -> %s, moved %.2f' % (source.skydir,newdir, np.degrees(newdir.difference(source.skydir)))
             source.skydir = newdir
     
-    
-    def fit_second_order(self, summarize=False):
+    def fit_second_order(self, summarize=False, beta_bounds=(-0.1, 1.0)):
         """
         Fit the second order parameter (beta or Cutoff) for all variable sources
         Leave them frozen.
@@ -393,22 +394,24 @@ class Process(main.MultiROI):
             sources.set_default_bounds(s.model, True)# force change of bounds
             self.thaw(parname)
             parval = s.model[parname]
+            if parname=='beta': 
+                s.model.bounds[2]=beta_bounds
             try:
                 self.fit(s.name, summarize=summarize, estimate_errors=True, ignore_exception=False)
             except Exception, msg:
                 print 'Failed to fit {} for {}: {}'.format(parname,source_name, msg)
                 s.model[parname]=parval
             self.freeze(parname)
-            print ('{:15}{:8.0f}'+fmt+fmt).format(source_name, s.ts, s.model[parname], s.model.error(parname))
+            print ('{:17}{:8.0f}'+fmt+fmt).format(source_name, s.ts, s.model[parname], s.model.error(parname))
         
         LP_sources = [s.name for s in self.free_sources 
             if not s.isglobal and s.model.name=='LogParabola']
         PLEX_sources = [s.name for s in self.free_sources 
             if not s.isglobal and s.model.name=='PLSuperExpCutoff']
 
-        print '{:15}{:>8} {:6} {}'.format('LP source', 'TS', 'beta', 'error')
+        print '{:17}{:>8} {:6} {}'.format('LP source', 'TS', 'beta', 'error')
         map( lambda s: fit2(s,'beta'), LP_sources) 
-        print '{:15}{:>8} {:6} {:10}'.format('PLEX source', 'TS','Cutoff', 'error')
+        print '{:17}{:>8} {:6} {:10}'.format('PLEX source', 'TS','Cutoff', 'error')
         map( lambda s: fit2(s,'Cutoff', '{:6.0f}'), PLEX_sources)
         return True
 
@@ -443,103 +446,210 @@ class BatchJob(Process):
     def __call__(self, roi_index):
         self.process_roi(roi_index)
     
-
-def fit_isotropic(roi, nbands=8, folder='isotropic_fit'):
-    """ fit only the front and back"""
-    from uw.like import Models
-    iso_source = roi.get_source('isotrop')
-    old_model=iso_source.model.copy()
-    roi.sources.set_model(Models.FrontBackConstant(), 'isotrop')
-    iso_model=iso_source.model
-    roi.reinitialize()
-
-    cx = []
-    for eband in range(nbands):
-        print '*** Energy Band {}: iso counts {}'.format( eband,
-                                [t[1].counts.round() for t in roi[2*eband:2*eband+2]])
-        roi.select(eband)
-        iso_model[0]=1; iso_model[1]=1
-        roi.fit([0,1]); 
-        u = iso_model.get_all_parameters();
-        cx.append(u)
-    roi.select()
-    roi.sources.set_model(old_model)
-    if folder is not None:
-        filename= '{}/{}.pickle'.format(folder, roi.name)
-        pickle.dump(np.array(cx), open(filename, 'w'))
-        print 'wrote file {}'.format(filename)
-    return np.array(cx)
-
-def fit_galactic(roi, nbands=8, folder='galactic_fit', upper_limit=5.0):
-    """ fit only the galactic normalization"""
-    cx = []
-    gal_model = roi.get_source('ring').model
-    roi.thaw('Norm')
-    gal_norm = gal_model[0]
-    #gal_model.set_limits('Norm', 0.2, 5.0) # override default
-    if upper_limit is not None:
-        gal_model.bounds[0][1]=np.log10(upper_limit)# set upper limit by hand
-    roi.reinitialize()
-    for eband in range(nbands):
-        print '*** Energy Band {}: gal counts {}'.format( eband,
-                                [t[0].counts.round() for t in roi[2*eband:2*eband+2]])
-        roi.select(eband)
-        gal_model[0]=gal_norm
-        roi.fit([0], ignore_exception=True); 
-        cx.append(gal_model[0])
-    roi.select()
-    roi.freeze('Norm')
-    if folder is not None:
-        filename= '{}/{}.pickle'.format(folder, roi.name)
-        pickle.dump(np.array(cx), open(filename, 'w'))
-        print 'wrote file {}'.format(filename)
-    return np.array(cx)
+class FitIsotropic(object):
     
-def fit_diffuse(roi, nbands=8, select=[0,1,2], restore=False, folder='diffuse_fit'):
+    def __init__(self, roi, nbands, folder):
+        """ fit the front and back"""
+        from uw.like import Models
+        iso_source = roi.get_source('isotrop')
+        old_model=iso_source.model.copy()
+        roi.sources.set_model(Models.FrontBackConstant(), 'isotrop')
+        iso_model=iso_source.model
+        roi.reinitialize()
+
+        cx = []; dx=[]
+        for eband in range(nbands):
+            roi.select(eband)
+            print '*** Energy Band {}: iso counts {}'.format( eband,
+                                    [t[1].counts.round() for t in roi.selected])
+
+            iso_model[0]=1; iso_model[1]=1
+            n = len(roi.selected)
+            roi.fit(range(n))
+            u = iso_model.get_all_parameters();
+            du = np.array([iso_model.error(i) for i in range(2)])
+
+            cx.append(u);
+            dx.append(du)
+        roi.select()
+        roi.sources.set_model(old_model)
+        if folder is not None:
+            if not os.path.exists(folder): os.mkdir(folder)
+            filename= '{}/{}.pickle'.format(folder, roi.name)
+            pickle.dump(dict(val=cx,err=dx), open(filename, 'w'))
+            print 'wrote file {}'.format(filename)
+        self.val = cx
+        self.err = dx
+
+    def __call__(self):
+        return (self.val, self.err)
+    
+def fit_isotropic(roi, nbands=8, folder='isotropic_fit'):
+    return  FitIsotropic(roi, nbands, folder)()
+
+class FitGalactic(object):
+    """Manage the galactic correction fits
     """
-    Perform indpendent fits to the gal, iso_front, and iso_back for each of the first nbands bands
+    def __init__(self, roi, nbands=8, folder=None, upper_limit=5.0):
+        """ fit only the galactic normalization"""
+        if folder is not None and not os.path.exists(folder):
+            os.mkdir(folder)
+        self.roi=roi
+        cx = self.fit( nbands)
+        self.fitpars= cx[:,:2] 
+        x,s,cf,cb = cx.T
+        self.chisq= sum(((x-1)/s)**2)
+  
+        if folder is not None:
+            filename= '{}/{}.pickle'.format(folder, roi.name)
+            pickle.dump(cx, open(filename, 'w'))
+            print 'wrote file {}'.format(filename)
+
+    def fit(self, nbands=8): 
+        roi = self.roi
+        gal_model = roi.get_source('ring').model
+        roi.thaw('Norm')
+        gal_norm = gal_model[0]
+
+        roi.reinitialize()
+        cx = []
+
+        for eband in range(nbands):
+            counts = [t[0].counts.round() for t in roi[2*eband:2*eband+2]]
+            print '*** Energy Band {}: gal counts {}'.format( eband, counts)
+            roi.select(eband)
+            gal_model[0]=gal_norm
+            roi.fit([0], ignore_exception=True); 
+            cx.append((gal_model[0], gal_model.error(0), counts[0], counts[1]))
+        cx = np.array(cx) # convert to array, shape (nbands, 4)
+        # re-select all bands, freeze galactic again    
+        roi.select()
+        roi.freeze('Norm')
+        return np.array(cx) 
+
+
+    
+    def update(self):
+        from uw.like2 import (response,diffuse)
+        r = self.roi
+        if r.sources.diffuse_normalization is None:
+            print 'FitGalactic: Setting up diffuse normalization'
+            roi_index= int(r.name[-4:])
+            dn = self.create_corr_dict(r.config['diffuse'], roi_index)
+            r.sources.diffuse_normalization = diffuse.normalization = dn
+
+        a = self.roi.sources.diffuse_normalization
+        b = self.fitpars[:,0]
+        before = a['gal']
+        a['gal'] = before * self.fitpars[:,0]
+        print before, '\n',a['gal']
+        # update the Galactic Response objects
+        for gr in self.roi[:16]:
+            gr[0].initialize(force=True)
+
+    def create_corr_dict(self, diffuse_dict,  roi_index, event_type_names=('front','back')):
+        import response
+        corr_dict = {}
+        galf = diffuse_dict['ring']['correction']
+        corr_dict['gal'] = response.DiffuseCorrection(galf).roi_norm(roi_index)
+
+        isof =  diffuse_dict['isotrop']['correction']
+        corr_dict['iso']= dict()
+        for x in event_type_names:
+            isoc = response.DiffuseCorrection(isof.replace('*',x));
+            corr_dict['iso'][x]= isoc.roi_norm(roi_index)
+        return corr_dict
+
+def fit_galactic(roi, nbands=8, folder=None, upper_limit=5.0):
+    t = FitGalactic(roi, nbands, folder, upper_limit)
+    print 'Chisq: {:.1f}'.format(t.chisq)
+    if folder is None:
+        t.update()
+        return False
+    return True
+    
+def fit_diffuse(roi, nbands=8, select=[0,1], folder='diffuse_fit', corr_min=-0.95, update=False):
+    """
+    Perform independent fits to the gal, iso for each of the first nbands bands.
+    If such a fit fails, or the correlation coeficient less than corr_min, fit only the isotropic.
     select: None or list of variables
+    update: if True, modify the correction coefficients
     """
-    from uw.like import Models
-    # freeze all free sources, thaw gal and iso
+    from uw.like2 import diffuse
+    # thaw gal and iso
     roi.thaw('Norm', 'ring')
-    iso_model =roi.sources.find_source('isotrop').model.copy()
-    roi.sources.set_model(Models.FrontBackConstant(), 'isotrop')
+    roi.thaw('Scale', 'isotrop')
+    roi.get_model('isotrop').bounds[0]=[np.log10(0.5), np.log10(10.0)] # set limits 
     roi.reinitialize()
     
     # do the fitting
     dpars=[]
     energies = []
+    covs=[]
+    quals = []
+    def corr(cov): # correlation coeficiant
+        return cov[0,1]/np.sqrt(cov[0,0]*cov[1,1])
     for ie in range(nbands):
         roi.select(ie); 
-        roi.fit(select, ignore_exception=True)
-        energies.append(int(roi.energies[0]))
-        dpars.append( roi.sources.parameters.get_parameters()[:3])
-    t =np.power(10, dpars)
-    df = pd.DataFrame(t, columns=['gal iso_front iso_back'.split()])
+        energy =int(roi.energies[0]) 
+        print '----- E={} -----'.format(energy)
+        roi.fit(select, setpars={0:0, 1:0}, ignore_exception=True)
+        cov = roi.fit_info['covariance']
+        if cov is None or cov[0,0]<0 or corr(cov)<corr_min:
+            #fail, probably since too correlated, or large correlation. So fit only iso
+            roi.fit([1], setpars={0:0, 1:0}, ignore_exception=True)
+            cov=np.array([ [0, roi.fit_info['covariance'][0]] , [0,0] ])
+        energies.append(energy)
+        dpars.append( roi.sources.parameters.get_parameters()[:2])
+        covs.append(cov)
+        quals.append(roi.fit_info['qual'])
+    roi.freeze('Norm', 'ring', 1.0)
+    roi.freeze('Scale', 'isotrop', 1.0)
+    roi.select() # restore
+
+    # set to external pars
+    df = pd.DataFrame(np.power(10,np.array(dpars)), columns='gal iso'.split())
+    df['cov'] = covs
+    df['qual'] = quals
     df.index=energies
-    
-    if restore:
-        # does not seem to work, comment this out for now
-        # restore sources
-        roi.sources.diffuse_normalization *= df
-        for s,f in zip(free_sources, saved_free):
-            s.model.free=f
-        roi.sources.find_source('ring').model.free[0]=False
-        roi.sources.set_model(iso_model, 'isotrop')
-        roi.reinitialize()
-        roi.select()
-        roi.fit() # needed to restore gradient, at least.
-        
-        # update the pickle file
-        write_pickle(roi)
-    elif folder is not None:
+
+    if folder is not None:
         # simply save results
         if not os.path.exists(folder):
             os.mkdir(folder)
         filename= '{}/{}.pickle'.format(folder, roi.name)
         pickle.dump(df, open(filename, 'w'))
         print 'wrote file {}'.format(filename)
+    
+    if update:
+        # update correction factors, reload all response objects
+        dn=diffuse.normalization
+        dn['gal'] *= df.gal.values
+        dn['iso']['front'] *= df.iso.values
+        dn['iso']['back'] *= df.iso.values
+
+        # now reload
+        for band in roi:
+            for res in band[:2]:
+                assert res.source.isglobal
+                res.setup=False
+                res.initialize()
+        print 'Updated coefficients'
+
+
+    # for interactive: convert covariance matrix to sigmas, correlation
+    gsig=[]; isig=[]; corr=[]
+    for i in range(len(df)):
+        c = df.iloc[i]['cov']
+        diag = np.sqrt(c.diagonal())
+        gsig.append(diag[0])
+        isig.append(diag[1])
+        corr.append(c[0,1]/(diag[0]*diag[1]))
+    df['gsig']=gsig
+    df['isig']=isig
+    df['corr']=corr
+    del df['cov']
+
     return df
     
 def write_pickle(roi):
@@ -548,8 +658,94 @@ def write_pickle(roi):
     roi.to_healpix( pickle_dir, dampen=1.0, 
         counts=roi.get_count_dict(),
         stream=os.environ.get('PIPELINE_STREAMPATH', 'interactive'),
-
+        ts_min = roi.ts_min,
         )
+
+
+def psc_check(roi, psc_name=None , outdir='psc_check', debug=False):
+    """Compare the spectra of sources from a "gll" file with the corresponding
+    pointlike original fits.
+    """
+
+    from uw.like2.analyze import fermi_catalog
+    from uw.like2.plotting import sed
+
+    #load the catalog: either a catalog, or filename
+    fgl = roi.config.get('fgl', None)
+    if fgl is None:
+        fgl = fermi_catalog.GLL_PSC2(roi.config.get('gllcat', None))
+        roi.config['fgl']= fgl
+    
+    def chisq(source):
+        try:
+            sdf = pd.DataFrame(source.sedrec)
+            return sum(sdf.pull**2)
+        except:
+            print 'Fail chisq'
+            return 99
+    
+    # Replace sources, keep list of (old,new)
+    def get_pairs():
+        changed=[];pairs=[]
+        free = roi.free_sources[:]
+        for s in free:
+            s.chisq=chisq(s)
+            cname=s.name.replace(' ','')
+            if cname not in fgl.df.index: 
+                print '{:14s} {:6.0f} x'.format(s.name, s.ts)
+                continue
+            fl8y = fgl.df.loc[cname]
+            trunc = fl8y.sname[5:]
+            print '{:14s} {:6.0f} --> {:14s} {:6.0f}'.format(s.name, s.ts, trunc, fl8y.ts),
+            if fl8y.extended:
+                sx = sources.ExtendedSource(name=trunc, skydir=(fl8y.ra,fl8y.dec), 
+                    model=fl8y.model, dmodel=s.dmodel)
+            else:
+                sx = sources.PointSource(name=trunc, skydir=(fl8y.ra,fl8y.dec), model=fl8y.model)
+            roi.del_source(s.name)
+            roi.add_source(sx)
+            roi.get_sed(sx.name)
+            sx.chisq = chisq(sx)
+            newts=roi.TS(trunc)
+            print ' -->{:6.0f}'.format(newts)
+            changed.append( (
+                (s.name,s.model,s.ts, s.chisq,),# s.model.iflux(e_weight=1)),
+                (sx.name,sx.model,sx.ts,sx.chisq,) # sx.model.iflux(e_weight=1)), #avoid saving dmodel?
+                )
+            )
+            pairs.append((s, sx))
+        return changed, pairs
+    
+    changed , source_pairs = get_pairs()
+    if debug:
+        return source_pairs
+
+    print 'No pairs found' if len(source_pairs)==0 else '{} source pairs found'.format(len(source_pairs))    
+    if outdir is None: return
+    # save info for comparison
+    def path_check(x):
+        if not os.path.exists(x): os.mkdir(x)
+
+    map( path_check, [outdir, outdir+'/info', outdir+'/sed']) 
+    outfile = 'psc_check/info/HP12_{}.pickle'.format(roi.name[5:])       
+    pickle.dump(changed, open(outfile,'w'))
+    print 'Wrote file {}'.format(outfile)
+
+    # save plots
+    for old,new in source_pairs:
+        if not hasattr(old, 'sedrec'):
+            print 'No sedrec for source {}'.format(old.name)
+            continue
+        if not hasattr(new, 'sedrec'):
+            print 'No sedrec for new source {}'.format(new.name)
+            continue
+        try:
+            sed.plot_other_source(old,new,gtname='4FGL')\
+            .savefig('psc_check/sed/{}_sed.jpg'.format(new.name.replace('+','p')),
+                 dpi=60, bbox_inches='tight')
+        except Exception, msg:
+            print '***Failed to plot: {}'.format(msg)
+    return 
 
 #### TODO
 #def run(rois, **kw):

@@ -2,12 +2,12 @@
 
 Module providing handling of the LAT effective area.
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/effective_area.py,v 1.1 2016/06/22 17:02:51 wallacee Exp $
 Author: Eric Wallace
 
 """
 
-__version__ = "$Revision$"
+__version__ = "$Revision: 1.1 $"
 
 import os
 

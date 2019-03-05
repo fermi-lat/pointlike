@@ -1,15 +1,15 @@
 """
 Generate the XML representation of a list of sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.20 2017/08/02 23:07:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_xml.py,v 1.22 2018/01/27 15:37:18 burnett Exp $
 
 """
-import os, collections, argparse, types, glob
+import os, collections, argparse, types, glob, yaml
 from astropy.io import fits as  pyfits
 import numpy as np
 import pandas as pd
 from uw.like import Models
 from skymaps import SkyDir
-from . import ( sources, extended)
+from uw.like2 import ( sources, )
 from uw.utilities import xml_parsers
 from collections import OrderedDict
 
@@ -102,7 +102,7 @@ def pmodel(source):
     return model
         
 
-def from_roi(roimodel, title=None, stream=None, strict=True, maxi=None):
+def from_roi(roimodel, title=None, stream=None, maxi=None, **kwargs):
     """
     Create an XML file describing the complete data model for an ROI
     
@@ -110,16 +110,21 @@ def from_roi(roimodel, title=None, stream=None, strict=True, maxi=None):
         Expect to be a list of sources.Source objects
     """
     Element.stream = stream
-    m2x = xml_parsers.Model_to_XML(strict=strict)
+    m2x = xml_parsers.Model_to_XML(strict=kwargs.get('strict', False))
     if title is None:
         title = 'Sources from roi %04d' % roimodel.index
-        
+
+    noglobals=kwargs.get('noglobals', True)
+    if noglobals:
+        print 'Supressing global sources'
+
     with Element('source_library', title=title,  
         ignore=('selected_source','quiet'), **roimodel.__dict__) as sl:
     
         for source in roimodel:
             stype = source.__class__.__name__
-
+            if noglobals and stype=='GlobalSource':
+                continue
             with Element('source',  type=stype, ignore=('model','sedrec', 'free', 'changed', 'spatial_model'),
                         **source.__dict__) as src:
                 # insert model, a spectrum element. Uses class from xml_parsers
@@ -151,10 +156,13 @@ def source_library(source_list, title='sources', stream=None, strict=False, maxi
     Element.stream = stream
     m2x = xml_parsers.Model_to_XML(strict=True)
     ns=ne=0
+    ### Remove this check since hard to get proper list
     try:
-        extended = pd.DataFrame(pyfits.open(glob.glob(
-            os.path.expandvars('$FERMI/catalog/Extended_archive*/LAT_extended_sources*.fit*'))[-1]
-            )[1].data)
+        config = yaml.load(open('config.yaml'))
+        ext_name =config['extended']
+        ext_pat = os.path.expandvars('$FERMI/catalog/'+ext_name+'/LAT_extended_sources*.fit*')
+        ext_file = glob.glob(ext_pat)[0]
+        extended = pd.DataFrame( pyfits.open(ext_file)[1].data )
         extended.index= [x.strip() for x in extended['Source_Name']]
     except Exception, msg:
         raise Exception('Failed to find the Extended archive: %s' %msg)
@@ -173,7 +181,7 @@ def source_library(source_list, title='sources', stream=None, strict=False, maxi
                 else:
                     sname = source['name']
                     if sname not in extended.index:
-                        print 'Failed to find %s, with no localizaiton, in extended sources' %sname
+                        raise Exception( 'Failed to find %s, with no localization, in extended sources' %sname)
                         print 'Skipping ...'
                         continue
                     with Element('spatialModel', type='SpatialMap', 

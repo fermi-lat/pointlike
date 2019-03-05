@@ -1,7 +1,7 @@
 """
 Comparison with a FHL model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/fhl_comparison.py,v 1.1 2016/10/28 20:48:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/fhl_comparison.py,v 1.3 2018/01/27 15:39:29 burnett Exp $
 
 """
 
@@ -68,6 +68,7 @@ class FHLcomparison(sourceinfo.SourceInfo):
         close_cut = 3600*angle_cut
         df['uw_id'] = cl_fhl[:,0]
         df['dist'] = cl_fhl[:,1]
+
         df['uw_ts'] = [dfuw.ix[i].ts for i in cl_fhl[:,0]]
         df['uw_ts10'] = [dfuw.ix[i].ts10 for i in cl_fhl[:,0]]
         df['uw_np10'] = [dfuw.ix[i].np10 for i in cl_fhl[:,0]]
@@ -342,3 +343,4 @@ class FHLcomparison(sourceinfo.SourceInfo):
             self.correlation_plots, self.comparison_plots, 
             self.missing_from_fhl, self.missing_from_uw, self.poor_spectral_fits,
             ])
+

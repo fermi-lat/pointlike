@@ -1,24 +1,22 @@
 """
 Manage the diffuse sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.55 2017/08/02 22:56:31 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.57 2018/01/27 15:37:17 burnett Exp $
 
 author:  Toby Burnett
 """
 import os, types, collections, zipfile, pickle, glob
 import numpy as np
-import skymaps #from Science Tools: for SkyDir, DiffuseFunction, IsotropicSpectrum
 import pandas as pd
 from astropy.io import fits
 from astropy import wcs
 
-from .pub import healpix_map #make this local in future
-from . import (response, sources    )
-
-def PowerLaw(*pars, **kw):   return sources.PowerLaw(*pars, **kw)
+import skymaps #from Science Tools: for SkyDir, DiffuseFunction, IsotropicSpectrum
+from uw.utilities import healpix_map
 
 class DiffuseException(Exception):pass
 
+normalization = None # global for the dict with normalization factors to apply
 
 class DiffuseBase(object):
     """Base class for global diffuse sources
@@ -72,8 +70,9 @@ class DiffuseBase(object):
         from uw.utilities import image
         vmin = kwargs.pop('vmin', None)
         vmax = kwargs.pop('vmax', None)
+        cmap = kwargs.pop('cmap', None)
         ait = image.AIT(self, **kwargs)
-        ait.imshow(title=self.name if title is None else title, scale=scale, vmin=vmin, vmax=vmax)
+        ait.imshow(title=self.name if title is None else title, scale=scale, vmin=vmin, vmax=vmax, cmap=cmap)
         return ait.axes.figure
        
     def plot_spectra(self, ax=None, glat=0, glon=(0, 2,-2,  30, -30, 90, -90),
@@ -92,7 +91,7 @@ class DiffuseBase(object):
                         label='b=%.0f'%x if label is None else label)
             if hasattr(self, 'energies'):
                 et = self.energies
-                ax.loglog(et, map(lambda e: e**2*self(sd,e), et), '+k')
+                ax.loglog(et, map(lambda e: e**2*self(sd,e), et), '--')
         
         ax.grid(); 
         if len(glon)>1:
@@ -101,11 +100,14 @@ class DiffuseBase(object):
         ax.set_title('Galactic diffuse at l=%.0f'%glat if title is None else title, size=12)
         return fig
         
-    def plot_map(self, energy=1000, title=None, cbtext='log10(flux)', **kwargs):
+    def plot_map(self, energy=1000, title=None, **kwargs):
         """show a map at the given energy"""
         if not self.loaded: self.load()
         self.setEnergy(energy)
-        if kwargs.get('scale', '')=='linear': cbtext='flux'
+        if not kwargs.pop('log', True):
+            kwargs['scale']='linear'
+        cbtext = 'flux' if kwargs.get('scale', '')=='linear' else 'log10(flux)' 
+        cbtext = kwargs.pop('cbtext', cbtext) # override if set
         fig = self.show(cbtext=cbtext, **kwargs)
         fig.axes[0].set_title('%.0f MeV'%energy if title is None else title, size=12)
         return fig
@@ -125,6 +127,11 @@ class Isotropic(DiffuseBase):
         self.kw = None
         self.loge = np.log(self.energies)
         self.setEnergy(1000.)
+        global normalization
+        if normalization is not None and 'iso' in normalization:
+            self.normalization = normalization['iso']
+        else:
+            self.normalization = None  
         
     def load(self):
         pass
@@ -144,35 +151,6 @@ class Isotropic(DiffuseBase):
         a,i = self.energy_interpolation, self.energy_index
         return np.exp(    np.log(self.spectrum[i])   * (1-a) 
                         + np.log(self.spectrum[i+1]) * a     ) 
-
-class IsotropicCorrection(object):
-    """ Manage isotropic correction files
-    """
-    def __init__(self, filename):
-        """filename : string
-            
-
-        """
-        self.isocorr_files = glob.glob(os.path.expandvars('$FERMI/diffuse/'+filename))
-        assert self.isocorr_files[0].find('front')>0
-        self.isocorr = [pd.read_csv(f, index_col=0) for f in self.isocorr_files]
-        
-    def __call__(self, roi, eband):
-        return np.array([self.isocorr[x].ix[roi][eband] for x in range(2)])
-    
-    def update(self, roi, eband, corr ):
-        """apply correction to given roi number and band number
-        corr : float or array of float
-        """
-        t = self(roi,eband) * np.asarray(corr)
-        for i in range(2):
-            self.isocorr[i].ix[roi][eband] = t[i]
-        return t
-            
-    def save(self):
-        for f,df in zip(self.isocorr_files, self.isocorr):
-            print 'writing {}'.format(f)
-            df.to_csv(f)
 
 
 class MapCube(DiffuseBase, skymaps.DiffuseFunction):
@@ -208,8 +186,16 @@ class HealpixCube(DiffuseBase):
             
     def load(self):
         try:
-            self.hdulist = hdus = fits.open(self.fullfilename)
-            self.energies = hdus[2].data.field(0)
+            try:
+                self.hdulist = hdus = fits.open(self.fullfilename)
+            except Exception, msg:
+                raise DiffuseException('FITS: Failed to open {}: {}'.format(self.fullfilename, msg))
+            if hdus[2].columns[0].name=='CHANNEL':
+                # binned format: assume next 2 columns are min, max and use geometric mean
+                emin,emax = [hdus[2].data.field(i) for i in (1,2)]
+                self.energies = np.sqrt(emin*emax)
+            else:
+                self.energies = hdus[2].data.field(0)
             self.vector_mode = len(hdus[1].columns)==1
             if self.vector_mode:
                 # one vector column, expect 2d array with shape (12*nside**2, len(energies))
@@ -232,30 +218,39 @@ class HealpixCube(DiffuseBase):
         #self.logeratio = np.log(self.energies[1]/self.energies[0])
         self.loge= np.log(self.energies)
         self.setEnergy(1000.)
-        
-    
+           
     def close(self):
         self.hdulist.close()
+
+    def __getitem__(self, index):
+        """return a plane as a HParray object"""
+        energy = self.energies[index]
+        col = self.column(energy)
+        return healpix_map.HParray('{:.0f} MeV'.format(energy), col)
+    def __len__(self):
+        return len(self.energies)
+        
+    def __iter__(self): # iterate over all keys
+        for index in range(len(self)):
+            yield self[index]
 
     def __call__(self, skydir, energy=None):
         if energy is not None and energy!=self.energy: 
             self.setEnergy(energy)
         skyindex = self.indexfun(skydir)
         a = self.energy_interpolation
-        if np.abs(a)<1e-2:
-            ret = self.eplane1[skyindex]
-        elif np.abs(1-a)< 1e-2:
-            ret = self.eplane2[skyindex]
+        u, v = self.eplane1[skyindex], self.eplane2[skyindex]
+        if np.abs(a) < 1e-2 or v<=0 or np.isnan(v):
+            ret = u
+        elif np.abs(1-a)< 1e-2 or u<=0 or np.isnan(u):
+            ret = v
         else:
-            ret = np.exp( np.log(self.eplane1[skyindex]) * (1-a) 
-                        + np.log(self.eplane2[skyindex]) * a      )
-        assert np.isfinite(ret), 'Not finite for %s at %s MeV, %f' % (skydir, self.energy, a)
+            ret = np.exp( np.log(u) * (1-a) + np.log(v) * a      )
+        assert np.isfinite(ret), 'Not finite for {} at {} MeV, {},{},{}'.format(skydir, self.energy, a, u,v)
         if ret<=0:
-            print 'Warning: FLux not positive at {} for {:.0f} MeV a={}'.format(skydir, self.energy,a)
+            #print 'Warning: FLux not positive at {} for {:.0f} MeV a={}'.format(skydir, self.energy,a)
             ret = 0
         return ret
-
-
 
     def setEnergy(self, energy): 
         # set up logarithmic interpolation
@@ -284,6 +279,10 @@ class HealpixCube(DiffuseBase):
         """
         self.setEnergy(energy)
         a = self.energy_interpolation
+        if a<0.002:
+            return self.eplane1
+        elif a>0.998:
+            return self.eplane2
         return np.exp( np.log(self.eplane1) * (1-a) 
              + np.log(self.eplane2) * a      )
     @property        
@@ -309,6 +308,7 @@ class FitsMapCube(DiffuseBase):
 
         # Parse the WCS keywords in the primary HDU
         self.w = wcs.WCS(hdulist[0].header)
+        self.galactic = self.w.axis_type_names[0]=='GLON'
         self.naxis = self.w._naxis[:2]
 
         # Refer to the layered image and the energy table
@@ -316,6 +316,7 @@ class FitsMapCube(DiffuseBase):
         self.energies = hdulist[1].data['Energy']
         self.loge = np.log(self.energies)
         self.setEnergy(1000.)
+
         
     def setEnergy(self, energy): 
         # set up logarithmic interpolation
@@ -334,7 +335,7 @@ class FitsMapCube(DiffuseBase):
         
     def skydir2pix(self, skydir):
         """ return a tuple for indexing into image plane (note it will be int"""
-        ra, dec =skydir.ra(), skydir.dec()
+        ra, dec =(skydir.ra(), skydir.dec()) if not self.galactic else (skydir.l(), skydir.b())
         # note 0-based indexing for array access
         return np.array(self.w.wcs_world2pix([[ra,dec,1]], 0)[0][:2],int)
     
@@ -343,6 +344,8 @@ class FitsMapCube(DiffuseBase):
         """
         i,j = pixel
         c= self.w.wcs_pix2world(np.array([[i,j,2]]),0)[0][:2];
+        if self.galactic:
+            return SkyDir(c[0],c[1], SkyDir.GALACTIC)
         return SkyDir(*c)
 
     def __call__(self, skydir, energy=None):
@@ -363,6 +366,26 @@ class FitsMapCube(DiffuseBase):
         
         return ret
 
+class FitsMapCubeList():
+    def __init__(self, filename):
+        filenames = open(filename).read().split('\n')
+        assert len(filenames)>1, 'Expected more than one filename:\n{}'.format(filenames)
+        self.cubelist = map(FitsMapCube, filenames)
+        self.loaded=False
+    def load(self):
+        self.loaded=True
+        for cube in self.cubelist:
+            cube.load()
+    def __call__(self, skydir, energy=None):
+        return sum([cube(skydir, energy) for cube in self.cubelist])
+    def __repr__(self):
+        r =self.__class__.__name__ +': Sum of: '
+        for cube in self.cubelist:
+            r+='\r\t'+cube.__repr__()
+        return r
+    def setEnergy(self, energy):
+        for cube in self.cubelist:
+            cube.setEnergy(energy)
 
 def AllSkyDiffuse(HealpixCube):
     """special version adding convolvability
@@ -632,16 +655,15 @@ class DiffuseList(list):
         return fig
 
 class IsotropicList(DiffuseList):
-    def __init__(self, adict, event_type_names, diffuse_normalization=None):
+    def __init__(self, adict, event_type_names):
         """ Create a list of Isotropic functions, one per entry in event_type_names
             adict: dict
                 contains filename, correction, each with wildcards to be expanded
             event_type_names : list of string
-            diffuse_normalization : DataFrame or None
-                
+               
         """
         try:
-            fn, corr = adict['filename'], adict.get('correction', None)
+            fn, corr, key = adict['filename'], adict.get('correction', None), adict.get('key', None)
         except Exception, msg:
             print "Fail to create IsotropicList: adict=%s, %s" % (adict, msg)
             raise
@@ -651,14 +673,14 @@ class IsotropicList(DiffuseList):
             correction_data=correction=None
             if corr is not None:
                 correction = corr.replace('*', et)
-                if diffuse_normalization is not None and correction in diffuse_normalization:
-                    correction_data = diffuse_normalization[correction]
+                # if diffuse_normalization is not None and correction in diffuse_normalization:
+                #     correction_data = diffuse_normalization[correction]
             ext = os.path.splitext(filename)[-1]
             if ext=='.txt':   iso = Isotropic(filename) 
             elif ext=='.fits': iso = HealpixCube(filename)
             else:
                 raise Exception('Unrecognized extension: {}'.format(ext))
-            iso.kw = dict(correction =correction, correction_data=correction_data)
+            iso.kw = dict(correction =correction, correction_data=correction_data, key=key)
             self.append(iso)
 def ConvolvedList(IsotropicList):
     pass
@@ -689,79 +711,10 @@ def etype_insert(value, et):
         raise
     g.kw = v
     return g
-
-class GalacticCorrection(object):
-    def __init__(self,config):
-        self.galcorr_file = os.path.expandvars('$FERMI/diffuse/'+config.diffuse['ring']['correction'])
-        assert os.path.exists(self.galcorr_file), 'File not found: {}'.format(self.galcorr_file)
-        self.galcorr = pd.read_csv(self.galcorr_file, index_col=0)
-        print 'Loaded correction files {}'.format(self.galcorr_file)
-        
-    def __call__(self, roi):
-        return np.array(self.galcorr.ix[roi] )
-        
-    def load_fits(self):
-        files = sorted(glob.glob('galactic_fit/*.pickle'))
-        assert len(files)==1728, 'Found only {} fit files'.format(len(files))
-        self.fits = np.array([pickle.load(open(f)) for f in files]);
-     
-    def update_from_fits(self, limit=(0.8,1.1)):
-        # check for bad numbers
-        self.galcorr *=self.fits.clip(*limit)
-    
-    def update(self, roi, corr ):
-        t = self(roi) * np.asarray(corr)
-        self.galcorr.ix[roi] = t
-        return t
-            
-    def save(self, inpat=None, outpat=None):
-        if inpat is not None:
-             assert self.galcorr_file.find(inpat)>0 and outpat is not None
-             self.galcorr_file = self.galcorr_file.replace(inpat,outpat)
-        print 'writing {}'.format(self.galcorr_file)
-        self.galcorr.to_csv(self.galcorr_file)
-
-class IsotropicCorrection(object):
-
-    def __init__(self, config):
-        self.isocorr_files = glob.glob(os.path.expandvars('$FERMI/diffuse/'+config.diffuse['isotrop']['correction']))
-        assert self.isocorr_files[0].find('front')>0
-        self.isocorr = [pd.read_csv(f, index_col=0) for f in self.isocorr_files]
-        print 'Loaded correction files {}'.format(self.isocorr_files)
-        
-    def __call__(self, roi, eband):
-        return np.array([self.isocorr[x].ix[roi][eband] for x in range(2)])
-    
-    def load_fits(self):
-        files = sorted(glob.glob('isotropic_fit/*.pickle'))
-        assert len(files)==1728, 'Found only {} fit files'.format(len(files))
-        cc = [pickle.load(open(f)) for f in files];
-        self.fits = [np.array(cc)[:,:,i] for i in range(2)]
-
-    def update_from_fits(self, limit=(0.8,1.1)):
-        # check for bad numbers
-        f,b = self.fits
-        self.isocorr[0] *=f.clip(*limit)
-        self.isocorr[1] *=b.clip(*limit)
-
-    def update(self, roi, eband, corr ):
-        t = self(roi,eband) * np.asarray(corr)
-        for i in range(2):
-            self.isocorr[i].ix[roi][eband] = t[i]
-        return t
-            
-    def save(self, inpat=None, outpat=None):
-        for i,f in enumerate(self.isocorr_files):
-            if inpat is not None:
-                assert f.find(inpat)>0 and outpat is not None
-                self.isocorr_files[i] = f.replace(inpat, outpat)
-        for f,df in zip(self.isocorr_files, self.isocorr):
-            print 'writing {}'.format(f)
-            df.to_csv(f)
         
 def diffuse_factory(value, diffuse_normalization=None, event_type_names=('front', 'back')):
     """
-    Create a DiffuseList object from a text specification
+    Create a DiffuseList object from a text specification. Called from from_healpix to set the 
     value : [string | list | dict ]
         if string: a single filename to apply to all event types; if contains a '*', expand it
             to a list with the list of event type names, e.g., front, back
@@ -769,13 +722,19 @@ def diffuse_factory(value, diffuse_normalization=None, event_type_names=('front'
         if dict: must have keyword "filename", may have "type" to specify the type, 
             which must be the name of a class in this module inheriting from DiffuseBase
     
-    If the keyword "type" is not specified, filenames are examined for extensions:
-        txt : Isotropic
-        zip : CachedMapCube
-        fit for fits : MapCube
-    A special case is ')' : IsotropicSpectralFunction
+        If the keyword "type" is not specified, filenames are examined for extensions:
+            txt : Isotropic
+            zip : CachedMapCube
+            fit for fits : MapCube
+        A special case is ')' : IsotropicSpectralFunction
+    diffuse_normalization : None | dict
+        If dict, a dictionary with keys 'gal', 'iso'
     """
     assert value is not None, 'oops'
+    # make the diffuse normalization available to classes 
+    global normalization
+    normalization = diffuse_normalization
+
     isdict = issubclass(value.__class__, dict)
     preconvolved = isdict and value.get('preconvolved', False)
     type = None
@@ -831,8 +790,7 @@ def diffuse_factory(value, diffuse_normalization=None, event_type_names=('front'
         diffuse_source = map(dfun,files)
     elif dfun==IsotropicList:
         # special code to handle Isotropic list in a dict with wild cards
-        return IsotropicList(value[0], event_type_names=event_type_names, 
-            diffuse_normalization=diffuse_normalization)
+        return IsotropicList(value[0], event_type_names=event_type_names)
     else:
         full_files = map( expand_file, files)
         check = map(lambda f: os.path.lexists(f) or f[-1]==')', full_files) 
@@ -844,3 +802,42 @@ def diffuse_factory(value, diffuse_normalization=None, event_type_names=('front'
         for x,kw in zip(diffuse_source, kws):
             x.kw = kw
     return DiffuseList(diffuse_source, event_type_names=event_type_names)
+
+class Normalization(object):
+    """ Manage diffuse normalization, or correction factors in the ROI
+    """
+    def __init__(self, roi):
+
+        """ Check noralization correction factors loaded into the Response objects
+            To display as a plot:
+            diffuse.Normalization(roi).plot()
+        """
+        self.roi=roi
+ 
+    def __call__(self):
+        energies = [int(round(x.band.energy)) for x in self.roi[:16:2]]
+        gal = [x[0].corr for x in self.roi[:16:2]]
+        assert gal == [x[0].corr for x in self.roi[1:16:2]], 'Expect same gal for front, back'
+        t=np.array([
+            gal,
+            [x[1].corr for x in self.roi[:16:2]],
+            [x[1].corr for x in self.roi[1:16:2]],
+            ])
+        return pd.DataFrame(t, index='gal iso_f iso_b'.split(), columns=energies)
+
+    def plot(self):
+        self().T.plot.line(logx=True)
+
+def create_corr_dict(diffuse_dict,  roi_index, event_type_names=('front','back')):
+    from uw.like2 import response
+    corr_dict = {}
+
+    galf = diffuse_dict['ring'].get('correction',None)
+    corr_dict['gal'] = np.ones(8) if galf is None else response.DiffuseCorrection(galf).roi_norm(roi_index)
+
+    isof =  diffuse_dict['isotrop']['correction']
+    corr_dict['iso']= dict()
+    for x in event_type_names:
+        isoc = response.DiffuseCorrection(isof.replace('*',x));
+        corr_dict['iso'][x]= isoc.roi_norm(roi_index)
+    return corr_dict

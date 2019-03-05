@@ -9,7 +9,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.53 2017/03/24 18:44:18 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.54 2017/03/24 18:48:51 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -58,6 +58,17 @@ def LCFitter(template,phases,weights=None,log10_ens=None,times=1,
         binned_ebins [8]    energy bins to use in binned likelihood
         phase_shift  [0]    set this if a phase shift has been applied
     """
+    times = np.asarray(times)
+    mask = np.isnan(phases).astype(int)
+    nnan = mask.sum()
+    if nnan > 0:
+        print 'Suppressing %d NaN phases!'%(nnan)
+        mask = ~mask
+        phases = phases[mask]
+        if len(times) == len(mask):
+            times = times[mask]
+        if weights is not None:
+            weights = np.asarray(weights)[mask]
     kwargs = dict(times=np.asarray(times),binned_bins=binned_bins,
                   phase_shift=phase_shift)
     if weights is None:

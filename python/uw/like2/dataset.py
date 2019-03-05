@@ -1,12 +1,12 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.41 2017/11/17 22:50:36 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.42 2017/11/22 00:50:43 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.41 $'.split()[1]
-import os, glob, types 
+version='$Revision: 1.42 $'.split()[1]
+import os, glob, types, yaml 
 import cPickle as pickle
 import numpy as np
 import skymaps, pointlike #from the science tools
@@ -66,13 +66,14 @@ class DataSpecification(object):
                         raise DataSetError('Specified * for year, but path does not contain yearxx: found %s' % interval)
                 for name in ('binfile', 'ltcube', 'ft1files'):
                     if data[name] is not None:
-                        data[name]=data[name].replace('*', interval[-1:])
+                        data[name]=data[name].replace('*', interval[-2:])
                 
             else:
                for name in ('binfile', 'ltcube'):
                     data[name]=data[name].replace('.fit', '_%s.fit'%interval)
 
         if not os.path.exists(data['binfile']):
+            print 'binned file "{}" not found: have to create from FT1'.format(data['binfile'])
             ft1s = data['ft1files'] if hasattr(data['ft1files'],'__iter__') else (data['ft1files'],)
             for ft1 in ft1s:
                 if ft1 is None or not os.path.exists(ft1):
@@ -134,6 +135,7 @@ class DataSet(dataman.DataSpec):
         ('binner', None, ''),
         ('bins',  None,  ''),
         ('interval', None, 'Name for a specific time period: key in a dictionary to (start, stop)'),
+        ('binfile', None, 'Replacement name for binfile'),
 
         ('legacy', False, 'needed to allow no DSS in livetime cubes'),
         
@@ -167,12 +169,26 @@ class DataSet(dataman.DataSpec):
         """
 
         dataspec = self._process_dataset(dataset_name, quiet=kwargs.get('quiet',False),
-            interval=kwargs.pop('interval',None)).__dict__
+            interval=kwargs.pop('interval',None),
+            #binfile=kwargs.pop('binfile',None), 
+            ).__dict__
         dataspec.update(
                 ft1=dataspec.pop('ft1files',None), 
                 ft2=dataspec.pop('ft2files',None),
                 )
+
+        # replace binfile if requested (for simuation, at least)
+        new_binfile = kwargs.pop('binfile', None)
         dataspec.update(kwargs)
+ 
+        if new_binfile is not None:
+            print 'binfile: {}'.format(new_binfile)
+            if not os.path.exists(new_binfile):
+                new_binfile = os.path.join(os.path.expandvars('$FERMI/data'),new_binfile)
+                if not os.path.exists(new_binfile):
+                    raise DataSetError('Replacement binfile not found, {}'.format(new_binfile))
+            dataspec['binfile']=new_binfile
+
         # Now invoke the superclass to actually load the data, which may involve creating the binfile and livetime cube
         super(DataSet,self).__init__(  **dataspec)
         assert self.irf is not None, 'irf was not specifed!'
@@ -196,7 +212,7 @@ class DataSet(dataman.DataSpec):
         assert len(self.lt)==len(self.event_types), 'Expected 4 live time cubes'
         return self.lt[event_type-self.event_types[0]]
 
-    def _process_dataset(self, dataset, interval=None, month=None, quiet=False):
+    def _process_dataset(self, dataset, binfile=None, interval=None, month=None, quiet=False):
         """ Parse the dataset as a string lookup key, or a dict
             interval: string
                 name of a 
@@ -238,7 +254,7 @@ class DataSet(dataman.DataSpec):
                 ddict=ldict[dataset]
                 #ddict['event_class_bit']= 4 ######FOR PASS8 now 
                 ddict['event_class_bit']=dict(source=2, clean=3, extraclean=4)[ddict.get('event_class','source').lower()]
-                return DataSpecification(folder,  interval=interval, gti_mask=gti_mask, **ddict)
+                return DataSpecification(folder,  interval=interval, gti_mask=gti_mask,  **ddict)
         raise DataSetError('dataset name "%s" not found in %s' % (dataset, folders))
 
     def load(self):
@@ -344,14 +360,16 @@ def validate(model_path='.', interval=None, nocreate=False, logfile='dataset.txt
     """
     actual_path =  os.path.expandvars(model_path)
     assert os.path.exists(actual_path), 'Model path %s not found' % actual_path
-    config = '../config.txt' 
+    config = '../config.yaml' 
+    # should now check for config.txt as well?
     if not os.path.exists(config):
-        config = 'config.txt'
+        config = 'config.yaml'
     assert os.path.exists(config), 'Could not find config.txt in current or parent folder'
     try:
-        modelspec = eval(open(os.path.join(actual_path, config)).read())
+        #modelspec = eval(open(os.path.join(actual_path, config)).read())
+        modelspec = yaml.load(open(config))
     except Exception, msg:
-        raise DataSetError('could not evaluate config.txt: %s' % msg)
+        raise DataSetError('could not evaluate config.yaml: %s' % msg)
     
     #modelspec = configuration.Configuration(model_path, postpone=True)
     try:

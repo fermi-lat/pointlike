@@ -1,10 +1,8 @@
 """
 Manage the analysis configuration
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/configuration.py,v 1.32 2017/02/09 18:55:11 burnett Exp $
-
 """
-import os, sys, types, StringIO, pprint
+import os, sys, types, StringIO, pprint, yaml
 import numpy as np
 from uw.irfs import irfman
 from . import ( dataset, exposure, psf, from_xml)
@@ -122,7 +120,9 @@ class Configuration(dict):
         datadict = config.get('datadict', None)
         dataspec = config.get('dataspec', None)
         if datadict is not None:
-            self.dataset = dataset.DataSet(datadict['dataname'], interval=datadict.get('interval',None),
+            self.dataset = dataset.DataSet(datadict['dataname'], 
+                    interval=datadict.get('interval',None),
+                    binfile=datadict.get('binfile', None),
                     nocreate = self.nocreate,
                     CALDB = self.caldb,
                     irf = irf,
@@ -174,7 +174,7 @@ class Configuration(dict):
         elif input_model is not None:
             if not isinstance(input_model, dict):
                 raise Exception('input_model must be a dictionary')
-            model_keys = ['xml_file','path', 'auxcat', 'free_diffuse']
+            model_keys = ['xml_file','path', 'auxcat', 'free_diffuse', 'tsmin', 'emin']
             if not set(input_model.keys()).issubset(model_keys):
                 raise Exception('input model key(s), %s, not recognized: expect %s'
                     % (list(set(input_model.keys()).difference(model_keys)), model_keys))
@@ -223,7 +223,7 @@ class Configuration(dict):
         elif not self.quiet:
             print 'Will load healpix sources from %s/%s' % (self.modeldir,self.modelname)
     
-    def load_config(self, configdir, config_file='config.txt'):
+    def load_config(self, configdir):
         if configdir.startswith('$'):
             self.configdir = os.path.expandvars(configdir)
         elif not configdir.startswith('/'):
@@ -234,20 +234,24 @@ class Configuration(dict):
         if not os.path.exists(self.configdir):
             raise Exception( 'Configuration folder %s not found' % self.configdir)
         
-        if os.path.exists(os.path.join(self.configdir, '../'+config_file, )):
-            if not self.quiet: print 'Reading default parameters from ../{}'.format(config_file)
-            try:
-                config = eval(open(os.path.join(self.configdir, '../'+config_file)).read())
-            except Exception, msg:
-                raise Exception('Failed to evaluate config file: %s' % msg)
-        else: config = dict()
+        def get_dict(path):
+            ret = None
+            for name, reader in [('config.yaml', yaml.load ), 
+                                ('config.txt', eval) ]:
+                cfile = os.path.join(path, name)
+                if os.path.exists(cfile):
+                    try:
+                        ret = reader(open(cfile).read())
+                        if not self.quiet: print 'loaded config file {}'.format(cfile)
+                    except Exception, msg:
+                        print 'Failed to parse file {}: {}'.format(cfile,msg)
+                        raise
+                    return ret
+            return {}
+                
+        config = get_dict(os.path.join(self.configdir, '../'))
+        config.update(get_dict(self.configdir))
 
-        if os.path.exists(os.path.join(self.configdir, config_file)):
-            if not self.quiet: print 'Updating parameters from {}'.format(config_file)
-            try: local = eval(open(os.path.join(self.configdir, config_file)).read())
-            except Exception, msg:
-                raise Exception('Failed to evaluate config file: %s' % msg)
-            config.update(local)
         assert len(config.keys())>0, 'No dicts found'
         return config
         

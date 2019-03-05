@@ -1,6 +1,6 @@
 """
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/simulation.py,v 1.2 2018/01/27 15:37:17 burnett Exp $
 
 """
 import os, sys,  types, glob
@@ -9,7 +9,25 @@ import numpy as np
 import pandas as pd
 from skymaps import Band
 from ..data import binned_data
+from . import configuration
+from astropy.io import fits
 
+def make_index_table(nside=12, subnside=512, usefile=True):
+    """create, and/or use a table to convert between different nside pixelizations
+    """
+    filename = os.path.expandvars('$FERMI/misc/index_table_%02d_%03d.pickle' % (nside, subnside) )
+    if os.path.exists(filename) and usefile:
+        return pickle.load(open(filename))
+    print 'generating index table for nside, subnside= %d %d' % (nside, subnside)
+    band, subband = Band(nside), Band(subnside)
+    npix, nsubpix = 12*nside**2, 12*subnside**2
+    t=np.array([band.index(subband.dir(i)) for i in xrange(nsubpix)])
+    a = np.arange(nsubpix)
+    index_table = [a[t==i] for i in xrange(npix)]
+    if usefile:
+        pickle.dump(index_table, open(filename,'w'))
+    return index_table
+    
 def default_geom():
     """return a DataFrame with indexed by the band, containing emin, emax, event_type, nside
     """
@@ -78,7 +96,7 @@ class BandCounts(object):
         """Assume in a skymodel folder, containg a model_counts subfolder
         """
         self.bi = band_index
-        self.path=path+'/{}'.format(band_index)
+        self.path=path+'/{:02d}'.format(band_index)
         nside_list = ModelCountMaps.nside_array
         self.nside = nside_list[band_index]
         self.filename = self.path+'/combined.pickle'
@@ -126,14 +144,23 @@ class BandCounts(object):
         return np.array([ids, counts], np.int32)
 
 class SimulatedPixels(binned_data.Pixels):
-    def __init__(self, model_path='.', subfolder='model_counts'):
+    """Generate simulated pixel data, using pixel-based count predictions
+    Inherits from the Pixels class in binned_data to export the simuulation to a sparse FITS representation
+    """
+    def __init__(self, model_path='.', subfolder='model_counts', numchan=None):
+        """
+        model_path : str
+            expect to find a sky model folder, containing itself a folder with 
+        """
         self.countsfolder=os.path.join(model_path, subfolder)
         assert os.path.exists(self.countsfolder), 'did not find folder {}'.format(countsfolder)
-        band_folders = glob.glob(self.countsfolder+'/*')
+        band_folders = sorted(glob.glob(self.countsfolder+'/*'))
+        if numchan is None:
+            numchan=len(band_folders)
         sim = dict()
-        print 'Simulating from model predictions in {}\n  band   pixels    counts'.format(
+        print 'Simulating from model predictions in\n  {}\n  chan   pixels    counts'.format(
             os.path.abspath(self.countsfolder))
-        for f in  band_folders:
+        for f in  band_folders[:numchan]:
             channel = int(os.path.split(f)[-1])
             print '{:6d}'.format(channel), 
             sim[channel]= s= BandCounts(channel).simulate()
@@ -151,20 +178,58 @@ class SimulatedPixels(binned_data.Pixels):
         self.lookup = dict(zip(channels,zip(indexchan[:-1], indexchan[1:])))
 
 class DefaultBands(binned_data.BandList):
-    def __init__(self):
+    """Define a BANDS table corresponding to traditional pointlike setup, but with power-of-2 nside values
+
+    It inherits from Bandlist in binned data, allowing creation of a FITS HDU
+    """
+    def __init__(self, channels=None, emin=(100,100)):
+        """
+        channels : list of int | None
+            if a list, the channel IDs to include
+        emin : 2-tuple of float
+            minimum energy for front or back 
+        """
+        if channels is None:
+            channels = range(32)
         energies = np.logspace(2, 6, 17) # 100 MeV to 1Tev, 4/decade
         elow = energies[:-1]
         ehigh=energies[1:]
         nside_array = np.ones(32,int) * 1024
+        ### This was designed for F,B,F,B,...
         nside_array[:10] = 64,64, 128,64 ,256,128, 256,256, 512,512
         geom = dict()
-        for ib in range(32):
+        ic=0
+        for ib in range(32): 
             ie = ib/2; it=ib%2
-            geom[ib]=dict(e_min=elow[ie],e_max=ehigh[ie], 
-                          event_type=it, nside=nside_array[ib])
+            if elow[ie]<emin[it] or ic not in channels: continue # skip according to front or back emin
+            geom[ic]=dict(e_min=elow[ie],e_max=ehigh[ie], 
+                          event_type=it, nside=nside_array[ic])
+            ic +=1
         g = pd.DataFrame(geom).T['e_min e_max event_type nside'.split()]
         g.event_type = g.event_type.astype(int)
         g.nside = g.nside.astype(int)
         self.df=g
+
     def dataframe(self):
         return self.df
+
+class Simulate(binned_data.BinFile):
+    """
+    """
+    def __init__(self, model_path='.', subfolder='model_counts', numchan=None):
+        # get the GTI from the original file? Do we need it?
+        config = configuration.Configuration('.', postpone=True, quiet=True)
+        bf = config.dataset.binfile
+        self.hdus = hdus = fits.open(bf)
+        self.hdu0 = hdus[0]
+        self.gti = binned_data.GTI(hdus['GTI'])
+
+        self.pixels=SimulatedPixels(model_path, subfolder, numchan=numchan)
+        self.bands = DefaultBands(self.pixels.lookup.keys(), 
+                emin=config['input_model'].get('emin',(100,100)))
+
+    def writeto(self, filename, clobber=False):
+        """ Override base class to avoid clobber existing files
+        """
+        super(Simulate, self).writeto(filename, clobber)
+

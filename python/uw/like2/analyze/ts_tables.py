@@ -1,7 +1,7 @@
 """
 Analyze the contents of tsmap HEALPix tables
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/ts_tables.py,v 1.1 2017/11/17 22:44:09 burnett Exp $
 
 """
 

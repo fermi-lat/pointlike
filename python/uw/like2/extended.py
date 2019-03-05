@@ -1,17 +1,17 @@
 """
 Extended source code
 Much of this adapts and utilizes 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.16 2017/08/02 23:00:38 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/extended.py,v 1.17 2017/11/17 22:50:36 burnett Exp $
 
 """
 import os, copy, glob
 import numpy as np
 from astropy.io import fits as pyfits
-from skymaps import SkyDir
+from skymaps import SkyDir, Band
 from uw.like import  Models
 from uw.like.SpatialModels import Disk,EllipticalDisk,Gaussian,EllipticalGaussian,SpatialMap
-
-from . import sources, response
+from uw.utilities.xml_parsers import parse_sources
+from . import sources, response #, configuration
 
 
 class ExtendedSourceCatalog(object):
@@ -179,6 +179,7 @@ class ExtendedSourceCatalog(object):
 class ExtendedCatalog( ExtendedSourceCatalog):
     """ subclass to add this lookup function 
     TODO: merge, keeping only needed features
+     if a folder 'XML2' is found, add sources to it. Must be analytic I guess.
     """
 
     def __init__(self, extended_catalog_name, force_map=False,  **kwargs):
@@ -220,6 +221,29 @@ class ExtendedCatalog( ExtendedSourceCatalog):
 
         if fail:
             raise Exception('Parse error(s)')
+
+        # Now check for XML2
+        ff =glob.glob('{}/XML2/*.xml'.format(extended_catalog_name))
+        #print '{} sources found in folder {}:'.format(len(ff), 'XML2')
+        if len(ff)==0: return
+
+        for f in ff:
+            ps,ds=parse_sources(f)
+            assert len(ps)==0 and len(ds)==1,'expected a single extended source in file {}'.format(f)
+            s = ds[0]
+            name = s.name
+            if name[4]=='J': # insert space
+                name = name[:4]+' '+name[4:]
+            s.name = name
+            i = self.lookup(name)
+            if i is not None:
+                if not self.quiet: print 'replacing spectral model for {}'.format(name)
+                self.sources[i].dmodel = s.dmodel
+            else:
+                if not self.quiet: print 'adding extended source {} at {}'.format(s.name, s.skydir)
+                self.names = np.append(self.names,name)
+                self.sources.append(s)
+
     def __repr__(self):
         return '%s.%s: %s' % (self.__module__, self.__class__.__name__, self.catname)
     def realname(self, cname):
@@ -248,7 +272,7 @@ class ExtendedCatalog( ExtendedSourceCatalog):
 
         ### seems to be necessary for some models created from 
         if model.mappers[0].__class__.__name__== 'LimitMapper':
-            print 'wrong mappers: converting model for source %s, model %s' % (name, model.name)
+            #print 'wrong mappers: converting model for source %s, model %s' % (name, model.name)
             model = eval('Models.%s(p=%s)' % (model.name, list(model.get_all_parameters())))
         extsource = sources.ExtendedSource(name=self.realname(aname), 
             skydir=source.skydir,
@@ -290,3 +314,53 @@ def make_pictures(config_dir='.', image_folder = 'extended_images'):
 
 
 
+
+def make_map_and_list(config_dir='.', nside=512, extended_folder='extended'):
+    
+    import healpy as hp
+    from uw.like2.pub import healpix_map as hpm
+    import pandas as pd
+
+    import yaml
+    ecatdir =yaml.load(open('config.yaml'))['extended']
+    ecat = ExtendedCatalog(ecatdir)
+   
+    band = Band(nside)
+    dirs = map(band.dir, range(12*nside**2))
+
+    def qdisk(nside, skydir, radius):
+        l, b = np.radians(skydir.l()), np.radians(skydir.b())
+        vec = (np.cos(l)*np.cos(b), np.sin(l)*np.cos(b), np.sin(b) )
+        return hp.query_disc(nside=nside, vec=vec, radius=np.radians(radius))
+
+    d = dict()
+    sky = np.zeros(12*nside**2)
+    print
+    for ename in sorted(ecat.names):
+        dm = ecat[ename].dmodel
+        print '{:20}{:20}'.format(ename, dm.name) ,
+        p = qdisk(nside, dm.center, 10)
+        v = np.array([dm(dirs[i]) for i in p])
+        pixels=np.sum(v>0.1)
+        total = np.sum(v)
+        sky[p]+=v
+        print '{:8.0f} {:8d}'.format(np.max(v), pixels)
+        d[ename]= dict(ra=dm.center.ra(), dec=dm.center.dec(), 
+                          modelname=dm.name, pmax=np.max(v), total=total, pixels=pixels)
+    print 
+
+    df = pd.DataFrame(d).T['ra dec modelname pixels pmax total'.split()]
+    df.index.name = 'name'
+
+    if extended_folder is not None:
+        if not os.path.exists(extended_folder):
+            os.mkdir(extended_folder)
+        csvfile = extended_folder+'/sources.csv'
+        df.to_csv(csvfile)
+        print 'wrote csv file {}'.format(csvfile)
+        
+        fitsfile = extended_folder+'/map.fits'
+        ext = hpm.HParray('extended', sky)
+        hpm.HEALPixFITS([ext]).write(fitsfile)
+
+    return df

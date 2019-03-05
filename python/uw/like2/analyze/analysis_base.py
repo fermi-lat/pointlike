@@ -1,14 +1,16 @@
 """
 Base class for skymodel analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.27 2016/04/27 02:22:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/analysis_base.py,v 1.28 2016/10/28 20:48:13 burnett Exp $
 
 """
 
 import os, sys, pickle, glob, zipfile, time, re
 import numpy as np
 import pylab as plt
-from mpl_toolkits.axes_grid import axes_grid, axes_size, Divider, make_axes_locatable
+# Seems to be commented out???
+#from mpl_toolkits.axes_grid import axes_grid, axes_size, Divider, make_axes_locatable
+from mpl_toolkits.axes_grid1 import  axes_size, Divider, make_axes_locatable
 
 from . import _html
 from .. import configuration
@@ -126,7 +128,8 @@ class AnalysisBase(object):
             os.chdir(self.skymodel_dir)
             print 'chdir to {}'.format(self.skymodel_dir)
         self.skymodel = os.path.split(os.getcwd())[-1]
-        self.config = configuration.Configuration(skymodel_dir, quiet=True, postpone=True)
+        self.config = configuration.Configuration(skymodel_dir, quiet=kwargs.get('quiet',True), postpone=True)
+        plt.rc('font', size= 14)
         self.setup(**kwargs)
         if not os.path.exists('plots'):
             os.mkdir('plots')
@@ -260,18 +263,21 @@ class AnalysisBase(object):
                 % (tuple(time.localtime()[:6])+
                  (os.environ.get('HOSTNAME',os.environ.get('COMPUTERNAME','?')),
                   os.environ.get('USER',os.environ.get('USERNAME','?'))))
-        try:
-            cvs_header = re.search(r'Header:(.+)\$', sys.modules[self.__module__].__doc__).group(1)
-            t = re.search(r'/cvs/(.+),v (.+) 20', cvs_header)
-            path,version = [t.group(i) for i in range(1,3)]
-            htmldoc+= '\n<br><a href="http://glast.stanford.edu/cgi-bin/cvsweb-SLAC/%s?revision=%s&view=markup">%s</a>'\
-                %(path,version,cvs_header)
-            ## the link that could be generated to the source
-            #http://glast.stanford.edu/cgi-bin/cvsweb-SLAC/pointlike/python/uw/like2/analyze/sourceinfo.py?revision=1.13&view=markup
-            #/nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.13 2013/10/11 16:34:00 burnett Exp
+        # try:
+        #     ## construct link to GitHub source?
+        #     cvs_header = re.search(r'Header:(.+)\$', sys.modules[self.__module__].__doc__).group(1)
+        #     t = re.search(r'/cvs/(.+),v (.+) 20', cvs_header)
+        #     path,version = [t.group(i) for i in range(1,3)]
+        #     htmldoc+= '\n<br><a href="http://glast.stanford.edu/cgi-bin/cvsweb-SLAC/%s?revision=%s&view=markup">%s</a>'\
+        #         %(path,version,cvs_header)
+        #     ## the link that could be generated to the source
+        #     #http://glast.stanford.edu/cgi-bin/cvsweb-SLAC/pointlike/python/uw/like2/analyze/sourceinfo.py?revision=1.13&view=markup
+        #     #/nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.13 2013/10/11 16:34:00 burnett Exp
             
-        except Exception, msg: 
-            print '**** failed to write footer: %s' % msg
+        # except Exception, msg: 
+        #     print '**** failed to write footer: %s' % msg
+        pythonpath='http://glast-ground.slac.stanford.edu/Decorator/exp/Fermi/Decorate/groups/catalog/pointlike/git/pointlike/python/'
+        htmldoc+='\n<br><a href="{}{}.py?skipDecoration"?> Local version of code</a>'.format(pythonpath, self.__module__.replace('.','/'))
         htmldoc+='\n</body>'
         self.htmlmenu.save(os.path.join(self.plotfolder,'menu.html'))
         print 'saved local menu to %s' % os.path.join(self.plotfolder,'menu.html')
@@ -288,13 +294,15 @@ class AnalysisBase(object):
             print '*** failed header generation %s- missing key: %s' % (title, msg)
         except TypeError, msg:
             print '*** TypeError with string "%s": %s' % (htmldoc, msg)
+            raise
+
         open(os.path.join(self.plotfolder,'index.html'), 'w').write(text)
         print 'saved html doc to %s' %os.path.join(self.plotfolder,'index.html')
         h = _html.HTMLindex()
         h.create_menu()
         if self.just_created:
-           h.update_top()
-           
+            h.update_top()
+
             
     def basic_skyplot(self, ax, glon, singlat, c,
                 title=None, ecliptic=False, labels=True, colorbar=False, cbtext='', 
@@ -309,7 +317,7 @@ class AnalysisBase(object):
             ax.set_title(title, fontsize='small')
         
         plt.setp(ax, xlim=(180,-180),  ylim=(-1.02, 1.02));
-        ax.axhline(0, color='k');ax.axvline(0,color='k');
+        ax.axhline(0, color='grey'); ax.axvline(0,color='grey')
         if labels: 
             ax.set_xlabel('glon')
             ax.set_ylabel('sin(glat)', labelpad=-5) #note move label to right

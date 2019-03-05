@@ -3,7 +3,7 @@ Manage quadratic fitting, elliptical representation of the TS surface
 
 see Localize
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/quadform.py,v 1.1 2010/01/13 20:56:47 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/quadform.py,v 1.2 2010/08/03 03:48:03 lande Exp $
 
 """
 from numpy import asarray, array, arange, zeros, matrix, sign, rec, linspace, isnan

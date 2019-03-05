@@ -3,7 +3,7 @@ Convolution interface for like2
 Extends classes from uw.utilities 
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/convolution.py,v 1.7 2017/08/02 22:52:31 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/convolution.py,v 1.9 2018/01/27 15:37:17 burnett Exp $
 author:  Toby Burnett
 """
 import os, pickle, zipfile 
@@ -192,22 +192,79 @@ def spherical_harmonic(f, lmax, thetamax=45):
     norm = G(0)
     return np.array([G(n) for n in range(lmax+1)])/norm
 
-def convolve_healpix(input_map, func ):
+class TestPSFFT(object):
+    """Test spherical harmonic decomposition of PSF
+ 
     """
-    Convolve a HEALPix map with a function
+    def __init__(self, event_type=0, energy=133, config_dir='.'):
+        """ config_dir : string
+                where to find a config.jaml file, to obtain IRF. Can start with '$FERMI'
+            energy : float
+            event_type : int
+                0 or 1 for front, back            
+        """
+        from . import configuration
+        config = configuration.Configuration(config_dir, quiet=True, postpone=True)
+        irfname = config.irf
+        psf = config.irfs.psf(0, 133)
+        self.psf = config.irfs.psf(event_type, energy)
+        self.label= 'PSF {} {} MeV'.format(['front', 'back'][event_type], energy)
+        print 'Evaluating the sherical harmonic content for {} {}...'.format(irfname,self.label),
+        self.sh = spherical_harmonic(self.psf, 128, psf.inverse_integral(99.5));
+        print
+
+    def plot(self, psf_label='PSF Front 133 MeV', sig_deg=1.5):
+        import matplotlib.pylab as plt
+
+        sigma=np.radians(sig_deg)
+        gsh =lambda el : np.exp(-0.5 * (el * (el + 1)) * sigma**2)
+
+        fig, axx = plt.subplots(1,2, figsize=(8,4))
+        glabel = '{} deg Gaussian'.format(sig_deg)
+        ax=axx[0]
+
+        f = lambda x: np.exp(-0.5*(x/sigma)**2)
+        x=np.linspace(0,10,51)
+        theta = np.radians(x)
+        norm = self.psf(0)
+        ax.plot(x, self.psf(theta)/norm, '-', label=self.label)
+        ax.plot(x, f(theta), '-', label=glabel)
+        ax.legend()
+        ax.axhline(0, color='lightgray')
+        ax.set_title('Function')
+        ax.set_xlabel('displacement [deg.]')
+
+        ax=axx[1]
+        ax.plot(self.sh, '-', label=psf_label)
+        ax.plot(map(gsh,range(128)), '-', label=glabel)
+        ax.axhline(0, color='lightgray')
+        ax.legend();
+        ax.set_xlabel('Sperical harmonic')
+        ax.set_title('Fourier Transform');
+
+def convolve_healpix(input_map, func=None, sigma=None, thetamax=10 ):
+    """
+    Convolve a HEALPix map with a function, or Gaussian
     input_map : array of float
         a HEALPix array, RING indexing, nside a power of 2
-    func : The function of an integer el
+    func : The function of an integer el | None
         returns the amplitude for spherical harmonic el
         example: for a Gaussian with sigma in radians: 
           lambda el : np.exp(-0.5 * (el * (el + 1)) * sigma**2)
+
+    sigma : None | float (deg)
+        If not None, use gaussian for func
           
     Returns: the convolved map
     """
     import healpy
     nside = int(np.sqrt(len(input_map)/12))
-    assert 12*nside**2 == len(input_map),'Bad length'
-    assert func(thetamax)/func(0) <1e-3
+    assert 12*nside**2 == len(input_map),'Bad length: expect power of 2'
+    if func is None: 
+        assert sigma is not None, 'If no func, must specify sigma'
+        func= lambda el : np.exp(-0.5 * (el * (el + 1)) * np.radians(sigma)**2)
+    else: 
+        assert func(thetamax)/func(0) <1e-3
     alm = healpy.map2alm(input_map);
     lmax = healpy.Alm.getlmax(len(alm))
     if lmax < 0:

@@ -1,8 +1,6 @@
 """
 Association analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/associations.py,v 1.22 2016/03/21 18:54:57 burnett Exp $
-
 """
 import os, glob, sys, warnings
 import numpy as np
@@ -20,10 +18,16 @@ class Associations(sourceinfo.SourceInfo):
     """Analysis of associations
     <p>
     A feature of the UW pipeline is the application of the LAT association algorithm, with the same catalogs as
-    were used for 2FGL, except that the latest LAT pulsar catalog is used. Note that priors are not recalculated,
-    we use the values determined for 2FGL. The method is explained in the <a href="http://arxiv.org/pdf/1002.2280v1.pdf">1FGL paper</a>, see Appendix B.
+    were used for 2FGL, except:
+    <ul> 
+        <li>The latest LAT pulsar list</li>
+        <li>All pulsars from the "bigfile" list maintained by D. Smith</li> 
+        <li>The latest BZCAT list of blazars
+    </ul>
+    Note that priors are not recalculated, we use the values determined for 2FGL. 
+    The method is explained in the <a href="http://arxiv.org/pdf/1002.2280v1.pdf">1FGL paper</a>, see Appendix B.
     <p>
-    <p>Note that Jurgen's pipeline now has the Planck and WISE catalogs.
+    <p>Note that the current pipeline has the Planck and WISE catalogs.
     """
     
     def setup(self, **kw):
@@ -39,6 +43,7 @@ class Associations(sourceinfo.SourceInfo):
         # these suppresses warnings associated with headers
         warnings.filterwarnings('ignore', category=pyfits.verify.VerifyWarning, append=True)
         warnings.filterwarnings('ignore', category=AstropyUserWarning, append=True)
+        plt.rc('font', size=14)
     
     def load_assoc(self, fromdf=None, minprob=0.8):
         if fromdf is not None:
@@ -48,7 +53,7 @@ class Associations(sourceinfo.SourceInfo):
         else: 
             if not self.quiet:
                 print 'using associations found in sourceinfo'
-            df = self.df
+            df = self.df.copy()
         associations = df.associations if fromdf is None else self.df.altassoc
         probfun = lambda x: x['prob'][0] if not pd.isnull(x) else 0
         
@@ -61,7 +66,7 @@ class Associations(sourceinfo.SourceInfo):
         total=len(df)
         self.indf=df
         self.df = df[(df.aprob>minprob) | (df.psr)]
-        self.df10 = self.df.ix[self.df.ts>10]
+        self.df10 = self.df.loc[self.df.ts>10]
         if not self.quiet:
             print 'associated: %d/%d' % (sum(self.df10.aprob>0.8), total)
         
@@ -71,7 +76,7 @@ class Associations(sourceinfo.SourceInfo):
         <br>Left: histogram of TS, showing the fraction that have associations.
         <br>Right: The fractions themselves.
         """
-        ts = self.indf.ts #self.df10.ts
+        ts = np.array(self.indf.ts,float) #self.df10.ts
         lowlat = np.abs(self.indf.glat)<5
         assoc = self.indf.aprob>aprob_min
         def plota(ax, bins=np.logspace(1,5,41) ):
@@ -97,8 +102,7 @@ class Associations(sourceinfo.SourceInfo):
         fig, axx = plt.subplots(1,2, figsize=(12,5))
         plt.subplots_adjust(left=0.1)
         for f,ax in zip((plota,plotb), axx.flatten()): f(ax) 
-        return fig
-            
+        return fig           
     
     def delta_ts_figure(self, df=None, title='', ax=None, ):
         """Delta ts for association
@@ -170,13 +174,13 @@ class Associations(sourceinfo.SourceInfo):
                  
     def bzcat_study(self, tsmax=10000, title='Integral TS distribution bzcat associations'):
         """BZCAT associations
-        
+        Study the AGN associations with a BZCAT entry.
         %(bzcat_html)s
         """
         df = self.df
         assoc = df.aprob>0.8; sum(assoc)
-        dfa = df[assoc]; len(dfa)
-        agn = [ n in ('crates bzcat bllac agn').split() for n in dfa.acat]; 
+        dfa = df[assoc]; 
+        agn = [ n in ('crates bzcat bllac agn cgrabs').split() for n in dfa.acat]; 
         print 'agns:', sum(agn)
         dfagn = dfa[agn]
         ###Look for cases where the second or third association is above 0.8, and is 'bzcat'
@@ -196,37 +200,45 @@ class Associations(sourceinfo.SourceInfo):
                             deltats=a['deltats'][j],
                             locqual=dfagn.locqual[i],
                             ang=a['ang'][j],
+                            pindex=dfagn.pindex[i],
                             )
         print 'bzdict length:', len(bzdict)
-        bzdf = pd.DataFrame(bzdict).T        
+        self.bzdf = bzdf = pd.DataFrame(bzdict).T 
+        bzdf_ts = np.array(bzdf.ts, float)       
         t=np.asarray(test)
         u =[sum(t==k) for k in range(-1,4)] ; print u
         self.bzcat_html= '<p>There is a BZCAT association in all but %d out of %d AGN associations' % (u[0], sum(u))
         bzdf['type'] = [n[3] for n in bzdf.index]
-        types=set(bzdf.type)
-        tc = [sum(bzdf.type==type) for type in types]
-        rows=[tc]
-        type_names=dict(B='BL Lac', G='Radio Galaxy', U='Unknown', Q='FSRQ')
-        dfT=pd.DataFrame(rows, index=['all'], columns=[type_names[n] for n in types])
+        type_names=dict(B='BL Lac', G='Radio Galaxy', U=None, Q='FSRQ', i=None)        
+        
+        # make a table of Blazar types, with and without TS cut
+        types=filter(lambda x: x is not None, set(bzdf.type))
+        tc_all = [sum(bzdf.type==type) for type in types]
+        tc_25  = [sum((bzdf.type==type) & (bzdf_ts>25)) for type in types]
+        rows=[tc_25, tc_all]
+        dfT=pd.DataFrame(rows, index=['TS>25','all'], columns=[type_names[n] for n in types])
         dfT['total'] = [sum(x) for x in rows]
-        df=dfT.T
-        self.bzcat_html += '<p>Frequencies by Blazar type: {}'.format(df.to_html())
 
-        # make an integral logTS plot 
-        fig, ax = plt.subplots(figsize=(8,5))
+        self.bzcat_html += '<p>Frequencies by Blazar type: {}'.format(dfT.to_html())
+        
         if len(bzdict)==0:
             print 'No BZCAT associations found'
             self.bzcat_html += '<p>No BZCAT associations: quitting'
             return fig
-        
+
+        fig, axx = plt.subplots(1,2, figsize=(16,5))
+         
         hist_args=dict(bins=np.logspace(1,np.log10(tsmax),501),
             cumulative=-1, lw=2, histtype='step', log=True)
-        #ax.hist(bzdf.ts,  label='all', **hist_args );
+        #ax.hist(bzdf_ts,  label='all', **hist_args );
+
+        # make an integral logTS plot 
+        ax = axx[0]
         for type,label in zip('QBG', ['FSRQ', 'BL Lac', 'Galaxy']):
             sel = bzdf.type==type
             if sum(sel)>0:
                 try:
-                    ax.hist(bzdf.ts[sel],  label=label, **hist_args)
+                    ax.hist(bzdf_ts[sel],  label=label, **hist_args)
                 except: pass
         plt.setp(ax, xscale='log', xlabel='TS', ylim=(1,None), xlim=(10, tsmax),
                 title=title,)
@@ -235,6 +247,16 @@ class Associations(sourceinfo.SourceInfo):
         leg =ax.legend()
         for patch in leg.get_patches():
             pbox = patch; pbox._height=0; pbox._y=5
+
+        # check photon index distribution
+        ax = axx[1]
+        gt = self.bzdf.groupby('type')
+        for name, group in gt:
+            if type_names[name] is None: continue
+            ax.hist(np.array(group.pindex,float), np.linspace(1.0, 3.5, 31), 
+                histtype='step', lw=3, label=type_names[name])
+        ax.legend();
+        ax.set(title='Photon index by AGN type', xlabel='Photon spectral index');
 
         # save a summary file
         print 'Writing bzcat summary to %s ' %(self.plotfolder+'/bzcat_summary.csv')
@@ -266,7 +288,7 @@ class Associations(sourceinfo.SourceInfo):
         print 'sources with exp cutoff not in LAT catalog:', np.asarray(list(tt.difference(dc2names)))
         print 'Catalog entries not found:', list(dc2names.difference(tt))
         missing = np.array([ np.isnan(x) or x<10. for x in lat.ts])
-        missing |= np.array(lat.aprob==0)
+        missing |= np.array((lat.aprob==0) & (lat.ts<1000) )
         
         # this used to work but now generates 'endian' message
         #latsel = lat[missing]['RAJ2000 DEJ2000 ts ROI_index'.split()]
@@ -304,16 +326,16 @@ class Associations(sourceinfo.SourceInfo):
                 ff = sorted(glob.glob(os.path.expandvars('$FERMI/catalog/srcid/cat/Pulsars_BigFile_*.fits')))
                 t= pyfits.open(ff[-1])
                 self.d = pd.DataFrame(t[1].data)
-                
+                self.names=[t.strip() for t in self.d.NAME.values]
+
             def __call__(self, name):
                 """Find the entry with given name"""
-                b = np.array(self.d.NAME==name)
-                if sum(b)==0:
+                try:
+                    i = self.names.index(name)
+                except ValueError:
                     print 'Data for source %s not found' %name
                     return None
-                i = np.arange(len(b))[b][0]
-                return self.d.ix[i]
-
+                return self.d.iloc[i]
         
         psrx = np.array([x=='pulsar_big' for x in self.df.acat],bool)
         print '%d sources found in BigFile pulsar catalog' % sum(psrx)
@@ -370,6 +392,8 @@ class Associations(sourceinfo.SourceInfo):
 
         t = self.df.acat
         df = self.df
+        ts = np.array(df.ts,float)
+        locqual = np.array(df.locqual,float)
         r95 = 60* 2.45 * np.sqrt(np.array(df.a, float)*np.array(df.b,float))
         agn = np.array([x in 'crates bzcat agn bllac'.split() for x in t])
         psr = np.array([x in 'pulsar_lat'.split() for x in t])
@@ -380,10 +404,10 @@ class Associations(sourceinfo.SourceInfo):
         deltats = df.adeltats / (systematic[0]**2 + (systematic[1]/r95)**2)
 
         def select(sel, rlim=(0,5) ,):
-            cut = sel & (df.aprob>0.8) & (df.ts>tsmin) & (df.locqual<qualmax) & (r95>rlim[0]) & (r95<rlim[1])
+            cut = sel & (df.aprob>0.8) & (ts>tsmin) & (locqual<qualmax) & (r95>rlim[0]) & (r95<rlim[1])
             return deltats[cut]
             
-        cases = [(agn, 'AGN strong', (0,1)), (agn,'AGN moderate', (1,2)), (agn,'AGN weak',(2,20)),
+        cases = [(agn, 'AGN strong', (0,1)), (agn,'AGN mod.', (1,2)), (agn,'AGN weak',(2,20)),
                 (psr, 'LAT PSR',(0,20)), (otherid, 'other ids',(0,20))]
         zz=[]
         print '{:12} {:10} {:6} {:6}'.format(*'Selection range number factor'.split())
@@ -393,19 +417,138 @@ class Associations(sourceinfo.SourceInfo):
                 z = FitExponential(cut, name);
             except:
                 z = None
-            print '{:12} {:10} {:6.0f} {:6.2f}'.format(name,
-                     rcut, len(z.vcut), z.factor if z is not None else 99)
+            print '{:12} {:3}{:3}  {:6.0f} {:6.2f}'.format(name,
+                     rcut[0],rcut[1], len(z.vcut), z.factor if z is not None else 99)
             zz.append(z)
             
  
-        fig, axx = plt.subplots(2,3, figsize=(12,12), sharex=True)
+        fig, axx = plt.subplots(1,5, figsize=(15,4), sharex=True)
         for ax, z in zip(axx.flatten(), zz):
             z.plot(ax=ax, xlabel=r'$\Delta TS$');
-        axx.flatten()[-1].set_visible(False)           
+        #axx.flatten()[-1].set_visible(False)           
+        return fig
+
+    def unassociated_soft(self, query='isextended==False & pindex>2.2 & curvature<0.05 & psr==False',
+            selection='aprob<0.5 & eflux100>4e-12 & a<0.1 & locqual<5'):
+        """Unassociated soft sources
+
+        This is an analysis of a set of unassociated soft (index>2.2) sources that have a concentration 
+        in the inner galaxy region (|b|<10, |l|<50). We examine soft, near-power-law sources. 
+        <p>The first row is for those that are associated, the second unassociated. THe left plot is energy flux vs.
+        spectral index. It shows a line that is an energy flux minimum for the next two histograms.
+        <p>A list selected with the queries "%(softie_query)s", and then "%(unid_query)s" which are not associated can be downloaded 
+        <a href="../../%(softie_filename)s?download=true">here</a>, and viewed in the following table.
+        <p>%(softie_table)s 
+
+        """
+        self.softie_query=query
+        self.unid_query=selection
+        q = self.indf.query(query)\
+            ['ra dec ts pindex glat glon eflux curvature aprob eflux100 a b ang locqual'.split()]
+        q['singlat'] = np.sin(np.radians(np.array(q.glat,float)))
+
+        fig,axx=plt.subplots(2,3, figsize=(12,8),
+                            gridspec_kw={'wspace':0.2, 'hspace':0.3, 'left':0.01, 'top':0.98})
+
+        def scatxy(ax, query='aprob<0.5',  xlim=(2.2,3.2), ylim=(1,40)):
+            una = q.query(query)
+            bcut= np.abs(una.singlat)<0.2
+            x = una.pindex.clip(*xlim)
+            y = (una.eflux100*1e12).clip(*ylim)
+            ax.plot(x[~bcut], y[~bcut], '.r', label='high lat');
+            ax.plot(x[bcut],  y[bcut],  '+g', label='low lat' );
+            ax.set(xlim=xlim, xlabel='Spectral index',
+                ylim=ylim, ylabel=r'$Energy\ FLux \times\ 10^{12}$', yscale='log')
+            ax.legend();
+            ax.axhline(4.0, color='gray')
+
+        scatxy(axx[0,0], 'aprob>0.5')
+        scatxy(axx[1,0])
+
+        idquery = 'aprob>0.5 & eflux100>4e-12'
+        def hist1(ax, query=idquery):
+            df = q.query(query)
+            ax.hist(df.singlat, bins=np.linspace(-1,1,21), histtype='step', lw=2)
+            ax.set(xlabel='sin(glat)')
+        def hist2(ax, query=idquery):
+            df = q.query(query)
+            ax.hist(np.array(df.pindex,float), bins=np.linspace(2.2,3.2,21), histtype='step', lw=2)
+            ax.set(xlabel='Spectral index')
+        def hist3(ax, query=idquery):
+            df = q.query(query)
+            ax.hist(np.array(df.eflux100,float)*1e12, bins=np.logspace(0,2, 21), histtype='step', lw=2)
+            ax.set(xlabel=r'$Energy\ FLux \times\ 10^{12}$', xscale='log')
+
+        hist1(axx[0,1])
+        hist1(axx[1,1],selection)
+        hist2(axx[0,2])
+        hist2(axx[1,2],selection)
+        # hist3(axx[0,3])
+        # hist3(axx[1,3],selection)
+         
+        fig.text(-0.05, 0.99, 'associated')
+        fig.text(-0.05, 0.52, 'unassociated');
+        
+        self.softie_filename = self.plotfolder+'/softies.csv'
+        dfu=q.query(self.unid_query)['ra dec ts pindex curvature glat glon eflux100 a b ang locqual'.split()]
+        dfu.eflux100 *= 1e12 # for readability
+        #scale the ellipse 1-sigma radii with multiplicative systematic factor
+        factor = self.config.get('localization_systematics', [1.,0])[0]
+        dfu.a *= factor
+        dfu.b *= factor
+        # add a column with circular radius in arc min
+        dfu['r95'] = np.sqrt(np.array(dfu.a*dfu.b,float))*2.45*60
+
+        dfu.to_csv(self.softie_filename)
+        self.softies=dfu
+        print 'Wrote list of sources to {}'.format(self.softie_filename)
+
+        self.softie_table= \
+            html_table(dfu,                
+                    float_format=FloatFormat(2), 
+                    heading = """<p>Table of %d unassociated soft sources """ % len(dfu),
+                    name=self.plotfolder+'/softie_table',
+                    maxlines=10)        
+
+        return fig
+
+    def softie_geometry(self, vmax=8, vmin=0, bmax=10, vcut=2):
+        """Softie geometry
+
+        For a point source population, the square root of the flux should be inversely proportional 
+        to distance. These plots show it vs. |b|, and in a scatter plot vs. (l,b),
+
+        """
+        df=self.softies
+        l,b,f = df.glon.copy(), df.glat, np.array(df.eflux100,float)
+        sf = np.sqrt(f).clip(0,vmax)
+        l[l>180]-=360
+
+        fig, axx=plt.subplots(1,2, figsize=(15,5))
+
+        def fig1(ax):
+            ax.plot(sf, np.abs(b), 'o', label='|l|>60');
+            loncut = np.abs(l)<60
+            ax.plot(sf[loncut], np.abs(b)[loncut], 'o', label='|l|<60');
+            if vcut is not None: ax.axvline(vcut, color='grey', ls='--')
+            ax.legend()
+            ax.set(ylim=(0,bmax), xlim=(0,vmax), ylabel='$|b|$', xlabel='sqrt(Energy Flux)');
+
+        def fig2(ax):
+            ax = plt.gca()
+            scat=ax.scatter(l,b, c=np.sqrt(f),cmap=plt.get_cmap('YlOrRd'), vmax=vmax, vmin=vmin) ;
+            ax.set(xlim=(90,-90), ylim=(-bmax,bmax), xlabel='longitude', ylabel='latitude');
+            cb = plt.colorbar(scat)
+            cb.set_label('sqrt(Enegy Flux)')
+            ax.axvline(0, color='lightgrey'); ax.axhline(0, color='lightgrey')
+
+        for ff, ax in zip([fig1,fig2], axx.flatten()): ff(ax)
         return fig
 
     def all_plots(self):    
-        self.runfigures([self.summary, self.pulsar_check, self.pulsar_candidates, self.association_vs_ts, self.localization_check, self.bzcat_study])
+        self.runfigures([self.summary, self.pulsar_check, self.pulsar_candidates, 
+        self.association_vs_ts, self.localization_check, self.bzcat_study, 
+        self.unassociated_soft, self.softie_geometry,])
 
 
 class FitExponential(object):
@@ -441,9 +584,10 @@ class FitExponential(object):
             fig,ax = plt.subplots(figsize=(5,5))
         else:fig = ax.figure
         x = np.linspace(0, self.vmax, int(self.vmax/self.binsize)+1) 
+        ax.plot(x, self(x), '-r', lw=2,  label='factor=%.2f'% self.factor)
         ax.hist( self.vcut, x, label='%d %s'%(len(self.vcut),self.label), histtype='stepfilled')
         ax.set_ylim(ymin=0)
-        ax.plot(x, self(x), '-r', lw=2,  label='factor=%.2f'% self.factor)
+
         ax.grid(); ax.legend()
         plt.setp(ax, ylim=(0, 1.1*self.alpha), xlabel=xlabel)
 

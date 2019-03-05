@@ -1,9 +1,9 @@
 """Module for managing instrument response functions.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/irfman.py,v 1.5 2016/07/01 17:47:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/irfman.py,v 1.7 2018/01/27 15:35:07 burnett Exp $
 Author: Eric Wallace
 """
-__version__="$Revision: 1.5 $"
+__version__="$Revision: 1.7 $"
 
 import numpy as np
 
@@ -20,7 +20,7 @@ class IrfManager(object):
                                  psf = (2,3,4,5),
                                  edisp = (6,7,8,9))
 
-    def __init__(self, dataset, irf_dir="$CALDB", irfname='P8R2_SOURCE_V6', event_types='fb',):
+    def __init__(self, dataset, irf_dir="$CALDB", irfname=None, event_types=None,):
         """
         Parameters
         ---------
@@ -30,15 +30,17 @@ class IrfManager(object):
         irf_dir : string
             Path to the CALDB folder 
         """
-        self.caldb = caldb.CALDB(irf_dir)
+        self.caldb = caldb.CALDB(irf_dir, dataset.irf)
         if dataset is not None:
-            irfname = dataset.irf
+            self.irfname = dataset.irf
             event_types = 'psf' if dataset.psf_event_types else 'fb'
             self.dataname = dataset.name
             self.ltcube = dataset.ltcube
         else:
+            print 'No dataset, loading defaults'
             self.dataname = '(none)'
             self.ltcube=''
+            self.irfname = irfname
         irfname_parts = irfname.split('_')
         self.event_class = irfname_parts.pop(1)
         self.irf_version = '_'.join(irfname_parts)
@@ -48,6 +50,8 @@ class IrfManager(object):
     def __repr__(self):
         txt = '{self.__class__}, event_class: {self.event_class}, event_types: {self.event_types}'.format(self=self)
         txt +='\n\tdataset: {self.dataname}'.format(self=self)
+        txt +='\n\tCALDB:   {self.caldb}'.format(self=self)
+        txt +='\n\tirfname: {self.irfname}'.format(self=self)
         return txt
         
     def _load_irfs(self, dataset):
@@ -70,8 +74,9 @@ class IrfManager(object):
                 cthetamin = np.cos(np.radians(dataset.thetacut))
             else:
                 cthetamin = np.cos(np.radians(dataset.theta_cut.get_bounds()[1]))
-        
-            self._exposure = {et:exposure.Exposure(dataset.lt,aeff,cthetamin=cthetamin)
+            # Allows for multiple livetime cubes
+            self._exposure = {et:exposure.Exposure(dataset.livetime_cube(et),
+                    aeff,cthetamin=cthetamin)
                                 for et,aeff in self._aeff.items()}
         else:
             self._exposure = None
@@ -82,7 +87,7 @@ class IrfManager(object):
                             for et,d in psf_info.items()}
 
         # laod THB version for PSF management
-        self._psfman = psfman.PSFmanager(caldb_path=self.caldb.CALDB_dir, livetimefile=self.ltcube)
+        self._psfman = psfman.PSFmanager(self.caldb,  livetimefile=self.ltcube)
         
     def psf(self,event_type,energy):
         """Return a BandPSF for the given energy and event_type.
@@ -118,35 +123,45 @@ class IrfManager(object):
             except KeyError:
                 raise exc
 
-def psf_plots(energy=100, x=np.linspace(0,10,51), irfname='P8R2_SOURCE_V6',  ):
+def psf_plots(irfname='P8R2_SOURCE_V6', energies = np.logspace(2,6,21)):
     import matplotlib.pyplot as plt
-    fig, axx = plt.subplots(1,2, figsize=(10,4), sharex=True, sharey=True)
+    fig, axx = plt.subplots(1,2, figsize=(12,5), sharex=True, sharey=True)
+    plt.subplots_adjust(left=0.05, wspace=0.075)
     for event_types, ax in zip('fb psf'.split(), axx):
+        linestyles=': -. -- -'.split() if event_types=='psf' else ['-', '--']
         iman = IrfManager(None, irfname=irfname, event_types=event_types)
         ets = iman.event_types
-        psfs = [iman.psf(et, energy) for et in ets]
-        y = np.array([psfs[et-ets[0]](np.radians(x)) for et in ets])
-        [ax.plot(x,y[et-ets[0]], label='{}'.format(iman.event_type_names[et])) for et in ets]
-        ax.set_xlabel('delta [deg]')
+        r68s = np.array([[iman.psf(et, energy).r68 for et in ets] for energy in energies])
+        for et,ls in zip(ets, linestyles):
+            ax.loglog(energies, r68s[:,et-ets[0]], 
+                label='{}'.format(iman.event_type_names[et]), ls=ls, lw=2) 
+        ax.set_xlabel('Energy (MeV)', fontsize=12)
+        if event_types=='fb': ax.set_ylabel('R68 [deg]', fontsize=12)
         ax.grid()
         ax.legend();
-    fig.suptitle('PSF plots for IRF {} at {:.0f} MeV'.format(irfname, energy))
+    fig.suptitle('PSF R68 plots for IRF {}'.format(irfname),fontsize=14)
+    fig.set_facecolor('white')
     return fig
 
-def aeff_plots(irfname='P8R2_SOURCE_V6', x = np.logspace(2,6,41)):
+def aeff_plots(irfname='P8R2_SOURCE_V6', x=np.logspace(2,6,21)):
     import matplotlib.pyplot as plt
-    fig, axx = plt.subplots(1,2, figsize=(15,6), sharex=True, sharey=True)
+    fig, axx = plt.subplots(1,2, figsize=(12,5), sharex=True, sharey=True)
+    plt.subplots_adjust(left=0.05, wspace=0.075)
     for event_types, ax in zip('fb psf'.split(), axx):
+        linestyles=': -. -- -'.split() if event_types=='psf' else ['-', '--']
         irf = IrfManager(None, irfname=irfname, event_types=event_types)
         aeffs = irf._aeff.values() # the functions
         ets=irf.event_type_partitions[event_types]
         #if event_types=='psf': ets = np.flipud(ets) # make psf3 first
         y = np.array([map(aeff,x) for aeff in aeffs])
-        for et in ets:
-            ax.semilogx(x,y[et-ets[0],:], label='{}'.format(irf.event_type_names[et]),lw=2) 
-        ax.set_xlabel('Effective Area [cm^2]')
+        for et,ls in zip(ets, linestyles):
+            ax.semilogx(x,y[et-ets[0],:], label='{}'.format(irf.event_type_names[et])
+                ,lw=2,ls=ls) 
+        if event_types=='fb': ax.set_ylabel('Effective Area [cm^2]',fontsize=12)
+        ax.set_xlabel('Energy (MeV)', fontsize=12)
         ax.grid(alpha=0.5)
         ax.legend();
-    fig.suptitle('Effective Area plots for IRF {}'.format(irfname))
+    fig.suptitle('Effective Area plots for IRF {}'.format(irfname), fontsize=14)
+    fig.set_facecolor('white')
     return fig
 

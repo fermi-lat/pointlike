@@ -1,8 +1,8 @@
 """
 Manage the Web page generation
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/_html.py,v 1.19 2015/07/24 17:56:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/_html.py,v 1.20 2015/08/16 01:11:36 burnett Exp $
 """
-import os, glob, re
+import os, glob, re, yaml
 import pandas as pd
 import numpy as np
 #from uw.like2.analyze import app # for the menu
@@ -271,9 +271,12 @@ class HTMLindex():
         def model_comment(x):
             a,b=parse_path(x)
             try:
+                y = '../'+b+'/config.yaml'
+                if os.path.exists(y):
+                    return yaml.load(open(y).read()).get('comment', 'no comment')
                 return eval(open('../'+b+'/config.txt').read()).get('comment', 'no comment')
             except IOError:
-                return eval(open('../'+b+'/../config.txt').read()).get('comment', 'no comment')
+                return  'no comment found'
         
         models = sorted(glob.glob('../*/plots/index.html'), reverse=True)
         assert len(models)>0, 'No models found?'

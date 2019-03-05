@@ -2,13 +2,14 @@
 Basic fitter utilities
 
 Authors: Matthew Kerr, Toby Burnett
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitter.py,v 1.9 2012/12/07 21:24:01 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitter.py,v 1.10 2013/07/28 15:27:44 burnett Exp $
 
 """
 import types
 import numpy as np
 from scipy import optimize #for fmin,fmin_powell,fmin_bfgs
 from numpy import linalg  #for inv
+import numdifftools
 
 class FitterException(Exception): pass
 
@@ -27,12 +28,14 @@ class Fitted(object):
         
     def minimize(self, **kwargs):
         """ minimize the function using optimize.fmin_l_bfgs_b
+
         """
-        use_gradient = kwargs.pop('use_gradient', self.gradient(self.get_parameters()) is None)
-        if not use_gradient: kwargs.update(approx_grad=True)
+        use_gradient = kwargs.pop('use_gradient',True)#, self.gradient(self.get_parameters()) is None)
         ret =optimize.fmin_l_bfgs_b(self, self.get_parameters(), 
             bounds=self.bounds, 
-            fprime=self.gradient if use_gradient else None,  
+            fprime= None, # expect gradient calculated by function
+            approx_grad = not use_gradient,
+            args = (use_gradient,),  # pass to the function
             **kwargs)
         if ret[2]['warnflag']==0: 
             self.set_parameters(ret[0])
@@ -41,8 +44,15 @@ class Fitted(object):
         return ret
         
     def hessian(self, pars=None, **kwargs):
+        """    
+        Return the Hessian matrix  
+         For sigmas and correlation coefficients, invert to covariance
+                cov =  self.hessian().I
+                sigs = np.sqrt(cov.diagonal())
+                corr = cov / np.outer(sigs,sigs)
+        """
         if pars is None: pars = self.get_parameters()
-        return numdifftools.Hessian(self,  **kwargs)(pars)
+        return np.matrix(numdifftools.Hessian(self,  **kwargs)(pars))
 
 def test(fn = None, p0=None, pars=None):
     if fn is None:

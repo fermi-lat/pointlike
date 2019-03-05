@@ -1,14 +1,15 @@
 """
 Output the ROI info to as a pickle file.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_healpix.py,v 1.13 2016/03/21 18:54:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/to_healpix.py,v 1.14 2017/08/02 23:06:41 burnett Exp $
 """
 import os, pickle, time
 import numpy as np
+from skymaps import Band
 
 def pickle_dump(roi,  pickle_dir, dampen, ts_min=5, **kwargs):
     """ dump the source information from an ROI constructed from the sources here
     ts_min : float
-        threshold for saving. But if name starts with 'PSR' save anyway
+        threshold for saving. But if name starts with 'PSR' or extended save anyway
     """
     assert os.path.exists(pickle_dir), 'output folder not found: %s' %pickle_dir
     name = roi.name.strip()
@@ -47,8 +48,10 @@ def pickle_dump(roi,  pickle_dir, dampen, ts_min=5, **kwargs):
     sources=dict()
     output['sources']= sources
     
-    for s in roi.free_sources:
-        if s.isglobal: continue # skip globals
+    inside = lambda sdir: Band(12).index(sdir)==Band(12).index(roi.roi_dir)
+    for s in filter(lambda s: np.any(s.model.free) or s.isextended and inside(s.skydir),
+         roi.sources[:]):
+
         try:
             pivot_energy = s.spectral_model.pivot_energy()
         except: # if not fit

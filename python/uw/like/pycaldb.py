@@ -1,5 +1,5 @@
 """  A module to handle finding irfs
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pycaldb.py,v 1.16 2017/08/23 16:23:42 zimmer Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pycaldb.py,v 1.17 2017/08/23 23:40:24 burnett Exp $
 
     author: Joshua Lande """
 import os

@@ -1,15 +1,14 @@
 """
 manage band classes
-
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bands.py,v 1.12 2016/11/07 03:15:36 burnett Exp $
 """
 import os
 import numpy as np
 import skymaps
+import healpy
 
 #energybins = np.logspace(2,5.5,15) # default 100 MeV to 3.16 GeV, 4/decade
 energybins = np.logspace(2,6,17) # 100 MeV to 1 TeV, 4/decade
-event_type_min_energy=(100,100, 1000, 300, 100, 100 ) # minimum energy for given event type
+event_type_min_energy=[100, 100, 1000, 300, 100, 100 ] # minimum energy for given event type
 
 class EnergyBand(object):
     """ Combine three concepts:
@@ -65,7 +64,13 @@ class EnergyBand(object):
     def sd(self): return self.skydir
     @property
     def solid_angle(self):
-        return np.pi*self.radius_in_rad**2 
+        sd = self.skydir
+        try:
+            nside = self.cband.nside()
+            npix= len(healpy.query_disc(nside, healpy.dir2vec(sd.l(),sd.b(),lonlat=True), self.radius_in_rad))
+            return npix*self.pixel_area
+        except ValueError:
+            return np.pi*self.radius_in_rad**2 
     @property
     def has_pixels(self): return self.wsdl is not None and self.pixels>0
     @property 
@@ -93,7 +98,13 @@ class BandSet(list):
         load : bool
             if False, do not load data into the pixels
         """
+        global event_type_min_energy
         self.config = config
+        emins = self.config['input_model'].get('emin', None)
+        if emins is not None:
+            assert len(emins)==2, 'if use PSF types, fix this'
+            # change default 
+            event_type_min_energy = emins
         if roi_index is None or roi_index<0:
             self.roi_dir = config.roi_spec.pos
             self.radius = config.roi_spec.radius
@@ -141,8 +152,11 @@ class BandSet(list):
             except Exception:
                 continue
             band.load_data(cband)
+            band.data_index = i # useful to look up associated index
         if found!=len(self):
-            raise Exception('%s: Did not load all bands' % self.__repr__())
+            print '{}: Loaded subset of bands {} instead of {}'.format( self.__repr__(), found, len(self))
+            self[:]= self[:found] 
+            self.config.emax=self[-1].emax
         self.has_data = True
 
     @property

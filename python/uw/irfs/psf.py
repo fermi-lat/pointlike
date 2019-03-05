@@ -1,9 +1,9 @@
 """Module providing handling of the LAT point spread function.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/psf.py,v 1.2 2016/06/29 18:05:34 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/irfs/psf.py,v 1.4 2016/06/30 00:02:42 wallacee Exp $
 Author: Eric Wallace
 """
-__version__='$Revision: 1.2 $'
+__version__='$Revision: 1.4 $'
 
 import os
 

@@ -1,12 +1,13 @@
 """
 Manage Fermi catalogs
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/fermi_catalog.py,v 1.1 2016/10/28 20:48:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/fermi_catalog.py,v 1.3 2018/01/27 15:39:29 burnett Exp $
 
 """
 import os, cStringIO, glob
 import numpy as np
 import pandas as pd
 from astropy.io import fits
+from astropy.table import Table
 from skymaps import SkyDir, Band
 from uw.like import Models
 from uw.like2 import sedfuns
@@ -15,19 +16,19 @@ from uw.like2 import sedfuns
 energy_bounds=None
 
 class GLL_PSC(object):
-    """Parse a Fermi Catalog
+    """Parse a Fermi Catalog, the "gll" version
     """
     def __init__(self, filename='$FERMI/catalog/gll_psc7year10GeV_v7r1.fit'):
         global energy_bounds
         if not os.path.exists(os.path.expandvars(filename)):
-            check = glob.glob(os.path.expandvars('$FERMI/catalog/')+filename+'_*.fit*')
+            check = glob.glob(os.path.expandvars('$FERMI/catalog/')+filename)
             if len(check)>0: 
                 filename = check[-1]
             else:
                 raise Exception('could not resolve filename or catalog name {}'.format(filename))
         self.version = filename.split('_')[-1].split('.')[0]
-        print 'Loaded {}'.format(filename)
         self.hdulist = fits.open(os.path.expandvars(filename))
+        print 'Loaded {}, {} entries'.format(filename, len(self.hdulist[1].data))
         try:
             energy_bounds = pd.DataFrame(self.hdulist['EnergyBounds'].data)
         except KeyError:
@@ -42,6 +43,10 @@ class GLL_PSC(object):
         self.nicknames=field('NickName')
         self.skydirs = map(SkyDir, np.array(field('RAJ2000'),float),
               np.array(field('DEJ2000'),float))
+        # check date field in header to flag new format
+        date = self.hdulist[1].header['DATE']
+        year = date.split('-')[0]
+        self.new_format=year>='2018'
         
     def __repr__(self):
         return self.hdulist.info()
@@ -78,21 +83,34 @@ class GLL_PSC(object):
 
         """
         #leave off Npred for now
-        field_names = ('RAJ2000 DEJ2000 GLAT GLON Test_Statistic Conf_95_SemiMajor Pivot_Energy '
-            +' Flux_Density Spectral_Index beta  ID_Number').split()
+        if not self.new_format:
+            field_names = ('RAJ2000 DEJ2000 GLAT GLON Test_Statistic Conf_95_SemiMajor Pivot_Energy '
+                +' Flux_Density Spectral_Index beta  ID_Number').split()
+        else:
+            field_names = ('RAJ2000 DEJ2000 GLAT GLON Test_Statistic Conf_95_SemiMajor Pivot_Energy '
+                +' Flux_Density LP_index LP_beta').split()
+
+
         # make columns, with type either float, or str
-        col_data = [np.array(self.pscdata.field(fname),float) for fname in field_names]
+        try:
+            col_data = [np.array(self.pscdata.field(fname),float) for fname in field_names]
+        except Exception, msg:
+            print 'Failed to load: {}'.format(msg)
+            raise
         col_data.append(np.array(self.pscdata.field('SpectrumType'),str)) 
         
 
         # now put it into a DataFrame with simple names, index with NickName
-        cols = 'ra dec glat glon ts r95 pivot_energy flux pindex beta assoc_id spectral_type '.split()
+        if not self.new_format:
+            cols = 'ra dec glat glon ts r95 pivot_energy flux pindex beta assoc_id spectral_type '.split()
+        else:
+            cols = 'ra dec glat glon ts r95 pivot_energy flux pindex beta spectral_type'.split()
         df = pd.DataFrame(col_data, index=cols).T
         df.index=self.pscdata.field('NickName'); 
         df.index.name='name'
         df['cutoff'] = np.nan # make dependent on catalog type
-        df['exp_index'] = self.pscdata.field('Exp_Index')
- 
+        df['exp_index'] = self.pscdata.field('LP_Index' if self.new_format else 'Exp_Index')
+        print df.head()
         # add Pointlike stuff
         df['skydir'] = map(lambda ra,dec:SkyDir(float(ra),float(dec)), df.ra, df.dec)
         df['roi'] = map(Band(12).index, df.skydir)
@@ -145,8 +163,9 @@ class BandFlux(object):
                 spectral index 
         """
         assert len(gamma)==len(e1), 'Wrong list of energies'
-        c = (gamma-1)/(e1**(1-gamma)-e2**(1-gamma))
-        return c*(e1*e2)**(1-gamma/2) * 1e6
+        denom = e1**(1-gamma)-e2**(1-gamma) +1e-8 # avoid divide by zero
+        c = (gamma-1)/denom
+        return c*(e1*e2)**(1-gamma/2) * 1e6 + 1e-6 # cannot be zero.
  
 
     def __init__(self, cat_entry):
@@ -250,7 +269,7 @@ class CreateFermiFITS(object):
         self.df=df
         # get an entry from the source list to extract elow, ehigh
         # (assume that all are the same!)
-        sr = df.ix[0]['sedrec']
+        sr = df.iloc[0]['sedrec']
         self.elow = sr['elow']; 
         self.ehigh = sr['ehigh']
 
@@ -292,7 +311,7 @@ class CreateFermiFITS(object):
             if name not in self.df.index:
                 print 'Warning: name {} not found'.format(name)
                 continue
-            sr = self.df.ix[name]['sedrec']
+            sr = self.df.loc[name]['sedrec']
             if sr is None: 
                 print 'No sedrec for {} at with TS={:.0f}'.format(name,  row['roiname'],row['ts'],)
                 continue
@@ -326,4 +345,109 @@ class CreateFermiFITS(object):
             ]
         return ecols
     
+class GLL_PSC2(object):
+    """
+    Manage new form,select columns explicitly -- see colnames below
+    Merge with old version above??
+    """
+    def __init__ (self, filename):
+        if not os.path.exists(os.path.expandvars(filename)):
+            check = glob.glob(os.path.expandvars('$FERMI/catalog/')+filename+'_*.fit*')
+            if len(check)>0: 
+                filename = check[-1]
+            else:
+                raise Exception('could not resolve filename or catalog name {}'.format(filename))
+        self.version = filename.split('_')[-1].split('.')[0]
+        data =fits.open(filename)[1].data
+        # expect to find these: ignore the rest
+
+        colnames = """\
+                Source_Name NickName RAJ2000 DEJ2000 SpectrumType Extended Test_Statistic 
+                Energy_Flux100 Pivot_Energy
+                LP_Index LP_beta 
+                PL_Index
+                 PLEC_Index PLEC_Exp_Index PLEC_Expfactor
+                Conf_95_SemiMajor Conf_95_SemiMinor
+                """.split()
+
+        if 'LP_Flux_Density' in [x.name for x in data.columns]:
+            # newer format with prefactors for each one
+            colnames += """PL_Flux_Density LP_Flux_Density PLEC_Flux_Density""".split()
+        else:
+            colnames +=  ["Flux_Density"]
+        srcdict = dict(zip(colnames, [data.field(name) for name in colnames]))
         
+        q = pd.DataFrame(srcdict).T
+        df = q.T #avoid byte order problem?
+        df.index = [s.strip() for s in df.NickName]
+        del df['NickName']
+        self.cat_df=df
+        print 'read {} with {} entries'.format(filename, len(df))
+        self.filename = filename
+        
+        # now make simple version with Model object
+        self.df = self.parseit() 
+
+    def parseit(self):
+
+        def cat_source(cat_entry):
+            """
+            cat_entry: pandas.Series opject
+                row from a psc 2018+ catalog
+            """
+            # Functions that return the model
+            def plec( ):
+                index, a,b = ce.PLEC_Index, ce.PLEC_Expfactor, ce.PLEC_Exp_Index
+                cutoff = (1/a)**(1/b)
+                prefactor = flux*np.exp( a*pivot**b )
+                return Models.PLSuperExpCutoff(p=[prefactor, index, cutoff, b], e0=pivot,free=free)
+            def lp():
+                index,beta =  ce.LP_Index, ce.LP_beta
+                return Models.LogParabola(p=[flux, index, beta, pivot],free=free)
+            def pl():
+                index,beta=  ce.PL_Index, 0
+                return Models.LogParabola(p=[flux, index, beta, pivot],free=free)
+
+            #spectrum = dict(PowerLaw=pl, LogParabola=lp, PLSuperExpCutoff2=plec)
+            free= np.array([True,True,False,False])
+            ce=cat_entry
+            pivot =ce.Pivot_Energy 
+            stype =ce.SpectrumType.strip()
+
+            # deal with change.
+            flux_name = 'Flux_Density'
+            if not flux_name in ce:
+                flux_name = dict(PowerLaw='PL', LogParabola='LP', PLSuperExpCutoff2='PLEC')[stype]+'_Flux_Density'
+            flux = ce[flux_name]
+            
+            # get model, selecting function to evaluate
+            model = dict(PowerLaw=pl, LogParabola=lp, PLSuperExpCutoff2=plec)[stype]()
+
+            return dict(sname=ce.Source_Name.strip(), 
+                        ra=ce.RAJ2000, dec=ce.DEJ2000, 
+                        model=model, 
+                        extended=ce.Extended,
+                        ts=ce.Test_Statistic,
+                        eflux100=ce.Energy_Flux100,
+                        pindex=model['Index'], 
+                        r95=np.sqrt(ce.Conf_95_SemiMajor*ce.Conf_95_SemiMinor),)
+         
+        cat=dict()
+        for name, row in self.cat_df.iterrows():
+            cat[name]= cat_source(row)
+        # reorder columns for display 
+        return pd.DataFrame(cat).T['sname ra dec ts pindex eflux100 r95 extended model'.split()]
+
+class Compare_gll(object):
+    """Compare the spectral parameters between two GLL-format catalogs
+    """
+    def __init__(self, files, names):
+        self.names = names
+        self.g = [GLL_PSC2(f) for f in files]
+    def __call__(self, source):
+        cols = """SpectrumType PL_Index LP_Index LP_beta 
+                PLEC_Index PLEC_Exp_Index PLEC_Expfactor 
+                Pivot_Energy Energy_Flux100 Test_Statistic""".split()
+        ret= pd.DataFrame([self.g[0].cat_df.loc[source], self.g[1].cat_df.loc[source]], index=self.names)[cols].T
+        ret.index.name=source
+        return ret

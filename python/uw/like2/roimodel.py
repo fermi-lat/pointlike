@@ -1,7 +1,7 @@
 """
 Set up and manage the model for all the sources in an ROI
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.27 2015/08/16 01:13:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roimodel.py,v 1.29 2018/01/27 15:37:17 burnett Exp $
 
 """
 import os, pickle
@@ -30,7 +30,7 @@ class ROImodel(list):
     defaults = (
         ('quiet', True, 'set False for info'),
         ('ecat',  None, 'If present, use for catalog'),
-        ('load_kw', {}, 'a dict specific for the loading'),
+        ('load_kw',dict(tsmin=[0,25,100], rings=2), 'a dict specific for the loading'),
         )
     @keyword_options.decorate(defaults)
     def __init__(self, config, roi_spec, **kwargs):
@@ -170,7 +170,9 @@ class ROImodel(list):
             newsource = sources.PointSource(**kw)
             
         if newsource.name in self.source_names:
-            raise ROImodelException('Attempt to add source "%s": a source with that name already exists' % newsource.name)
+            print 'Attempt to add source "{}" from ROI {}: a source with that name already exists'.format(
+                 newsource.name, newsource.index)
+            return None
         self.append(newsource)
         self.initialize()
         return newsource
@@ -203,14 +205,14 @@ class ROImodel(list):
         self.initialize()
         return src, old_model
         
-    def to_xml(self, filename, strict=False):
+    def to_xml(self, filename,  **kwargs):
         """Create an XML representation
         
         filename : string
             the xml filename
         """
         with open(filename, 'w') as out:
-            to_xml.from_roi(self, stream = out, strict=strict)
+            to_xml.from_roi(self, stream = out, **kwargs)
             
     def add_sources(self, auxcat='plots/seedcheck/good_seeds.csv'):
         """Add new sources from a csv file

@@ -1,14 +1,14 @@
 """
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.64 2017/08/02 22:54:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.67 2018/01/28 21:27:58 kerrm Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
 import sys, types
 import numpy as np
 from  uw.utilities import keyword_options
-from skymaps import SkyDir
+from skymaps import SkyDir, Band
 
 config=None
    
@@ -30,9 +30,13 @@ class BandLike(object):
         """
         keyword_options.process(self, kwargs)
         # make a list of the Response objects
-        self.bandsources = np.array(map(lambda s: s.response(band, quiet=self.quiet, roi=roi), sources))
+        self.bandsources = np.array(
+                map(lambda s: s.response(band, quiet=self.quiet, roi=roi), sources)
+        )
+        self.active_mask = map(lambda s: s.active, self.bandsources)
 
         self.band = band 
+        self.roi = roi
         self.event_type_name = config.event_type_name(band.event_type)
         self.exposure_factor = band.exposure.correction
         self.data = band.pix_counts  if band.has_pixels else []# data from the band
@@ -65,7 +69,7 @@ class BandLike(object):
     def __str__(self):
         b = self.band
         return '%s.%s: %d models (%d free) applied to band %.0f-%.0f, %s with %d pixels, %d photons'\
-                % (self.__module__,self.__class__.__name__,len(self.bandsources), sum(self.free), b.emin, b.emax, 
+                % (self.__module__,self.__class__.__name__,sum(self.active_mask), sum(self.free), b.emin, b.emax, 
                  self.event_type_name, self.pixels, sum(self.data), )
                  
     def __repr__(self): return self.__str__()
@@ -85,6 +89,16 @@ class BandLike(object):
         """ the list of SkyDirs for the pixels with data"""
         return [SkyDir(w.dir()) for w in self.band.wsdl]
         
+    @property
+    def inside(self):
+        """a list of bools for pixels with data that are inside the active part of the ROI
+        Needed to make a mask
+        """
+        b12index = Band(12).index
+        roi_id =b12index(self.roi.roi_dir)
+        id12 = np.array(map(b12index, self.pixel_dirs),int) #ids of data pixels for nside=12
+        return id12==roi_id
+
     def initialize(self, free):
         """ should only call if free array changes.
             Saves the combined prediction from the models with fixed parameters
@@ -92,16 +106,23 @@ class BandLike(object):
         assert free is not None, 'bad call?'
         self.free = free
         self.free_sources = self.bandsources[self.free]
-        self.counts = self.fixed_counts = sum([b.counts for b in self.bandsources[ ~ self.free]])
+        self.active_mask = map(lambda s: s.active, self.bandsources)
+        #compile counts and count masks only for pointsources that are "active", i.e. not too far away or weak
+        fixed_sources = self.bandsources[~self.free & self.active_mask]
+        self.counts = self.fixed_counts = sum([b.counts for b in fixed_sources])
         if not self.band.has_pixels: 
             self.model_pixels=self.fixed_pixels = self.weights= np.array([])
             return
         self.fixed_pixels = np.zeros(self.pixels)
-        for m in self.bandsources[ ~ self.free]:
+        for m in fixed_sources:
             self.fixed_pixels += m.pix_counts
         self.model_pixels = self.fixed_pixels.copy()
         for m in self.free_sources:
+            if m.counts==0:
+                print 'Source {} is inactive, but free'.format(m.source.name) 
+                continue # should be no inactive free sources?
             self.model_pixels += m.pix_counts
+
         
     def update(self, reset=False, force=False, **kwargs):
         """ assume that parameters have changed. Update only contributions 
@@ -191,19 +212,29 @@ class BandLike(object):
             t+= m.fill_grid(sdirs)
         return t
         
-    def dataframe(self, **kw):
+    def dataframe(self, query=None, sortby='counts', ascending=False):
         """ return a pandas.DataFrame for diagnostics """
         import pandas as pd
-        df = pd.DataFrame(dict([(s.source.name, 
-                dict(counts=s.counts.round(1), 
-                    overlap=s.overlap, 
+        df = pd.DataFrame(
+            dict([(s.source.name, 
+                dict(counts=round(s.counts,), 
+                    overlap=round(s.overlap,3),
+                    ts= np.nan if s.source.isglobal else round(s.source.ts), 
                     free=self.free[i],
+                    distance=round(np.degrees(s.band.skydir.difference(s.source.skydir)) if s.source.skydir is not None else 0 ,2),
                     extended=s.source.skydir is not None and hasattr(s.source, 'dmodel'),
                     diffuse=s.source.skydir is None,
-                    distance=np.degrees(s.band.skydir.difference(s.source.skydir)) if s.source.skydir is not None else 0 ),
+                    index = s.source.index[0],
+                    ring = s.source.index[1],
                     )
-                for i,s in enumerate(self)])
+                )
+                for i,s in enumerate(self[self.active_mask])]
+                )
             ).T
+        if query is not None:
+            df = df.query(query)
+        if sortby is not None:
+            df = df.sort_values(by=sortby, ascending=ascending)
         return df
 
     def counts_in_pixel(self, source_index, skydir):
@@ -241,7 +272,8 @@ class BandLike(object):
         for bb in self:
             try:
                 t.append( bb(loc))
-            except:
+            except Exception, msg:
+                print 'Fail flux calculation for {}:{}'.format(bb, msg)
                 t.append(0)
         return np.array(t)
 
@@ -251,7 +283,9 @@ class BandLike(object):
         
         Note: to get counts, multiply by self.band.pixel_area
         """
-        return np.sum(self.fluxes(skydir)) 
+        ret= np.sum(self.fluxes(skydir)) 
+        assert not np.isnan(ret), 'NaN value detected at skydir {}'.format(skydir)
+        return ret
     
          
 class BandLikeList(list):
@@ -316,7 +350,7 @@ class BandLikeList(list):
         
 
         if elow is not None:
-            esel = lambda b: b.band.energy>elow and b.band.energy<ehigh if ehigh is not None else True
+            esel = lambda b: b.band.energy>elow and (b.band.energy<ehigh if ehigh is not None else True)
             etsel= lambda b: b.band.event_type==etindex if event_type is not None else True
             t = filter(lambda b: esel(b) and etsel(b) , self[:]) 
 
@@ -460,7 +494,9 @@ class BandLikeList(list):
             # numerical derivative of gradient with respect to this parameter
             t.append( (gnow-glast)/delta)
             glast = gnow
-        hess = np.matrix(t)
+        hess = np.array(t)
+        # depricated
+        #hess = np.matrix(t)
         parameters.set_parameters(parz) #restore all parameters, check that no difference
         self.update()
         assert abs(fzero-self.log_like())<1e-2
@@ -470,9 +506,13 @@ class BandLikeList(list):
         """ estimate change in log likelihood from current gradient 
         """
         try:
-            gm = np.matrix(self.gradient())
+            # rewrite due to deprication of numpy.matrix
+            # gm = np.matrix(self.gradient())
+            # H = self.hessian()
+            # return (gm * H.I * gm.T)[0,0]/4
+            g = self.gradient()
             H = self.hessian()
-            return (gm * H.I * gm.T)[0,0]/4
+            return np.dot( np.dot(g, np.linalg.inv(H)) , g)/4
         except Exception, msg:
             print 'Failed log likelihood estimate, returning 99.: %s' % msg
             return 99.
@@ -518,10 +558,14 @@ class BandLikeList(list):
         source_name: None or string
             if None, use currently selected source
         """
+        sunmoon_free = self.get_source('SunMoon').model.free[:]
         if parname.find('_')>0 and source_name is None:
             source_name, parname = parname.split('_')
         source = self.get_source(source_name)
         source.thaw(parname)
+        #print 'Thawed: {}_{}'.format(source_name, parname)
+        # make sure SunMoon does not change - don't understand how this seems to happen!
+        self.get_source('SunMoon').model.free=[False]
         self.reinitialize()
 
     def select_band(self, energy, et):
@@ -537,12 +581,55 @@ class BandLikeList(list):
     def source_weight(self, source_index, ra,dec, energy, et):
         """ Return weight for a source
 
-        source_index : integer
+        source_index : integer | string  | None
+            if string, look up source (allow wild cards)
+            if None, assume already selected
         ra, dec, energy: float
         et : event type, (0,1) for (front,back)
         """
+        try:
+            source_index = int(source_index)
+        except ValueError,TypeError:
+            self.get_source(source_index)
+            source_index=self.sources.selected_source_index
         # get the BandLike object for energy and event type
         bl = self.select_band(energy,et)
         f =bl.fluxes((ra,dec) ) 
         fs= f[source_index]
         return fs/(sum(f))
+
+    def dataframe(self, query=None, sortby=None, ascending=False):
+        """ return a pandas.DataFrame with local source info 
+            query: string | None.
+            sortby: string | None
+        """
+        import pandas as pd
+        def eflux(model):
+            e=model.pivot_energy()
+            return model(e)* e**2 * 1e6
+        df = pd.DataFrame(
+            dict([(s.name, 
+                dict( 
+                    free=np.any(s.model.free),
+                    distance=round(np.degrees(s.skydir.difference(self.roi_dir)),2),
+                    extended = hasattr(s, 'dmodel'),
+                    modelname = s.model.name,
+                    pindex = s.model[1],
+                    curvature= s.model.curvature(),
+                    ts = s.ts,
+                    flux100 = s.model.i_flux(e_weight=2), 
+                    #ra = s.skydir.ra(),
+                    #dec= s.skydir.dec(),
+                    glat = s.skydir.b(),
+                    eflux = eflux(s.model), #energy flux at pivot
+                    pivot = s.model.pivot_energy(),
+                    #f1gev= s.model(1e3) * 1e12, # eflux at 1 GeV
+                    )
+                )
+                for s in self.sources if not s.isglobal])
+            ).T
+        if query is not None:
+            df = df.query(query)
+        if sortby is not None:
+            df = df.sort_values(by=sortby, ascending=ascending)
+        return df

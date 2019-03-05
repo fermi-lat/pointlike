@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.26 2017/01/26 22:03:27 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.27 2017/08/23 16:23:42 zimmer Exp $
 
 """
-version='$Revision: 1.26 $'.split()[1]
+version='$Revision: 1.27 $'.split()[1]
 import os, math, types, glob
 import astropy.io.fits as pyfits
 import numpy as N; np = N

@@ -1,7 +1,7 @@
 """
 Analyze the contents of HEALPix tables, especially the tsmap
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/hptables.py,v 1.12 2016/10/28 20:48:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/hptables.py,v 1.14 2018/01/27 15:39:29 burnett Exp $
 
 """
 
@@ -58,9 +58,12 @@ class HPtables(sourceinfo.SourceInfo):
         self.plotfolder = 'hptables_%s' % tsname
         self.seedfile, self.seedroot, self.bmin = \
             'seeds_%s.txt'%tsname, '%s%s'%( (tsname[-1]).upper(),self.input_model[-3:] ) , 0
-        
-        self.make_seeds(refresh=kw.pop('refresh', False))
-
+        seed_df=    'seeds_{}.csv'.format(self.tsname)
+        if not os.path.exists(seed_df):
+            self.make_seeds(refresh=kw.pop('refresh', False), tcut=kw.pop('tsmin',10))
+        else:
+            print 'Loading seed file {}'.format(seed_df)
+            self.seeds = pd.read_csv(seed_df, index_col=0)
     
     def make_seeds(self, refresh=False,  tcut=10, bcut=0, minsize=1):
         """ may have to run the clustering application """
@@ -154,7 +157,7 @@ class HPtables(sourceinfo.SourceInfo):
             plt.setp(ax, xlabel=label, xlim=(None,dom[-1]))
             ax.grid()
             ax.legend(prop=dict(size=10))
-        all_plot(axx[0], z.size, np.linspace(0.5,10.5,11), 'cluster size')
+        all_plot(axx[0], z['size'], np.linspace(0.5,10.5,11), 'cluster size')
         all_plot(axx[1], z.ts, np.linspace(0,50,26), 'TS')
         all_plot(axx[2], np.sin(np.radians(z.b)), np.linspace(-1,1,41), 'sin(b)')
         axx[2].axvline(0, color='k')

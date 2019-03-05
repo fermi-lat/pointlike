@@ -1,6 +1,6 @@
 """
 Source classes
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.51 2017/08/02 22:54:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.53 2018/01/27 15:37:17 burnett Exp $
 
 """
 import os, copy
@@ -19,7 +19,7 @@ def ExpCutoff(*pars, **kw):  return Models.ExpCutoff(p=pars, **kw)
 def PLSuperExpCutoff(*pars, **kw): return Models.PLSuperExpCutoff(p=pars, **kw)
 def Constant(*pars, **kw):   return Models.Constant(p=pars, **kw)
 def FBconstant(f,b, **kw): return Models.FrontBackConstant(f,b, **kw)
-def PSR_default(): return Models.PLSuperExpCutoff(p=(1e-14,1.5, 3000, 1.0), free=[True,True, True, False])
+def PSR_default(): return Models.PLSuperExpCutoff(p=(1e-13, 1.25, 1500, 0.67), free=[True,True, True, False])
     
 def ismodel(model):
     """ check that model is an instance of Models.Model"""
@@ -41,11 +41,11 @@ def set_default_bounds( model, force=False):
         plim = (None,None)
         try:
             plim = dict(
-                Index=(0.5, 3.5), 
+                Index=(0.0, 3.5), 
                 Norm=(10**-18, 10**-7),
                 Scale=(0.001, 4.0),
-                beta=(0, 2.), 
-                Cutoff=(100., 1e5),
+                beta=(-0.1, 1.), 
+                Cutoff=(100., 2e5),
                 )[pname.split('_')[0]]
         except: pass
         bounds.append( to_internal(mp.tointernal, plim) )
@@ -74,7 +74,7 @@ class Source(object):
         self.name = str(self.name) # force to be a string
         if self.skydir is None:
             # global source: keep original model
-            self.free = self.model.free.copy()  # save copy of initial free array to restore
+            self.free = np.array(self.model.free).copy() if self.model is not None else None  # save copy of initial free array to restore
             return
         elif hasattr(self.skydir, '__iter__'): #allow a tuple of (ra,dec)
             self.skydir = SkyDir(*self.skydir)
@@ -214,15 +214,15 @@ class GlobalSource(Source):
         super(GlobalSource, self).__init__(**kwargs)
         self.dmodel= kwargs.get('dmodel', None)
         assert self.skydir is None # used as a flag
-        # Special option from config['input_model'] to free spectral model for diffuse sources
-        free = kwargs.get('free', False)
-        if free and self.name!="SunMoon":
+        # Special option "free_diffuse" from config['input_model'] to free spectral model for diffuse sources
+        free = kwargs.pop('free', None) # expect a list of names
+        if free is not None and self.name in free:
             self.model.free[0]=True
             if self.model.name=='PowerLaw': self.model.free[1]=True,
-            print '{}, free={}'.format(self, free)
+            #print '{}, free={}'.format(self, free)
 
     def copy(self):
-        """ return a new PointSource object, with a copy of the model, others"""
+        """ return a new GlobalSource object, with a copy of the model, others"""
         ret = GlobalSource(**self.__dict__)
         ret.model = self.model.copy()
         return ret
@@ -238,6 +238,7 @@ class GlobalSource(Source):
                 Healpix   =response.DiffuseResponse,
                 HealpixCube = response.DiffuseResponse,
                 FitsMapCube = response.DiffuseResponse,
+                FitsMapCubeList = response.DiffuseResponse,
                 IsotropicSpectralFunction = response.IsotropicResponse,
                 AziLimb = response.IsotropicResponse,
                 GulliLimb = response.IsotropicResponse,
@@ -247,6 +248,7 @@ class GlobalSource(Source):
         try:
             return resp_class(self,band,roi, **kwargs) 
         except Exception: # assume no overlap
+            raise
             return response.NoResponse(self, band, roi, **kwargs)
     
 

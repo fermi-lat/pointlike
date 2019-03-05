@@ -1,7 +1,7 @@
 """
 Generate pulsar seed plots
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/ptstable.py,v 1.4 2014/06/09 15:30:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/ptstable.py,v 1.5 2017/08/23 16:23:43 zimmer Exp $
 
 """
 

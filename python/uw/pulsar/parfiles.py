@@ -1,7 +1,7 @@
 """
 Module reads and manipulates tempo2 parameter files.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.77 2017/03/03 20:15:14 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/parfiles.py,v 1.79 2018/01/26 22:56:03 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -1199,7 +1199,7 @@ def get_resids(par,tim,emax=None,phase=False,get_mjds=False,latonly=False,
         return [None]*4
         
     # NB -- both residuals and errors in microseconds
-    frqs = np.array([x[3] for x in toks],dtype=np.float128)
+    frqs = np.array([x[3].strip() for x in toks],dtype=np.float128)
     if latonly:
         m = frqs==0
     else:
@@ -1636,7 +1636,7 @@ def compute_jump(par,tim,flags,vals,tmin=None,tmax=None,add_jumps=False,
     cut_tim(tim,tmin=tmin,tmax=tmax,output=fname)
     cmd = """tempo2 -output general2 -s "onerous\t{sat}\t{err}\t{pre}\n" -f %s %s"""%(par,fname)
     proc = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE)
-    toks = [line.split('\t')[1:] for line in proc.stdout if line[:7]=='onerous']
+    toks = [map(str.strip,line.split('\t')[1:]) for line in proc.stdout if line[:7]=='onerous']
     sats = np.array([x[0] for x in toks],dtype=np.float128)
     errs = np.array([x[1] for x in toks],dtype=np.float128) # in mus
     resi = np.array([x[2] for x in toks],dtype=np.float128) # in s

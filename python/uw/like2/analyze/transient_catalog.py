@@ -1,7 +1,7 @@
 """
 Analysis of a set of monthly transients to generate a subset suitable for a catalog
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/transient_catalog.py,v 1.5 2016/10/28 20:48:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/transient_catalog.py,v 1.6 2017/11/18 22:26:38 burnett Exp $
 
 """
 

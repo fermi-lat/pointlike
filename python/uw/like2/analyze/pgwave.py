@@ -1,7 +1,7 @@
 """
 Analyze PGWAVE seeds
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/pgwave.py,v 1.1 2016/03/21 18:54:57 burnett Exp $
 
 """
 import os, pickle

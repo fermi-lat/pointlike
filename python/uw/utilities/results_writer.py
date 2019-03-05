@@ -1,6 +1,6 @@
 """ Class to write out gtlike-style results files. 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/results_writer.py,v 1.9 2012/06/26 14:24:31 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/results_writer.py,v 1.10 2012/07/09 19:16:53 lande Exp $
 
 author: Joshua Lande
 """

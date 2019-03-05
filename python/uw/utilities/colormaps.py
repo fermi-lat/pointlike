@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/colormaps.py,v 1.1 2010/01/23 14:52:07 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/colormaps.py,v 1.2 2011/06/24 04:32:54 burnett Exp $
 
 Author: T. Burnett
 
