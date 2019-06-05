@@ -6,7 +6,7 @@ import os, pickle, time
 import numpy as np
 from skymaps import Band
 
-def pickle_dump(roi,  pickle_dir, dampen, ts_min=5, **kwargs):
+def pickle_dump(roi,  pickle_dir, dampen, ts_min=0, **kwargs):
     """ dump the source information from an ROI constructed from the sources here
     ts_min : float
         threshold for saving. But if name starts with 'PSR' or extended save anyway

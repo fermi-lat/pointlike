@@ -328,7 +328,7 @@ def merge_seed_files(tables, dist_deg=1.0):
     return out
 
 def create_seedfiles(self, seed_folder='seeds', update=False, max_pixels=30000, merge_tolerance=1.0, 
-        tsmin=14):
+        nside=512, tsmin=14):
     """
     Version of create_seeds used for a maps.MultiMap object
     """
@@ -364,8 +364,9 @@ def create_seedfiles(self, seed_folder='seeds', update=False, max_pixels=30000, 
             print 'found {} seeds'.format(len(table))
         else:
             rec = open(seedfile, 'w')
-            nseeds = check_ts.make_seeds('test', table_name, fieldname=key, rec=rec,
-                seedroot=seedroot+prefix[key], rcut=tsmin, minsize=1, mask=None, max_pixels=max_pixels,)
+            nseeds = check_ts.make_seeds('test', table_name, fieldname=key, rec=rec, 
+                nside=nside,seedroot=seedroot+prefix[key], rcut=tsmin, minsize=1,
+                 mask=None, max_pixels=max_pixels,)
             if nseeds>0:
                 #read back, set skydir column, add to list of tables
                 print '\tWrote file {} with {} seeds'.format(seedfile, nseeds)

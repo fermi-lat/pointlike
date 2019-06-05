@@ -58,31 +58,39 @@ class PipelineStream(object):
             print 'Test mode: would have submitted \n\t%s'%cmd
             self.stream_number -=1
 
-    def restart(self, jobs=None, test=True):
+    def restart(self, jobs=None, rois=True, test=True, ):
         """Restart the presumably hung jobs, by starting a new stream, the same stage as the current one,
         but with only the specified (hung) substreamss
         Do this by creating a file with the substream info, with a file name the same as the hung stream
         Its presence should cause any jobs in the current stream to abort when starting.
 
-        jobs: list of int
+        jobs: list of int | None
             the substream ids. 
+        rois : bool
+            if True, create a substream for each unfinished ROI
         """
+        ss = SubStreamStats()
         if jobs is None:
-            jobs = SubStreamStats().notdone
+            jobs = ss.todo_list()
             print 'Found {} jobs to restart'.format(len(jobs))
         if len(jobs)==0:
             print 'no jobs to restart'
             return
         assert self.model==self.last_job['skymodel'], 'Must run in same folder as last job'
         # get the current job_list
-        substreams=t = list(substreamids(self.last_job['job_list']))+[1728]
-        assert np.all([job in substreams for job in jobs]), 'job problem'
-        last_stream = str(self.last_job['stream'])
+        # substreams=t = list(substreamids(self.last_job['job_list']))+[1728]
+        # assert np.all([job in substreams for job in jobs]), 'job problem'
+        last_stream = str(self.last_job['stream']) 
+        if test:
+            last_stream= 'test_{}'.format(last_stream)
+
         with open(last_stream, 'w') as out:
-            for job in jobs:
-                i = t.index(job)
-                j,k = t[i:i+2]
-                out.write('{:5d}{:5d}\n'.format( j,k) )
+            # for job in jobs:
+            #     i = t.index(job)
+            #     j,k = t[i:i+2]
+            #     out.write('{:5d}{:5d}\n'.format( j,k) )
+            for i in ss.todo_list():
+                out.write('{:5d}\n'.format(i))
         if test: 
             print 'Testing: Created file "{}" to rerun substreams: {}'.format(last_stream, jobs)
             print 'Now starting test of restart'
@@ -169,6 +177,7 @@ class SubStreamStats(object):
         v['stream']=stream_id
         print v
         self.info = v
+        self.notdone = []
         search_string= os.path.join(path,'streamlogs','stream%s.*.log'%stream_id)
         streamlogs=sorted(glob.glob(search_string))
         if len(streamlogs)==0:
@@ -194,6 +203,7 @@ class SubStreamStats(object):
         rois=[]
         self.fulltext=dict()
         notdone_dict=dict()
+
         def parse_it(ft):
             lines= ft[0].split()
             a,b,host = lines[5], lines[7],lines[-1]
@@ -233,18 +243,23 @@ class SubStreamStats(object):
         expected = set(self.ssidlist)
         self.notdone =  [v['first'] for v in notdone_dict.itervalues()]
         self.notstarted = sorted(filter(lambda x: int(x) not in self.notdone, list(expected.difference(found)))) 
+        self.missing_roi_list=[]  
         if len(self.notstarted)>0:
             missing=''
             t=list(self.ssidlist)+[1728]
             for j in sorted(self.notstarted):
                 i = t.index(j)
                 j,k = t[i:i+2] 
+                self.missing_roi_list += range(j,k)
                 missing += '{}..{}, '.format(j,k-1) if k>j+1 else '{}, '.format(j)
             print '**** missing ROIs: {}'.format(missing)
    
         if len(self.notdone)>0:
             print '************* Not finished: *************'
-            print pd.DataFrame(notdone_dict, index='host first last current'.split()).T
+            self.notdone_df = pd.DataFrame(notdone_dict).T['host first last current'.split()]
+            # return
+
+            print self.notdone_df
             print '*****************************************\n'
         print 'Found %d streamlog files for stream %s ...' %(len(streamlogs), stream_id), 
         self.times =times = pd.DataFrame(dict(etimes=etimes,nex=nex, rois=rois), 
@@ -261,6 +276,16 @@ class SubStreamStats(object):
         bad = times[times.etimes>lim*times.etimes.mean()]
         if len(bad)>0:
             print '\tsubstreams with times>{}*mean: \n{}'.format(lim,bad)
+
+    def todo_list(self):
+        """return a list of ROI numbers that are not finished
+        """
+        zz = self.missing_roi_list
+        if len(self.notdone)>0:
+            for n,x in self.notdone_df.iterrows():
+                zz = zz+range(x['first'] if x.current<0 else x.current,x['last']+1)
+        return sorted(zz)
+
 
 
 def main( stream=None ):

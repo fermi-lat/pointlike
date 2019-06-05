@@ -263,35 +263,36 @@ class Associations(sourceinfo.SourceInfo):
         bzdf.to_csv(self.plotfolder+'/bzcat_summary.csv')
         return fig
         
+
+
+
     def pulsar_check(self):
         """LAT pulsar check
         %(atable)s
         """
-
         # compare with LAT pulsar catalog     
         tt = set(self.df.name[self.df.psr])
-        pulsar_lat_catname = sorted(glob.glob(os.path.expandvars('$FERMI/catalog/srcid/cat/obj-pulsar-lat_*')))[-1]
-        print 'opening LAT catalog file %s' %pulsar_lat_catname
-        pp = pyfits.open(pulsar_lat_catname)[1].data
-        lat = pd.DataFrame(pp, index=[n.strip() for n in pp.Source_Name])
+        self.pulsar_lat_catname = sorted(glob.glob(os.path.expandvars('$FERMI/catalog/srcid/cat/obj-pulsar-lat_v1*')))[-1]
+        print 'opening LAT catalog file %s' %self.pulsar_lat_catname
+        psr_cat_data= pp = pyfits.open(self.pulsar_lat_catname)[1].data
+        self.lat= lat = pd.DataFrame(pp, index=[n.strip() for n in pp.Source_Name])
         lat['ts'] = self.df[self.df.psr]['ts']
         lat['aprob'] = self.df[self.df.psr]['aprob']
         lat['ROI_index'] = [Band(12).index(SkyDir(float(ra),float(dec))) for ra,dec in zip(lat.RAJ2000,lat.DEJ2000)]
-        
+
         lat['skydir'] = [SkyDir(float(ra),float(dec)) for ra,dec in zip(lat.RAJ2000, lat.DEJ2000)]
         #map(SkyDir, np.array(lat.RAJ2000,float), np.array(lat.DEJ2000,float))
         lat['sourcedir'] = self.df.skydir[self.df.psr]
         lat['delta'] = [np.degrees(s.difference(t)) if not type(t)==float else np.nan for s,t in zip(lat.skydir,lat.sourcedir)]
+
         far = lat.delta>0.25
-        self.lat = lat # for debug
-        dc2names =set([name.strip() for name in pp.Source_Name])
-        print 'sources with exp cutoff not in LAT catalog:', np.asarray(list(tt.difference(dc2names)))
+        dc2names =set([name.strip() for name in psr_cat_data.Source_Name])
+        # missing_from_catalog=np.asarray(list(tt.difference(dc2names)))
+        # print 'sources with exp cutoff not in LAT catalog:', missing_from_catalog
         print 'Catalog entries not found:', list(dc2names.difference(tt))
         missing = np.array([ np.isnan(x) or x<10. for x in lat.ts])
         missing |= np.array((lat.aprob==0) & (lat.ts<1000) )
         
-        # this used to work but now generates 'endian' message
-        #latsel = lat[missing]['RAJ2000 DEJ2000 ts ROI_index'.split()]
         missing_names = lat.index[missing]
         cols = 'RAJ2000 DEJ2000 ts aprob delta ROI_index'.split()
         self.latsel=latsel = pd.DataFrame( np.array([lat[id][missing] for id in cols]), index=cols, columns=missing_names).T
@@ -299,25 +300,32 @@ class Associations(sourceinfo.SourceInfo):
         #psrx = np.array([x in 'pulsar_fom pulsar_low msp pulsar_big'.split() for x in self.df.acat])
         #print '%d sources found in other pulsar catalogs' % sum(psrx)
 
-        self.atable = '<h4>Compare with LAT pulsar catalog: %s</h4>' % os.path.split(pulsar_lat_catname)[-1]
-        self.atable += '<p>{} sources fit with exponential cutoff not in catalog '.format(len(tt.difference(dc2names)))
-        self.atable += html_table(latsel,
+        self.atable = '<h4>Compare with LAT pulsar catalog: %s</h4>' % os.path.split(self.pulsar_lat_catname)[-1]
+        # self.atable += '<p>{} sources fit with exponential cutoff not in LAT pulsar catalog:\n{} '.format(
+        #             len(missing_from_catalog), missing_from_catalog)
+        self.atable += html_table(latsel.query('ts<10'),
                     dict(ts='TS,Test Statistic', aprob='aprob,Association probability', ROI_index='ROI Index,Index of the ROI, a HEALPix ring index'),
-                    heading = '<p>%d LAT catalog entries with problems -- not in the model (TS shown as NaN), too weak (TS<10) or not associated.' % sum(missing),
-                    name=self.plotfolder+'/missing', maxlines=20,
+                    heading = '<p>LAT catalog entries with weak or no fit (TS<10)',
+                    name=self.plotfolder+'/weak', maxlines=20,
                     float_format=(FloatFormat(2)))
-        if sum(far)>0:
-            far_names = lat.index[far]
-            cols = 'delta ts RAJ2000 DEJ2000 ROI_index'.split()
-            latfar = pd.DataFrame( np.array([lat[id][far] for id in cols]),index=cols, columns=far_names).T
-            print 'LAT pulsar catalog entries found more than 0.25 deg from catalog:'
-            print far_names
-            self.atable += '<p>Pulsars located > 0.25 deg from nominal'\
-                    + latfar.to_html(float_format=FloatFormat(2))
+        self.atable += html_table(latsel.query('ts>10'),
+                    dict(ts='TS,Test Statistic', aprob='aprob,Association probability', ROI_index='ROI Index,Index of the ROI, a HEALPix ring index'),
+                    heading = '<p>LAT catalog entries with nearby, but unassociated source ',
+                    name=self.plotfolder+'/far', maxlines=20,
+                    float_format=(FloatFormat(2)))
+        # if sum(far)>0:
+        #     far_names = lat.index[far]
+        #     cols = 'delta ts RAJ2000 DEJ2000 ROI_index'.split()
+        #     latfar = pd.DataFrame( np.array([lat[id][far] for id in cols]),index=cols, columns=far_names).T
+        #     print 'LAT pulsar catalog entries found more than 0.25 deg from catalog:'
+        #     print far_names
+        #     self.atable += '<p>Pulsars located > 0.25 deg from nominal'\
+        #             + latfar.to_html(float_format=FloatFormat(2))
      
     def pulsar_candidates(self, test=False):
         """Pulsar candidates
-        Construct a list of all point sources associated with the BigFile pulsar list
+        Construct a list of all point sources associated with the BigFile pulsar list.
+        If a name starts with "PSR", exclude it.
         %(pulsar_candidate_table)s
         """
         class BigFile(object):
@@ -327,23 +335,41 @@ class Associations(sourceinfo.SourceInfo):
                 t= pyfits.open(ff[-1])
                 self.d = pd.DataFrame(t[1].data)
                 self.names=[t.strip() for t in self.d.NAME.values]
+                self.jnames=[t.strip() for t in self.d.PSRJ.values]
 
             def __call__(self, name):
                 """Find the entry with given name"""
-                try:
-                    i = self.names.index(name)
-                except ValueError:
-                    print 'Data for source %s not found' %name
-                    return None
+
+                if name in  self.names: i = self.names.index(name)
+                elif name in self.jnames: i= self.jnames.index(name)
+                else:
+                    error = 'Data for source %s not found' %name
+                    print error
+                    raise ValueError(error)
+
                 return self.d.iloc[i]
         
-        psrx = np.array([x=='pulsar_big' for x in self.df.acat],bool)
+        not_psr = np.array([not n.startswith('PSR') for n in self.df.index],bool)
+        psrx = np.array([x=='pulsar_big' for x in self.df.acat],bool) & not_psr
+
         print '%d sources found in BigFile pulsar catalog' % sum(psrx)
         pt = self.df[psrx]['aprob aname aang ts delta_ts locqual'.split()]
         
         # look it up in BigFile, add other stuff
         bf=BigFile()
         anames = self.df[psrx].aname
+
+        # # Deal with sources with apparent BigFile association not in this BigFile version
+        # aset=set(anames); bset=set(bf.names)
+        # missing = list(aset.difference(bset))
+        # if len(missing)>0:
+        #     print 'Warning: associations not in this BigFile: {}'.format(missing)
+        #     alist =list(anames)
+        #     for x in missing:
+        #         #print '\tremove {}'.format(x)
+        #         alist.remove(x)
+        #     anames = np.array(alist)
+        
         pt['jname'] = [bf(n).PSRJ for n in anames]
         pt['history']= [bf(n).History[1:-1].replace("'","") for n in anames]
         pt['edot'] = ['%.2e'%bf(n).EDOT for n in anames]
@@ -448,7 +474,7 @@ class Associations(sourceinfo.SourceInfo):
         q['singlat'] = np.sin(np.radians(np.array(q.glat,float)))
 
         fig,axx=plt.subplots(2,3, figsize=(12,8),
-                            gridspec_kw={'wspace':0.2, 'hspace':0.3, 'left':0.01, 'top':0.98})
+                            gridspec_kw={'wspace':0.2, 'hspace':0.40, 'left':0.01, 'top':0.98})
 
         def scatxy(ax, query='aprob<0.5',  xlim=(2.2,3.2), ylim=(1,40)):
             una = q.query(query)
@@ -486,8 +512,8 @@ class Associations(sourceinfo.SourceInfo):
         # hist3(axx[0,3])
         # hist3(axx[1,3],selection)
          
-        fig.text(-0.05, 0.99, 'associated')
-        fig.text(-0.05, 0.52, 'unassociated');
+        fig.text(-0.05, 0.99, 'associated', fontsize=16)
+        fig.text(-0.05, 0.49, 'unassociated',fontsize=16);
         
         self.softie_filename = self.plotfolder+'/softies.csv'
         dfu=q.query(self.unid_query)['ra dec ts pindex curvature glat glon eflux100 a b ang locqual'.split()]
@@ -512,7 +538,7 @@ class Associations(sourceinfo.SourceInfo):
 
         return fig
 
-    def softie_geometry(self, vmax=8, vmin=0, bmax=10, vcut=2):
+    def softie_geometry(self, vmax=8, vmin=0, bmax=10, vcut=2, loncut=90):
         """Softie geometry
 
         For a point source population, the square root of the flux should be inversely proportional 
@@ -527,12 +553,12 @@ class Associations(sourceinfo.SourceInfo):
         fig, axx=plt.subplots(1,2, figsize=(15,5))
 
         def fig1(ax):
-            ax.plot(sf, np.abs(b), 'o', label='|l|>60');
-            loncut = np.abs(l)<60
-            ax.plot(sf[loncut], np.abs(b)[loncut], 'o', label='|l|<60');
-            if vcut is not None: ax.axvline(vcut, color='grey', ls='--')
-            ax.legend()
-            ax.set(ylim=(0,bmax), xlim=(0,vmax), ylabel='$|b|$', xlabel='sqrt(Energy Flux)');
+            ax.plot(np.abs(b), sf,  'o', label=r'$|l|>{}$'.format(loncut));
+            lonsel = np.abs(l)<loncut
+            ax.plot(np.abs(b)[lonsel], sf[lonsel],  'o', label=r'$|l|<{}$'.format(loncut));
+            if vcut is not None: ax.axhline(vcut, color='grey', ls='--')
+            ax.legend(loc='upper right')
+            ax.set(xlim=(0,bmax), ylim=(0,vmax), xlabel='$|b|$', ylabel='sqrt(Energy Flux)');
 
         def fig2(ax):
             ax = plt.gca()

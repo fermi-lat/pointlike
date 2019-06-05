@@ -198,21 +198,25 @@ class PoissonFitter(object):
     array([ 50.,   1.,  10.])
     
     """
-    def __init__(self, func, scale=1., tol=0.05, delta=0.1, dd=-0.1):
+    def __init__(self, func, scale=None, tol=0.20, delta=1e-4, dd=-0.1):
         """
         parameters
         ----------
         func : function of one parameter
-        scale: float
-            estimate for scale to use
+        scale: float | None
+            estimate for scale to use; if None, estimate from derivatime 
         tol : float
             absolute tolerance in probability amplitude for fit, within default domain out to delta L of 4
+        delta : float
+            value to calculate derivative at zero flux
         """
         self.func = func
         #first check derivative at zero flux - delta is sensitive
         self.f0 = func(0)
         s = self.wprime = (func(delta)-self.f0)/delta
+        if scale is None: scale= 5/s if s>0 else 1.0
         self.smax = self.find_max(scale) if s>=0 else 0.
+
         self.ts = 2.*(func(self.smax) - self.f0)
         # determine values of the function corresponding to delta L of 0.5, 1, 2, 4
         # depending on how peaked the function is, this will be from 5 to 8 
@@ -250,8 +254,8 @@ class PoissonFitter(object):
     def find_max(self, scale):
         """Return the flux value that maximizes the likelihood.
         """
-        if self.func(0) > self.func(scale/10.):
-            return 0
+        # if self.func(0) > self.func(scale/10.) and self.wprime<0:
+        #     return 0
         r= optimize.fmin(lambda s: -self.func(s), scale, ftol=0.01, xtol=0.01, 
                 disp=False, full_output=True, retall=True)
         t = r[0][0]
@@ -330,25 +334,27 @@ class PoissonFitter(object):
         offset = self(self.smax)
         deltas = np.array(map( lambda x: np.exp(self.func(x)-offset)-np.exp(self._poiss(x)), self.dom))
         t = np.abs(deltas).max()
-        if t>tol: raise Exception('PoissonFitter: maximum deviation, %.2f > tolerance, %s'%(t,tol))
+        if t>tol: raise Exception('PoissonFitter: max dev= {:.2f} > tol= {}. (wprime={:.2f})'
+            .format(t,tol, self.wprime) )
         return t, deltas
     
     def plot(self, ax=None, xticks=True ):
         """Return a figure showing the fit"""
         import matplotlib.pyplot as plt
         xp = self.dom
-        x = np.linspace(0, xp[-1]*1.05)
+        x = np.linspace(0, xp[-1]*1.05, 25)
         if ax is None:
             fig, ax = plt.subplots(figsize=(3,3))
         else: fig = ax.figure
         pfmax = self(self.smax)
-        ax.plot(x, np.exp(self(x)-pfmax), '-', label='Input')
-        ax.plot(xp, np.exp(self._poiss(xp)), 'o', label='approx')
+        ax.plot(x, np.exp(self(x)-pfmax), '-', label='Input function')
+        ax.plot(xp, np.exp(self._poiss(xp)), 'o', label='Poisson approx.')
         ax.plot(x, np.exp(self._poiss(x)), ':')
-        ax.legend(loc='upper right', prop =dict(size=8) )
+        ax.legend(loc='upper right', prop=dict(size=8) )
+        ax.set(xlim=(0,None), ylim=(0,1.05))
         if xticks:
             ax.set_xticks([0, xp[-1]])
-        ax.grid()
+        ax.grid(alpha=0.4)
         fig.set_facecolor('white')
         return fig
 

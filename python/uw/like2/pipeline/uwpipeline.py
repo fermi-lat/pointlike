@@ -159,6 +159,10 @@ def check_names(stage, proc):
                 raise Exception('stage "%s" not recognized: expect one of %s' %(t, sorted(keys)))
 
 def main( args ):
+    if args.stage=='restart':
+        ps = stream.PipelineStream()
+        ps.restart(test=False)
+        return
     check_environment(args)
     check_names(args.stage, args.proc)
     proc = args.proc
@@ -182,6 +186,9 @@ if __name__=='__main__':
     \nExamples: 
         uwpipeline create
         uwpipeline finish -p summary_plots
+    \n
+    Note special "restart" stage, which will flag the currently running stream to terminate and 
+    start a new stream with only the substreams that had not finished.
     """)
     parser.add_argument('stage', nargs='*', default=[os.environ.get('stage', None)], help='stage name, default "%(default)s"')
     parser.add_argument('-p', '--proc', default=os.environ.get('PIPELINE_PROCESS', 'start'), 

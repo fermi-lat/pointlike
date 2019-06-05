@@ -23,7 +23,7 @@ class Process(main.MultiROI):
         ('localize_flag', False, 'perform localiation'),
         ('localize_kw',   {},    'keywords for localization'),
         ('repivot_flag',  False, 'repivot the sources'),
-        ('betafix_flag',  False, 'check betas, refit if needed'),
+        ('curvature_flag',  False, 'check betas, refit if needed'),
         ('ts_beta_zero',  None,   'set to threshold for converting LP<->PL'),
         ('ts_min',        5,      'Minimum TS for saving after an iteration'),
         ('dampen',        1.0,   'damping factor: set <1 to dampen, 0 to not fit'),
@@ -114,6 +114,9 @@ class Process(main.MultiROI):
             elif self.diffuse_key=='both':
                 fit_diffuse(self)
                 return
+            elif self.diffuse_key=='both_update':
+                fit_diffuse(self, update=True)
+                # do not return: perform a fit, then update
             else:
                 raise Exception('Unexpected key: {}'.format(self.diffuse_key))
              #fit_diffuse()
@@ -150,7 +153,12 @@ class Process(main.MultiROI):
 
         if self.special_flag:
             """ special processing, converting something."""
-            self.fit_second_order(); 
+            #self.fit_second_order()
+            zz = sedfuns.add_flat_sed(self,'ALL') 
+            for name, ts in zz:
+                print '{:15} {:4.1f}'.format(name,ts)
+            write_pickle(self)
+            return
 
         if self.add_seeds_flag:
             self.add_sources()
@@ -166,6 +174,11 @@ class Process(main.MultiROI):
         init_log_like = roi.log_like()
         if self.update_positions_flag:
             self.update_positions()
+
+        if self.curvature_flag:
+            print '====================== Fixing curvature first ======================='
+            self.fit_curvature('ALL')
+
             
         roi.print_summary(title='before fit, logL=%0.f'% init_log_like)
         fit_sources = [s for s in roi.free_sources if not s.isglobal]
@@ -198,9 +211,6 @@ class Process(main.MultiROI):
                     while n>0:
                         if not self.repivot( fit_sources, select=self.selected_pars): break
                         n-=1
-                if self.betafix_flag:
-                    if not self.betafit():
-                        print 'betafit requested, but no refit needed, quitting'
 
                 if self.diffuse_key=='post_gal':
                     fit_galactic(self)
@@ -254,12 +264,7 @@ class Process(main.MultiROI):
         
         if outdir is not None:  
             write_pickle(self)
-            #pickle_dir = os.path.join(outdir, 'pickle')
-            #if not os.path.exists(pickle_dir): os.makedirs(pickle_dir)
-            #roi.to_healpix( pickle_dir, dampen, 
-            #    counts=cts,
-            #    stream=self.stream,
-            #    )
+  
     
    
     def repivot(self, fit_sources=None, min_ts = 10, max_beta=1.0, emin=200., emax=100000.,
@@ -331,6 +336,7 @@ class Process(main.MultiROI):
         self.fit(ignore_exception=ignore_exception)
         return True 
 
+
         
     def residuals(self, tol=0.3):
         print 'Creating tables of residuals'
@@ -348,6 +354,7 @@ class Process(main.MultiROI):
             # residual maps
             maps.residual_maps(self)
             return
+        maps.nside = self.tables_nside
         tinfo = [maps.table_info[key] for key in mapkeys]
         skyfuns = [(entry[0], key, entry[1]) for key,entry in zip(mapkeys, tinfo)]  
         rt = maps.ROItables(self.outdir, nside=self.tables_nside, skyfuns=skyfuns )
@@ -418,6 +425,27 @@ class Process(main.MultiROI):
     def model_count_maps(self):
         maps.ModelCountMaps(self, nbands=12, subdir='model_counts' )
         return False
+
+    def full_process(self, source_name=None, sedfig_dir='sedfig', outdir='.' ):
+        """ Correponds to the 'finish' option, but for a single source
+
+        """
+        if source_name=='all':
+            print 'TODO!'
+            return
+        source = self.get_source(source_name)
+        sname = source.name
+        print 'Full processing for source {} ================='.format(sname)
+        self.profile(sname)
+        try:
+            self.localize(sname, )
+        except Exception, msg:
+            print 'Fail to localize, {}'.format(msg)
+        self.find_associations(sname)
+        skymodel_name = os.path.split(os.getcwd())[-1]
+        sedfuns.makesed_all(self, source_name=sname, sedfig_dir=sedfig_dir,suffix='_sed_%s'%skymodel_name, )
+        if outdir is not None:
+            write_pickle(self)
 
 def fix_spectra(roi):
     for src in roi.free_sources:
@@ -637,6 +665,7 @@ def fit_diffuse(roi, nbands=8, select=[0,1], folder='diffuse_fit', corr_min=-0.9
         print 'Updated coefficients'
 
 
+
     # for interactive: convert covariance matrix to sigmas, correlation
     gsig=[]; isig=[]; corr=[]
     for i in range(len(df)):
@@ -673,13 +702,18 @@ def psc_check(roi, psc_name=None , outdir='psc_check', debug=False):
     #load the catalog: either a catalog, or filename
     fgl = roi.config.get('fgl', None)
     if fgl is None:
-        fgl = fermi_catalog.GLL_PSC2(roi.config.get('gllcat', None))
+        catpat = roi.config['gllcat']
+        pat = os.path.expandvars(os.path.join('$FERMI','catalog', catpat))
+        gllcats = sorted(glob.glob(pat))
+        assert len(gllcats)>0, 'No gtlike catalogs found using {}'.format(pat)
+        filename = gllcats[-1]
+        fgl = fermi_catalog.GLL_PSC2(filename)
         roi.config['fgl']= fgl
     
     def chisq(source):
         try:
             sdf = pd.DataFrame(source.sedrec)
-            return sum(sdf.pull**2)
+            return sum(sdf.pull[~pd.isnull(sdf.pull)]**2)
         except:
             print 'Fail chisq'
             return 99
@@ -696,7 +730,7 @@ def psc_check(roi, psc_name=None , outdir='psc_check', debug=False):
                 continue
             fl8y = fgl.df.loc[cname]
             trunc = fl8y.sname[5:]
-            print '{:14s} {:6.0f} --> {:14s} {:6.0f}'.format(s.name, s.ts, trunc, fl8y.ts),
+            print '{:17s} {:6.0f} --> {:14s} {:6.0f}'.format(s.name, s.ts, trunc, fl8y.ts),
             if fl8y.extended:
                 sx = sources.ExtendedSource(name=trunc, skydir=(fl8y.ra,fl8y.dec), 
                     model=fl8y.model, dmodel=s.dmodel)

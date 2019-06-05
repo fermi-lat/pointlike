@@ -460,15 +460,72 @@ class Environment(roi_info.ROIinfo):
         print >>out, 'total%45s'% bignum(total)
         return dmap
 
+    def correction_plots(self, cc, vmin=0.5, vmax=1.5, title=None, hist=False, start=0, cmap='coolwarm',
+            cbtext='correction factor', **kwargs):
+        from  matplotlib import patches
+
+        nrows = cc.shape[1]/4
+        #assert cc.shape[1]==8, 'Found shape {}'.format(cc.shape)
+
+        if hist:
+            hkw=dict(bins=np.linspace(vmin,vmax, 21), lw=1, histtype='step')
+            fig,axx = plt.subplots(nrows,4, figsize=(14,3*nrows+1), sharex=True, sharey=False)
+            plt.subplots_adjust(wspace=0.3, hspace=0.15)
+        else:
+            fig, axx = plt.subplots(nrows,4, figsize=(12,3*nrows), sharex=True, sharey=True)
+            plt.subplots_adjust(left=0.10, wspace=0.1, hspace=0.15,right=0.92, top=0.90)
+            
+        for i,ax in enumerate(axx.flatten()):
+            if i<start:
+                ax.set_visible(False)
+                continue
+            if hist:
+                h = np.array(cc[:,i],float)
+                ax.hist(h.clip(vmin, vmax),  **hkw)
+                ax.axvline(1.0, color='grey', ls='--')
+                mypatch= patches.Patch(fill=False,lw=0, facecolor='none', 
+                    label='{:4.1f} {:4.1f}'.format(100*(h.mean()-1),100*h.std()),)
+                ax.legend(handles=[mypatch], facecolor='none', edgecolor='none')
+            else:
+                t,scat=self.skyplot(cc[:,i],ax=ax, vmin=vmin, vmax=vmax, 
+                                    title='{:0f}'.format(self.energy[i]),
+                        cmap=plt.get_cmap(cmap), colorbar=False, labels=False, **kwargs)
+            ax.set_title('{:.0f} MeV'.format(self.energy[i]), fontsize=12)
+            
+        if not hist: 
+            cbax = fig.add_axes((0.94, 0.15, 0.015, 0.7) )
+            fig.colorbar(scat, cbax, orientation='vertical').set_label(cbtext, fontsize=12)
+        fig.suptitle(title, fontsize=16)
+        return fig
+
+    def count_difference(self, vmin=-4, vmax=4, cmap='jet', get_data=False):
+        """Count differences
+
+        For each ROI and energy band, this is the differnce in counts implied by the galactic and isotropic factors,
+        relative to the isotropic. (This latter helps normalize the different energies)
+        """
+        galcnt = np.array([ct['models'][0][1][:8] for ct in self.df.counts]) 
+        isocnt = np.array([ct['models'][1][1][:8] for ct in self.df.counts]) 
+        galcorr=self.GalacticCorrection(self).x
+        x = [np.array([r['iso'][fb] for r in self.df.diffuse_normalization])for fb in 'front back'.split()]
+        isocorr = 0.5*(x[0]+x[1])
+
+        t  =(galcnt * (galcorr-1) + isocnt * (isocorr-1))/isocnt
+        if get_data: #for interactive analysis
+            return t
+        return self.correction_plots(t, vmin=vmin, vmax=vmax, title ='count difference relative to isotropic',
+                            cbtext='relative to isotropic', cmap=cmap);
+
     def all_plots(self, **kw):
         self.runfigures([
             #self.psf_plot, 
             self.exposure_plots, 
             self.isotropic_spectrum,self.diffuse_flux, #self.limb_flux,
+            self.count_difference,
             self.galactic_correction_maps,
             self.galactic_correction_summary, 
             self.galactic_correction_anomaly,
-            self.gal_extra,
+            #self.gal_extra,
             #self.isotropic_correction,
             #self.isotropic_correction_front, self.isotropic_correction_back,
             ])

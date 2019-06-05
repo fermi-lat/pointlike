@@ -52,7 +52,7 @@ def html_table( df, columns={}, name='temp', heading='', href=True,
         for n in s:
             fnpat = href_pattern %  n.replace(' ','_').replace('+','p') 
             q = glob.glob(fnpat)
-            if len(q) !=1: 
+            if len(q) ==0: 
                 print '**File %s not found' % fnpat
                 continue
             i = t.find(n+'<')

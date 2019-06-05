@@ -1,10 +1,10 @@
+# Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.49 2018/01/27 15:37:17 burnett Exp $
-
 """
 import os, pickle
+from collections import OrderedDict
 import numpy as np
 import pandas as pd
 
@@ -49,7 +49,7 @@ class SED(tools.WithMixin):
                     self.__module__, self.__class__.__name__,self.source_name,len(self.rs.selected), 
                     self.rs.emin, self.rs.emax)
     
-    def select(self, index, event_type=None, poisson_tolerance=0.10, 
+    def select(self, index, event_type=None, poisson_tolerance=0.20, 
         elow=None, ehigh=None,**kwargs):
         """ Select an energy band or bands
         parameters:
@@ -281,8 +281,9 @@ def print_sed(roi, source_name=None):
     pd.set_option('display.float_format', t)
                
 
-def makesed_all(roi, **kwargs):
-    """ add sed information to each free local source
+def makesed_all(roi, source_name='all', **kwargs):
+    """ add sed information to each free local source.
+    Except: can give an individual source name
     
     kwargs:
         sedfig_dir : string or None
@@ -302,7 +303,10 @@ def makesed_all(roi, **kwargs):
     poisson_tolerance = kwargs.pop('poisson_tolerance', 0.50)
     initw = roi.log_like()
 
-    sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
+    if source_name=='all':
+        sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
+    else:
+        sources = [roi.get_source(source_name)]
     print 'sources:', [s.name for s in sources]
     for source in sources:
         with SED(roi, source.name, ) as sf:
@@ -325,6 +329,32 @@ def makesed_all(roi, **kwargs):
     curw= roi.log_like()
     assert abs(initw-curw)<0.1, \
         'makesed_all: unexpected change in roi state after spectral analysis, from %.1f to %.1f' %(initw, curw)
+
+def add_flat_sed(roi, source_name=None, cols='flux lflux uflux ts'.split()):
+    """For the given source (or 'ALL'), look for additional unmodelled photons by defining a flat source
+        at the same position, measuring its SED
+        Add fit flux with limits, and TS to the sedrec.
+    """
+
+    def do_one(s):
+        roi.add_source(name='temp', skydir=s.skydir, model='LogParabola(1e-12, 2, 0, 1e4)')
+        ss = roi.get_source('temp')
+        t = roi.get_sed()
+        roi.del_source('temp')
+        df = pd.DataFrame(s.sedrec)
+        df_flat=pd.DataFrame(OrderedDict( [(n, t[n].astype(float)) for n in cols]))
+        for col in cols:
+            df[col+'_flat'] = df_flat[col]
+        s.sedrec = rec = df.to_records(index=False)
+        rec.dtype.names = map(str, rec.dtype.names) # numpy dtype names must be str 
+        return sum(df_flat.ts)
+
+    if source_name!='ALL':
+        s = roi.get_source(source_name)
+        return do_one(s)
+    else:
+        sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
+        return [(s.name, do_one(s)) for s in sources]
 
 
 def normalization_poiss(roi, source_name, event_type=None):

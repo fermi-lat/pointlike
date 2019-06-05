@@ -14,6 +14,7 @@ import pandas as pd
 
 from uw.like2 import (tools, maps, seeds,)
 from uw.like2.pipeline import (pipe, stream, stagedict, check_ts, )
+from uw.utilities import healpix_map
 
 
 def streamInfo(stream_id ,path='.'):
@@ -62,8 +63,10 @@ def main(args):
                 z.write( filename, os.path.join(fname,os.path.split(filename)[-1]))
         print ' zipped into file %s.zip' %fname
         
-    def create_stream(newstage, job_list='joblist.txt'):
-        print 'Starting stage %s' % newstage
+    def create_stream(newstage, job_list=None):
+        if job_list is None:
+            job_list = stagedict.stagenames[newstage].get('job_list', 'job_list')
+        print 'Starting stage {} with job_list {}'.format( newstage, job_list)
         ps = stream.PipelineStream()
         ps(newstage, job_list=job_list, test=False)
 
@@ -167,7 +170,17 @@ def main(args):
             seeds.create_seedfiles(mm, seed_folder='seeds', tsmin=tsmin)
         else:
             raise Exception( 'Unexpected table name: {}'.format(names))
-            
+
+    elif stage=="sourcefinding":
+        nside=256
+        maps.nside=nside
+        tsmin=12
+        print 'Performing analysis of tables_all, with tsmin={}'.format(tsmin)
+        mm = maps.MultiMap(nside=nside)
+        print mm.summary()
+        mm.write_fits()
+        seeds.create_seedfiles(mm, seed_folder='seeds', tsmin=tsmin, nside=nside)
+
 
     elif stage=='ptables':
         names = ['tsp'] 
@@ -193,8 +206,7 @@ def main(args):
         if os.path.exists(stage):
             make_zip(stage)
         if next_stage is not None:
-            job_list = stagedict.stagenames[next_stage].get('job_list', 'job_list')
-            create_stream(next_stage, job_list)
+            create_stream(next_stage)
         else:
             print 'stage %s not recognized for summary'%stage 
     if not args.test:

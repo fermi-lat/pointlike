@@ -841,3 +841,42 @@ def create_corr_dict(diffuse_dict,  roi_index, event_type_names=('front','back')
         isoc = response.DiffuseCorrection(isof.replace('*',x));
         corr_dict['iso'][x]= isoc.roi_norm(roi_index)
     return corr_dict
+
+
+# create new diffuse map modified by 
+
+
+def apply_patch(inpat, patchfile, outpat, event_type_names=('front','back')):
+    """Apply a multiplicative patch to a set of event type diffuse cubes
+
+    inpat : string
+        File path pattern, with "*" wildcard, to input diffuse cubes
+    pathchfile : string
+        file name for patch cube
+    outpat : string
+        File path pattern, with "*" wildcard, to output diffuse cubes
+
+    """
+    def modify_by_patch(self, patch, newfile=None):
+        modlayer=[]
+        for i,layer in enumerate((self)):
+            name = layer.name
+            a = layer.vec
+            if i < len(patch):
+                p = patch[i]
+            else:
+                p = patch[-1]
+            b = p.vec
+            print layer.name, ',',
+            modlayer.append(healpix_map.HParray(layer.name, healpix_map.multiply(a,b)))
+        print
+        outmap=healpix_map.HEALPixFITS(modlayer, energies=self.energies)
+        if newfile is not None: outmap.write(newfile)
+        return outmap
+
+    print 'Applying {} to {}'.format(patchfile, inpat)
+    patch = HealpixCube(patchfile); patch.load()
+    for iet in event_type_names:
+        print iet, ':',
+        df = HealpixCube(inpat.replace('*', iet)); df.load()
+        modify_by_patch(df, patch, outpat.replace('*', iet))    

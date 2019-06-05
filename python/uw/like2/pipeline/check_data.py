@@ -18,7 +18,7 @@ def main(args=None):
         stage = os.environ.get('stage', 'create' )
         nocreate = False
     stage=stage.split('_')[0]
-    if stage!='create' and stage!='monthly':
+    if True: # (fix later) stage!='create' and stage!='monthly':
         print 'Not creating a model: assume data validated'
         return
         

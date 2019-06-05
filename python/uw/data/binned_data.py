@@ -259,7 +259,7 @@ class BinFile(object):
         * BandList
     Implements an indexing interface. Now returns a special Band object
     """
-    def __init__(self, filenames, outfile=None, adding=False):
+    def __init__(self, filenames, outfile=None, adding=False, quiet=True):
         """
         filenames : a FITS file name, or a list
             if a list, combine them
@@ -270,7 +270,7 @@ class BinFile(object):
             filenames = [filenames]
         for i,filename in enumerate(filenames):
             if i==0: # first one: will add others, if any to this one
-                print '\n"{}" '.format(filename),
+                if not quiet:print '\n"{}" '.format(filename),
                 self.hdus=fits.open(filename)
                 self.gti=GTI(self.hdus['GTI'])
                 if 'PIXELS' in self.hdus: 
@@ -281,11 +281,12 @@ class BinFile(object):
                     # new format
                     self.bands=BandList(self.hdus['BANDS'])
                     self.pixels=Pixels(self.hdus['SKYMAP'])
-                print self.pixels.__repr__(),
+                if not quiet: print self.pixels.__repr__(),
             else:
                 self.add(BinFile(filename, adding=True))
-                print self.pixels.__repr__(),
-        if not adding: print
+                if not quiet: print self.pixels.__repr__(),
+        if not adding: 
+            if not quiet: print
 
         if outfile is not None:
             self.writeto(outfile)
@@ -465,6 +466,26 @@ class BinFile(object):
                 print 'File {} exists'.format(fname)
             else:
                 self.write_roi_fits(fname, roi_index, cindex)
+
+    def summary_plot(self,  title=None, ax=None,):
+        from matplotlib import pyplot as plt
+
+        df = self.dataframe()
+        # combine event types
+        f= df.query('event_type==0')
+        b= df.query('event_type==1')
+        ee = 0.5*(b.e_min+b.e_max)
+        pixels = b.pixels.values+f.pixels.values
+        photons =  b.photons.values+f.photons.values
+        plt.rc('font', size=14)
+        if ax is None:
+            fig,ax = plt.subplots(figsize=(8,6))
+        ax.loglog(ee, pixels , 'xg', ms=10, label='pixels ({:.1f}M total)'.format(sum(pixels)/1e6))
+        ax.loglog(ee, photons, '+r', ms=10, label='photons ({:.1f}M total)'.format(sum(photons)/1e6))
+        ax.set(xlabel='Energy [MeV]',ylabel='Number per energy band', title=title)
+        ax.grid(alpha=0.4)
+        ax.legend()
+
 
 class ConvertFT1(object):
 
