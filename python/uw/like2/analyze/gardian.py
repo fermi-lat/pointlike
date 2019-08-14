@@ -231,17 +231,57 @@ class GComp(object):
         ax.set(yscale='log', ylim=ylim)
         print
 
-    def pulls_hist(self, ax=None, cuts=['-5<glat<5', 'glat>10 | glat<-10'], 
-                   colors='green orange blue'.split()):
+    # def pulls_hist(self, ax=None, cuts=['-5<glat<5', 'glat>10 | glat<-10'], 
+    #                colors='green orange blue'.split()):
+    #     """Normalized residual plots
+    #     """
+    #     fig, ax = plt.subplots(figsize=(6,4)) if ax is None else (ax.figure, ax) 
+        
+    #     sel = [self.df.query(cut).pull for cut in cuts]
+        
+    #     def plotit(s, label, color): 
+    #         hkw=dict(bins=np.linspace(-5,5,51), histtype='step', lw=2, log=True)
+    #         label='{:20} {:5.2f} {:5.2f}'.format(label, s.mean(),s.std())
+    #         ax.hist(s.clip(-5,5),label=label,color=color, **hkw )
+    #         #ovelay a gaussian with same total
+    #         g=lambda x: np.exp(-x**2/2.)
+    #         x = np.linspace(-4,4,81)
+    #         b =hkw['bins']; delta= b[1]-b[0]
+    #         norm = len(s) * delta/np.sqrt(2*np.pi)
+    #         ax.plot(x, norm*g(x), '--', color=color) 
+        
+    #     for s,label, color in zip(sel, cuts, colors):   
+    #         plotit(s, label, color)
+
+    #     ax.grid(alpha=0.5)
+        
+    #     leg=ax.legend(loc='lower center',
+    #         title='      {:20} {:5} {:5}'.format('selection', 'mean', 'std'),
+    #             prop=dict(size=10, family='monospace'))
+    #     ltit = leg.get_title()
+    #     ltit.set_fontsize(10); ltit.set_family('monospace')
+    #     ax.set(ylim=(0.8,None), xlim=(-5,5))
+    #     ax.set_title('Normalized residuals for {}'.format(self.label));
+    #     fig.set_facecolor('w')
+    #     return fig
+
+    def pulls_hist(self, ax=None, colors='orange green blue'.split(), pub=False):
         """Normalized residual plots
         """
         fig, ax = plt.subplots(figsize=(6,4)) if ax is None else (ax.figure, ax) 
         
-        sel = [self.df.query(cut).pull for cut in cuts]
+        nside=self.pulls.nside
+        pulls = self.pulls.vec
+        
+        bdir=Band(nside).dir
+        glat= [bdir(i).b() for i in range(12*nside**2)]
+        cuts = [np.array(np.abs(glat)<10, bool),np.array(np.abs(glat)>10,bool) ]
+        sel  = [pulls[cut] for cut in cuts]
+        labels = '|b|<10', '|b|>10'
         
         def plotit(s, label, color): 
             hkw=dict(bins=np.linspace(-5,5,51), histtype='step', lw=2, log=True)
-            label='{:20} {:5.2f} {:5.2f}'.format(label, s.mean(),s.std())
+            label='{:10} {:5.2f} {:5.2f}'.format(label, s.mean(),s.std())
             ax.hist(s.clip(-5,5),label=label,color=color, **hkw )
             #ovelay a gaussian with same total
             g=lambda x: np.exp(-x**2/2.)
@@ -250,21 +290,22 @@ class GComp(object):
             norm = len(s) * delta/np.sqrt(2*np.pi)
             ax.plot(x, norm*g(x), '--', color=color) 
         
-        for s,label, color in zip(sel, cuts, colors):   
+        for s,label, color in zip(sel, labels, colors):   
             plotit(s, label, color)
-
-        ax.grid(alpha=0.5)
-        
+      
         leg=ax.legend(loc='lower center',
-            title='      {:20} {:5} {:5}'.format('selection', 'mean', 'std'),
+            title='      {:10} {:5} {:5}'.format('selection', 'mean', 'SD'),
                 prop=dict(size=10, family='monospace'))
         ltit = leg.get_title()
         ltit.set_fontsize(10); ltit.set_family('monospace')
         ax.set(ylim=(0.8,None), xlim=(-5,5))
-        ax.set_title('Normalized residuals for {}'.format(self.label));
+        ax.set(xlabel='Normalized Residual')
+        if not pub:
+            ax.set_title('Normalized residuals for {}'.format(self.label));
+            ax.grid(alpha=0.5)
         fig.set_facecolor('w')
         return fig
-
+        
     def ait_pulls_plot(self):
         fig,ax=plt.subplots(figsize=(16,8))
         t=self.pulls.plot(axes=ax, vmin=-5, vmax=5, cmap=plt.get_cmap('coolwarm'),

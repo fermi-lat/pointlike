@@ -655,7 +655,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
 
     def spectral_fit_consistency_plots(self, energy=133., minflux=1.0, 
             title = 'low energy fit consistency',
-            three_plots=False,
+            n_plots=2, pub=False
         ):
         """ Spectral fit consistency for the lowest energy bin
         
@@ -684,7 +684,13 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         fmodel = np.array([s.iloc[i]['model'](energy)*energy**2*1e6 for i in range(len(s))])
         glat = np.array([x.b() for x in s.skydir])
         fluxcut = (fmodel>minflux) & (ldata>0) # last cut is to avoid lower limits
-        latcut  = abs(glat)>5.0
+        if pub:
+            latcut  = abs(glat)> 10.0
+            cut_labels= '|b|>10', '|b|<10'
+        else:
+            latcut  = abs(glat)> 5.0
+            cut_labels= '|b|>5', '|b|<5'
+
         hilat = fluxcut & (latcut)
         lolat = fluxcut & (~latcut)
         
@@ -719,18 +725,28 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             hist_kw=dict(bins=np.linspace(-3,3,25), lw=2, histtype='step')
             q=pull.clip(-3,3) 
             assert len(q)== len(hilat)#, len(lolat)
-            for name,color, cut in [('high','g', hilat), (' low','r', lolat)]:
+            for name,color, cut in [(cut_labels[0],'g', hilat), (cut_labels[1],'r', lolat)]:
                 vals = q[cut]
-                ax.hist(vals, color=color,  label='{:5}{:4d}{:5.1f}{:5.1f}'.format(
-                        name, len(vals), vals.mean(), vals.std()), **hist_kw)
-                print name, vals.std(), np.sqrt((vals[vals>0]**2).mean()), np.sqrt((vals[vals<0]**2).mean())
-            ax.set_xlabel('pull')
-            ax.axvline(0, color='k', ls='--')
+                ax.hist(vals, color=color,  label='{:5}{:4d}{:4.1f}{:4.1f}'.format(
+                            name, len(vals), 
+                            np.sqrt((vals[vals<0]**2).mean()), np.sqrt((vals[vals>0]**2).mean())), 
+                        **hist_kw)
+                print name, vals.std(), np.sqrt((vals[vals<0]**2).mean()), np.sqrt((vals[vals>0]**2).mean())
+            ax.set_xlabel('normalized residual')
+            ax.axvline(0, color='grey', ls='--')
             ax.set_xlim((-3,3))
-            ax.set_title( title, fontsize='medium')
-            leg=ax.legend(loc='upper left', title='     type    #  mean std',prop=dict(size=10, family='monospace'))
+            
+            leg=ax.legend(loc='upper left', prop=dict(size=10, family='monospace'),
+                        #title='     type   #   RMS\n'
+                        title='  selection #   RMS\n'
+                              '               <0 >0',
+                            )
             ltit = leg.get_title(); ltit.set_fontsize(10); ltit.set_family('monospace')
-            ax.grid()  
+            if not pub: 
+                ax.grid(alpha=0.5)
+                ax.set_title( title, fontsize='medium')  
+            else:
+                ax.set(ylim=(0,150))
 
 
         def skyplot(ax):
@@ -739,16 +755,20 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             self.skyplot(pdf.pull, ax=ax, vmin=-3, vmax=3,
                 cmap=plt.get_cmap('coolwarm'), title=title, cbtext='pull')
 
-        if three_plots:
+        if n_plots==3:
             fig,ax = plt.subplots(1,3, figsize=(12,5))
             plt.subplots_adjust(wspace=0.3, left=0.05)
             for f, ax in zip( (hist, error_bar, skyplot), ax.flatten()):
                 f(ax=ax)
-        else:
+        elif n_plots==2:
             fig,ax = plt.subplots(1,2, figsize=(12,5))
             plt.subplots_adjust(wspace=0.3, left=0.05)
             for f, ax in zip( (hist, skyplot), ax.flatten()):
                 f(ax=ax)
+        else:
+            fig,ax = plt.subplots(1,1, figsize=(6,4))
+            hist(ax)
+
         return fig
         
     def census(self, primary_prefix='P88Y', cols=[0,5,10,16,25]): #'P7R4'):

@@ -449,6 +449,11 @@ class AIT(object):
             self.figure, self.axes = pylab.subplots(1,1, figsize=(10,5))
          
         if self.size==180: self.axes.set_axis_off()
+
+        # set initially to all white for eps
+        self.axes.imshow(np.ones([self.nx,self.ny,3]), **imshow_kw)
+
+        # use masked array to set the oval
         fun_dict = dict(linear=scale_fun, log=ma.log10, sqrt=ma.sqrt, asinh=ma.arcsinh)
         fun  = fun_dict.get(scale, None) if type(scale)==types.StringType else fun
         if fun is None:

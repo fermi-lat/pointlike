@@ -99,7 +99,7 @@ class BandAnalysis(object):
         #print self.label
 
         if outfile:
-            cols = [self.sources, self.galactic, self.resid, self.hpdata,]
+            cols = [self.pulls, self.sources, self.galactic, self.hpdata,]
             if 'isotropic' in keys:
                 cols = cols + [self.isotropic]
             t=healpix_map.HEALPixFITS( cols)
@@ -126,44 +126,87 @@ class BandAnalysis(object):
         plt.setp(ax,xlabel='glat',ylim=ylim, ylabel='<offset>', title=self.label);
         ax.figure.set_facecolor('white')
 
-    def ait_pulls_plot(self, ax=None):
-        fig,ax=plt.subplots(figsize=(16,8))
-        t=self.pulls.plot(axes=ax, vmin=-5, vmax=5, cmap=plt.get_cmap('coolwarm'),
-            title='{} normalized residuals'.format(self.label))
+    def ait_pulls_plot(self, ax=None, pub=False):
+
+        fig,ax=plt.subplots(figsize=(16,8)) if ax is None else (ax.figure, ax)
+        t=self.pulls.plot(axes=ax, vmin=-5, vmax=5, cmap=plt.get_cmap('coolwarm'), ait_kw={},
+            title='{} normalized residuals'.format(self.label) if not pub else '')
+        
         t.grid(color='white');
         return fig
 
-    def residual_hist(self):
+    # def residual_hist(self):
+    #     """Normalized residual plots
+    #     """
+    #     nside=self.nside
+    #     bdir=Band(nside).dir
+    #     fig=plt.figure()
+    #     glat= [bdir(i).b() for i in range(12*nside**2)]
+    #     lolat,loname=np.array(np.abs(glat)<5, bool), '|b|< 5'
+    #     hilat,hiname=np.array(np.abs(glat)>10, bool), '|b|>10'
+    #     hkw=dict(bins=np.linspace(-5,5,51), histtype='step', lw=2, log=True)
+    #     def plotit(cut, name):
+    #         ds = self.pulls.vec[cut]
+    #         label='{} {:4.2f} {:4.2f}'.format(name, ds.mean(),ds.std())
+    #         plt.hist(ds.clip(-5,5),label=label, **hkw )
+    #     plotit(lolat, loname)
+    #     plotit(hilat, hiname)
+    #     plt.grid(alpha=0.5);
+    #     g=lambda x: np.exp(-x**2/2.)
+    #     x = np.linspace(-4,4,81)
+    #     n=sum(lolat) 
+    #     b =hkw['bins'];delta= b[1]-b[0]
+    #     norm=sum(lolat)/delta/np.sqrt(np.pi)/4
+    #     plt.plot(x, norm*g(x), '--g')
+    #     leg=plt.legend( title='   select mean std',prop=dict(size=10, family='monospace'))
+    #     ltit = leg.get_title(); ltit.set_fontsize(10); ltit.set_family('monospace')
+    #     plt.ylim(ymin=0.8); plt.xlim(-5,5)
+    #     plt.title('Normalized residuals for {}'.format(self.label));
+    #     fig = plt.gcf()
+    #     fig.set_facecolor('w')
+    #     return fig
+    
+    def residual_hist(self, ax=None, colors='orange green blue'.split(), pub=False):
         """Normalized residual plots
         """
-        nside=self.nside
+        fig, ax = plt.subplots(figsize=(6,4)) if ax is None else (ax.figure, ax) 
+        
+        nside=self.pulls.nside
+        pulls = self.pulls.vec
+        
         bdir=Band(nside).dir
-        fig=plt.figure()
         glat= [bdir(i).b() for i in range(12*nside**2)]
-        lolat,loname=np.array(np.abs(glat)<5, bool), '|b|< 5'
-        hilat,hiname=np.array(np.abs(glat)>10, bool), '|b|>10'
-        hkw=dict(bins=np.linspace(-5,5,51), histtype='step', lw=2, log=True)
-        def plotit(cut, name):
-            ds = self.pulls.vec[cut]
-            label='{} {:4.2f} {:4.2f}'.format(name, ds.mean(),ds.std())
-            plt.hist(ds.clip(-5,5),label=label, **hkw )
-        plotit(lolat, loname)
-        plotit(hilat, hiname)
-        plt.grid(alpha=0.5);
-        g=lambda x: np.exp(-x**2/2.)
-        x = np.linspace(-4,4,81)
-        n=sum(lolat) 
-        b =hkw['bins'];delta= b[1]-b[0]
-        norm=sum(lolat)/delta/np.sqrt(np.pi)/4
-        plt.plot(x, norm*g(x), '--g')
-        leg=plt.legend( title='   select mean std',prop=dict(size=10, family='monospace'))
-        ltit = leg.get_title(); ltit.set_fontsize(10); ltit.set_family('monospace')
-        plt.ylim(ymin=0.8); plt.xlim(-5,5)
-        plt.title('Normalized residuals for {}'.format(self.label));
-        fig = plt.gcf()
+        cuts = [np.array(np.abs(glat)<10, bool),np.array(np.abs(glat)>10,bool) ]
+        sel  = [pulls[cut] for cut in cuts]
+        labels = '|b|<10', '|b|>10'
+        
+        def plotit(s, label, color): 
+            hkw=dict(bins=np.linspace(-5,5,51), histtype='step', lw=2, log=True)
+            label='{:10} {:5.2f} {:5.2f}'.format(label, s.mean(),s.std())
+            ax.hist(s.clip(-5,5),label=label,color=color, **hkw )
+            #ovelay a gaussian with same total
+            g=lambda x: np.exp(-x**2/2.)
+            x = np.linspace(-4,4,81)
+            b =hkw['bins']; delta= b[1]-b[0]
+            norm = len(s) * delta/np.sqrt(2*np.pi)
+            ax.plot(x, norm*g(x), '--', color=color) 
+        
+        for s,label, color in zip(sel, labels, colors):   
+            plotit(s, label, color)
+      
+        leg=ax.legend(loc='lower center',
+            title='      {:10} {:5} {:5}'.format('selection', 'mean', 'SD'),
+                prop=dict(size=10, family='monospace'))
+        ltit = leg.get_title()
+        ltit.set_fontsize(10); ltit.set_family('monospace')
+        ax.set(ylim=(0.8,None), xlim=(-5,5))
+        ax.set(xlabel='Normalized Residual')
+        if not pub:
+            ax.set_title('Normalized residuals for {}'.format(self.label));
+            ax.grid(alpha=0.5)
         fig.set_facecolor('w')
         return fig
-    
+
     def zea_plots(self,center=(0,0),size=90, size2=20):
         import matplotlib.colors as colors
         fig, axx = plt.subplots(3,1, figsize=(18,12), sharex=True)
@@ -347,6 +390,18 @@ class ResidualMaps(analysis_base.AnalysisBase):
         """Residual histogram
         """
         return self.ba0.residual_hist();
+
+    def residual_map_and_hist(self, pub=False):
+        """Residual map and corresponding histogram
+
+        For 131 MeV band.
+        """
+        fig,ax=plt.subplots(figsize=(16,8),gridspec_kw=dict(left=0, right=0.7))
+        self.ba0.ait_pulls_plot(ax=ax, pub=pub);
+        ax2=fig.add_axes([0.7,0.25, 0.3,0.5],label='hist')
+        self.ba0.residual_hist( pub=pub, ax=ax2);
+        return fig
+
 
     def residual_df(self, roi, i=0):
         """return a DF with the residuals for the given ROI number and energy band
