@@ -4,7 +4,7 @@ Duplicates the functionality of the C++ class BinnedPhotonData
 Implements the new standard data format
 http://gamma-astro-data-formats.readthedocs.io/en/latest/skymaps/healpix/index.html#hpx-bands-table
 """
-import os, glob, StringIO
+import os, glob, StringIO, pickle
 import healpy
 from collections import Counter 
 import numpy as np
@@ -343,7 +343,7 @@ class BinFile(object):
 
         return df
 
-    def writeto(self, filename, clobber=True):
+    def writeto(self, filename, overwrite=True):
         """write to a file
 
         """
@@ -351,7 +351,7 @@ class BinFile(object):
         bands_hdu=self.bands.make_hdu() 
         pixels_hdu = self.pixels.make_hdu()
         hdus=[self.hdus[0], pixels_hdu, bands_hdu, gti_hdu]
-        fits.HDUList(hdus).writeto(filename, clobber=clobber)
+        fits.HDUList(hdus).writeto(filename, overwrite=overwrite)
         print 'wrote file {}'.format(filename)
 
     def photonCount(self):
@@ -387,7 +387,7 @@ class BinFile(object):
         roi_pix[pd.isnull(roi_pix.value)]=0
         return roi_circle(roi_number, galactic=False), nside, roi_pix
 
-    def write_roi_fits(self, filename, roi_number, channel, radius=5, clobber=True):
+    def write_roi_fits(self, filename, roi_number, channel, radius=5, overwrite=True):
         """Write a gtlike-format FITS file with the subset of pixels, for a single channel
         """ 
         circle, nside, pixels = self.roi_subset(roi_number, channel, radius); 
@@ -432,7 +432,7 @@ class BinFile(object):
         ebounds_hdu = fits.BinTableHDU.from_columns(ebounds_cols, name='EBOUNDS')
 
         hdus=[primary, skymap_hdu, ebounds_hdu, self.gti.make_hdu()]
-        fits.HDUList(hdus).writeto(filename, clobber=clobber)
+        fits.HDUList(hdus).writeto(filename, overwrite=overwrite)
         print 'Wrote file {}'.format(filename)
     
     def make_map(self, channel, nside=64):
@@ -504,7 +504,8 @@ class ConvertFT1(object):
         """
         """
         keyword_options.process(self, kwargs)
-        self.ft1_hdus=ft1 = fits.open(ft1_file);
+        self.ft1_hdus=ft1 = fits.open(ft1_file)
+        self.tstart = ft1[0].header['TSTART']
 
         # extract arrays for values of interest
         data =ft1['EVENTS'].data
@@ -532,15 +533,25 @@ class ConvertFT1(object):
     def cuthist(self):
         import matplotlib.pyplot  as plt
         # plot effect of cuts on theta and zenith angle
+        ecut = self.energy>100.
+        cos = lambda t: np.cos(np.radians(t))
         fig, axx = plt.subplots(1,2, figsize=(10,4))
         ax = axx[0]
-        ax.hist(self.theta, np.linspace(0,90,91));
-        ax.axvline(self.theta_cut, color='red');
-        ax.set(xlabel='theta')
+        ct = cos(self.theta)
+        ax.hist(ct, np.linspace(0,1,51), histtype='step', lw=2)
+        ax.hist(ct[ecut], np.linspace(0,1,51), histtype='step', lw=2, label='E>100 MeV')
+        ax.axvline(cos(self.theta_cut), color='red', ls=':',
+             label='{:.1f} deg'.format(self.theta_cut))
+        ax.set(xlabel='cos(theta)',xlim=(1,0.2))
+        ax.legend(pos='upper right')
         ax = axx[1]
-        ax.hist(self.z, np.linspace(0,120,61));
-        ax.axvline(self.z_cut, color='red');
-        ax.set(xlabel='zenith angle')
+        cz = cos(self.z)
+        ax.hist(cz, np.linspace(-1,1,51), histtype='step', lw=2);
+        ax.hist(cz[ecut], np.linspace(-1,1,51), histtype='step', lw=2,label='E>100 MeV');
+        ax.axvline(cos(self.z_cut), color='red', ls='--',
+            label='{:.0f} deg'.format(self.z_cut))
+        ax.set(xlabel='cos(zenith angle)', xlim=(1,-0.5))
+        ax.legend(pos='upper right')
 
     def binner(self, quiet=True):
         # digitize energy: 0 is first bin above 100 MeV, -1 the underflow.
@@ -564,7 +575,7 @@ class ConvertFT1(object):
             if not quiet:
                 print '{:8} {:8}'.format(sum(sel), len(a))
 
-    def create_fits(self, outfile='test.fits', clobber=True):
+    def create_fits(self, outfile='test.fits', overwrite=True):
         elow, ehigh = self.ebins[:-1], self.ebins[1:]
         e_min = np.array([elow[i] for i in self.df.ie])
         e_max = np.array([ehigh[i] for i in self.df.ie])
@@ -593,5 +604,75 @@ class ConvertFT1(object):
                     )
         # add the GTI from the FT1 file and write it out
         hdus = [self.ft1_hdus[0],  skymap_hdu, bands_hdu, self.ft1_hdus['GTI']]
-        fits.HDUList(hdus).writeto(outfile, clobber=clobber)
+        fits.HDUList(hdus).writeto(outfile, overwrite=overwrite)
 
+    def time_record(self, nside=1024):
+        """
+        For selected events above 100 MeV, Create lists of the times and healpix ids
+        (Reducing size from 20 to 9 bytes)
+        returns:
+            a recarray with dtype [('band', 'i1'), ('hpindex', '<i4'), ('time', '<f4')]
+            where
+                band:    energy band index*2 + 0,1 for Front/Back 
+                hpindex: HEALPIx index for the nside 
+                time:    the elapsed time in s from header value TSTART in the FT1 file
+        """
+        sel = (self.energy>100) & self.data_cut
+        glon_sel = self.glon[sel]
+        glat_sel = self.glat[sel]
+        self.hpindex = healpy.ang2pix(nside, glon_sel, glat_sel, nest=False, lonlat=True).astype(np.int32)
+        
+        self.times = self.ft1_hdus['EVENTS'].data['TIME']
+        ee = self.energy[sel]
+        self.band_index = (2*(np.digitize(ee, self.ebins, )-1) + self.et_mask[1][sel]).astype(np.int8)
+
+        return dict(
+            tstart=self.tstart,
+            ebins = self.ebins,
+            timerec=np.rec.fromarrays([
+                    self.band_index, 
+                    self.hpindex, 
+                    (self.times-self.tstart)[sel].astype(np.float32) ], 
+                names='band hpindex time'.split())
+        )
+
+
+class TimeInfo(object):
+    """Read in, process a file generated from ConvertFT1.time_record
+    """
+    
+    def __init__(self, filename):
+        d = pickle.load(open(filename)) 
+        self.tstart = d['tstart']
+        self.df = pd.DataFrame(d['timerec'])
+        
+    def select(self, l, b, radius=5, nside=1024):
+        """create DataFrame with times, band id, distance from center
+            
+        parameters:
+            l,b : position in Galactic 
+            radius : cone radius, deg
+            nside : for healpy
+
+        returns:
+            DataFrame with columns:
+                band : from input, energy and event type  
+                time : Mission Elapsed Time in s. (double)
+                delta : distance from input position (deg, float32)
+        """
+        df = self.df
+        cart = lambda l,b: healpy.dir2vec(l,b, lonlat=True) 
+        # use query_disc to get photons within given radius of position
+        center = cart(l,b)
+        ipix = healpy.query_disc(nside, cart(l,b), np.radians(radius), nest=False)
+        incone = np.isin(self.df.hpindex, ipix)
+
+        # times: convert to double, add to start
+        t = np.array(df.time[incone],float)+self.tstart
+
+        # convert position info to just distance from center             
+        ll,bb = healpy.pix2ang(nside, self.df.hpindex[incone],  nest=False, lonlat=True)
+        t2 = np.array(np.sqrt((1.-np.dot(center, cart(ll,bb)))*2), np.float32) 
+
+        return pd.DataFrame(np.rec.fromarrays(
+            [df.band[incone], t, np.degrees(t2)], names='band time delta'.split()))
