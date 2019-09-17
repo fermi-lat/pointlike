@@ -89,9 +89,9 @@ class DiffuseBase(object):
             sd = skymaps.SkyDir(glat,x, skymaps.SkyDir.GALACTIC)
             ax.loglog(ee, map(lambda e: e**2*self(sd,e), ee), 
                         label='b=%.0f'%x if label is None else label)
-            if hasattr(self, 'energies'):
-                et = self.energies
-                ax.loglog(et, map(lambda e: e**2*self(sd,e), et), '--')
+            # if hasattr(self, 'energies'):
+            #     et = self.energies
+            #     ax.loglog(et, map(lambda e: e**2*self(sd,e), et), '--')
         
         ax.grid(); 
         if len(glon)>1:
@@ -151,6 +151,21 @@ class Isotropic(DiffuseBase):
         a,i = self.energy_interpolation, self.energy_index
         return np.exp(    np.log(self.spectrum[i])   * (1-a) 
                         + np.log(self.spectrum[i+1]) * a     ) 
+
+    def plot_spectrum(self, ax=None,  erange=None, title=None, label=None):
+        from matplotlib import pylab as plt
+        ee = np.logspace(1.5,6,101) if erange is None else erange
+        if ax is None:
+            fig, ax = plt.subplots(1,1, figsize=(5,5))
+        else:
+            fig = ax.figure
+
+        ax.loglog(ee, map(lambda e: e**2*self(None,e), ee), 
+                    label= label)
+        ax.set( xlabel=r'$\mathrm{Energy\ [MeV]}$', ylabel=r'$\mathrm{E^2\ df/dE\ [Mev\ cm^{-2}\ s^{-1}\ sr^{-1}]}$')
+
+        ax.set_title('Isotropic diffuse' if title is None else title, size=12)
+        return fig
 
 
 class MapCube(DiffuseBase, skymaps.DiffuseFunction):

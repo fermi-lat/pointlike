@@ -2,18 +2,18 @@
 Diffuse fitting analysis
 
 """
-
 import os, glob, pickle, healpy
 import numpy as np
 import pylab as plt
 import pandas as pd
 from  matplotlib import (patches, )
-from skymaps import SkyDir 
+from skymaps import SkyDir, Band 
 from . import (roi_info,  analysis_base)
-from .. import ( diffuse,)
+from .. import ( diffuse, maps,)
 from ..pipeline import stream
 
 from uw.utilities import healpix_map
+hpm=healpix_map
 
 class DiffuseFits(roi_info.ROIinfo):
     """<b>Diffuse fit plots</b>
@@ -188,7 +188,7 @@ class CombinedGalIso(roi_info.ROIinfo):
         print '<br>isotropic spectral files: {}'.format(self.config.diffuse['isotrop']['filename'])
         self.logstream= self.stoplog()
 
-    def corr_scat(self,  title='galactic vs isotropic'):
+    def corr_scat(self, xlim=(0.5,1.5), ylim=(0.5,2.0), title='galactic vs isotropic'):
         """Correlation of galactic and isotropic fits
 
         """
@@ -196,13 +196,16 @@ class CombinedGalIso(roi_info.ROIinfo):
         nrows = cc.shape[1]/4
         fig,axx = plt.subplots(nrows,4, figsize=(14,3*nrows+1), sharex=True, sharey=True,
                             gridspec_kw=dict(wspace=0.1, hspace=0.15, left=0.07))
-        lolat = np.abs(self.df.glon)<5
+        lolat, label = np.abs(self.df.glon)<5 , '|b|<5'
         for i,ax in enumerate(axx.flatten()):
-            ax.plot(np.array(cc[:,i,0],float), np.array(cc[:,i,1],float),'.')
-            ax.plot(np.array(cc[:,i,0],float)[lolat], np.array(cc[:,i,1],float)[lolat],'.r', label='|b|<5')
+            ax.axhline(1.0, color='lightgrey')
+            ax.axvline(1.0, color='lightgrey')
+            x = cc[:,i,0].astype(float).clip(*xlim) 
+            y = cc[:,i,1].astype(float).clip(*ylim)
+            ax.plot(x ,       y,      '.')
+            ax.plot(x[lolat], y[lolat],'.r', label=label)
             ax.set_title('{:.0f}'.format(self.energy[i]),fontsize=12)
             ax.legend()
-            ax.set(xlim=(0.5, 1.5))
         fig.suptitle(title)
         fig.text(0.5, 0.025, 'galactic factor',ha='center' )
         fig.text(0.01, 0.5, 'isotropic factor', va='center', rotation=90)
@@ -259,13 +262,14 @@ class CombinedGalIso(roi_info.ROIinfo):
     def isotropic_fit_maps(self):
         """Isotropic fit maps
         """
-        return self.correction_plots( self.fit_array[:,:,1], title='isotropic factor', vmin=0, vmax=5);
+        return self.correction_plots( self.fit_array[:,:,1], title='isotropic factor',
+            cmap='YlOrRd', vmin=0, vmax=5);
 
     def isotropic_fit_hists(self):
         """Isotropic fit histograms
         """
         return self.correction_plots( self.fit_array[:,:,1], title='isotropic factor', hist=True, 
-            vmin=0.5, vmax=10.);
+            vmin=0.5, vmax=2.5);
     
     def count_difference(self, vmin=-4, vmax=4, cmap='jet'):
         """Count differences
@@ -289,6 +293,37 @@ class CombinedGalIso(roi_info.ROIinfo):
         return self.correction_plots( self.fit_array[:,:,3],cmap=plt.get_cmap('YlOrRd'), 
                 title='fit quality', cbtext='quality', vmin=0, vmax=1)
 
+    def adjustment_maps(self, sigma=1.5, vmin=0.95, vmax=1.05):
+        """Adjustment maps
+
+        Maps of the most recent fit, smoothed by 1.5 deg.
+        """
+
+        files = sorted(glob.glob('diffuse_fit_maps/*.pickle'))
+        assert len(files)>0, 'no files found'
+        if len(files)<1728:
+            msg= "found {} files, expected 1728".format(len(files))
+            print msg
+            raise Exception(msg)
+
+        nside=64
+        cube = np.zeros([12*nside**2,8])
+        index_table = healpix_map.make_index_table(12, nside)
+        for i12,file in enumerate(files):
+            indeces = index_table[i12]
+            cube[indeces,:] = pickle.load(open(file)).T
+        assert((cube==0).sum()==0), 'Fail to fill'
+        hpm.HParray('test', cube[:,0]).plot(cmap='coolwarm', vmin=0.8, vmax=1.2)
+        hpcube = [hpm.HParray('layer{}'.format(i), cube[:,i], sigma=1.5) for i in range(8)]
+        self.hpfits = hpm.HEALPixFITS(hpcube)
+        skymodel='uw9020'
+        hpm.multi_ait(self.hpfits, vmin=0.95, vmax=1.05, cmap='coolwarm', 
+            grid_color='white', cblabel='factor',
+            title='Smoothed {} galactic diffuse normalization factors'.format(skymodel));
+
+        return plt.gcf()
+
+
     def all_plots(self):
          self.runfigures([
             self.galactic_fit_maps,
@@ -298,6 +333,7 @@ class CombinedGalIso(roi_info.ROIinfo):
             self.corr_scat,
             self.count_difference,
             self.fit_quality,
+            self.adjustment_maps,
         ])
 
 def update_correction(self):
@@ -425,3 +461,80 @@ class Polyfit(object):
         for glon, glat, ax in zip(glons, glats, axx.flatten()):
             self.plot_fit( glon, glat, ax, axis_labels=False)
         fig.suptitle(title); 
+
+
+class DiffuseFitsAnalysis(object):
+    """Process diffuse analysis
+    """
+    def __init__(self, roi, roi_index, nside=64):
+        """
+        """
+        self.roi = roi
+        roi.setup_roi(roi_index) # Process object external for now
+        self.ri = roi_index
+        self.pdirs = map(Band(nside).dir, maps.make_index_table(12,nside)[roi_index])
+        print 'Processing ROI index {}'.format(roi_index)
+        # load diffuse fits for this model
+        files = sorted(glob.glob('diffuse_fit/*.pickle'))
+        assert len(files)>0, 'no files found'
+        if len(files)<1728:
+            msg= "found {} files, expected 1728".format(len(files))
+            print msg
+            raise Exception(msg)
+        # return as an array 1728x8x2, last being (gal,iso)
+        self.fa = (pd.read_pickle(files[roi_index]).values[:,:2]).astype(float)
+        print 'Loaded diffuse fits for this RoI'
+        
+    def select_band(self, index):
+        self.roi.select(index, event_type=None)
+        energies = self.roi.energies
+        assert len(energies)==1
+        self.energy=energies[0]
+        print 'Selected {:.0f} MeV'.format(self.energy)
+        
+        # get the counts in each pixel for gal,iso, and for [front] or [front,back] 
+        self.dflux = np.array([[map(resp, self.pdirs)\
+                                for resp in sb[:2]] for sb in self.roi.selected])
+        
+        m = self.dflux.mean(axis=2); s = self.dflux.std(axis=2)/m
+        #for a,b in zip(m,s): print '{:8.0f}, {:.3f}'.format(a,b)
+        
+    
+    def process_band(self, iband, verbose=False):
+
+        self.select_band(iband)
+
+        dflux= self.dflux.astype(float)
+        if verbose:
+            m = dflux.mean(axis=2); s = dflux.std(axis=2)/m
+            ids = 'Front Back'.split() if dflux.shape[0]==2 else ['Front']
+            print 'mean\n', pd.DataFrame(m, index=ids, columns='gal iso'.split())
+            print 'rms/mean\n',pd.DataFrame(s, index=ids, columns='gal iso'.split())
+
+        x=self.fa[iband,:] 
+        if verbose: print 'Fits\n', x
+
+        a64=Band(64).pixelArea()
+        f=(dflux*a64); 
+
+        # iso/gal ratio
+        r = f[:,1,:]/f[:,0,:]; 
+        if verbose: print 'ratio\n', r
+
+        # adjusted fits per (flux, pixel)
+        af = x[0] + r*(x[1]-1); 
+        if verbose: print 'adjusted fits\n',af
+
+        # isolate the galactic flux
+        f_gal = f[:,0]; 
+        if verbose: print 'galactic fit\n',f_gal
+
+        # weighted sum of the adjusted fits by the galactic flux
+        waf = (f_gal*af).sum(axis=0) / f_gal.sum(axis=0);  
+        if verbose: print 'weighted fit\n',self.waf
+        return waf
+        
+    def process_bands(self, ibands=range(8)):
+        return np.array([self.process_band(iband) for iband in ibands])
+
+                

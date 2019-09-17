@@ -10,7 +10,7 @@ import pandas as pd
 from scipy import optimize
 from skymaps import SkyDir, Band
 from uw.utilities import keyword_options
-from uw.like2 import (main, tools, sedfuns, maps, sources, localization, roimodel, seeds,)
+from uw.like2 import (main, tools, sedfuns, maps, sources, localization, roimodel, seeds, fit_diffuse,)
 
 
 
@@ -112,14 +112,14 @@ class Process(main.MultiROI):
             elif self.diffuse_key=='gal':
                 if not fit_galactic(self):return
             elif self.diffuse_key=='both':
-                fit_diffuse(self)
+                fit_diffuse.fitter(self)
                 return
             elif self.diffuse_key=='both_update':
-                fit_diffuse(self, update=True)
+                fit_diffuse.fitter(self, update=True)
                 # do not return: perform a fit, then update
             else:
                 raise Exception('Unexpected key: {}'.format(self.diffuse_key))
-             #fit_diffuse()
+
             
         if self.residual_flag:
             self.residuals()
@@ -596,90 +596,90 @@ def fit_galactic(roi, nbands=8, folder=None, upper_limit=5.0):
         return False
     return True
     
-def fit_diffuse(roi, nbands=8, select=[0,1], folder='diffuse_fit', corr_min=-0.95, update=False):
-    """
-    Perform independent fits to the gal, iso for each of the first nbands bands.
-    If such a fit fails, or the correlation coeficient less than corr_min, fit only the isotropic.
-    select: None or list of variables
-    update: if True, modify the correction coefficients
-    """
-    from uw.like2 import diffuse
-    # thaw gal and iso
-    roi.thaw('Norm', 'ring')
-    roi.thaw('Scale', 'isotrop')
-    roi.get_model('isotrop').bounds[0]=[np.log10(0.5), np.log10(10.0)] # set limits 
-    roi.reinitialize()
+# def fit_diffuse(roi, nbands=8, select=[0,1], folder='diffuse_fit', corr_min=-0.95, update=False):
+#     """
+#     Perform independent fits to the gal, iso for each of the first nbands bands.
+#     If such a fit fails, or the correlation coeficient less than corr_min, fit only the isotropic.
+#     select: None or list of variables
+#     update: if True, modify the correction coefficients
+#     """
+#     from uw.like2 import diffuse
+#     # thaw gal and iso
+#     roi.thaw('Norm', 'ring')
+#     roi.thaw('Scale', 'isotrop')
+#     roi.get_model('isotrop').bounds[0]=[np.log10(0.5), np.log10(10.0)] # set limits 
+#     roi.reinitialize()
     
-    # do the fitting
-    dpars=[]
-    energies = []
-    covs=[]
-    quals = []
-    def corr(cov): # correlation coeficiant
-        return cov[0,1]/np.sqrt(cov[0,0]*cov[1,1])
-    for ie in range(nbands):
-        roi.select(ie); 
-        energy =int(roi.energies[0]) 
-        print '----- E={} -----'.format(energy)
-        roi.fit(select, setpars={0:0, 1:0}, ignore_exception=True)
-        cov = roi.fit_info['covariance']
-        if cov is None or cov[0,0]<0 or corr(cov)<corr_min:
-            #fail, probably since too correlated, or large correlation. So fit only iso
-            roi.fit([1], setpars={0:0, 1:0}, ignore_exception=True)
-            cov=np.array([ [0, roi.fit_info['covariance'][0]] , [0,0] ])
-        energies.append(energy)
-        dpars.append( roi.sources.parameters.get_parameters()[:2])
-        covs.append(cov)
-        quals.append(roi.fit_info['qual'])
-    roi.freeze('Norm', 'ring', 1.0)
-    roi.freeze('Scale', 'isotrop', 1.0)
-    roi.select() # restore
+#     # do the fitting
+#     dpars=[]
+#     energies = []
+#     covs=[]
+#     quals = []
+#     def corr(cov): # correlation coeficiant
+#         return cov[0,1]/np.sqrt(cov[0,0]*cov[1,1])
+#     for ie in range(nbands):
+#         roi.select(ie); 
+#         energy =int(roi.energies[0]) 
+#         print '----- E={} -----'.format(energy)
+#         roi.fit(select, setpars={0:0, 1:0}, ignore_exception=True)
+#         cov = roi.fit_info['covariance']
+#         if cov is None or cov[0,0]<0 or corr(cov)<corr_min:
+#             #fail, probably since too correlated, or large correlation. So fit only iso
+#             roi.fit([1], setpars={0:0, 1:0}, ignore_exception=True)
+#             cov=np.array([ [0, roi.fit_info['covariance'][0]] , [0,0] ])
+#         energies.append(energy)
+#         dpars.append( roi.sources.parameters.get_parameters()[:2])
+#         covs.append(cov)
+#         quals.append(roi.fit_info['qual'])
+#     roi.freeze('Norm', 'ring', 1.0)
+#     roi.freeze('Scale', 'isotrop', 1.0)
+#     roi.select() # restore
 
-    # set to external pars
-    df = pd.DataFrame(np.power(10,np.array(dpars)), columns='gal iso'.split())
-    df['cov'] = covs
-    df['qual'] = quals
-    df.index=energies
+#     # set to external pars
+#     df = pd.DataFrame(np.power(10,np.array(dpars)), columns='gal iso'.split())
+#     df['cov'] = covs
+#     df['qual'] = quals
+#     df.index=energies
 
-    if folder is not None:
-        # simply save results
-        if not os.path.exists(folder):
-            os.mkdir(folder)
-        filename= '{}/{}.pickle'.format(folder, roi.name)
-        pickle.dump(df, open(filename, 'w'))
-        print 'wrote file {}'.format(filename)
+#     if folder is not None:
+#         # simply save results
+#         if not os.path.exists(folder):
+#             os.mkdir(folder)
+#         filename= '{}/{}.pickle'.format(folder, roi.name)
+#         pickle.dump(df, open(filename, 'w'))
+#         print 'wrote file {}'.format(filename)
     
-    if update:
-        # update correction factors, reload all response objects
-        dn=diffuse.normalization
-        dn['gal'] *= df.gal.values
-        dn['iso']['front'] *= df.iso.values
-        dn['iso']['back'] *= df.iso.values
+#     if update:
+#         # update correction factors, reload all response objects
+#         dn=diffuse.normalization
+#         dn['gal'] *= df.gal.values
+#         dn['iso']['front'] *= df.iso.values
+#         dn['iso']['back'] *= df.iso.values
 
-        # now reload
-        for band in roi:
-            for res in band[:2]:
-                assert res.source.isglobal
-                res.setup=False
-                res.initialize()
-        print 'Updated coefficients'
+#         # now reload
+#         for band in roi:
+#             for res in band[:2]:
+#                 assert res.source.isglobal
+#                 res.setup=False
+#                 res.initialize()
+#         print 'Updated coefficients'
 
 
 
-    # for interactive: convert covariance matrix to sigmas, correlation
-    gsig=[]; isig=[]; corr=[]
-    for i in range(len(df)):
-        c = df.iloc[i]['cov']
-        diag = np.sqrt(c.diagonal())
-        gsig.append(diag[0])
-        isig.append(diag[1])
-        corr.append(c[0,1]/(diag[0]*diag[1]))
-    df['gsig']=gsig
-    df['isig']=isig
-    df['corr']=corr
-    del df['cov']
+#     # for interactive: convert covariance matrix to sigmas, correlation
+#     gsig=[]; isig=[]; corr=[]
+#     for i in range(len(df)):
+#         c = df.iloc[i]['cov']
+#         diag = np.sqrt(c.diagonal())
+#         gsig.append(diag[0])
+#         isig.append(diag[1])
+#         corr.append(c[0,1]/(diag[0]*diag[1]))
+#     df['gsig']=gsig
+#     df['isig']=isig
+#     df['corr']=corr
+#     del df['cov']
 
-    return df
+#     return df
     
 def write_pickle(roi):
     pickle_dir = os.path.join(roi.outdir, 'pickle')

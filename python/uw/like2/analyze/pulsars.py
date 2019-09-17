@@ -297,6 +297,28 @@ class Pulsars(sourceinfo.SourceInfo):
             self.bigfile_hi_table= self.bigfile_lo_table=''
         return ptx if test else None    
 
+    def curvature(self, setup=False, cmax=1.0):
+        """Curvature
+        
+        Distribution of the curvature per source, equivalent to the beta parameter for a LogParabola spectral model.
+        """
+        if setup:
+            #expect to be called initially
+            self.df['curvature']= np.array([model.curvature() for model in self.df.model])
+            return
+        assert 'curvature' in self.df, 'Curvature not calculated'
+        df = self.df
+        psr = np.asarray([n.startswith('PSR') for n in df.index], bool)
+        fig,ax = plt.subplots(figsize=(8,6))
+        hkw = dict(bins=np.linspace(0,cmax,41), log=True, histtype='step', lw=2)
+        ax.hist(df.curvature.clip(0,cmax), label='all sources', **hkw)
+        ax.hist(df[df.psr].curvature.clip(0,cmax), label='EC model', **hkw)
+        ax.hist(df[psr].curvature.clip(0,cmax), label='PSR souce', **hkw)
+        plt.setp(ax, xlabel='Curvature', ylim=(0.5,None))
+        ax.legend()
+        ax.grid()
+        return fig
+
     def all_plots(self):
         self.runfigures([
             self.LATpulsars,

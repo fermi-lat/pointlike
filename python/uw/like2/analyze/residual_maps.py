@@ -11,7 +11,8 @@ import pandas as pd
 from . import analysis_base
 from . analysis_base import FloatFormat
 from uw.utilities import healpix_map
-from uw.like2 import tools, configuration
+hpm = healpix_map
+from uw.like2 import (diffuse, tools, configuration,)
 from skymaps import Band
 
 class BandAnalysis(object):
@@ -126,10 +127,10 @@ class BandAnalysis(object):
         plt.setp(ax,xlabel='glat',ylim=ylim, ylabel='<offset>', title=self.label);
         ax.figure.set_facecolor('white')
 
-    def ait_pulls_plot(self, ax=None, pub=False):
+    def ait_pulls_plot(self, ax=None, vlim=5, pub=False):
 
         fig,ax=plt.subplots(figsize=(16,8)) if ax is None else (ax.figure, ax)
-        t=self.pulls.plot(axes=ax, vmin=-5, vmax=5, cmap=plt.get_cmap('coolwarm'), ait_kw={},
+        t=self.pulls.plot(axes=ax, vmin=-vlim, vmax=vlim, cmap=plt.get_cmap('coolwarm'), ait_kw={},
             title='{} normalized residuals'.format(self.label) if not pub else '')
         
         t.grid(color='white');
@@ -202,7 +203,7 @@ class BandAnalysis(object):
         ax.set(ylim=(0.8,None), xlim=(-5,5))
         ax.set(xlabel='Normalized Residual')
         if not pub:
-            ax.set_title('Normalized residuals for {}'.format(self.label));
+            ax.set_title(' {}'.format(self.label));
             ax.grid(alpha=0.5)
         fig.set_facecolor('w')
         return fig
@@ -608,3 +609,35 @@ class GalacticCorrectionMaps(object):
         plt.setp(axx[-1], xlabel='glat', ylabel='correction factor');
         fig.suptitle('Galactic correction factors for ROIs with |glon|<{}'.format(glon_cut));
         return fig
+
+# create new diffuse map modified by 
+
+
+def apply_patch(inpat, patchfile, outpat):
+
+    def modify_by_patch(self, patch, newfile=None):
+        modlayer=[]
+        for i,layer in enumerate((self)):
+            name = layer.name
+            a = layer.vec
+            if i < len(patch):
+                p = patch[i]
+            else:
+                p = patch[-1]
+            b = p.vec
+            print layer.name, ',',
+            modlayer.append(hpm.HParray(layer.name, hpm.multiply(a,b)))
+        print
+        outmap=hpm.HEALPixFITS(modlayer, energies=self.energies)
+        if newfile is not None: 
+            if newfile[0]!='/':
+                newfile = os.path.expandvars('$FERMI/diffuse/')+newfile
+            outmap.write(newfile)
+        return outmap
+
+    print 'Applying {} to {}'.format(patchfile, inpat)
+    patch = diffuse.HealpixCube(patchfile); patch.load()
+    for iet in 'front back'.split():
+        print iet, ':',
+        df = diffuse.HealpixCube(inpat.replace('*', iet)); df.load()
+        modify_by_patch(df, patch, outpat.replace('*', iet))  

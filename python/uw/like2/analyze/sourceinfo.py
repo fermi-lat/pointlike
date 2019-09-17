@@ -653,9 +653,9 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
     def sed_info(self, iband=0):
         pass
 
-    def spectral_fit_consistency_plots(self, energy=133., minflux=1.0, 
+    def spectral_fit_consistency_plots(self, energy=133., minflux=1.0, ldatacut=True,
             title = 'low energy fit consistency',
-            n_plots=2, pub=False
+            n_plots=2, pub=False, query=None,
         ):
         """ Spectral fit consistency for the lowest energy bin
         
@@ -672,7 +672,12 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             print '+++Warning: %d TS>10 sources without sed info' % sum(nosed)
             print self.df[~hassed]['ts roiname'.split()][:min(20, sum(nosed))]
         cut= (self.df.ts>10) & hassed
-        s = self.df[cut].copy()
+        if query is None:
+            s = self.df[cut].copy()
+        else:
+            s=self.df.query(query)
+            print 'Additional cut, {}, results in {} events'.format(query, len(s))
+
         print 'selected {} sources with TS>10 and with SED info'.format(len(s))
         
         sedrec= [s.iloc[i]['sedrec'] for i in range(len(s))]
@@ -683,13 +688,15 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         pull = np.array([sr.pull[0] for sr in sedrec])
         fmodel = np.array([s.iloc[i]['model'](energy)*energy**2*1e6 for i in range(len(s))])
         glat = np.array([x.b() for x in s.skydir])
-        fluxcut = (fmodel>minflux) & (ldata>0) # last cut is to avoid lower limits
+        fluxcut = (fmodel>minflux) 
+        if ldatacut: fluxcut = fluxcut & (ldata>0) #  avoid lower limits
+        print 'after cuts on low energy flux > {:.1f} and significance= {}: {} events'.format(
+                 minflux, ldatacut,sum(fluxcut))
+
         if pub:
-            latcut  = abs(glat)> 10.0
-            cut_labels= '|b|>10', '|b|<10'
+            latcut, cut_labels = abs(glat)> 10.0 ,('|b|>10', '|b|<10')
         else:
-            latcut  = abs(glat)> 5.0
-            cut_labels= '|b|>5', '|b|<5'
+            latcut, cut_labels = abs(glat)> 5.0,  ('|b|>5', '|b|<5')
 
         hilat = fluxcut & (latcut)
         lolat = fluxcut & (~latcut)
@@ -725,28 +732,29 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             hist_kw=dict(bins=np.linspace(-3,3,25), lw=2, histtype='step')
             q=pull.clip(-3,3) 
             assert len(q)== len(hilat)#, len(lolat)
+            ax.axvline(0, color='grey', ls='--')
             for name,color, cut in [(cut_labels[0],'g', hilat), (cut_labels[1],'r', lolat)]:
                 vals = q[cut]
-                ax.hist(vals, color=color,  label='{:5}{:4d}{:4.1f}{:4.1f}'.format(
+                ax.hist(vals, color=color,  label='{:5}{:5d}{:4.1f}{:4.1f}'.format(
                             name, len(vals), 
                             np.sqrt((vals[vals<0]**2).mean()), np.sqrt((vals[vals>0]**2).mean())), 
                         **hist_kw)
                 print name, vals.std(), np.sqrt((vals[vals<0]**2).mean()), np.sqrt((vals[vals>0]**2).mean())
             ax.set_xlabel('normalized residual')
-            ax.axvline(0, color='grey', ls='--')
+
             ax.set_xlim((-3,3))
             
             leg=ax.legend(loc='upper left', prop=dict(size=10, family='monospace'),
                         #title='     type   #   RMS\n'
-                        title='  selection #   RMS\n'
-                              '               <0 >0',
+                        title='  selection #    RMS\n'
+                              '                <0 >0',
                             )
             ltit = leg.get_title(); ltit.set_fontsize(10); ltit.set_family('monospace')
             if not pub: 
                 ax.grid(alpha=0.5)
                 ax.set_title( title, fontsize='medium')  
-            else:
-                ax.set(ylim=(0,150))
+            # else:
+            #     ax.set(ylim=(0,150))
 
 
         def skyplot(ax):
@@ -766,7 +774,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             for f, ax in zip( (hist, skyplot), ax.flatten()):
                 f(ax=ax)
         else:
-            fig,ax = plt.subplots(1,1, figsize=(6,4))
+            fig,ax = plt.subplots(1,1, figsize=(7,4))
             hist(ax)
 
         return fig
