@@ -122,8 +122,7 @@ class BandLike(object):
                 print 'Source {} is inactive, but free'.format(m.source.name) 
                 continue # should be no inactive free sources?
             self.model_pixels += m.pix_counts
-
-        
+       
     def update(self, reset=False, force=False, **kwargs):
         """ assume that parameters have changed. Update only contributions 
         from models with free parameters, with changed tag. 
@@ -149,7 +148,6 @@ class BandLike(object):
         if self.band.has_pixels: 
             self.weights = self.data / self.model_pixels
  
-
     def log_like(self):
         """ return the Poisson extended log likelihood """
         try:
@@ -202,8 +200,7 @@ class BandLike(object):
                 self.bandsources = np.array(t)
                 return
         raise Exception('source "%s" not found to delete' % source.name)
-    
-    
+       
     def fill_grid(self, sdirs):
         """ fill a grid with values, which are counts/sr, so must be multiplied by the pixel size
         """

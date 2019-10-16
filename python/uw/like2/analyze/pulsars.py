@@ -10,7 +10,8 @@ import matplotlib.ticker as ticker
 import pandas as pd
 from astropy.io import fits 
 from skymaps import SkyDir, Band
-from . import (sourceinfo, associations, _html)
+from . import (sourceinfo, associations, _html, fermi_catalog)
+from .. import tools
 from analysis_base import html_table, FloatFormat
 
 from astropy.table import Table
@@ -66,6 +67,53 @@ class Pulsars(sourceinfo.SourceInfo):
 
         load_assoc(self.df)
 
+    def check4FGL(self, pattern=None):
+        
+            # add 4FGL info to dataframe of pointlike soruies
+            df=self.df
+            cindex = [n.replace(' ','') for n in self.df.index]
+            systematic = self.config['localization_systematics']
+            f95, quad = 2.45*systematic[0], systematic[1]/60. 
+            self.df['r95'] = (f95**2*(self.df.a * self.df.b) + quad**2)** 0.5
+            
+            # get the catalog "gll" entries as a DataFrame and set corresponding values
+            if pattern is None:
+                pattern=self.config['gllcat']
+            if not pattern.startswith('/'):
+                pattern = '$FERMI/catalog/'+pattern
+            filename = sorted(glob.glob(os.path.expandvars(pattern)))[-1]
+            fcat = fermi_catalog.GLL_PSC2(filename)
+            self.fhl_file = fcat.filename.split('/')[-1]
+            self.gdf = gdf=  fcat.df
+            gdf['uw_ts']    = self.df.ts
+            gdf['uw_r95']   = self.df.r95
+            gdf['uw_pindex']= self.df.pindex
+            gdf['uw_eflux100']=self.df.eflux100
+
+            # add boolean for in FL8Y 
+            self.df['fl8y'] = np.isin(cindex, gdf.index )
+            print '{} of {} have nicknames in pointlike list'.format(sum(df.fl8y), len(gdf))
+
+            # for sources not already tagged via the pointlike name being the same as the gtlike nickname
+            # look for nearest 4FGL source: add name, its distance to DataFrame
+            ok  = df.fl8y==True
+            added = np.logical_not(ok)
+
+            df.loc[df.index[ok],'otherid']= df[ok].name
+            df.loc[df.index[ok], 'distance']=0
+
+            # look for nearest 4FGL source in rejected list: add name, distance to DataFrame
+            print 'Searching 4FGL for nearest source to the {} not found in it...'.format(sum(added)),
+            close = tools.find_close(df[added], self.gdf)
+
+            df.loc[df.index[~ok],'otherid'] = close.otherid
+            df.loc[df.index[~ok], 'distance'] = close.distance
+            df['b4fgl'] = df.distance<0.015
+
+            df['otherts'] = [self.gdf.loc[s.otherid.replace(' ','')].ts for name,s in df.iterrows() ]
+            df['other_extended'] = [self.gdf.loc[s.otherid.replace(' ','')].extended for name,s in df.iterrows() ]
+
+            print 'done.'
     
     def LATpulsars(self):
         """ LAT pulsar information
@@ -319,12 +367,66 @@ class Pulsars(sourceinfo.SourceInfo):
         ax.grid()
         return fig
 
+    def new_candidates(self):
+        """Potential pulsar candidates
+        Make a list of sources with the selections
+        <ul>
+            <li>not associated
+            <li>not in 4FGL or withinn 0.5 deg of one 
+            <li>nearest 4FGL source is extended or has TS>1000
+            <ii>
+        </ul>
+        The plots are of this list, showing
+        effect of curvature selection.
+        
+        <h4>%(candidate_table)s</h4>
+        <br>A csv file of the above is <a href="../../%(pulsar_candidate_filename)s?download=true">here</a>
+        """
+        # add info about 4FGL
+        self.check4FGL(pattern=None)
+
+        df=self.df
+
+        # select subset not in 4FGL and not associated and not close to a 4FGL source and that the closest is very strong
+        dfx = df.query('fl8y==False & aprob<0.8 & locqual<8 & distance>0.5 & other_extended==False & otherts<1000')
+        # values to display
+        ts = dfx.ts.astype(float).clip(0,1000)
+        singlat = np.sin(np.radians(dfx.glat.astype(float)))
+        curvature= dfx.curvature.astype(float).clip(0,1)
+        #curvature selection
+        cut = np.logical_and(curvature<0.75, curvature>0.15)
+
+        label_info = dict()
+        dfcut = dfx[cut]['ra dec ts glat pindex curvature locqual distance otherid otherts'.split()].sort_values(by='ts', ascending=False)
+        self.candidate_table = html_table(dfcut, label_info,
+            heading = '<b>Table of {} pointlike sources not in 4FGL, not assocated and with curvature selection</b>'.format(len(dfcut)),
+            name=self.plotfolder+'/candidates', maxlines=20,
+            float_format=(FloatFormat(2)))
+        self.pulsar_candidate_filename=self.plotfolder+'/pulsar_candidates.csv'
+        dfcut.to_csv(self.pulsar_candidate_filename)
+
+        self.df_pulsar_candidates = dfcut #for interactive
+
+        fig, (ax1,ax2, ax3) = plt.subplots(1,3, figsize=(12,5))
+        hkw = dict(histtype='step', lw=2)
+        def doit(ax, x, bins, xlabel, xlog=False):
+            ax.hist(x, bins, **hkw)    
+            ax.hist(x[cut], bins, label='curvature cut', **hkw)
+            ax.set(xlabel=xlabel, xscale='log' if xlog else 'linear')
+
+        doit(ax2, ts, np.logspace(1,3,51), 'TS', xlog=True)
+        doit(ax3, singlat, np.linspace(-1,1,41), 'sin(b)')
+        doit(ax1, curvature, np.linspace(0,1,21), 'curvature')
+        return fig
+
+
     def all_plots(self):
         self.runfigures([
             self.LATpulsars,
             self.spectra,
             self.pulsar_check,
             self.bigfile_associations,
+            self.new_candidates,
         ])
 
 #=================================================================================================
