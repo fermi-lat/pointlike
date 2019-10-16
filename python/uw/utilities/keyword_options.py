@@ -39,7 +39,7 @@ def decorate(defaults):
         s= hbar+ indent+'keyword arguments'+ hbar
         for item in defaults:
             if type(item)==types.StringType:
-                s+= '\n%s%s   %s'% (indent,9*'=',item.upper())
+                s+= '\n%s%s    %s'% (indent,10*'=',item.upper())
                 continue
             if len(item)==3:
                 key, value, description = item 
@@ -47,11 +47,11 @@ def decorate(defaults):
                 (key, value), description = item, ''
             if type(value)==types.StringType:
                 value = "'" + value + "'"
-            s += indent+'%-12s' % key
-            if len(key)>=12: s += indent + 12*' '
+            s += indent+'%-15s' % key
+            if len(key)>=15: s += indent + 15*' '
             s += '%-10s' % str(value)
-            if len(str(value))>10: s += indent + 23*' '
-            s += ' '+ (indent+23*' ').join(description.split('\n'))
+            if len(str(value))>10: s += indent + 25*' '
+            s += ' '+ (indent+25*' ').join(description.split('\n'))
         if func.__doc__ is None: func.__doc__ = ''
         func.__doc__ += s+hbar
         return func
@@ -111,3 +111,27 @@ def get_row(defaults, key):
     for i,default in enumerate(defaults):
         if default[0] == key: return default
     raise Exception("key %s not found in defaults" % key)
+
+def current_parameter_table(self, indent = '\n', hbar=60*'='):
+    """
+    Return printable table for the current values of the default parameters
+    self : a class instance with a default data member
+    """
+    s= hbar+ indent+self.__class__.__name__+'  parameters'+ indent+hbar
+    for item in self.defaults:
+        if type(item)==types.StringType:
+            s+= '\n%s%s    %s'% (indent,10*'=',item.upper())
+            continue
+        if len(item)==3:
+            key, value, description = item 
+        else:
+            (key, value), description = item, ''
+        value = self.__dict__[key]  # could indicate changed?
+        if type(value)==types.StringType:
+            value = "'" + value + "'"
+        s += indent+'%-15s' % key
+        if len(key)>=15: s += indent + 15*' '
+        s += '%-10s' % str(value)
+        if len(str(value))>10: s += indent + 25*' '
+        s += ' '+ (indent+25*' ').join(description.split('\n'))
+    return s
