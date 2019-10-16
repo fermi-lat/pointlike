@@ -636,3 +636,84 @@ class ConvertFT1(object):
                 names='band hpindex time'.split())
         )
 
+def run_binner(monthly_ft1_files='/afs/slac/g/glast/groups/catalog/P8_P305/zmax105/*.fits',
+        outfolder='$FERMI/data/P8_P305/monthly',
+        overwrite=False):
+
+    files=sorted(glob.glob(monthly_ft1_files))
+    assert len(files)>0, 'No ft1 files found at {}'.format(monthly_ft1_files)
+    gbtotal = np.array([os.stat(filename).st_size for filename in files]).sum()/2**30
+    print '{} FT1 files found, {} GB total'.format(len(files), gbtotal)
+    
+    outfolder = os.path.expandvars(outfolder)
+    if not os.path.exists(outfolder):
+        os.makedirs(outfolder)
+    os.chdir(outfolder) 
+
+    for ft1_file in files:
+        outfile = ft1_file.split('/')[-1].replace('_zmax105.fits', '_zmax100_4bpd.fits')
+        if not overwrite and os.path.exists(outfile):
+            print 'File {} exists'.format(outfile)
+            continue
+
+        bdt = ConvertFT1(ft1_file)
+        bdt.binner()
+        bdt.create_fits(outfile)
+        print '\twrote {}'.format(outfile)
+
+def combine_monthly(
+        infolder='$FERMI/data/P8_P305/monthly',
+        outfolder='$FERMI/data/P8_P305/yearly',
+        overwrite=False, test=False):
+    infolder = os.path.expandvars(infolder)
+    months = sorted(glob.glob(os.path.join(infolder, '*.fits'))) 
+    assert len(months)>0, 'No files found at {}'.format(infolder)
+    gbtotal = np.array([os.stat(filename).st_size for filename in months]).sum()/float(2**30)
+    print '{} monthly binned files found, {:.1f} GB total'.format(len(months), gbtotal)
+    
+    outfolder=os.path.expandvars(outfolder)
+    if not os.path.exists(outfolder):
+        os.makedirs(outfolder)
+        print 'created {}'.format(outfolder)
+    os.chdir(outfolder) 
+    
+    for year in range((len(months)+1)/12):
+        t = BinFile(months[12*year])
+        outfile = 'P305_Source_year{:02d}_zmax100_4bpd.fits'.format(year+1)
+        if not overwrite and os.path.exists(outfile):
+            print 'File {} exists'.format(outfile)
+            continue
+        for m in months[12*year+1:12*year+12]:
+            t.add(BinFile(m))
+        if not test:
+            t.writeto(outfile)
+        else:
+            print 'Testmode, not writing {}'.format(outfile)
+
+def combine_yearly(
+        infolder='$FERMI/data/P8_P305/yearly',
+        outfolder='$FERMI/data/P8_P305',
+        outfilename='{}years_zmax100_4bpd_v2.fits',
+        nyears=10,
+        overwrite=False, 
+        test=False):
+    infolder = os.path.expandvars(infolder)
+    years = sorted(glob.glob(os.path.join(infolder, '*.fits'))) 
+    assert len(years)>0, 'No files found at {}'.format(infolder)
+    gbtotal = np.array([os.stat(filename).st_size for filename in years]).sum()/float(2**30)
+    print '{} Yearly binned files found, {:.1f} GB total'.format(len(years), gbtotal)
+    
+    outfolder=os.path.expandvars(outfolder)
+    os.chdir(outfolder) 
+    print 'loading {}'.format(os.path.split(years[0])[-1])
+    t = BinFile(years[0])
+    for year in years[1:nyears]:
+        print ' adding {}'.format(os.path.split(year)[-1])
+        t.add(BinFile(year))
+    outfile = outfilename.format(nyears)
+    if not test:
+        t.writeto(outfile)
+    else:
+        print 'Testmode, not writing to {}'.format(outfile)
+    return t
+
