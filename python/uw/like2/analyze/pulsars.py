@@ -272,10 +272,10 @@ class Pulsars(sourceinfo.SourceInfo):
     def bigfile_associations(self, test=False):
         """BigFile Associations
         Construct a list of non LAT pulsar point sources associated with the BigFile pulsar list (Version %(bigfile_version)s).
-        <br>Exclude sources with poor localization (quality>5). 
+        <br>Exclude sources with poor localization (quality>5) and BigFile pulsars in clusters. 
         <ul>
         <li>%(bigfile_hi_table)s </li>
-        
+ 
         <li>%(bigfile_lo_table)s </li>
         </ul>
         """
@@ -306,23 +306,34 @@ class Pulsars(sourceinfo.SourceInfo):
         psrx = np.array([x=='pulsar_big' for x in self.df.acat], bool) & not_psr & (self.df.locqual<5)
 
         print '%d sources associated with BigFile pulsar list' % sum(psrx)
-        pt = self.df[psrx]['aprob aname aang ts glat pivot_energy curvature locqual'.split()]
+        pt = self.df[psrx]['aprob aname aang ts glat glon pivot_energy curvature locqual'.split()]
         
         # look it up in BigFile, add other stuff
-        bf=BigFile()
+        self.bf = bf=BigFile()
         self.bigfile_version = bf.version
         anames = self.df[psrx].aname
         
-        pt['jname'] = [bf(n).PSRJ for n in anames]
+        pt['jname'] = jname = [bf(n).PSRJ for n in anames]
+        # test for the jname not ending in numeric character
+        not_incluster = [n[-1] in '0123456789' for n in pt.jname]
+        print '  Selected {} out of {} associations not in clusters'.format(sum(not_incluster), len(pt))
+        
+        def hmax(n):
+            t = bf(n)
+            return max(t.Hall32, t.Hall36, t.Hall40, t.Hval32, t.Hval36, t.Hval40)
+        pt['Hmax']  = [hmax(n) for n in anames]
         pt['history']= [bf(n).History[1:-1].replace("'","") for n in anames]
         pt['edot'] = ['%.2e'%bf(n).EDOT for n in anames]
+        pt['P0'] =   ['{:.3f}'.format(bf(n).P0) for n in anames]
         
         # make file table
-        ptx = pt['jname glat edot history ts aprob aang curvature pivot_energy locqual'.split()]
+        ptx = pt[not_incluster]['jname glat glon edot P0 history Hmax ts aprob aang curvature pivot_energy locqual'.split()]
         hilat = abs(pt.glat)>5
         if len(ptx)>0:
             colinfo=dict(name='Source Name,click for link to SED',
                     jname='Pulsar name,J version',
+                    edot='Edot, rate of energy change',
+                    Hmax='Hmax, max(Hall32, Hall36, Hall40, Hval32, Hval36, Hval40)',
                     pivot_energy='Pivot Energy,Energy of zero correlation between spectral index and normalization ',
                     history='History,BigFile history entry',
                     ts='TS,Test Statistic for the source', 
