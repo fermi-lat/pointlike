@@ -89,9 +89,9 @@ class DiffuseBase(object):
             sd = skymaps.SkyDir(glat,x, skymaps.SkyDir.GALACTIC)
             ax.loglog(ee, map(lambda e: e**2*self(sd,e), ee), 
                         label='b=%.0f'%x if label is None else label)
-            if hasattr(self, 'energies'):
-                et = self.energies
-                ax.loglog(et, map(lambda e: e**2*self(sd,e), et), '--')
+            # if hasattr(self, 'energies'):
+            #     et = self.energies
+            #     ax.loglog(et, map(lambda e: e**2*self(sd,e), et), '--')
         
         ax.grid(); 
         if len(glon)>1:
@@ -151,6 +151,21 @@ class Isotropic(DiffuseBase):
         a,i = self.energy_interpolation, self.energy_index
         return np.exp(    np.log(self.spectrum[i])   * (1-a) 
                         + np.log(self.spectrum[i+1]) * a     ) 
+
+    def plot_spectrum(self, ax=None,  erange=None, title=None, label=None):
+        from matplotlib import pylab as plt
+        ee = np.logspace(1.5,6,101) if erange is None else erange
+        if ax is None:
+            fig, ax = plt.subplots(1,1, figsize=(5,5))
+        else:
+            fig = ax.figure
+
+        ax.loglog(ee, map(lambda e: e**2*self(None,e), ee), 
+                    label= label)
+        ax.set( xlabel=r'$\mathrm{Energy\ [MeV]}$', ylabel=r'$\mathrm{E^2\ df/dE\ [Mev\ cm^{-2}\ s^{-1}\ sr^{-1}]}$')
+
+        ax.set_title('Isotropic diffuse' if title is None else title, size=12)
+        return fig
 
 
 class MapCube(DiffuseBase, skymaps.DiffuseFunction):
@@ -841,3 +856,42 @@ def create_corr_dict(diffuse_dict,  roi_index, event_type_names=('front','back')
         isoc = response.DiffuseCorrection(isof.replace('*',x));
         corr_dict['iso'][x]= isoc.roi_norm(roi_index)
     return corr_dict
+
+
+# create new diffuse map modified by 
+
+
+def apply_patch(inpat, patchfile, outpat, event_type_names=('front','back')):
+    """Apply a multiplicative patch to a set of event type diffuse cubes
+
+    inpat : string
+        File path pattern, with "*" wildcard, to input diffuse cubes
+    pathchfile : string
+        file name for patch cube
+    outpat : string
+        File path pattern, with "*" wildcard, to output diffuse cubes
+
+    """
+    def modify_by_patch(self, patch, newfile=None):
+        modlayer=[]
+        for i,layer in enumerate((self)):
+            name = layer.name
+            a = layer.vec
+            if i < len(patch):
+                p = patch[i]
+            else:
+                p = patch[-1]
+            b = p.vec
+            print layer.name, ',',
+            modlayer.append(healpix_map.HParray(layer.name, healpix_map.multiply(a,b)))
+        print
+        outmap=healpix_map.HEALPixFITS(modlayer, energies=self.energies)
+        if newfile is not None: outmap.write(newfile)
+        return outmap
+
+    print 'Applying {} to {}'.format(patchfile, inpat)
+    patch = HealpixCube(patchfile); patch.load()
+    for iet in event_type_names:
+        print iet, ':',
+        df = HealpixCube(inpat.replace('*', iet)); df.load()
+        modify_by_patch(df, patch, outpat.replace('*', iet))    

@@ -83,8 +83,8 @@ class DataSpecification(object):
         if len(nltcube)==0:
             print 'ltcube file {} not found: checking ft2 files'.format(data['ltcube'])
             ft2s = data['ft2files'] if hasattr(data['ft2files'],'__iter__') else (data['ft2files'],)
-            if ft2s[0]=='none':
-                raise DataSetError('No ltcube file or files found, no FT2 specified')
+            if len(ft2s)==0 or ft2s[0]=='none':
+                raise DataSetError('No FT2 file(s) specified or found')
             for ft2 in ft2s:
                 if ft2 is None or not os.path.exists(ft2):
                     raise DataSetError('FT2 file {} does not exist, needed to create binned photon data file'.format(ft2))
@@ -159,16 +159,17 @@ class DataSet(dataman.DataSpec):
         
     
     @keyword_options.decorate(defaults)
-    def __init__(self, dataset_name, **kwargs):
+    def __init__(self, dataset_spec, **kwargs):
         """
         Create a new DataSet object.
 
-        dataset_name: an instance of DataSpecification with links to the FT1/FT2,
+        dataset_spec: str | dict
+            an instance of DataSpecification with links to the FT1/FT2,
                             and/or binned data / livetime cube needed for analysis
                             (see docstring for that class) 
         """
 
-        dataspec = self._process_dataset(dataset_name, quiet=kwargs.get('quiet',False),
+        dataspec = self._process_dataset(dataset_spec, quiet=kwargs.get('quiet',False),
             interval=kwargs.pop('interval',None),
             #binfile=kwargs.pop('binfile',None), 
             ).__dict__
@@ -221,8 +222,9 @@ class DataSet(dataman.DataSpec):
 
         if isinstance(dataset, dict):
             dataset['event_class_bit']=dict(source=2, clean=3, extraclean=4)[dataset.get('event_class','source').lower()]
+            dataset.setdefault('theta_cut', 66.422)
             self.name = dataset.get('data_name', '(noname)')
-            self.dict_file = 'config.txt'
+            self.dict_file = 'input dict'
             return DataSpecification(os.path.expandvars('$FERMI/data'),  interval=None, gti_mask=None, **dataset)
             
         self.name=dataset
@@ -305,10 +307,11 @@ class DataSet(dataman.DataSpec):
     def __str__(self):
         """ Pretty print of cuts/data."""
         s = [] #collections.deque()
-        s.append('Bins per decade: {0}'.format(self.binsperdec))
+        if self.binsperdec is not None:
+            s.append('Bins per decade: {0}'.format(self.binsperdec))
         def process_ft(label, files):
             if files is None: 
-                s.append(label + '\tNone')
+                #s.append(label + '\tNone')
                 return
             s.append(label)
             if len(files) < 10:
@@ -321,8 +324,8 @@ class DataSet(dataman.DataSpec):
         process_ft('FT2 files: ',self.ft2files)
         s.append('Binned data: {0}'.format(self.binfile))
         if not self.postpone:
-            s.append('           :  %d photons, %d energy bands from %d to %d MeV'\
-                    % (self.dmap.photonCount(), len(self.dmap), self.dmap[1].emin(), self.dmap[len(self.dmap)-1].emax()))
+            s.append('           :  {:,.0f} photons, {:d} energy bands from {:} to {:} MeV'.format(
+                    self.dmap.photonCount(), len(self.dmap), self.dmap[1].emin(), self.dmap[len(self.dmap)-1].emax()))
         else:
             s.append('            (load postponed)')
         s.append('Livetime cube: {0}'.format(self.ltcube))

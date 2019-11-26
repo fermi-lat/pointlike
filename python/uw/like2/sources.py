@@ -10,13 +10,18 @@ from uw.like import  Models
 from . import response
 
 # convenience adapters 
-def LogParabola(*pars, **kw):
-    m= Models.LogParabola(p=pars, **kw)
-    m.free[3]=False
-    return m
-def PowerLaw(*pars, **kw):   return Models.PowerLaw(p=pars, **kw)
-def ExpCutoff(*pars, **kw):  return Models.ExpCutoff(p=pars, **kw)
-def PLSuperExpCutoff(*pars, **kw): return Models.PLSuperExpCutoff(p=pars, **kw)
+def LogParabola(*pars):
+    model = Models.LogParabola(p=pars, free=[True,True,False,False])
+    return model
+def PowerLaw(*pars):   
+    model = Models.PowerLaw(p=pars)
+    return model
+def ExpCutoff(*pars):  
+    model = Models.ExpCutoff(p=pars, free=[True, True, False])
+    return model
+def PLSuperExpCutoff(*pars):  
+    model = Models.PLSuperExpCutoff(p=pars, free=[True,True,False,False])
+    return model
 def Constant(*pars, **kw):   return Models.Constant(p=pars, **kw)
 def FBconstant(f,b, **kw): return Models.FrontBackConstant(f,b, **kw)
 def PSR_default(): return Models.PLSuperExpCutoff(p=(1e-13, 1.25, 1500, 0.67), free=[True,True, True, False])

@@ -9,6 +9,8 @@ import numpy as np
 import pandas as pd
 from astropy.coordinates import Angle
 import astropy.units as u
+from skymaps import SkyDir
+
 
 def ufunc_decorator(f): # this adapts a bound function
     def new_ufunc(self, par):
@@ -159,3 +161,21 @@ def create_jname(ra,dec):
     return 'J' +   '{:02d}{:02d}.{:1d}'.format(HH,MM,m)\
             + sign+'{:02d}{:02.0f}'.format(int(dem/60),dem%60)
  
+
+def find_close(A,B):
+    """ Return a DataFrame with the A index containg
+    columns of the  name of the closest entry in B, and its distance
+
+    A, B : DataFrame objects each with either a skydir column or ra,dec columns
+    """
+    def skydir(df):
+
+        if hasattr(df, 'skydir'): return df.skydir.values
+        return map(SkyDir, df.ra.values.astype(float), df.dec.values.astype(float))
+    def mindist(a):
+        d = map(a.difference, skydir(B))
+        n = np.argmin(d)
+        return (B.index[n], np.degrees(d[n]))
+
+    return pd.DataFrame( map(mindist, skydir(A)),
+        index=A.index, columns=('otherid','distance'))

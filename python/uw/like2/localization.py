@@ -104,7 +104,8 @@ def full_localization(roi, source_name=None, ignore_exception=False,
 
         loc = Localization(tsm)
         try:
-            loc.localize()
+            if not loc.localize():
+                print 'Failed'
             if hasattr(loc, 'ellipse') and  (update or loc['qual']<1.0 and loc['a']<0.1):
                 # Automatically update position if good fit.
                 t = loc.ellipse
@@ -116,6 +117,7 @@ def full_localization(roi, source_name=None, ignore_exception=False,
         except Exception, msg:
             print 'Localization of %s failed: %s' % (source.name, msg)
             if not ignore_exception: raise
+
         if not roi.quiet and hasattr(loc, 'niter') and loc.niter>0: 
             print 'Localized %s: %d iterations, moved %.3f deg, deltaTS: %.1f' % \
                 (source.name, loc.niter, loc.delt, loc.delta_ts)
@@ -295,7 +297,12 @@ class Localization(object):
             sigma = l.par[3]
             if not self.quiet: print ('\t'+7*'%10.4f')% (diff, delt, l.par[0],l.par[1],l.par[3],l.par[4], l.par[6])
             if delt>self.maxdist:
+                l.par[6]=99 # flag very bad quality and resect position
+                l.sigma =1.0
+                l.par[0]=self.skydir.ra(); l.par[1]=self.skydir.dec()
                 if not self.quiet: print '\t -attempt to move beyond maxdist=%.1f' % self.maxdist
+                break 
+                #self.tsm.source.ellipse = self.qform.par[0:2]+self.qform.par[3:7]
                 return False # hope this does not screw things up
                 #raise Exception('localize failure: -attempt to move beyond maxdist=%.1f' % self.maxdist)
             if (diff < tolerance) and (abs(sigma-old_sigma) < tolerance):

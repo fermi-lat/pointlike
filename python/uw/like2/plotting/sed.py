@@ -59,20 +59,26 @@ class Plot(object):
         self.gev_scale=gev_scale
 
     def plot_data(self, axes, **kwargs):
+        flat = kwargs.pop('flat', False)
         ul_kwargs = kwargs.copy()
         ul_kwargs['color']='gray'
         if 'color' not in kwargs:
             kwargs['color'] = 'k'
 
+
         for r in self.rec:
             xl, xh = r.elow, r.ehigh
             fac = self.scale_factor 
             bc = (xl*xh)**0.5
-            if r.flux >0:
-                axes.plot([xl,xh], [r.flux*fac, r.flux*fac],  **kwargs)
-                axes.plot([bc,bc], [r.lflux*fac,r.uflux*fac], **kwargs)
+            if flat:
+                f, u, l = r.flux_flat*fac, r.uflux_flat*fac, r.lflux_flat*fac
             else:
-                x,y = bc, r.uflux*fac
+                f, u, l = r.flux*fac, r.uflux*fac, r.lflux*fac
+            if f > 0: # point
+                axes.plot([xl,xh], [f, f],  **kwargs)
+                axes.plot([bc,bc], [l,u], **kwargs)
+            else:  #upper limit
+                x,y = bc, u
                 axes.plot([xl,xh], [y,y] , **ul_kwargs) # bar at upper limit
                 # plot arrow 0.6 long by 0.4 wide, triangular head (in log coords)
                 axes.plot([x, x,     x*1.2, x,     x/1.2, x],
@@ -107,7 +113,7 @@ class Plot(object):
         try:
             e0 = m.pivot_energy()
         except Exception, msg:
-            print 'pivot failure: using 1 1GeV for {}'.format(self.name)
+            print 'pivot failure: using 1 GeV for {}'.format(self.name)
             e0=1000
         flux = m(e0); 
         eflux = lambda e: energy_flux_factor * m(e) * e**2
@@ -257,7 +263,8 @@ def stacked_plots(sed,  outdir=None,  **kwargs):
     kw = dict(energy_flux_unit=kwargs.pop('energy_flux_unit', 'eV'))
 
     if ax is not None:
-        Plot(source, **kw)(axes=ax)
+        Plot(source, **kw)(axes=ax,butterfly=kwargs.pop('butterfly',False), 
+            fit_kwargs=kwargs.pop('fit_kwargs',None))
         plt.rcParams['axes.linewidth'] = oldlw
         return ax.figure
         
@@ -314,14 +321,18 @@ def plot_other_source(source, other_source, emin=None,
     if uwname is None: uwname=os.getcwd().split('/')[-1]
     
     sdf=pd.DataFrame(source.sedrec)
-    def chisq(source):
+    def chisq(source, emin=None):
+        sdf = pd.DataFrame(source.sedrec)
+        p = sdf.pull
         try:
             sdf = pd.DataFrame(source.sedrec)
             if emin is not None:
                 ee=sdf.elow 
-                return sum(sdf.pull[ee>=emin]**2)
-            return sum(sdf.pull**2)
-        except:
+                return sum(p[ee>=emin]**2)
+            else:
+                return sum(p[~pd.isnull(p)]**2)
+        except Exception, msg:
+            print msg
             return 99 ##Fail??
         
     if ax is None:
@@ -350,12 +361,16 @@ def plot_other_source(source, other_source, emin=None,
     fig.set_facecolor('white')
     return fig
 
-def plot_seds(roi, snames, xlim=(100, 30000), ylim=(.2,200), row_size=5  ):
+def plot_seds(roi, snames, xlim=(100, 30000), ylim=(.2,200), row_size=5, title=None  ):
     """Plot a set of SEDs in an array.
 
     roi : current main.ROI object
     snames : list of string
         names of sources to plot
+    xlim : 2-tuple of float
+    ylim : 2-tuple of float
+    row-size : int
+    title : string | None
     """
     srclist = [roi.get_source(n) for n in snames]
     n = len(snames)
@@ -398,3 +413,6 @@ def plot_seds(roi, snames, xlim=(100, 30000), ylim=(.2,200), row_size=5  ):
             ts = getattr(src, 'ts', -1) # for no attribute, 
             ax.text(0.98, 0.92, '{:.0f}'.format(ts), ha='right',
                   transform=ax.transAxes, fontsize=10)
+
+    if title is not None:
+        fig.suptitle(title)

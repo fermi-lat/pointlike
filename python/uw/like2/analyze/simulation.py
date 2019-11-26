@@ -12,17 +12,17 @@ import numpy as np
 import pylab as plt
 import pandas as pd
 from scipy import stats
-from . import analysis_base, sourceinfo
+from . import (analysis_base, sourceinfo, fermi_catalog)
 
 from skymaps import SkyDir
 
 class Simulation(analysis_base.AnalysisBase): #sourceinfo.SourceInfo):
-    """Analysis of this simulation including comparison with FL8Y
+    """Analysis of this simulation including comparison with FL8Y or 4FGL
 
     %(info)s
 
     """
-    def setup(self, fl8y_file=None,   **kw):
+    def setup(self,  **kw):
         
         self.plotfolder='simulation'
         if not os.path.exists('plots/'+self.plotfolder):
@@ -63,19 +63,22 @@ class Simulation(analysis_base.AnalysisBase): #sourceinfo.SourceInfo):
             self.info += ' (no seeds found)'
 
         
-        # load gll version of FL8Y 
-        if fl8y_file is None:
-            fl8y_file = self.config.get('gllcat', None)
-        assert fl8y_file is not None, 'FL8Y "gll" file not specified'
+        # load gll version of FL8Y or 4FGL
+ 
+        fl8y_file = self.config.get('gllcat', None)
+        self.cat_name = self.config.get('catname', 'FL8Y')
+        assert fl8y_file is not None, '{} "gll" file not specified'.format(self.cat_name)
+        if not fl8y_file.startswith('/'):
+            fl8y_file = os.path.expandvars('$FERMI/catalog/'+fl8y_file)
 
-        gtest = glob.glob(os.path.expandvars('$FERMI/catalog/'+fl8y_file+'*'))
-        assert len(gtest)>0, "no file found" 
+        gtest = sorted(glob.glob(fl8y_file))
+        assert len(gtest)>0, "no file found, looked for {}".format(fl8y_file) 
         file = gtest[0]
 
-        df_fl8y=Table.read(file, hdu=1).to_pandas()
-        self.info += '<br> FL8Y file: {} w/ {} sources'.format(fl8y_file, len(df_fl8y))
-        df_fl8y.index=df_fl8y.NickName
-        del df_fl8y['NickName']
+        df_fl8y= fermi_catalog.GLL_PSC2(file).df #Table.read(file, hdu=1).to_pandas()
+        self.info += '<br> {} file: {} w/ {} sources'.format(self.cat_name, fl8y_file, len(df_fl8y))
+        # df_fl8y.index=df_fl8y.NickName
+        # del df_fl8y['NickName']
         dfa['in_fl8y']=[name in df_fl8y.index for name in dfa.index]
         # self.startlog()
         print 'Info:' + self.info.replace('<br>', '\n\t')
@@ -100,7 +103,7 @@ class Simulation(analysis_base.AnalysisBase): #sourceinfo.SourceInfo):
                 ax.set(xlim=(10,40), ylim=(0.5,3.5));
                 ax.set(xlabel='TS', ylabel=r'$\Gamma$')
                 ax.axhline(2.8, ls=':', color='red')
-                ax.axhline(1.5, ls=':', color='red')
+                ax.axhline(1.6, ls=':', color='red')
 
             else:
                 ts_cut = (df.ts>16) & (df.ts<32)
@@ -116,9 +119,9 @@ class Simulation(analysis_base.AnalysisBase): #sourceinfo.SourceInfo):
         fig,axx = plt.subplots(2,2, figsize=(10,10), sharex=True, sharey=False)
         axf = axx.flatten()
         plotit(dfa, 'green', ax=axf[0], title=self.uwmodel)
-        plotit(dfa.query('in_fl8y==False'), 'grey', ax=axf[2], title=self.uwmodel+' not in FL8Y')
+        plotit(dfa.query('in_fl8y==False'), 'grey', ax=axf[2], title=self.uwmodel+' not in {}'.format(self.cat_name))
         plotit(mc_seed, 'orange', ax=axf[3], title='MC seeds')
-        plotit(dfa.query('in_fl8y==True'), 'blue', ax=axf[1], title='FL8Y')
+        plotit(dfa.query('in_fl8y==True'), 'blue', ax=axf[1], title=self.cat_name)
 
         return fig
 
@@ -181,7 +184,7 @@ class Simulation(analysis_base.AnalysisBase): #sourceinfo.SourceInfo):
         mc_seed, dfa = self.mc_seed, self.dfa
         dfa_cut = dfa.query(cut)
         mc_cut = mc_seed.query(cut)
-        titles = (self.uwmodel, self.uwmodel+ ' sources not in FL8Y', 'MC seed sources')
+        titles = (self.uwmodel, self.uwmodel+ ' sources not in {}'.format(self.cat_name), 'MC seed sources')
 
         fig,axx = plt.subplots(len(titles),1, figsize=(8,8), sharex=True, sharey=True)
         hkw = dict(bins=np.logspace(1,3,26), log=True, histtype='step', lw=2)

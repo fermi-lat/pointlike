@@ -10,7 +10,7 @@ import pandas as pd
 from scipy import optimize
 from skymaps import SkyDir, Band
 from uw.utilities import keyword_options
-from uw.like2 import (main, tools, sedfuns, maps, sources, localization, roimodel, seeds,)
+from uw.like2 import (main, tools, sedfuns, maps, sources, localization, roimodel, seeds, fit_diffuse,)
 
 
 
@@ -23,7 +23,7 @@ class Process(main.MultiROI):
         ('localize_flag', False, 'perform localiation'),
         ('localize_kw',   {},    'keywords for localization'),
         ('repivot_flag',  False, 'repivot the sources'),
-        ('betafix_flag',  False, 'check betas, refit if needed'),
+        ('curvature_flag',  False, 'check betas, refit if needed'),
         ('ts_beta_zero',  None,   'set to threshold for converting LP<->PL'),
         ('ts_min',        5,      'Minimum TS for saving after an iteration'),
         ('dampen',        1.0,   'damping factor: set <1 to dampen, 0 to not fit'),
@@ -112,11 +112,14 @@ class Process(main.MultiROI):
             elif self.diffuse_key=='gal':
                 if not fit_galactic(self):return
             elif self.diffuse_key=='both':
-                fit_diffuse(self)
+                fit_diffuse.fitter(self)
                 return
+            elif self.diffuse_key=='both_update':
+                fit_diffuse.fitter(self, update=True)
+                # do not return: perform a fit, then update
             else:
                 raise Exception('Unexpected key: {}'.format(self.diffuse_key))
-             #fit_diffuse()
+
             
         if self.residual_flag:
             self.residuals()
@@ -150,7 +153,12 @@ class Process(main.MultiROI):
 
         if self.special_flag:
             """ special processing, converting something."""
-            self.fit_second_order(); 
+            #self.fit_second_order()
+            zz = sedfuns.add_flat_sed(self,'ALL') 
+            for name, ts in zz:
+                print '{:15} {:4.1f}'.format(name,ts)
+            write_pickle(self)
+            return
 
         if self.add_seeds_flag:
             self.add_sources()
@@ -166,6 +174,11 @@ class Process(main.MultiROI):
         init_log_like = roi.log_like()
         if self.update_positions_flag:
             self.update_positions()
+
+        if self.curvature_flag:
+            print '====================== Fixing curvature first ======================='
+            self.fit_curvature('ALL')
+
             
         roi.print_summary(title='before fit, logL=%0.f'% init_log_like)
         fit_sources = [s for s in roi.free_sources if not s.isglobal]
@@ -198,9 +211,6 @@ class Process(main.MultiROI):
                     while n>0:
                         if not self.repivot( fit_sources, select=self.selected_pars): break
                         n-=1
-                if self.betafix_flag:
-                    if not self.betafit():
-                        print 'betafit requested, but no refit needed, quitting'
 
                 if self.diffuse_key=='post_gal':
                     fit_galactic(self)
@@ -254,12 +264,7 @@ class Process(main.MultiROI):
         
         if outdir is not None:  
             write_pickle(self)
-            #pickle_dir = os.path.join(outdir, 'pickle')
-            #if not os.path.exists(pickle_dir): os.makedirs(pickle_dir)
-            #roi.to_healpix( pickle_dir, dampen, 
-            #    counts=cts,
-            #    stream=self.stream,
-            #    )
+  
     
    
     def repivot(self, fit_sources=None, min_ts = 10, max_beta=1.0, emin=200., emax=100000.,
@@ -331,6 +336,7 @@ class Process(main.MultiROI):
         self.fit(ignore_exception=ignore_exception)
         return True 
 
+
         
     def residuals(self, tol=0.3):
         print 'Creating tables of residuals'
@@ -348,6 +354,7 @@ class Process(main.MultiROI):
             # residual maps
             maps.residual_maps(self)
             return
+        maps.nside = self.tables_nside
         tinfo = [maps.table_info[key] for key in mapkeys]
         skyfuns = [(entry[0], key, entry[1]) for key,entry in zip(mapkeys, tinfo)]  
         rt = maps.ROItables(self.outdir, nside=self.tables_nside, skyfuns=skyfuns )
@@ -418,6 +425,27 @@ class Process(main.MultiROI):
     def model_count_maps(self):
         maps.ModelCountMaps(self, nbands=12, subdir='model_counts' )
         return False
+
+    def full_process(self, source_name=None, sedfig_dir='sedfig', outdir='.' ):
+        """ Correponds to the 'finish' option, but for a single source
+
+        """
+        if source_name=='all':
+            print 'TODO!'
+            return
+        source = self.get_source(source_name)
+        sname = source.name
+        print 'Full processing for source {} ================='.format(sname)
+        self.profile(sname)
+        try:
+            self.localize(sname, )
+        except Exception, msg:
+            print 'Fail to localize, {}'.format(msg)
+        self.find_associations(sname)
+        skymodel_name = os.path.split(os.getcwd())[-1]
+        sedfuns.makesed_all(self, source_name=sname, sedfig_dir=sedfig_dir,suffix='_sed_%s'%skymodel_name, )
+        if outdir is not None:
+            write_pickle(self)
 
 def fix_spectra(roi):
     for src in roi.free_sources:
@@ -568,89 +596,90 @@ def fit_galactic(roi, nbands=8, folder=None, upper_limit=5.0):
         return False
     return True
     
-def fit_diffuse(roi, nbands=8, select=[0,1], folder='diffuse_fit', corr_min=-0.95, update=False):
-    """
-    Perform independent fits to the gal, iso for each of the first nbands bands.
-    If such a fit fails, or the correlation coeficient less than corr_min, fit only the isotropic.
-    select: None or list of variables
-    update: if True, modify the correction coefficients
-    """
-    from uw.like2 import diffuse
-    # thaw gal and iso
-    roi.thaw('Norm', 'ring')
-    roi.thaw('Scale', 'isotrop')
-    roi.get_model('isotrop').bounds[0]=[np.log10(0.5), np.log10(10.0)] # set limits 
-    roi.reinitialize()
+# def fit_diffuse(roi, nbands=8, select=[0,1], folder='diffuse_fit', corr_min=-0.95, update=False):
+#     """
+#     Perform independent fits to the gal, iso for each of the first nbands bands.
+#     If such a fit fails, or the correlation coeficient less than corr_min, fit only the isotropic.
+#     select: None or list of variables
+#     update: if True, modify the correction coefficients
+#     """
+#     from uw.like2 import diffuse
+#     # thaw gal and iso
+#     roi.thaw('Norm', 'ring')
+#     roi.thaw('Scale', 'isotrop')
+#     roi.get_model('isotrop').bounds[0]=[np.log10(0.5), np.log10(10.0)] # set limits 
+#     roi.reinitialize()
     
-    # do the fitting
-    dpars=[]
-    energies = []
-    covs=[]
-    quals = []
-    def corr(cov): # correlation coeficiant
-        return cov[0,1]/np.sqrt(cov[0,0]*cov[1,1])
-    for ie in range(nbands):
-        roi.select(ie); 
-        energy =int(roi.energies[0]) 
-        print '----- E={} -----'.format(energy)
-        roi.fit(select, setpars={0:0, 1:0}, ignore_exception=True)
-        cov = roi.fit_info['covariance']
-        if cov is None or cov[0,0]<0 or corr(cov)<corr_min:
-            #fail, probably since too correlated, or large correlation. So fit only iso
-            roi.fit([1], setpars={0:0, 1:0}, ignore_exception=True)
-            cov=np.array([ [0, roi.fit_info['covariance'][0]] , [0,0] ])
-        energies.append(energy)
-        dpars.append( roi.sources.parameters.get_parameters()[:2])
-        covs.append(cov)
-        quals.append(roi.fit_info['qual'])
-    roi.freeze('Norm', 'ring', 1.0)
-    roi.freeze('Scale', 'isotrop', 1.0)
-    roi.select() # restore
+#     # do the fitting
+#     dpars=[]
+#     energies = []
+#     covs=[]
+#     quals = []
+#     def corr(cov): # correlation coeficiant
+#         return cov[0,1]/np.sqrt(cov[0,0]*cov[1,1])
+#     for ie in range(nbands):
+#         roi.select(ie); 
+#         energy =int(roi.energies[0]) 
+#         print '----- E={} -----'.format(energy)
+#         roi.fit(select, setpars={0:0, 1:0}, ignore_exception=True)
+#         cov = roi.fit_info['covariance']
+#         if cov is None or cov[0,0]<0 or corr(cov)<corr_min:
+#             #fail, probably since too correlated, or large correlation. So fit only iso
+#             roi.fit([1], setpars={0:0, 1:0}, ignore_exception=True)
+#             cov=np.array([ [0, roi.fit_info['covariance'][0]] , [0,0] ])
+#         energies.append(energy)
+#         dpars.append( roi.sources.parameters.get_parameters()[:2])
+#         covs.append(cov)
+#         quals.append(roi.fit_info['qual'])
+#     roi.freeze('Norm', 'ring', 1.0)
+#     roi.freeze('Scale', 'isotrop', 1.0)
+#     roi.select() # restore
 
-    # set to external pars
-    df = pd.DataFrame(np.power(10,np.array(dpars)), columns='gal iso'.split())
-    df['cov'] = covs
-    df['qual'] = quals
-    df.index=energies
+#     # set to external pars
+#     df = pd.DataFrame(np.power(10,np.array(dpars)), columns='gal iso'.split())
+#     df['cov'] = covs
+#     df['qual'] = quals
+#     df.index=energies
 
-    if folder is not None:
-        # simply save results
-        if not os.path.exists(folder):
-            os.mkdir(folder)
-        filename= '{}/{}.pickle'.format(folder, roi.name)
-        pickle.dump(df, open(filename, 'w'))
-        print 'wrote file {}'.format(filename)
+#     if folder is not None:
+#         # simply save results
+#         if not os.path.exists(folder):
+#             os.mkdir(folder)
+#         filename= '{}/{}.pickle'.format(folder, roi.name)
+#         pickle.dump(df, open(filename, 'w'))
+#         print 'wrote file {}'.format(filename)
     
-    if update:
-        # update correction factors, reload all response objects
-        dn=diffuse.normalization
-        dn['gal'] *= df.gal.values
-        dn['iso']['front'] *= df.iso.values
-        dn['iso']['back'] *= df.iso.values
+#     if update:
+#         # update correction factors, reload all response objects
+#         dn=diffuse.normalization
+#         dn['gal'] *= df.gal.values
+#         dn['iso']['front'] *= df.iso.values
+#         dn['iso']['back'] *= df.iso.values
 
-        # now reload
-        for band in roi:
-            for res in band[:2]:
-                assert res.source.isglobal
-                res.setup=False
-                res.initialize()
-        print 'Updated coefficients'
+#         # now reload
+#         for band in roi:
+#             for res in band[:2]:
+#                 assert res.source.isglobal
+#                 res.setup=False
+#                 res.initialize()
+#         print 'Updated coefficients'
 
 
-    # for interactive: convert covariance matrix to sigmas, correlation
-    gsig=[]; isig=[]; corr=[]
-    for i in range(len(df)):
-        c = df.iloc[i]['cov']
-        diag = np.sqrt(c.diagonal())
-        gsig.append(diag[0])
-        isig.append(diag[1])
-        corr.append(c[0,1]/(diag[0]*diag[1]))
-    df['gsig']=gsig
-    df['isig']=isig
-    df['corr']=corr
-    del df['cov']
 
-    return df
+#     # for interactive: convert covariance matrix to sigmas, correlation
+#     gsig=[]; isig=[]; corr=[]
+#     for i in range(len(df)):
+#         c = df.iloc[i]['cov']
+#         diag = np.sqrt(c.diagonal())
+#         gsig.append(diag[0])
+#         isig.append(diag[1])
+#         corr.append(c[0,1]/(diag[0]*diag[1]))
+#     df['gsig']=gsig
+#     df['isig']=isig
+#     df['corr']=corr
+#     del df['cov']
+
+#     return df
     
 def write_pickle(roi):
     pickle_dir = os.path.join(roi.outdir, 'pickle')
@@ -673,13 +702,18 @@ def psc_check(roi, psc_name=None , outdir='psc_check', debug=False):
     #load the catalog: either a catalog, or filename
     fgl = roi.config.get('fgl', None)
     if fgl is None:
-        fgl = fermi_catalog.GLL_PSC2(roi.config.get('gllcat', None))
+        catpat = roi.config['gllcat']
+        pat = os.path.expandvars(os.path.join('$FERMI','catalog', catpat))
+        gllcats = sorted(glob.glob(pat))
+        assert len(gllcats)>0, 'No gtlike catalogs found using {}'.format(pat)
+        filename = gllcats[-1]
+        fgl = fermi_catalog.GLL_PSC2(filename)
         roi.config['fgl']= fgl
     
     def chisq(source):
         try:
             sdf = pd.DataFrame(source.sedrec)
-            return sum(sdf.pull**2)
+            return sum(sdf.pull[~pd.isnull(sdf.pull)]**2)
         except:
             print 'Fail chisq'
             return 99
@@ -696,7 +730,7 @@ def psc_check(roi, psc_name=None , outdir='psc_check', debug=False):
                 continue
             fl8y = fgl.df.loc[cname]
             trunc = fl8y.sname[5:]
-            print '{:14s} {:6.0f} --> {:14s} {:6.0f}'.format(s.name, s.ts, trunc, fl8y.ts),
+            print '{:17s} {:6.0f} --> {:14s} {:6.0f}'.format(s.name, s.ts, trunc, fl8y.ts),
             if fl8y.extended:
                 sx = sources.ExtendedSource(name=trunc, skydir=(fl8y.ra,fl8y.dec), 
                     model=fl8y.model, dmodel=s.dmodel)

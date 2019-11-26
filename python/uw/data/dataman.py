@@ -64,7 +64,7 @@ def get_default(colname, kw):
     defaults wired in, except for event class, get info from kw args
     """
     if colname == 'ZENITH_ANGLE':
-        return SimpleCut(None,105,'deg','ZENITH_ANGLE')
+        return SimpleCut(None,100,'deg','ZENITH_ANGLE')
     if colname == 'THETA':
         #print 'applying thetacut, kw=', kw
         return SimpleCut(None,kw.get('thetacut',66.4),'deg','THETA')
@@ -149,7 +149,7 @@ class DataSpec(object):
         ('ft2','$FERMI/ft2.fits','a file, list of files, or wildcard expression'),
         ('binfile',None,'(a) destination for new binfile or (b) location of existing one'),
         ('ltcube',None,'(a) destination for new ltcube or (b) location of existing one'),
-        ('binsperdec',None,'energy bins per decade; must be 8 or 4'),
+        ('binsperdec',4,'energy bins per decade; must be 8 or 4'),
         ('psf_event_types', False,'if set, use the PSFn event types instead of front/back'),
         ('zenith_cut',None,'a SimpleCut wrapper giving zenith cuts'),
         ('theta_cut',None,'a SimpleCut wrapper giving theta cuts'),
@@ -295,7 +295,8 @@ class DataSpec(object):
             raise ValueError('Unable to parse FT input')
         # now check for validity of files
         if len(files) < 1:
-            print 'FT file(s) "%s" not found: assume None to test for valid binfile' % ft
+            if not quiet:
+                print 'FT file(s) "%s" not found: assume None to test for valid binfile' % ft
             return None
             raise DataError('FT file(s) "%s" not found' % ft)
         files = [os.path.expandvars(f) for f in files]
@@ -499,7 +500,9 @@ class DataSpec(object):
         tdiff = gti.computeOntime() - self.gti.computeOntime()
         if  (gti.minValue()!=self.gti.minValue()) or abs(tdiff)>1:
             print 'Failed gti check, time difference %.1f:\n  ltcube: %s \n binfile: %s' % (tdiff, gti, self.gti)
-            return True #self.legacy #ignore if legacy, for now
+            # dump([gti,self.gti], open('gti_failure.pkl','w'))
+            # print 'saved the gti objects to "gti_failure.pkl"'
+            return True 
             
         if (not self.quiet): print('Verified ltcube {} {}'.format(ltcubes[0],
             '(without DSS)' if nodss else ''))
@@ -509,8 +512,9 @@ class DataSpec(object):
         """ Generate the livetime cube."""
         #TODO -- unify weighted livetime
         import sys
+        self.quiet=False
         self.ltcube = self.ltcube or self._make_default_name(prefix='lt')
-        roi_info = self.dss.roi_info()
+        roi_info = self.dss.roi_info() if hasattr(self.dss, 'roi_info') else None
         if (roi_info is None) or (roi_info[2] > 90):
             # full sky ltcube
             roi_dir = skymaps.SkyDir(0,0)
@@ -519,7 +523,9 @@ class DataSpec(object):
             roi_dir = skymaps.SkyDir(roi_info[0],roi_info[1])
             exp_radius = roi_info[2] + self.livetime_buffer
         if self.zenith_cut is None:
-            raise DataManException('zenith cut not specified')
+            self.zenith_cut = get_default('ZENITH_ANGLE', None)
+            print 'Warning: using default zenith_cut, {}'.format(self.zenith_cut)
+            # raise DataManException('zenith cut not specified')
         zenithcut = self.zenith_cut.get_bounds()[1]
         if not self.quiet:
             if exp_radius == 180:
@@ -550,12 +556,13 @@ class DataSpec(object):
             # write out ltcube
             extension = 'WEIGHTED_EXPOSURE' if i else 'EXPOSURE'
             lt.write(self.ltcube,extension,not bool(i))
-        self.dss.write(self.ltcube,header_key=0)
+        if self.dss is not None:
+            self.dss.write(self.ltcube,header_key=0)
         # write some info to livetime file
         f = pyfits.open(self.ltcube)
         f[0]._header['RADIUS'] = exp_radius
         f[0]._header['PIXSIZE'] = self.livetime_pixelsize
-        f.writeto(self.ltcube,clobber=True)
+        f.writeto(self.ltcube,overwrite=True)
         f.close()
         
     def _get_GTI(self):
@@ -814,3 +821,56 @@ class DataSet(object):
 class DataError(Exception):
     """Exception class for data management errors"""
     pass
+
+
+def combine_ltcubes(ff, outfile=None):
+    """ Create a combined light cube file
+        ff : list of filenames
+        outfile : optional name write to
+    """
+    
+    class Expose(object):
+        def __init__(self, hdus):
+            self.hdus=hdus
+            # convert the data to a 2-d array for fast sum
+            self.edata = np.vstack([np.array(x) for x in hdus['EXPOSURE'].data])
+            self.gti=hdus['GTI']
+            self.gti_data = hdus['GTI'].data
+            self.gti_cols = hdus['GTI'].columns
+            self.ontime  = self.gti.header['ONTIME']
+            self.telapse = self.gti.header['TELAPSE']
+
+        def add(self, other):
+            self.edata += other.edata
+            self.gti_data = np.hstack([self.gti_data, other.gti_data])
+            self.ontime += other.ontime
+            self.telapse+= other.telapse
+
+        def make_hdus(self):
+
+            # generate total exposure hdu
+            exposure_hdu =fits.BinTableHDU.from_columns(
+                [fits.Column(name='COSBINS', format='40E', unit='s', array=self.edata)],
+                name='EXPOSURE')
+
+            # total GTI hdu
+            d =[fits.Column(name=name, format='D',unit='s', 
+                            array=self.gti_data[name]) for name in ['START', 'STOP']]
+            gti_hdu = fits.BinTableHDU.from_columns(d, name='GTI')
+            a,b =  [self.gti_data[name] for name in ('START','STOP')]
+            gti_hdu.header['ONTIME'] = sum(b-a)
+            gti_hdu.header['TELAPSE'] = b[-1]-a[0]        
+            return [self.hdus['PRIMARY'], exposure_hdu, gti_hdu ]  
+
+        def writeto(self, filename, overwrite=True):
+            fits.HDUList(self.make_hdus()).writeto(filename, overwrite=overwrite)
+
+    expsum = Expose(fits.open(ff[0]))
+    print 'loaded: {}  {:6d} {:10.0f}'.format(ff[0], len(expsum.gti_data), expsum.ontime)
+    for other in ff[1:]:
+        expsum.add(Expose(fits.open(other)))
+        print 'added:  {}  {:6d} {:10.0f}'.format(other, len(expsum.gti_data), expsum.ontime)
+    if outfile is not None:
+        expsum.writeto(outfile)
+        print 'Wrote to file {}'.format(outfile)
+    return expsum

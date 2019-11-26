@@ -45,16 +45,16 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             assert len(files)==1728, 'Expected to find 1728 files'
             self.pkls = pkls # for debugging
             sdict= dict()
-            if cat=='3FGL':
-                try:
-                    get_cat3fgl = Cat_3fgl()
-                    print 'loaded 3FGL'
-                except Exception, msg:
-                    print 'Could not load 3FGL: %s' % msg
-                    get_cat3fgl=None
-            else: 
-                print 'Not adding 3FGL equivalence'
-                get_cat3fgl=None
+            # if cat=='3FGL':
+            #     try:
+            #         get_cat3fgl = Cat_3fgl()
+            #         print 'loaded 3FGL'
+            #     except Exception, msg:
+            #         print 'Could not load 3FGL: %s' % msg
+            #         get_cat3fgl=None
+            # else: 
+            #     print 'Not adding 3FGL equivalence'
+            #     get_cat3fgl=None
                 
             for pkl in pkls:
                 roidir = pkl['skydir']
@@ -94,6 +94,10 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                         npred = round(sum(info['sedrec'].npred),1)
                     except:
                         npred=np.nan
+                    try:
+                        ts_flat=info['sedrec'].ts_flat
+                    except:
+                        ts_flat= None
                     ellipse = info.get('ellipse', None)
                     moment  = info.get('moment', None)
                     has_moemnt = moment is not None
@@ -107,6 +111,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                     sdict[name].update(
                         glat=info['skydir'].b(), glon=info['skydir'].l(),
                         npred=npred,
+
                         roiname=pkl['name'], 
                         pars= pars, errs=errs, free=free, badfit=badfit,
                         a = ellipse[2] if ellipse is not None else np.nan,
@@ -138,9 +143,10 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                         eflux100_unc = info.get('eflux', (np.nan,np.nan))[1],
                         psr = name.startswith('PSR'),
                         profile=info.get('profile', None),
-                        cat3fgl = None if get_cat3fgl is None else get_cat3fgl(name),
+                        # cat3fgl = None if get_cat3fgl is None else get_cat3fgl(name),
                         transient= not info.get('fixed_spectrum', False) and not info['isextended'],
                         roi_dist= np.degrees(info['skydir'].difference(roidir)),
+                        ts_flat = ts_flat,
                         )
             df = pd.DataFrame(sdict).transpose()
             df.index.name='name'
@@ -151,12 +157,18 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             df['dec'] = dec
             df['jname']= map(create_jname,ra,dec)
             df.loc[df.isextended,'jname']=df.isextended[df.isextended].index
-            self.df = df.sort_values(by='ra')
-            #self.df['hassed'] = np.array([self.df.iloc[i]['sedrec'] is not None for i in range(len(self.df))])
-            self.curvature(setup=True) # add curvature item
+
+            # Set up some association summary: highest probability and its catalog name
             probfun = lambda x: x['prob'][0] if not pd.isnull(x) else 0
-            df['aprob'] = np.array([ probfun(assoc) for  assoc in df.associations])
+            df['aprob'] = np.array(map(probfun, df.associations))
+            catfun =  lambda x: x['cat'][0] if not pd.isnull(x) else ''
+            df['acat'] = np.array(map(catfun, df.associations))
+            
+            self.df = df.sort_values(by='ra')
+            self.curvature(setup=True) # add curvature item
             self.df.to_pickle(filename)
+            assert 'aprob' in df.columns
+
             if not self.quiet:
                 print 'saved %s' % filename
 
@@ -444,8 +456,9 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         ax.grid(); ax.legend()
         return fig
     
-    def pulsar_spectra(self, index_min=0.0, index_max=2.5, cutoff_max=4000):
-        """ Distributions for sources fit with PLSuperExpCutoff spectral model, mostly LAT pulsars
+    def pulsar_spectra(self, index_min=0.0, index_max=2.5, cutoff_max=1e4, LATpsr=False, taillist=True):
+        """ Distributions for  %(psr_selection)s
+
         
         For each plot, the subset with a poor fit is shown.
         %(pulsar_tail_check)s
@@ -453,6 +466,11 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         fig, axx = plt.subplots( 1,4, figsize=(14,4))
         plt.subplots_adjust(wspace=0.3, left=0.05,bottom=0.15)
         psrmodel = (self.df.ts>10) & (self.df.modelname=='PLSuperExpCutoff')
+        if LATpsr: 
+            psrmodel= psrmodel & self.df.psr
+            self.psr_selection='LAT pulsars'
+        else:
+            self.psr_selection='sources fit with PLSuperExpCutoff spectral model, including LAT pulsars'
         t = self.df.loc[psrmodel]\
             ['ts flux pindex cutoff e0 index2 index2_unc roiname freebits fitqual'.split()]
         t['eflux'] = t.flux * t.e0**2 * 1e6
@@ -464,7 +482,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             ax.hist(vals, bins )
             if sum(badfit)>0:
                 ax.hist(vals[badfit], bins, color='red', label='poor fit')
-            plt.setp(ax, xscale='log', xlabel='energy flux', xlim=(efmin,efmax)); ax.grid(); 
+            ax.set(xscale='log', xlabel='energy flux', xlim=(efmin,efmax)); ax.grid(alpha=0.5); 
             ax.legend(prop=dict(size=10))
 
         def plot2(ax):
@@ -473,37 +491,41 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             ax.hist(vals, bins)
             if sum(badfit)>0:
                 ax.hist(vals[badfit], bins, color='red', label='poor fit')
-            plt.setp(ax, xlabel='spectral index'); ax.grid(); 
+            ax.set( xlabel='spectral index'); ax.grid(alpha=0.5); 
             ax.legend(prop=dict(size=10))
             
         def plot3(ax):
-            bins = np.linspace(0,cutoff_max/1e3,26)
-            vals = np.array(t.cutoff,float).clip(0,cutoff_max) /1e3
+            bins = np.logspace(2,4,26)
+            vals = np.array(t.cutoff,float).clip(None,cutoff_max) 
             ax.hist(vals, bins)
             if sum(badfit)>0:
                 ax.hist(vals[badfit], bins, color='red', label='poor fit')
-            plt.setp(ax, xlabel='cutoff energy (GeV)'); ax.grid()
+            ax.set(xscale='log', xlabel='cutoff energy (GeV)'); ax.grid(alpha=0.5)
             ax.legend(prop=dict(size=10))
+            ax.xaxis.set_major_formatter(ticker.FuncFormatter(
+                lambda val,pos: { 100:'0.1', 1000:'1', 10000:'10'}.get(val,'')))
             
-        def plot4(ax, xlim=(0,cutoff_max)):
-            xvals = np.array(t.cutoff,float).clip(*xlim) / 1e3
+        def plot4(ax):
+            xvals = np.array(t.cutoff,float).clip(None, cutoff_max)
             yvals = np.array(t.pindex,float).clip(index_min,index_max)
             ax.plot(xvals, yvals, 'o')
             if sum(badfit)>0:
                 ax.plot(xvals[badfit], yvals[badfit], 'or', label='poor fit')
-            plt.setp(ax, xlabel='cutoff energy', ylabel='spectral index',
-                xlim=(xlim[0]-0.1,1.03*xlim[1]/1e3), ylim=(index_min-0.1, index_max+0.1),
+            ax.set(xscale='log', xlabel='cutoff [GeV]', ylabel='spectral index',
+                 ylim=(index_min-0.1, index_max+0.1),
                 )
-            ax.grid(); 
+            ax.grid(alpha=0.5); 
             ax.legend(loc='lower right', prop=dict(size=10))
+            ax.xaxis.set_major_formatter(ticker.FuncFormatter(
+                lambda val,pos: { 100:'0.1', 1000:'1', 10000:'10'}.get(val,'')))
 
         for f,ax in zip((plot1,plot2,plot3,plot4,), axx.flatten()): f(ax)
         flags = self.df.flags
         tail_cut = (t.pindex<=index_min) | (t.pindex>index_max) | (t.cutoff>cutoff_max)
         tails = t.loc[tail_cut].index
-        #flags[tails] += 1 ### bit 1
-        print '%d pulsar sources flagged (1) in tails of  index or cutoff' % sum(tail_cut)
-        if sum(tail_cut)>0:
+
+        print '%d pulsar sources found in tails of  index or cutoff' % sum(tail_cut)
+        if taillist & (sum(tail_cut)>0) :
             tails=t[tail_cut]['ts eflux pindex cutoff freebits roiname'.split()]
             filename = 'pulsar_tails.html'
             html_file = self.plotfolder+'/%s' % filename
@@ -631,9 +653,9 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
     def sed_info(self, iband=0):
         pass
 
-    def spectral_fit_consistency_plots(self, energy=133., minflux=1.0, 
+    def spectral_fit_consistency_plots(self, energy=133., minflux=1.0, ldatacut=True,
             title = 'low energy fit consistency',
-            three_plots=False,
+            n_plots=2, pub=False, query=None,
         ):
         """ Spectral fit consistency for the lowest energy bin
         
@@ -650,7 +672,12 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             print '+++Warning: %d TS>10 sources without sed info' % sum(nosed)
             print self.df[~hassed]['ts roiname'.split()][:min(20, sum(nosed))]
         cut= (self.df.ts>10) & hassed
-        s = self.df[cut].copy()
+        if query is None:
+            s = self.df[cut].copy()
+        else:
+            s=self.df.query(query)
+            print 'Additional cut, {}, results in {} events'.format(query, len(s))
+
         print 'selected {} sources with TS>10 and with SED info'.format(len(s))
         
         sedrec= [s.iloc[i]['sedrec'] for i in range(len(s))]
@@ -661,8 +688,16 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         pull = np.array([sr.pull[0] for sr in sedrec])
         fmodel = np.array([s.iloc[i]['model'](energy)*energy**2*1e6 for i in range(len(s))])
         glat = np.array([x.b() for x in s.skydir])
-        fluxcut = (fmodel>minflux) & (ldata>0) # last cut is to avoid lower limits
-        latcut  = abs(glat)>5.0
+        fluxcut = (fmodel>minflux) 
+        if ldatacut: fluxcut = fluxcut & (ldata>0) #  avoid lower limits
+        print 'after cuts on low energy flux > {:.1f} and significance= {}: {} events'.format(
+                 minflux, ldatacut,sum(fluxcut))
+
+        if pub:
+            latcut, cut_labels = abs(glat)> 10.0 ,('|b|>10', '|b|<10')
+        else:
+            latcut, cut_labels = abs(glat)> 5.0,  ('|b|>5', '|b|<5')
+
         hilat = fluxcut & (latcut)
         lolat = fluxcut & (~latcut)
         
@@ -697,18 +732,29 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             hist_kw=dict(bins=np.linspace(-3,3,25), lw=2, histtype='step')
             q=pull.clip(-3,3) 
             assert len(q)== len(hilat)#, len(lolat)
-            for name,color, cut in [('high','g', hilat), (' low','r', lolat)]:
+            ax.axvline(0, color='grey', ls='--')
+            for name,color, cut in [(cut_labels[0],'g', hilat), (cut_labels[1],'r', lolat)]:
                 vals = q[cut]
-                ax.hist(vals, color=color,  label='{:5}{:4d}{:5.1f}{:5.1f}'.format(
-                        name, len(vals), vals.mean(), vals.std()), **hist_kw)
-                print name, vals.std(), np.sqrt((vals[vals>0]**2).mean()), np.sqrt((vals[vals<0]**2).mean())
-            ax.set_xlabel('pull')
-            ax.axvline(0, color='k', ls='--')
+                ax.hist(vals, color=color,  label='{:5}{:5d}{:4.1f}{:4.1f}'.format(
+                            name, len(vals), 
+                            np.sqrt((vals[vals<0]**2).mean()), np.sqrt((vals[vals>0]**2).mean())), 
+                        **hist_kw)
+                print name, vals.std(), np.sqrt((vals[vals<0]**2).mean()), np.sqrt((vals[vals>0]**2).mean())
+            ax.set_xlabel('normalized residual')
+
             ax.set_xlim((-3,3))
-            ax.set_title( title, fontsize='medium')
-            leg=ax.legend(loc='upper left', title='     type    #  mean std',prop=dict(size=10, family='monospace'))
+            
+            leg=ax.legend(loc='upper left', prop=dict(size=10, family='monospace'),
+                        #title='     type   #   RMS\n'
+                        title='  selection #    RMS\n'
+                              '                <0 >0',
+                            )
             ltit = leg.get_title(); ltit.set_fontsize(10); ltit.set_family('monospace')
-            ax.grid()  
+            if not pub: 
+                ax.grid(alpha=0.5)
+                ax.set_title( title, fontsize='medium')  
+            # else:
+            #     ax.set(ylim=(0,150))
 
 
         def skyplot(ax):
@@ -717,16 +763,20 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             self.skyplot(pdf.pull, ax=ax, vmin=-3, vmax=3,
                 cmap=plt.get_cmap('coolwarm'), title=title, cbtext='pull')
 
-        if three_plots:
+        if n_plots==3:
             fig,ax = plt.subplots(1,3, figsize=(12,5))
             plt.subplots_adjust(wspace=0.3, left=0.05)
             for f, ax in zip( (hist, error_bar, skyplot), ax.flatten()):
                 f(ax=ax)
-        else:
+        elif n_plots==2:
             fig,ax = plt.subplots(1,2, figsize=(12,5))
             plt.subplots_adjust(wspace=0.3, left=0.05)
             for f, ax in zip( (hist, skyplot), ax.flatten()):
                 f(ax=ax)
+        else:
+            fig,ax = plt.subplots(1,1, figsize=(7,4))
+            hist(ax)
+
         return fig
         
     def census(self, primary_prefix='P88Y', cols=[0,5,10,16,25]): #'P7R4'):
@@ -738,7 +788,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         The first set of columns, with an "H" in the column label, are for sources with |b|>5.
 
         The row labels are the first four characters of the source name, except 'ext' means extended.
-        %(suffix_html)s
+
         """
         df = self.df
         extended = np.asarray(df.isextended.values,bool)
@@ -754,9 +804,9 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             names = df[pointsource & sel]['name'].values    
             return sum([n.startswith(prefix) for n in names])
         if count('ext',0)>0:
-            prefixes = list(set( n[:4] for n in df[pointsource]['name'])) +['ext', 'total']
+            prefixes = list(set( n[:3] for n in df[pointsource]['name'])) +['ext', 'total']
         else:
-            prefixes = list(set( n[:4] for n in df[pointsource]['name'])) +['total']
+            prefixes = list(set( n[:3] for n in df[pointsource]['name'])) +['total']
         
         census = OrderedDict()
         prefixes = sorted(prefixes)
@@ -771,25 +821,8 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         self.census_html = '\n<h4>Prefixes</h4>\n'\
             +html_table(self.census_data, maxlines=20, href=False)
         
-        # now check suffixes
-        self.primary_prefix=primary_prefix
-        suffixes=[s[-1] for s in self.df.index.values if s.startswith(primary_prefix) and s[-1]>'9']
-        c=Counter(suffixes)
-        scounts = lambda  r : int(sum([c[x] for x in r if x in c.keys()]))
-        suffixranges = ('ABCDEF', 'GHIJKL', 'MNO', 'PQRSTUVW', 'XYZ')
-        sdict = dict([(r[0]+'-'+r[-1], [scounts(r)]) for r in suffixranges])
-        total=sum([ s[0] for s in sdict.values()])
-        
-        if total>0:
-            self.suffix_html ="""\
-            <br>This second table has the suffixes; for sources with the
-            "%s" prefix. Each group, except 'X-Z', 
-            represents a set of seeds added to the original
-            list of sources. The last row, 'X-Z', were added by hand."""% primary_prefix\
-            + '\n<h4>Suffixes</h4>\n'\
-            + html_table(pd.DataFrame(sdict, index=['freq']).T, href=False)
-        else:
-            self.suffix_html = '\n<p>No suffixes found'
+      
+  
 
     def flag_proc(self, make_pivot=False):
         """ Flagged source summary:
@@ -937,7 +970,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
 
     def plot_sed(self, name, ax=None, xlim=(1e2,3e4), ylim=(0.04, 20)):
         from uw.like2.plotting import sed
-        p = self.get_source(name, df=df)
+        p = self.get_source(name)
         if p is None: return
         sed.Plot(p)(axes=ax, galmap=p.skydir, axis=xlim+ylim)
 
@@ -945,7 +978,42 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         from uw.like2.plotting import sed
         sed.plot_seds(self, namelist, row_size=row_size, **kwargs)
 
+    def high_tail(self, tscut=50, high_tail_cut=12, curvature_cut=0.0):
+        """High energy tail sources
+        
+        A test source with index 2.0 was inserted at the position of each source to detect, for each energy band,
+        if there was a significant signal not accounted for by the source's spectral model. The histogram above 
+        is of the total TS for this component above 100 GeV, for all non-LAT pulsar or extended sources above TS=50.
+        The table has information for each source including TS, position and association. It has sources with a threshold 
+        for the TS shown on the histogram.
+        
+        %(high_tail_table)s
 
+        %(high_tail_psr_table)s
+        
+        """
+        df = self.df
+        psr_flag = [n.startswith('PSR') | n.startswith('Crab') for n in df.index]
+        flat_ts = df.ts_flat.values;
+        assert sum(np.array([x is not None  for x in flat_ts]))>0, 'No high-tail analysis was done'
+        df['high_tail'] = np.array([sum(x[-2:]) for x in flat_ts],float)
+        selection = (df.ts>tscut) & np.logical_not(psr_flag) & (df.curvature>curvature_cut) #& np.logical_not(df.isextended)
+        dfhigh =df[selection & (df.high_tail>high_tail_cut)]['jname ts curvature high_tail acat glon glat'.split()].sort_values(by='glat')
+        dfhigh_psr =df[(df.ts>tscut) & psr_flag & (df.high_tail>high_tail_cut)]['jname ts high_tail acat glon glat'.split()].sort_values(by='glat')
+
+        fig, ax = plt.subplots(figsize=(7,5))
+        ax.hist((df.high_tail[selection]).clip(0,25), np.linspace(0,25,26), log=True, histtype='step', lw=2);  
+        ax.axvline(high_tail_cut, color='orange', label='threshold for table')
+        ax.set(xlabel='TS for E>100 GeV')
+        ax.legend()
+        
+        self.high_tail_table = html_table(dfhigh, name=self.plotfolder+'/high_tail_sources',                                        
+                                            heading='<h4>Table of {} high-tail sources</h4>'.format(len(dfhigh)),
+                                            float_format=FloatFormat(2))
+        self.high_tail_psr_table = html_table(dfhigh_psr, name=self.plotfolder+'/high_tail_sources_psr',                                        
+                                            heading='<h4>Table of {} PSR high-tail sources</h4>'.format(len(dfhigh_psr)),
+                                            float_format=FloatFormat(2))
+        return fig
     
     def all_plots(self):
 
@@ -968,6 +1036,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             self.pulsar_spectra, 
             self.curvature, 
             self.pivot_vs_e0, 
+            self.high_tail,
             self.roi_check, 
             self.extended_table, 
             ]
@@ -1008,50 +1077,6 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         cl_uw = np.array([closest(c) for c in diff_array[:,].T], int) 
         #todo when needed
          
-class OldName(object):
-    """convert  from post-3FGL to P86Y naming """
-    def __init__(self, filename='../../P301_6years/uw965/rename.csv'):
-        """load the conversion table, make 'newname' the index"""
-        self.d = pd.read_csv(filename, index_col=-1)
-    def __call__(self, newname):
-        if newname not in self.d.index: return None
-        return self.d.loc[newname]['name']
-        
-class Cat_3fgl(object):
-    """get 3FGL info by oldname"""
-    def __init__(self, catname='3FGL-v13r3_v6r9p1_3lacv12p1_v7.fits',):
-        if catname[0]!='/':
-            catname = os.path.expandvars('$FERMI/catalog/'+catname)
-        assert os.path.exists(catname), 'Did not find file %s' %catname
-        print 'Loading 3FGL catalog file {} for comparison'.format(catname)
-        self.ft = ft = pyfits.open(catname)[1].data
-        def nickfix(n):
-            return n if n[:3]!='PSR' else 'PSR '+n[3:]
-        self.index_3fgl = map(nickfix, [x.strip() for x in ft.NickName_3FGL]) #Source_Name 
-        id_prob = [np.nan]*len(ft)
-        try:
-            id_prob = ft.ID_Probability_v6r9p1[:,0] ## should find that suffix
-        except: 
-            print 'warning: id_prob not set' 
-
-        self.get_oldname= OldName()
-        self.cat = pd.DataFrame(dict(name3=ft.Source_Name_3FGL_1, 
-        #        nickname=map(nickfix, ft.NickName_3FGL), 
-                ra=ft.RAJ2000,dec= ft.DEJ2000, glat=ft.GLAT,
-                ts=ft.Test_Statistic, 
-                pindex=ft.PowerLaw_Index,
-                #skydir=cat_skydirs,
-                #glat=glat, glon=glon, 
-                pivot=ft.Pivot_Energy,# flux=ft.Flux_Density, 
-                #modelname=ft.SpectrumType, 
-                eflux = ft.Energy_Flux100,
-                id_prob=id_prob,
-                a95=ft.Conf_95_SemiMajor, b95=ft.Conf_95_SemiMinor, ang95=ft.Conf_95_PosAng,
-                flags=np.asarray(ft.Flags_3FGL, int),
-                ), 
-            columns = 'name3 ra dec glat ts pindex pivot eflux a95 b95 ang95 id_prob flags'.split(), # this to order them
-            index=self.index_3fgl, )
-
     def __call__(self, newname):
         oldname = self.get_oldname(newname)
         if oldname not in self.index_3fgl: return None

@@ -252,9 +252,7 @@ class ROI(views.LikelihoodViews):
                 mask_indeces = np.arange(len(fv.mask))[fv.mask],
                 qual = fv.delta_loglike(),)
         return 
-    
-    
-    
+       
     def summarize(self, select=None, exclude=None):
         """construct a summary of the parameters, or subset thereof
         
@@ -291,19 +289,21 @@ class ROI(views.LikelihoodViews):
             err= np.array(p.errors)/p.flux-1 if p.flux>0 else 0
             
             if not self.quiet:
-                str = '{:20} flux'.format(source.name)
+                str = '{:20} eflux'.format(source.name)
                 if p.flux>0 and p.errors[0]>0:
-                    print '{} = {:6.3f} (1 + {:.3f} - {:.3f}) eV/cm^2/s, TS={:.1f} '.format(
-                        str, p.flux,err[1],-err[0], p.ts)
+                    print '{} = {:6.3f} (1 + {:.3f} - {:.3f}) eV/cm^2/s, at e0={:.1f} MeV TS={:.1f} '.format(
+                        str, p.flux,err[1],-err[0], source.model.e0, p.ts)
                 else:
-                    print '{} < {:6.3f}'.format(str, t['high'])
+                    print '{} < {:6.3f} eV/cm^2/s, at e0={:.1f}'.format(str, t['high'], source.model.e0)
 
             source.profile = t
         if set_normalization:
+            # rescale the normalzation by the ratio of current to new flux at e0
             m = source.model
-            m[0]=t['peak']/(m.e0**2 * 1e06) if t['peak']>0 else 1e-15
+            curr = m(m.e0)
+            a = t['peak'] if t['low']>0 else t['high']
+            m[0] *= a/(m.e0**2 * 1e6)/curr
         return t
-
 
     def localize(self, source_name=None, update=False, ignore_exception=True, **kwargs):
         """ localize the source, return elliptical parameters 
@@ -405,10 +405,10 @@ class ROI(views.LikelihoodViews):
         if ylim is not None: t.axes[0].set(ylim=ylim)
 
     @tools.decorate_with(plotting.sed.plot_seds)
-    def plot_seds(self, snames, xlim=(100, 30000), ylim=(0.2,200),  ):
+    def plot_seds(self, snames, xlim=(100, 30000), ylim=(0.2,200), **kwargs ):
         """Plot a set of SEDs in a row.
         """
-        plotting.sed.plot_seds(self, snames, xlim=xlim, ylim=ylim,)
+        plotting.sed.plot_seds(self, snames, xlim=xlim, ylim=ylim, **kwargs)
 
     @tools.decorate_with(plotting.counts.stacked_plots)
     def plot_counts(self, relto='isotrop', plot_pulls=False, 
@@ -427,7 +427,7 @@ class ROI(views.LikelihoodViews):
 
         
     @tools.decorate_with(plotting.tsmap.plot)
-    def plot_tsmap(self, source_name=None, tsplot=False, factor=1.0, refit=False,size=2.0, **kwargs):
+    def plot_tsmap(self, source_name=None, tsplot=False, factor=1.0, refit=False, **kwargs):
         """ create a TS map showing the source localization
         """
         source = self.sources.find_source(source_name)
@@ -443,8 +443,8 @@ class ROI(views.LikelihoodViews):
                 if refit or not hasattr(source,'ellipse') or source.ellipse is None:
                     loc.localize()
                     loc.summary()
-                tsize = kwargs.pop('size', source.ellipse[2]*15.) if hasattr(source, 'ellipse') and source.ellipse is not None \
-                         else size # scale according to major axis s
+                tsize = kwargs.pop('tsize', source.ellipse[2]*15.) if hasattr(source, 'ellipse') and source.ellipse is not None \
+                         else 2.0 # scale according to major axis s
                 plot_kw.update(size=tsize, pixelsize=kwargs.pop('pixelsize', tsize/15.), maxsize=tsize)
             except Exception, e:
                 print 'Failed localization for source %s: %s' % (source.name, e)
@@ -544,7 +544,32 @@ class ROI(views.LikelihoodViews):
         fit_beta=source.model['beta']
         self.freeze('beta', source.name, )
         return ts2-ts1, fit_beta
+
+    def fit_curvature(self, source_name=None, ignore_exception=True,):
+        """ Fit the curvature parameter (beta or Cutoff) separately for the given or default source
+            Use 'ALL' to fit all free sources
+        """
+
+        def fit_one(source):
+            print '----------------- %s (%.1f)-------------' % (source.name, source.ts)
+            model, name = source.model, source.name
+            fit_pars = dict(tolerance=0, ignore_exception=ignore_exception)
+            if model.name=='LogParabola':
+                self.ts_beta(name, ignore_exception=True)
+            elif model.name=='PLSuperExpCutoff':
+                self.thaw('Cutoff', name)
+                self.fit(name, **fit_pars)
+                self.freeze('Cutoff')
+                self.fit(name, **fit_pars)
+            else:
+                raise Exception('Unrecognized model name {}'.format(model.name))
+
+        if source_name=='ALL':
+            map(fit_one, self.free_sources)
+        else:
+            fit_one(self.get_source(source_name))
         
+
 
 class MultiROI(ROI):
     """ROI subclass that will perform a fixed analysis on multiple ROIs

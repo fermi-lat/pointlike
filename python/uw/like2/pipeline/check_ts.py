@@ -11,14 +11,18 @@ import numpy as np
 import pylab as plt
 import pandas as pd
 from pointlike import IntVector
-nside=512
-band = Band(nside)
-def sdir(index):
-    return band.dir(int(index))
+# nside=512
+# band = Band(nside)
+# def sdir(index):
+#     return band.dir(int(index))
+band = None
+sdir = None
 
 class TSdata(object):
-    def __init__(self, outdir, filename, fieldname='ts'):
+    def __init__(self, outdir, filename, nside=512, fieldname='ts'):
         full_filename = os.path.join(outdir, filename)
+        band = Band(nside)
+        self.sdir = lambda index: band.dir(index)
         assert os.path.exists(full_filename), 'file, %s, not found' % full_filename
         self.rts = pyfits.open(full_filename)[1].data.field(fieldname)
         assert len(self.rts)==12*(nside)**2, 'wrong nside in file %s: expect %d' %(filename, nside)
@@ -155,8 +159,12 @@ def make_seeds(tsdata,  filename, fieldname='ts', nside=512 ,rcut=10, bcut=0,
         
     rec: open file to write tab-delimited file to
     """
+    global band, sdir
+    band = Band(nside) # replace global
+    sdir = lambda index: band.dir(index)
+    
     if not isinstance(tsdata, TSdata):
-        tsdata = TSdata(outdir='.', filename=filename, fieldname=fieldname)
+        tsdata = TSdata(outdir='.', filename=filename, fieldname=fieldname, nside=nside)
 
     # make list of indices of pixels with ts and b above thresholds
     indices  = tsdata.indices(rcut,bcut,mask)

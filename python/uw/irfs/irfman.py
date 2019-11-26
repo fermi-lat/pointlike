@@ -67,7 +67,7 @@ class IrfManager(object):
                             for et,d in aeff_info.items()}
                             
         if dataset is not None:
-            if dataset.legacy:
+            if dataset.legacy or hasattr(dataset, 'thetacut'):
                 #No DSS keywords, assume dataset has thetacut member
                 #TODO: Fix dataman.DataSpec to provide a sensible default
                 #      or find something to reference that works for both cases

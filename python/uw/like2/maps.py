@@ -34,7 +34,7 @@ def PLSuperExpCutoff(*pars):
     sources.set_default_bounds(model)
     return model
 
-def make_index_table(nside=12, subnside=512, usefile=True):
+def make_index_table(nside=12, subnside=nside, usefile=True):
     """create, and/or use a table to convert between different nside pixelizations
     The indexing is RING
     """
@@ -317,8 +317,8 @@ class ResidualUpperLimit(ResidualTS):
 
         with sedfuns.SED(self.roi, self.sourcename) as sf:
             try: # get a PoissonFItter object 
-                pf = sf.select(None)
-                poiss = pf.poiss #loglikelihood.PoissonFitter(sf, tol=1.0)
+                pf = sf.select(None, delta=1e-3) 
+                poiss = pf.poiss 
                 #print 'TS, maxdev: %.2f %.2f' % (poiss.ts, pf.maxdev)
                 lim = poiss.percentile()
                 if lim==0:
@@ -411,9 +411,13 @@ class DisplayTable(object):
             t = self.hpdict[i]
             self.hit+=1
             return self.scale(t)
-        except: #else:
+        except KeyError: #else:
             self.miss+=1
             return np.nan
+
+    def describe(self):
+        """return a description of the map values"""
+        return pd.Series(self.hmap).describe()
 
     def plot(self, axes=None, show_kw=None, **kwargs):
         """ show_kw : dict
@@ -513,7 +517,7 @@ def residual_maps(roi, folder='residual_maps', nbands=4, test=False):
     print 'Wrote file {}'.format(filename)
 
 
-def assemble_tables(table_names, outputfile=None, folder= '.', nside=512):
+def assemble_tables(table_names, outputfile=None, folder= '.', nside=nside):
     """ assemble one or more healpix tables from individual ROIs into a single FITS file
     parameters
     ----------
@@ -530,7 +534,7 @@ def assemble_tables(table_names, outputfile=None, folder= '.', nside=512):
     f = HEALPixFITS(tables)
     f.write(os.path.join(folder,outputfile))
   
-def make_index_table(nside=12, subnside=512, usefile=True):
+def make_index_table(nside=12, subnside=nside, usefile=True):
     """create, and/or use a table to convert between different nside pixelizations
     """
     filename = os.path.expandvars('$FERMI/misc/index_table_%02d_%03d.pickle' % (nside, subnside) )
@@ -549,11 +553,11 @@ def make_index_table(nside=12, subnside=512, usefile=True):
 class MultiMap(object):
     
     def __init__(self, names=['hard','flat','soft', 'peaked', 'psr'], 
-                 outdir='.', tname='all', nside=512, roi_nside=12, fill=np.nan):
+                 outdir='.', tname='all', nside=nside, roi_nside=12, fill=np.nan):
         """ combine the tables generarated at each ROI
 
         names : names to give the columns, 
-        nside : nside parameter that the table was generated with, default 512
+        nside : nside parameter that the table was generated with, default 512 (or 256)
         tname : name of the table, default 'all'
         fill  : scalar, defaul NaN
             Use to fill missing tables, if any (warning issued)

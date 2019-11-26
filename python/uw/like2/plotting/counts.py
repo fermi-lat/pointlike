@@ -187,8 +187,9 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
                     local_iso=diffuse.normalization['iso']['front']
                     ratio=local_iso/global_iso
                     rel[:8] /= ratio
-                else: ratio=1
-                print 'using isotropic...\n {}'.format(ratio.round(3))
+                    print 'using special isotropic normalizatio...\n {}'.format(ratio.round(3))
+                else: ratio=1.0
+
             else:  
                 rel = get_data(relto)  
  

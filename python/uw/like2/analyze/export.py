@@ -44,31 +44,51 @@ class Export(sourceinfo.SourceInfo):
         self.error_box_add = systematic[1]/60.
         self.error_box_cut = 0.5
         self.cuts = '(sources.ts>10) & (sources.a<%.2f) | pd.isnull(sources.locqual)' %self.error_box_cut
-    
+
+        name_root = '_'.join(os.path.abspath('.').split('/')[-2:])
+        versions = glob.glob(name_root+'*.fits')
+        if len(versions)==0:
+            self.fits_file = name_root+'.fits'
+        else:
+            last_version = os.path.splitext(versions[-1])[0].split('_')[-1];
+            if last_version==self.skymodel:
+                next_version='1'
+            else:
+                next_version = str(int(last_version)+1)
+            self.fits_file = name_root+'_'+next_version+'.fits'
+        print 'Will write to {}'.format(self.fits_file)
+
     def analysis(self, fits_only=True): # for now
         """Analysis log
         <pre>%(logstream)s</pre>"""
         self.startlog()
-        if not fits_only:
-            print 'Running "to_xml"...'
-            to_xml.main(cuts=self.cuts)
+
         
         print '\nRunning "to_fits"...'
-        self.fits_file = '_'.join(os.path.abspath('.').split('/')[-2:])+'.fits'
+        #self.fits_file = '_'.join(os.path.abspath('.').split('/')[-2:])+'.fits'
         to_fits.main(self.fits_file,  cuts=self.cuts,
                      localization_systematic = (self.error_box_factor, self.error_box_add)
                      )
+        self.xml_file=''
+        if not fits_only:
+            print 'Running "to_xml"...'
+            self.xml_file = self.fits_file.replace('.fits', '.xml' )
+            to_xml.main(filename=[self.xml_file], cuts=self.cuts)
 
         self.logstream=self.stoplog()
          
     def files(self):
-        """Links to output files
+        """Links to output file(s)
         <ul>
          <li>FITS <a href="../../%(fits_file)s?download=true">%(fits_file)s</a></li>
-         <li>XML  (not generated)
+         %(xml_link)s
         </ul>
         
         """
+        if os.path.exists(self.xml_file):
+            self.xml_link='<li>XML  <a href="../../%(xml_file)s?download=true">%(xml_file)s</a></li>'.format(self.xml_file)
+        else:
+            self.xml_link=''
         # <a href="../../%(xml)s?download=true">%(xml)s</a></li>
         #self.xml = glob.glob('*.xml')[0]
         

@@ -30,9 +30,12 @@ class HParray(object):
         vec : the HEALPix array
         sigma : float | None
             smooth if set (and nside a power of 2)
+        unit : string
+            use to label FITS table
     """
-    def __init__(self, name, vec, sigma=None): 
+    def __init__(self, name, vec, sigma=None, unit=None): 
         self.name=name
+        self.unit=unit
         self.vec = vec
         self.nside = int(np.sqrt(len(vec)/12))
         assert len(self.vec)==12*self.nside**2, 'length of %s not consistent with HEALPix' % self.name        
@@ -191,7 +194,7 @@ class HParray(object):
     # def __div__(self, other):
     #     r = HParray(self.title+' / '+other.title, self.vec/other.vec)
     #     return r
-    def to_fits(self, filename, nside=None):
+    def to_fits(self, filename, nside=None, unit=None):
         """ Generate a FITS file
         """
         t=HEALPixFITS([self],nside=nside).write(filename)
@@ -479,6 +482,8 @@ class HEALPixFITS(list):
 
     def __init__(self, cols, nside=None, energies=None):
         """ initialize
+
+        cols: list of HParray objects.
         """
         assert len(cols)>0, 'no HParray object list'
         self.nside = nside if nside is not None else cols[0].nside
@@ -487,18 +492,19 @@ class HEALPixFITS(list):
         self.energies=energies
         for col in cols:
             self.append( col if col.nside==self.nside else HPresample(col, self.nside) )
-            print 'appended column %s' %col.name
+            print 'appended column {}, unit={}'.format(col.name, col.unit)
     
     def make_table(self, unit=None):        
-        makecol = lambda v: pyfits.Column(name=v.name, format='E', unit=unit, array=v.getcol())
+        makecol = lambda v: pyfits.Column(name=v.name, format='E', 
+            unit=v.unit if unit is None else unit, array=v.getcol())
         cols = map(makecol, self)
         nside = self.nside
         cards = [pyfits.Card(*pars) for pars in [ 
-                ('PIXTYPE',  'HEALPIX ',          'Pixel algorithm',),
-                ('ORDERING', 'RING    ',             'Ordering scheme'),
+                ('PIXTYPE',  'HEALPIX ',    'Pixel algorithm',),
+                ('ORDERING', 'RING    ',    'Ordering scheme'),
                 ('NSIDE' ,    nside,        'Resolution Parameter'),
                 ('NPIX',     12*nside**2,   '# of pixels'),
-                ('FIRSTPIX',  0,                 'First pixel (0 based)'),
+                ('FIRSTPIX',  0,            'First pixel (0 based)'),
                 ('LASTPIX',  12*nside**2-1, 'Last pixel (0 based)'),
                 ('INDXSCHM', 'IMPLICIT', ),
                 ('OBJECT', 'FullSky '),
@@ -522,11 +528,11 @@ class HEALPixFITS(list):
              )
         return hdus
 
-    def write(self, outfile, clobber=True):
+    def write(self, outfile, overwrite=True):
         hdus = self.make_hdus()
         if os.path.exists(outfile):
             os.remove(outfile)
-        pyfits.HDUList(hdus).writeto(outfile,overwrite=clobber)
+        pyfits.HDUList(hdus).writeto(outfile,overwrite=overwrite)
         print '\nwrote FITS file to %s' % outfile
 
 class HEALPixSkymap():
@@ -591,14 +597,24 @@ class HEALPixSkymap():
 
 class FromFITS(HParray):
 
-    def __init__(self, filename, colname):
+    def __init__(self, filename, colname=None):
         """ load array from a HEALPix-format FITS file
+
+        filename : string
+            the FITS filename
+        colname : string
+            to select if multiple columns
         """
         assert os.path.exists(filename), 'File "{}" not found'.format(filename)
         hdu = pyfits.open(filename)[1] 
         data = hdu.data
-        assert colname in data.dtype.fields, 'Field {colname} not found in "{filename}": found {found}'\
-            .format(filename=filename,colname=colname, found=data.dtype.fields.keys())
+        cnames = data.dtype.fields.keys()
+        if colname is None:
+            assert len(cnames)==1, 'Expect a single column:found {}'.format(cnames)
+            colname = cnames[0]
+        else:
+            assert colname in cnames, 'Field {colname} not found in "{filename}": found {found}'\
+                .format(filename=filename,colname=colname, found=cnames)
         assert 'NSIDE' in hdu.header, 'Bad header in file "{}"? No NSIDE'.format(filename)
         self.nside = hdu.header['NSIDE']
         super(FromFITS, self).__init__(colname, data[colname])

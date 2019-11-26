@@ -376,7 +376,7 @@ class GLL_PSC2(object):
         else:
             colnames +=  ["Flux_Density"]
         srcdict = dict(zip(colnames, [data.field(name) for name in colnames]))
-        
+
         q = pd.DataFrame(srcdict).T
         df = q.T #avoid byte order problem?
         df.index = [s.strip() for s in df.NickName]
@@ -387,6 +387,12 @@ class GLL_PSC2(object):
         
         # now make simple version with Model object
         self.df = self.parseit() 
+
+        # add first entry from a few of the ID_ guys     
+        self.df['id_prob'] = (data.field('ID_Probability')[:,0]).astype(float)
+        self.df['id_cat']  = (data.field('ID_Catalog')[:,0]).astype(int)
+        self.df['id_name'] = [x[:25].strip() for x in data.field('ID_Name')]
+        self.df['id_unid'] = self.df.id_prob<0.8001 # associated with other wavelength or no entry
 
     def parseit(self):
 
