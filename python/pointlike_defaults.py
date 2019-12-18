@@ -4,7 +4,7 @@
 #
 # Include this to set defaults, then override 
 import sys
-print 'running %s' % sys.argv[0]
+print ('running %s' % sys.argv[0])
 
 # data selection parameters
 class Data:
