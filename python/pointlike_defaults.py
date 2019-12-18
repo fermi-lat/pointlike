@@ -25,7 +25,7 @@ class Diffuse:
     exposure=3e10  # this seems appropriate for 1 year.
     import os
     if 'GLAST_EXT' in os.environ and file=='':
-		file = os.path.join(os.environ['GLAST_EXT'],'extFiles','v0r7','galdiffuse', 'gll_iem_v01.fit')
+        file = os.path.join(os.environ['GLAST_EXT'],'extFiles','v0r7','galdiffuse', 'gll_iem_v01.fit')
 
 class Isotropic:   # isotropic flux description
     flux = 1.5e-5
