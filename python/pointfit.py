@@ -91,7 +91,7 @@ def photonmap(filename, eventtype=-1, pixeloutput=False, tstart=0, tstop=0, igno
     if filename[0]=='@':
         # it is a list of data files
         filelist = [line.strip() for line in file(filename[1:]) if len(line)>0 and line[0]!='#']
-        #print filelist
+        #print (filelist)
         data =  Data(filelist, eventtype, tstart, tstop)
     elif type(filename) is types.ListType:
         # it is a (Python) list of data files
@@ -114,7 +114,7 @@ def photonmap(filename, eventtype=-1, pixeloutput=False, tstart=0, tstop=0, igno
             raise Exception('Invalid data file, apparent image file with primary only')
         if hd[1].name=='PHOTONMAP' or hd[1].name=='BANDS':
             hd.close()
-            if len(files)>1: print 'Warning: more than one photonmap file not supported'
+            if len(files)>1: print ('Warning: more than one photonmap file not supported')
             data = Data(files[0], hd[1].name)
         else:
             from types import ListType
@@ -125,7 +125,7 @@ def photonmap(filename, eventtype=-1, pixeloutput=False, tstart=0, tstop=0, igno
         raise Exception('filename %s not a valid list of files or fits file' % filename)
     if pixeloutput:
         data.map().write(pixelfilename)
-        print 'created a BinnedPhotonData file: %s' % pixelfilename
+        print ('created a BinnedPhotonData file: %s' % pixelfilename)
     return data
 #--------------------------------------------------------
     
@@ -142,8 +142,8 @@ def set_diffuse(diffusefilename='galdiffuse', exposure=1e10):
 def main():
 
     def help(msg=None):
-        if msg: print '\nError: %s' % msg
-        print __doc__
+        if msg: print ('\nError: %s' % msg)
+        print (__doc__)
         sys.exit(0)
     
     from getopt import getopt, GetoptError
@@ -207,7 +207,7 @@ def main():
     else: help('No source file list')
 
     if diffusefilename is not None:
-        print 'setting up background from file %s' % diffusefilename
+        print ('setting up background from file %s' % diffusefilename)
         (t1,t2)=set_diffuse(diffusefilename, exposure)
     PointSourceLikelihood.set_energy_range(emin)
     PointSourceLikelihood.set_verbose(verbose)

@@ -43,7 +43,7 @@ SourceLikelihood.verbose=1
 def ext(deg):
    return str(deg*pi/180.);
 
-print "SRC: ",gal2equ(0.0,0.0) 
+print ("SRC: ",gal2equ(0.0,0.0) )
 ra,dec = 30.0, 30.0 ; source['small_00'] =(ra-0.5,dec+0.5,'gauss',1,ext(0.01),1.)
 #ra,dec = 30.0, 30.0 ; source['ppoint_00'] =(ra+0.5,dec+0.5,'pseudopoint',0,ext(0.0001),1.)
 #ra,dec = 30.0, 30.0 ; source['point_00'] =(ra-0.5,dec-0.5,'point',0,ext(0.0001),1.)

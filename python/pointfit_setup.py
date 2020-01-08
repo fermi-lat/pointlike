@@ -19,11 +19,11 @@ outfile = 'output.txt'
 
 # this function, if it exists, will be called at the end of the job
 def finish():
-  print 'Finishing:'
+  print ('Finishing:')
   if not os.path.exists(outfile):
-    print 'job failed? no output'
+    print ('job failed? no output')
     return
   else:
-    print 'wrote to file %s' % outfile
+    print ('wrote to file %s' % outfile)
     # can do other processing here
       
