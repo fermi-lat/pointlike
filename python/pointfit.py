@@ -157,7 +157,7 @@ def main():
 
     try:    
         (opts, args) = getopt(sys.argv[1:], options, long_options )
-    except GetoptError, msg:
+    except GetoptError as msg:
         help(msg)
 
     outputpixelfile= background=regfile=region=None
