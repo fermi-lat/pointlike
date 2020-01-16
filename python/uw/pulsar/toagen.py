@@ -93,7 +93,7 @@ class TOAGenerator(object):
             rms = 0.
 
             # Prepare a string to write to a .tim file or to send to STDOUT
-            #print period
+            #print (period)
             toa = phase_time + (tau*period)/SECSPERDAY
             if tau_err < 100:
                 toa_err = tau_err*period*1.0e6
@@ -118,7 +118,7 @@ class TOAGenerator(object):
             taus = tau + polyco_phase0 - self.polyco.vec_evalphase(dom)
             tmp_toas = dom + (taus*period)/SECSPERDAY
             resids = self.polyco.vec_evalphase(tmp_toas)
-            print resids-resids.mean()
+            print (resids-resids.mean())
             tmp_toa_strings  = [" %s 0.0 %.12f %.2f %s -i LAT" % (frame_label,toa,toa_err,pe.obs) for toa in tmp_toas]
             tmp_tim_strings.extend(tmp_toa_strings)
             #tim_strings.extend(tmp_toa_strings)
@@ -148,7 +148,7 @@ class UnbinnedTOAGenerator(TOAGenerator):
         delta  = 0.01
         d2 = (f( [val + delta], *args) - 2*f([val], *args) + f( [val - delta], *args))/(delta)**2
         if d2 < 0:
-            print 'WARNING! Could not estimate error properly.  Setting to a large value...'
+            print ('WARNING! Could not estimate error properly.  Setting to a large value...')
             return 0.2
         return d2**-0.5
 
@@ -171,8 +171,8 @@ class UnbinnedTOAGenerator(TOAGenerator):
             best_ll = fit[1]
             jump = abs(self.prev_peak - fit[0][0])/self.mean_err
             if jump > 10:
-                print 'Found a jump, doing a blind search now.'
-                print self.prev_peak,fit[0][0],self.mean_err
+                print ('Found a jump, doing a blind search now.')
+                print (self.prev_peak,fit[0][0],self.mean_err)
             jump = jump > 10
             peak_shift = (fit[0][0] - self.phi0)
             if abs(peak_shift) > 0.25:
@@ -181,7 +181,7 @@ class UnbinnedTOAGenerator(TOAGenerator):
                 self.prev_peak = fit[0][0]
                 tau     = (peak_shift - polyco_phase0)
                 tau_err = self.__toa_error__(fit[0][0],phases,weights)
-                if self.display: print 'Peak Shift: %.5f +/- %.5f'%(peak_shift,tau_err)
+                if self.display: print ('Peak Shift: %.5f +/- %.5f'%(peak_shift,tau_err))
                 self.phases.append(peak_shift)
             
         if (not self.good_ephemeris) or self.phase_drift or jump:
@@ -201,8 +201,8 @@ class UnbinnedTOAGenerator(TOAGenerator):
             tau_err = self.__toa_error__(tau,phases,weights)         
             tau -= (self.phi0 + polyco_phase0)
             if self.display: 
-                print '(Blind) Peak Shift: %.5f +/- %.5f'%(
-                    tau+polyco_phase0,tau_err)
+                print ('(Blind) Peak Shift: %.5f +/- %.5f'%(
+                    tau+polyco_phase0,tau_err))
             self.phases.append(tau+polyco_phase0)        
 
         if (self.plot_stem is not None):
@@ -278,7 +278,7 @@ class UnbinnedTOAGenerator(TOAGenerator):
         tau = peak_shift - polyco_phase0
         tau_err = x0_err
         if self.display: 
-            print 'Peak Shift: %.5f +/- %.5f'%(peak_shift,tau_err)
+            print ('Peak Shift: %.5f +/- %.5f'%(peak_shift,tau_err))
         self.phases.append(peak_shift)
         self.phase_errs.append(tau_err)
         h = hm(phases) if (weights is None) else hmw(phases,weights)
@@ -301,7 +301,7 @@ class UnbinnedTOAGeneratorF0Search(UnbinnedTOAGenerator):
         else:
             tmp = np.log(1+args[1]*(self.template(phases,use_cache=True)-1)).sum(axis=1)
         amax = np.argmax(tmp)
-        #print 'Best likelihood at offset %d.'%amax
+        #print ('Best likelihood at offset %d.'%amax)
         return -tmp[amax]
 
     def get_toas(self,binner,use_midpoint=True):
@@ -358,7 +358,7 @@ class UnbinnedTOAGeneratorF0Search(UnbinnedTOAGenerator):
             rms = 0.
 
             # Prepare a string to write to a .tim file or to send to STDOUT
-            #print period
+            #print (period)
             toa = phase_time + (tau*period)/SECSPERDAY
             if tau_err < 100:
                 toa_err = tau_err*period*1.0e6
@@ -383,7 +383,7 @@ class UnbinnedTOAGeneratorF0Search(UnbinnedTOAGenerator):
             taus = tau + polyco_phase0 - self.polyco.vec_evalphase(dom)
             tmp_toas = dom + (taus*period)/SECSPERDAY
             resids = self.polyco.vec_evalphase(tmp_toas)
-            print resids-resids.mean()
+            print (resids-resids.mean())
             tmp_toa_strings  = [" %s 0.0 %.12f %.2f %s -i LAT" % (frame_label,toa,toa_err,pe.obs) for toa in tmp_toas]
             tmp_tim_strings.extend(tmp_toa_strings)
             #tim_strings.extend(tmp_toa_strings)
@@ -466,13 +466,13 @@ class BinnedTOAGenerator(TOAGenerator):
                 talk at the Royal Society.
         """
         c,amp,pha = fftfit.cprof(template)
-        print "template", template
+        print ("template", template)
         pha1 = pha[0]
         if (rotate_prof):
             pha = np.fmod(pha-np.arange(1,len(pha)+1)*pha1,2.0*np.pi)
-        print "profile",len(profile),profile
-        print "amp", amp
-        print "pha ",pha
+        print ("profile",len(profile),profile)
+        print ("amp", amp)
+        print ("pha ",pha)
         shift,eshift,snr,esnr,b,errb,ngood = fftfit.fftfit(profile,amp,pha)
         if 0:
             c2,amp2,pha2=fftfit.cprof(profile)
@@ -492,7 +492,7 @@ class BinnedTOAGenerator(TOAGenerator):
             pl.draw()
             tmp = raw_input()
             pl.close('all')
-            print "shift, eshift, snr = ",shift,eshift,snr
+            print ("shift, eshift, snr = ",shift,eshift,snr)
         return shift,eshift,snr,esnr,b,errb,ngood
 
     def get_phase_shift(self,phases,weights,polyco_phase0):
@@ -522,7 +522,7 @@ class BinnedTOAGenerator(TOAGenerator):
 
             # If that failed, use a time-domain correlation
             if (np.fabs(shift) < 1e-7 and np.fabs(eshift-999.0) < 1e-7):
-                   print >>sys.stderr, "Warning!  Bad return from FFTFIT.  Using PRESTO correlation..."
+                   print ("Warning!  Bad return from FFTFIT.  Using PRESTO correlation...", file=sys.stderr)
                    # Not enough structure in the template profile for FFTFIT
                    # so use time-domain correlations instead
                    tau = psr_utils.measure_phase_corr(profile, self.template)
@@ -549,9 +549,9 @@ class BinnedTOAGenerator(TOAGenerator):
             #pl.title('Profile')
             pl.show()
             of = file('profile.bestprof',"w")
-            print >>of, "# Profile generated by polyfold.py"
+            print ("# Profile generated by polyfold.py", file=of)
             for i,np in zip(range(len(profile)),profile):
-                print >>of,"%d %d" % (i,np)
+                print ("%d %d" % (i,np), file=of)
             of.close()
 
             return 0,0,0,0

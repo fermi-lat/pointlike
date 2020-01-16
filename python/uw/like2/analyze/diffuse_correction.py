@@ -32,7 +32,7 @@ class DiffuseCorrection(analysis_base.AnalysisBase):
             filename = 'diffuse/history_{:04d}.pickle'.format(index)
             try:
                 t=pd.DataFrame(pickle.load(open(filename))).T;
-            except Exception, msg:
+            except Exception as msg:
                 raise Exception('Failed to open file {}:'.format(filename, msg))
             c =np.array([t.ix[i]['corr'] for i in range(len(t))])
             self.all_corr[index,:] = np.prod(c,axis=0).round(3)
@@ -47,9 +47,9 @@ class DiffuseCorrection(analysis_base.AnalysisBase):
         t = diffuse.HealpixCube(config.diffuse['ring']['filename'])
         t.load(); self.energies = t.energies
         self.iso=diffuse.diffuse_factory(config.diffuse['isotrop'])
-        print 'isotropic:\n {}'.format(self.iso)
+        print ('isotropic:\n {}'.format(self.iso))
         self.gal=diffuse.diffuse_factory(config.diffuse['ring'])
-        print 'galactic:\n{}'.format(self.gal)
+        print ('galactic:\n{}'.format(self.gal))
 
 
     def plot_chisq(self):

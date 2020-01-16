@@ -73,7 +73,7 @@ class DataSpecification(object):
                     data[name]=data[name].replace('.fit', '_%s.fit'%interval)
 
         if not os.path.exists(data['binfile']):
-            print 'binned file "{}" not found: have to create from FT1'.format(data['binfile'])
+            print ('binned file "{}" not found: have to create from FT1'.format(data['binfile']))
             ft1s = data['ft1files'] if hasattr(data['ft1files'],'__iter__') else (data['ft1files'],)
             for ft1 in ft1s:
                 if ft1 is None or not os.path.exists(ft1):
@@ -81,7 +81,7 @@ class DataSpecification(object):
         # check for livetime cube file or files
         nltcube= glob.glob(data['ltcube'])
         if len(nltcube)==0:
-            print 'ltcube file {} not found: checking ft2 files'.format(data['ltcube'])
+            print ('ltcube file {} not found: checking ft2 files'.format(data['ltcube']))
             ft2s = data['ft2files'] if hasattr(data['ft2files'],'__iter__') else (data['ft2files'],)
             if len(ft2s)==0 or ft2s[0]=='none':
                 raise DataSetError('No FT2 file(s) specified or found')
@@ -90,7 +90,7 @@ class DataSpecification(object):
                     raise DataSetError('FT2 file {} does not exist, needed to create binned photon data file'.format(ft2))
 
         self.__dict__.update(data)
-        if not quiet: print 'data spec:\n', str(self.__dict__)
+        if not quiet: print ('data spec:\n', str(self.__dict__))
 
     def __str__(self):
         return self.data_name
@@ -183,7 +183,7 @@ class DataSet(dataman.DataSpec):
         dataspec.update(kwargs)
  
         if new_binfile is not None:
-            print 'binfile: {}'.format(new_binfile)
+            print ('binfile: {}'.format(new_binfile))
             if not os.path.exists(new_binfile):
                 new_binfile = os.path.join(os.path.expandvars('$FERMI/data'),new_binfile)
                 if not os.path.exists(new_binfile):
@@ -235,7 +235,7 @@ class DataSet(dataman.DataSpec):
                 continue
             try:
                 ldict = eval(open(dict_file).read())
-            except Exception, msg:
+            except Exception as msg:
                 raise DataSetError( 'Data dictionary file %s not valid: %s' % (dict_file, msg))
             if interval is not None and not (interval.startswith('month_') or interval.startswith('year_')):
                 # note that the underscore is to specify the designated month or year, with their own files
@@ -245,13 +245,13 @@ class DataSet(dataman.DataSpec):
                     gr = idict[interval]
                     gti_mask = skymaps.Gti([gr[0]], [gr[1]])
                     if True: #self.verbose: 
-                        if not quiet: print 'apply gti mask %s, %s' %(interval, gti_mask)
-                except Exception, msg:
+                        if not quiet: print ('apply gti mask %s, %s' %(interval, gti_mask))
+                except Exception as msg:
                     raise DataSetError('Interval dictionary file %s, key %s, problem: %s'\
                                 % (pyfile, interval, msg))
             else: gti_mask=None
             if dataset in ldict: 
-                if not quiet: print 'Opening dataset %s from key in %s' % (dataset, dict_file)
+                if not quiet: print ('Opening dataset %s from key in %s' % (dataset, dict_file))
                 # translate event class name to appropriate bit
                 ddict=ldict[dataset]
                 #ddict['event_class_bit']= 4 ######FOR PASS8 now 
@@ -265,33 +265,33 @@ class DataSet(dataman.DataSpec):
             self.postpone=False
  
     def _load_binfile(self):
-        if not self.quiet: print 'loading binfile %s ...' % self.binfile ,
+        if not self.quiet: print ('loading binfile %s ...' % self.binfile ,)
         try:
             self.dmap = skymaps.BinnedPhotonData(self.binfile)  
-            if not self.quiet: print 'found %d photons in %d bands, energies %.0f-%.0f MeV'\
-                    % (self.dmap.photonCount(),len(self.dmap), self.dmap[1].emin(), self.dmap[len(self.dmap)-1].emax())
+            if not self.quiet: print ('found %d photons in %d bands, energies %.0f-%.0f MeV'\
+                    % (self.dmap.photonCount(),len(self.dmap), self.dmap[1].emin(), self.dmap[len(self.dmap)-1].emax()))
         except RuntimeError:
             self.dmap = binned_data.BinFile(self.binfile)
-            if not self.quiet: print self.dmap
+            if not self.quiet: print (self.dmap)
         if self.verbose:
             self.dmap.info()
-            print '---------------------'
+            print ('---------------------')
             
     def info(self, out=None):
         """ formatted table of band contents """
         self.load()
-        print >>out, 'File: %s ' %self.binfile
-        print >>out, '\n  index    emin      emax  class nside     photons'
+        print ('File: %s ' %self.binfile, file=out)
+        print ('\n  index    emin      emax  class nside     photons', file=out)
         total = 0
         def bignum(n):
             t = '%9d' % n
             return '  '+' '.join([t[0:3],t[3:6],t[6:]])
         for i,band in enumerate(self.dmap):
             fmt = '%5d'+2*'%10d'+2*'%6d'+'%12s'
-            print fmt % (i, round(band.emin()), round(band.emax()), 
-                    band.event_class()&15, band.nside(), bignum(band.photons()))
+            print (fmt % (i, round(band.emin()), round(band.emax()), 
+                    band.event_class()&15, band.nside(), bignum(band.photons())))
             total += band.photons()
-        print >>out, 'total%45s'% bignum(total)
+        print ('total%45s'% bignum(total), file=out)
 
     def dss_info(self, indent=''):   
         """ return a formatted table of the DSS keywords
@@ -371,25 +371,25 @@ def validate(model_path='.', interval=None, nocreate=False, logfile='dataset.txt
     try:
         #modelspec = eval(open(os.path.join(actual_path, config)).read())
         modelspec = yaml.load(open(config))
-    except Exception, msg:
+    except Exception as msg:
         raise DataSetError('could not evaluate config.yaml: %s' % msg)
     
     #modelspec = configuration.Configuration(model_path, postpone=True)
     try:
         datadict = modelspec['datadict']
-    except Exception,msg:
-        print 'Failed to find data set: {}'.format(msg)
+    except Exception as msg:
+        print ('Failed to find data set: {}'.format(msg))
         return False
     dataname = datadict['dataname']
     if interval is None:
         interval= datadict.get('interval', None)
-        print 'Using interval %s' %interval
+        print ('Using interval %s' %interval)
     try:
         #dset = DataSet(dataname, irf=modelspec['irf'], nocreate=nocreate, quiet=quiet, **datadict)
         dset = DataSet(dataname,  interval=interval, irf=modelspec['irf'], nocreate=nocreate, quiet=quiet, )
         if logfile is not None: open(logfile, 'w').write(dset.__str__())
-    except Exception, msg:
-        print 'Failed: %s ' % msg
+    except Exception as msg:
+        print ('Failed: %s ' % msg)
         raise 
         return False
     return True

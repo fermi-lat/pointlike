@@ -209,13 +209,13 @@ def make_resids(cmap,mmap,outfile=None,weighted=False,renormalize=False):
     f2 = pyfits.open(mmap)
     ocounts = f1[0].data.sum()
     mcounts = f2[0].data.sum()
-    print 'Total Obs Counts: %.1f'%(ocounts)
-    print 'Total Mod Counts: %.1f'%(mcounts)
+    print ('Total Obs Counts: %.1f'%(ocounts))
+    print ('Total Mod Counts: %.1f'%(mcounts))
     scale = float(ocounts-mcounts)/mcounts
-    print 'Relative Difference (obs - mod)/mod: %.3f'%( scale )
+    print ('Relative Difference (obs - mod)/mod: %.3f'%( scale ))
     f1[0].data = f1[0].data - f2[0].data*float(ocounts)/mcounts
     if renormalize:
-        print 'Renormalizing model counts for mean 0 residuals...(multiplying model by %.3f)'%(float(ocounts)/mcounts)
+        print ('Renormalizing model counts for mean 0 residuals...(multiplying model by %.3f)'%(float(ocounts)/mcounts))
     f1.writeto(outfile,clobber=True)
 
 def do_gtbary(ft1,ft2,outfile=None,ra=None,dec=None,tcorrect='BARY'):

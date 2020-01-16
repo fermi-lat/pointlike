@@ -148,25 +148,25 @@ class Ellipse(object):
 
             
 def testit(p=[ 1, 0, 2., 0, 0, 0 ]):
-    print 'testing with quad pars=' ,p
+    print ('testing with quad pars=' ,p)
     points =  QuadForm.points
     u1 = asarray([quadfun(r,p) for r in points]) # generate data
     qf = QuadForm(u1)
     pfit = qf.p   # fit quadratic form coefficients
     check = ((p-pfit)**2).sum()
-    print 'fit chisq, check: %10.1g %10.1g' %  (qf.chisq, check)
+    print ('fit chisq, check: %10.1g %10.1g' %  (qf.chisq, check))
     if check>1e-9: 
-        print 'failed to fit: output parameters ', pfit
+        print ('failed to fit: output parameters ', pfit)
     ell = Ellipse(pfit,True,raw=False)
     print ('elliptical pars: '+6*'%10.3f') % tuple(ell.q)
     u2= asarray([ell(r) for r in points]) 
     check = ((u1-u2)**2).sum()
-    print 'compare two functions: %10.1g' %check
+    print ('compare two functions: %10.1g' %check)
     if check>1e-10:
-        print 'Failed comparison!'
-        print (5*'%+10s') % ('x   ','y   ', 'quad ', 'eliptical','diff ')
+        print ('Failed comparison!')
+        print ((5*'%+10s') % ('x   ','y   ', 'quad ', 'eliptical','diff '))
         for i, (x,y) in enumerate(points):
-            print (4*'%10.3f'+'%10.1g') % ( x,y , u1[i], u2[i], u1[i]-u2[i] )
+            print ((4*'%10.3f'+'%10.1g') % ( x,y , u1[i], u2[i], u1[i]-u2[i] ))
 
 class Localize(object):
     fit_radius=2.5 #### modified from 2, works better for many weak sources
@@ -184,7 +184,7 @@ class Localize(object):
         try:
             self.fit(update=True) # needed?
         except:
-            if self.verbose: print 'update failed: center on highest TS and try again'
+            if self.verbose: print ('update failed: center on highest TS and try again')
             self.recenter()
             self.fit(update=True)
             
@@ -192,11 +192,11 @@ class Localize(object):
         ts = array(self.ts)
         tsmax = ts.max()
         if isnan(tsmax):
-            print 'really lost'
+            print ('really lost')
             raise Exception('Localize: reallylost')
         idir = arange(9)[tsmax==ts][0]
         mdir = self.rcirc[idir]
-        if self.verbose: print 'try ra,dec,ts =', mdir.ra(), mdir.dec(), tsmax 
+        if self.verbose: print ('try ra,dec,ts =', mdir.ra(), mdir.dec(), tsmax )
         self.ra= mdir.ra()
         self.dec = mdir.dec()
 
@@ -209,12 +209,12 @@ class Localize(object):
         self.rcirc = self.circle()
         self.qual_cache = -1
         self.ts = [self.TS(r) for r in self.rcirc]
-        if verbose: print ('ts:   ' + ' '.join(9*['%9.2f'])) % tuple(self.ts)
+        if verbose: print (('ts:   ' + ' '.join(9*['%9.2f'])) % tuple(self.ts))
         self.ellipse = Ellipse(self.ts)
         self.chisq = self.ellipse.chisq
-        if verbose: print ('resid:' + ' '.join(9*['%9.2f']))% tuple(self.ts-self.ellipse.qf.v)
-        if verbose: print ('fit:  ' +len(self.ellipse.q)*'%9.2f') % tuple(self.ellipse.q)
-        if verbose: print 'chisq: %9.2f' % self.ellipse.chisq
+        if verbose: print (('resid:' + ' '.join(9*['%9.2f']))% tuple(self.ts-self.ellipse.qf.v))
+        if verbose: print (('fit:  ' +len(self.ellipse.q)*'%9.2f') % tuple(self.ellipse.q)(
+        if verbose: print ('chisq: %9.2f' % self.ellipse.chisq)
         radius = Localize.fit_radius
         if update:
             self.ra += self.ellipse.q[3]*self.sigma*radius
@@ -222,7 +222,7 @@ class Localize(object):
 
             self.dir = SkyDir(self.ra,self.dec)
             self.sigma= sqrt(self.ellipse.q[0]*self.ellipse.q[1])*self.sigma*radius
-            if verbose: print ('update:  ra,dec, sigma:' +3*'%10.4f') % (self.ra,self.dec,self.sigma)
+            if verbose: print (('update:  ra,dec, sigma:' +3*'%10.4f') % (self.ra,self.dec,self.sigma))
 
         self.par=[self.ra, self.dec, self.ts[0], radius*self.sigma*self.ellipse.q[0],
                 radius*self.sigma*self.ellipse.q[1], degrees(self.ellipse.q[2]),

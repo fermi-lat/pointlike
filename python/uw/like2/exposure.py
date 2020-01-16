@@ -45,8 +45,8 @@ class ExposureManager(object):
                 self.ea  = [skymaps.EffectiveArea('', file, 'EFFECTIVE AREA_'+name) for file,name in zip(aeff_files, type_names)]
             else:
                 self.ea  = [skymaps.EffectiveArea('', file) for file in aeff_files]
-            if dataset.verbose: print ' -->effective areas at 1 GeV: ', \
-                    ['%s: %6.1f'% (type_names[i],self.ea[i](1000)) for i in range(len(type_names))]
+            if dataset.verbose: print (' -->effective areas at 1 GeV: ', \
+                    ['%s: %6.1f'% (type_names[i],self.ea[i](1000)) for i in range(len(type_names))])
             
             if dataset.use_weighted_livetime and hasattr(dataset, 'weighted_lt'):
                 return [skymaps.Exposure(dataset.lt,dataset.weighted_lt,ea) for ea in self.ea]

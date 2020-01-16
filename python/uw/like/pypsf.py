@@ -267,7 +267,7 @@ class CALDBPsf(Psf):
         trial = fmin(f,seed,disp=0,ftol=0.000001,xtol=0.01)
         if trial > 0:
             return trial[0]*RAD2DEG
-        print 'Warning: could not invert integral; return best grid value.'
+        print ('Warning: could not invert integral; return best grid value.')
         return seed*RAD2DEG
 
     def band_psf(self,band,weightfunc=None,adjust_mean=False):
@@ -339,7 +339,7 @@ class BandPsf(object):
             dom = simps(wvals*dom,x=dom)
             self.scale = num/dom
             self.comp_scale = psf.scale_func[band.ct](band.e)
-            print num,dom,num/dom,self.comp_scale
+            print (num,dom,num/dom,self.comp_scale)
 
         else:
             self.scale = psf.scale_func[band.ct](self.override_en or band.e)
@@ -553,7 +553,7 @@ class PsfOverlapHealpix(object):
         for addon in [0]:
             sample_nside = min(8192,nside*2**(int(p0)+addon))
             geo = (4*np.pi/12/sample_nside**2)
-            #print sample_nside,index
+            #print (sample_nside,index)
 
             # temporary code for testing!
             if True:
@@ -564,11 +564,11 @@ class PsfOverlapHealpix(object):
             vals  = np.empty(len(wsdl))
             band.psf.cpsf.wsdl_val(vals,ps_dir,wsdl)
             overlap = vals.sum()*geo
-            #print overlap
+            #print (overlap)
             overlaps.append(overlap)
             #if last_overlap is not None:
             #    new_est = (2*last_overlap+4*overlap)/6
-            #    print 'Updated estimate: ',new_est
+            #    print ('Updated estimate: ',new_est)
             last_overlap = overlap
         #print ('%.6f\t'*(len(overlaps)))%(tuple(overlaps))
         return overlaps[-1],sample_nside

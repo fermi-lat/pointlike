@@ -20,7 +20,7 @@ class TSdata(object):
         if not os.path.exists(os.path.join(outdir, filename)):
             project= os.path.split(os.getcwd())[-1]
             outdir = os.path.join('../..', 'pivot', '%s_%s' %(project, outdir))
-        print 'using outdir %s' % outdir
+        print ('using outdir %s' % outdir)
         self.rts = pyfits.open(os.path.join(outdir,filename))[1].data.field(fieldname)
         self.glat= np.array([sdir(i).b() for i in range(len(self.rts))])
         self.glon= np.array([sdir(i).l() for i in range(len(self.rts))])
@@ -72,17 +72,17 @@ class Cluster(object):
     def group(self, clu):
         """ clu: list of pixel indices"""
         ts = np.array([self.rts[i] for i in clu])
-        #print clu, ts
+        #print (clu, ts)
         dirs = [sdir(i) for i in clu]
         ra   = np.array([s.ra() for s in dirs])
-        #print ra
+        #print (ra)
         dec  = np.array([s.dec() for s in dirs])
-        #print dec
+        #print (dec)
         wra = sum(ts*ra)/sum(ts)
         wdec = sum(ts*dec)/sum(ts)
         self.ts = ts.max()
         self.sdir = SkyDir(float(wra), float(wdec))
-        #print self.sdir
+        #print (self.sdir)
         
 def make_seeds(tsdata, nside, fieldname='ts', rcut=10, bcut=0, out=None, rec=None, seedroot='SEED'):
     """
@@ -102,23 +102,23 @@ def make_seeds(tsdata, nside, fieldname='ts', rcut=10, bcut=0, out=None, rec=Non
         fn = glob.glob(ff)
         assert len(fn)>0, 'Did not find any files with pattern %s' %ff
         if len(fn)>1:
-            print 'found files %s: using first'
+            print ('found files %s: using first')
         tsdata = TSdata(outdir='.', filename=fn[0], fieldname=fieldname)
     
     indices  = tsdata.indices(rcut,bcut)
     clusters = cluster(indices)
     cl = Cluster(tsdata.rts)
-    if out is not None: print >> out,  '# Region file format: DS9 version 4.0 global color=green'
+    if out is not None: print ('# Region file format: DS9 version 4.0 global color=green', file=out)
     if rec is not None:
-        print >> rec, 'name\tra\tdec\tts\tsize\tl\tb'
+        print ('name\tra\tdec\tts\tsize\tl\tb',file=rec)
     for i,x in enumerate(clusters):
         cl.group(x)
         if out is not None: 
-            print >>out,'fk5; point(%8.3f, %8.3f) # point=cross text={%d:%d %.1f}'%\
-                ( cl.sdir.ra(), cl.sdir.dec(),i, len(x), cl.ts)
+            print ('fk5; point(%8.3f, %8.3f) # point=cross text={%d:%d %.1f}'%\
+                ( cl.sdir.ra(), cl.sdir.dec(),i, len(x), cl.ts), file=out)
         if rec is not None:
-            print >>rec, '%s-%02d \t%8.3f \t%8.3f\t %8.1f\t%8d\t%8.3f \t%8.3f ' %\
-                (seedroot, i,cl.sdir.ra(), cl.sdir.dec(),  cl.ts, len(x), cl.sdir.l(),cl.sdir.b())
+            print ('%s-%02d \t%8.3f \t%8.3f\t %8.1f\t%8d\t%8.3f \t%8.3f ' %\
+                (seedroot, i,cl.sdir.ra(), cl.sdir.dec(),  cl.ts, len(x), cl.sdir.l(),cl.sdir.b()), file=rec)
         
     if rec is not None: rec.close()
     if out is not None: out.close()

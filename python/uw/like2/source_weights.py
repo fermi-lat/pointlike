@@ -38,7 +38,7 @@ class Weights(object):
 
         # select an ROI by the ra, dec specified or found from SkyCoord
         if self.verbose>0:
-            print 'Selecting ROI at (ra,dec)=({:.2f},{:.2f})'.format(ra,dec)
+            print ('Selecting ROI at (ra,dec)=({:.2f},{:.2f})'.format(ra,dec))
         self.roi =roi =main.ROI('.', (ra,dec))
 
         # find the model source by position and select it
@@ -50,11 +50,11 @@ class Weights(object):
         sname = roi.sources.source_names[si] 
         self.source =roi.get_source(sname)
         if self.verbose>0:
-            print 'Found model source "{}" within {:.3f} deg of "{}"'.format(self.source.name, min_dist, source_name)
+            print ('Found model source "{}" within {:.3f} deg of "{}"'.format(self.source.name, min_dist, source_name))
 
     def make_weights(self, ):
         if self.verbose>0:
-            print 'Generating pixels with weights for {} energies'.format(len(self.energy_bins))
+            print ('Generating pixels with weights for {} energies'.format(len(self.energy_bins)))
         # direection of source
 
         source_dir = self.source.skydir
@@ -79,7 +79,7 @@ class Weights(object):
         # and get distances
         pixel_dist = np.array(map(source_dir.difference, pixel_dirs))
         if self.verbose>0:
-            print 'Using {} nside={} pixels.  distance range {:.2f} to {:.2f} deg'.format(
+            print ('Using {} nside={} pixels.  distance range {:.2f} to {:.2f} deg'.format()
              len(pix_nest), self.nside, np.degrees(pixel_dist.min()), np.degrees(pixel_dist.max()))
 
         # now loop over the bands and all pixels
@@ -89,9 +89,9 @@ class Weights(object):
 
             band_id = 2*ie+band.band.event_type
             if self.verbose>1:
-                print '{}'.format(band_id),
+                print ('{}'.format(band_id),)
             wt_dict[band_id] = np.array([ weight(band, pd) for pd in pixel_dirs]).astype(np.float32)
-        if self.verbose>1: print 
+        if self.verbose>1: print ()
         
         return  pix_nest, wt_dict
 
@@ -115,7 +115,7 @@ class Weights(object):
         )
         pickle.dump(outdict, open(filename, 'wb'))
         if self.verbose>1:
-            print 'wrote file {}'.format(filename)
+            print ('wrote file {}'.format(filename))
 
 def main(source_name, filename):
     """ Use model in which this is run to create a weight file

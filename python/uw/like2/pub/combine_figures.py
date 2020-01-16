@@ -14,7 +14,7 @@ def get_files(fname, skymodel_dir, subdirs, allow_missing=1):
     def find_file(subfolder, filename):
         assert os.path.exists(os.path.join(skymodel_dir, subfolder)), 'folder %s not found' %subfolder
         filepat = os.path.join(skymodel_dir, subfolder, filename)
-        #print filepat,
+        #print (filepat,)
         t = glob.glob(filepat)
         if len(t)==0: 
             # not here: recursively check redirect folder
@@ -25,7 +25,7 @@ def get_files(fname, skymodel_dir, subdirs, allow_missing=1):
             else: 
                 f = None
         else: f = t[0]
-        #print '-->', f
+        #print ('-->', f)
         return f
     
     ret = []
@@ -57,7 +57,7 @@ def combine_images(names, outdir, subdirs, layout_kw,  outfolder, overwrite=Fals
             raise
             missing.append(name)
     if len(missing)>0: 
-        print 'Missing one or more figures in %d sources' %len(missing)
+        print ('Missing one or more figures in %d sources' %len(missing))
 
 class CombineFigues(object):
 
@@ -71,7 +71,7 @@ class CombineFigues(object):
     
     def __call__(self,sources=None, rois=None, log=True):
         if log and len(glob.glob(os.path.join(self.skymodel,'pnglog', '*.png')))==0:
-            print 'converting log files...'
+            print ('converting log files...')
             makefig.convert_log_to_png(self.skymodel)
         if rois is not None:
             combine_images(rois, outdir=self.skymodel, 

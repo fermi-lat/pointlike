@@ -28,7 +28,7 @@ import pandas as pd
 #    stack=xml_parsers.unparse_point_sources(ps)
 #    xmlfile = '24M_%s.xml'%outdir
 #    xml_parsers.writeXML(stack, xmlfile, '24M_%s source library'%outdir)
-#    print 'wrote out %d source entries XML file %s ' % (len(stack), xmlfile)
+#    print ('wrote out %d source entries XML file %s ' % (len(stack), xmlfile))
 #
 #class Assoc(object):
 #    def __init__(self,cat, curcat, cat_ref=assoc):
@@ -93,7 +93,7 @@ def band_cols():
     elist = (100,300,1000,3000,10000,100000)
     for i in range(len(elist)-1):
         e1,e2 = elist[i:i+2]
-        print '%d_%d' % (e1,e2)
+        print ('%d_%d' % (e1,e2))
   
 def get_data():
     return pipeline.load_rec_from_pickles(outdir) 
@@ -109,7 +109,7 @@ def move(z):
     fgl = np.array(source)=='1FGL'
     em  = np.array(source)=='18M'
     canmove = em+fgl
-    print 'moving %d sources' % sum(canmove)
+    print ('moving %d sources' % sum(canmove))
     z.ra[canmove]=z.fit_ra[canmove]
     z.dec[canmove]=z.fit_dec[canmove]
 
@@ -178,7 +178,7 @@ class MakeCat(object):
         self.add_assoc = add_assoc
         
     def add(self, name, array, fill=0):
-        #print ' %s ' % name ,
+        #print (' %s ' % name ,)
         if name in coldict:
             format = coldict[name]['format']
             unit = coldict[name]['unit']
@@ -250,7 +250,7 @@ class MakeCat(object):
         
     def finish(self, outfile):
         pyfits.HDUList(self.hdus).writeto(outfile)
-        print '\nwrote FITS file to %s, with %d columns and %d entries' % (outfile, len(self.cols), len(self.z))
+        print ('\nwrote FITS file to %s, with %d columns and %d entries' % (outfile, len(self.cols), len(self.z)))
         
 def to_reg(fitsfile, filename=None, color='green'):
     """ generate a 'reg' file from a FITS file, write to filename
@@ -258,22 +258,22 @@ def to_reg(fitsfile, filename=None, color='green'):
     if filename is None: filename = fitsfile.replace('.fits', '.reg')
     s = pyfits.open(fitsfile)[1].data
     out = open(filename, 'w')
-    print >> out, "# Region file format: DS9 version 4.0 global color=%s" % color
+    print ("# Region file format: DS9 version 4.0 global color=%s" % color, file=out)
     for t in zip(s.RA,s.DEC,
                           s.Conf_95_SemiMinor,s.Conf_95_SemiMajor,s.Conf_95_PosAng,
                           s.NickName):
-        print >>out, "fk5; ellipse(%.4f, %.4f, %.4f, %.4f, %.4f) #text={%s}" % t
+        print ("fk5; ellipse(%.4f, %.4f, %.4f, %.4f, %.4f) #text={%s}" % t, file=out)
                         
     out.close()
-    print 'wrote reg file to %s' % filename
+    print ('wrote reg file to %s' % filename)
 
 
 def main(outfile, infile='sources.pickle', cuts='(sources.ts>10)*(sources.a<0.25)'):
     assert os.path.exists(infile), 'Input file "%s" not found' % infile
     sources = pd.load(infile)
-    print 'Loaded DataTable file %s' % infile
+    print ('Loaded DataTable file %s' % infile)
     selected = sources[eval(cuts)]
-    print 'applied cuts %s: %d -> %d sources' % (cuts, len(sources), len(selected))
+    print ('applied cuts %s: %d -> %d sources' % (cuts, len(sources), len(selected)))
     t = MakeCat(selected)
     if outfile is None:
         outfile = '_'.join(os.path.abspath('.').split('/')[-2:])+'.fits'

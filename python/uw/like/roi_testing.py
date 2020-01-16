@@ -32,7 +32,7 @@ class PointlikeTest(unittest.TestCase):
     
     @staticmethod
     def p(str):
-        print '\n\n%s %s %s\n\n' % ('#'*5,str,'#'*5)
+        print ('\n\n%s %s %s\n\n' % ('#'*5,str,'#'*5))
 
     def setUp(self):
 
@@ -43,12 +43,12 @@ class PointlikeTest(unittest.TestCase):
     def compare_model(self,fit,true):
         norm_pull=(fit.model['Norm']-true.model['Norm'])/fit.model.error('Norm')
         if PointlikeTest.VERBOSE:
-            print 'norm_pull = ',norm_pull
+            print ('norm_pull = ',norm_pull)
         self.assertTrue(abs(norm_pull)<self.MAX_ALLOWED_PULL,'norm pull=%.1f is bad.' % norm_pull)
 
         index_pull=(fit.model['Index']-true.model['Index'])/fit.model.error('Index')
         if PointlikeTest.VERBOSE:
-            print 'index_pull = ',index_pull
+            print ('index_pull = ',index_pull)
         self.assertTrue(abs(index_pull)<self.MAX_ALLOWED_PULL,'index pull=%.1f is bad.' % index_pull)
 
     def compare_spatial_model(self,fit,true,lsigma):
@@ -57,12 +57,12 @@ class PointlikeTest(unittest.TestCase):
         if hasattr(true,'spatial_model') and hasattr(fit,'spatial_model'):
             sigma_pull = (fit.spatial_model['Sigma'] - true.spatial_model['Sigma'])/fit.spatial_model.error('Sigma')
             if PointlikeTest.VERBOSE:
-                print 'sigma_pull = ',sigma_pull
+                print ('sigma_pull = ',sigma_pull)
             self.assertTrue(abs(sigma_pull)<self.MAX_ALLOWED_PULL,'sigma pull=%.1f is bad.' % sigma_pull)
 
         dist_pull = np.degrees(true.skydir.difference(fit.skydir))/lsigma
         if PointlikeTest.VERBOSE:
-            print 'dist_pull = ',dist_pull
+            print ('dist_pull = ',dist_pull)
         self.assertTrue(abs(dist_pull)<self.MAX_ALLOWED_PULL,'dist pull=%.1f is bad.' % dist_pull)
 
     @staticmethod
@@ -136,15 +136,15 @@ class PointlikeTest(unittest.TestCase):
         global roi_ext;roi_ext=roi # helps with debugging
 
         if PointlikeTest.VERBOSE:
-            print roi
+            print (roi)
 
         if PointlikeTest.VERBOSE:
             PointlikeTest.p('Setting initial spatial model to 0.3 degrees')
         roi.modify(which='source',spatial_model=Gaussian(0.3))
 
-        if PointlikeTest.VERBOSE: print roi
+        if PointlikeTest.VERBOSE: print (roi)
         roi.fit(use_gradient=PointlikeTest.USE_GRADIENT)
-        if PointlikeTest.VERBOSE: print roi
+        if PointlikeTest.VERBOSE: print (roi)
         roi.fit_extension(which='source', use_gradient=PointlikeTest.USE_GRADIENT)
         roi.localize(update=True)
         roi.fit(use_gradient=PointlikeTest.USE_GRADIENT)
@@ -180,7 +180,7 @@ class PointlikeTest(unittest.TestCase):
     def test_ps1(self):
 
         if PointlikeTest.VERBOSE:
-            print '\nAnalyze a simulated point source against the galactic + isotropic diffuse\n'
+            print ('\nAnalyze a simulated point source against the galactic + isotropic diffuse\n')
 
         center=SkyDir(0,0)
 
@@ -199,15 +199,15 @@ class PointlikeTest(unittest.TestCase):
         global roi_pt;roi_pt=roi # helps with debugging
 
         if PointlikeTest.VERBOSE:
-            print roi
+            print (roi)
 
         roi.fit(use_gradient=PointlikeTest.USE_GRADIENT)
-        if PointlikeTest.VERBOSE: print roi
+        if PointlikeTest.VERBOSE: print (roi)
         roi.localize(update=True)
         roi.fit(use_gradient=PointlikeTest.USE_GRADIENT)
         if PointlikeTest.VERBOSE: 
             roi.print_summary()
-            print roi
+            print (roi)
 
         self.compare_model(ps_fit,ps_mc)
         self.compare_spatial_model(ps_fit,ps_mc,roi.lsigma)
@@ -230,7 +230,7 @@ class PointlikeTest(unittest.TestCase):
         global roi_pt;roi_pt=roi # helps with debugging
 
         if PointlikeTest.VERBOSE:
-            print roi
+            print (roi)
 
         if PointlikeTest.VERBOSE:
             PointlikeTest.p('\nTesting if SED points are within errors\n')
@@ -280,13 +280,13 @@ class PointlikeTest(unittest.TestCase):
 
         if PointlikeTest.VERBOSE:
             roi.print_summary()
-            print roi
+            print (roi)
 
         roi.fit(use_gradient=PointlikeTest.USE_GRADIENT)
 
         if PointlikeTest.VERBOSE:
             roi.print_summary()
-            print roi
+            print (roi)
 
         fit,error = ff.i_flux(1e2,1e5,error=True)
         true= model.i_flux(1e2,1e5,error=False)
@@ -325,3 +325,4 @@ if __name__ == '__main__':
     np.seterr(all='ignore')
 
     unittest.main(verbosity=2 if args.verbose else 0)
+)

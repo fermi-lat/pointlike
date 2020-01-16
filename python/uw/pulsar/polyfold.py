@@ -24,7 +24,7 @@ try:
     import psr_utils
     HAVE_PRESTO = True
 except:
-    print 'Unable to import presto packages; binned fit will be unavailable.'
+    print ('Unable to import presto packages; binned fit will be unavailable.')
     HAVE_PRESTO = False
 
 __version__ = "1.3"
@@ -54,13 +54,13 @@ if __name__ == '__main__':
         parser.error("Both FT1_FILENAME and POLYCO_FILENAME arguments are required.")
 
     if (options.profile and (options.ntoa != 1)):
-        print >>sys.stderr, "ERROR! ntoa MUST be 1 for profile generation!"
+        print ("ERROR! ntoa MUST be 1 for profile generation!", file=sys.stderr)
 
     if options.gauss is not None and options.template is not None:
-        print >>sys.stderr, "ERROR! Specify either a gaussian template or a .bestprof type template -- but not both!"    
+        print ("ERROR! Specify either a gaussian template or a .bestprof type template -- but not both!", file=sys.stderr)  
 
     #if options.gauss is None and options.unbinned:
-    #    print >>sys.stderr, "ERROR! Unbinned likelihood requires a gaussian template."
+    #    print ("ERROR! Unbinned likelihood requires a gaussian template." , file=sys.stderr)
     
     ft1name    = args[0]
     polyconame = args[1]
@@ -78,7 +78,7 @@ if __name__ == '__main__':
            if (options.gauss is not None):
                template = psr_utils.read_gaussfitfile(options.gauss, options.nbins)
            else:
-               print >>sys.stderr,  "WARNING: Using single gaussian template!"
+               print ("WARNING: Using single gaussian template!", file=sys.stderr)
                gaussianwidth=0.1 # DEFAULT
                template = psr_utils.gaussian_profile(options.nbins, 0.0, gaussianwidth)
            template = template / template.max()
@@ -88,10 +88,10 @@ if __name__ == '__main__':
         elif options.template is not None:
             template = LCTemplate(template=options.template)
         elif options.edf:
-            print 'EDF option selected; will use EDF for template.'
+            print ('EDF option selected; will use EDF for template.')
             template = None  
         else: # default is kernel density estimator
-            print 'No template provided -- Please build one with itemplate.py and supply it!'
+            print ('No template provided -- Please build one with itemplate.py and supply it!')
             sys.exit(1)
 
     if options.unbinned:
@@ -108,7 +108,7 @@ if __name__ == '__main__':
         f = open(options.output,'w')
         for s in tim_strings: f.write(s + '\n')
         f.close()
-        print 'Wrote TOAs to %s'%(options.output)
+        print ('Wrote TOAs to %s'%(options.output))
 
     else:
-        for s in tim_strings: print s
+        for s in tim_strings: print (s)

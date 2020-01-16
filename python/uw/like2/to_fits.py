@@ -29,7 +29,7 @@ from .analyze import fermi_catalog, sourceinfo
 #    stack=xml_parsers.unparse_point_sources(ps)
 #    xmlfile = '24M_%s.xml'%outdir
 #    xml_parsers.writeXML(stack, xmlfile, '24M_%s source library'%outdir)
-#    print 'wrote out %d source entries XML file %s ' % (len(stack), xmlfile)
+#    print ('wrote out %d source entries XML file %s ' % (len(stack), xmlfile))
 #
 #class Assoc(object):
 #    def __init__(self,cat, curcat, cat_ref=assoc):
@@ -95,7 +95,7 @@ def band_cols():
     elist = (100,300,1000,3000,10000,100000)
     for i in range(len(elist)-1):
         e1,e2 = elist[i:i+2]
-        print '%d_%d' % (e1,e2)
+        print ('%d_%d' % (e1,e2))
   
 def get_data():
     return pipeline.load_rec_from_pickles(outdir) 
@@ -111,7 +111,7 @@ def move(z):
     fgl = np.array(source)=='1FGL'
     em  = np.array(source)=='18M'
     canmove = em+fgl
-    print 'moving %d sources' % sum(canmove)
+    print ('moving %d sources' % sum(canmove))
     z.ra[canmove]=z.fit_ra[canmove]
     z.dec[canmove]=z.fit_dec[canmove]
 
@@ -180,7 +180,7 @@ class MakeCat(object):
         self.fcat = fermi_catalog.CreateFermiFITS(si.df,names=list(z.index))
         
     def add(self, name, array, fill=0):
-        #print ' %s ' % name ,
+        #print (' %s ' % name ,)
         if name in coldict:
             format = coldict[name]['format']
             unit = coldict[name]['unit']
@@ -209,13 +209,13 @@ class MakeCat(object):
         
         # localization 
         f95, quad = 2.45*localization_systematic[0], localization_systematic[1] # 
-        print 'Applying factor of %.2f to localization errors, and adding %.3g deg in quadrature' % localization_systematic
+        print ('Applying factor of %.2f to localization errors, and adding %.3g deg in quadrature' % localization_systematic)
         self.add('LocalizationQuality', z.locqual)
         major, minor, posangle = z.a, z.b, z.ang 
         flags = z.flags
         if 'ax' in z.columns:
             refit = ~pd.isnull(z.ax)
-            print 'applying alternate ellipses to %d sources, setting 16 flag bit' % sum(refit) 
+            print ('applying alternate ellipses to %d sources, setting 16 flag bit' % sum(refit) )
             major[refit] = z[refit].ax
             minor[refit] = z[refit].bx
             posangle[refit] =  z[refit].angx
@@ -232,8 +232,8 @@ class MakeCat(object):
         has_exp_index = psr & (z.index2<1)
         exp_cutoff = psr & (z.index2==1)
         extended = pd.isnull(z.locqual)
-        print 'found %d logparabola, %d exp cutoff, %d super cutoff, %d extended'\
-               % (sum(logpar), sum(exp_cutoff), sum(has_exp_index), sum(extended))
+        print ('found %d logparabola, %d exp cutoff, %d super cutoff, %d extended'\
+               % (sum(logpar), sum(exp_cutoff), sum(has_exp_index), sum(extended)))
         self.add('Test_Statistic',    z.ts)
         
         # Spectral details
@@ -273,7 +273,7 @@ class MakeCat(object):
         
     def finish(self, outfile):
         pyfits.HDUList(self.hdus).writeto(outfile)
-        print '\nwrote FITS file to %s, with %d columns and %d entries' % (outfile, len(self.cols), len(self.z))
+        print ('\nwrote FITS file to %s, with %d columns and %d entries' % (outfile, len(self.cols), len(self.z)))
         
 def to_reg(fitsfile, filename=None, color='green'):
     """ generate a 'reg' file from a FITS file, write to filename
@@ -281,14 +281,14 @@ def to_reg(fitsfile, filename=None, color='green'):
     if filename is None: filename = fitsfile.replace('.fits', '.reg')
     s = pyfits.open(fitsfile)[1].data
     out = open(filename, 'w')
-    print >> out, "# Region file format: DS9 version 4.0 global color=%s" % color
+    print ("# Region file format: DS9 version 4.0 global color=%s" % color, file=out)
     for t in zip(s.RA,s.DEC,
                           s.Conf_95_SemiMinor,s.Conf_95_SemiMajor,s.Conf_95_PosAng,
                           s.NickName):
-        print >>out, "fk5; ellipse(%.4f, %.4f, %.4f, %.4f, %.4f) #text={%s}" % t
+        print ("fk5; ellipse(%.4f, %.4f, %.4f, %.4f, %.4f) #text={%s}" % t, file=out)
                         
     out.close()
-    print 'wrote reg file to %s' % filename
+    print ('wrote reg file to %s' % filename)
 
 
 def main(outfile, infile='sources_*.csv', cuts='(sources.ts>10)', localization_systematic=(1,0)):
@@ -296,9 +296,9 @@ def main(outfile, infile='sources_*.csv', cuts='(sources.ts>10)', localization_s
     assert len(infiles)>0, 'Input file "%s" not found' % infile
     infile = infiles[-1]
     sources = pd.read_csv(infile, index_col=0)
-    print 'Loaded DataTable from file %s' % infile
+    print ('Loaded DataTable from file %s' % infile)
     selected = sources[eval(cuts)]
-    print 'applied cuts %s: %d -> %d sources' % (cuts, len(sources), len(selected))
+    print ('applied cuts %s: %d -> %d sources' % (cuts, len(sources), len(selected)))
     t = MakeCat(selected)
     if outfile is None:
         outfile = '_'.join(os.path.abspath('.').split('/')[-2:])+'.fits'

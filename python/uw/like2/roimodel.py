@@ -58,8 +58,8 @@ class ROImodel(list):
         self.initialize()
 
         if len(self.parameters)==0:
-            print 'WARNING: there are no free parameters'
-        print self.summary()
+            print ('WARNING: there are no free parameters')
+        print (self.summary())
         self.selected_source = None
 
     def summary(self):
@@ -145,7 +145,7 @@ class ROImodel(list):
         try:
             selected_source = self[names.index(source_name)]
             #if self.selected_source is None or self.selected_source != selected_source:
-            #    print 'selected source %s for analysis' % selected_source.name
+            #    print ('selected source %s for analysis' % selected_source.name)
             return found(selected_source)
         except:
             self.selected_source = None
@@ -170,8 +170,8 @@ class ROImodel(list):
             newsource = sources.PointSource(**kw)
             
         if newsource.name in self.source_names:
-            print 'Attempt to add source "{}: a source with that name already exists'.format(
-                 newsource.name)
+            print ('Attempt to add source "{}: a source with that name already exists'.format(
+                 newsource.name))
             return None
         self.append(newsource)
         self.initialize()
@@ -222,14 +222,14 @@ class ROImodel(list):
         if os.path.splitext(auxcat)[1] != '.csv':
             raise Exception('Only support csv files, not %s' % auxcat)
         good_seeds = pd.read_csv(auxcat, index_col=0)
-        print 'Check %d sources from file %s: ' % (len(good_seeds), auxcat),
+        print ('Check %d sources from file %s: ' % (len(good_seeds), auxcat),)
         myindex = Band(12).index(self.roi_dir)
         inside = good_seeds['index']==myindex
         ni = sum(inside)
         if ni>0:
-            print '%d inside ROI' % ni
+            print ('%d inside ROI' % ni)
         else:
-            print 'No sources in ROI %04d' % myindex
+            print ('No sources in ROI %04d' % myindex)
         for name, s in good_seeds[inside].iterrows():
             src = pickle.load(open('%s/seedcheck/%s.pickle' % (self.config.modeldir, name)))
             try:

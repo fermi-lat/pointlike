@@ -37,9 +37,9 @@ class Residuals(roi_info.ROIinfo):
         self.plotfolder = 'residuals'
         files, self.pkls = analysis_base.load_pickles_from_zip('residuals.zip')
         if len(files)!=1728:
-            print 'Found %s files, expected 1727' % len(files)
+            print ('Found %s files, expected 1727' % len(files))
             nn = set([int(x[15:19]) for x in files]); 
-            print 'mising: %s' % set(range(1728)).difference(nn)
+            print ('mising: %s' % set(range(1728)).difference(nn))
             raise
         self.energy = self.pkls[0]['ring']['all'].index
         self.sindec = np.sin(np.radians(np.asarray(self.df.dec,float)))
@@ -155,7 +155,7 @@ class Residuals(roi_info.ROIinfo):
         if vout is None: vout=self.skymodel
         outfile = os.path.expandvars('$FERMI/diffuse/galactic_correction_%s.csv'%vout)
         cv_new.to_csv(outfile)
-        print 'wrote diffuse correction file %s' % outfile
+        print ('wrote diffuse correction file %s' % outfile)
         
     def update_correction(self, vin, vout=None):
         """ update the Galactic Diffuse correction factor array with new residuals
@@ -175,7 +175,7 @@ class Residuals(roi_info.ROIinfo):
         cv_new = ra * cv_old
         outfile = os.path.expandvars('$FERMI/diffuse/galactic_correction_%s.csv'%vout)
         cv_new.to_csv(outfile)
-        print 'wrote new diffuse correction file %s' % outfile
+        print ('wrote new diffuse correction file %s' % outfile)
     def update_iso_correction(self, vin, vout=None):
         """ Update the isotropic diffuse correction factors with current residuals 
         vin: string
@@ -183,7 +183,7 @@ class Residuals(roi_info.ROIinfo):
         """
         if vout is None: 
             vout=self.skymodel
-            print 'setting vout:', vout
+            print ('setting vout:', vout)
         for et in ('front', 'back'):
             if vin is not None:
                 infile = os.path.expandvars('$FERMI/diffuse/isotropic_correction_%s_%s.csv'% (et, vin))
@@ -203,7 +203,7 @@ class Residuals(roi_info.ROIinfo):
             cv_new = ra * cv_old
             outfile = os.path.expandvars('$FERMI/diffuse/isotropic_correction_%s_%s.csv'% (et,vout))
             cv_new.to_csv(outfile)
-            print 'wrote new iso diffuse correction file %s' % outfile
+            print ('wrote new iso diffuse correction file %s' % outfile)
 
     def norm_plot(self, name='isotrop', ax=None, ylim=(0.5,1.5)):
         """Isotropic Normalization vs Dec
@@ -268,7 +268,7 @@ class Residuals(roi_info.ROIinfo):
         sdf = pd.read_csv(filename, index_col=0)
         t =sdf.sort_index(by='ts')
         strong_names = t.ts[-4:].index
-        print 'selected strong names: %s' % list(strong_names)
+        print ('selected strong names: %s' % list(strong_names))
         roinames = [sdf.ix[sn]['roiname'] for sn in strong_names]
         rois = map(lambda s: int(s[-4:]), roinames)
         

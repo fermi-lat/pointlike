@@ -34,7 +34,7 @@ class BandAnalysis(object):
         nexpect=12*self.nside**2
 
         keys = dd[0][0].keys()
-        print 'keys: {}'.format(keys)
+        print ('keys: {}'.format(keys))
         cat = lambda q : np.concatenate([d[i][q][d[i]['inside']] for d in dd])
         if 'inside' in keys:
             # new format: all pixels for each ROI, so need to select those in the HEALPix dimond
@@ -50,8 +50,8 @@ class BandAnalysis(object):
         if nside is None:
             # No resampling
             if len(ids) != nexpect:
-                print 'Warning: for nside={} expected {}, but missing {}'.format(self.nside, nexpect,
-                    nexpect-len(ids))
+                print ('Warning: for nside={} expected {}, but missing {}'.format(self.nside, nexpect,
+                    nexpect-len(ids)))
 
             s = np.argsort(ids)
             self.model = model_s[s]
@@ -65,7 +65,7 @@ class BandAnalysis(object):
             # resample
             old_nside=self.nside
             self.nside = nside
-            print 'Combining bins from nside={} to {}'.format(old_nside, nside)
+            print ('Combining bins from nside={} to {}'.format(old_nside, nside))
             bnew=Band(nside).index
             bold=Band(old_nside).dir
 
@@ -90,14 +90,14 @@ class BandAnalysis(object):
         config=configuration.Configuration('.', quiet=True, postpone=True)
         try:
             cfile=os.path.expandvars('$FERMI/diffuse/'+config.diffuse['ring']['correction'])
-            print 'Loading corrections from file "{}"'.format(cfile)
+            print ('Loading corrections from file "{}"'.format(cfile))
             gc = pd.read_csv(cfile)
             self.galcorr = healpix_map.HParray('galcorr', gc['{}'.format(band_index/2)])
         except:
             self.galcorr=None
 
         self.label = '{:.0f} Mev {}'.format(energy, ['Front','Back'][event_type])
-        #print self.label
+        #print (self.label)
 
         if outfile:
             cols = [self.pulls, self.sources, self.galactic, self.hpdata,]
@@ -105,7 +105,7 @@ class BandAnalysis(object):
                 cols = cols + [self.isotropic]
             t=healpix_map.HEALPixFITS( cols)
             t.write(outfile)
-            print 'Wrote file {}'.format(outfile)
+            print ('Wrote file {}'.format(outfile))
 
     def __repr__(self):
         return 'BandAnalysis for {}, nside={}'.format(self.label, self.nside)
@@ -263,7 +263,7 @@ class Components(object):
         from astropy.table import Table
         assert os.path.exists(filename)
         self.df=Table.read(filename, hdu=1).to_pandas()
-        print 'Read file {} with columns {}'.format(filename, self.df.columns)
+        print ('Read file {} with columns {}'.format(filename, self.df.columns))
 
 
 class ResidualMaps(analysis_base.AnalysisBase):
@@ -284,8 +284,8 @@ class ResidualMaps(analysis_base.AnalysisBase):
             self.ba0 =self.band_analysis(band_index=0, outfile=self.plotfolder+'/f131maps.fits')
             self.ba1 =self.band_analysis(band_index=1, outfile=self.plotfolder+'/f237maps.fits')
 
-        except Exception, msg:
-            print 'Fail to load maps: {}'.format(msg)
+        except Exception as msg:
+            print ('Fail to load maps: {}'.format(msg))
 
         plt.style.use('seaborn-bright')
 
@@ -298,8 +298,8 @@ class ResidualMaps(analysis_base.AnalysisBase):
 
         try:
             self.gc = GalacticCorrectionMaps()
-        except Exception, msg:
-            print "No corrections made"
+        except Exception as msg:
+            print ("No corrections made")
             self.gc=None
 
     def band_analysis(self, band_index, nside=None, outfile=None):
@@ -504,7 +504,7 @@ class AllSkyMaps(object):
         assert os.path.exists(filename)
         self.df=Table.read(filename, hdu=1).to_pandas()
         nside = int(np.sqrt(len(self.df)/12))
-        print 'Read file "{}" nside={}, with columns {}'.format(filename, nside, list(self.df.columns))
+        print ('Read file "{}" nside={}, with columns {}'.format(filename, nside, list(self.df.columns)))
         self.modelname = os.path.split(os.getcwd())[-1]
 
         # add locations to the DataFrame
@@ -625,9 +625,9 @@ def apply_patch(inpat, patchfile, outpat):
             else:
                 p = patch[-1]
             b = p.vec
-            print layer.name, ',',
+            print (layer.name, ',',)
             modlayer.append(hpm.HParray(layer.name, hpm.multiply(a,b)))
-        print
+        print ()
         outmap=hpm.HEALPixFITS(modlayer, energies=self.energies)
         if newfile is not None: 
             if newfile[0]!='/':
@@ -635,9 +635,9 @@ def apply_patch(inpat, patchfile, outpat):
             outmap.write(newfile)
         return outmap
 
-    print 'Applying {} to {}'.format(patchfile, inpat)
+    print ('Applying {} to {}'.format(patchfile, inpat))
     patch = diffuse.HealpixCube(patchfile); patch.load()
     for iet in 'front back'.split():
-        print iet, ':',
+        print (iet, ':',)
         df = diffuse.HealpixCube(inpat.replace('*', iet)); df.load()
         modify_by_patch(df, patch, outpat.replace('*', iet))  

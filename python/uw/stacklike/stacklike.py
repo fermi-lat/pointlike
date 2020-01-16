@@ -143,15 +143,15 @@ class StackLoader(object):
         self.rot = self.dsel.rot
 
         if not self.quiet:
-            print ''
-            print '**********************************************************'
-            print '*                                                        *'
-            print '*                       STACKLIKE                        *'
-            print '*                                                        *'
-            print '**********************************************************'
-            print 'Using irf: %s'%self.irf
-            print 'Using list: %s.txt'%self.name
-            print 'Using boresight alignment (in arcsec): Rx=%1.0f Ry=%1.0f Rz=%1.0f'%(self.rot[0]*rd*3600,self.rot[1]*rd*3600,self.rot[2]*rd*3600)
+            print ('')
+            print ('**********************************************************')
+            print ('*                                                        *')
+            print ('*                       STACKLIKE                        *')
+            print ('*                                                        *')
+            print ('**********************************************************')
+            print ('Using irf: %s'%self.irf)
+            print ('Using list: %s.txt'%self.name)
+            print ('Using boresight alignment (in arcsec): Rx=%1.0f Ry=%1.0f Rz=%1.0f'%(self.rot[0]*rd*3600,self.rot[1]*rd*3600,self.rot[2]*rd*3600))
 
         self.rotang = self.rot
         self.rot = HepRotation(self.rot,False)
@@ -193,11 +193,11 @@ class StackLoader(object):
         self.cls = cls
         self.eave = np.sqrt(self.emin*self.emax)
         if self.dsel.binfile is not None:
-            print 'Applying masks to data'
-            print '**********************************************************'
-            print '%1.0f < Energy < %1.0f'%(self.emin,self.emax)
-            print 'Event class = %1.0f'%(cls)
-            print '**********************************************************'
+            print ('Applying masks to data')
+            print ('**********************************************************')
+            print ('%1.0f < Energy < %1.0f'%(self.emin,self.emax))
+            print ('Event class = %1.0f'%(cls))
+            print ('**********************************************************')
 
             self.bpd = s.BinnedPhotonData(self.datadir+self.binfile)
             self.ebar = 0
@@ -217,27 +217,27 @@ class StackLoader(object):
             pcnts = sum([x.weight for x in self.photons])
             self.photonscount = self.photoncount+pcnts
             if len(self.photons)==0:
-                print 'No photons!'
+                print ('No photons!')
                 raise 'No photons!'
             else:
                 self.ebar = self.ebar/pcnts
-            print '%d photons remain'%pcnts
-            print '**********************************************************'
+            print ('%d photons remain'%pcnts)
+            print ('**********************************************************')
         else:
-            print 'Applying masks to data'
-            print '**********************************************************'
-            print '%1.0f < Energy (MeV) < %1.0f'%(self.emin,self.emax)
-            print '%1.2f < Separation (deg) < %1.2f'%(self.minroi,self.maxroi)
-            print '%1.0f < Time < %1.0f'%(start,stop)
-            print 'Event class = %1.0f'%(cls)
-            print '%1.2f < costh < %1.2f'%(self.ctmin,self.ctmax)
-            print '**********************************************************'
+            print ('Applying masks to data')
+            print ('**********************************************************')
+            print ('%1.0f < Energy (MeV) < %1.0f'%(self.emin,self.emax))
+            print ('%1.2f < Separation (deg) < %1.2f'%(self.minroi,self.maxroi))
+            print ('%1.0f < Time < %1.0f'%(start,stop))
+            print ('Event class = %1.0f'%(cls))
+            print ('%1.2f < costh < %1.2f'%(self.ctmin,self.ctmax))
+            print ('**********************************************************')
 
             """#go through each fits file, mask unwanted events, and setup tables
             tcuts = np.array([0,0,0,0,0,0,0,0,0])
             for j,ff in enumerate(self.files):
                 if not self.quiet:
-                    print ff
+                    print (ff)
                 tff = pf.open(ff)
                 ttb = tff[1].data
                 ttb,ttcut = self.mask(ttb,self.srcs,emin,emax,start,stop,self.maxroi,cls)
@@ -250,19 +250,19 @@ class StackLoader(object):
                     del self.files[j]
                     del ttb
 
-            print 'Photon pruning information'
-            print '%d photons available'%tcuts[0]
-            print '---------------------------------------'
-            print '%d cut by time range'%tcuts[1]
-            print '%d cut by energy range'%tcuts[2]
-            print '%d cut by instrument theta'%tcuts[3]
-            print '%d cut by zenith angle'%tcuts[4]
-            print '%d cut by conversion type'%tcuts[5]
-            print '%d cut by proximity to sources'%tcuts[6]
-            print '%d cut by phase'%tcuts[7]
-            print '---------------------------------------'
-            print '%d photons remain'%tcuts[8]
-            print '**********************************************************'"""
+            print ('Photon pruning information')
+            print ('%d photons available'%tcuts[0])
+            print ('---------------------------------------')
+            print ('%d cut by time range'%tcuts[1])
+            print ('%d cut by energy range'%tcuts[2])
+            print ('%d cut by instrument theta'%tcuts[3])
+            print ('%d cut by zenith angle'%tcuts[4])
+            print ('%d cut by conversion type'%tcuts[5])
+            print ('%d cut by proximity to sources'%tcuts[6])
+            print ('%d cut by phase'%tcuts[7])
+            print ('---------------------------------------')
+            print ('%d photons remain'%tcuts[8])
+            print ('**********************************************************'""")
 
 
             #go through each table and contruct Photon objects
@@ -272,7 +272,7 @@ class StackLoader(object):
                 hdr = tff[1].header
                 if float(hdr['TSTART'])>stop or float(hdr['TSTOP'])<start:
                     if not self.quiet:
-                        print 'Skipped %s [%d,%d], [%d,%d]: Out of time range'%(ff,hdr['TSTART'],hdr['TSTOP'],start,stop)
+                        print ('Skipped %s [%d,%d], [%d,%d]: Out of time range'%(ff,hdr['TSTART'],hdr['TSTOP'],start,stop))
                     continue
                 try:
                     tb.field('THETA');tb.field('RA');tb.field('TIME');
@@ -285,24 +285,24 @@ class StackLoader(object):
                 except:
                     pass7=True
                 if not self.quiet:
-                    print 'Examining %d events'%len(tb)
+                    print ('Examining %d events'%len(tb))
                 if self.useft2s:
                     if not self.quiet:
-                        print '    *Loading pointing history'
+                        print ('    *Loading pointing history')
                     try:
                         phist = pl.PointingHistory(self.ft2s[j])
                     except:
-                        print 'Failed pointing history file: %s'%self.ft2s[j]
+                        print ('Failed pointing history file: %s'%self.ft2s[j])
                         phist = None
                 else:
                     phist=None
                 if not self.quiet:
-                    print '    *Loading events'
+                    print ('    *Loading events')
                 try:
                     gti = s.Gti(self.files[j])
-                    print 'Loaded GTI: %d - %d'%(gti.minValue(),gti.maxValue())
+                    print ('Loaded GTI: %d - %d'%(gti.minValue(),gti.maxValue()))
                 except:
-                    print 'Failed GTI in file: %s'%self.ft2s[j]
+                    print ('Failed GTI in file: %s'%self.ft2s[j])
                     gti = None
                 #iterate over events for photons
 
@@ -341,12 +341,12 @@ class StackLoader(object):
                                 accept = gti.accept(time)
                                 if accept:
                                     photon = Photon(s_ra,s_dec,event.field('ENERGY'),time,event.field('CONVERSION_TYPE'),xv,zv,src,ct=np.cos(event.field('THETA')/rd))
-                                    #print '%1.2e'%(np.cos(zv.dir().difference(sd))-photon.ct)
+                                    #print ('%1.2e'%(np.cos(zv.dir().difference(sd))-photon.ct))
                                     #t.sleep(0.1)
                                     self.ebar = self.ebar+event.field('ENERGY')
                                     self.photons.append(photon)
                                     self.photoncount = self.photoncount + 1
-                print pcut
+                print (pcut)
                 if self.useft2s:
                     del phist #free up memory from pointing history object
                 tff.close()
@@ -354,10 +354,10 @@ class StackLoader(object):
                 del gti
             #del self.atb
             if len(self.photons)>0:
-                #print '%d of %d were in a GTI'%(len(self.photons),tcuts[8])
+                #print ('%d of %d were in a GTI'%(len(self.photons),tcuts[8]))
                 self.ebar = self.ebar/len(self.photons)  #calculate mean energy of photons
             else:
-                print 'No Photons!'
+                print ('No Photons!')
 
                 #raise 'No Photons!'
 
@@ -365,7 +365,7 @@ class StackLoader(object):
     def bindata(self):
         self.getds()
         nbins = 2*max(1,int(np.sqrt(self.photoncount)))
-        print nbins
+        print (nbins)
         hist = np.histogram(np.log10(self.ds),bins=nbins)
         diffs = np.sqrt((10**(2*hist[1][1:])+10**(2*hist[1][:len(hist[1])-1]))/2.)*rd   #average separation of each bin is determined by area
         
@@ -507,11 +507,11 @@ class StackLoader(object):
         f2e = f2*np.sqrt(self.errs[1][1]/(self.Nback**2)+tr/(phs**2))
         nonback = self.solvenonback(self.Nback)
         if not self.quiet:
-            print '**********************************************************'
-            print 'Npsf  = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100)
-            print 'Nback = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f2*100,f2e*100)
-            print 'Nsource = %1.0f'%nonback
-            print '**********************************************************'
+            print ('**********************************************************')
+            print ('Npsf  = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100))
+            print ('Nback = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f2*100,f2e*100))
+            print ('Nsource = %1.0f'%nonback)
+            print ('**********************************************************')
         if len(cm.models)==2:
             if len(psf.model_par)==2:
                 self.il=cm.extlikelihood([self.Npsf,self.Nback,psf.model_par[0],psf.model_par[1]],self.photons)
@@ -581,14 +581,14 @@ class StackLoader(object):
         self.errors=[np.sqrt(self.errs[x+2][x+2])*rd*3600 for x in range(3)]
         self.il=cm.extlikelihood([self.Npsf,self.Nback,0,0,0],self.photons)
         for x in range(3):
-            print 'R%d %3.0f +/-%3.0f arcsec'%(x+1,self.params[x],self.errors[x])
+            print ('R%d %3.0f +/-%3.0f arcsec'%(x+1,self.params[x],self.errors[x]))
         try:
             TS = -2*(fl-self.il)
-            print 'Significance of rotation was TS = %d'%TS
+            print ('Significance of rotation was TS = %d'%TS)
         except:
-            print 'Cannot determine improvement'
-        print 'Expected %d photons, got %d ( %d (%d) + %d (%d) )'%(len(self.photons),int(self.Npsf+self.Nback),int(self.Npsf),int(np.sqrt(self.Npsfe)),int(self.Nback),int(np.sqrt(self.Nbacke)))
-        print 'Called likelihood %d times'%cm.calls
+            print ('Cannot determine improvement')
+        print ('Expected %d photons, got %d ( %d (%d) + %d (%d) )'%(len(self.photons),int(self.Npsf+self.Nback),int(self.Npsf),int(np.sqrt(self.Npsfe)),int(self.Nback),int(np.sqrt(self.Nbacke))))
+        print ('Called likelihood %d times'%cm.calls)
         self.cm=cm
 
     ## Finds boresight alignment solution
@@ -598,7 +598,7 @@ class StackLoader(object):
         self.solveback()
 
         psfa = PSFFish(lims=[self.minroi/rd,self.maxroi/rd],free=[freepsf,freepsf,True],ebar=self.ebar,ec=self.cls,irf=self.irf)
-        #print psfa.limits
+        #print (psfa.limits)
         bck = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
         cm = CompositeModel()
         cm.addModel(psfa)
@@ -614,14 +614,14 @@ class StackLoader(object):
         self.errors=[np.sqrt(self.errs[x+2][x+2])*rd*3600 for x in range(1)]
         self.il=cm.extlikelihood([self.Npsf,self.Nback,psfa.model_par[0],psfa.model_par[1],0],self.photons)
         for x in range(1):
-            print 'dTh %3.0f +/-%3.0f arcsec'%(self.params[x],self.errors[x])
+            print ('dTh %3.0f +/-%3.0f arcsec'%(self.params[x],self.errors[x]))
         try:
             TS = -2*(fl-self.il)
-            print 'Significance of rotation was TS = %d'%TS
+            print ('Significance of rotation was TS = %d'%TS)
         except:
-            print 'Cannot determine improvement'
-        print 'Expected %d photons, got %d ( %d (%d) + %d (%d) )'%(len(self.photons),int(self.Npsf+self.Nback),int(self.Npsf),int(np.sqrt(self.Npsfe)),int(self.Nback),int(np.sqrt(self.Nbacke)))
-        print 'Called likelihood %d times'%cm.calls
+            print ('Cannot determine improvement')
+        print ('Expected %d photons, got %d ( %d (%d) + %d (%d) )'%(len(self.photons),int(self.Npsf+self.Nback),int(self.Npsf),int(np.sqrt(self.Npsfe)),int(self.Nback),int(np.sqrt(self.Nbacke))))
+        print ('Called likelihood %d times'%cm.calls)
         self.cm=cm
 
     ## tries to solve parameters for a single King function with Isotropic background
@@ -638,10 +638,10 @@ class StackLoader(object):
         #solve for PSF parameters
         psf = self.getpsf(True,theta,False)
         
-        #print model_par
+        #print (model_par)
         if not model_par==[]:
             psf.model_par=model_par
-            #print psf.model_par
+            #print (psf.model_par)
 
 
         sigma = psf.model_par[0]
@@ -741,39 +741,39 @@ class StackLoader(object):
         f1e = f1*np.sqrt(self.errs[0][0]/(self.Npsf**2)+tr/(phs**2))
         f2 = self.Nback/phs
         f2e = f2*np.sqrt(self.errs[1][1]/(self.Nback**2)+tr/(phs**2))
-        print '**********************************************************'
-        print 'Npsf  = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100)
-        print 'Nback = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f2*100,f2e*100)
-        print '      Dens  = %1.0f/deg**2'%(self.Nback/(self.maxroi**2-self.minroi**2))
-        print 'Sigma = %1.3f [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.sigma*rd,self.sigmae/self.sigma,self.irf,self.sigma/sigma)
-        print 'Gamma = %1.2f  [1 +/- %1.2f]        Ratio to %s: (%1.2f)'%(self.gamma,self.gammae/self.gamma,self.irf,self.gamma/gamma)
-        print 'R68   = %1.2f  [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.r68*rd,self.r68e/self.r68,self.irf,self.r68/r68o)
-        print 'R95   = %1.2f  [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.r95*rd,self.r95e/self.r95,self.irf,self.r95/r95o)
+        print ('**********************************************************')
+        print ('Npsf  = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100))
+        print ('Nback = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f2*100,f2e*100))
+        print ('      Dens  = %1.0f/deg**2'%(self.Nback/(self.maxroi**2-self.minroi**2)))
+        print ('Sigma = %1.3f [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.sigma*rd,self.sigmae/self.sigma,self.irf,self.sigma/sigma))
+        print ('Gamma = %1.2f  [1 +/- %1.2f]        Ratio to %s: (%1.2f)'%(self.gamma,self.gammae/self.gamma,self.irf,self.gamma/gamma))
+        print ('R68   = %1.2f  [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.r68*rd,self.r68e/self.r68,self.irf,self.r68/r68o))
+        print ('R95   = %1.2f  [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.r95*rd,self.r95e/self.r95,self.irf,self.r95/r95o))
         if theta:
-            print 'ms = %1.4f [1 +/- %1.4f]'%(self.ms,self.mse/abs(cm.minuit.params[nm+2]))
-            print 'mg = %1.4f [1 +/- %1.4f]'%(self.mg,self.mge/abs(cm.minuit.params[nm+3]))
+            print ('ms = %1.4f [1 +/- %1.4f]'%(self.ms,self.mse/abs(cm.minuit.params[nm+2])))
+            print ('mg = %1.4f [1 +/- %1.4f]'%(self.mg,self.mge/abs(cm.minuit.params[nm+3])))
         self.Ts = -2*(fl-self.il)
-        print 'Significance of psf change was TS = %d'%self.Ts
+        print ('Significance of psf change was TS = %d'%self.Ts)
         if outfile is not None:
-            print >>outfile,'**********************************************************'
-            print >>outfile,'Npsf  = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100)
-            print >>outfile,'Nback = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f2*100,f2e*100)
-            print >>outfile,'      Dens  = %1.0f/deg**2'%(self.Nback/(self.maxroi**2-self.minroi**2))
-            print >>outfile,'Sigma = %1.4f [1 +/- %1.4f] (deg)  Ratio to %s: (%1.2f)'%(self.sigma*rd,self.sigmae/self.sigma,self.irf,self.sigma/sigma)
-            print >>outfile,'Gamma = %1.4f  [1 +/- %1.4f]        Ratio to %s: (%1.2f)'%(self.gamma,self.gammae/self.gamma,self.irf,self.gamma/gamma)
-            print >>outfile,'R68   = %1.4f  [1 +/- %1.4f] (deg)  Ratio to %s: (%1.2f)'%(self.r68*rd,self.r68e/self.r68,self.irf,self.r68/r68o)
-            print >>outfile,'R95   = %1.4f  [1 +/- %1.4f] (deg)  Ratio to %s: (%1.2f)'%(self.r95*rd,self.r95e/self.r95,self.irf,self.r95/r95o)
+            print ('**********************************************************', file=outfile)
+            print ('Npsf  = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100), file=outfile)
+            print ('Nback = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f2*100,f2e*100), file=outfile)
+            print ('      Dens  = %1.0f/deg**2'%(self.Nback/(self.maxroi**2-self.minroi**2)), file=outfile)
+            print ('Sigma = %1.4f [1 +/- %1.4f] (deg)  Ratio to %s: (%1.2f)'%(self.sigma*rd,self.sigmae/self.sigma,self.irf,self.sigma/sigma), file=outfile)
+            print ('Gamma = %1.4f  [1 +/- %1.4f]        Ratio to %s: (%1.2f)'%(self.gamma,self.gammae/self.gamma,self.irf,self.gamma/gamma), file=outfile)
+            print ('R68   = %1.4f  [1 +/- %1.4f] (deg)  Ratio to %s: (%1.2f)'%(self.r68*rd,self.r68e/self.r68,self.irf,self.r68/r68o), file=outfile)
+            print ('R95   = %1.4f  [1 +/- %1.4f] (deg)  Ratio to %s: (%1.2f)'%(self.r95*rd,self.r95e/self.r95,self.irf,self.r95/r95o), file=outfile)
             if theta:
-                print >> outfile, 'ms = %1.4f [1 +/- %1.4f]'%(cm.minuit.params[nm+2],np.sqrt(self.errs[nm+2][nm+2])/abs(cm.minuit.params[nm+2]))
-                print >>outfile, 'mg = %1.4f [1 +/- %1.4f]'%(cm.minuit.params[nm+3],np.sqrt(self.errs[nm+3][nm+3])/abs(cm.minuit.params[nm+3]))
+                print ('ms = %1.4f [1 +/- %1.4f]'%(cm.minuit.params[nm+2],np.sqrt(self.errs[nm+2][nm+2])/abs(cm.minuit.params[nm+2])), file=outfile)
+                print ('mg = %1.4f [1 +/- %1.4f]'%(cm.minuit.params[nm+3],np.sqrt(self.errs[nm+3][nm+3])/abs(cm.minuit.params[nm+3])), file=outfile)
             self.Ts = -2*(fl-self.il)
-            print >>outfile,'Significance of psf change was TS = %d'%self.Ts
+            print ('Significance of psf change was TS = %d'%self.Ts, file=outfile)
         self.cm=cm
         if theta:
             for ct in np.linspace(0.,1.,24):
                 tsig,tgam = ((1-ct)*self.ms+1)*self.sigma*rd,((1-ct)*self.mg+1)*self.gamma
                 r68,r95 = cm.models[0].recl(0.68,tsig,tgam),cm.models[0].recl(0.95,tsig,tgam)
-                print '%1.2f %1.3f %1.2f %1.2f %1.2f'%(ct,tsig,tgam,r68,r95)
+                print ('%1.2f %1.3f %1.2f %1.2f %1.2f'%(ct,tsig,tgam,r68,r95))
 
     # tries to fit a halo component on top of a PSF defined by 'irf' in a Isotropic background
     #  @param cust [sigma,gamma] of PSF, where sigma is in radians
@@ -823,17 +823,17 @@ class StackLoader(object):
         f2e = f2*np.sqrt(self.errs[1][1]/(self.Nhalo**2)+tr/(phs**2))
         f3 = self.Nback/phs
         f3e = f3*np.sqrt(self.errs[2][2]/(self.Nback**2)+tr/(phs**2))
-        print '**********************************************************'
-        print 'Npsf  = %1.0f [1 +/- %1.2f]  Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100)
-        print 'Nhalo = %1.0f [1 +/- %1.2f]  Fraction: %1.0f +/- %1.0f'%(self.Nhalo,self.Nhaloe/self.Nhalo,f2*100,f2e*100)
-        print 'Nback = %1.0f [1 +/- %1.2f]  Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f3*100,f3e*100)
-        print 'Halo width was %1.3f [1 +/- %1.2f] deg'%(self.theta*rd,self.thetae)
-        #print 'Halo PL was %1.3f [1 +/- %1.2f] deg'%(self.alph,self.alphe)
-        print 'Halo fraction was %1.0f [1 +/- %1.2f]'%(self.frac,self.frace)
+        print ('**********************************************************')
+        print ('Npsf  = %1.0f [1 +/- %1.2f]  Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100))
+        print ('Nhalo = %1.0f [1 +/- %1.2f]  Fraction: %1.0f +/- %1.0f'%(self.Nhalo,self.Nhaloe/self.Nhalo,f2*100,f2e*100))
+        print ('Nback = %1.0f [1 +/- %1.2f]  Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f3*100,f3e*100))
+        print ('Halo width was %1.3f [1 +/- %1.2f] deg'%(self.theta*rd,self.thetae))
+        #print ('Halo PL was %1.3f [1 +/- %1.2f] deg'%(self.alph,self.alphe))
+        print ('Halo fraction was %1.0f [1 +/- %1.2f]'%(self.frac,self.frace))
 
         fl = cm.minuit.fval
         null = cm.extlikelihood([self.Npsf,0.,self.Nback,self.sigma,self.gamma,self.theta],self.photons)
-        print 'Significance of Halo was: %1.0f'%(-2*(fl-null))
+        print ('Significance of Halo was: %1.0f'%(-2*(fl-null)))
         self.cm=cm
 
     ## tries to fit two King functions in an Isotropic background
@@ -956,19 +956,19 @@ class StackLoader(object):
         self.r68 = findcontain(0.68,self.sigma*rd,self.gamma,self.Npsf,self.sigma2*rd,self.gamma2,(1-self.frac)*self.Npsf)
         self.r95 = findcontain(0.95,self.sigma*rd,self.gamma,self.Npsf,self.sigma2*rd,self.gamma2,(1-self.frac)*self.Npsf)
 
-        print '***************************************'
-        print 'Npsf   = %1.0f  [1 +/- %1.2f]     Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100)
-        #print 'Npsf2  = %1.0f  [1 +/- %1.2f]     Fraction: %1.0f +/- %1.0f'%(self.Npsf2,self.Npsf2e/self.Npsf2,f2*100,f2e*100)
-        print 'Nback  = %1.0f  [1 +/- %1.2f]     Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f3*100,f3e*100)
-        print 'Sigma  = %1.3f [1 +/- %1.2f]      Fractional Change: (%s%1.0f)'%(self.sigma*rd,self.sigmae/self.sigma,ssign,100*abs((self.sigma-sigma)/sigma))
-        print 'Gamma  = %1.2f  [1 +/- %1.2f]      Fractional Change: (%s%1.0f)'%(self.gamma,self.gammae/self.gamma,gsign,100*abs((self.gamma-gamma)/gamma))
-        print 'Sigma2 = %1.3f [1 +/- %1.2f]      Fractional Change: (%s%1.0f)'%(self.sigma2*rd,self.sigmae2/self.sigma2,ssign2,100*abs((self.sigma2-sigma)/sigma))
-        print 'Gamma2 = %1.2f  [1 +/- %1.2f]      Fractional Change: (%s%1.0f)'%(self.gamma2,self.gammae2/self.gamma2,gsign2,100*abs((self.gamma2-gamma)/gamma))
-        #print 'frac   = %1.3f  []
-        print 'R68 = %1.3f'%(self.r68)
-        print 'R95 = %1.3f'%(self.r95)
+        print ('***************************************')
+        print ('Npsf   = %1.0f  [1 +/- %1.2f]     Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100))
+        #print ('Npsf2  = %1.0f  [1 +/- %1.2f]     Fraction: %1.0f +/- %1.0f'%(self.Npsf2,self.Npsf2e/self.Npsf2,f2*100,f2e*100))
+        print ('Nback  = %1.0f  [1 +/- %1.2f]     Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f3*100,f3e*100))
+        print ('Sigma  = %1.3f [1 +/- %1.2f]      Fractional Change: (%s%1.0f)'%(self.sigma*rd,self.sigmae/self.sigma,ssign,100*abs((self.sigma-sigma)/sigma)))
+        print ('Gamma  = %1.2f  [1 +/- %1.2f]      Fractional Change: (%s%1.0f)'%(self.gamma,self.gammae/self.gamma,gsign,100*abs((self.gamma-gamma)/gamma)))
+        print ('Sigma2 = %1.3f [1 +/- %1.2f]      Fractional Change: (%s%1.0f)'%(self.sigma2*rd,self.sigmae2/self.sigma2,ssign2,100*abs((self.sigma2-sigma)/sigma)))
+        print ('Gamma2 = %1.2f  [1 +/- %1.2f]      Fractional Change: (%s%1.0f)'%(self.gamma2,self.gammae2/self.gamma2,gsign2,100*abs((self.gamma2-gamma)/gamma)))
+        #print ('frac   = %1.3f  [])
+        print ('R68 = %1.3f'%(self.r68))
+        print ('R95 = %1.3f'%(self.r95))
         TS = -2*(fl-self.il)
-        print 'Significance of psf change was TS = %d'%TS
+        print ('Significance of psf change was TS = %d'%TS)
         self.cm=cm
 
     ## solvediffuse - use the diffuse background information
@@ -1028,7 +1028,7 @@ class StackLoader(object):
 
         #METHOD1 - no nearby point sources
         if nm<=3:
-            print exp
+            print (exp)
 
             #maximize likelihood
             cm.fit(self.photons,mode=0,quiet=self.quiet,free=[True,True,True],exp=exp)
@@ -1066,15 +1066,15 @@ class StackLoader(object):
             f1e = f1*np.sqrt(self.errs[0][0]/(self.Npsf**2)+tr/(phs**2))
             f2 = self.Nback/phs
             f2e = f2*np.sqrt(self.errs[1][1]/(self.Nback**2)+tr/(phs**2))
-            print '**********************************************************'
-            print 'Npsf  = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100)
-            print 'Nback = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f2*100,f2e*100)
-            print 'Sigma = %1.3f [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.sigma*rd,self.sigmae/self.sigma,self.irf,self.sigma/sigma)
-            print 'Gamma = %1.2f  [1 +/- %1.2f]        Ratio to %s: (%1.2f)'%(self.gamma,self.gammae/self.gamma,self.irf,self.gamma/gamma)
-            print 'R68   = %1.2f  [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.r68*rd,self.r68e/self.r68,self.irf,self.r68/r68o)
-            print 'R95   = %1.2f  [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.r95*rd,self.r95e/self.r95,self.irf,self.r95/r95o)
+            print ('**********************************************************')
+            print ('Npsf  = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100))
+            print ('Nback = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f2*100,f2e*100))
+            print ('Sigma = %1.3f [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.sigma*rd,self.sigmae/self.sigma,self.irf,self.sigma/sigma))
+            print ('Gamma = %1.2f  [1 +/- %1.2f]        Ratio to %s: (%1.2f)'%(self.gamma,self.gammae/self.gamma,self.irf,self.gamma/gamma))
+            print ('R68   = %1.2f  [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.r68*rd,self.r68e/self.r68,self.irf,self.r68/r68o))
+            print ('R95   = %1.2f  [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.r95*rd,self.r95e/self.r95,self.irf,self.r95/r95o))
             TS = -2*(fl-self.il)
-            print 'Significance of psf change was TS = %d'%TS
+            print ('Significance of psf change was TS = %d'%TS)
 
         #METHOD2 - nearby point sources
         else:
@@ -1103,36 +1103,36 @@ class StackLoader(object):
             free2.insert(0,ptfree)
             free2.insert(1,True)
             free2.insert(2,True)
-            print free2,exp2
+            print (free2,exp2)
 
             #maximize likelihood
             cm.fit(self.photons,mode=0,quiet=self.quiet,free=free2,exp=exp2)
             exp2 = cm.minuit.params
 
 
-            #print >>tfile,'pred\tfit\tdiff'
+            #print ('pred\tfit\tdiff',file=tfile)
             #for it5 in range(len(texp)):
-            #    print >>tfile,'%1.4f\t%1.4f\t%1.4f'%(texp[it5],exp2[it5],(exp2[it5]-texp[it5]))
+            #    print ('%1.4f\t%1.4f\t%1.4f'%(texp[it5],exp2[it5],(exp2[it5]-texp[it5])), file=tfile)
             #tfile.close()
 
 
             #get parameters
-            print cm.minuit.params
+            print (cm.minuit.params)
             errs = cm.minuit.errors()
             pars = len(cm.minuit.params)
             sigma, gamma = cm.minuit.params[pars-2],cm.minuit.params[pars-1]
             sige, game, cov = np.sqrt(errs[pars-2][pars-2]),np.sqrt(errs[pars-1][pars-1]),errs[pars-2][pars-1]
             r68n,r95n = cm.models[0].rcl(0.68),cm.models[0].rcl(0.95)
             r68e,r95e = cm.models[0].clerr(0.68,sige,game,cov),cm.models[0].clerr(0.95,sige,game,cov)
-            print r68n*rd,r68e*rd
-            print r95n*rd,r95e*rd
+            print (r68n*rd,r68e*rd)
+            print (r95n*rd,r95e*rd)
 
 
             #for i in range(len(cm.minuit.params)):
             #    outline = ''
             #    for j in range(len(cm.minuit.params)):
             #        outline = outline + '%1.6f\t'%errs[i][j]
-            #    print outline
+            #    print (outline)
             #self.cm = cm
 
 
@@ -1174,7 +1174,7 @@ class StackLoader(object):
                     if x<0 or x>self.Npsf:
                         return 0.
                     val = np.exp(cm.minuit.fval-cm.extlikelihood([self.Npsf-x,self.Nback,x,psf2.model_par[0],psf2.model_par[1]],self.photons,True))
-                    #print val
+                    #print (val)
                     return val
                 
                 def integ(x):
@@ -1186,7 +1186,7 @@ class StackLoader(object):
                     if ft/fnt>ct:
                         return 1.
                     val = abs(ft/fnt-ct)
-                    print x,val
+                    print (x,val)
                     return val
 
                 fint = integ(self.Npsf)
@@ -1195,7 +1195,7 @@ class StackLoader(object):
                 upl = best[0]#self.Nhalo+np.sqrt(self.errors[2][2])*2
                 uplim.append(upl/(self.Npsf))
                 uthetas.append(theta)
-                print upl
+                print (upl)
                 cm.nest=[self.Npsf-best[0],self.Nback,best[0]]
                 self.cm=cm
                 self.makeplot('/phys/users/mar0/figures/uplims_%1.3f_%1.0f_%s_%s_%s.png'%(theta,self.ebar,self.lis,self.irf,halo.name),fig=1)
@@ -1438,7 +1438,7 @@ class StackLoader(object):
                     headertb.append('TOTAL')
             output.append(1.*np.array(hist[0]))
             headertb.append('hist')
-            #print output
+            #print (output)
             #outa = np.array(output,dtype=dt)
             np.save(name+'tb.npy',output)
             np.save(name+'hdr.npy',headertb)
@@ -1505,7 +1505,7 @@ class StackLoader(object):
                         if self.phasecut!=[] and len(table)>0:
                             msk = []
                             for it in range(len(self.phasecut)/2):
-                                print self.phasecut[2*it],self.phasecut[2*it+1]
+                                print (self.phasecut[2*it],self.phasecut[2*it+1])
                                 tmsk = (table.field('PULSE_PHASE')>self.phasecut[2*it]) & (table.field('PULSE_PHASE')<self.phasecut[2*it+1])
                                 msk = tmsk if it==0 else msk | tmsk
                             table = table[msk]
@@ -1515,7 +1515,7 @@ class StackLoader(object):
         tc = len(table)
         #display number of photons cut from each step and finally the number of photons examined
         if not self.quiet:
-            print 'TOTAL: %d    TIMEC: %d    ENERGY: %d    THETA: %d    ZENITH: %d    ECLASS: %d    POS: %d    PHASE: %d    EXAM: %d'%(total,cuts[0],cuts[1],cuts[2],cuts[3],cuts[4],cuts[5],cuts[6],tc)
+            print ('TOTAL: %d    TIMEC: %d    ENERGY: %d    THETA: %d    ZENITH: %d    ECLASS: %d    POS: %d    PHASE: %d    EXAM: %d'%(total,cuts[0],cuts[1],cuts[2],cuts[3],cuts[4],cuts[5],cuts[6],tc))
         return table,np.array([total,cuts[0],cuts[1],cuts[2],cuts[3],cuts[4],cuts[5],cuts[6],tc])
     
 

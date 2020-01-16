@@ -45,10 +45,10 @@ class Pulsars(sourceinfo.SourceInfo):
         self.lcat=lcat = glob.glob(os.path.expandvars('$FERMI/catalog/srcid/cat/obj-pulsar-lat_v1*'))[-1]
         filename= os.path.split(lcat)[-1]
         self.version = filename.split('.')[0][-4:]
-        print 'Loading LAT pulsar catalog {}'.format(filename)
+        print ('Loading LAT pulsar catalog {}'.format(filename))
         self.lcatdf = df =Table.read(lcat, hdu=1).to_pandas()
         self.lcatdf['msec']=msec = np.array([code.find('m')>-1 for code in df.PSR_Code ], bool)
-        print 'Found {} entries, {} millisecond pulsars'.format(len(df), sum(msec))
+        print ('Found {} entries, {} millisecond pulsars'.format(len(df), sum(msec)))
         self.latpsr_info = 'From file {}: {} entries, {} millisecond pulsars'.format(filename,len(df), sum(msec))
         df.index= map(lambda name: name.strip(), df.Source_Name.values)
 
@@ -92,7 +92,7 @@ class Pulsars(sourceinfo.SourceInfo):
 
             # add boolean for in FL8Y 
             self.df['fl8y'] = np.isin(cindex, gdf.index )
-            print '{} of {} have nicknames in pointlike list'.format(sum(df.fl8y), len(gdf))
+            print ('{} of {} have nicknames in pointlike list'.format(sum(df.fl8y), len(gdf)))
 
             # for sources not already tagged via the pointlike name being the same as the gtlike nickname
             # look for nearest 4FGL source: add name, its distance to DataFrame
@@ -103,7 +103,7 @@ class Pulsars(sourceinfo.SourceInfo):
             df.loc[df.index[ok], 'distance']=0
 
             # look for nearest 4FGL source in rejected list: add name, distance to DataFrame
-            print 'Searching 4FGL for nearest source to the {} not found in it...'.format(sum(added)),
+            print ('Searching 4FGL for nearest source to the {} not found in it...'.format(sum(added)),)
             close = tools.find_close(df[added], self.gdf)
 
             df.loc[df.index[~ok],'otherid'] = close.otherid
@@ -113,7 +113,7 @@ class Pulsars(sourceinfo.SourceInfo):
             df['otherts'] = [self.gdf.loc[s.otherid.replace(' ','')].ts for name,s in df.iterrows() ]
             df['other_extended'] = [self.gdf.loc[s.otherid.replace(' ','')].extended for name,s in df.iterrows() ]
 
-            print 'done.'
+            print ('done.')
     
     def LATpulsars(self):
         """ LAT pulsar information
@@ -215,7 +215,7 @@ class Pulsars(sourceinfo.SourceInfo):
         tail_cut = (t.pindex<=index_min) | (t.pindex>index_max) | (t.cutoff>cutoff_max)
         tails = t.loc[tail_cut].index
 
-        print '%d pulsar sources found in tails of  index or cutoff' % sum(tail_cut)
+        print ('%d pulsar sources found in tails of  index or cutoff' % sum(tail_cut))
         if taillist & (sum(tail_cut)>0) :
             tails=t[tail_cut]['ts eflux pindex cutoff freebits roiname'.split()]
             filename = 'pulsar_tails.html'
@@ -248,7 +248,7 @@ class Pulsars(sourceinfo.SourceInfo):
             far = lat.delta>0.25
             dc2names =set(self.lcatdf.index)
             tt = set(self.df.name[self.df.psr])
-            print 'Catalog entries not found:', list(dc2names.difference(tt))
+            print ('Catalog entries not found:', list(dc2names.difference(tt)))
             missing = np.array([ np.isnan(x) or x<10. for x in lat.ts])
             missing |= np.array((lat.aprob==0) & (lat.ts<1000) )
             
@@ -284,7 +284,7 @@ class Pulsars(sourceinfo.SourceInfo):
             def __init__(self):
                 ff = sorted(glob.glob(os.path.expandvars('$FERMI/catalog/srcid/cat/Pulsars_BigFile_*.fits')))
                 t= fits.open(ff[-1])
-                print 'Read file {}'.format(ff[-1])
+                print ('Read file {}'.format(ff[-1]))
                 self.version = ff[-1].split('_')[-1].split('.')[0]
                 self.d = pd.DataFrame(t[1].data)
                 self.names=[t.strip() for t in self.d.NAME.values]
@@ -297,7 +297,7 @@ class Pulsars(sourceinfo.SourceInfo):
                 elif name in self.jnames: i= self.jnames.index(name)
                 else:
                     error = 'Data for source %s not found' %name
-                    print error
+                    print (error)
                     raise ValueError(error)
 
                 return self.d.iloc[i]
@@ -305,7 +305,7 @@ class Pulsars(sourceinfo.SourceInfo):
         not_psr = np.array([not n.startswith('PSR') for n in self.df.index],bool)
         psrx = np.array([x=='pulsar_big' for x in self.df.acat], bool) & not_psr & (self.df.locqual<5)
 
-        print '%d sources associated with BigFile pulsar list' % sum(psrx)
+        print ('%d sources associated with BigFile pulsar list' % sum(psrx))
         pt = self.df[psrx]['aprob aname aang ts glat glon pivot_energy curvature locqual'.split()]
         
         # look it up in BigFile, add other stuff
@@ -316,7 +316,7 @@ class Pulsars(sourceinfo.SourceInfo):
         pt['jname'] = jname = [bf(n).PSRJ for n in anames]
         # test for the jname not ending in numeric character
         not_incluster = [n[-1] in '0123456789' for n in pt.jname]
-        print '  Selected {} out of {} associations not in clusters'.format(sum(not_incluster), len(pt))
+        print ('  Selected {} out of {} associations not in clusters'.format(sum(not_incluster), len(pt)))
         
         def hmax(n):
             t = bf(n)
@@ -478,7 +478,7 @@ class Pulsars(sourceinfo.SourceInfo):
         self.cvsname='pulsar_candidates.csv'
         t = self.df[keep]['ra dec glat ts pivot_energy pindex eflux_ratio curvature roiname'.split()]
         t.to_csv(self.cvsname)
-        print 'wrote %d sources to %s' % (len(t), self.cvsname)
+        print ('wrote %d sources to %s' % (len(t), self.cvsname))
         self.selection_info="""\
         Cuts: non-3FGL, non-LAT PSR, association probability < 0.1, curvature>%(curvature_cut)s, TS>%(ts_cut)s<br>, 
         <br>Total:%(total)s
@@ -502,7 +502,7 @@ class Pulsars(sourceinfo.SourceInfo):
         cut = (df.ts>10) &  (df.locqual<8) & (df.curvature<0.01) & pcut & (df.ts_high<ts_high_cut) & (df.ts_low<5)
         t = self.df[cut]['ra dec glat ts pivot_energy pindex  fitqual locqual ts_low ts_med ts_high roiname'.split()]
         self.noc_df=t.sort_index(by='roiname')
-        print 'selected %d %s sources' % (len(t), prefix)
+        print ('selected %d %s sources' % (len(t), prefix))
         self.weak_list = html_table(t, name=self.plotfolder+'/weak_pl_sources', 
                 heading='<h4>%d weak new power-law sources</h4>' % len(t), 
                     float_format=FloatFormat(2))
@@ -510,17 +510,17 @@ class Pulsars(sourceinfo.SourceInfo):
     
     def load_list(self, filename):
         df = self.df
-        print 'Reading the LOFAR list "{}"'.format(filename)
+        print ('Reading the LOFAR list "{}"'.format(filename))
         self.lofar=lofar= pd.read_csv(filename, index_col=0)
         lofarset=set(lofar.index)
-        print '{}/{} found in uw7000'.format(len(lofarset.intersection(set(df.index))), len(lofarset))
+        print ('{}/{} found in uw7000'.format(len(lofarset.intersection(set(df.index))), len(lofarset)))
         dfb = pd.read_pickle('beta_fts.pkl')
         for col in 'TS_beta beta beta_fit roiname'.split():
             lofar[col]=dfb[col]
-        print 'reading 6-year variability table...',
+        print ('reading 6-year variability table...',)
         s6y=pd.read_pickle('../../P301_monthly/six_yr_source_variability.pkl')
         s6yset= set(s6y.index)
-        print 'Found variability info for {}/{} sources'.format(len(s6yset.intersection(lofarset)),len(lofarset))
+        print ('Found variability info for {}/{} sources'.format(len(s6yset.intersection(lofarset)),len(lofarset)))
         for col in 'mean ngood nmonths pull_rms tsmax tssum'.split():
             lofar[col]=s6y[col]
             lofar['ts6y']=s6y['ts']

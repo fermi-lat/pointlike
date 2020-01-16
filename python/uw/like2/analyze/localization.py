@@ -40,13 +40,13 @@ class Localization(sourceinfo.SourceInfo):
             (abs(self.ebox.delta_ts)>self.delta_tscut))&(self.df.ts>self.tscut)
         self.poorloc=self.ebox[poorcut] ['ts a locqual delta_ts roiname'.split()].sort_index()
         if len(self.poorloc)>0:
-            print '%d poorly localized (locqual>%.1f or a>%.2f or delta_ts>%.2f) '%\
-                (len(self.poorloc), self.qualcut,self.acut, self.delta_tscut)
+            print ('%d poorly localized (locqual>%.1f or a>%.2f or delta_ts>%.2f) '%\
+                (len(self.poorloc), self.qualcut,self.acut, self.delta_tscut))
             self.poorloc.to_csv('poorly_localized.csv')
-            print 'wrote file "poorly_localized.csv"'
+            print ('wrote file "poorly_localized.csv"')
         self.unloc = unloc = np.array(self.df.unloc & (self.df.ts>self.tscut), bool)
         if sum(unloc)>0:
-            print '%d point sources (TS>10) without localization information' % sum(unloc)
+            print ('%d point sources (TS>10) without localization information' % sum(unloc))
 
     def localization(self, maxdelta=9, mints=10, maxqual=5):
         """Localization plots
@@ -115,7 +115,7 @@ class Localization(sourceinfo.SourceInfo):
         wp = self.ebox
         badfit = pd.isnull(wp.locqual)
         if sum(badfit)>0:
-            print 'Warning: {} sources with no fits'.format(sum(badfit))
+            print ('Warning: {} sources with no fits'.format(sum(badfit)))
         cut = (self.df.ts>mints) & (~ badfit)
         ax=axx[0]
         for x in (mints, tscut):
@@ -185,8 +185,8 @@ class Localization(sourceinfo.SourceInfo):
                     roi_index.append(roi)
                     tolerance.append(t)
                     distance.append(dist.round(2))
-                    print 'Closer than tolerance: sources %s[%d], %s, %.2f deg < %.2f; ts=%.0f,%.0f' \
-                        % (indeces[i], roi, indeces[j], dist,t, ts[i],ts[j])
+                    print ('Closer than tolerance: sources %s[%d], %s, %.2f deg < %.2f; ts=%.0f,%.0f' \
+                        % (indeces[i], roi, indeces[j], dist,t, ts[i],ts[j]))
         self.close_tol = tol
 #        def hreftag(name):
 #           fn = 'sedfig/' + name.replace(' ','_').replace('+','p') + '_sed_%s.jpg' % self.skymodel
@@ -229,7 +229,7 @@ class Localization(sourceinfo.SourceInfo):
         loss = deficit(deficit_angle)
         self.loss ='%d/%d, or %.1f percent' % loss
         self.bmin = bmin
-        print 'lost: ', self.loss
+        print ('lost: ', self.loss)
         n += loss[0]
         rho *=(1+loss[0]/n)
         fig, axx = plt.subplots(1,2, figsize=(12,5))
@@ -286,11 +286,11 @@ class Localization(sourceinfo.SourceInfo):
                 
             #poorly_localized_tablepath = os.path.join(self.plotfolder,'poorly_localized_table.html')
             #open('poorly_localized_table.html','w').write(tohtml)
-            #print 'Wrote poorly_localized_table.html'
+            #print ('Wrote poorly_localized_table.html')
             #open(os.path.join(poorly_localized_tablepath),'w').write(
             #    '<head>\n'  + _html.style + '</head>\n<body>\n<h3>Poorly Localized Source Table</h3>'\
             #                +  tohtml+'\n</body>')
-            #print 'saved html doc to %s' % os.path.join(poorly_localized_tablepath)
+            #print ('saved html doc to %s' % os.path.join(poorly_localized_tablepath))
             #self.poorly_localized_table_check =\
             #            '<p><a href="%s?skipDecoration"> Table of %d poorly localized (a>%.2f deg, or qual>%.1f with TS>%d) sources</a>'\
             #            % ( 'poorly_localized_table.html',len(self.poorloc),self.acut,self.qualcut, self.tscut)
@@ -299,9 +299,9 @@ class Localization(sourceinfo.SourceInfo):
                 pv = makepivot.MakeCollection('poor localizations %s'%version, 'tsmap_fail', 'poorly_localized.csv',refresh=True)
                 self.poorly_localized_table_check +=\
                  '<br>A  <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">pivot collection </a>of TS maps for these sources can be examined.'%pv.cId 
-            except Exception, msg:
+            except Exception as msg:
                 self.poorly_localized_table_check += '<br>(No pivot table: %s)' %msg
-                print '**** Failed to create pivot: %s' % msg
+                print ('**** Failed to create pivot: %s' % msg)
                         
         else:
             self.poorly_localized_table_check ='<p>No poorly localized sources!'
@@ -312,7 +312,7 @@ class Localization(sourceinfo.SourceInfo):
         """
         m =self.df.moment
         has_moment = [x is not None for x in m]
-        print 'Found %d sources with moment analysis' % sum(has_moment)
+        print ('Found %d sources with moment analysis' % sum(has_moment))
         if sum(has_moment)==0:
             return None
         mdf = pd.DataFrame(m[has_moment]) 
@@ -334,7 +334,7 @@ class Localization(sourceinfo.SourceInfo):
         
         filename = 'moment_localizations.csv'
         md.to_csv(filename)
-        print 'Wrote file %s' % filename
+        print ('Wrote file %s' % filename)
         return md
         
     def moment_plots(self):

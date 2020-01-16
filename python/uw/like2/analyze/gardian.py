@@ -40,12 +40,12 @@ class GComponent(object):
         self.energy=energy
         self.cname=component
         files = get_file(ie, component)
-        print 'Combining {:2d} file(s) for component {}'.format (len(files),  component)
+        print ('Combining {:2d} file(s) for component {}'.format (len(files),  component))
         self.dmaps = [diffuse.HealpixCube(file) for file in files]
         for dm in self.dmaps: dm.setEnergy(self.energy)
         self.nside = nside
         if nside is not None and nside != self.dmaps[0].nside:
-            pass #print 'Must reformat from {} to {}'.format(self.dmaps[0].nside, nside)
+            pass #print ('Must reformat from {} to {}'.format(self.dmaps[0].nside, nside))
         else: self.nside = self.dmaps[0].nside
         self.column = None
 
@@ -59,7 +59,7 @@ class GComponent(object):
                 self.column+=  dm.column(self.energy)
         nside = self.dmaps[0].nside
         while self.nside < nside:
-            print 'combine pixels in  {} from {} to {}'.format(self.cname, nside, nside/2)
+            print ('combine pixels in  {} from {} to {}'.format(self.cname, nside, nside/2))
             self.column = hpm.downsize(4.*self.column); 
             nside /=2  
         return self.column
@@ -109,7 +109,7 @@ class GarDian(dict):
         self.energy=energy
         self.nside = nside
         
-        print 'loading diffuse model {} from files with energy {:.2f} GeV from\n {}'.format(modelname,energy/1e3, model_path)
+        print ('loading diffuse model {} from files with energy {:.2f} GeV from\n {}'.format(modelname,energy/1e3, model_path))
         clist = dict(patch='patch', dnm='DNM', h1='HI', co='CO', ic='IC', src='Sources', UN='UNRESOLVED', egb='EGBfree')
         for name, cname in clist.iteritems():
             self[name] = GComponent(cname, model_path, energy=energy, nside=nside)
@@ -121,7 +121,7 @@ class GarDian(dict):
         self.glon = map(lambda x: x.l(), sdir)
 
         data_path =  root+'data/fermi_data/gardian_countMaps/SD_P305_4/'
-        print 'loading counts map for energy {:.2f} GeV from \n {}'.format(energy/1e3, data_path)
+        print ('loading counts map for energy {:.2f} GeV from \n {}'.format(energy/1e3, data_path))
         self['counts'] = counts = GComponent('countsMap', data_path, energy=energy, nside=self.nside)
         plt.rc('font', size=14)
 
@@ -139,7 +139,7 @@ class GarDian(dict):
         ax.legend()
         ax.set_title('Diffuse Components along the plane at {:.2f} GeV'.format(self.energy/1e3))
         ax.set(yscale='log', ylim=ylim)
-        print
+        print()
     
     def along_meridian(self, components):
         fig, ax = plt.subplots(figsize=(12,6))
@@ -148,7 +148,7 @@ class GarDian(dict):
         ax.legend();
         ax.set_title('Diffuse Components along l=0 at {:.2f} GeV'.format(self.energy/1e3))
         ax.set(yscale='log', ylim=(0.1,None));
-        print
+        print()
 
 def find_models(n=5):
     """Return dataframe with model names and creation times
@@ -162,7 +162,7 @@ def find_models(n=5):
     df['time']= [time.ctime(x) for x in df.mtime]
     df.index = df.name
     ret = df.sort_values(by='mtime', ascending=False)['time'.split()]
-    print 'Most recent Gardian models\n{}'.format(ret.head(n))
+    print ('Most recent Gardian models\n{}'.format(ret.head(n)))
     return ret
     
 
@@ -177,14 +177,14 @@ class GComp(object):
  
         cfile = '{}{}_{:d}.fits'.format(root, modelname, energy)
         if not os.path.exists(cfile) or reload:
-            print 'Will create file {}'.format(cfile)
+            print ('Will create file {}'.format(cfile))
             GarDian(modelname=mname, energy=energy).write(cfile)
 
         assert os.path.exists(cfile), 'File "{}" not found'.format(cfile)
         self.df=Table.read(cfile, hdu=1).to_pandas(); 
         self.modelname, self.energy = modelname, energy
         self.nside = nside=int(np.sqrt(len(self.df)/12))
-        print 'read file {}'.format(cfile)
+        print ('read file {}'.format(cfile))
 
         # add locations to the DataFrame
         glon,glat=healpy.pix2ang(nside, range(12*nside**2), lonlat=True)
@@ -197,7 +197,7 @@ class GComp(object):
     
         data,model = np.array(self.df['counts']), np.array(self.df['final'])
         resid = (data-model)/np.sqrt(model)
-        #print resid.mean(), resid.std()
+        #print (resid.mean(), resid.std())
 
         self.pulls = hpm.HParray('f{} pulls'.format(energy), (data-model)/np.sqrt(model))
         self.df['pull']= self.pulls.vec
@@ -229,7 +229,7 @@ class GComp(object):
         ax.legend()
         ax.set_title('{} Components along the plane at {:.2f} GeV'.format(self.modelname,self.energy/1e3))
         ax.set(yscale='log', ylim=ylim)
-        print
+        print()
 
     # def pulls_hist(self, ax=None, cuts=['-5<glat<5', 'glat>10 | glat<-10'], 
     #                colors='green orange blue'.split()):

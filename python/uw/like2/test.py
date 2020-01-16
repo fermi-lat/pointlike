@@ -71,29 +71,29 @@ def setup(name):
         with open(os.path.join(config_dir,'config.txt'), 'w') as cf:
             cf.write(config_file)
         config =  configuration.Configuration(config_dir, quiet=True, postpone=True)
-        print '\n****config:', config
+        print ('\n****config:', config)
 
     if ecat is None:
         ecat = extended.ExtendedCatalog(config.extended)
-        print '\n****ecat:', ecat
+        print ('\n****ecat:', ecat)
     if (name=='roi_sources' or name=='blike' or name=='likeviews') and roi_sources is None:
         roi_sources = from_healpix.ROImodelFromHealpix(config, roi_index, ecat=ecat, 
             load_kw=dict(rings=rings_to_load))
-        print '\n****roi_sources:' , roi_sources
+        print ('\n****roi_sources:' , roi_sources)
     if (name=='roi_bands' or name=='blike' or name=='likeviews') and roi_bands is None:
         roi_bands = bands.BandSet(config, roi_index)
-        print '\n****roi_bands:', roi_bands
+        print ('\n****roi_bands:', roi_bands)
     if (name=='blike'  or name=='likeviews') and blike is None:
         assert roi_bands is not None and roi_sources is not None
         roi_bands.load_data()
         blike = bandlike.BandLikeList(roi_bands, roi_sources)
-        print '\n****blike', blike
+        print ('\n****blike', blike)
     if name=='likeviews' and likeviews is None:
         assert roi_bands is not None and roi_sources is not None
         if roi_bands.pixels==0:
             roi_bands.load_data()
         likeviews = views.LikelihoodViews(roi_bands, roi_sources)
-        print '\n****like_views:', likeviews
+        print ('\n****like_views:', likeviews)
     if name=='roi' and roi is None:
         roi = main.ROI(config_dir, roi_index,  load_kw=dict(rings=rings_to_load))
     return eval(name)
@@ -312,14 +312,14 @@ class TestExtended(TestSetup):
         difference = np.degrees(roi_dir.difference(source.skydir))
         band1 = bands.EnergyBand(self.config, roi_dir)
         if not quiet:
-            print 'Using ROI #%d, distance=%.2f deg' %( roi_index, difference)
-            print 'Testing source "%s at %s" with band parameters' % (source, source.skydir)
+            print ('Using ROI #%d, distance=%.2f deg' %( roi_index, difference))
+            print ('Testing source "%s at %s" with band parameters' % (source, source.skydir))
             for item in band1.__dict__.items():
-                print '\t%-10s %s' % item
+                print ('\t%-10s %s' % item)
         self.resp = conv = source.response(band1)
         if not quiet:
-            print 'overlap: %.3f,  exposure_ratio: %.3f' %( conv.overlap,conv.exposure_ratio)
-            print 'PSF overlap: %.3f'% conv.psf_overlap
+            print ('overlap: %.3f,  exposure_ratio: %.3f' %( conv.overlap,conv.exposure_ratio))
+            print ('PSF overlap: %.3f'% conv.psf_overlap)
         if psf_check:
             self.assertAlmostEqual(conv.overlap, conv.psf_overlap, delta=1e-2)
         self.assertAlmostEqual(expect[0], conv.overlap, delta=1e-2)
@@ -421,7 +421,7 @@ class TestXML(TestSetup):
         roi_xml = from_xml.ROImodelFromXML(config, filename)
         npars = roi_xml.parameters[:]
         maxdev = np.abs(pars-npars).max()
-        #print 'Max deviation', maxdev
+        #print ('Max deviation', maxdev)
         self.assertTrue( maxdev<1e-8)
 
     
@@ -431,9 +431,9 @@ class TestBands(TestSetup):
         setup('roi_bands')
             
     def test_load_data(self):
-        print roi_bands
+        print (roi_bands)
         roi_bands.load_data()
-        print roi_bands
+        print (roi_bands)
         self.assertEquals( 156221, roi_bands.pixels)
 
         
@@ -441,7 +441,7 @@ class TestLikelihood(TestSetup):
     def setUp(self):
         self.bl = setup('blike')
         self.init = blike.log_like()
-        print 'initial loglike: %.1f ...' % self.init ,
+        print ('initial loglike: %.1f ...' % self.init ,)
     def tearDown(self):
         self.assertAlmostEquals(self.init, blike.log_like(), 1)
         
@@ -522,7 +522,7 @@ class TestSED(TestSetup):
     def setUp(self):
         setup('likeviews')
         self.init = likeviews.log_like()
-        print 'initial loglike: %.1f ...' % self.init ,
+        print ('initial loglike: %.1f ...' % self.init ,)
     def tearDown(self):
         self.assertAlmostEquals(self.init, likeviews.log_like())
 
@@ -534,7 +534,7 @@ class TestSED(TestSetup):
             errors = poiss.errors
             pp = sf.all_poiss()
             bandts = np.array([x.ts for x in pp]).sum()
-            print 'errors, TS, bandts: %.3f, %.3f %.3f %.3f' % (tuple(errors)+(poiss.ts,bandts)),
+            print ('errors, TS, bandts: %.3f, %.3f %.3f %.3f' % (tuple(errors)+(poiss.ts,bandts)),)
             self.assertAlmostEquals(checks[0], errors[0], delta=1e-1)
             self.assertAlmostEquals(checks[1], errors[1], delta=1e-1)
             self.assertAlmostEquals(checks[2], poiss.ts, delta=140.) #value history dependent?
@@ -543,7 +543,7 @@ class TestSED(TestSetup):
 class TestLocalization(TestSetup):
     def setUp(self):
         setup('likeviews')
-        print 'initial loglike: %.1f ...' % likeviews.log_like() ,
+        print ('initial loglike: %.1f ...' % likeviews.log_like() ,)
 
     def test(self):
         """--> generate a view, check values, and restore"""
@@ -619,7 +619,7 @@ def run(t='all', loader=unittest.TestLoader(), debug=False):
             suite.addTests(tests)
     else:
         suite = loader.loadTestsFromTestCase(t)
-    print 'running %d tests %s' % (suite.countTestCases(), 'in debug mode' if debug else '') 
+    print ('running %d tests %s' % (suite.countTestCases(), 'in debug mode' if debug else '') )
     if debug:
         suite.debug()
     else:

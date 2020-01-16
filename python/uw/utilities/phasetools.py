@@ -28,7 +28,7 @@ def phase_cut(eventfile,outputfile=None,phaseranges=[[0,1]],phase_col_name='PULS
             if (r[0]<= myph) and (myph <= r[1]): mask[i]=True
             
     duty_cycle = sum( (x[1] - x[0] for x in phaseranges) )
-    print 'Selecting %d / %d photons (duty cycle = %.2f)'%(mask.sum(),len(mask),duty_cycle)
+    print ('Selecting %d / %d photons (duty cycle = %.2f)'%(mask.sum(),len(mask),duty_cycle))
 
     hdu = PF.new_table(ef['EVENTS'].columns,nrows=mask.sum())
     for i in xrange(len(ef['EVENTS'].columns)):

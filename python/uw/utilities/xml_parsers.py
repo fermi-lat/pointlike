@@ -159,11 +159,11 @@ class XML_to_Model(object):
             ...     <parameter free="1" max="1e5" min="1e3" name="Mean" scale="1.0" value="7e4"/>
             ...     <parameter free="1" max="30" min="1e4" name="Sigma" scale="1.0" value="1e3"/>
             ... </spectrum>''')
-            >>> print model['prefactor']
+            >>> print (model['prefactor'])
             1e-09
-            >>> print model['mean']
+            >>> print (model['mean'])
             70000.0
-            >>> print model['sigma']
+            >>> print (model['sigma'])
             1000.0
 
         Test the ScaleFactor models. XML Model taken from
@@ -180,9 +180,9 @@ class XML_to_Model(object):
             ... </spectrum>''')
             >>> type(model) == scalemodels.ScaleFactorPowerLawFlux
             True
-            >>> print model['ScaleFactor']
+            >>> print (model['ScaleFactor'])
             10.0
-            >>> print model['Int_Flux']
+            >>> print (model['Int_Flux'])
             1e-06
             >>> np.allclose(model.get_limits('Int_Flux'),[1e-11,1e-3])
             True
@@ -197,15 +197,15 @@ class XML_to_Model(object):
             ... </spectrum>''')
             >>> isinstance(model,scalemodels.ScaleFactorFileFunction)
             True
-            >>> print model.file
+            >>> print (model.file)
             $(GLAST_EXT)/diffuseModels/v2r0p1/isotrop_2year_P76_source_v1.txt
-            >>> print model['ScaleFactor']
+            >>> print (model['ScaleFactor'])
             11.0
-            >>> print model['Normalization']
+            >>> print (model['Normalization'])
             5.0
             >>> np.all(model.free==[True,True])
             True
-            >>> print model.mappers
+            >>> print (model.mappers)
             [LimitMapper(1.0,100.0,1.0), LimitMapper(0.1,10.0,1.0)]
 
     """
@@ -281,7 +281,7 @@ class XML_to_Model(object):
                 model.set_limits_gtlike(pointlike_name,min,max,scale)
             except MapperException:
                 import traceback,sys; traceback.print_exc(sys.stdout)
-                print 'scale=',scale
+                print ('scale=',scale)
                 raise XMLException("Error setting parameter %s for source %s. Value is %s and limits are %s to %s" % (gtlike_name,source_name,value,min,max))
 
             if 'error' in pdict.keys():
@@ -419,7 +419,7 @@ class Model_to_XML(object):
             >>> pl.set_limits('norm', 1e-12, 1e-10, scale=1e-11)
             >>> pl.set_limits('index', -5, 5, scale=1)
 
-            >>> print model2xml(pl)
+            >>> print (model2xml(pl))
             <spectrum  type="PowerLaw">
                 <parameter name="Prefactor" value="1.0" free="1" max="10.0" min="0.1" scale="1e-11" />
                 <parameter name="Index" value="2.0" free="1" max="5" min="-5" scale="-1" />
@@ -432,14 +432,14 @@ class Model_to_XML(object):
         and not norm since norm is an oomp limit so is always set to the real value:
 
             >>> pl = Models.PowerLaw(norm=1e-20, index=200)
-            >>> print model2xml(pl,strict=True)
+            >>> print (model2xml(pl,strict=True))
             Traceback (most recent call last):
                 ...
             ModelException: Found Index=200.0 > 5, maximum allowed value
             >>> xml=model2xml(pl,strict=False)
             Warning Found Index=200.0 > 5, maximum allowed value,
                 Setting parameter value to maximum.
-            >>> print xml
+            >>> print (xml)
             <spectrum  type="PowerLaw">
                 <parameter name="Prefactor" value="1.0" free="1" max="100.0" min="0.01" scale="1e-20" />
                 <parameter name="Index" value="5.0" free="1" max="5" min="-5" scale="-1" />
@@ -451,7 +451,7 @@ class Model_to_XML(object):
             >>> pl = Models.PowerLaw(norm=1e-11, index=2)
             >>> pl.set_error('norm',0.5e-11)
             >>> pl.set_error('index',0.25)
-            >>> print model2xml(pl)
+            >>> print (model2xml(pl))
             <spectrum  type="PowerLaw">
                 <parameter name="Prefactor" value="1.0" error="0.5" free="1" max="100.0" min="0.01" scale="1e-11" />
                 <parameter name="Index" value="2.0" error="0.25" free="1" max="5" min="-5" scale="-1" />
@@ -464,7 +464,7 @@ class Model_to_XML(object):
             >>> temp = NamedTemporaryFile(delete=True)
             >>> pl.save_profile(temp.name, emin=1, emax=1e6)
             >>> fs = Models.FileFunction(Normalization=1,file=temp.name)
-            >>> print model2xml(fs).replace(temp.name, '<FILENAME>')
+            >>> print (model2xml(fs).replace(temp.name, '<FILENAME>'))
             <spectrum file="<FILENAME>" type="FileFunction">
                 <parameter name="Normalization" value="1.0" free="1" max="10000.0" min="0.0001" scale="1" />
             </spectrum>
@@ -476,14 +476,14 @@ class Model_to_XML(object):
 
         First, save it with the env var:
 
-            >>> print model2xml(fs,expand_env_vars=False).replace(filename,'[FILENAME]')
+            >>> print (model2xml(fs,expand_env_vars=False).replace(filename,'[FILENAME]'))
             <spectrum file="[FILENAME]" type="FileFunction">
                 <parameter name="Normalization" value="1.0" free="1" max="10000.0" min="0.0001" scale="1" />
             </spectrum>
 
         Next, save it with the env var expanded:
 
-            >>> print model2xml(fs,expand_env_vars=True).replace(path.expand(filename),'[FILENAME]')
+            >>> print (model2xml(fs,expand_env_vars=True).replace(path.expand(filename),'[FILENAME]'))
             <spectrum file="[FILENAME]" type="FileFunction">
                 <parameter name="Normalization" value="1.0" free="1" max="10000.0" min="0.0001" scale="1" />
             </spectrum>
@@ -491,7 +491,7 @@ class Model_to_XML(object):
         Next, save out a PowerLaw with index=-2
 
             >>> pl = Models.PowerLaw(index=-2)
-            >>> print model2xml(pl)
+            >>> print (model2xml(pl))
             <spectrum  type="PowerLaw">
                 <parameter name="Prefactor" value="1.0" free="1" max="100.0" min="0.01" scale="1e-11" />
                 <parameter name="Index" value="-2.0" free="1" max="5" min="-5" scale="-1" />
@@ -506,7 +506,7 @@ class Model_to_XML(object):
             ...     beta=0.1,
             ...     e0=200)
 
-            >>> print model2xml(sbpl)
+            >>> print (model2xml(sbpl))
             <spectrum  type="SmoothBrokenPowerLaw">
                 <parameter name="Prefactor" value="1.456863965" free="1" max="100.0" min="0.01" scale="1e-09" />
                 <parameter name="Index1" value="-1.504042874" free="1" max="5" min="-5" scale="-1" />
@@ -518,7 +518,7 @@ class Model_to_XML(object):
 
         Model from http://fermi.gsfc.nasa.gov/ssc/data/analysis/scitools/xml_model_defs.html#gaussian
             >>> g = Models.Gaussian(prefactor=1e-9, mean=7e4, sigma=1e3)
-            >>> print model2xml(g)
+            >>> print (model2xml(g))
             <spectrum  type="Gaussian">
                 <parameter name="Prefactor" value="1.0" free="1" max="100.0" min="0.01" scale="1e-09" />
                 <parameter name="Mean" value="0.7" free="1" max="100.0" min="0.01" scale="100000.0" />
@@ -526,7 +526,7 @@ class Model_to_XML(object):
             </spectrum>
 
             >>> s = scalemodels.ScaleFactorPowerLaw(ScaleFactor=5)
-            >>> print model2xml(s)
+            >>> print (model2xml(s))
             <spectrum  type="ScaleFactor::PowerLaw">
                 <parameter name="ScaleFactor" value="0.5" free="1" max="100.0" min="0.01" scale="10.0" />
                 <parameter name="Prefactor" value="1.0" free="1" max="100.0" min="0.01" scale="1e-11" />
@@ -538,7 +538,7 @@ class Model_to_XML(object):
 
             >>> s = scalemodels.ScaleFactorFileFunction(ScaleFactor=10, Normalization=5,
             ...     file="$(GLAST_EXT)/diffuseModels/v2r0p1/isotrop_2year_P76_source_v1.txt")
-            >>> print model2xml(s)
+            >>> print (model2xml(s))
             <spectrum file="$(GLAST_EXT)/diffuseModels/v2r0p1/isotrop_2year_P76_source_v1.txt" type="ScaleFactor::FileFunction">
                 <parameter name="ScaleFactor" value="1.0" free="1" max="100.0" min="0.01" scale="10.0" />
                 <parameter name="Normalization" value="5.0" free="1" max="10000.0" min="0.0001" scale="1" />
@@ -604,7 +604,7 @@ class Model_to_XML(object):
 
         for pointlike_name,gtlike_name in zip(model.param_names, model.gtlike['param_names']):
 
-            if self.debug: print 'Processing %s'%(param)
+            if self.debug: print ('Processing %s'%(param))
 
             free = model.get_free(pointlike_name)
             val = model.getp_gtlike(pointlike_name)
@@ -625,7 +625,7 @@ class Model_to_XML(object):
 
         for pointlike_name in model.default_extra_params:
             gtlike_name=model.gtlike['extra_param_names'][pointlike_name]
-            if self.debug: print 'Processing %s'%(xml_key)
+            if self.debug: print ('Processing %s'%(xml_key))
 
             val = model[pointlike_name]
 
@@ -702,7 +702,7 @@ def makeExtendedSourceSpatialModel(es,expand_env_vars,tablevel=1):
     
             >>> disk = SpatialModels.Disk(sigma=1, ra=244, dec=57)
                     
-            >>> print make(disk)
+            >>> print (make(disk))
             <spatialModel type="Disk">
                 <parameter name="RA" value="244" free="1" max="360" min="-360" scale="1.0" />
                 <parameter name="DEC" value="57" free="1" max="180" min="-180" scale="1.0" />
@@ -710,9 +710,9 @@ def makeExtendedSourceSpatialModel(es,expand_env_vars,tablevel=1):
             </spatialModel>
 
             >>> disk.set_cov_matrix(np.asarray([[1,0,0],[0,1,0],[0,0,1]]))
-            >>> print disk.error('sigma')
+            >>> print (disk.error('sigma'))
             2.30258509299
-            >>> print make(disk)
+            >>> print (make(disk))
             <spatialModel type="Disk">
                 <parameter name="RA" value="244" error="1.0" free="1" max="360" min="-360" scale="1.0" />
                 <parameter name="DEC" value="57" error="1.0" free="1" max="180" min="-180" scale="1.0" />
@@ -722,7 +722,7 @@ def makeExtendedSourceSpatialModel(es,expand_env_vars,tablevel=1):
         When the coordsystem is GALACTIC, the output will be in L & B:
 
             >>> disk = SpatialModels.Disk(sigma=1, l=244, b=57)
-            >>> print make(disk)
+            >>> print (make(disk))
             <spatialModel type="Disk">
                 <parameter name="L" value="244" free="1" max="360" min="-360" scale="1.0" />
                 <parameter name="B" value="57" free="1" max="180" min="-180" scale="1.0" />
@@ -732,7 +732,7 @@ def makeExtendedSourceSpatialModel(es,expand_env_vars,tablevel=1):
         Note, saving out spatial models will preserve limits
 
             >>> disk = SpatialModels.Disk(limits=[[-2,2],[-2,2],[1e-3,30]])
-            >>> print make(disk)
+            >>> print (make(disk))
             <spatialModel type="Disk">
                 <parameter name="RA" value="0" free="1" max="360" min="-360" scale="1.0" />
                 <parameter name="DEC" value="0" free="1" max="180" min="-180" scale="1.0" />
@@ -746,7 +746,7 @@ def makeExtendedSourceSpatialModel(es,expand_env_vars,tablevel=1):
             >>> temp = NamedTemporaryFile(delete=True)
             >>> disk.save_template(temp.name)
             >>> map=SpatialModels.SpatialMap(file=temp.name)
-            >>> print make(map).replace(temp.name, '<FILENAME>')
+            >>> print (make(map).replace(temp.name, '<FILENAME>'))
             <spatialModel type="SpatialMap" file="<FILENAME>" >
                 <parameter name="Prefactor" value="1.0" free="0" max="1e3" min="1e-3" scale="1.0" />
             </spatialModel>
@@ -756,7 +756,7 @@ def makeExtendedSourceSpatialModel(es,expand_env_vars,tablevel=1):
             >>> temp = NamedTemporaryFile(delete=True)
             >>> disk.save_profile(temp.name)
             >>> profile=SpatialModels.RadialProfile(file=temp.name)
-            >>> print make(profile).replace(temp.name, '<FILENAME>')
+            >>> print (make(profile).replace(temp.name, '<FILENAME>'))
             <spatialModel type="RadialProfile" file="<FILENAME>" >
                 <parameter name="Normalization" value="1.0" free="0" max="1e3" min="1e-3" scale="1.0" />
                 <parameter name="RA" value="0" free="1" max="360" min="-360" scale="1.0" />
@@ -835,19 +835,19 @@ def parse_point_sources(handler,roi_dir,max_roi):
             ...             <parameter free="0" max="90." min="-90." name="DEC" scale="1.0" value="21.72"/>
             ...           </spatialModel>    
             ...         </source>''')
-            >>> print ps.name
+            >>> print (ps.name)
             PowerLaw_source
-            >>> print ps.skydir.ra(), ps.skydir.dec()
+            >>> print (ps.skydir.ra(), ps.skydir.dec())
             83.45 21.72
-            >>> print ps.model.name
+            >>> print (ps.model.name)
             PowerLaw
-            >>> print ps.model['Norm']
+            >>> print (ps.model['Norm'])
             1e-09
-            >>> print ps.model['Index']
+            >>> print (ps.model['Index'])
             2.1
-            >>> print ps.model.error('Norm')
+            >>> print (ps.model.error('Norm'))
             5e-10
-            >>> print ps.model.error('Index')
+            >>> print (ps.model.error('Index'))
             0.25
 
     """
@@ -888,16 +888,16 @@ def parse_diffuse_sources(handler, roi_dir, max_roi, diffdir=None):
             ...       <parameter free="0" max="1000.0" min="0.001" name="Normalization" scale="1.0" value="1.0"/>
             ...     </spatialModel>
             ...   </source>''')
-            >>> print ds.smodel.name
+            >>> print (ds.smodel.name)
             Constant
-            >>> print ds.smodel['scale']
+            >>> print (ds.smodel['scale'])
             1.0
-            >>> print ds.smodel.get_limits('scale')
+            >>> print (ds.smodel.get_limits('scale'))
             [0.0, 10.0]
             >>> type(ds.dmodel) == list and len(ds.dmodel) == 1
             True
             >>> dm=ds.dmodel[0]
-            >>> print type(dm)
+            >>> print (type(dm))
             <class 'skymaps.DiffuseFunction'>
 
         Try loading in Galactic Diffuse scaled by a powerlaw:
@@ -912,20 +912,20 @@ def parse_diffuse_sources(handler, roi_dir, max_roi, diffdir=None):
             ...        <parameter name="Normalization" value="1.0" free="0" max="1e3" min="1e-3" scale="1.0" />
             ...    </spatialModel>
             ... </source>''')
-            >>> print ds.name
+            >>> print (ds.name)
             Galactic Diffuse (ring_2year_P76_v0.fits)
             >>> model=ds.smodel
-            >>> print model.name
+            >>> print (model.name)
             ScalingPowerLaw
-            >>> print model['norm']
+            >>> print (model['norm'])
             1.0
-            >>> print model['index']
+            >>> print (model['index'])
             0.0
-            >>> print model.background
+            >>> print (model.background)
             True
-            >>> print model.get_limits('norm')
+            >>> print (model.get_limits('norm'))
             [0.1, 10.0]
-            >>> print model.get_limits('index')
+            >>> print (model.get_limits('index'))
             [-1.0, 1.0]
 
         Example loading an isotropic powerLaw source. This code is a klugey, and could be improved
@@ -943,20 +943,20 @@ def parse_diffuse_sources(handler, roi_dir, max_roi, diffdir=None):
             ...       <parameter free="0" max="10.0" min="0.0" name="Value" scale="1.0" value="1.0"/>
             ...     </spatialModel>
             ...   </source>''')
-            >>> print ds.smodel.name
+            >>> print (ds.smodel.name)
             PowerLaw
-            >>> print ds.smodel['norm']
+            >>> print (ds.smodel['norm'])
             1.6e-07
-            >>> print ds.smodel['index']
+            >>> print (ds.smodel['index'])
             2.1
-            >>> print ds.smodel.e0
+            >>> print (ds.smodel.e0)
             100.0
             >>> type(ds.dmodel) == list and len(ds.dmodel) == 1
             True
             >>> dm=ds.dmodel[0]
-            >>> print type(dm)
+            >>> print (type(dm))
             <class 'skymaps.IsotropicConstant'>
-            >>> print dm.constant()
+            >>> print (dm.constant())
             1.0
 
         Example loading an isotropic source from a file
@@ -972,18 +972,18 @@ def parse_diffuse_sources(handler, roi_dir, max_roi, diffdir=None):
             ...       <parameter free="0" max="10.0" min="0.0" name="Value" scale="1.0" value="1.0"/>
             ...     </spatialModel>
             ...   </source>''')
-            >>> print ds.smodel.name
+            >>> print (ds.smodel.name)
             FileFunction
-            >>> print ds.smodel['normalization']
+            >>> print (ds.smodel['normalization'])
             1.0
-            >>> print ds.smodel.file
+            >>> print (ds.smodel.file)
             $(GLAST_EXT)/diffuseModels/v2r0p1/isotrop_2year_P76_source_v1.txt
             >>> type(ds.dmodel) == list and len(ds.dmodel) == 1
             True
             >>> dm=ds.dmodel[0]
-            >>> print type(dm)
+            >>> print (type(dm))
             <class 'skymaps.IsotropicConstant'>
-            >>> print dm.constant()
+            >>> print (dm.constant())
             1.0
 
             
@@ -1010,7 +1010,7 @@ def parse_diffuse_sources(handler, roi_dir, max_roi, diffdir=None):
             >>> new_gauss =  ds.spatial_model
             >>> np.allclose(new_gauss.p, gaussian.p)
             True
-            >>> print new_gauss.free
+            >>> print (new_gauss.free)
             [False  True  True]
 
         Now, create & load an xml file for a SpatialMap
@@ -1027,10 +1027,10 @@ def parse_diffuse_sources(handler, roi_dir, max_roi, diffdir=None):
             ...        <parameter free="0" name="Prefactor" scale="1.0" value="1"/>
             ...      </spatialModel>
             ...    </source>''' % temp.name)
-            >>> print ds.model['scale']
+            >>> print (ds.model['scale'])
             1.0
             >>> map=ds.spatial_model
-            >>> print map.name
+            >>> print (map.name)
             SpatialMap
             >>> np.allclose([map.center.ra(), map.center.dec()], [gaussian.center.ra(), gaussian.center.dec()], atol=1e-2, rtol=1e-2)
             True
@@ -1054,7 +1054,7 @@ def parse_diffuse_sources(handler, roi_dir, max_roi, diffdir=None):
             ...      </spatialModel>
             ...    </source>''' % (temp.name, gaussian.center.ra(), gaussian.center.dec()))
             >>> profile=ds.spatial_model
-            >>> print profile.name
+            >>> print (profile.name)
             RadialProfile
             >>> np.allclose([profile.center.ra(), profile.center.dec()], [gaussian.center.ra(), gaussian.center.dec()])
             True
@@ -1094,7 +1094,7 @@ def parse_diffuse_sources(handler, roi_dir, max_roi, diffdir=None):
             ...        <parameter free="1" name="Sigma" scale="1.0" value="1" min="1e-3" max="1e3" />
             ...      </spatialModel>
             ...    </source>''')
-            >>> print ds.spatial_model.get_limits(absolute=True).tolist()
+            >>> print (ds.spatial_model.get_limits(absolute=True).tolist())
             [[-1.0, 1.0], [-1.0, 1.0], [0.001, 1000.0]]
 
         When the the position parameters don't the default limits, the code will crash:
@@ -1213,7 +1213,7 @@ def unparse_point_sources(point_sources, strict=False, expand_env_vars=False, pr
                 ...     return ret[0].strip().replace('\\t', ' '*4)
 
                 >>> ps = PointSource(name='test', model=Models.Constant(), skydir=SkyDir(-30,30))
-                >>> print ps2xml(ps)
+                >>> print (ps2xml(ps))
                 <source name="test" type="PointSource"  >
                     <spectrum  type="ConstantValue">
                         <parameter name="Value" value="1.0" free="1" max="10" min="0.001" scale="1" />
@@ -1228,7 +1228,7 @@ def unparse_point_sources(point_sources, strict=False, expand_env_vars=False, pr
             This doctest protects against that edge case.
 
                 >>> ps = PointSource(name='test', model=Models.PowerLaw(), skydir=SkyDir(20,-88))
-                >>> print ps2xml(ps, expand_env_vars=True)
+                >>> print (ps2xml(ps, expand_env_vars=True))
                 <source name="test" type="PointSource"  >
                     <spectrum  type="PowerLaw">
                         <parameter name="Prefactor" value="1.0" free="1" max="100.0" min="0.01" scale="1e-11" />
@@ -1248,8 +1248,8 @@ def unparse_point_sources(point_sources, strict=False, expand_env_vars=False, pr
         skyxml = makePSSpatialModel(ps.skydir)
         try:
             m2x.process_model(ps.model, expand_env_vars=expand_env_vars)
-        except Exception, emsg:
-            print 'Failed to process source %s: %s' %(ps.name, emsg)
+        except Exception as emsg:
+            print ('Failed to process source %s: %s' %(ps.name, emsg))
         specxml = m2x.getXML()
         s1 = '\n<source name="%s" type="PointSource" %s >\n'%(ps.name, properties(ps))
         s2 = '</source>'
@@ -1274,7 +1274,7 @@ def process_diffuse_source(ds,strict=False,convert_extended=False,
             >>> def model2xml(d, expand_env_vars, strict=False):
             ...     return process_diffuse_source(d, expand_env_vars=expand_env_vars, strict=strict).replace('\\t',' '*4).strip()
 
-            >>> print model2xml(gal, expand_env_vars=False)
+            >>> print (model2xml(gal, expand_env_vars=False))
             <source name="Galactic Diffuse (ring_2year_P76_v0.fits)" type="DiffuseSource">
                 <spectrum  type="PowerLaw">
                     <parameter name="Prefactor" value="1.0" free="1" max="10" min="0.1" scale="1" />
@@ -1288,7 +1288,7 @@ def process_diffuse_source(ds,strict=False,convert_extended=False,
 
         Test out the expand_env_vars flag:
 
-            >>> print model2xml(gal, expand_env_vars=True).replace(path.expand(join(diffdir,gfile)),'[FILENAME]')
+            >>> print (model2xml(gal, expand_env_vars=True).replace(path.expand(join(diffdir,gfile)),'[FILENAME]'))
             <source name="Galactic Diffuse (ring_2year_P76_v0.fits)" type="DiffuseSource">
                 <spectrum  type="PowerLaw">
                     <parameter name="Prefactor" value="1.0" free="1" max="10" min="0.1" scale="1" />
@@ -1313,7 +1313,7 @@ def process_diffuse_source(ds,strict=False,convert_extended=False,
             >>> xml=model2xml(gal, expand_env_vars=False)
             WARNING: Found Norm=0.01 < 0.1, minimum allowed value,
                 Setting parameter value to minimum.
-            >>> print xml
+            >>> print (xml)
             <source name="Galactic Diffuse (ring_2year_P76_v0.fits)" type="DiffuseSource">
                 <spectrum  type="PowerLaw">
                     <parameter name="Prefactor" value="0.1" free="1" max="10" min="0.1" scale="1" />
@@ -1327,7 +1327,7 @@ def process_diffuse_source(ds,strict=False,convert_extended=False,
 
         Save out the isotropic diffuse:
 
-            >>> print model2xml(iso, expand_env_vars=False)
+            >>> print (model2xml(iso, expand_env_vars=False))
             <source name="Isotropic Diffuse (isotrop_2year_P76_source_v1.txt)" type="DiffuseSource">
                 <spectrum file="$(GLAST_EXT)/diffuseModels/v2r0p1/isotrop_2year_P76_source_v1.txt" ctype="-1" type="FileFunction">
                     <parameter name="Normalization" value="1.0" free="1" max="10000.0" min="0.0001" scale="1" />
@@ -1339,7 +1339,7 @@ def process_diffuse_source(ds,strict=False,convert_extended=False,
 
         Test expand_env_vars:
 
-            >>> print model2xml(iso, expand_env_vars=True).replace(path.expand(join(diffdir,ifile)),'[FILENAME]')
+            >>> print (model2xml(iso, expand_env_vars=True).replace(path.expand(join(diffdir,ifile)),'[FILENAME]'))
             <source name="Isotropic Diffuse (isotrop_2year_P76_source_v1.txt)" type="DiffuseSource">
                 <spectrum file="[FILENAME]" ctype="-1" type="FileFunction">
                     <parameter name="Normalization" value="1.0" free="1" max="10000.0" min="0.0001" scale="1" />
@@ -1356,7 +1356,7 @@ def process_diffuse_source(ds,strict=False,convert_extended=False,
             ...     gfile=gfile,
             ...     ifile=ifile)
             >>> gal.smodel.set_mapper('index',LimitMapper(-1,1,-1))
-            >>> print model2xml(gal, expand_env_vars=False)
+            >>> print (model2xml(gal, expand_env_vars=False))
             <source name="Galactic Diffuse (ring_2year_P76_v0.fits)" type="DiffuseSource">
                 <spectrum  type="PowerLaw">
                     <parameter name="Prefactor" value="1.0" free="1" max="10" min="0.1" scale="1" />
@@ -1396,7 +1396,7 @@ def process_diffuse_source(ds,strict=False,convert_extended=False,
                 spatial.file = template_name
         skyxml = makeExtendedSourceSpatialModel(spatial,expand_env_vars=expand_env_vars)
         if isinstance(spatial,SpatialModels.SpatialMap) and not np.all(spatial.p==spatial.init_p):
-            print 'Warning: When saving out a SpatialModels.SpatialMap object which has been localized, the original unmoved template is saved in the xml model.'
+            print ('Warning: When saving out a SpatialModels.SpatialMap object which has been localized, the original unmoved template is saved in the xml model.')
 
     elif isinstance(dm,DiffuseFunction):
         if hasattr(dm,'filename'):
@@ -1478,8 +1478,8 @@ def unparse_diffuse_sources(diffuse_sources,strict=False,
                                                extended_dir_name=extended_dir_name,
                                                expand_env_vars=expand_env_vars,
                                                filename=filename))
-        #except Exception, msg:
-        #    print 'Failed to create blurb for extended source %s: %s' % (ds.name, msg)
+        #except Exception as msg:
+        #    print ('Failed to create blurb for extended source %s: %s' % (ds.name, msg))
     return xml_blurbs
 
 def writeXML(stacks,filename, title='source_library'):

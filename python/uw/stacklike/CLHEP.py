@@ -34,7 +34,7 @@ class HepRotation(object):
     ## displays matrix
     def echo(self):
         for i in range(3):
-                print self.matrix[i,0],self.matrix[i,1],self.matrix[i,2]
+                print (self.matrix[i,0],self.matrix[i,1],self.matrix[i,2])
 
     ## multiplication with either matrix or vector
     #  @param other matrix to be multiplied
@@ -141,7 +141,7 @@ class Hep3Vector(object):
  
     def echo(self):
         for i in range(3):
-            print self.vec[i,0]
+            print (self.vec[i,0])
 
 ################################################# END HEP3VECTOR CLASS #######################################################
 
@@ -195,9 +195,9 @@ class Photon(object):
         nw = Hep3Vector([cp*(st*cdt+ct*sdt),sp*(st*cdt+ct*sdt),ct*cdt-st*sdt])
         diff = np.arccos(h1.dot(self.rot.m(nw)))
         if verb:
-            print sc.x(),sc.y(),sc.z()
-            print nw.x(),nw.y(),nw.z()
-            print ct,st,cp,sp,cdt,sdt,diff
+            print (sc.x(),sc.y(),sc.z())
+            print (nw.x(),nw.y(),nw.z())
+            print (ct,st,cp,sp,cdt,sdt,diff)
         return diff
 
     ## return angular separation from source

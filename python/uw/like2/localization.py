@@ -53,7 +53,7 @@ def moment_analysis(tsmap, wcs, fudge=1.44):
     u,v =np.linalg.eigh(var)
     ang =np.degrees(np.arctan2(v[1,1], -v[1,0]))
     if min(u)< 0.5* max(u): 
-        print 'Too elliptical : %s, setting circular' % u
+        print ('Too elliptical : %s, setting circular' % u)
         u[0]=u[1] = max(u)
     tt = np.sqrt(u) * fudge
     if u[1]>u[0]:
@@ -105,31 +105,31 @@ def full_localization(roi, source_name=None, ignore_exception=False,
         loc = Localization(tsm)
         try:
             if not loc.localize():
-                print 'Failed'
+                print ('Failed')
             if hasattr(loc, 'ellipse') and  (update or loc['qual']<1.0 and loc['a']<0.1):
                 # Automatically update position if good fit.
                 t = loc.ellipse
                 prev = tsm.saved_skydir
                 tsm.saved_skydir = SkyDir(t['ra'], t['dec'])
-                print 'updated position: %s --> %s' % (prev, tsm.saved_skydir)
+                print ('updated position: %s --> %s' % (prev, tsm.saved_skydir))
             else:
-                print 'Failed localization'
+                print ('Failed localization')
         except Exception, msg:
-            print 'Localization of %s failed: %s' % (source.name, msg)
+            print ('Localization of %s failed: %s' % (source.name, msg))
             if not ignore_exception: raise
 
         if not roi.quiet and hasattr(loc, 'niter') and loc.niter>0: 
-            print 'Localized %s: %d iterations, moved %.3f deg, deltaTS: %.1f' % \
+            print ('Localized %s: %d iterations, moved %.3f deg, deltaTS: %.1f' % \)
                 (source.name, loc.niter, loc.delt, loc.delta_ts)
             labels = 'ra dec a b ang qual'.split()
-            print (len(labels)*'%10s') % tuple(labels)
+            print ((len(labels)*'%10s') % tuple(labels))
             p = loc.qform.par[0:2]+loc.qform.par[3:7]
-            print len(p)*'%10.4f' % tuple(p)
+            print (len(p)*'%10.4f' % tuple(p))
         if associator is not None:
             try:
                 make_association(source, loc.TSmap, associator, quiet=roi.quiet)
             except Exception, msg:
-                print 'Exception raised associating %s: %s' %(source.name, msg)
+                print ('Exception raised associating %s: %s' %(source.name, msg))
         
         if tsmap_dir is not None : 
             if  hasattr(loc,'ellipse'): 
@@ -137,9 +137,9 @@ def full_localization(roi, source_name=None, ignore_exception=False,
                 tsize = min(a*15., 2.0)
                 bad = a>0.25 or qual>5 or abs(delta_ts)>delta_ts_bad
                 if bad:
-                    print 'Flagged as possibly bad: a=%.2f>0.25 or qual=%.1f>5 or abs(delta_ts=%.1f)>%f:'% (a, qual, delta_ts,delta_ts_bad)
+                    print ('Flagged as possibly bad: a=%.2f>0.25 or qual=%.1f>5 or abs(delta_ts=%.1f)>%f:'% (a, qual, delta_ts,delta_ts_bad))
             else: 
-                print 'no localization'
+                print ('no localization')
                 bad = True
                 tsize= 2.0
             if tsmap_dir.endswith('fail') and not bad: return
@@ -164,23 +164,23 @@ def full_localization(roi, source_name=None, ignore_exception=False,
                     peak_fraction = vals.max()/sum(vals)
 
                 except Exception, msg:
-                    print 'Plot of %s failed: %s' % (source.name, msg)
+                    print ('Plot of %s failed: %s' % (source.name, msg))
                     return None
                 if peak_fraction<0.8: 
                     done = True
                 else:
                     #scale is too large: reduce it
                     tsize /=2.
-                    print 'peak fraction= %0.2f: setting size to %.2f' % (peak_fraction, tsize)
+                    print ('peak fraction= %0.2f: setting size to %.2f' % (peak_fraction, tsize))
             ellipsex = moment_analysis(zea.image, wcs)
             source.ellipsex= list(ellipsex) + [tsize, peak_fraction] # copy to the source object
-            print 'moment analysis ellipse:', np.array(ellipsex)
+            print ('moment analysis ellipse:', np.array(ellipsex))
             rax, decx, ax,bx,phi = ellipsex
             tsp.overplot([rax,decx,ax,bx, phi], color='w', lw=2, ls='-', contours=[2.45])
             tsp.plot(SkyDir(rax,decx), color='w', symbol='o' );
             filename = source.name.replace(' ','_').replace('+','p')
             fout = os.path.join(tsmap_dir, ('%s_tsmap.jpg'%filename) )
-            print 'saving updated tsplot with moment analysis ellipse to %s...' % fout ; sys.stdout.flush()
+            print ('saving updated tsplot with moment analysis ellipse to %s...' % fout ; sys.stdout.flush())
             plt.savefig(fout, bbox_inches='tight', padinches=0.2) #cuts off outherwise  
             
         return tsp
@@ -222,7 +222,7 @@ class Localization(object):
             self.skydir = self.seedpos
         self.name = self.tsm.source.name
         if self.factor!=1.0: 
-            print 'Applying factor {:.2f}'.format(self.factor)
+            print ('Applying factor {:.2f}'.format(self.factor))
     
     def log_like(self, skydir=None):
         """ return log likelihood at the given position"""
@@ -278,10 +278,10 @@ class Localization(object):
         if not self.quiet:
             fmt ='Localizing source %s, tolerance=%.1e...\n\t'+7*'%10s'
             tup = (self.name, tolerance,)+tuple('moved delta ra     dec    a     b  qual'.split())
-            print fmt % tup
-            print ('\t'+4*'%10.4f')% (0,0,self.skydir.ra(), self.skydir.dec())
+            print (fmt % tup)
+            print (('\t'+4*'%10.4f')% (0,0,self.skydir.ra(), self.skydir.dec()))
             diff = np.degrees(l.dir.difference(self.skydir))
-            print ('\t'+7*'%10.4f')% (diff,diff, l.par[0],l.par[1],l.par[3],l.par[4], l.par[6])
+            print (('\t'+7*'%10.4f')% (diff,diff, l.par[0],l.par[1],l.par[3],l.par[4], l.par[6]))
         
         old_sigma=1.0
         for i in xrange(self.max_iteration):
@@ -290,17 +290,17 @@ class Localization(object):
             except:
                 #raise
                 l.recenter()
-                if not self.quiet: print 'trying a recenter...'
+                if not self.quiet: print ('trying a recenter...')
                 continue
             diff = np.degrees(l.dir.difference(ld))
             delt = np.degrees(l.dir.difference(self.skydir))
             sigma = l.par[3]
-            if not self.quiet: print ('\t'+7*'%10.4f')% (diff, delt, l.par[0],l.par[1],l.par[3],l.par[4], l.par[6])
+            if not self.quiet: print (('\t'+7*'%10.4f')% (diff, delt, l.par[0],l.par[1],l.par[3],l.par[4], l.par[6]))
             if delt>self.maxdist:
                 l.par[6]=99 # flag very bad quality and resect position
                 l.sigma =1.0
                 l.par[0]=self.skydir.ra(); l.par[1]=self.skydir.dec()
-                if not self.quiet: print '\t -attempt to move beyond maxdist=%.1f' % self.maxdist
+                if not self.quiet: print ('\t -attempt to move beyond maxdist=%.1f' % self.maxdist)
                 break 
                 #self.tsm.source.ellipse = self.qform.par[0:2]+self.qform.par[3:7]
                 return False # hope this does not screw things up
@@ -319,7 +319,7 @@ class Localization(object):
                 lsigma = l.sigma)
 
         ll1 = self.spatialLikelihood(l.dir)
-        if not self.quiet: print 'TS change: %.2f'%(2*(ll0 - ll1))
+        if not self.quiet: print ('TS change: %.2f'%(2*(ll0 - ll1)))
 
         #roi.delta_loc_logl = (ll0 - ll1)
         # this is necessary in case the fit always fails.
@@ -333,12 +333,12 @@ class Localization(object):
         
     def summary(self):
         if hasattr(self, 'niter') and self.niter>0: 
-            print 'Localized %s: %d iterations, moved %.3f deg, deltaTS: %.1f' % \
-                (self.name, self.niter, self.delt, self.delta_ts)
+            print ('Localized %s: %d iterations, moved %.3f deg, deltaTS: %.1f' % \
+                (self.name, self.niter, self.delt, self.delta_ts))
             labels = 'ra dec a b ang qual'.split()
-            print (len(labels)*'%10s') % tuple(labels)
+            print ((len(labels)*'%10s') % tuple(labels))
             p = self.qform.par[0:2]+self.qform.par[3:7]
-            print len(p)*'%10.4f' % tuple(p)
+            print (len(p)*'%10.4f' % tuple(p))
 
 
        
@@ -372,7 +372,7 @@ def localize_all(roi, ignore_exception=True, **kwargs):
     associator = kwargs.pop('associator', None)
     tsfits = kwargs.pop('tsfits', True) 
     if len(kwargs.keys())>0:
-        print 'Warning: unrecognized args to localize_all: %s' %kwargs
+        print ('Warning: unrecognized args to localize_all: %s' %kwargs)
     initw = roi.log_like()
     
     for source in vpsources:
@@ -384,15 +384,15 @@ def localize_all(roi, ignore_exception=True, **kwargs):
 
     curw= roi.log_like()
     if abs(initw-curw)>1.0 and not update:
-        print 'localize_all: unexpected change in roi state after localization, from %.1f to %.1f (%+.1f)'\
-            %(initw, curw, curw-initw)
+        print ('localize_all: unexpected change in roi state after localization, from %.1f to %.1f (%+.1f)'\
+            %(initw, curw, curw-initw))
         return False
     else: return True
 
 class TS_function(object):
     """ usage:
         with TS_function(roi, 'test') as tsfun:
-            print tsfun(roi.skydir)
+            print (tsfun(roi.skydir))
     """
     def __init__(self, roi, source_name):
         self.loc = Localization(roi, source_name)

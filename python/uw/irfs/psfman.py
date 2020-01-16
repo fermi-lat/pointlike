@@ -65,7 +65,7 @@ class PSFmanager(dict):
         filename = info['filename']
         if self.hdus is None or self.hdus.filename() != filename:
             self.hdus = fits.open(filename)
-            #print 'opened "{}"'.format(os.path.split(filename)[-1])
+            #print ('opened "{}"'.format(os.path.split(filename)[-1]))
         # scale factor from PSF_SCALING hdu    
         sft = np.asarray(self.hdus[ext['PSF_SCALING']].data.field('PSFSCALE')).flatten()
         self[et]['scale_func']=\
@@ -233,7 +233,7 @@ class PSFmanager(dict):
                 trial = fmin(f,seed,disp=0,ftol=0.000001,xtol=0.01)
                 if trial > 0:
                     return trial[0]*RAD2DEG
-                print 'Warning: could not invert integral; return best grid value.'
+                print ('Warning: could not invert integral; return best grid value.')
                 return seed*RAD2DEG
 
             def overlap(self, roi_dir, radius, skydir): #not tested

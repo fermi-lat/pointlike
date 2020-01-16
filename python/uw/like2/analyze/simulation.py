@@ -59,7 +59,7 @@ class Simulation(analysis_base.AnalysisBase): #sourceinfo.SourceInfo):
             self.mc_seed= grouped.get_group('MC seed')
             self.info += ' including {} spurious from seeds'.format(len(self.mc_seed))
         except:
-            print 'No seeded sources found: searched for names containing text "{}"'.format(mc_tag)
+            print ('No seeded sources found: searched for names containing text "{}"'.format(mc_tag))
             self.info += ' (no seeds found)'
 
         
@@ -81,7 +81,7 @@ class Simulation(analysis_base.AnalysisBase): #sourceinfo.SourceInfo):
         # del df_fl8y['NickName']
         dfa['in_fl8y']=[name in df_fl8y.index for name in dfa.index]
         # self.startlog()
-        print 'Info:' + self.info.replace('<br>', '\n\t')
+        print ('Info:' + self.info.replace('<br>', '\n\t'))
         # self.logstream= self.stoplog()
 
 

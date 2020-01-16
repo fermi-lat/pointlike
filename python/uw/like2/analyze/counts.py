@@ -55,7 +55,7 @@ class CountPlots(analysis_base.AnalysisBase):
             skipped = 0
             for index,r in enumerate(pkls):
                 if 'counts' not in r or r['counts'] is None:
-                    print '***No counts in %s: skipping' % r['name']
+                    print ('***No counts in %s: skipping' % r['name'])
                     skipped +=1
                     continue
                 cnts = r['counts']
@@ -69,7 +69,7 @@ class CountPlots(analysis_base.AnalysisBase):
                     )
             if skipped>0:
                 self.missing_info = '<p>%d missing ROIS' % skipped
-                print '***Skipped %d ROIs' % skipped
+                print ('***Skipped %d ROIs' % skipped)
             else: self.missing_info = ''
             self.rois = pd.DataFrame(rdict).transpose()
             self.rois['singlat'] = np.sin(np.radians(np.asarray(self.rois.glat,float)))
@@ -80,7 +80,7 @@ class CountPlots(analysis_base.AnalysisBase):
                 d[x['name']] = dict([(t[0], sum(t[1]).round()) for t in x['counts']['models']])
             self.rois = pd.concat([self.rois,pd.DataFrame(d).T], axis=1)
             # roi_file='roi_info.pickle'
-            # print 'Saved ROI info to {}'.format(roi_file)
+            # print ('Saved ROI info to {}'.format(roi_file))
             # self.rois.to_pickle(roi_file)
         
         load_rois()
@@ -94,10 +94,10 @@ class CountPlots(analysis_base.AnalysisBase):
         #try:
         self.add_model_info()
         #except Exception, msg:
-        #    print msg
+        #    print (msg)
             
         if 'history' in self.pkls[0].keys():
-            print 'Extracting history info from the ROI analyses'
+            print ('Extracting history info from the ROI analyses')
             self.sinfo =t= self.history_info()
             if self.sinfo is None:
                 self.iteration_info='No iterations yet'
@@ -113,7 +113,7 @@ class CountPlots(analysis_base.AnalysisBase):
             if sum(y)>0:
                 lc = t.index[y][-1]
                 self.history = t[t.index>= lc ]; 
-                skipped = t.index[y][:-1]; print 'Skipped starts:\n{}'.format(t.ix[skipped])
+                skipped = t.index[y][:-1]; print ('Skipped starts:\n{}'.format(t.ix[skipped]))
             else: self.history=t
             
             input_model=self.config['input_model']['path']
@@ -297,7 +297,7 @@ class CountPlots(analysis_base.AnalysisBase):
                     which requires Silverlight."""  % (len(bad_rois), vmax, pc.cId)
             except Exception, msg:
                 self.bad_roi_link = 'Failed to create Pivot: {}'.format(msg)
-                print self.bad_roi_link
+                print (self.bad_roi_link)
             
         else:
             self.bad_roi_link=''

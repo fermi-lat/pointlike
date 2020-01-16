@@ -282,12 +282,12 @@ class PoissonFitter(object):
         s_high = optimize.brentq(func,self.smax,s_high, xtol=xtol)
         if not np.all(np.isreal([s_low,s_high])):
             msg = '%s.find_delta Failed to find two roots!' % self.__class__.__name__
-            print msg
+            print (msg)
             raise Exception( msg)
         if s_high==s_low:
             msg= '%s.find_delta Failed to find high root with delta=%.1f: %s' % (self.__class__.__name__,delta_logl,s_high)
-            print msg
-            print 'wprime: %.3e' % self.wprime
+            print (msg)
+            print ('wprime: %.3e' % self.wprime)
             raise Exception(msg)
         return (s_low,s_high)
 
@@ -299,13 +299,13 @@ class PoissonFitter(object):
         if smax>0:
             # function to fit has positive peak. Fit the drived parameters mu, beta
             cod = self(self.dom)-self.func(smax)
-            #print 'smax=%.2f, w(smax)=%s, w(%s)=%s' % (smax,self.func(smax), self.dom, cod)
+            #print ('smax=%.2f, w(smax)=%s, w(%s)=%s' % (smax,self.func(smax), self.dom, cod))
             def fitfunc(p):
                 mu,beta=p
                 e=(mu-beta)/smax; b = beta/e
                 self._poiss = Poisson([smax, e,b])
                 r = self._poiss(self.dom)-cod
-                #print'f(%.3f,%.3f): %s' % (mu,beta,r)
+                #print ('f(%.3f,%.3f): %s' % (mu,beta,r))
                 return r
             mu,beta =  optimize.leastsq(fitfunc,[mu,beta], ftol=1e-6,xtol=1e-6, maxfev=10000)[0]
             e = (mu-beta)/smax; b = beta/e
@@ -635,6 +635,6 @@ def plot_roi(roi,center=None, radius=5, band_index=16,
     return zea
 
 if __name__ == "__main__":
-    print __doc__
+    print (__doc__)
     import doctest
     doctest.testmod()

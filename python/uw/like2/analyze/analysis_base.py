@@ -44,7 +44,7 @@ def html_table( df, columns={}, name='temp', heading='', href=True,
         try:
             newhead,title=item.split(',',1)
         except: 
-            print '***fail to parse html_table data:',item
+            print ('***fail to parse html_table data:',item)
             continue
         t = t.replace('>'+h+'<', ' title="%s">%s<'% (title, newhead if newhead!='' else h))
     
@@ -53,7 +53,7 @@ def html_table( df, columns={}, name='temp', heading='', href=True,
             fnpat = href_pattern %  n.replace(' ','_').replace('+','p') 
             q = glob.glob(fnpat)
             if len(q) ==0: 
-                print '**File %s not found' % fnpat
+                print ('**File %s not found' % fnpat)
                 continue
             i = t.find(n+'<')
             assert i>0, 'pattern not found for %s' % n
@@ -71,7 +71,7 @@ def html_table( df, columns={}, name='temp', heading='', href=True,
     tt = _html.menu_header % dict(name=name)
     filename = name+'.htm'
     open(filename, 'w').write(tt+'\n<body>\n'+t+'\n</body>')
-    print 'wrote file %s' % filename
+    print ('wrote file %s' % filename)
     
     return '<a href="%s?skipDecoration">%s</a>' % ( filename.split('/')[-1], heading)
     
@@ -86,10 +86,10 @@ def load_pickles_from_zip(zipfilename='pickle.zip'):
     pkls = []
     
     assert os.path.exists(zipfilename), 'Zip File not found: %s' % zipfilename
-    print 'unpacking file %s ...' % (os.getcwd()+'/'+zipfilename ,),
+    print ('unpacking file %s ...' % (os.getcwd()+'/'+zipfilename ,),)
     z = zipfile.ZipFile(zipfilename)
     files = sorted( filter( lambda n:  n.endswith('.pickle'), z.namelist() ) ) 
-    print 'found %d *.pickle files in folder %s' % (len(files), zipfilename)
+    print ('found %d *.pickle files in folder %s' % (len(files), zipfilename))
     opener = z.open
     assert len(files)>0, 'no files found in %s' % zipfilename 
     pkls = [pickle.load(opener(file)) for file in files]
@@ -126,14 +126,14 @@ class AnalysisBase(object):
         self.skymodel_dir = os.path.expandvars(skymodel_dir)
         if skymodel_dir != '.': 
             os.chdir(self.skymodel_dir)
-            print 'chdir to {}'.format(self.skymodel_dir)
+            print ('chdir to {}'.format(self.skymodel_dir))
         self.skymodel = os.path.split(os.getcwd())[-1]
         self.config = configuration.Configuration(skymodel_dir, quiet=kwargs.get('quiet',True), postpone=True)
         plt.rc('font', size= 14)
         self.setup(**kwargs)
         if not os.path.exists('plots'):
             os.mkdir('plots')
-            print 'created folder "plots"'
+            print ('created folder "plots"')
         if hasattr(self, 'plotfolder'):
             self.plotfolder = os.path.join('plots', self.plotfolder)
             self.just_created = not os.path.exists(self.plotfolder) 
@@ -155,7 +155,7 @@ class AnalysisBase(object):
             self.outtee.close()
             return self.outtee.logstream
         except:
-            print 'Did not start the log?'
+            print ('Did not start the log?')
             return 'No log stream'
 
     def describe(self):
@@ -196,8 +196,8 @@ class AnalysisBase(object):
             fname = func.__name__
             try:
                 fig=func(**kwargs)
-            except Exception, msg:
-                print '*** Failed to run function %s: "%s"' % (fname, msg)
+            except Exception as msg:
+                print ('*** Failed to run function %s: "%s"' % (fname, msg))
                 return '<h3>%s %s</h3> Failed to run function %s: "%s"' % (section, title, fname, msg)
         else: fname = name
         if hasattr(self, fname):
@@ -206,8 +206,8 @@ class AnalysisBase(object):
                 doclines.append('')
                 if caption is None:   caption = '\n<p>'+'\n'.join(doclines[1:])+'</p>\n'
                 if title is None:     title = doclines[0]
-            except Exception, msg:
-                print '*** docstring processing problem: %s' % msg
+            except Exception as msg:
+                print ('*** docstring processing problem: %s' % msg)
         localfile = '%s_%s.%s' % (name, self.skymodel.replace('/','_'), ft)
         savefile = os.path.join(self.plotfolder,localfile)
         if title is None: title = name.replace('_', ' ')
@@ -217,9 +217,9 @@ class AnalysisBase(object):
             fig.set_facecolor('white') # important for copy and paste to Evernote
             fig.text(0.02, 0.02, self.skymodel, fontsize=8)
             savefig_kw=dict(dpi=60, bbox_inches='tight', bbox_extra_artists=fig.texts, pad_inches=0.5) 
-            print 'Saving fig %s, ...' % (name, ),; sys.stdout.flush()
+            print ('Saving fig %s, ...' % (name, ),; sys.stdout.flush())
             plt.savefig(savefile, **savefig_kw)
-            print 'to %s' % savefile
+            print ('to %s' % savefile)
             htmldoc += '\n<img src="%s" />\n <br> %s '% (localfile, caption if caption is not None else '')
         elif caption is not None:
             htmldoc += '\n <br>  %s' % ( caption )
@@ -274,13 +274,13 @@ class AnalysisBase(object):
         #     #http://glast.stanford.edu/cgi-bin/cvsweb-SLAC/pointlike/python/uw/like2/analyze/sourceinfo.py?revision=1.13&view=markup
         #     #/nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/analyze/sourceinfo.py,v 1.13 2013/10/11 16:34:00 burnett Exp
             
-        # except Exception, msg: 
-        #     print '**** failed to write footer: %s' % msg
+        # except Exception as msg: 
+        #     print ('**** failed to write footer: %s' % msg)
         pythonpath='http://glast-ground.slac.stanford.edu/Decorator/exp/Fermi/Decorate/groups/catalog/pointlike/git/pointlike/python/'
         htmldoc+='\n<br><a href="{}{}.py?skipDecoration"?> Local version of code</a>'.format(pythonpath, self.__module__.replace('.','/'))
         htmldoc+='\n</body>'
         self.htmlmenu.save(os.path.join(self.plotfolder,'menu.html'))
-        print 'saved local menu to %s' % os.path.join(self.plotfolder,'menu.html')
+        print ('saved local menu to %s' % os.path.join(self.plotfolder,'menu.html'))
         
         t = os.getcwd().split(os.path.sep)[-3:]
         m = '<a href="../index.html?skipDecoration">%s</a>' % t[-1] # model name has uplink
@@ -290,14 +290,14 @@ class AnalysisBase(object):
         text= htmldoc
         try:
             text = htmldoc%self.__dict__
-        except KeyError, msg:
-            print '*** failed header generation %s- missing key: %s' % (title, msg)
-        except TypeError, msg:
-            print '*** TypeError with string "%s": %s' % (htmldoc, msg)
+        except KeyError as msg:
+            print ('*** failed header generation %s- missing key: %s' % (title, msg))
+        except TypeError as msg:
+            print ('*** TypeError with string "%s": %s' % (htmldoc, msg))
             raise
 
         open(os.path.join(self.plotfolder,'index.html'), 'w').write(text)
-        print 'saved html doc to %s' %os.path.join(self.plotfolder,'index.html')
+        print ('saved html doc to %s' %os.path.join(self.plotfolder,'index.html'))
         h = _html.HTMLindex()
         h.create_menu()
         if self.just_created:
@@ -348,10 +348,10 @@ class AnalysisBase(object):
         zipfilename = folder+'.zip' #os.path.split(folder+'.zip')[0]
         
         if os.path.exists(zipfilename):
-            print 'unpacking file %s ...' % (os.getcwd()+'/'+zipfilename ,),
+            print ('unpacking file %s ...' % (os.getcwd()+'/'+zipfilename ,),)
             z = zipfile.ZipFile(zipfilename)
             files = sorted( filter( lambda n: n.startswith(folder) and n.endswith('.pickle'), z.namelist() ) ) 
-            print 'found %d *.pickle files in folder %s' % (len(files), folder)
+            print ('found %d *.pickle files in folder %s' % (len(files), folder))
             opener = z.open
         else:
            files = sorted(glob.glob(os.path.join(folder,'*.pickle')))

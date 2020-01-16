@@ -46,7 +46,7 @@ if len(args) != 2:
     parser.error("Both FT1_FILENAME and POLYCO_FILENAME arguments are required.")
 
 #if options.gauss is None and options.unbinned:
-#    print >>sys.stderr, "ERROR! Unbinned likelihood requires a gaussian template."
+#    print (>>sys.stderr, "ERROR! Unbinned likelihood requires a gaussian template.")
 
 ft1name    = args[0]
 polyconame = args[1]
@@ -55,11 +55,11 @@ polyconame = args[1]
 # the user forgot to specify -r
 if polyconame.endswith(".par"):
     if not exists("polyco_new.dat"):
-        print "WARNING: No polyco_new.dat!  Regenerating...."
+        print ("WARNING: No polyco_new.dat!  Regenerating....")
         options.recalc_polycos = True
     else:
         if os.stat(polyconame).st_mtime > os.stat("polyco_new.dat").st_mtime:
-            print "WARNING: par file provided is newer than polyco_new.dat! Regenerating polyco_new.dat!"
+            print ("WARNING: par file provided is newer than polyco_new.dat! Regenerating polyco_new.dat!")
             options.recalc_polycos = True
 
 poly = Polyco(polyconame,recalc_polycos=options.recalc_polycos)
@@ -71,7 +71,7 @@ template = LCTemplate(primitives,norms)
 if options.weights is not None:
     logl = np.log(1+data.weights*(template(data.ph)-1)).sum()
 else: logl = np.log(template(data.ph)).sum()
-print 'Total log likelihood:  %.2f'%(logl)
+print ('Total log likelihood:  %.2f'%(logl))
 
 tg = UnbinnedTOAGenerator(data,poly,template,plot_stem=options.plot,good_ephemeris=(not options.blind))
 
@@ -86,5 +86,5 @@ if options.output is not None:
     f = open(options.output,'w')
     f.write('\n'.join(tim_strings))
     f.close()
-    print 'Wrote TOAs to %s'%(options.output)
-else: print '\n'.join(tim_strings)
+    print ('Wrote TOAs to %s'%(options.output))
+else: print ('\n'.join(tim_strings))

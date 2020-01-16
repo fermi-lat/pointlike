@@ -190,9 +190,9 @@ class SpectralAnalysis(object):
                     point_sources,diffuse_sources)
 
         if point_sources == [] and not self.quiet:
-            print 'WARNING!  No point sources are included in the model.'
+            print ('WARNING!  No point sources are included in the model.')
         if diffuse_sources == [] and not self.quiet:
-            print 'WARNING!  No diffuse sources are included in the model.'
+            print ('WARNING!  No diffuse sources are included in the model.')
 
         return point_sources, diffuse_sources
 

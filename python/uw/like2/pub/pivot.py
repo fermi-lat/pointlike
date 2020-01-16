@@ -98,10 +98,10 @@ class Pivot(object):
     def write(self, outfile='pivot.cxml', id_offset=0):
         fulloutfile = os.path.join(self.outdir, outfile)
 
-        print 'writing collection file with %d Items, %d Facets to "%s" ...' % \
-            (self.collection.n, len(self.collection.facets), fulloutfile), 
+        print ('writing collection file with %d Items, %d Facets to "%s" ...' % \
+            (self.collection.n, len(self.collection.facets), fulloutfile), )
         self.collection.write(fulloutfile, id_offset)
-        print 'done!'
+        print ('done!')
 
 class MultiPivot(Pivot):
     """

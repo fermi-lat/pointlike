@@ -57,7 +57,7 @@ class FitQualityPlots(object):
             mycut=tobool(cut & (cut_expr))
             count = sum(mycut)
             if count==0:
-                print 'Not generating plot for %s' % label
+                print ('Not generating plot for %s' % label)
                 return
 
             ax.hist(fq[mycut].clip(*xlim), dom, histtype='stepfilled', 
@@ -86,9 +86,9 @@ class FitQualityPlots(object):
         
         self.df['badfit2'] =np.array(self.df.badfit.values, bool)
         t = self.df.loc[(self.df.badfit2) & (self.df.ts>10)].sort_values(by='roiname')
-        print '%d sources with bad fits' %len(t)
+        print ('%d sources with bad fits' %len(t))
         if len(t)>0:
-            print '%d sources with missing errors' % len(t)
+            print ('%d sources with missing errors' % len(t))
             self.badfit = t[['ts', 'freebits', 'badbits', 'pindex', 'beta', 'e0','roiname']]
             self.badfit_check = html_table(self.badfit, name=self.sourceinfo.plotfolder+'/badfits', 
                 heading='<h4>%d Sources with missing errors</h4>' % len(t), float_format=FloatFormat(1))
@@ -101,7 +101,7 @@ class FitQualityPlots(object):
         self.fit_quality_average =  ', '.join( map(lambda x,n :'%s: %.1f' %(n,x) ,
                             self.average, 'powerlaw logparabola expcutoff(hilat) expcutoff(lolat)'.split()) )
         
-        print 'fit quality averages:', self.fit_quality_average
+        print ('fit quality averages:', self.fit_quality_average)
         if make_table:
             s = self.df
             # Make table of the poor fits

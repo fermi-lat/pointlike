@@ -32,13 +32,13 @@ class FitterSummaryMixin(object):
             
         """
         if title is not None:
-            print >>out, title
+            print (title, file=out)
 
         fmt, tup = '%-21s%6s%10s%10s', tuple('Name index value error(%)'.split())
         if gradient:
             grad = self.gradient()
             fmt +='%10s'; tup += ('gradient',)
-        print >>out, fmt %tup
+        print (fmt %tup, file=out)
         prev=''
         selected = (select, exclude)
         index_array = np.arange(len(self.mask))[self.mask]
@@ -56,7 +56,7 @@ class FitterSummaryMixin(object):
             tup = (truncname, index_array[index], value,psig)
             if gradient:
                 fmt +='%10.1f'; tup += (grad[index],)
-            print >>out,  fmt % tup
+            print (fmt % tup, file=out)
     
     def delta_loglike(self, quiet=True):
         """ estimate change in log likelihood from current gradient 
@@ -69,8 +69,8 @@ class FitterSummaryMixin(object):
             gv = self.gradient()
             H = np.array(self.hessian()) # in case matrix type
             return np.dot(np.dot(gv, np.linalg.inv(H)), gv)/4
-        except Exception, msg:
-            print 'Failed log likelihood estimate, returning 99.: %s' % msg
+        except Exception as msg:
+            print ('Failed log likelihood estimate, returning 99.: %s' % msg)
             return 99.
 
 
@@ -206,10 +206,10 @@ class FitterMixin(object):
         from scipy import optimize
         quiet = kwargs.pop('quiet', True)
         if not kwargs.pop('use_gradient', True):
-            print 'Warning: ignoring use_gradient=False'
+            print ('Warning: ignoring use_gradient=False')
         estimate_errors = kwargs.pop('estimate_errors', True)
-        if not quiet: print 'using optimize.fmin_l_bfgs_b with parameter bounds %s\n, kw= %s'% (
-                            self.bounds, kwargs)
+        if not quiet: print ('using optimize.fmin_l_bfgs_b with parameter bounds %s\n, kw= %s'% (
+                            self.bounds, kwargs))
         parz = self.get_parameters()
         winit = self.log_like()
         assert len(parz)==len(self.gradient()), 'tracking a bug'
@@ -225,20 +225,20 @@ class FitterMixin(object):
                 bounds=self.bounds,  fprime=self.gradient, **fit_args)
         self.fmin_ret=ret
         if ret[2]['warnflag']>0: 
-            print 'Fit failure: check parameters'
+            print ('Fit failure: check parameters')
             self.set_parameters(parz) #restore if error 
             self.covariance = None 
             raise Exception( 'Fit failure:\n%s' % ret[2])
         if not quiet:
-            print ret[2]
+            print (ret[2])
         f = ret 
         if estimate_errors:
             self.covariance = cov = np.linalg.inv(self.hessian(f[0])) # was .I
             diag = np.array(cov.diagonal()).flatten()
             bad = diag<0
             if np.any(bad):
-                print 'Minimizer warning: bad errors for values %s'\
-                    %np.asarray(self.parameter_names)[bad] 
+                print ('Minimizer warning: bad errors for values %s'\
+                    %np.asarray(self.parameter_names)[bad] )
                 diag[bad]=0
             return f[1], f[0], np.sqrt(diag)
         else:
@@ -560,7 +560,7 @@ class LikelihoodViews(bandlike.BandLikeList):
             source = self.sources.find_source(source_name)
             model = source.model
             func = self.fitter_view(source_name + '_' + model.param_names[0])
-        except Exception, msg:
+        except Exception as msg:
             raise Exception('could not create energy flux function for source %s;%s' %(source_name, msg))
         return EnergyFluxView(self, func, energy, **kw)
         
@@ -573,7 +573,7 @@ class LikelihoodViews(bandlike.BandLikeList):
             raise Exception('No source is selected for a tsmap')
         try:
             func = self.fitter_view(source_name+'_Norm')
-        except Exception, msg:
+        except Exception as msg:
             raise Exception('could not create tsmap function for source %s;%s' %(source_name, msg))
         return TSmapView(self, func, **kw)
         

@@ -180,7 +180,7 @@ class DiffuseResponse(Response):
         roi_index = skymaps.Band(12).index(self.roicenter)
         self._keyword_check(roi_index)
         if getattr(self, 'preconvolved', False):
-            #print 'Using preconvolved'
+            #print ('Using preconvolved')
             c = self.roicenter
             cv = healpy.dir2vec(c.l(),c.b(),lonlat=True)
             hplist = healpy.query_disc(self.dmodel.nside,cv, self.band.radius_in_rad)
@@ -260,26 +260,26 @@ class DiffuseResponse(Response):
         if hasattr(dfun, 'kw') and dfun.kw is not None and len(dfun.kw.keys())>1: 
             # Manage keywords found in the 
             if dfun.kw.get('key', '') == 'gal':
-                #print 'Using gal key for galactic correction ', 
+                #print ('Using gal key for galactic correction ', )
                 self.corr = DiffuseCorrection(None, diffuse.normalization['gal'])(roi_index,self.energy)
-                #print self.corr
+                #print (self.corr)
             elif dfun.kw.get('key', '') == 'iso':
                 et = ['front','back'][self.band.event_type]
                 self.corr = DiffuseCorrection(None, diffuse.normalization['iso'][et])(roi_index, self.energy)
                 #raise Exception('isotropic key: corr={}'.format(self.corr))
             elif 'correction' in dfun.kw and dfun.kw['correction'] is not None:
                 if not self.quiet:
-                    print '\t%s loading corrections for source %s from %s.kw:' \
+                    print ('\t%s loading corrections for source %s from %s.kw:' \)
                     % (self.__class__.__name__, self.source.name,  dfun.__class__.__name__)
                 corr_file = os.path.expandvars(dfun.kw['correction'])
                 self.corr = DiffuseCorrection(corr_file)(roi_index, self.energy) 
             else: 
                 self.corr=1.0
             
-            if not self.quiet: print '\tcorrections:{}'.format(self.corr)
+            if not self.quiet: print ('\tcorrections:{}'.format(self.corr))
             self.systematic = dfun.kw.get('systematic', None)
             if self.systematic is not None:
-                if not self.quiet:print '\tsystematic: %.3f' % self.systematic
+                if not self.quiet:print ('\tsystematic: %.3f' % self.systematic)
             if 'preconvolved' in dfun.kw:
                 self.preconvolved = dfun.kw['preconvolved']
         else: 
@@ -327,9 +327,9 @@ class DiffuseCorrection(object):
             try:
                 self.correction = self.dn[filename]
                 if not quiet:
-                    print 'loaded corrections {} for {}'.format(self.correction, filename)
+                    print ('loaded corrections {} for {}'.format(self.correction, filename))
             except:
-                print 'No normalization in ROI object: assume none'
+                print ('No normalization in ROI object: assume none')
                 self.correction=None
             return
         corr_file = os.path.expandvars(filename)
@@ -337,7 +337,7 @@ class DiffuseCorrection(object):
             corr_file = os.path.expandvars(os.path.join('$FERMI','diffuse', corr_file))
         try:
             self.correction = pd.read_csv(corr_file, index_col=0) 
-            #print self.correction
+            #print (self.correction)
         except Exception, msg:
             raise Exception('Error loading correction file %s: %s'% (corr_file,msg))
             
@@ -415,7 +415,7 @@ class CachedDiffuseResponse(DiffuseResponse):
         # create a convolvable grid from it
         self.energy = energy = cd['energy']
         if cd['center'].difference(self.band.sd)>0.1:
-            print '%s, WARNING: Logic error? %s not %s' % (self, cd['center'], self.band.sd)
+            print ('%s, WARNING: Logic error? %s not %s' % (self, cd['center'], self.band.sd))
         self.grid = grid = convolution.ConvolvableGrid(self.roicenter,   npix=cd['npix'], pixelsize=cd['pixelsize'])
             
         self.band.set_energy(energy)
@@ -464,7 +464,7 @@ class IsotropicResponse(DiffuseResponse):
         if haskey and dmodel.kw.get('key', None)=='iso':
             et = ['front','back'][self.band.event_type]
             self.corr = DiffuseCorrection(None, diffuse.normalization['iso'][et])(roi_index, self.energy)
-            #print roi_index, et, self.energy, self.corr
+            #print (roi_index, et, self.energy, self.corr)
         elif haskey and 'correction' in dmodel.kw:
             # Set self.corr according to "correction"
               
@@ -483,7 +483,7 @@ class IsotropicResponse(DiffuseResponse):
             #     # load the correction value from the correction file
             #     else:
             #         self.corr = DiffuseCorrection(corr_file)(roi_index, energy)
-            # #print 'ISO: {} {} MeV: apply correction {} '.format(corr_file, energy, self.corr)
+            # #print ('ISO: {} {} MeV: apply correction {} '.format(corr_file, energy, self.corr))
 
         grid = self.grid
         grid.cvals = grid.fill(self.band.exposure) * dmodel(self.band.skydir) * self.corr
@@ -497,7 +497,7 @@ class ExtendedResponse(DiffuseResponse):
         if 'npix' not in defaults:
             npix = defaults.pop('size')/defaults['pixelsize']
             defaults['npix'] = int(npix) | 1 # make odd
-            #print 'setting npix', defaults
+            #print ('setting npix', defaults)
         self.quiet=defaults.get('quiet', True)
         self.initialized = False
         super(ExtendedResponse, self).__init__(source, band, roi, **defaults)
@@ -589,11 +589,11 @@ class ExtendedResponse(DiffuseResponse):
         cvals = self.cvals
         badvals = pd.isnull(cvals)
         if np.any(badvals):
-            print 'bad vals'
+            print ('bad vals')
             assert False,'Check strategy here'
         inside = self.overlap_mask() #self.grid.dists< np.radians(self.band.radius)
         if not inside.all():
-            #print 'Inside==0 for band {}'.format(self.band) 
+            #print ('Inside==0 for band {}'.format(self.band) )
             self.ap_average=self.psf_overlap = 0
         else:
             self.ap_average = cvals[inside].mean()
@@ -773,17 +773,17 @@ class AllSkyDiffuse(Response):
             # Manage keywords found in the 
             if 'correction' in dfun.kw and dfun.kw['correction'] is not None:
                 if not self.quiet:
-                    print '\t%s loading corrections for source %s from %s.kw:' \
-                    % (self.__class__.__name__, self.source.name,  dfun.__class__.__name__)
+                    print ('\t%s loading corrections for source %s from %s.kw:' \
+                    % (self.__class__.__name__, self.source.name,  dfun.__class__.__name__))
                 corr_file = os.path.expandvars(dfun.kw['correction'])
                 self.corr = DiffuseCorrection(corr_file)(roi_index, self.energy) 
             else: 
                 self.corr=None
             
-            if not self.quiet: print '\tcorrections:{}'.format(self.corr)
+            if not self.quiet: print ('\tcorrections:{}'.format(self.corr))
             self.systematic = dfun.kw.get('systematic', None)
             if self.systematic is not None:
-                if not self.quiet:print '\tsystematic: %.3f' % self.systematic
+                if not self.quiet:print ('\tsystematic: %.3f' % self.systematic)
         else: 
             self.corr =self.systematic = None
             

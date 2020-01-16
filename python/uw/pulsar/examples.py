@@ -30,17 +30,17 @@ photons = lct.random(200)
 
 # now, do a maximum likelihood fit for the parameters
 lcf = lf.LCFitter(lct,photons)
-print 'Performing ML fit -- may take a few moments.'
+print ('Performing ML fit -- may take a few moments.')
 lcf.fit()
 
 # print the results
-print lcf
+print (lcf)
 
 ## now, compare with the "quick" (chi^2) fit
-#print 'Doing a quick fit -- note no errors are reported yet.'
+#print ('Doing a quick fit -- note no errors are reported yet.')
 #lcf.quick_fit()
 #print lcf
 
 # get the FWHM of the peaks
-print g1.fwhm(),g2.fwhm()
+print (g1.fwhm(),g2.fwhm())
 

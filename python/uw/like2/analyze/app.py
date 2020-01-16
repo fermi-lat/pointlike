@@ -29,11 +29,11 @@ class AppMenu(dict):
         title = (doc[0] if doc[0]!='' else doc[1]).strip()
         try:
             classname = self._check_for_class(pack)
-        except Exception, msg:
-            print '*** Failed to check module {}:{}'.format(name, msg)
+        except Exception as msg:
+            print ('*** Failed to check module {}:{}'.format(name, msg))
             return None
         if classname is None:
-            print '***no class with all_plots found in module %s' %name
+            print ('***no class with all_plots found in module %s' %name)
             return None
         classobj = eval(name+'.'+classname)
         return dict(title=title, classname=classname, classobj=classobj, 
@@ -51,10 +51,10 @@ class AppMenu(dict):
         try:
             pk = self[name]
         except:
-            print 'KeyError: "%s" not in %s' % (name, sorted(self.keys()))
+            print ('KeyError: "%s" not in %s' % (name, sorted(self.keys())))
             raise
         if reloadit:
-            print reload(pk['module'])
+            print (reload(pk['module']))
             pk = self[name]= self._create_entry(name)
         return pk['classobj'](args=args)
 
@@ -76,31 +76,31 @@ def main(procs, args=None, update_top=False , raise_exception=False):
         #    cs = set(np.hstack(menu.values()))
         #    for cls in cs:
         #        if os.path.exists(cls.require):
-        #            print 'running %s' % cls.__name__
+        #            print ('running %s' % cls.__name__)
         #            try:
         #                cls('.').all_plots()
         #                plt.close('all')
         #            except Exception, msg:
-        #                print '=====failed====\n %s\n=============='% msg
+        #                print ('=====failed====\n %s\n=============='% msg)
         #        else:
-        #            print 'skipped %s, missing %s' % (cls.__name__, cls.require)
+        #            print ('skipped %s, missing %s' % (cls.__name__, cls.require))
         #    break
         if arg=='menu': 
             update_top=True
             continue
 
         if arg not in menu.keys():
-            print 'found %s; expect one of %s' % (arg, sorted(menu.keys()))
+            print ('found %s; expect one of %s' % (arg, sorted(menu.keys())))
             success = False
             continue
         try:
             menu(arg,args=args).all_plots()
-        except FloatingPointError, msg:
-            print 'Floating point error running %s: "%s"' % (arg, msg)
-            print 'seterr:', np.seterr()
+        except FloatingPointError as msg:
+            print ('Floating point error running %s: "%s"' % (arg, msg))
+            print ('seterr:', np.seterr())
             success=False
-        except Exception, msg:
-            print 'Exception running %s: "%s"' % (arg, msg)
+        except Exception as msg:
+            print ('Exception running %s: "%s"' % (arg, msg))
             if raise_exception: raise
             success = False
     if success: 

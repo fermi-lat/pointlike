@@ -53,9 +53,9 @@ class SeedCheck(sourceinfo.SourceInfo):
         self.seeds = pd.read_csv(seedfile, index_col=0)
         self.input_model=self.skymodel
         self.seeds.index.name='name'
-        print 'Loaded {} seeds from file "{}"'.format(len(self.seeds), seedfile)
+        print ('Loaded {} seeds from file "{}"'.format(len(self.seeds), seedfile))
         unique, counts = np.unique(self.seeds.key, return_counts=True)
-        print 'seed keys: {}'.format(dict(zip(unique, counts)))
+        print ('seed keys: {}'.format(dict(zip(unique, counts))))
         self.cut_summary='[Not done yet]'
         #self.load()
         
@@ -125,8 +125,8 @@ class SeedCheck(sourceinfo.SourceInfo):
         """
         try:
             z = self.seeds if subset=='all' else self.seeds.query('key=="{}"'.format(subset))
-        except Exception, msg:
-            print 'Failed to find subset {}: {}'.format(subset, msg)
+        except Exception as msg:
+            print ('Failed to find subset {}: {}'.format(subset, msg))
             raise
         bc = np.abs(z['b'])<bcut
         
@@ -167,8 +167,8 @@ class SeedCheck(sourceinfo.SourceInfo):
                 diag = np.diag(model.get_cov_matrix())
                 errs[:n] = [np.sqrt(x) if x>0 else -1 for x in diag[:n]]
                 badfit = np.any(errs[model.free]<=0)
-            except Exception, msg:
-                print 'fail errors for %s:%s' % (name, msg)
+            except Exception as msg:
+                print ('fail errors for %s:%s' % (name, msg))
                 badfit = True
             has_adict = hasattr(source,'adict') and source.adict is not None
             has_ellipse = hasattr(source, 'ellipse') and source.ellipse is not None
@@ -207,14 +207,14 @@ class SeedCheck(sourceinfo.SourceInfo):
         self.assoc = pd.DataFrame(assoc).transpose()
         self.assoc.index.name = 'name'
         if all(self.assoc.aprob==0):
-            print "No associations found: running the standard logic"
+            print ("No associations found: running the standard logic")
             try:
                 self.make_associations()
-            except Exception, msg:
-                print 'Association attempt failed: %s' % msg
+            except Exception as msg:
+                print ('Association attempt failed: %s' % msg)
                 raise
         else:
-            print "Using associations from uwpipeline run"
+            print ("Using associations from uwpipeline run")
         
         # define good subset
         self.good = (self.df.ts>6)&(self.df.r95<0.6)&(self.df.locqual<8)
@@ -231,7 +231,7 @@ class SeedCheck(sourceinfo.SourceInfo):
         self.cut_summary= """<p>Read in %d sources from file %s: <br>selection cut:
                     (self.df.ts>6)*(self.df.r95<0.6)*(self.df.locqual<8) : %d remain"""\
             % (len(sources), self.require, sum(self.good))
-        print self.cut_summary
+        print (self.cut_summary)
     
     def make_associations(self):
         """ run the standard association logic 
@@ -239,14 +239,14 @@ class SeedCheck(sourceinfo.SourceInfo):
         """
         srcid = associate.SrcId()
         assoc={}
-        print 'Note: making bzcat first if second'
+        print ('Note: making bzcat first if second')
         for name, s in self.df.iterrows():
             has_ellipse=  not np.isnan(s['r95'])
             if has_ellipse: 
                 try:
                     adict = srcid(name, skymaps.SkyDir(s['ra'],s['dec']), s['r95']/2.6)
-                except Exception, msg:
-                    print 'Failed association for source %s: %s' % (name, msg)
+                except Exception as msg:
+                    print ('Failed association for source %s: %s' % (name, msg))
                     adict=None
                 has_ellipse = adict is not None
                 if has_ellipse:
@@ -274,10 +274,10 @@ class SeedCheck(sourceinfo.SourceInfo):
         prefixes = list(set([s[:4] for s in df.index]))
         n = len(prefixes)
         if n>2:
-            print 'Warning: only set to plot two prefixes'
+            print ('Warning: only set to plot two prefixes')
             n=2
         if n >1:
-            print 'found prefixes %s' %prefixes
+            print ('found prefixes %s' %prefixes)
             x = [[s.startswith(prefixes[i]) for s in df.index] for i in range(n)]
             fig=self.cumulative_ts(df.ts[x[0]], label=prefixes[0],
                                other_ts=df.ts[x[1]], otherlabel=prefixes[1],
@@ -384,7 +384,7 @@ class SeedCheck(sourceinfo.SourceInfo):
         good_seeds = 'good_seeds.csv'
         self.csv_file = os.path.join(self.plotfolder,good_seeds)
         t.to_csv(self.csv_file)
-        print 'wrote list that succeeded to %s' % self.csv_file
+        print ('wrote list that succeeded to %s' % self.csv_file)
         filename = 'good_seeds.html'
         html_file = self.plotfolder+'/%s' % filename
         ## FIX LATER htmldoc = diagnostics.html_table(t, float_format=diagnostics.FloatFormat(2))

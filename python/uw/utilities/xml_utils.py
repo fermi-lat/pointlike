@@ -49,12 +49,12 @@ class xml_manager():
         self.__dict__.update(kwargs)
 
         if isinstance(catalogs,types.StringType):
-            if not os.path.isfile(catalogs): print "Cannot open the catalog! Exiting ..."; sys.exit()
+            if not os.path.isfile(catalogs): print ("Cannot open the catalog! Exiting ..."; sys.exit())
             self.sourcelist = minidom.parse(catalogs).getElementsByTagName('source')
         elif isinstance(catalogs,types.ListType):
             self.sourcelist = []
             for catalog in catalogs:
-                if not os.path.isfile(catalog): print "Cannot open %s! Exiting ..." %catalog
+                if not os.path.isfile(catalog): print ("Cannot open %s! Exiting ..." %catalog)
                 self.sourcelist += minidom.parse(catalog).getElementsByTagName('source')
         else:
             raise Exception("Do not recognize the format! Exiting...")
@@ -265,10 +265,10 @@ class xml_manager():
         return self.srclist[which][key]
 
     def print_srclist(self):
-        print "===================================="
-        print "Number of sources =", len(self.srclist)
-        print "===================================="        
-        print "# NAME \t ANGSEP(deg) \t TS \t type"
+        print ("====================================")
+        print ("Number of sources =", len(self.srclist))
+        print ("====================================")        
+        print ("# NAME \t ANGSEP(deg) \t TS \t type")
         for src in self.srclist:
-            print "%s | %.2f | %.0f | %s" %(src['name'],src['angsep'],src['ts'],src['type'])
+            print ("%s | %.2f | %.0f | %s" %(src['name'],src['angsep'],src['ts'],src['type']))
                             

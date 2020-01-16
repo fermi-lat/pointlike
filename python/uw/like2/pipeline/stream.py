@@ -28,7 +28,7 @@ class PipelineStream(object):
             try:
                 self.stream_number = int(last.split()[0])
             except:
-                print 'failed to interpret stream number from file %s: last=%s' % (self.summary,self.last)
+                print ('failed to interpret stream number from file %s: last=%s' % (self.summary,self.last))
                 raise
             lastsp = last.split()
             self.last_job=dict(stream=self.stream_number, skymodel=lastsp[3], 
@@ -42,7 +42,7 @@ class PipelineStream(object):
         self.stream_number += 1
         time = str(datetime.datetime.today())[:16]
         line = '%5d  %s %-15s %-10s %s' % (self.stream_number, time, self.model, stage, job_list)
-        print line
+        print (line)
         if not test:
             with open(self.summary, 'a') as slog:
                 slog.write('\n'+line)
@@ -52,10 +52,10 @@ class PipelineStream(object):
                     % (stage, self.pointlike_dir, self.fullskymodel, os.path.expandvars(job_list))
                 )
         if not test:
-            print '-->' , cmd
+            print ('-->' , cmd)
             os.system(cmd)
         else:
-            print 'Test mode: would have submitted \n\t%s'%cmd
+            print ('Test mode: would have submitted \n\t%s'%cmd)
             self.stream_number -=1
 
     def restart(self, jobs=None, rois=True, test=True, ):
@@ -72,9 +72,9 @@ class PipelineStream(object):
         ss = SubStreamStats()
         if jobs is None:
             jobs = ss.todo_list()
-            print 'Found {} jobs to restart'.format(len(jobs))
+            print ('Found {} jobs to restart'.format(len(jobs)))
         if len(jobs)==0:
-            print 'no jobs to restart'
+            print ('no jobs to restart')
             return
         assert self.model==self.last_job['skymodel'], 'Must run in same folder as last job'
         # get the current job_list
@@ -92,8 +92,8 @@ class PipelineStream(object):
             for i in ss.todo_list():
                 out.write('{:5d}\n'.format(i))
         if test: 
-            print 'Testing: Created file "{}" to rerun substreams: {}'.format(last_stream, jobs)
-            print 'Now starting test of restart'
+            print ('Testing: Created file "{}" to rerun substreams: {}'.format(last_stream, jobs))
+            print ('Now starting test of restart')
         self(self.last_job['stage'], '$SKYMODEL_SUBDIR/'+last_stream, test)                
             
 
@@ -133,7 +133,7 @@ class StreamInfo(dict):
                 continue
             tokens = line.split()
             if len(tokens)<6: 
-                print 'bad line, %s: %d tokens' % (line, len(tokens))
+                print ('bad line, %s: %d tokens' % (line, len(tokens)))
                 continue
             if model is None or model==tokens[3] or model[-1]=='*' and tokens[3].startswith(model[:-1]):
                 self[int(tokens[0])] = dict(stage=tokens[4], date=tokens[1]+' '+tokens[2], model=tokens[3],
@@ -175,14 +175,14 @@ class SubStreamStats(object):
         else:
             v = StreamInfo()[int(stream_id)]
         v['stream']=stream_id
-        print v
+        print (v)
         self.info = v
         self.notdone = []
         search_string= os.path.join(path,'streamlogs','stream%s.*.log'%stream_id)
         streamlogs=sorted(glob.glob(search_string))
         if len(streamlogs)==0:
-            print 'cwd', os.getcwd()
-            print 'Did not find stream {} logfiles with search {}'.format( stream_id, search_string)
+            print ('cwd', os.getcwd())
+            print ('Did not find stream {} logfiles with search {}'.format( stream_id, search_string))
             return
         
         # check the substream ids
@@ -214,7 +214,7 @@ class SubStreamStats(object):
                 try:
                     current = t[-1].split()[-1]
                 except:
-                    print 'Fail parse for current: "{}"'.format(t)
+                    print ('Fail parse for current: "{}"'.format(t))
                     current = -2
             return dict(host=host, first=int(a), last=int(b), current=int(current))
 
@@ -224,13 +224,13 @@ class SubStreamStats(object):
             lines = text.split('\n')
             if lines[-2].find('Finish')<0:
                 ss = f[-13:-4]
-                #print 'Stream {} not finished:\n{}'.format(ss, text)
+                #print ('Stream {} not finished:\n{}'.format(ss, text))
                 notdone_dict[ss] = parse_it(lines)
                 continue
             try:
                 etimes.append(float(text.split('\n')[-2].split()[-1][:-1]))
             except:
-                print 'fail to parse: stream {}, file {}: \n{}'.format(stream_id,f,text)
+                print ('fail to parse: stream {}, file {}: \n{}'.format(stream_id,f,text))
                 continue #raise
             nex.append( sum(np.array(['setup' in line for line in text.split('\n') ] )))
             id = int(f.split('.')[-2]) 
@@ -252,30 +252,30 @@ class SubStreamStats(object):
                 j,k = t[i:i+2] 
                 self.missing_roi_list += range(j,k)
                 missing += '{}..{}, '.format(j,k-1) if k>j+1 else '{}, '.format(j)
-            print '**** missing ROIs: {}'.format(missing)
+            print ('**** missing ROIs: {}'.format(missing))
    
         if len(self.notdone)>0:
-            print '************* Not finished: *************'
+            print ('************* Not finished: *************')
             self.notdone_df = pd.DataFrame(notdone_dict).T['host first last current'.split()]
             # return
 
-            print self.notdone_df
-            print '*****************************************\n'
-        print 'Found %d streamlog files for stream %s ...' %(len(streamlogs), stream_id), 
+            print (self.notdone_df)
+            print ('*****************************************\n')
+        print ('Found %d streamlog files for stream %s ...' %(len(streamlogs), stream_id), )
         self.times =times = pd.DataFrame(dict(etimes=etimes,nex=nex, rois=rois), 
             index=pd.Index(substream, name='substream'))
      
         etimes = times.etimes
-        print '\texecution times: mean=%.1f, max=%.1f'% (etimes.mean(), etimes.max())
-        print '\ttotal execution time: %.1f hours' % (etimes.sum()/3600.)
-        print '\tnumber of executions: %s' % np.histogram(times.nex, range(7))[0][1:]
+        print ('\texecution times: mean=%.1f, max=%.1f'% (etimes.mean(), etimes.max()))
+        print ('\ttotal execution time: %.1f hours' % (etimes.sum()/3600.))
+        print ('\tnumber of executions: %s' % np.histogram(times.nex, range(7))[0][1:])
         self.tail_check()
 
     def tail_check(self, lim=2.0):
         times = self.times
         bad = times[times.etimes>lim*times.etimes.mean()]
         if len(bad)>0:
-            print '\tsubstreams with times>{}*mean: \n{}'.format(lim,bad)
+            print ('\tsubstreams with times>{}*mean: \n{}'.format(lim,bad))
 
     def todo_list(self):
         """return a list of ROI numbers that are not finished

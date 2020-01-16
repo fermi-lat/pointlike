@@ -80,19 +80,19 @@ class MyLogger(object):
             self.logger = None
     def info(self, msg):
         if self.logger: self.logger.info(msg)
-        else: print msg
+        else: print (msg)
     def warning(self, msg):
         if self.logger: self.logger.warning(msg)
-        else: print 'WARNING', msg
+        else: print ('WARNING', msg)
     def error(self, msg):
         if self.logger: self.logger.error(msg)
-        else: print 'ERROR', msg
+        else: print ('ERROR', msg)
     def log(self, level, msg, appname='', arg=None):
         if self.logger: self.logger.log(level, msg, appname, arg )
         else: 
             if arg is not None: 
-                print 'INFO', msg % (appname, arg)
-            else: print 'INFO', msg
+                print ('INFO', msg % (appname, arg))
+            else: print ('INFO', msg)
 
 class UWtoGT(object):
     """ manage adaption of a UW model to gtanalysis

@@ -214,7 +214,7 @@ class Process(main.MultiROI):
 
                 if self.diffuse_key=='post_gal':
                     fit_galactic(self)
-            except Exception, msg:
+            except Exception as msg:
                 print '============== fit failed, no update!! %s'%msg
                 raise
         
@@ -258,7 +258,7 @@ class Process(main.MultiROI):
                 fout = os.path.join(counts_dir, ('%s_counts.jpg'%roi.name) )
                 print '----> %s' % fout ; sys.stdout.flush()
                 fig.savefig(fout, dpi=60, bbox_inches='tight')
-            except Exception,e:
+            except Exception as e:
                 print '***Failed to analyze counts for roi %s: %s' %(roi.name,e)
                 chisq = -1
         
@@ -286,7 +286,7 @@ class Process(main.MultiROI):
             model = source.spectral_model
             try:
                 ts, e0, pivot = roi.TS(source.name),model.e0, model.pivot_energy()
-            except Exception, e:
+            except Exception as e:
                 print 'source %s:exception %s' %(source.name, e)
                 continue
                 
@@ -405,7 +405,7 @@ class Process(main.MultiROI):
                 s.model.bounds[2]=beta_bounds
             try:
                 self.fit(s.name, summarize=summarize, estimate_errors=True, ignore_exception=False)
-            except Exception, msg:
+            except Exception as msg:
                 print 'Failed to fit {} for {}: {}'.format(parname,source_name, msg)
                 s.model[parname]=parval
             self.freeze(parname)
@@ -439,7 +439,7 @@ class Process(main.MultiROI):
         self.profile(sname)
         try:
             self.localize(sname, )
-        except Exception, msg:
+        except Exception as msg:
             print 'Fail to localize, {}'.format(msg)
         self.find_associations(sname)
         skymodel_name = os.path.split(os.getcwd())[-1]
@@ -777,7 +777,7 @@ def psc_check(roi, psc_name=None , outdir='psc_check', debug=False):
             sed.plot_other_source(old,new,gtname='4FGL')\
             .savefig('psc_check/sed/{}_sed.jpg'.format(new.name.replace('+','p')),
                  dpi=60, bbox_inches='tight')
-        except Exception, msg:
+        except Exception as msg:
             print '***Failed to plot: {}'.format(msg)
     return 
 

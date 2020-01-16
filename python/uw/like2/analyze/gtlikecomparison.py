@@ -82,7 +82,7 @@ class FL8YComparison(sourceinfo.SourceInfo):
 
 
         # look for nearest 4FGL source in rejected list: add name, distance to DataFrame
-        print 'Searching 4FGL for nearest source to the {} not found in it...'.format(sum(added)),
+        print ('Searching 4FGL for nearest source to the {} not found in it...'.format(sum(added)),)
         close = tools.find_close(df[added], self.gdf)
 
         df.loc[df.index[~ok],'otherid'] = close.otherid
@@ -92,13 +92,13 @@ class FL8YComparison(sourceinfo.SourceInfo):
         df['otherts'] = [self.gdf.loc[s.otherid.replace(' ','')].ts for name,s in df.iterrows() ]
         df['other_extended'] = [self.gdf.loc[s.otherid.replace(' ','')].extended for name,s in df.iterrows() ]
 
-        print 'done.'
+        printprintprint ('done.')
 
         a = set(cindex)
         b = set(self.gdf.index); 
         lost = np.array(list(set(b.difference(a))))
         if len(lost)>10:
-            print '{} {} sources not here:,{}...'.format(len(lost), self.cat, lost[:10])
+            print ('{} {} sources not here:,{}...'.format(len(lost), self.cat, lost[:10]))
         self.lost=lost # save for further analysis
 
     def add_info(self):
@@ -139,41 +139,41 @@ class FL8YComparison(sourceinfo.SourceInfo):
         df=self.df
         gdf = self.gdf
 
-        print 'Selecting seeds by first characters in source name'\
+        print ('Selecting seeds by first characters in source name'\)
         '\n  pattern    seeds  TS>25   kept' 
         def get_seeds(df, pattern):
             seeded = np.array([name.startswith(pattern) for name in df.index]) 
             sdf = df[seeded].copy()
-            print '   {:8} {:6d} {:6d} {:6d} '.format(
-                pattern, sum(seeded), sum(sdf.ts>25), sum(sdf.fl8y))
+            print ('   {:8} {:6d} {:6d} {:6d} '.format(
+                pattern, sum(seeded), sum(sdf.ts>25), sum(sdf.fl8y)))
             sdf['key'] = [name[3] for name in sdf.index]
             return sdf
         sdf = get_seeds(df, patterns[0])
         for pattern in patterns[1:]:
             sdf = sdf.append(get_seeds(df, pattern))
-        print 'Created DF with {} seeds, {} in 4FGL'.format(len(sdf), sum(sdf.b4fgl))
+        print ('Created DF with {} seeds, {} in 4FGL'.format(len(sdf), sum(sdf.b4fgl)))
         self.seed_df = sdf
 
-        print '\nSelect a subset of seeds for comparison with 4FGL by removing those that are: '
+        print ('\nSelect a subset of seeds for comparison with 4FGL by removing those that are: ')
         too_close = np.array([close_tol<d<0.5 for d in sdf.distance],bool); 
-        print '\t{:4d} too close to a 4FGL source by {} deg'.format( sum(too_close), close_tol,  )
+        print ('\t{:4d} too close to a 4FGL source by {} deg'.format( sum(too_close), close_tol,  ))
         not_close = np.array([d>0.5 for d in sdf.distance],bool) 
         too_soft = sdf.pindex>3
-        print '\t{:4d} too soft, index>3'.format(sum(too_soft))
+        print ('\t{:4d} too soft, index>3'.format(sum(too_soft)))
         #strong_or_extended = (sdf.otherts>nearest_ts_limit) | sdf.other_extended
         
         strong   =  (sdf.otherts>nearest_ts_limit)
-        print '\t{:4d} nearest is strong (TS>{})'.format(sum(strong), nearest_ts_limit)
+        print ('\t{:4d} nearest is strong (TS>{})'.format(sum(strong), nearest_ts_limit))
         
         extended =sdf.other_extended
-        print '\t{:4d} nearest is extended '.format(sum(extended))
+        print ('\t{:4d} nearest is extended '.format(sum(extended)))
 
-        #print '\t{:4d} nearest is strong (TS>{}) or extended'.format(sum(strong_or_extended), nearest_ts_limit,)
+        #print ('\t{:4d} nearest is strong (TS>{}) or extended'.format(sum(strong_or_extended), nearest_ts_limit,))
         ignore = strong | extended | too_close | too_soft
-        print '\t{:4d} Any of the above'.format(sum(ignore))
+        print ('\t{:4d} Any of the above'.format(sum(ignore)))
      
         if nocut:
-            print 'Not using these cuts, for now'
+            print ('Not using these cuts, for now')
             self.seed_subset = sdf
         else:
             self.seed_subset= sdf[~ignore]; 
@@ -205,7 +205,7 @@ class FL8YComparison(sourceinfo.SourceInfo):
 
             hkw = dict(histtype='step', lw=2, hatch=hatch_type[name])
             label = dict(H='Hard',F='Intermediate',S='Soft', P='Peaked', N='Pulsar-like')[name]
-            print label, len(group)
+            print (label, len(group))
             curved = dict(H=0, F=0, S=0, P=1, N=1)[name]
             pi = np.array(group.pindex, float)
             ts = np.array(group.ts, float).clip(0,tsmax)
@@ -241,7 +241,7 @@ class FL8YComparison(sourceinfo.SourceInfo):
         subset = self.seed_subset 
         self.seed_subset_label=''
         if query is not None:
-            print 'applying query("{}")'.format(query) 
+            print ('applying query("{}")'.format(query) )
             subset = subset.query(query)
             self.seed_subset_label='<h4> selection: {}'.format(query)
         
@@ -313,7 +313,7 @@ class FL8YComparison(sourceinfo.SourceInfo):
     def filter_for_4fgl(self, df=None, close_tol=0.15):
 
         df = (self.df if df is None else df).copy()
-        print 'Filtering {} sources with 4FGL accepance critera'.format(len(df))
+        print ('Filtering {} sources with 4FGL accepance critera'.format(len(df)))
         add_galactic(df)
 
         # look for nearest 4FGL source in rejected list: add name, distance to DataFrame
@@ -330,14 +330,14 @@ class FL8YComparison(sourceinfo.SourceInfo):
 
         renamed = np.array([s.distance<close_tol for name,s in df[~df.fl8y].iterrows()],bool)
         topsr=[s.distance<0.001 and s.otherid.startswith('PSR') for name,s in df.iterrows()]
-        print 'Sources failing criteria :\n\tRenamed : {} ({} were PSRs)'.format(sum(renamed), sum(topsr))
+        print ('Sources failing criteria :\n\tRenamed : {} ({} were PSRs)'.format(sum(renamed), sum(topsr)))
         too_close = np.array([close_tol<d<0.5 for d in df.distance],bool); 
-        print '\ttoo close: {}'.format(sum(too_close) )
+        print ('\ttoo close: {}'.format(sum(too_close) ))
         not_close = np.array([d>0.5 for d in df.distance],bool); 
         strong_or_extended = (df.otherts>1e4) | df.other_extended
-        print '\tnearest is strong or extended: {}'.format(sum(strong_or_extended))
+        print ('\tnearest is strong or extended: {}'.format(sum(strong_or_extended)))
         subset = df[not_close & (~strong_or_extended)]
-        print 'remain: {}'.format(len(subset))
+        print ('remain: {}'.format(len(subset)))
         return subset
 
     def rejected_analysis(self, df=None, close_tol=0.15):
@@ -366,12 +366,12 @@ class FL8YComparison(sourceinfo.SourceInfo):
 
         renamed = np.array([s.distance<close_tol for name,s in rej.iterrows()],bool)
         topsr=[s.distance<0.001 and s.otherid.startswith('PSR') for name,s in rej.iterrows()]
-        print 'Sources rejected by gtlike:\n\tRenamed : {} ({} were PSRs)'.format(sum(renamed), sum(topsr))
+        print ('Sources rejected by gtlike:\n\tRenamed : {} ({} were PSRs)'.format(sum(renamed), sum(topsr)))
         too_close = np.array([close_tol<d<0.5 for d in rej.distance],bool); 
-        print '\ttoo close: {}'.format(sum(too_close) )
+        print ('\ttoo close: {}'.format(sum(too_close) ))
         not_close = np.array([d>0.5 for d in rej.distance],bool); 
         strong_or_extended = (rej.otherts>1e4) | rej.other_extended
-        print '\tnearest is strong or extended: {}'.format(sum(strong_or_extended))
+        print ('\tnearest is strong or extended: {}'.format(sum(strong_or_extended)))
         subset = rej[not_close & (~strong_or_extended)]
         self.rejected_count = len(subset)
         return subset
@@ -403,7 +403,7 @@ class FL8YComparison(sourceinfo.SourceInfo):
         t.index.name='name'
         t.to_csv('rejected_4fgl.csv')
 
-        print 'wrote file {}'.format('rejected_4fgl.csv')
+        print ('wrote file {}'.format('rejected_4fgl.csv'))
 
         fig = self.source_info_plots(subset, **kwargs)
 
@@ -444,7 +444,7 @@ class FL8YComparison(sourceinfo.SourceInfo):
         
         # check for renamed sources
         near=close[(ppp)&(qqq)].query('distance<0.1').sort_values(by='ts', ascending=False)
-        print near
+        print (near)
         
         # these are truuly lost
         far = close[(ppp)&(qqq)].query('distance>0.1').sort_values(by='ts', ascending=False)
@@ -456,7 +456,7 @@ class FL8YComparison(sourceinfo.SourceInfo):
         
         self.number_lost = len(far)
         lost.loc[far.index,'sname ra dec ts pindex eflux100 r95'.split()].to_csv(lost_name)
-        print 'Wrote file "{}" with info on {} missing sources'.format(lost_name, self.number_lost)
+        print ('Wrote file "{}" with info on {} missing sources'.format(lost_name, self.number_lost))
         self.lost_sources = lost_name
    
         return fig
@@ -468,7 +468,7 @@ class FL8YComparison(sourceinfo.SourceInfo):
         # get the TS and chisq values
         ff =sorted(glob.glob(path+'/*'))
         txt = 'read {} pickle files from {}'.format(len(ff), path)
-        print txt
+        print (txt)
         assert len(ff)>0, 'No psc_check files found: must run "psccheck"'
         dd = map(lambda f:pickle.load(open(f)), ff)
         z = dict()
@@ -478,8 +478,8 @@ class FL8YComparison(sourceinfo.SourceInfo):
                 try:
                     eflux_pt=a[1].i_flux(e_weight=1)*1e6;
                     eflux_gt=b[1].i_flux(e_weight=1)*1e6
-                except Exception, msg:
-                    print b[0],msg                    
+                except Exception as msg:
+                    print (b[0],msg)
                     eflux_pt=eflux_gt=np.nan
                 z[b[0]] = dict(
                     ts_pt=a[2],        ts_gt=b[2], 
@@ -502,7 +502,7 @@ class FL8YComparison(sourceinfo.SourceInfo):
         nicknameset = set(nicknames)
         missing_nicknames = list(nicknameset.difference(indexset))
         if len(missing_nicknames)>0:
-            print 'Warning: following nicknames not in current model: {}'.format(np.array(missing_nicknames))
+            print ('Warning: following nicknames not in current model: {}'.format(np.array(missing_nicknames)))
             nicknames = list(indexset.intersection(nicknameset))
             cnick = [n.replace(' ','') for n in nicknames]
             qv = [n.replace(' ','') for n in q.nickname.values];
@@ -595,7 +595,7 @@ class FL8YComparison(sourceinfo.SourceInfo):
         pos =(q.delta>=ylim[1]) & (q.ts_pt>tsmin)
         psr = np.array([name.startswith('PSR') for name in q.nickname])
   
-        print 'Outliers (above TS={}): {} negative, {} positive'.format(tsmin, sum(neg), sum(pos))
+        print ('Outliers (above TS={}): {} negative, {} positive'.format(tsmin, sum(neg), sum(pos)))
         try:
             self.deltax2_positive=html_table(q[pos & ~psr].sort_values(by='delta', ascending=False), 
                 name=self.plotfolder+'/deltax2_positive', 
@@ -612,8 +612,8 @@ class FL8YComparison(sourceinfo.SourceInfo):
                     href=True, href_pattern='psc_check/sed/%s*.jpg', )
             else:
                 self.deltax2_negative = '<h4>No gtlike fits better than Delta TS = {}</h4>'.format(np.abs(ylim[0]))
-        except Exception, msg:
-            print 'Failed to create tables of of outliers: "{}"'.format(msg)
+        except Exception as msg:
+            print ('Failed to create tables of of outliers: "{}"'.format(msg))
 
         fig, axy = plt.subplots(2,2, figsize=(15,10))
         plt.subplots_adjust(wspace=0.25)
@@ -703,8 +703,8 @@ class FL8YComparison(sourceinfo.SourceInfo):
 def get_seeds(pattern='605'):
     seeded = np.array([name.startswith(pattern) for name in df.index]); 
     sdf = df[seeded].copy(); sdf.head()['ts']
-    print 'Pattern {}: {} seeds, {} with TS>25, {} kept in 4FGL'.format(
-        pattern, sum(seeded), sum(sdf.ts>25), sum(sdf.fl8y))
+    print ('Pattern {}: {} seeds, {} with TS>25, {} kept in 4FGL'.format(
+        pattern, sum(seeded), sum(sdf.ts>25), sum(sdf.fl8y)))
     sdf['key'] = [name[3] for name in sdf.index]
     return sdf
 
@@ -780,7 +780,7 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
                 #gtcat[s[0]]=s[1]
         self.gdf = pd.DataFrame(gtcat).T
         self.gdf.index = [n.replace(' ','') for n in self.gdf.name]
-        print 'loaded analysis of gtlike fit models, found %d sources' % len(self.gdf)
+        print ('loaded analysis of gtlike fit models, found %d sources' % len(self.gdf))
         # copy info from gtlike to columns of corresponding skymodel entries
         for col in self.gdf.columns:
             self.dfx[col] = self.gdf[col]
@@ -821,7 +821,7 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         self.dfx['tflow']=tflow
         self.dfx['tfmed']=tfmed
         
-        pcand = df[cut & (df.tfmed>0.6) & (df.locqual<5)]['ra dec glat glon ts tflow tfmed a locqual'.split()]; print len(pcand)
+        pcand = df[cut & (df.tfmed>0.6) & (df.locqual<5)]['ra dec glat glon ts tflow tfmed a locqual'.split()]; print (len(pcand))
         pcand.index.name='name'
         pcand.to_csv('weak_pulsar_candidate.csv')
         try:
@@ -829,7 +829,7 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
             self.pulsar_pivot_info="""<p> These can be examined with a 
             <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>,
             which requires Silverlight. """% pc.cId
-        except Exception, msg:
+        except Exception as msg:
                 self.pulsar_pivot_info = '<p>No pivot output; job failed %s' %msg
 
         fig, axx = plt.subplots(1,2, figsize=(10,4))
@@ -1020,7 +1020,7 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
             heading='Table of poor matches with delta_ts<%d or >%d'%(dmin,dmax), href=True,
             float_format=FloatFormat(2)) 
         fixme.to_csv('gtlike_mismatch.csv')
-        print 'wrote %d entries to gtlike_mismatch.csv' % len(fixme)
+        print ('wrote %d entries to gtlike_mismatch.csv' % len(fixme))
         version = os.path.split(os.getcwd())[-1]
         if pivotit:
             try:
@@ -1028,7 +1028,7 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
                 self.pivot_info="""<p> These can be examined with a 
             <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>,
             which requires Silverlight. """% pc.cId
-            except Exception, msg:
+            except Exception as msg:
                 self.pivot_info = '<p>No pivot output; job failed %s' %msg
         else:
             self.pivot_info = '<p>(no pivot)'
@@ -1038,7 +1038,7 @@ class GtlikeComparison(sourcecomparison.SourceComparison):
         hilat = np.array(cut*(np.abs(df.glat)<5),bool)
         self.under_ts = sum((delta<dmin)*cut)
         self.over_ts  = sum((delta>dmax)*cut)
-        print 'under, over delta_ts: %d, %d' % (self.under_ts, self.over_ts)
+        print ('under, over delta_ts: %d, %d' % (self.under_ts, self.over_ts))
         def plot1(ax):
             ax.plot(df.ts_pt[cut], delta[cut].clip(dmin,dmax), '.')
             ax.plot(df.ts_pt[hilat], delta[hilat].clip(dmin,dmax), '.r')
@@ -1142,7 +1142,7 @@ class GardianPrefactors(object):
                     else:
                         all[sname].update({region:value})
                     n+=1
-            print 'Found {} variable sources in region {}'.format(n,region)
+            print ('Found {} variable sources in region {}'.format(n,region))
         self.df =pd.DataFrame(pref).T
         self.all = all
 

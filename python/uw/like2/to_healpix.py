@@ -42,7 +42,7 @@ def pickle_dump(roi,  pickle_dir, dampen, ts_min=0, **kwargs):
     try:
         output['diffuse_normalization'] = roi.sources.diffuse_normalization
     except:
-        print 'No diffuse normalization DataFrame to save'
+        print ('No diffuse normalization DataFrame to save')
         
     # a dict for all variable sources
     sources=dict()
@@ -59,13 +59,13 @@ def pickle_dump(roi,  pickle_dir, dampen, ts_min=0, **kwargs):
         if pivot_energy is None: pivot_energy=s.spectral_model.e0 # could be a pulsar?
         
         if 'sedrec' not in s.__dict__ or s.sedrec is None:
-            print 'warning: no sedrec in %s' %s.name
+            print ('warning: no sedrec in %s' %s.name)
             s.sedrec = None
         sedrec = s.sedrec
         loc = s.__dict__.get('loc', None)
         ts = s.ts if hasattr(s, 'ts') else roi.TS(s.name)
         if ts < ts_min and (s.name[:3]!='PSR' and not s.isextended): 
-            print 'Not saving source %s: ts=%.1f < %.1f' % (s.name, ts, ts_min)
+            print ('Not saving source %s: ts=%.1f < %.1f' % (s.name, ts, ts_min))
             continue
         sources[s.name]=dict(
             skydir=s.skydir, 
@@ -87,5 +87,5 @@ def pickle_dump(roi,  pickle_dir, dampen, ts_min=0, **kwargs):
     output.update(kwargs) # add additional entries from kwargs
     with open(filename,'wb') as f:  #perhaps overwrite
         pickle.dump(output,f)
-    print 'saved pickle file to %s' % filename
+    print ('saved pickle file to %s' % filename)
         

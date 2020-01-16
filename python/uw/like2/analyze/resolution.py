@@ -24,7 +24,7 @@ class Resolution(object):
         self.roi = int(self.sinfo['roiname'][-4:])
         self.r = process.Process('.', quiet=True)
         self.event_types =self.r.config.dataset.event_types
-        print 'Loading ROI # {}'.format(self.roi)
+        print ('Loading ROI # {}'.format(self.roi))
         self.r.setup_roi(self.roi)
         self.source = self.r.get_source(source_name)
         plt.rcParams.update({'font.size': 16, 'axes.labelsize':16, 'axes.titlesize':16, 
@@ -72,7 +72,7 @@ class Resolution(object):
         if not os.path.exists('resolution'): os.mkdir('resolution')
         outfile = 'resolution/{}.pkl'.format(s.name.replace(' ','').replace('+','p'))
         v.to_pickle(outfile)
-        print 'wrote resolution file {}'.format(outfile)
+        print ('wrote resolution file {}'.format(outfile))
         self.v =v
 
 class Plots(object):
@@ -126,7 +126,7 @@ class Plots(object):
             res = 1/df.sig**2
             for j in range(n-1,0,-1): #i in range(n-1):
                 y,label = res[j], df.index[j]
-                #print y,bottom,  label
+                #print (y,bottom,  label)
                 ax.bar(x-width/2, y, bottom=bottom, width=width, color='lightcyan',lw=2)
                 ax.text(x, bottom+y/2, label, va='center', ha='center')
                 bottom+=y

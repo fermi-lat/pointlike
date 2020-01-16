@@ -270,7 +270,7 @@ class BinFile(object):
             filenames = [filenames]
         for i,filename in enumerate(filenames):
             if i==0: # first one: will add others, if any to this one
-                if not quiet:print '\n"{}" '.format(filename),
+                if not quiet:print ('\n"{}" '.format(filename),)
                 self.hdus=fits.open(filename)
                 self.gti=GTI(self.hdus['GTI'])
                 if 'PIXELS' in self.hdus: 
@@ -281,12 +281,12 @@ class BinFile(object):
                     # new format
                     self.bands=BandList(self.hdus['BANDS'])
                     self.pixels=Pixels(self.hdus['SKYMAP'])
-                if not quiet: print self.pixels.__repr__(),
+                if not quiet: print (self.pixels.__repr__(),)
             else:
                 self.add(BinFile(filename, adding=True))
-                if not quiet: print self.pixels.__repr__(),
+                if not quiet: print (self.pixels.__repr__(),)
         if not adding: 
-            if not quiet: print
+            if not quiet: print ()
 
         if outfile is not None:
             self.writeto(outfile)
@@ -352,7 +352,7 @@ class BinFile(object):
         pixels_hdu = self.pixels.make_hdu()
         hdus=[self.hdus[0], pixels_hdu, bands_hdu, gti_hdu]
         fits.HDUList(hdus).writeto(filename, overwrite=overwrite)
-        print 'wrote file {}'.format(filename)
+        print ('wrote file {}'.format(filename))
 
     def photonCount(self):
         """ method to be consistent with skymaps.BinnedPhotonData
@@ -380,7 +380,7 @@ class BinFile(object):
         roi_pix = pd.DataFrame(np.zeros_like(pix), index=pix, columns=['value'])
         data_pix = select_pixels(channel)
         data_in_roi=list(set(data_pix.index).intersection(set(roi_pix.index)))
-        print 'Found {} nside={} data pixels for channel {} in ROI {}'.format(len(data_in_roi),nside, channel, roi_number)
+        print ('Found {} nside={} data pixels for channel {} in ROI {}'.format(len(data_in_roi),nside, channel, roi_number))
         z = data_pix.loc[data_in_roi]
         data_pix_in_roi = data_pix.loc[data_in_roi]
         roi_pix.value = z.value
@@ -433,7 +433,7 @@ class BinFile(object):
 
         hdus=[primary, skymap_hdu, ebounds_hdu, self.gti.make_hdu()]
         fits.HDUList(hdus).writeto(filename, overwrite=overwrite)
-        print 'Wrote file {}'.format(filename)
+        print ('Wrote file {}'.format(filename))
     
     def make_map(self, channel, nside=64):
         """Make a map with the given nside (which must be the same as the channel, but no check
@@ -463,7 +463,7 @@ class BinFile(object):
         for cindex in channels:
             fname = roi_folder+'/ccube_{:02d}.fits'.format(cindex)
             if os.path.exists(fname) and not overwrite:
-                print 'File {} exists'.format(fname)
+                print ('File {} exists'.format(fname))
             else:
                 self.write_roi_fits(fname, roi_index, cindex)
 
@@ -517,7 +517,7 @@ class ConvertFT1(object):
         for et in self.etypes:
             self.et_mask[et]= self.et[:,-1-et]
         self.data_cut = np.logical_and(self.theta<self.theta_cut, self.z<self.z_cut)
-        print 'Found {} events. Removed: {:.2f} %'.format(len(data), 100.- 100*sum(self.data_cut)/float(len(data)));
+        print ('Found {} events. Removed: {:.2f} %'.format(len(data), 100.- 100*sum(self.data_cut)/float(len(data)));)
 
         # DataFrame with component values for energy and event type, nside
         t = {}
@@ -558,10 +558,10 @@ class ConvertFT1(object):
         eindex = np.digitize(self.energy, self.ebins)-1
         self.pix=[]; self.chn=[];  self.cnt=[]
 
-        if not quiet: print ' ie  et  nside  photons     bins'
+        if not quiet: print (' ie  et  nside  photons     bins')
         for i,band in self.df.iterrows():
             if not quiet:
-                print '{:3} {:3} {:6}'.format( band.ie, band.event_type, band.nside), 
+                print ('{:3} {:3} {:6}'.format( band.ie, band.event_type, band.nside), )
             esel = np.logical_and(eindex==band.ie, self.data_cut)
             sel = np.logical_and(esel, self.et_mask[band.event_type])
             #sel = np.logical_and(esel, self.front if band.event_type==0 else np.logical_not(self.front))
@@ -573,7 +573,7 @@ class ConvertFT1(object):
             self.cnt+=list(b)
             self.chn+=[i]*len(a)
             if not quiet:
-                print '{:8} {:8}'.format(sum(sel), len(a))
+                print ('{:8} {:8}'.format(sum(sel), len(a)))
 
     def create_fits(self, outfile='test.fits', overwrite=True):
         elow, ehigh = self.ebins[:-1], self.ebins[1:]
@@ -643,7 +643,7 @@ def run_binner(monthly_ft1_files='/afs/slac/g/glast/groups/catalog/P8_P305/zmax1
     files=sorted(glob.glob(monthly_ft1_files))
     assert len(files)>0, 'No ft1 files found at {}'.format(monthly_ft1_files)
     gbtotal = np.array([os.stat(filename).st_size for filename in files]).sum()/2**30
-    print '{} FT1 files found, {} GB total'.format(len(files), gbtotal)
+    print ('{} FT1 files found, {} GB total'.format(len(files), gbtotal))
     
     outfolder = os.path.expandvars(outfolder)
     if not os.path.exists(outfolder):
@@ -653,13 +653,13 @@ def run_binner(monthly_ft1_files='/afs/slac/g/glast/groups/catalog/P8_P305/zmax1
     for ft1_file in files:
         outfile = ft1_file.split('/')[-1].replace('_zmax105.fits', '_zmax100_4bpd.fits')
         if not overwrite and os.path.exists(outfile):
-            print 'File {} exists'.format(outfile)
+            print ('File {} exists'.format(outfile))
             continue
 
         bdt = ConvertFT1(ft1_file)
         bdt.binner()
         bdt.create_fits(outfile)
-        print '\twrote {}'.format(outfile)
+        print ('\twrote {}'.format(outfile))
 
 def combine_monthly(
         infolder='$FERMI/data/P8_P305/monthly',
@@ -669,26 +669,26 @@ def combine_monthly(
     months = sorted(glob.glob(os.path.join(infolder, '*.fits'))) 
     assert len(months)>0, 'No files found at {}'.format(infolder)
     gbtotal = np.array([os.stat(filename).st_size for filename in months]).sum()/float(2**30)
-    print '{} monthly binned files found, {:.1f} GB total'.format(len(months), gbtotal)
+    print ('{} monthly binned files found, {:.1f} GB total'.format(len(months), gbtotal))
     
     outfolder=os.path.expandvars(outfolder)
     if not os.path.exists(outfolder):
         os.makedirs(outfolder)
-        print 'created {}'.format(outfolder)
+        print ('created {}'.format(outfolder))
     os.chdir(outfolder) 
     
     for year in range((len(months)+1)/12):
         t = BinFile(months[12*year])
         outfile = 'P305_Source_year{:02d}_zmax100_4bpd.fits'.format(year+1)
         if not overwrite and os.path.exists(outfile):
-            print 'File {} exists'.format(outfile)
+            print ('File {} exists'.format(outfile))
             continue
         for m in months[12*year+1:12*year+12]:
             t.add(BinFile(m))
         if not test:
             t.writeto(outfile)
         else:
-            print 'Testmode, not writing {}'.format(outfile)
+            print ('Testmode, not writing {}'.format(outfile))
 
 def combine_yearly(
         infolder='$FERMI/data/P8_P305/yearly',
@@ -701,19 +701,19 @@ def combine_yearly(
     years = sorted(glob.glob(os.path.join(infolder, '*.fits'))) 
     assert len(years)>0, 'No files found at {}'.format(infolder)
     gbtotal = np.array([os.stat(filename).st_size for filename in years]).sum()/float(2**30)
-    print '{} Yearly binned files found, {:.1f} GB total'.format(len(years), gbtotal)
+    print ('{} Yearly binned files found, {:.1f} GB total'.format(len(years), gbtotal))
     
     outfolder=os.path.expandvars(outfolder)
     os.chdir(outfolder) 
-    print 'loading {}'.format(os.path.split(years[0])[-1])
+    print ('loading {}'.format(os.path.split(years[0])[-1]))
     t = BinFile(years[0])
     for year in years[1:nyears]:
-        print ' adding {}'.format(os.path.split(year)[-1])
+        print (' adding {}'.format(os.path.split(year)[-1]))
         t.add(BinFile(year))
     outfile = outfilename.format(nyears)
     if not test:
         t.writeto(outfile)
     else:
-        print 'Testmode, not writing to {}'.format(outfile)
+        print ('Testmode, not writing to {}'.format(outfile))
     return t
 

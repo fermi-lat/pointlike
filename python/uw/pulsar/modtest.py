@@ -88,10 +88,10 @@ def find_threshold(grid,vals,threshold,index=0,degree=2,tol=0.02):
     """
     v = vals[index,:]-threshold
     if not np.any(v>0):
-        print 'No modulation value satisfies threshold.'
+        print ('No modulation value satisfies threshold.')
         return None
     if np.all(v>0):
-        print 'All modulation values are above threshold, returning min.'
+        print ('All modulation values are above threshold, returning min.')
         return grid[0]
 
     # first, use a "smoothed" version of sig vs. modfrac
@@ -114,10 +114,10 @@ def find_threshold(grid,vals,threshold,index=0,degree=2,tol=0.02):
 
     # check for consistency
     if abs(x1-x0) > tol:
-        print 'Warning! Potential failure of smoothed method:'
-        print 'Smoothed: %.2f'%x0
-        print 'Linear: %.2f'%x1
-        print 'Returning linear value.'
+        print ('Warning! Potential failure of smoothed method:')
+        print ('Smoothed: %.2f'%x0)
+        print ('Linear: %.2f'%x1)
+        print ('Returning linear value.')
         return x1
     return x0
 
@@ -178,6 +178,6 @@ g3,v3 = test_pulsar(weights)
 # display results and print threshold
 for v in [v1,v2,v3]:
     pl.errorbar(x=g1,y=v[1],yerr=[v[1]-v[0],v[2]-v[1]])
-    print find_threshold(g1,v,15)
+    print (find_threshold(g1,v,15))
 
 """

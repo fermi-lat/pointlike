@@ -56,7 +56,7 @@ class Export(sourceinfo.SourceInfo):
             else:
                 next_version = str(int(last_version)+1)
             self.fits_file = name_root+'_'+next_version+'.fits'
-        print 'Will write to {}'.format(self.fits_file)
+        print ('Will write to {}'.format(self.fits_file))
 
     def analysis(self, fits_only=True): # for now
         """Analysis log
@@ -64,14 +64,14 @@ class Export(sourceinfo.SourceInfo):
         self.startlog()
 
         
-        print '\nRunning "to_fits"...'
+        print ('\nRunning "to_fits"...')
         #self.fits_file = '_'.join(os.path.abspath('.').split('/')[-2:])+'.fits'
         to_fits.main(self.fits_file,  cuts=self.cuts,
                      localization_systematic = (self.error_box_factor, self.error_box_add)
                      )
         self.xml_file=''
         if not fits_only:
-            print 'Running "to_xml"...'
+            print ('Running "to_xml"...')
             self.xml_file = self.fits_file.replace('.fits', '.xml' )
             to_xml.main(filename=[self.xml_file], cuts=self.cuts)
 
@@ -113,7 +113,7 @@ class Export(sourceinfo.SourceInfo):
                 heading='', href=False, maxlines=50)
         self.fits_summary_table = summary.replace('%', '%%')
         # creates error??
-        #print 'Check: %s' % df
+        #print ('Check: %s' % df)
         
     def all_plots(self):
         self.runfigures([self.analysis,self.fits_summary, self.files,])

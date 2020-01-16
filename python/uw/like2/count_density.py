@@ -22,7 +22,7 @@ class Simpson(object):
         r=self.cube(energy)
         bad = np.isnan(r)
         if np.any(bad):
-            print 'Warning: {} Nan pixels at {:.0f} MeV'.format(np.sum(bad),energy)
+            print ('Warning: {} Nan pixels at {:.0f} MeV'.format(np.sum(bad),energy))
             r[bad]=0.
         return r
     def average(self, a, b, n=1):
@@ -65,8 +65,8 @@ class CountDensity(object):
         adjuster : None | function object
             Multiply the resulting map by adjuster(energy), perhaps for dispersion correction            
         """
-        print 'loading filename {}\nConvolving with event type {}, psf factor {}'.format(filename, event_type, psf_energy_factor)
-        print 'Will write to {}'.format(newfilename) if newfilename is not None else 'No output file specified'
+        print ('loading filename {}\nConvolving with event type {}, psf factor {}'.format(filename, event_type, psf_energy_factor))
+        print ('Will write to {}'.format(newfilename) if newfilename is not None else 'No output file specified')
         
         self.hpcube= diffuse.HealpixCube(filename)
         self.hpcube.load()
@@ -83,12 +83,12 @@ class CountDensity(object):
             self.simpson=None
             self.energies = self.hpcube.energies if energies is None else energies
         self.last_energy=0; self.last_map=None
-        print 'Will process {} energies from {:.0f} to {:.0f}'.format(
-                    len(self.energies), self.energies[0],self.energies[-1])
+        print ('Will process {} energies from {:.0f} to {:.0f}'.format(
+                    len(self.energies), self.energies[0],self.energies[-1]))
         self.psf_energy_factor=psf_energy_factor
         self.adjuster = adjuster
         if self.adjuster is not None:
-            print 'IEM adjuster specified, {}'.format(self.adjuster.__class__)
+            print ('IEM adjuster specified, {}'.format(self.adjuster.__class__))
 
         if newfilename is not None:
             self.replace_skymaps()
@@ -96,7 +96,7 @@ class CountDensity(object):
             self.writeto(newfilename, overwrite=overwrite)
  
     def __call__(self, energy):
-        print 'Convolving for energy {:.0f}'.format(energy)
+        print ('Convolving for energy {:.0f}'.format(energy))
         if energy==self.last_energy: return self.last_map
         self.last_energy=energy
         self.hpcube.setEnergy(energy)
@@ -114,11 +114,11 @@ class CountDensity(object):
         if self.simpson is None or bin_index>len(self.simpson_index)-1:
             return self(self.energies[bin_index])
         n = self.simpson_index[bin_index]
-        print 'Simpson with n={}'.format(n)
+        print ('Simpson with n={}'.format(n))
         return self.simpson.average(self.emin[bin_index], self.emax[bin_index], n)
         # cube = self.hpcube
         # energy = self.energies[index]
-        # print 'Map for energy {:.0f}'.format(energy)
+        # print ('Map for energy {:.0f}'.format(energy))
         # cube.setEnergy(energy)
         # iem_map = cube.column(energy) #note will interpolate
 
@@ -162,7 +162,7 @@ class CountDensity(object):
         header.add_comment('Input file {}'.format(hdus.filename()))
         header.add_comment('live-time cube {}'.format(self.irfman.ltcube))
         header.add_comment('Event type {}'.format(self.event_type))
-        print 'Writing to file {}'.format(newfilename)
+        print ('Writing to file {}'.format(newfilename))
         hdus.writeto(newfilename, overwrite=overwrite)
         
 def convolve_healpix(input_map,  func, thetamax, quiet=True, lmax_limit=None ):
@@ -189,7 +189,7 @@ def convolve_healpix(input_map,  func, thetamax, quiet=True, lmax_limit=None ):
         lmax=lmax_limit
     ell = np.arange(lmax + 1.)
     if not quiet:
-        print 'Creating spherical harmonic content, lmax={}'.format(lmax)
+        print ('Creating spherical harmonic content, lmax={}'.format(lmax))
     fact = convolution.SphericalHarmonicContent(func,lmax, thetamax, quiet=quiet)(ell)
 
     healpy.almxfl(alm, fact, inplace=True)
@@ -211,8 +211,8 @@ def main(factor=1.0,energies=None, adjuster=None, simpson_index=[4,4,2,2,1],
     config= configuration.Configuration('.', quiet=True, postpone=True)
     iem_file = config.diffuse['ring']['iemfile'] #original file
     filename = config.diffuse['ring']['filename'] #will be the convolved files
-    print 'IEM file: {}'.format(iem_file)
-    print 'Livetime cube: {}'.format(config.irfs.ltcube)
+    print ('IEM file: {}'.format(iem_file))
+    print ('Livetime cube: {}'.format(config.irfs.ltcube))
 
     if ebins is None and energies is None:
         # get energies from data

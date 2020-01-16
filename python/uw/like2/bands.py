@@ -154,7 +154,7 @@ class BandSet(list):
             band.load_data(cband)
             band.data_index = i # useful to look up associated index
         if found!=len(self):
-            print '{}: Loaded subset of bands {} instead of {}'.format( self.__repr__(), found, len(self))
+            print ('{}: Loaded subset of bands {} instead of {}'.format( self.__repr__(), found, len(self)))
             self[:]= self[:found] 
             self.config.emax=self[-1].emax
         self.has_data = True

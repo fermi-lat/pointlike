@@ -97,7 +97,7 @@ class Configuration(dict):
         for key in 'extended irf'.split():
             if self.__dict__.get(key, None) is None: 
                 if not self.quiet and kwargs.get(key) is not None:
-                    print '%s : override config.txt, "%s" => "%s"' %(key, kwargs.get(key,None), config.get(key,None))
+                    print ('%s : override config.txt, "%s" => "%s"' %(key, kwargs.get(key,None), config.get(key,None)))
                 self.__dict__[key]=config.get(key, None)
 
         # set up IRF, possibly special CALDB
@@ -145,7 +145,7 @@ class Configuration(dict):
             self.event_type_names = ('PSF0','PSF1','PSF2','PSF3')
         else:
             self.event_type_names = ('front','back')
-        if not self.quiet:  print self.dataset
+        if not self.quiet:  print (self.dataset)
         
         # use dataset to extract psf and exposure, set up respective managers
         
@@ -195,11 +195,11 @@ class Configuration(dict):
                 config_pos = config.get('position', None)
                 xml_pos = self.xml_parser.get('position', None)
                 if not self.quiet:
-                    print 'will load sources from  file %s' % self.input_xml
-                    print 'ROI definitions: using the first listed'
-                    print '\tconfig: %s' % (list(config_pos) if config_pos is not None else None)
-                    print '\tXML:    %s' % xml_pos
-                    print '\tDSS:    %s' % dss_pos
+                    print ('will load sources from  file %s' % self.input_xml)
+                    print ('ROI definitions: using the first listed')
+                    print ('\tconfig: %s' % (list(config_pos) if config_pos is not None else None))
+                    print ('\tXML:    %s' % xml_pos)
+                    print ('\tDSS:    %s' % dss_pos)
 
                 if config_pos is not None:
                     pos = config_pos
@@ -219,9 +219,9 @@ class Configuration(dict):
                     raise Exception('No source model file found in %s or %s' %(self.modeldir, t) )
                 self.modeldir=t
         if not os.path.exists(os.path.join(self.modeldir, self.modelname)):
-            print 'WARNING: pickle.zip not found in %s: no model to load' % self.modeldir
+            print ('WARNING: pickle.zip not found in %s: no model to load' % self.modeldir)
         elif not self.quiet:
-            print 'Will load healpix sources from %s/%s' % (self.modeldir,self.modelname)
+            print ('Will load healpix sources from %s/%s' % (self.modeldir,self.modelname))
     
     def load_config(self, configdir):
         if configdir.startswith('$'):
@@ -242,9 +242,9 @@ class Configuration(dict):
                 if os.path.exists(cfile):
                     try:
                         ret = reader(open(cfile).read())
-                        if not self.quiet: print 'loaded config file {}'.format(cfile)
+                        if not self.quiet: print ('loaded config file {}'.format(cfile))
                     except Exception, msg:
-                        print 'Failed to parse file {}: {}'.format(cfile,msg)
+                        print ('Failed to parse file {}: {}'.format(cfile,msg))
                         raise
                     return ret
             return {}
@@ -282,7 +282,7 @@ class Configuration(dict):
         for band in dset.dmap:
             emin,emax, event_type =  band.emin(), band.emax(), band.event_class()&5
             if (emin + 1) < band_kwargs['emin'] or (emax - 1) >band_kwargs['emax']: continue
-            #print int(emin), event_class
+            #print (int(emin), event_class)
             energy= np.sqrt(emin*emax)
             bandlist.append( bands.BandSet(band, self.psfman(event_type,energy), self.exposureman(event_type,energy), 
                 roi_dir, radius))
@@ -304,7 +304,7 @@ class Configuration(dict):
             t = etnames[which]
             return which
         except Exception, msg:
-            print 'Bad event type, "%s": %s\nMust be one of %s or a valid index' % (which, msg, etnames)
+            print ('Bad event type, "%s": %s\nMust be one of %s or a valid index' % (which, msg, etnames))
             raise
     def event_type_name(self, event_type):
         """convenience function to access name of an event type index

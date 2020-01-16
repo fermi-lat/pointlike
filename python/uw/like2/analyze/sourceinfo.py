@@ -48,12 +48,12 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             # if cat=='3FGL':
             #     try:
             #         get_cat3fgl = Cat_3fgl()
-            #         print 'loaded 3FGL'
-            #     except Exception, msg:
-            #         print 'Could not load 3FGL: %s' % msg
+            #         print ('loaded 3FGL')
+            #     except Exception as msg:
+            #         print ('Could not load 3FGL: %s' % msg)
             #         get_cat3fgl=None
             # else: 
-            #     print 'Not adding 3FGL equivalence'
+            #     print ('Not adding 3FGL equivalence')
             #     get_cat3fgl=None
                 
             for pkl in pkls:
@@ -75,7 +75,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                         freebits= np.sum( int(b)*2**i for i,b in enumerate(model.free))
                         badbits = freebits &  np.sum( int(b)*2**i for i,b in enumerate(errs==0))
                         
-                    except Exception, msg:
+                    except Exception as msg:
                         raise exception( 'fail errors for %s:%s' % (name, msg))
                         badfit = True
                         
@@ -170,10 +170,10 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             assert 'aprob' in df.columns
 
             if not self.quiet:
-                print 'saved %s' % filename
+                print ('saved %s' % filename)
 
         else:
-            if not self.quiet: print 'loading %s' % filename
+            if not self.quiet: print ('loading %s' % filename)
             self.df = pd.read_pickle(filename)
         #self.df['flux']    = [v[0] for v in self.df.pars.values]
         #self.df['flux_unc']= [v[0] for v in self.df.errs.values]
@@ -185,14 +185,14 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         pl = (self.df.poorloc | self.df.unloc) & (self.df.ts>10)
         flags = self.df.flags.values; flags[self.df.poorloc] +=8
         self.df.loc[:,'flags'] = flags ### bit 8 (avoid warning? MP)
-        #print '%d sources flagged (8) as poorly or not localized' % sum(pl)
+        #print ('%d sources flagged (8) as poorly or not localized' % sum(pl))
 
 
         sr = self.df.iloc[0]['sedrec'] 
         if sr is None: sr = self.df.iloc[1]['sedrec'] 
         if sr is None:
             self.energy = np.logspace(2.125, 5.875,16)
-            print 'Warning. did not find a sedrec'
+            print ('Warning. did not find a sedrec')
         else:
             self.energy = np.sqrt( sr.elow * sr.ehigh )
             
@@ -343,12 +343,12 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             roi=roi_df.loc[roiname]
             names = list(roi['counts']['names'])
             i = names.index(name)
-            if i<0: print name, i
+            if i<0: print (name, i)
             try: 
                 t =np.sum(roi['counts']['models'][i][1])
                 return t
             except:
-                print 'fail to get counts for source', name, roiname, i
+                print ('fail to get counts for source', name, roiname, i)
                 return 0
         self.df['counts'] = [counts(self.df, self.roi_df, name) for  name in self.df.index]
         
@@ -371,7 +371,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         ax = axx[0]
         hkw=dict(histtype='step', lw=2)
         for tscut in tsvals:
-            #print 'tscut:', tscut
+            #print ('tscut:', tscut)
             ax.hist(np.array(t.eflux[t.ts>tscut],float).clip(4e-2,20), np.logspace(np.log10(4e-2),np.log10(20),26), 
                 label='TS>%d' % tscut, **hkw) 
         plt.setp(ax, xscale='log', xlabel='energy flux', xlim=(4e-2,20)); ax.grid(alpha=0.5); 
@@ -409,7 +409,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         #     tflags = self.df.flags[tail_cut]+1
         #     #tails = tails.index
         #     self.df.loc[tail_cut,'flags'] = t ### bit 1
-        #     print '%d sources flagged (1) in tails of flux, index, or beta' % sum(tail_cut)
+        #     print ('%d sources flagged (1) in tails of flux, index, or beta' % sum(tail_cut))
         else:
             self.tail_check ='<p>No sources on tails'
 
@@ -417,7 +417,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         self.beta_check=''
         #beta_bad = (t.beta>0.001) & ((t.beta_unc==0) | (t.beta/t.beta_unc<2) | (t.freebits!=7))
         #if sum(beta_bad)>0:
-        #    print '%d sources fail beta check' % sum(beta_bad)
+        #    print ('%d sources fail beta check' % sum(beta_bad))
         #    self.beta_check = html_table(t[beta_bad]['ts beta beta_unc freebits roiname'.split()], 
         #        name=self.plotfolder+'/beta_check',
         #        heading = '<h4>Table of %d sources failing beta 2-sigma check</h4>'%sum(beta_bad),
@@ -437,7 +437,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         check = np.array([np.isfinite(x) for x in self.df.ts_beta]);
         beta_check_note=''
         if sum(check)==0:
-            print 'No ts_beta values set'
+            print ('No ts_beta values set')
             self.beta_check_note='<p>No beta analysis was done'
             return
         
@@ -450,8 +450,8 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         ax.hist(df.ts_beta[PL].clip(0,xmax), dom,  label='PowerLaw', **args)
         try:
             ax.hist(df.ts_beta[LP].clip(0,xmax),dom, color='orange', label='LogParabola', **args)
-        except Exception,msg:
-            print 'fail LP: {}'.format(msg)
+        except Exception as msg:
+            print ('fail LP: {}'.format(msg))
         plt.setp(ax, xlabel='TS_beta', ylim=(1,None))
         ax.grid(); ax.legend()
         return fig
@@ -524,7 +524,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         tail_cut = (t.pindex<=index_min) | (t.pindex>index_max) | (t.cutoff>cutoff_max)
         tails = t.loc[tail_cut].index
 
-        print '%d pulsar sources found in tails of  index or cutoff' % sum(tail_cut)
+        print ('%d pulsar sources found in tails of  index or cutoff' % sum(tail_cut))
         if taillist & (sum(tail_cut)>0) :
             tails=t[tail_cut]['ts eflux pindex cutoff freebits roiname'.split()]
             filename = 'pulsar_tails.html'
@@ -580,7 +580,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                                  (df.e0>99999) & (df.pivot_energy<df.e0*0.95) 
                                 | (df.e0<201) & (df.pivot_energy>df.e0*1.05)
                                )
-        print 'Pivot needs fixing: %d sources' % sum(not_converged)
+        print ('Pivot needs fixing: %d sources' % sum(not_converged))
         self.pivotfix = tofix=df[not_converged]['ts pivot_energy e0 offset roiname'.split()].sort_values(by='roiname')
 
         ax.plot(s.e0[cut].clip(*xylim), s.pivot_energy[cut].clip(*xylim), '.')
@@ -669,16 +669,16 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         hassed = np.array([self.df.iloc[i]['sedrec'] is not None for i in range(len(self.df))]) 
         nosed = (self.df.ts>10) & ~ hassed
         if sum(nosed)>0:
-            print '+++Warning: %d TS>10 sources without sed info' % sum(nosed)
-            print self.df[~hassed]['ts roiname'.split()][:min(20, sum(nosed))]
+            print ('+++Warning: %d TS>10 sources without sed info' % sum(nosed))
+            print (self.df[~hassed]['ts roiname'.split()][:min(20, sum(nosed))])
         cut= (self.df.ts>10) & hassed
         if query is None:
             s = self.df[cut].copy()
         else:
             s=self.df.query(query)
-            print 'Additional cut, {}, results in {} events'.format(query, len(s))
+            print ('Additional cut, {}, results in {} events'.format(query, len(s)))
 
-        print 'selected {} sources with TS>10 and with SED info'.format(len(s))
+        print ('selected {} sources with TS>10 and with SED info'.format(len(s)))
         
         sedrec= [s.iloc[i]['sedrec'] for i in range(len(s))]
 
@@ -690,8 +690,8 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         glat = np.array([x.b() for x in s.skydir])
         fluxcut = (fmodel>minflux) 
         if ldatacut: fluxcut = fluxcut & (ldata>0) #  avoid lower limits
-        print 'after cuts on low energy flux > {:.1f} and significance= {}: {} events'.format(
-                 minflux, ldatacut,sum(fluxcut))
+        print ('after cuts on low energy flux > {:.1f} and significance= {}: {} events'.format(
+                 minflux, ldatacut,sum(fluxcut)))
 
         if pub:
             latcut, cut_labels = abs(glat)> 10.0 ,('|b|>10', '|b|<10')
@@ -703,7 +703,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         
         #lowebad = np.abs(pull)>3
         #s.flags[lowebad] += 4
-        #print 'Tagged %d sources with lowebad bit (4)' % sum(lowebad)
+        #print ('Tagged %d sources with lowebad bit (4)' % sum(lowebad))
 
         lowebad = np.asarray((np.abs(pull)>3) , bool)
         s['lowebad']=lowebad
@@ -711,7 +711,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         self.spec_con= s[fluxcut] # for interactive checks
 
         #self.df.loc[lowebad,'flags'] = np.array(self.df.flags[lowebad],int) | 4
-        #print 'Tagged %d sources with lowebad, abs(pull0)>3, bit (4)' % sum(lowebad)
+        #print ('Tagged %d sources with lowebad, abs(pull0)>3, bit (4)' % sum(lowebad))
 
         y = fdata/fmodel
         ylower, yupper =[(fdata-ldata)/fmodel,(udata-fdata)/fmodel]
@@ -739,7 +739,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
                             name, len(vals), 
                             np.sqrt((vals[vals<0]**2).mean()), np.sqrt((vals[vals>0]**2).mean())), 
                         **hist_kw)
-                print name, vals.std(), np.sqrt((vals[vals<0]**2).mean()), np.sqrt((vals[vals>0]**2).mean())
+                print (name, vals.std(), np.sqrt((vals[vals<0]**2).mean()), np.sqrt((vals[vals>0]**2).mean()))
             ax.set_xlabel('normalized residual')
 
             ax.set_xlim((-3,3))
@@ -831,7 +831,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         # Generate summary table for flagged sources (except 
         t =self.df[(self.df.flags& 7 >0) & (self.df.ts>10)]['ra dec ts fitqual pull0 eflux pindex beta cutoff index2 flags roiname'.split()]
         t.to_csv('flagged_sources.csv')
-        print 'wrote %d sources to flagged_sources.csv' % len(t)
+        print ('wrote %d sources to flagged_sources.csv' % len(t))
         
         num=[sum(self.df.flags & 2**b > 0) for b in range(4)] 
         flagtable=pd.DataFrame(dict(number=num, description=('tails','poor fits','low energy bad', 'poor localization') ))
@@ -847,8 +847,8 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             <p>These can be examined with a 
             <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>,
             which requires Silverlight."""  % pc.cId
-        except Exception, msg: 
-            print "**** Failed to make pivot table, perhaps need to run sedinfo first: %s" % msg
+        except Exception as msg: 
+            print ("**** Failed to make pivot table, perhaps need to run sedinfo first: %s" % msg)
         return None
 
     def flux_table(self, source_name):
@@ -912,7 +912,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         df['rname'] = np.array(['HP12_{:04d}'.format(x) for x in df.roi])
         df['roi_dist'] = map(lambda s,r: np.degrees(s.difference(Band(12).dir(r))),df.skydir,df.roi)
         check = df.roi!=df.actual_roi; 
-        print 'Found {} sources in the wrong ROI'.format(sum(check))
+        print ('Found {} sources in the wrong ROI'.format(sum(check)))
         fig,axx = plt.subplots(1,2,figsize=(10,4))
         ax=axx[0]
         ax.hist(pocc, np.linspace(1,80,80),log=True);
@@ -959,7 +959,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         try:
             s = self.df.loc[name]
         except:
-            print 'Name "{}" not found'.format(name)
+            print ('Name "{}" not found'.format(name))
             #flag not found
             return sources.PointSource(name=name, model=None, skydir=None, sedrec=None, ts=-1)
 
@@ -1024,7 +1024,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
         colstosave="""ra dec roiname ts aprob eflux100 modelname freebits fitqual e0 flux flux_unc pindex pindex_unc index2 index2_unc
                  cutoff cutoff_unc  eflux100_unc locqual delta_ts a b ang flags jname""".split()
         self.df.loc[(self.df.ts>10) | self.df.psr ][colstosave].to_csv(self.csvfile)
-        print 'saved truncated csv version to "%s"' %self.csvfile
+        print ('saved truncated csv version to "%s"' %self.csvfile)
         
         self.runfigures([self.census, 
             self.cumulative_ts, 
@@ -1058,7 +1058,7 @@ class SourceInfo(analysis_base.AnalysisBase): #diagnostics.Diagnostics):
             return (n, (np.degrees(t[n])*3600).round()) #return rounded arcsec dist
         oth_skydir = map(SkyDir, np.array(df.ra,float),np.array(df.dec,float)) if 'skydir' not in df else df.skydir
         f95, quad = self.config['localization_systematics']
-        print 'Applying factor of {:.2f} to localization errors, and adding {:.3g} arcmin in quadrature to r95'.format(f95, quad)
+        print ('Applying factor of {:.2f} to localization errors, and adding {:.3g} arcmin in quadrature to r95'.format(f95, quad))
         dfuw = self.df
         diff_array =differences(oth_skydir, dfuw.skydir)
         cl_oth = np.array([closest(r) for r in diff_array[:,]], int)
@@ -1089,7 +1089,7 @@ class ExtSourceInfo(SourceInfo):
         curdir = os.getcwd()
         try:
             os.chdir(model_path)
-            if not quiet: print os.getcwd()
+            if not quiet: print (os.getcwd())
             self.setup(refresh=False, quiet=quiet)
             self.plotfolder=model_path+'/plots/'+self.plotfolder
         finally:

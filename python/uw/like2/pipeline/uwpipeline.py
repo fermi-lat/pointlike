@@ -42,9 +42,9 @@ class JobProc(Summary):
         stage = self.get_stage(args)
         proc, jobargs = stagedict.stagenames[stage].setup()
         if args.rois!='':
-            print '-->passing roi list:', args.rois
+            print ('-->passing roi list:', args.rois)
             jobargs['roi_list']=args.rois
-        print '--> starting pipeline job: running class %s with args %s' % (proc, jobargs)
+        print ('--> starting pipeline job: running class %s with args %s' % (proc, jobargs))
         pipeline_job.main(proc, **jobargs)
   
 class CheckJobs(Summary):
@@ -60,7 +60,7 @@ class CheckData(Summary):
         stage = self.get_stage(args)
         if os.path.exists('failed_rois.txt'):
            os.remove('failed_rois.txt')
-           print 'Removed file with failed rois'
+           print ('Removed file with failed rois')
         
         check_data.main(args)
  
@@ -99,7 +99,7 @@ def find_script_folder(cwd):
         """
     m = cwd.find('skymodels')
     if m<0:
-        print 'WARNING: did not find "skymodels" in path to cwd, which is %s' %cwd
+        print ('WARNING: did not find "skymodels" in path to cwd, which is %s' %cwd)
         script_folder=cwd
     else: script_folder=cwd[:m]
     if not os.path.exists(os.path.join(script_folder, 'configure.sh')):
@@ -118,7 +118,7 @@ def check_environment(args):
         os.environ['SKYMODEL_SUBDIR'] = os.getcwd()
     else:
         skymodel = os.environ['SKYMODEL_SUBDIR']
-        print 'skymodel:' , skymodel
+        print ('skymodel:' , skymodel)
         assert os.path.exists(skymodel), 'Bad path for skymodel folder: %s' %skymodel
         os.chdir(skymodel)
     cwd = os.getcwd()
@@ -167,15 +167,15 @@ def main( args ):
     check_names(args.stage, args.proc)
     proc = args.proc
     #tee = tools.OutputTee('summary_log.txt')
-    print '\n'+ str(datetime.datetime.today())[:16]
-    print '--> %s for %s'%(proc, args.stage)
+    print ('\n'+ str(datetime.datetime.today())[:16])
+    print ('--> %s for %s'%(proc, args.stage))
     if proc not in procnames:
-        print 'proc name "%s" not recognized: expect one of %s' % (proc, sorted(procnames))
+        print ('proc name "%s" not recognized: expect one of %s' % (proc, sorted(procnames)))
         return
     try:
         procnames[proc](args)
     except Exception, msg:
-        print 'Exception trying to execute procnames[%s](%s):\n\t%s' % ( proc,args, msg)
+        print ('Exception trying to execute procnames[%s](%s):\n\t%s' % ( proc,args, msg))
         raise
     #tee.close()
 

@@ -535,7 +535,7 @@ class ParFile(dict):
         from scipy.optimize import fsolve
         d = self.get_binary_dict()
         if d is None:
-            print 'No binary companion in ephemeris.'
+            print ('No binary companion in ephemeris.')
             return
         a1 = d['A1']*29979245800 # semi-major in cm
         pb = d['PB'] # period in s
@@ -546,9 +546,9 @@ class ParFile(dict):
 
     def t2_mass_range(self):
         # emulate tempo2's calculation
-        print self.comp_mass(m1=1.35,sini=1.0)
-        print self.comp_mass(m1=1.35,sini=0.86603)
-        print self.comp_mass(m1=1.35,sini=0.43589)
+        print (self.comp_mass(m1=1.35,sini=1.0))
+        print (self.comp_mass(m1=1.35,sini=0.86603))
+        print (self.comp_mass(m1=1.35,sini=0.43589))
 
     def eval_freq(self,times,degree=None,t0=None):
         if degree is None:
@@ -558,12 +558,12 @@ class ParFile(dict):
         else: t0 = np.asarray(t0,dtype=np.longdouble)
         times = np.asarray(times,dtype=np.longdouble)
         dts = (times-t0)*86400
-        print dts[0]
+        print (dts[0])
         multi = np.ones_like(times)
         freq = np.zeros_like(times)
         for i in xrange(0,degree+1):
             tterm = self.get('F%d'%i,type=np.longdouble)
-            print tterm,multi[0]
+            print (tterm,multi[0])
             freq += tterm*multi
             multi *= (dts/(i+1))
         return freq
@@ -583,9 +583,9 @@ class ParFile(dict):
         for i in xrange(1,degree+1):
             multis[i] = multis[i-1] * dt/(i+1)
         for i in xrange(0,degree+1):
-            print fns[i:]
-            print multis[:degree+1-i]
-            print fns[i:]*multis[:degree+1-i]
+            print (fns[i:])
+            print (multis[:degree+1-i])
+            print (fns[i:]*multis[:degree+1-i])
             results[i] = (fns[i:]*multis[:degree+1-i]).sum()
         return results
 
@@ -594,11 +594,11 @@ class ParFile(dict):
         t0 = self.get('TZRMJD',type=float)
         pc = polyco.Polyco(self.parfile)
         dt = pc.invert_phase_shift(t0,phase_shift)
-        print dt
+        print (dt)
         sf1 = StringFloat(self.get('TZRMJD'))
-        print sf1
+        print (sf1)
         sf2 = StringFloat(dt)
-        print sf2
+        print (sf2)
         self['TZRMJD'] = str(sf1+sf2)
 
     def eval_phase(self,times,degree=None,t0=None):
@@ -651,7 +651,7 @@ class ParFile(dict):
                 try:
                     val = ''.join(map(pad26,val))
                 except TypeError as e:
-                    print 'Failed writing key/val pair %s/%s.'%(key,val)
+                    print ('Failed writing key/val pair %s/%s.'%(key,val))
                     raise e
                 f.append('%s%s\n'%(key,val))
         try:
@@ -697,7 +697,7 @@ class ParFile(dict):
         s1 = 365.*86400.*1000.*3600.*180/np.pi
         v /= s1
         e /= s1
-        print v,e
+        print (v,e)
         s2 = self.p()*dist/C
         if get_corrected_pdot:
             pdot,epdot = self.pdot(error=True)
@@ -751,13 +751,13 @@ class ParFile(dict):
                 if not hasattr(dm,'__len__'):
                     if not use_last_sig_fig: return 0
                     dme = get_error(dm)
-                    print 'Using %s as DM error for %s'%(dme,dm)
+                    print ('Using %s as DM error for %s'%(dme,dm))
                 else:
                     dme = dm[-1] # should account for .par files with "1/0" in the line
             f0 = self.get('F0',type=float)
             freq = self.get('TZRFRQ',type=float) # in MHz
             if freq==0:
-                print 'TZRFRQ == 0!  Assuming 1400 MHz...'
+                print ('TZRFRQ == 0!  Assuming 1400 MHz...')
                 freq = 1400.
         except KeyError:
             return 0
@@ -827,7 +827,7 @@ class ParFile(dict):
                 else:
                     self.duplicates[newkey] = self.duplicates.pop(key)
         except ValueError:
-            print 'Could not find key %s.'%key
+            print ('Could not find key %s.'%key)
             pass
 
     def delete_val(self,val):
@@ -905,7 +905,7 @@ class ParFile(dict):
         epochs = []
         for key in self.ordered_keys:
             if key.startswith('GLEP'):
-                print key
+                print (key)
                 indices.append(int(key.split('_')[-1]))
                 epochs.append(self.get(key,type=float))
 
@@ -917,7 +917,7 @@ class ParFile(dict):
                 base,idx = key.split('_')
                 new_idx = new_indices[indices.index(int(idx))]
                 self.change_key(key,base+'_%d'%new_idx)
-                print key,base+'_%d'%new_idx
+                print (key,base+'_%d'%new_idx)
 
     def glitch_phase_jump(self,glepoch):
         """ Compute the phase jump associated with a particular glitch."""
@@ -1189,7 +1189,7 @@ def get_resids(par,tim,emax=None,phase=False,get_mjds=False,latonly=False,
     if select is not None:
         cmd += ' -select %s'%select
     if echo:
-        print cmd
+        print (cmd)
     proc = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE)
     toks = [line.split('\t')[1:] for line in proc.stdout if line[:7]=='onerous']
     if len(toks)==0:
@@ -1213,7 +1213,7 @@ def get_resids(par,tim,emax=None,phase=False,get_mjds=False,latonly=False,
         # get observation lengths
         tobs = np.asarray(map(lambda x: float(x) if len(x)>0 else 1e6,
             flag_values(tim,'length')))
-        print errs.shape,jitter,tobs.shape
+        print (errs.shape,jitter,tobs.shape)
         x = (errs**2 + (1e6*jitter)**2/tobs)**0.5
         errs = x
     # if we are restricting large error bars, remove their contribution
@@ -1422,9 +1422,9 @@ def del_flag(tim,flag,output=None):
         new_lines.pop()
         toks = line.split()
         try:
-            print toks
+            print (toks)
             idx = toks.index(flag)
-            print idx
+            print (idx)
             if idx==len(toks)-2:
                 line = ' '.join(toks[:idx])
             else:
@@ -1462,8 +1462,8 @@ def mask_tim(tim,mask,output=None,verbose=False,comment=False):
             continue
         if mask[counter]:
             if verbose:
-                print 'Masking line:'
-                print line
+                print ('Masking line:')
+                print (line)
             masked_lines.append(new_lines.pop())
             if not comment:
                 toks = line.split()
@@ -1624,7 +1624,7 @@ def compute_jump(par,tim,flags,vals,tmin=None,tmax=None,add_jumps=False,
     if not os.path.isfile(tim):
         raise IOError('TOA collection %s is not a valid file!'%tim)
     if len(flags)<2:
-        print 'Fewer than two flags.'
+        print ('Fewer than two flags.')
         return 0
     
     if clear_jumps:
@@ -1667,7 +1667,7 @@ def compute_jump(par,tim,flags,vals,tmin=None,tmax=None,add_jumps=False,
                 flag = '-'+flag
             val = str(vals[i] or 1)
             t = [flag,val,'%.8f'%jumps[i-1]]
-            print 'Adding %s.'%(' '.join(t))
+            print ('Adding %s.'%(' '.join(t)))
             pf.add_key('JUMP',' '.join(t),allow_duplicates=True)
         pf.write(par)
     return jumps

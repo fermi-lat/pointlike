@@ -187,7 +187,7 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
                     local_iso=diffuse.normalization['iso']['front']
                     ratio=local_iso/global_iso
                     rel[:8] /= ratio
-                    print 'using special isotropic normalizatio...\n {}'.format(ratio.round(3))
+                    print ('using special isotropic normalizatio...\n {}'.format(ratio.round(3)))
                 else: ratio=1.0
 
             else:  
@@ -297,7 +297,7 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
             show_chisq=kwargs.pop('show_chisq', True), 
             plot_pulls=kwargs.pop('plot_pulls', True))
     if outfile is not None: 
-       print 'saving counts plot to %s...' %outfile ; sys.stdout.flush()
+       print ('saving counts plot to %s...' %outfile ; sys.stdout.flush())
        plt.savefig(outfile)
 
 
@@ -343,9 +343,9 @@ def stacked_plots(roi, counts_dir=None, fignum=6, title=None, **kwargs):
             fout = os.path.join(counts_dir, ('%s_counts.jpg'%roi.name) )
         else:
             fout = counts_dir
-        print 'saving counts plot to %s ...' % fout, ; sys.stdout.flush()
+        print ('saving counts plot to %s ...' % fout, ; sys.stdout.flush())
         fig.savefig(fout)
-        print 
+        print ()
     fig.set_facecolor('white')
     if figsize is not None:
             fig.set(figwidth=figsize[0], figheight=figsize[1])        

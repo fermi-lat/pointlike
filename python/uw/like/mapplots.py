@@ -23,8 +23,8 @@ def set_path_effects(object,**kwargs):
     try:
         from matplotlib.patheffects import withStroke
         object.set_path_effects([withStroke(**kwargs)])
-    except ImportError, er:
-        print 'Nicer plots require a newer version of matplotlib with patheffects.withStroke!'
+    except ImportError as er:
+        print ('Nicer plots require a newer version of matplotlib with patheffects.withStroke!')
         traceback.print_exc(file=sys.stdout)
 
 class ROIMapPlotter(object):
@@ -213,8 +213,8 @@ class ROIMapPlotter(object):
                                                     white_edge=white_edge, 
                                                     extension_color=extension_color,
                                                     extension_zorder=extension_zorder)
-            except ImportError, er:
-                print "To add extension information to plots, must install modules pyregion/pyparsing."
+            except ImportError as er:
+                print ("To add extension information to plots, must install modules pyregion/pyparsing.")
 
 
         if show_sources:

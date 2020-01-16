@@ -78,14 +78,14 @@ class TimedData(object):
         assert len(files)>0, 'No files found using pattern {}'.format(file_pattern)
         self.name = name
         gbtotal = np.array([os.stat(filename).st_size for filename in files]).sum()/2**30
-        print  'Opening {} files, with {} GB total'.format(len(files), gbtotal)
+        print ('Opening {} files, with {} GB total'.format(len(files), gbtotal))
 
         dflist=[]
         for filename in files:
             dflist.append(TimeInfo(filename).select(*position))
-            print '.',
+            print ('.',)
         self.df = pd.concat(dflist)
-        print 'Selected {} photons'.format(len(self.df))
+        print ('Selected {} photons'.format(len(self.df)))
 
     def plot_time(self, delta_max=2, delta_t=1, xlim=None):
         """
@@ -126,7 +126,7 @@ def create_timed_data(
     files=sorted(glob.glob(monthly_ft1_files))
     assert len(files)>0, 'No ft1 files found at {}'.format(monthly_ft1_files)
     gbtotal = np.array([os.stat(filename).st_size for filename in files]).sum()/2**30
-    print '{} FT1 files found, {} GB total'.format(len(files), gbtotal)
+    print ('{} FT1 files found, {} GB total'.format(len(files), gbtotal))
     outfolder = os.path.expandvars(outfolder)
     if not os.path.exists(outfolder):
         os.makedirs(outfolder)
@@ -135,8 +135,8 @@ def create_timed_data(
         m = filename.split('_')[-2]
         outfile = 'month_{}.pkl'.format(m)
         if not overwrite and os.path.exists(outfile) :
-            print 'exists: {}'.format(outfile)
+            print ('exists: {}'.format(outfile))
             continue
-        print 'writing {}'.format(outfile),
+        print ('writing {}'.format(outfile),)
         tr = binned_data.ConvertFT1(filename).time_record()
         pickle.dump(tr, open(outfile, 'w'))

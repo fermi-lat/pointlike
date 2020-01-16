@@ -28,7 +28,7 @@ def read_seedfile(seedkey,  filename=None, config=None):
             seeds = pd.read_table(filename, sep=' ', skipinitialspace=True, index_col=1,
                 header=None,
                 names='tbin ra dec k_signif pgw_roi fgl_seed fgl_ra fgl_dec fgl_assoc'.split())
-        except Exception,msg:
+        except Exception as msg:
             raise Exception('Failed to read file %s: %s' % (filename, msg))
         names=[]
         for i,s in seeds.iterrows():
@@ -46,7 +46,7 @@ def read_seedfile(seedkey,  filename=None, config=None):
         selector = lambda month : (df.run=='1m   ') & (df.TBIN=='TBIN_{:<2d}'.format(month-1))
         cut = selector(month)
         assert sum(cut)>0, 'No seeds found for month {}'.format(month)
-        print 'Found {} PGWave seeds'.format(sum(cut))
+        print ('Found {} PGWave seeds'.format(sum(cut)))
         ra = np.array(df.Ra[cut],float)
         dec = np.array(df.Dec[cut],float)
         prefix = 'PG{:02d} '.format(int(month))
@@ -85,7 +85,7 @@ def read_seedfile(seedkey,  filename=None, config=None):
                 seeds = pd.read_csv(seedfile)
             else:
                 seeds = pd.read_table(seedfile)
-        except Exception, msg:
+        except Exception as msg:
             raise Exception('Failed to read file %s, perhaps empty: %s' %(seedfile, msg))
  
     seeds['skydir'] = map(SkyDir, seeds.ra, seeds.dec)
@@ -93,7 +93,7 @@ def read_seedfile(seedkey,  filename=None, config=None):
     # check for duplicated names
     dups = seeds.name.duplicated()
     if sum(dups)>0:
-        print '\tRemoving {} duplicate entries'.format(sum(dups))
+        print ('\tRemoving {} duplicate entries'.format(sum(dups)))
         return seeds[np.logical_not(dups)]
     return seeds
 
@@ -142,14 +142,14 @@ def add_seeds(roi, seedkey='all', config=None,
                 roi.freeze('beta',src.name)
             elif src.model.name=='PLSuperExpCutoff':
                 roi.freeze('Cutoff', src.name)
-            print '%s: added at %s' % (s.name, s['skydir'])
-        except Exception, msg:
-            print '*** fail to add source:', msg
+            print ('%s: added at %s' % (s.name, s['skydir']))
+        except Exception as msg:
+            print ('*** fail to add source:', msg)
             if update_if_exists:
                 src = roi.get_source(s.name)
-                print '{}: updating existing source at {} '.format(s.name, s['skydir'])
+                print ('{}: updating existing source at {} '.format(s.name, s['skydir']))
             else:
-                print '{}: Fail to add "{}"'.format(s.name, msg)
+                print ('{}: Fail to add "{}"'.format(s.name, msg))
                 return
         # profile
         prof= roi.profile(src.name, set_normalization=True)
@@ -158,21 +158,21 @@ def add_seeds(roi, seedkey='all', config=None,
         # fit Norm
         try:
             roi.fit(s.name+'_Norm', tolerance=0., ignore_exception=False)
-        except Exception, msg:
-            print '\tFailed to fit seed norm: \n\t{}\nTrying full fit'.format(msg)
+        except Exception as msg:
+            print ('\tFailed to fit seed norm: \n\t{}\nTrying full fit'.format(msg))
             return False
         # fit both parameters
         try:
             roi.fit(s.name, tolerance=0., ignore_exception=False)
-        except Exception, msg:
-            print '\tFailed to fit seed norm and index:'
+        except Exception as msg:
+            print ('\tFailed to fit seed norm and index:')
             return False
         ts = roi.TS()
-        print '\nTS = %.1f' % ts,
+        print ('\nTS = %.1f' % ts,)
         if ts<tsmin:
-            print ' <%.1f, Fail to add.' % tsmin
+            print (' <%.1f, Fail to add.' % tsmin)
             return False
-        else: print ' OK'
+        else: print (' OK')
 
         # one iteration of pivot change
         iter = 2
@@ -183,23 +183,23 @@ def add_seeds(roi, seedkey='all', config=None,
         roi.localize(s.name, update=True, tolerance=1e-3)
         quality = src.ellipse[5] if hasattr(src, 'ellipse') and src.ellipse is not None else None
         if quality is None or quality>lqmax:
-            print '\tFailed localization, quality {}, maximum allowed {}'.format(quality, lqmax)
+            print ('\tFailed localization, quality {}, maximum allowed {}'.format(quality, lqmax))
         
         return True
     
     seedfile = kwargs.pop('seedfile', 'seeds/seeds_{}.csv'.format(seedkey))
     seedlist = select_seeds_in_roi(roi, seedfile)
     if len(seedlist)==0:
-        print 'no seeds in ROI'
+        print ('no seeds in ROI')
         return False
     else:
-        print 'Found {} seeds from {} in this ROI: check positions'.format(len(seedlist),seedfile)
+        print ('Found {} seeds from {} in this ROI: check positions'.format(len(seedlist),seedfile))
 
 
 
     good = 0  
     for sname,s in seedlist.iterrows():
-        print '='*20, sname, 'Initial TS:{:.1f}'.format(s.ts), '='*20
+        print ('='*20, sname, 'Initial TS:{:.1f}'.format(s.ts), '='*20)
         if not add_seed( s):
             roi.del_source(sname)
         else: good +=1
@@ -228,61 +228,61 @@ def create_seeds(keys = ['ts', 'tsp', 'hard', 'soft'], seed_folder='seeds', tsmi
         os.mkdir(seed_folder)
     table_name = 'hptables_{}_512.fits'.format('_'.join(keys))
     if not (update or os.path.exists(table_name)):
-        print "Checking that all ROI map pickles are present..."
+        print ("Checking that all ROI map pickles are present...")
         ok = True;
         for key in keys:
             folder = '{}_table_512'.format(key)
             assert os.path.exists(folder), 'folder {} not found'.format(folder) 
             files = sorted(glob.glob(folder+'/*.pickle'))
-            print folder, 
+            print (folder, )
             n = files[0].find('HP12_')+5
             roiset = set([int(name[n:n+4]) for name in files])
             missing = sorted(list(set(range(1728)).difference(roiset)))
             if missing==0: ok = False
-            print '{} missing: {}'.format(len(missing), missing ) if len(missing)>0 else 'OK' 
+            print ('{} missing: {}'.format(len(missing), missing ) if len(missing)>0 else 'OK' )
         assert ok, 'One or more missing runs'
 
-        print 'Filling tables...'
+        print ('Filling tables...')
         healpix_map.assemble_tables(keys)
     assert os.path.exists(table_name)
 
     # generate txt files with seeds
-    print 'Run cluster analysis for each TS table'
+    print ('Run cluster analysis for each TS table')
     seedfiles = ['{}/seeds_{}.txt'.format(seed_folder, key) for key in keys]
 
     # make DataFrame tables from seedfiles
     tables=[]
     for key, seedfile in zip(keys, seedfiles):
-        print '{}: ...'.format(key),
+        print ('{}: ...'.format(key),)
         if os.path.exists(seedfile) and not update:
-            print 'Seedfile {} exists: skipping make_seeds step...'.format(seedfile)
+            print ('Seedfile {} exists: skipping make_seeds step...'.format(seedfile))
             table = pd.read_table(seedfile, index_col=0)
-            print 'found {} seeds'.format(len(table))
+            print ('found {} seeds'.format(len(table)))
         else:
             rec = open(seedfile, 'w')
             nseeds = check_ts.make_seeds('test', table_name, fieldname=key, rec=rec,
                 seedroot=seedroot+prefix[key], rcut=tsmin, minsize=1,mask=None, max_pixels=max_pixels,)
             if nseeds>0:
                 #read back, set skydir column, add to list of tables
-                print '\tWrote file {} with {} seeds'.format(seedfile, nseeds)
+                print ('\tWrote file {} with {} seeds'.format(seedfile, nseeds))
                 table = pd.read_table(seedfile, index_col=0)
                 table['skydir'] = map(SkyDir, table.ra, table.dec)
                 table['key'] = key
             else:
-                print '\tFailed to find seeds: file {} not processed.'.format(seedfile)
+                print ('\tFailed to find seeds: file {} not processed.'.format(seedfile))
                 continue
         tables.append(table)
 
     if len(tables)<2:
-        print 'No files to merge'
+        print ('No files to merge')
         return
 
     u = merge_seed_files(tables, merge_tolerance);
-    print 'Result of merge with tolerance {} deg: {}/{} kept'.format(merge_tolerance,len(u), sum([len(t) for t in tables]))
+    print ('Result of merge with tolerance {} deg: {}/{} kept'.format(merge_tolerance,len(u), sum([len(t) for t in tables])))
 
     outfile ='{}/seeds_all.csv'.format(seed_folder) 
     u.to_csv(outfile)
-    print 'Wrote file {} with {} seeds'.format(outfile, len(u))
+    print ('Wrote file {} with {} seeds'.format(outfile, len(u)))
             
 def merge_seed_files(tables, dist_deg=1.0):
     """Merge multiple seed files
@@ -323,7 +323,7 @@ def merge_seed_files(tables, dist_deg=1.0):
     
     out = tables[0]
     for t in tables[1:]:
-        print 'merging...'
+        print ('merging...')
         out = merge2(out, t)
     return out
 
@@ -352,16 +352,16 @@ def create_seedfiles(self, seed_folder='seeds', update=False, max_pixels=30000, 
 
     outfile ='{}/seeds_all.csv'.format(seed_folder) 
     if os.path.exists(outfile) and not update:
-        print 'File {} exists'.format(outfile)
+        print ('File {} exists'.format(outfile))
         return pd.read_csv(outfile, index_col=0)
 
     for key, seedfile in zip(self.names, seedfiles):
-        print '{}: ...'.format(key),
+        print ('{}: ...'.format(key),)
         if os.path.exists(seedfile) and not update:
-            print 'Seedfile {} exists: skipping make_seeds step...'.format(seedfile)
+            print ('Seedfile {} exists: skipping make_seeds step...'.format(seedfile))
             table = pd.read_table(seedfile, index_col=0)
             table['key']=key
-            print 'found {} seeds'.format(len(table))
+            print ('found {} seeds'.format(len(table)))
         else:
             rec = open(seedfile, 'w')
             nseeds = check_ts.make_seeds('test', table_name, fieldname=key, rec=rec, 
@@ -369,22 +369,22 @@ def create_seedfiles(self, seed_folder='seeds', update=False, max_pixels=30000, 
                  mask=None, max_pixels=max_pixels,)
             if nseeds>0:
                 #read back, set skydir column, add to list of tables
-                print '\tWrote file {} with {} seeds'.format(seedfile, nseeds)
+                print ('\tWrote file {} with {} seeds'.format(seedfile, nseeds))
                 table = pd.read_table(seedfile, index_col=0)
                 table['skydir'] = map(SkyDir, table.ra, table.dec)
                 table['key'] = key
             else:
-                print '\tFailed to find seeds: file {} not processed.'.format(seedfile)
+                print ('\tFailed to find seeds: file {} not processed.'.format(seedfile))
                 continue
         tables.append(table)
 
     u = merge_seed_files(tables, merge_tolerance);
-    print 'Result of merge with tolerance {} deg: {}/{} kept'.format(merge_tolerance,len(u), sum([len(t) for t in tables]))
+    print ('Result of merge with tolerance {} deg: {}/{} kept'.format(merge_tolerance,len(u), sum([len(t) for t in tables])))
 
     u.index.name='name'
     v = u['ra dec b ts size key'.split()]
     v.to_csv(outfile)
-    print 'Wrote file {} with {} seeds'.format(outfile, len(u)) 
+    print ('Wrote file {} with {} seeds'.format(outfile, len(u)) )
     return v  
 #############################################################
 # code to deal with accidentally removed sources
@@ -392,12 +392,12 @@ def add_old_sources(roi, filename='../uw8608/lost.csv'):
     """add sources from a csv file
     """
     lost = pd.read_csv(filename, index_col=0)
-    print 'read file {} with {} sources'.format(filename, len(lost))
+    print ('read file {} with {} sources'.format(filename, len(lost)))
     sel = lost[lost.roiname==roi.name]
     if len(sel)>0:
-        print 'adding sources {}'.format(list(sel.index))
+        print ('adding sources {}'.format(list(sel.index)))
     else:
-        print 'No sources found in this ROI'
+        print ('No sources found in this ROI')
         return False
     ok = False
     for name, x in sel.iterrows():
@@ -410,11 +410,11 @@ def add_old_sources(roi, filename='../uw8608/lost.csv'):
             ts = roi.TS()
             roi.freeze('beta')
             if ts<25:
-                print 'Not good fit: removing'
+                print ('Not good fit: removing')
                 roi.del_source(x.name)
             else:
                 ok = True
                 roi.get_sed(update=True)# add SED
-        except Exception, msg:
-            print 'Failed to add : {}'.format(msg)
+        except Exception as msg:
+            print ('Failed to add : {}'.format(msg))
     return ok

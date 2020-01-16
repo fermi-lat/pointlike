@@ -119,7 +119,7 @@ class BandLike(object):
         self.model_pixels = self.fixed_pixels.copy()
         for m in self.free_sources:
             if m.counts==0:
-                print 'Source {} is inactive, but free'.format(m.source.name) 
+                print ('Source {} is inactive, but free'.format(m.source.name) )
                 continue # should be no inactive free sources?
             self.model_pixels += m.pix_counts
        
@@ -154,11 +154,11 @@ class BandLike(object):
             pix = np.sum( self.data * np.log(self.model_pixels) )  if self.pixels>0 else 0
             w = pix - self.counts * self.exposure_factor
             return self.unweight * w
-        except FloatingPointError, e:
-            print '%s: Floating point error %s evaluating likelihood for band %s' % (e,self,)
+        except FloatingPointError as e:
+            print ('%s: Floating point error %s evaluating likelihood for band %s' % (e,self,))
             raise
-        except Exception, e:
-            print '{} Exception evaluating likelihood for band {}'.format(e, self)
+        except Exception as e:
+            print ('{} Exception evaluating likelihood for band {}'.format(e, self))
     
     def gradient(self):
         """ gradient of the likelihood with resepect to the free parameters
@@ -269,8 +269,8 @@ class BandLike(object):
         for bb in self:
             try:
                 t.append( bb(loc))
-            except Exception, msg:
-                print 'Fail flux calculation for {}:{}'.format(bb, msg)
+            except Exception as msg:
+                print ('Fail flux calculation for {}:{}'.format(bb, msg))
                 t.append(0)
         return np.array(t)
 
@@ -510,19 +510,19 @@ class BandLikeList(list):
             g = self.gradient()
             H = self.hessian()
             return np.dot( np.dot(g, np.linalg.inv(H)) , g)/4
-        except Exception, msg:
-            print 'Failed log likelihood estimate, returning 99.: %s' % msg
+        except Exception as msg:
+            print ('Failed log likelihood estimate, returning 99.: %s' % msg)
             return 99.
 
     def parameter_summary(self, out=None):
         """formatted summary of parameters, values, gradient
         out : None or open stream
         """
-        print >>out, 'log likelihood: %.1f' % self.log_like()
-        print >>out,'\n%-21s %8s %8s' % ('parameter', 'value', 'gradient')
-        print >>out,  '%-21s %8s %8s' % ('---------', '-----', '--------')
+        print ('log likelihood: %.1f' % self.log_like(), file=out)
+        print ('\n%-21s %8s %8s' % ('parameter', 'value', 'gradient'), file=out)
+        print ('%-21s %8s %8s' % ('---------', '-----', '--------'), file=out)
         for u in zip(self.sources.parameter_names, self.sources.parameters, self.gradient()):
-            print >>out, '%-21s %8.2f %8.1f' % u
+            print ('%-21s %8.2f %8.1f' % u, file=out)
        
     def freeze(self, parname, source_name=None, value=None):
         """ freeze the parameter, optionally set the value
@@ -560,7 +560,7 @@ class BandLikeList(list):
             source_name, parname = parname.split('_')
         source = self.get_source(source_name)
         source.thaw(parname)
-        #print 'Thawed: {}_{}'.format(source_name, parname)
+        #print ('Thawed: {}_{}'.format(source_name, parname))
         # make sure SunMoon does not change - don't understand how this seems to happen!
         self.get_source('SunMoon').model.free=[False]
         self.reinitialize()
@@ -586,7 +586,7 @@ class BandLikeList(list):
         """
         try:
             source_index = int(source_index)
-        except ValueError,TypeError:
+        except (ValueError,TypeError):
             self.get_source(source_index)
             source_index=self.sources.selected_source_index
         # get the BandLike object for energy and event type

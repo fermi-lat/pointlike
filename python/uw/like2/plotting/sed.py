@@ -103,8 +103,8 @@ class Plot(object):
         if butterfly:
             try:
                 self.plot_butterfly(m, color=kwargs.get('color', 'red'))
-            except Exception, msg:
-                print 'fail to plot butterfly for {}:{}'.format(self.name, msg)
+            except Exception as msg:
+                print ('fail to plot butterfly for {}:{}'.format(self.name, msg))
 
     def plot_butterfly(self, m, color='green', alpha=0.25 ):
         energy_flux_factor = self.scale_factor*1e6 # from MeV to eV
@@ -112,8 +112,8 @@ class Plot(object):
         dom = self.dom
         try:
             e0 = m.pivot_energy()
-        except Exception, msg:
-            print 'pivot failure: using 1 GeV for {}'.format(self.name)
+        except Exception as msg:
+            print ('pivot failure: using 1 GeV for {}'.format(self.name))
             e0=1000
         flux = m(e0); 
         eflux = lambda e: energy_flux_factor * m(e) * e**2
@@ -226,11 +226,11 @@ class Plot(object):
         if os.path.isdir(outdir):
             fname = self.name.replace(' ','_').replace('+','p') + suffix
             outf = os.path.join(outdir,'%s.jpg'% fname)
-            print 'saving sedfig to %s...' %outf, 
-            plt.savefig(outf, bbox_inches=bbox_inches); print 'Done'
+            print ('saving sedfig to %s...' %outf, )
+            plt.savefig(outf, bbox_inches=bbox_inches); print ('Done')
         else :
             plt.savefig(outdir, bbox_inches=bbox_inches)
-            print 'saved sedfig to %s' %outdir
+            print ('saved sedfig to %s' %outdir)
 
 def sed_table(roi, source_name=None):
     """
@@ -331,8 +331,8 @@ def plot_other_source(source, other_source, emin=None,
                 return sum(p[ee>=emin]**2)
             else:
                 return sum(p[~pd.isnull(p)]**2)
-        except Exception, msg:
-            print msg
+        except Exception as msg:
+            print (msg)
             return 99 ##Fail??
         
     if ax is None:

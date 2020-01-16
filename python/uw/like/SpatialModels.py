@@ -154,51 +154,51 @@ class SpatialModel(object):
         By default, the center is the equatorial origin:
 
             >>> disk = Disk()
-            >>> print np.allclose([disk.center.ra(),disk.center.dec()],[0,0])
+            >>> print (np.allclose([disk.center.ra(),disk.center.dec()],[0,0]))
             True
-            >>> print np.allclose([disk['ra'],disk['dec']],[0,0])
+            >>> print (np.allclose([disk['ra'],disk['dec']],[0,0]))
             True
 
         But this can be overridden
 
             >>> disk = Disk(coordsystem=SkyDir.GALACTIC)
-            >>> print np.allclose([disk.center.l(),disk.center.b()],[0,0])
+            >>> print (np.allclose([disk.center.l(),disk.center.b()],[0,0]))
             True
-            >>> print np.allclose([disk['l'],disk['b']],[0,0])
+            >>> print (np.allclose([disk['l'],disk['b']],[0,0]))
             True
 
         The source center can be specified by defining the galactic origin
 
             >>> disk = Disk(l=22, b=22)
-            >>> print np.allclose([disk.center.l(),disk.center.b()],[22,22])
+            >>> print (np.allclose([disk.center.l(),disk.center.b()],[22,22]))
             True
-            >>> print disk.coordsystem == SkyDir.GALACTIC
+            >>> print (disk.coordsystem == SkyDir.GALACTIC)
             True
 
         Or the equatorial origin
 
             >>> disk = Disk(ra=22, dec=22)
-            >>> print np.allclose([disk.center.ra(),disk.center.dec()],[22,22])
+            >>> print (np.allclose([disk.center.ra(),disk.center.dec()],[22,22]))
             True
-            >>> print disk.coordsystem == SkyDir.EQUATORIAL
+            >>> print (disk.coordsystem == SkyDir.EQUATORIAL)
             True
 
         Or by specifying the center of the source
 
             >>> disk = Disk(center=SkyDir(22, 22))
-            >>> print np.allclose([disk.center.ra(),disk.center.dec()],[22,22])
+            >>> print (np.allclose([disk.center.ra(),disk.center.dec()],[22,22]))
             True
-            >>> print disk.coordsystem == SkyDir.EQUATORIAL
+            >>> print (disk.coordsystem == SkyDir.EQUATORIAL)
             True
 
         The names of the input paramters should be case insensitive:
 
             >>> disk = Disk(rA=10, dEC=-10)
-            >>> print np.allclose([disk.center.ra(),disk.center.dec()],[10,-10])
+            >>> print (np.allclose([disk.center.ra(),disk.center.dec()],[10,-10]))
             True
 
             >>> disk = Disk(L=33, B=10)
-            >>> print np.allclose([disk.center.l(),disk.center.b()],[33,10])
+            >>> print (np.allclose([disk.center.l(),disk.center.b()],[33,10]))
             True
 
         Ambiguous specifications should raise an exception:
@@ -211,7 +211,7 @@ class SpatialModel(object):
         Testing setting the free:
 
             >>> disk = Disk(free=[True,False,False])
-            >>> print disk.free.tolist()
+            >>> print (disk.free.tolist())
             [True, False, False]
 
         Test setting limits:
@@ -332,7 +332,7 @@ class SpatialModel(object):
         try:
             self.__getitem__(item)
             return True
-        except Exception, ex:
+        except Exception as ex:
             return False
         
     def __getitem__(self, index):
@@ -384,13 +384,13 @@ class SpatialModel(object):
 
     def set_limits(self, i, lower, upper, absolute=True):
         """ >>> sm = Disk()
-            >>> print sm.get_limits().tolist()
+            >>> print (sm.get_limits().tolist())
             [[-1.0, 1.0], [-1.0, 1.0], [1e-10, 3.0]]
             >>> sm.set_limits('dec', -2, 2)
-            >>> print sm.get_limits().tolist()
+            >>> print (sm.get_limits().tolist())
             [[-1.0, 1.0], [-2.0, 2.0], [1e-10, 3.0]]
             >>> sm.set_limits('sigma', 1e-20, 10)
-            >>> print sm.get_limits().tolist()
+            >>> print (sm.get_limits().tolist())
             [[-1.0, 1.0], [-2.0, 2.0], [1e-20, 10.0]]
 
         """
@@ -435,7 +435,7 @@ class SpatialModel(object):
         try:
             self.cache()
         except RuntimeWarning:
-            print 'Overflow: parameters: before {}\n\t after {}'.format(p, self.p)
+            print ('Overflow: parameters: before {}\n\t after {}'.format(p, self.p))
 
     def mapper(self,i):
         """ Maps a parameter to an index. 
@@ -475,10 +475,10 @@ class SpatialModel(object):
         """ Freeze the source position. 
 
                 >>> d = Disk()
-                >>> print d.free
+                >>> print (d.free)
                 [ True  True  True]
                 >>> d.freeze_position()
-                >>> print d.free
+                >>> print (d.free)
                 [False False  True]
         """
         self.freeze([0,1],freeze)
@@ -494,13 +494,13 @@ class SpatialModel(object):
             and 'Sigma' for a disk source:
 
                 >>> d = Disk()
-                >>> print d.free
+                >>> print (d.free)
                 [ True  True  True]
                 >>> d.freeze('Sigma')
-                >>> print d.free
+                >>> print (d.free)
                 [ True  True False]
                 >>> d.set_free('sigma')
-                >>> print d.free
+                >>> print (d.free)
                 [ True  True  True]
             """
         i=self.mapper(i)
@@ -515,10 +515,10 @@ class SpatialModel(object):
 
                 >>> d = Disk()
                 >>> d.set_free('sigma', False)
-                >>> print d.get_free('sigma')
+                >>> print (d.get_free('sigma'))
                 False
                 >>> d.set_free('sigma', True)
-                >>> print d.get_free('sigma')
+                >>> print (d.get_free('sigma'))
                 True
         """
         i=self.mapper(i)
@@ -618,7 +618,7 @@ class SpatialModel(object):
 
             Outside the disk edge, the spatial map has intensity 0:
 
-                >>> print spatial_map(SkyDir(1.5,0))
+                >>> print (spatial_map(SkyDir(1.5,0)))
                 0.0
         """
         if not hasattr(self,'template_diameter'):
@@ -814,10 +814,10 @@ class RadiallySymmetricModel(SpatialModel):
 
             Outside the disk edge, the spatial map has intensity 0:
 
-                >>> print profile.effective_edge()
+                >>> print (profile.effective_edge())
                 1.0
 
-                >>> print profile(SkyDir(1.5,0))
+                >>> print (profile(SkyDir(1.5,0)))
                 0.0
             """
         radius,pdf = self.approximate_profile(*args, **kwarsg)
@@ -844,7 +844,7 @@ class Gaussian(RadiallySymmetricModel):
        The default sigma is 0.1 degrees:
 
            >>> gauss = Gaussian()
-           >>> print gauss['sigma']
+           >>> print (gauss['sigma'])
            0.1
        """
 
@@ -974,21 +974,21 @@ class Disk(RadiallySymmetricModel):
             >>> disk['Sigma'] == 1.5
             True
 
-            >>> print disk.center.ra()
+            >>> print (disk.center.ra())
             22.0
-            >>> print disk.center.dec()
+            >>> print (disk.center.dec())
             22.0
 
         You can also specify all parameters in a large list if you want:
 
             >>> disk = Disk(p=[22, 22, 1.5],coordsystem=SkyDir.EQUATORIAL)
-            >>> print disk['ra']
+            >>> print (disk['ra'])
             22.0
         
         And it is easy to set the parameters of a spatial model:
 
             >>> disk['Sigma'] = 0.5
-            >>> print disk['Sigma']
+            >>> print (disk['Sigma'])
             0.5
 
         But extensions can not be negative
@@ -1131,11 +1131,11 @@ class PseudoDisk(PseudoSpatialModel,Disk):
         A pseudodisk should be a disk with extension fixed to SMALL_ANALYTIC_EXTENSION:
         
             >>> x = PseudoDisk()
-            >>> print x.param_names
+            >>> print (x.param_names)
             ['RA' 'DEC']
-            >>> print x.p
+            >>> print (x.p)
             [ 0.  0.]
-            >>> print x.extension() == SMALL_ANALYTIC_EXTENSION
+            >>> print (x.extension() == SMALL_ANALYTIC_EXTENSION)
             True
 
     """
@@ -1233,7 +1233,7 @@ class InterpProfile(RadiallySymmetricModel):
 
             This is just a doctest to test against a previous bug
 
-                >>> print numeric_gauss.log
+                >>> print (numeric_gauss.log)
                 [False False]
         """
         self.r_in_degrees, self.pdf, self.kind = r_in_degrees, pdf, kind

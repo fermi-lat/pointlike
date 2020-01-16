@@ -29,11 +29,11 @@ def downloadFT1( ft1name, emin=100, emax=100000, tmin=0., tmax=0., ra=0., dec=0.
 def check_file(fname,display=False):
     '''Check if the file exists'''
     if not os.access(fname,os.F_OK):
-        print "\033[1;31m The file %s does not exist => exit \033[0m" %(fname)
+        print ("\033[1;31m The file %s does not exist => exit \033[0m" %(fname))
         sys.exit()
     if os.access(fname,os.F_OK):
         if display:
-            print '\tReading file: ', fname
+            print ('\tReading file: ', fname)
         return True
                               
 
@@ -56,7 +56,7 @@ def add_angsep_column(filename,ra=0.,dec=0.):
   # clobber old values
   try:
     file['EVENTS'].data.field(colname)[:] = angsep
-    print 'Clobbered old ANGSEP column.'
+    print ('Clobbered old ANGSEP column.')
   except:
     cols = file['EVENTS'].columns
     newcols = cols.add_col(pyfits.Column(name=colname,format='D',array=angsep))
@@ -86,7 +86,7 @@ def get_header_position(filename):
     i+=1
 
   if keynum == 0:  #DSKEYS start numbering at 1, if this value hasn't been updated, KEYword doesn't exist
-    print 'Error: No position keyword found in fits header (assuming position is RA and DEC.  Exiting...'
+    print ('Error: No position keyword found in fits header (assuming position is RA and DEC.  Exiting...')
     exit()
                 
   keyword='DSVAL%i' %keynum
@@ -117,7 +117,7 @@ def get_header_erange(filename):
     i+=1
 
   if keynum==0:
-    print 'Error: No energy keyword found in fits header.  Exiting...'
+    print ('Error: No energy keyword found in fits header.  Exiting...')
     exit()
 
   keyword='DSVAL%i' %keynum
@@ -178,16 +178,16 @@ def time_check( ft1range, ft2range ):
   ft2start = ft2range['START']
   ft2stop  = ft2range['STOP']
     
-  print "\tFT1: ", ft1start, " ", ft1stop
-  print "\tFT2: ", ft2start, " ", ft2stop
+  print ("\tFT1: ", ft1start, " ", ft1stop)
+  print ("\tFT2: ", ft2start, " ", ft2stop)
 
   if ft2start < (ft1start+100):
     if ft2stop>(ft1stop-100):
       return True
     else:
-      print 'WARNING: you are losing', (ft1stop-ft2stop-100.0)/60.0, ' minutes of data at the end of your FT1 because of a short FT2 file. Override this check with -T 0'
+      print ('WARNING: you are losing', (ft1stop-ft2stop-100.0)/60.0, ' minutes of data at the end of your FT1 because of a short FT2 file. Override this check with -T 0')
   else:
-    print 'WARNING: you are losing', (ft2start-ft1start-100.0)/60.0, ' minutes of data at the beginning of your FT1 because of a short FT2 file. Override this check with -T 0'
+    print ('WARNING: you are losing', (ft2start-ft1start-100.0)/60.0, ' minutes of data at the beginning of your FT1 because of a short FT2 file. Override this check with -T 0')
     return False
 
 # ==================================================
@@ -202,16 +202,16 @@ def load_photon_mjds( ft1name ):
   TIMEZERO = -1
 
   if ft1hdr['TIMESYS'] != 'TDB':
-    print "# !!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-    print "# !!!!!!!!! WARNING !!!!!!!!!! TIMESYS is NOT TDB!  You probably want to barycenter your photons!!!"
-    print "# !!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    print ("# !!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    print ("# !!!!!!!!! WARNING !!!!!!!!!! TIMESYS is NOT TDB!  You probably want to barycenter your photons!!!")
+    print ("# !!!!!!!!!!!!!!!!!!!!!!!!!!!!")
     time.sleep(5)
     # Collect TIMEZERO and MJDREF
     try:
       TIMEZERO = ft1hdr['TIMEZERO']
     except KeyError:
       TIMEZERO = ft1hdr['TIMEZERI'] + ft1hdr['TIMEZERF']
-    #print >>outfile, "# TIMEZERO = ",TIMEZERO
+    #print (>>outfile, "# TIMEZERO = ",TIMEZERO)
     try:
       MJDREF = ft1hdr['MJDREF']
     except KeyError:
@@ -219,7 +219,7 @@ def load_photon_mjds( ft1name ):
       # as a string in the header and uses the "1.234D-5" syntax for floats, which
       # is not supported by Python
       MJDREF = ft1hdr['MJDREFI'] + float(ft1hdr['MJDREFF'].replace('D','E'))
-    #print >>outfile, "# MJDREF = ",MJDREF
+    #print (>>outfile, "# MJDREF = ",MJDREF)
   mjds = ft1dat.field('TIME')/86400.0 + MJDREF + TIMEZERO
 
   return mjds

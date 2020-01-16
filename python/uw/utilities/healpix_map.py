@@ -279,7 +279,7 @@ def make_index_table(nside=12, subnside=512, usefile=True):
     filename = os.path.expandvars('$FERMI/misc/index_table_%02d_%03d.pickle' % (nside, subnside) )
     if os.path.exists(filename) and usefile:
         return pickle.load(open(filename))
-    print 'generating index table for nside, subnside= %d %d' % (nside, subnside)
+    print ('generating index table for nside, subnside= %d %d' % (nside, subnside))
     band, subband = Band(nside), Band(subnside)
     npix, nsubpix = 12*nside**2, 12*subnside**2
     t=np.array([band.index(subband.dir(i)) for i in xrange(nsubpix)])
@@ -333,7 +333,7 @@ class HPtables(HParray):
             files = sorted(glob.glob(os.path.join(outdir, folder,'*.pickle')))
         nf = len(files)
         assert nf>0, 'no pickle files found in %s' % os.path.join(outdir, folder)
-        if nf<1728: print 'warning: missing %d files in folder %s_table; will fill with %s' % ((1728-nf), tname,fill)
+        if nf<1728: print ('warning: missing %d files in folder %s_table; will fill with %s' % ((1728-nf), tname,fill))
         self._indexfun = Band(self.nside).index
 
         self.vec = np.zeros(12*nside**2)
@@ -346,9 +346,9 @@ class HPtables(HParray):
             for i,v in enumerate(pk):
                 self.vec[indeces[i]] = tmap(v) 
         bad = sum(self.vec==fill)
-        if bad>0: print 'WARNING: %d pixels not filled in table %s' % (bad, tname)
+        if bad>0: print ('WARNING: %d pixels not filled in table %s' % (bad, tname))
         else:
-            print 'Table %s Filled ok' % tname
+            print ('Table %s Filled ok' % tname)
     
 class HPskyfun(HParray):
     """generate from a sky function: base class for below
@@ -492,7 +492,7 @@ class HEALPixFITS(list):
         self.energies=energies
         for col in cols:
             self.append( col if col.nside==self.nside else HPresample(col, self.nside) )
-            print 'appended column {}, unit={}'.format(col.name, col.unit)
+            print ('appended column {}, unit={}'.format(col.name, col.unit))
     
     def make_table(self, unit=None):        
         makecol = lambda v: pyfits.Column(name=v.name, format='E', 
@@ -533,7 +533,7 @@ class HEALPixFITS(list):
         if os.path.exists(outfile):
             os.remove(outfile)
         pyfits.HDUList(hdus).writeto(outfile,overwrite=overwrite)
-        print '\nwrote FITS file to %s' % outfile
+        print ('\nwrote FITS file to %s' % outfile)
 
 class HEALPixSkymap():
     """Make a spectral cube, with layers corresponding to a set of energies
@@ -591,8 +591,8 @@ class HEALPixSkymap():
         if os.path.exists(outfile):
             os.remove(outfile)
         pyfits.HDUList(hdus).writeto(outfile)
-        print '\nwrote FITS Skymap file, nside={}, {} energies, to {}'.format(
-           self.nside, len(self.el), outfile, )
+        print ('\nwrote FITS Skymap file, nside={}, {} energies, to {}'.format(
+           self.nside, len(self.el), outfile, ))
 
 
 class FromFITS(HParray):
@@ -638,7 +638,7 @@ class FromCCube(HParray):
             circ=hdr['DSVAL{}'.format(i)]; 
             ra,dec, self.radius = np.array(circ[7:-1].split(','),float)
         except Exception, msg:
-            print 'failed to parse file {}: expected header to have a DSVAL with POS(RA,DEC)'.format(filename), msg
+            print ('failed to parse file {}: expected header to have a DSVAL with POS(RA,DEC)'.format(filename), msg)
             raise
         self.center = SkyDir(ra, dec)
         self.indexfun = Band(self.nside).index
@@ -667,7 +667,7 @@ def mapcube_to_healpix(inputfile,
     galbands = []
     energies = np.sqrt( energy_bins[:-1] * energy_bins[1:] )
     for elow, ehigh in zip(energy_bins[:-1], energy_bins[1:]):
-        print elow,ehigh
+        print (elow,ehigh)
         d.setEnergyRange(max(elow, emin), ehigh)
         t = HPskyfun('e_%d'%np.sqrt(elow*ehigh), d, 256)
         t.setcol()
@@ -683,7 +683,7 @@ def mapcube_to_healpix(inputfile,
         inputfile.replace('.fits', suffix+'.fits')))
     if os.path.exists(fulloutfile):
         os.remove(fulloutfile)
-    print 'writing output file %s' %fulloutfile
+    print ('writing output file %s' %fulloutfile)
     pyfits.HDUList(hdus).writeto(fulloutfile)
 
 
@@ -738,18 +738,18 @@ class Display_map(object):
             elif self.scale=='log': self.scale=lambda x: np.log10(max(x,0.1))
             else:
                 raise Exception, 'unrecognized scale function, %s' %self.scale
-        print 'Can generate %d map figures' %(self.n)
+        print ('Can generate %d map figures' %(self.n))
         self.outdir = outdir
         self.ZEA_kw = kwargs.pop('ZEA_kw', dict())
         if map_dir is not None:
             self.map_path = os.path.join(outdir,map_dir) 
             if not os.path.exists(self.map_path):
                 os.makedirs(self.map_path)
-            print 'will save figures in folder %s' % self.map_path
+            print ('will save figures in folder %s' % self.map_path)
         else: self.map_path = None
         skm = skymodel.SkyModel(outdir)
         self.sources = skm.point_sources+skm.extended_sources
-        print 'loaded %d sources from skymodel %s' % (len(self.sources),outdir)
+        print ('loaded %d sources from skymodel %s' % (len(self.sources),outdir))
          
     def get_pyskyfun(self):
         return PySkyFunction(self)
@@ -804,12 +804,12 @@ class Display_map(object):
                 zea.plot_source(s.name, sdir, symbol='*' if inside else 'd', 
                     markersize=14 if inside else 8,
                     color='w')
-            print 'found %d sources to plot' %count        
+            print ('found %d sources to plot' %count        )
         
         if self.map_path is not None:
             fout = os.path.join(self.map_path,hpname(index)+'.png')
             plt.savefig(fout)
-            print 'saved figure to %s' % fout
+            print ('saved figure to %s' % fout)
         plt.draw_if_interactive()
   
 class ZEAdisplayTasks(object):
@@ -844,14 +844,14 @@ def write_hpmaps(prefix='residual', fitsfile='residuals.fits', nside=512, averag
     t = glob.glob(os.path.join(outdir, prefix+'*_table'))
     assert len(t)>0, 'no tables found'
     names=map(lambda x: os.path.split(x)[1][:-6], t)
-    print 'table names:' , names
+    print ('table names:' , names)
     cols = [HPtables(name, outdir) for name in names]
     if average>0:
         for col in cols:
-            print 'averaging table' , col.name
+            print ('averaging table' , col.name)
             col.average(average)
     HEALPixFITS(cols, nside=nside).write(fitsfile)
-    print 'wrote file %s with %d columns' %(fitsfile, len(cols))
+    print ('wrote file %s with %d columns' %(fitsfile, len(cols)))
 
  
 def neighbor_pixels(index, nside=12):
