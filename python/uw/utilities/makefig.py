@@ -121,13 +121,13 @@ def main(
     
     outdir = os.path.join(figpath, 'combined')
     if not os.path.exists(outdir): os.mkdir(outdir)
-    print 'Creating combined images in folder %s' % outdir
+    print ('Creating combined images in folder %s' % outdir)
 
     for name in names:
         try:
             combine_image(name.replace(' ','_').replace('+', 'p'), figpath, subpaths=subpaths)
         except:
-            print 'fail to convert source "%s"' % name
+            print ('fail to convert source "%s"' % name)
             if not allow_missing: raise
             
     if pivot_dir is not None: make_dzc(outdir, pivot_dir)

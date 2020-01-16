@@ -135,7 +135,7 @@ class OffPeak(object):
         poisson_likelihood = poisson.sf(y,y_predicted)
 
         if not quiet:
-            print 'poisson likelihood=%.2f' % poisson_likelihood
+            print ('poisson likelihood=%.2f' % poisson_likelihood)
 
         if poisson_likelihood > 0.05: return True
         return False
@@ -173,7 +173,7 @@ class OffPeak(object):
         self.first_dphi = dphis[i]
 
         if not self.quiet:
-            print 'Best Off Peak region is ',self.first_off_peak
+            print ('Best Off Peak region is ',self.first_off_peak)
 
         # (*) Find the largest second region
 
@@ -181,7 +181,7 @@ class OffPeak(object):
         peaks = OffPeak.peak_locations(lct)
 
         if len(peaks) < 2:
-            print 'No good off pulse regions'
+            print ('No good off pulse regions')
             self.off_peak = self.first_off_peak
             return
 
@@ -197,7 +197,7 @@ class OffPeak(object):
                 (dphis > self.first_dphi/2.0)
 
         if np.sum(good_region) < 1:
-            print 'No good off pulse regions'
+            print ('No good off pulse regions')
             self.off_peak = self.first_off_peak
             return
 
@@ -205,10 +205,10 @@ class OffPeak(object):
         self.second_off_peak = ranges[i]
 
         if not self.quiet:
-            print 'Second off pulse region candidate is', self.second_off_peak
+            print ('Second off pulse region candidate is', self.second_off_peak)
 
         if isinstance(lcf,WeightedLCFitter):
-            print 'Note, this may not be the optimal way to calculate number of counts (at least, when pulsar weighting...!'
+            print ('Note, this may not be the optimal way to calculate number of counts (at least, when pulsar weighting...!')
 
         # (*) Test if second regions are statistically consistent with eachother
 
@@ -220,11 +220,11 @@ class OffPeak(object):
                                         quiet=self.quiet)
 
         if consistent:
-            if not self.quiet: print 'Keeping second region'
-            print 'phase_fraction = %.2f, %.2f' % (self.first_off_peak.phase_fraction, self.second_off_peak.phase_fraction)
+            if not self.quiet: print ('Keeping second region')
+            print ('phase_fraction = %.2f, %.2f' % (self.first_off_peak.phase_fraction, self.second_off_peak.phase_fraction))
             self.off_peak = self.first_off_peak + self.second_off_peak
         else:
-            if not self.quiet: print 'Rejecting second region'
+            if not self.quiet: print ('Rejecting second region')
             self.off_peak = self.first_off_peak
 
 
