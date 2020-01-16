@@ -44,7 +44,7 @@ class ExposureManager(object):
             raise Exception('one of CALDB aeff files not found: %s' %aeff_files)
         ### THB: Adjust this very late in game, all this pretty obsolete, for pass 8 CALDB format
         self.ea  = [skymaps.EffectiveArea('', filename, 'EFFECTIVE AREA_'+fb) for filename, fb in zip(aeff_files,['FRONT','BACK'])]
-        if self.verbose: print ' -->effective areas at 1 GeV: ', ['%s: %6.1f'% (inst[i],self.ea[i](1000)) for i in range(len(inst))]
+        if self.verbose: print (' -->effective areas at 1 GeV: ', ['%s: %6.1f'% (inst[i],self.ea[i](1000)) for i in range(len(inst))])
         if dm.dataspec.use_weighted_livetime:
             self.exposure = [skymaps.Exposure(dm.lt,dm.weighted_lt,ea) for ea in self.ea]
         else:
@@ -90,7 +90,7 @@ class SpectralAnalysis(OldSpectralAnalysis):
                 try:
                     data_specification = load(file(data_specification))
                 except UnpicklingError:
-                    print 'Invalid pickle file for DataSpecification.'
+                    print ('Invalid pickle file for DataSpecification.')
                     raise Exception
         self.ae = self.dataspec = data_specification
         keyword_options.process(self, kwargs)

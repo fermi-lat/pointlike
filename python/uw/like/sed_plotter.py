@@ -154,7 +154,7 @@ class BandFlux(object):
                 axes.plot([x, x,     x*1.2, x,     x/1.2, x],
                           [y, y*0.6, y*0.6, y*0.4, y*0.6, y*0.6], **kwargs)
             if printout:
-                print '%s %s   %s   %s   %s'%(lsp(int(round(xl))),lsp(int(round(xh))),lsp('%.3g'%r.flux,8),lsp('%.3g'%r.lflux,8),lsp('%.3g'%r.uflux,8))
+                print ('%s %s   %s   %s   %s'%(lsp(int(round(xl))),lsp(int(round(xh))),lsp('%.3g'%r.flux,8),lsp('%.3g'%r.lflux,8),lsp('%.3g'%r.uflux,8)))
  
                       
     def plot_model(self, axes, m, dom,  butterfly, **kwargs):

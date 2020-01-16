@@ -18,7 +18,7 @@ def make_index_table(nside=12, subnside=512, usefile=True):
     filename = os.path.expandvars('$FERMI/misc/index_table_%02d_%03d.pickle' % (nside, subnside) )
     if os.path.exists(filename) and usefile:
         return pickle.load(open(filename))
-    print 'generating index table for nside, subnside= %d %d' % (nside, subnside)
+    print ('generating index table for nside, subnside= %d %d' % (nside, subnside))
     band, subband = Band(nside), Band(subnside)
     npix, nsubpix = 12*nside**2, 12*subnside**2
     t=np.array([band.index(subband.dir(i)) for i in xrange(nsubpix)])
@@ -80,14 +80,14 @@ class ModelCountMaps(object):
             dirs = map(dirfun, pix_ids)
             cnts = np.array(map(eb, dirs),np.float32) * pixel_area
             
-            print '{:4d} {:4d} {:6d} {:8.2e} {:8.2e} {:8.2e}'.format(
-                ebi,nside,len(cnts), cnts.mean(), cnts.min(), cnts.max())
+            print ('{:4d} {:4d} {:6d} {:8.2e} {:8.2e} {:8.2e}'.format(
+                ebi,nside,len(cnts), cnts.mean(), cnts.min(), cnts.max()))
             if subdir is not None:
                 subsubdir = subdir+'/{}'.format(ebi)
                 if not os.path.exists(subsubdir): os.makedirs(subsubdir)
                 outfile = subsubdir+'/HP12_{:04d}.pickle'.format(roi_index)
                 pickle.dump(cnts, open(outfile, 'w'))
-                print '\t\t--> {}'.format(outfile)
+                print ('\t\t--> {}'.format(outfile))
 
 class BandCounts(object):
     """Manage results of the Model counts for a Band
@@ -116,7 +116,7 @@ class BandCounts(object):
             try:
                 values = pickle.load(open(f))
             except Exception, msg:
-                print 'Failed to load file {}: {}'.format(f, msg)
+                print ('Failed to load file {}: {}'.format(f, msg))
                 raise
             assert len(ids)==len(values), 'oops: {} ids, but {} values'.format(len(ids), len(values))
             d.update(zip(ids, values))
@@ -129,7 +129,7 @@ class BandCounts(object):
 
     def dump(self):
         pickle.dump(self.counts, open(self.filename, 'w'))
-        print 'Saved file {}'.format(self.filename)
+        print ('Saved file {}'.format(self.filename))
 
     def load(self):
         self.counts = pickle.load(open(self.filename))
@@ -158,13 +158,13 @@ class SimulatedPixels(binned_data.Pixels):
         if numchan is None:
             numchan=len(band_folders)
         sim = dict()
-        print 'Simulating from model predictions in\n  {}\n  chan   pixels    counts'.format(
-            os.path.abspath(self.countsfolder))
+        print ('Simulating from model predictions in\n  {}\n  chan   pixels    counts'.format(
+            os.path.abspath(self.countsfolder)))
         for f in  band_folders[:numchan]:
             channel = int(os.path.split(f)[-1])
-            print '{:6d}'.format(channel), 
+            print ('{:6d}'.format(channel), )
             sim[channel]= s= BandCounts(channel).simulate()
-            print '{:8d} {:9d}'.format(s.shape[1], sum(s[1,:]))
+            print ('{:8d} {:9d}'.format(s.shape[1], sum(s[1,:])))
             
         # set these to be consistent with base class    
         keys = sorted(sim.keys())

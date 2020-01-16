@@ -18,7 +18,7 @@ def makefits(r, filename=None, **kwargs):
         try:
             return {'<f8':'D', '<f4':'E', '<i4':'J', '|b1':'L', '|O4':'|O4','<i8':'I',}[dtype]
         except KeyError:
-            print 'recarry type %s not recognized' %dtype
+            print ('recarry type %s not recognized' %dtype)
             raise
     def column(n,f):
         if f!='|O4': return pyfits.Column(name=n, format=f, array=r[n])
@@ -41,14 +41,14 @@ def fitsrec(filename, HDU=1, quiet=False):
     " make and return a record array from a FITS file"
 
     d=pyfits.open(filename)[HDU].data
-    if not quiet: print 'loaded file, %s, found %d entries' % (filename, len(d))
+    if not quiet: print ('loaded file, %s, found %d entries' % (filename, len(d)))
     names = [name.lower() for name in d.names]
 
     fields = [np.asarray(d.field(name)).astype(float if format.find('A')==-1 else str )
                  for name,format in zip(names,d.formats)]
     trunc_fields = [f if len(f.shape)==1 else f[:,0] for f in fields]
     r = np.rec.fromarrays(trunc_fields, names=names)
-    if not quiet: print r.dtype
+    if not quiet: print (r.dtype)
     return r
 
 def textrec(filename, quiet=False, insertname=False, delimiter=' '):
@@ -59,8 +59,8 @@ def textrec(filename, quiet=False, insertname=False, delimiter=' '):
     if insertname: names.insert(0,'name')
     r = mlab.csv2rec(filename, skiprows=1, delimiter=delimiter, names=names)
     if not quiet: 
-        print 'loaded file %s, found %d entries' %(filename, len(r))
-        print r.dtype
+        print ('loaded file %s, found %d entries' %(filename, len(r)))
+        print (r.dtype)
 
     return r
 
