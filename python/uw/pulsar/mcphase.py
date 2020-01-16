@@ -133,10 +133,10 @@ class MCPhase(object):
             if len(self.ft1files) == 1:
                 self.ft1files = self.ft1files[0]
             else:
-                print 'ERROR!'
-                print 'Multiple FT1 files were passed in.'
-                print 'Writeback to multiple files is not supported.'
-                print 'Please process multiple FT1 files individually.'
+                print ('ERROR!')
+                print ('Multiple FT1 files were passed in.')
+                print ('Writeback to multiple files is not supported.')
+                print ('Please process multiple FT1 files individually.')
                 return
 
         new_file_name = new_file_name or self.ft1files
@@ -150,7 +150,7 @@ class MCPhase(object):
 
         if adj_time_col_name is not None:
             if self.pm is not None:
-                print 'Writing out adjusted event times to %s'%(adj_time_col_name)
+                print ('Writing out adjusted event times to %s'%(adj_time_col_name))
                 newtimes = self.data['TIME'] + self.timeshifts
                 try:
                     f[1].data.field(adj_time_col_name)
@@ -159,13 +159,13 @@ class MCPhase(object):
                     col  = pyfits.Column(name=adj_time_col_name,format='D',array=newtimes)
                     newcols += [col]
             else:
-                print 'ERROR!'
-                print 'Found a column to write out adjusted time, but no'
-                print 'PhaseMapper was provided to calculate the time shifts.'
-                print 'No time entry will be written.'
+                print ('ERROR!')
+                print ('Found a column to write out adjusted time, but no')
+                print ('PhaseMapper was provided to calculate the time shifts.')
+                print ('No time entry will be written.')
 
         if phase_col_name is not None:
-            print 'Writing out pulse phase column to %s'%(phase_col_name)
+            print ('Writing out pulse phase column to %s'%(phase_col_name))
             try:
                 f[1].data.field(phase_col_name)
                 f[1].data.field(phase_col_name)[:] = self.phases

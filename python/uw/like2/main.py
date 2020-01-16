@@ -110,10 +110,10 @@ class ROI(views.LikelihoodViews):
         #     sourcelist=glob.glob('sources_*.csv')[0]
         #     df = pd.read_csv(sourcelist, index_col=3 if roi_spec[0]=='J' else 0)
         #     if roi_spec not in df.index:
-        #         print 'Source name "{}" not found '.format(roi_spec)
+        #         print ('Source name "{}" not found '.format(roi_spec))
         #         raise Exception
         #     roi_index = int(df.loc[roi_spec]['roiname'][-4:]) 
-        #     print 'Loading ROI #{}, containing source "{}"'.format(roi_index, roi_spec)
+        #     print ('Loading ROI #{}, containing source "{}"'.format(roi_index, roi_spec))
         # elif isinstance(roi_spec, int):
         #     roi_index = roi_spec
         # elif type(roi_spec)==tuple and len(roi_spec)==2:
@@ -140,10 +140,10 @@ class ROI(views.LikelihoodViews):
             sourcelist=glob.glob('sources_*.csv')[0]
             df = pd.read_csv(sourcelist, index_col=3 if roi_spec[0]=='J' else 0)
             if roi_spec not in df.index:
-                print 'Source name "{}" not found '.format(roi_spec)
+                print ('Source name "{}" not found '.format(roi_spec))
                 raise Exception
             roi_index = int(df.loc[roi_spec]['roiname'][-4:]) 
-            print 'Loading ROI #{}, containing source "{}"'.format(roi_index, roi_spec)
+            print ('Loading ROI #{}, containing source "{}"'.format(roi_index, roi_spec))
         elif isinstance(roi_spec, int):
             roi_index = roi_spec
         elif type(roi_spec)==tuple and len(roi_spec)==2:
@@ -202,7 +202,7 @@ class ROI(views.LikelihoodViews):
                 
         """
         if len(self.sources.parameters)==0:
-            print 'No parameters to fit'
+            print ('No parameters to fit')
             return
         ignore_exception = kwargs.pop('ignore_exception', False)
         update_by = kwargs.pop('update_by', 1.0)
@@ -220,7 +220,7 @@ class ROI(views.LikelihoodViews):
                 qual = fv.delta_loglike()
                 if qual < tolerance and qual>0:
                     if summarize:
-                        print 'Not fitting, estimated improvement, %.2f, is less than tolerance= %.1f' % (qual, tolerance)
+                        print ('Not fitting, estimated improvement, %.2f, is less than tolerance= %.1f' % (qual, tolerance))
                         return
             try:
                 qual=99.
@@ -228,8 +228,8 @@ class ROI(views.LikelihoodViews):
                 w = fv.log_like()
                 self.fmin_ret = fv.fmin_ret
                 if summarize:
-                    print '%d calls, function value, improvement, quality: %.1f, %.2f, %.2f'\
-                        % (fv.calls, w, w - fv.initial_likelihood, fv.delta_loglike())
+                    print ('%d calls, function value, improvement, quality: %.1f, %.2f, %.2f'\
+                        % (fv.calls, w, w - fv.initial_likelihood, fv.delta_loglike()))
                 # self.fit_info = dict(
                 #     loglike = fv.log_like(),
                 #     pars = fv.parameters[:], 
@@ -242,7 +242,7 @@ class ROI(views.LikelihoodViews):
                 if plot: fv.plot_all()
                 
             except Exception, msg:
-                print 'Fit Failure %s: quality: %.2f' % (msg, qual)
+                print ('Fit Failure %s: quality: %.2f' % (msg, qual))
                 fv.summary() # 
                 if not ignore_exception: raise
             self.fit_info = dict(
@@ -258,10 +258,10 @@ class ROI(views.LikelihoodViews):
         
         """
         if len(self.sources.parameters)==0:
-            print 'No parameters to fit'
+            print ('No parameters to fit')
             return
         with self.fitter_view(select, exclude=exclude) as fv:
-            print 'current likelihood, est. diff to peak: %.1f, %.2f' % (fv.log_like(), fv.delta_loglike())
+            print ('current likelihood, est. diff to peak: %.1f, %.2f' % (fv.log_like(), fv.delta_loglike()))
             fv.summary()
     
     def profile(self, source_name=None, set_normalization=False):
@@ -281,7 +281,7 @@ class ROI(views.LikelihoodViews):
             try:
                 p,maxdev= sf.full()
             except Exception, msg:
-                print 'Failed profile fit for {}: {}'.format(source.name, msg)
+                print ('Failed profile fit for {}: {}'.format(source.name, msg))
                 source.profile=None
                 return 
             err=p.errors
@@ -291,10 +291,10 @@ class ROI(views.LikelihoodViews):
             if not self.quiet:
                 str = '{:20} eflux'.format(source.name)
                 if p.flux>0 and p.errors[0]>0:
-                    print '{} = {:6.3f} (1 + {:.3f} - {:.3f}) eV/cm^2/s, at e0={:.1f} MeV TS={:.1f} '.format(
-                        str, p.flux,err[1],-err[0], source.model.e0, p.ts)
+                    print ('{} = {:6.3f} (1 + {:.3f} - {:.3f}) eV/cm^2/s, at e0={:.1f} MeV TS={:.1f} '.format(
+                        str, p.flux,err[1],-err[0], source.model.e0, p.ts))
                 else:
-                    print '{} < {:6.3f} eV/cm^2/s, at e0={:.1f}'.format(str, t['high'], source.model.e0)
+                    print ('{} < {:6.3f} eV/cm^2/s, at e0={:.1f}'.format(str, t['high'], source.model.e0))
 
             source.profile = t
         if set_normalization:
@@ -318,7 +318,7 @@ class ROI(views.LikelihoodViews):
                 loc.localize()
                 t =  loc.ellipse if hasattr(loc, 'ellipse') else None
             except Exception, e:
-                print 'Failed localization for source %s: %s' % (tsm.source.name, e)
+                print ('Failed localization for source %s: %s' % (tsm.source.name, e))
                 if ignore_exception: return None
                 raise 
         if update and t is not None:
@@ -418,7 +418,7 @@ class ROI(views.LikelihoodViews):
         t= plotting.counts.stacked_plots(self, plot_pulls=plot_pulls, relto=relto, **kwargs)
         if figsize is not None:
             if len(figsize)!=2:
-                print 'expect "size" to be (w,h) tuple'
+                print ('expect "size" to be (w,h) tuple')
             else:
                 t.set(figwidth=figsize[0], figheight=figsize[1])
         if xlim is not None: t.axes[0].set(xlim=xlim)
@@ -447,7 +447,7 @@ class ROI(views.LikelihoodViews):
                          else 2.0 # scale according to major axis s
                 plot_kw.update(size=tsize, pixelsize=kwargs.pop('pixelsize', tsize/15.), maxsize=tsize)
             except Exception, e:
-                print 'Failed localization for source %s: %s' % (source.name, e)
+                print ('Failed localization for source %s: %s' % (source.name, e))
                 if not ignore_exception:
                     raise
             tsp = plotting.tsmap.plot(loc, **plot_kw)
@@ -491,7 +491,7 @@ class ROI(views.LikelihoodViews):
                 with self.tsmap_view(source.name) as tsv:
                     associate.make_association(source, tsv, self.srcid)
             except Exception, msg:
-                print 'Exception raised while associating souurce %s: %s' %(source.name, msg)
+                print ('Exception raised while associating souurce %s: %s' %(source.name, msg))
 
         if source_name=='all':
             sources = filter(lambda s: np.any(s.model.free) and not s.isglobal and not s.isextended, self.sources)
@@ -522,8 +522,8 @@ class ROI(views.LikelihoodViews):
         tsv = self.tsmap_view(source.name)
         old_loc = tsv.saved_skydir
         loc = new_location if isinstance( new_location,SkyDir,) else SkyDir(*new_location)
-        print 'moved position of source %s from %s to %s, change in TS: %.2f'\
-                % (source.name, old_loc, loc, tsv(loc) )
+        print ('moved position of source %s from %s to %s, change in TS: %.2f'\
+                % (source.name, old_loc, loc, tsv(loc) ))
         tsv.set_dir(loc)
         
     def ts_beta(self, source_name=None, ignore_exception=True, beta_limit=[-0.1, 1.0]): 
@@ -551,7 +551,7 @@ class ROI(views.LikelihoodViews):
         """
 
         def fit_one(source):
-            print '----------------- %s (%.1f)-------------' % (source.name, source.ts)
+            print ('----------------- %s (%.1f)-------------' % (source.name, source.ts))
             model, name = source.model, source.name
             fit_pars = dict(tolerance=0, ignore_exception=ignore_exception)
             if model.name=='LogParabola':
@@ -587,7 +587,7 @@ class MultiROI(ROI):
         try:
             roi_index = self.roi_index(roi_spec)
         except Exception, msg:
-            print 'ROI specification "{}" unrecognized'.format(roi_spec)
+            print ('ROI specification "{}" unrecognized'.format(roi_spec))
             return
         roi_bands = bands.BandSet(self.config, roi_index)
         roi_bands.load_data()

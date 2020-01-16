@@ -89,7 +89,7 @@ class ExposureManager(object):
         # account for new 'FB'
         self.ea  = [EffectiveArea('', file, 'EFFECTIVE AREA_'+fb.upper()) for file,fb in zip(aeff_files,inst)]
 
-        if sa.verbose: print ' -->effective areas at 1 GeV: ', ['%s: %6.1f'% (inst[i],self.ea[i](1000)) for i in range(len(inst))]
+        if sa.verbose: print (' -->effective areas at 1 GeV: ', ['%s: %6.1f'% (inst[i],self.ea[i](1000)) for i in range(len(inst))])
         if sa.use_weighted_livetime:
             self.exposure = [Exposure(sa.pixeldata.lt,sa.pixeldata.weighted_lt,ea) for ea in self.ea]
         else:
@@ -230,33 +230,33 @@ def get_default_diffuse(diffdir=None,gfile='gll_iem_v02.fit',ifile='isotropic_ie
             >>> gal, iso = get_default_diffuse(diffdir='$(GLAST_EXT)/diffuseModels/v2r0p1/',
             ...     gfile="ring_2year_P76_v0.fits",
             ...     ifile="isotrop_2year_P76_source_v1.txt")
-            >>> print gal.smodel.name
+            >>> print (gal.smodel.name)
             ScalingPowerLaw
-            >>> print gal.smodel['norm']
+            >>> print (gal.smodel['norm'])
             1.0
-            >>> print gal.smodel['index']
+            >>> print (gal.smodel['index'])
             0.0
-            >>> print gal.smodel.get_mapper('norm')
+            >>> print (gal.smodel.get_mapper('norm'))
             <class 'uw.utilities.parmap.LogMapper'>
-            >>> print gal.smodel.get_mapper('index')
+            >>> print (gal.smodel.get_mapper('index'))
             <class 'uw.utilities.parmap.LinearMapper'>
 
-            >>> print iso.smodel.name
+            >>> print (iso.smodel.name)
             FileFunction
-            >>> print iso.smodel['Normalization']
+            >>> print (iso.smodel['Normalization'])
             1.0
-            >>> print iso.smodel.get_mapper('Normalization')
+            >>> print (iso.smodel.get_mapper('Normalization'))
             <class 'uw.utilities.parmap.LogMapper'>
 
             >>> gal, iso = get_default_diffuse(diffdir='$(GLAST_EXT)/diffuseModels/v2r0p1/',
             ...     gfile="ring_2year_P76_v0.fits",
             ...     ifile="isotrop_2year_P76_source_v1.txt",
             ...     limit_parameters=True)
-            >>> print gal.smodel.get_mapper('norm')
+            >>> print (gal.smodel.get_mapper('norm'))
             LimitMapper(0.1,10,1)
-            >>> print gal.smodel.get_mapper('index')
+            >>> print (gal.smodel.get_mapper('index'))
             LimitMapper(-1,1,1)
-            >>> print iso.smodel.get_mapper('Normalization')
+            >>> print (iso.smodel.get_mapper('Normalization'))
             LimitMapper(0.1,10,1)
 
 

@@ -123,11 +123,11 @@ class SourceAssociation(object):
         try:
             classes = __import__('classes',globals(),locals(),[kw['cpt_class']])
             class_module = getattr(classes,kw['cpt_class'])
-        except ImportError, AttributeError:
+        except (ImportError, AttributeError):
             raise SrcidError("Counterpart class %s not found."%kw['cpt_class'])
         if not self.catalogs.has_key(kw['cpt_class']):
             self.catalogs[kw['cpt_class']] = Catalog(class_module,self.catalog_dir,verbosity=self.verbosity)
-            #print 'loaded catalog %s' %class_module
+            #print ('loaded catalog %s' %class_module)
         these = self.catalogs[kw['cpt_class']].associate(position,error,
                                                          trap_mask=kw['trap_mask'],
                                                          unique = kw['unique'],
@@ -275,7 +275,7 @@ class Catalog(object):
             raise CatalogError(self.cat_file,'No catalog information found.')
         #try:
         names = [' '.join([self.name_prefix,x]).strip() for x in self._get_ids()]
-        #except Exception, msg:
+        #except Exception as msg:
         #    raise CatalogError(self.cat_file, 'error finding ids: %s' % msg)
         if names is None:
             raise CatalogError(self.cat_file,'Could not find column with source names')
@@ -364,11 +364,11 @@ class Catalog(object):
                 name_key = card.value
                 break
         if name_key=='':
-            print 'Catalog %s: did not find name column' %self.class_module
+            print ('Catalog %s: did not find name column' %self.class_module)
         try:
             return self.hdu.data.field(name_key)
         except KeyError:
-            print 'srcid: key %s not found in list %s' % (name_key, self.hdu.data.field)
+            print ('srcid: key %s not found in list %s' % (name_key, self.hdu.data.field))
             raise
             return
 
@@ -457,7 +457,7 @@ class Catalog(object):
             try:
                 mask = np.logical_and(mask,eval(sel))
             except:
-                print 'failed to evaluate selection "%s"' % sel
+                print ('failed to evaluate selection "%s"' % sel)
         return mask
 
 
@@ -782,12 +782,12 @@ def summary_table(srcid_path=None):
                     fd = pyfits.open(catname)[1].data
                     cd['objects']=len(fd)
                     cd['columns']=fd.columns
-                except Exception, msg:
+                except Exception as msg:
                     cd['objects'] = -2 #cannot open existing file
-                    print catname, msg
+                    print (catname, msg)
             else:
                 cd['objects'] = -1 # not found
-                print catname
+                print (catname)
         cd['catfilename'] = os.path.split(catname)[-1]
     return cats
 
@@ -826,8 +826,8 @@ def test():
     associations = assoc.id(pos,[error,error,0],name = '3C 454.3')
     print(associations)
     #for cat,ass in associations.items():
-    #    print 'Associations in %s:'%cat
-    #    print ass
+    #    print ('Associations in %s:'%cat)
+    #    print (ass)
     #print('\n'.join([str(x[1]) for x in assoc.id(pos,error,'obj-blazar-crates',.33,.8)]))
     #Couldn't find elliptical errors, but want to test input for error.
     #error = (error,error,0.0)
