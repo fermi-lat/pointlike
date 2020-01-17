@@ -13,7 +13,7 @@ def roirec(version, nside=12):
     if len(roi_files)<n:
         t = map(lambda x : int(x[-11:-7]), roi_files)
         missing = [x for x in xrange(n) if x not in t]
-        print 'misssing roi files: %s' % missing
+        print ('misssing roi files: %s' % missing)
         raise Exception('misssing roi files: %s' % missing)
         
     recarray = tools.RecArray('name chisq loglike'.split())
@@ -34,9 +34,9 @@ def check_missing_files(folder):
         t = map(lambda x : int(x[-11:-7]), roi_files)
         missing = [x for x in xrange(n) if x not in t]
         if len(missing)<10:
-            print '\tmisssing roi files: %s' % missing
+            print ('\tmisssing roi files: %s' % missing)
         else:
-            print '\tMissing %d roi files: %s...' %( len(missing), missing[:10])
+            print ('\tMissing %d roi files: %s...' %( len(missing), missing[:10]))
     return missing    
 
 
@@ -48,9 +48,9 @@ def roirec(outdir, check=False):
         t = map(lambda x : int(x[-11:-7]), roi_files)
         missing = [x for x in xrange(n) if x not in t]
         if len(missing)<10:
-            print '\tmisssing roi files: %s' % missing
+            print ('\tmisssing roi files: %s' % missing)
         else:
-            print '\tMissing %d roi files: %s...' %( len(missing), missing[:10])
+            print ('\tMissing %d roi files: %s...' %( len(missing), missing[:10]))
         if check: return missing    
     if check: return[]#    return None # raise Exception('misssing roi files: %s' % missing)
         
@@ -78,7 +78,7 @@ def roirec(outdir, check=False):
             prevlike = logl_list[-1]
         recarray.append(p['name'], chisq, logl, prevlike, histlen)
     if len(bad)>0:
-        print 'no fit info in file(s) %s' % bad if len(bad)<10 else (str(bad[:10])+'...')
+        print ('no fit info in file(s) %s' % bad if len(bad)<10 else (str(bad[:10])+'...'))
     return recarray()
 
 def check_converge(month, tol=10, add_neighbors=True, log=None):
@@ -90,18 +90,18 @@ def check_converge(month, tol=10, add_neighbors=True, log=None):
     from pointlike import IntVector
     from skymaps import Band
     outdir = 'month%02d'%month if type(month)==types.IntType else month
-    #print '%s:' %outdir
+    #print ('%s:' %outdir)
     r = roirec(outdir)
     if r is None: return
     diff = r.loglike-r.prevlike
     nisnan = sum(np.isnan(diff))
     if nisnan>0:
-        print 'warning: %d NaN values in likelihoods: ignoring them' % nisnan
+        print ('warning: %d NaN values in likelihoods: ignoring them' % nisnan)
         diff[np.isnan(diff)]=0
     dmin,dmax = diff.min(), diff.max()
     rmin,rmax = list(diff).index(dmin), list(diff).index(dmax)
     changed = set(np.arange(1728)[np.abs(diff)>tol])
-    print >>log, '\tpass %d:  %d changed > %d, min, max: %d(#%d) %d(#%d)' % (max(r.niter),len(changed), tol, dmin,rmin,dmax,rmax),
+    print ('\tpass %d:  %d changed > %d, min, max: %d(#%d) %d(#%d)' % (max(r.niter),len(changed), tol, dmin,rmin,dmax,rmax),, file=log)
     if not add_neighbors: return list(changed)
     nbrs = set()
     b12 = Band(12)
@@ -111,7 +111,7 @@ def check_converge(month, tol=10, add_neighbors=True, log=None):
         for n in v:
             nbrs.add(n)
     q =list(changed.union( nbrs))
-    print >>log, ' (total %d)' %len(q)
+    print (' (total %d)' %len(q), file=log)
     if log is not None: log.flush()
     return q
     

@@ -44,14 +44,14 @@ class HPtables(sourceinfo.SourceInfo):
         for fname in fnames:
             t = fname.split('_')
             if tsname in t:
-                print 'Found table %s in file %s' %(tsname, fname)
+                print ('Found table %s in file %s' %(tsname, fname))
                 self.fname=fname
                 break
         assert self.fname is not None, 'Table %s not found in files %s' %(tsname, fnames)
 
         self.tables = pd.DataFrame(pyfits.open(self.fname)[1].data)
-        print 'loaded file {}, created {}'.format(self.fname, 
-            time.asctime(time.localtime(os.path.getmtime(self.fname))))
+        print ('loaded file {}, created {}'.format(self.fname, 
+            time.asctime(time.localtime(os.path.getmtime(self.fname)))))
         self.tsmap=healpix_map.HParray(self.tsname, self.tables[self.tsname])
         self.kdemap=healpix_map.HParray('kde', self.tables.kde) if 'kde' in self.tables else None
 
@@ -62,7 +62,7 @@ class HPtables(sourceinfo.SourceInfo):
         if not os.path.exists(seed_df):
             self.make_seeds(refresh=kw.pop('refresh', False), tcut=kw.pop('tsmin',10))
         else:
-            print 'Loading seed file {}'.format(seed_df)
+            print ('Loading seed file {}'.format(seed_df))
             self.seeds = pd.read_csv(seed_df, index_col=0)
     
     def make_seeds(self, refresh=False,  tcut=10, bcut=0, minsize=1):
@@ -70,7 +70,7 @@ class HPtables(sourceinfo.SourceInfo):
         if not os.path.exists(self.seedfile) or os.path.getsize(self.seedfile)==0 or refresh:
                # or os.path.getmtime(self.seedfile)<os.path.getmtime(self.fname)\
                
-            print 'reconstructing seeds: %s --> %s: ' % (self.fname, self.seedfile),
+            print ('reconstructing seeds: %s --> %s: ' % (self.fname, self.seedfile),)
             rec = open(self.seedfile, 'w')
             skymodel=self.skymodel
             
@@ -78,7 +78,7 @@ class HPtables(sourceinfo.SourceInfo):
             if skymodel.startswith('month'):
                 month=int(skymodel[5:]);
                 mask = check_ts.monthly_ecliptic_mask( month)
-                print 'created a mask for month %d, with %d pixels set' % (month, sum(mask))
+                print ('created a mask for month %d, with %d pixels set' % (month, sum(mask)))
             else: mask=None
 
             # Create the seed list by clustering the pixels in the tsmap
@@ -86,7 +86,7 @@ class HPtables(sourceinfo.SourceInfo):
                 nside=self.nside, rcut=tcut, bcut=bcut, rec=rec, 
                 seedroot=self.seedroot, minsize=minsize,
                 mask=~mask if mask is not None else None)
-            print '%d seeds' % nseeds
+            print ('%d seeds' % nseeds)
             if nseeds==0:
                 self.seeds = None
                 self.n_seeds = 0
@@ -104,10 +104,10 @@ class HPtables(sourceinfo.SourceInfo):
         self.seeds['bad'] = [np.isnan(x) for x in self.seeds.ts_fit]
 
         self.n_seeds = len(self.seeds)
-        print 'read in %d seeds from %s' % (self.n_seeds, self.seedfile)
+        print ('read in %d seeds from %s' % (self.n_seeds, self.seedfile))
         outfile = 'seeds_{}.csv'.format(self.tsname)
         self.seeds.to_csv(outfile)
-        print 'wrote csv file {} with fit info, if any'.format(outfile)
+        print ('wrote csv file {} with fit info, if any'.format(outfile))
         
         self.tsmap_analysis="""<p>Seed analysis parameters: 
             <dl>
@@ -179,7 +179,7 @@ class HPtables(sourceinfo.SourceInfo):
         s='Bad seed list'
         df = self.seeds[self.seeds.bad]['ra dec ts size l b roi'.split()].sort_index(by='roi')
         df.to_csv(self.plotfolder+'/bad_seeds.csv')
-        print 'Wrote file {}'.format(self.plotfolder+'/bad_seeds.csv')
+        print ('Wrote file {}'.format(self.plotfolder+'/bad_seeds.csv'))
         s+= html_table(df, name=self.plotfolder+'/bad_seeds', 
                 heading='<h4>Table of %d failed seeds</h4>'%self.bad_seeds,
                 href_pattern='tsmap_fail/%s_tsmap.jpg',

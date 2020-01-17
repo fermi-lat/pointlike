@@ -72,7 +72,7 @@ class ParameterSet(object):
                     raise Exception('Parameter name "%s" not found' % i)
         for key,value in set_dict.items():
             i = par_index(self,key)
-            if not quiet: print key, i, self[i], '-->', value
+            if not quiet: print (key, i, self[i], '-->', value)
             self[i]=value
             
     def __len__(self):
@@ -166,12 +166,12 @@ class ParameterSet(object):
         out : None or open stream
         """
         if len(self.parameter_names)==0:
-            print 'No free parameters'
+            print ('No free parameters')
             return
-        print >>out,'\n%-21s %8s %8s' % ('parameter', 'value', 'error(%)')
-        print >>out,  '%-21s %8s %8s' % ('---------', '-----', '--------')
+        print ('\n%-21s %8s %8s' % ('parameter', 'value', 'error(%)'), file=out)
+        print ('%-21s %8s %8s' % ('---------', '-----', '--------'), file=out)
         for u in zip(self.parameter_names, self.get_parameters(), self.uncertainties):
-            print >>out, '%-21s %8.2f %8.1f' % u
+            print ('%-21s %8.2f %8.1f' % u, file=out)
 
 
 class ParSubSet(ParameterSet):

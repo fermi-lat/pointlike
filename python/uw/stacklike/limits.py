@@ -311,7 +311,7 @@ class BayesianLimit(object):
     >>> lnlx = np.linspace(0,10,100)
     >>> lnly = lnlx*lnlx
     >>> blim = dmlim.BayesianLimit(lnlx,lnly)
-    >>> print blim.getLimit(0.05)  
+    >>> print (blim.getLimit(0.05))
 
 
     """
@@ -361,7 +361,7 @@ class BayesianLimit(object):
                     xmax *= 1.1
 
                 xp = opt.brentq(rf,xmin,xmax)
-                #print i, p, xmin, xmax, rf(xmin), rf(xmax), lnlx[-1], xp
+                #print (i, p, xmin, xmax, rf(xmin), rf(xmax), lnlx[-1], xp)
                 self.xvp.append(xp)
                 xmin = xp
 
@@ -401,7 +401,7 @@ class ProfileLimit(object):
     >>> lnlx = np.linspace(0,10,100)
     >>> lnly = lnlx*lnlx
     >>> plim = dmlim.ProfileLimit(lnlx,lnly)
-    >>> print plim.getLimit(0.05)  
+    >>> print (plim.getLimit(0.05)  )
     """
 
     def __init__(self,lnlx,lnly):
@@ -413,7 +413,7 @@ class ProfileLimit(object):
          
         self._xmin = opt.fminbound(lambda x: -self._fn(x),lnlx[0],lnlx[-1])
         self._fmax = self._fn(self._xmin)
-        #print self._xmin, self._fmax
+        #print (self._xmin, self._fmax)
 
     def getLimit(self,alpha):
         """Evaluate the upper limit corresponding to a C.L. of (1-alpha)%.
@@ -475,8 +475,8 @@ if __name__ == '__main__':
     mlnl_ymax = mlnl_fn(mlnl_xmax)
     plnl_ymax = plnl_fn(plnl_xmax)
 
-    print 'mlnl xmax ', mlnl_xmax
-    print 'plnl xmax ', plnl_xmax
+    print ('mlnl xmax ', mlnl_xmax)
+    print ('plnl xmax ', plnl_xmax)
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -533,13 +533,13 @@ if __name__ == '__main__':
     plt.plot(y,z4)
 
 
-    print '95% C.L. Profile Limit:                 ', 
-    print ProfileLimit(lnlx,lnly).getLimit(0.05)
-    print '95% C.L. Profile Limit (Marginalized):  ', 
-    print ProfileLimit(lnlx,mlnly).getLimit(0.05)
-    print '95% C.L. Bayesian Limit:                ', 
-    print BayesianLimit(lnlx,lnly).getLimit(0.05)
-    print '95% C.L. Bayesian Limit (Marginalized): ', 
-    print BayesianLimit(lnlx,mlnly).getLimit(0.05)
+    print ('95% C.L. Profile Limit:                 ', )
+    print (ProfileLimit(lnlx,lnly).getLimit(0.05))
+    print ('95% C.L. Profile Limit (Marginalized):  ', )
+    print (ProfileLimit(lnlx,mlnly).getLimit(0.05))
+    print ('95% C.L. Bayesian Limit:                ', )
+    print (BayesianLimit(lnlx,lnly).getLimit(0.05))
+    print ('95% C.L. Bayesian Limit (Marginalized): ', )
+    print (BayesianLimit(lnlx,mlnly).getLimit(0.05))
 
     plt.show()

@@ -9,9 +9,9 @@ def nancay_zero(prof_name):
     for line in file(prof_name):
         if line.strip()[0] != '#': continue
         if 'fiducial_point' in line:
-            print 'Found fiducial phase in comments.'
+            print ('Found fiducial phase in comments.')
             return float(line.split('=')[-1].split()[0])
-    print 'No fiducial phase found; using Fourier transform.'
+    print ('No fiducial phase found; using Fourier transform.')
     return -2
 
 def prof_offset(prof_name,average_level=0):

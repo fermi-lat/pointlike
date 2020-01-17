@@ -43,8 +43,8 @@ class MakeCollection(object):
         self.type = imagetype
         self.files.sort() 
         if n ==0: raise InvalidParameter('no %s files found in folder "%s"' % (imagetype,infolder))
-        print 'Will convert %d %s images from %s, collection %s' \
-                % (n, imagetype, infolder,  collection_name)
+        print ('Will convert %d %s images from %s, collection %s' \
+                % (n, imagetype, infolder,  collection_name))
         if not os.path.exists(outfolder): os.mkdir(outfolder)
         self.creator =deepzoom.ImageCreator().create 
         self.cwd = os.getcwd() # needed to add full path to input files
@@ -75,14 +75,14 @@ class MakeCollection(object):
         dview = mec[:]
         dview.clear()
         # Start duplicates of this object in each engine, assume same filesystem
-        print 'setting up %d clients' % len(mec)
+        print ('setting up %d clients' % len(mec))
         dview.execute('import os; os.chdir("%s")'%os.getcwd(), block=True) 
         dview.execute('from uw.like2.pub import dz_collection\n' 
                       'mc = dz_collection.MakeCollection("%s","%s")' \
                     %(self.infolder, self.outfolder), block=True)
         @interactive
         def emc(x): return mc(x)
-        print 'start converting %d files' % len(self.files); sys.stdout.flush()
+        print ('start converting %d files' % len(self.files); sys.stdout.flush())
         dview.map_sync( emc, range(len(self.files)) )
         dview.clear()
         
@@ -94,10 +94,10 @@ class MakeCollection(object):
         os.chdir(self.outfolder)
         images = glob.glob(os.path.join(self.collection_name, '*.xml'))
         if len(images)==0: 
-            print 'Found no DeepZoom images in %s, no collection made.'\
-                    %os.path.join(self.outfolder,self.collection_name)
+            print ('Found no DeepZoom images in %s, no collection made.'\
+                    %os.path.join(self.outfolder,self.collection_name))
         else:
-            print 'Creating collection with %d images' %len(images)
+            print ('Creating collection with %d images' %len(images))
             deepzoom.CollectionCreator().create(images, self.collection_name+'.xml')
         os.chdir(cwd)     
 
@@ -127,7 +127,7 @@ def main():
 
     for folder in (infolder, outfolder):
         if not os.path.exists(folder):
-            print "Folder %s not found" % folder
+            print ("Folder %s not found" % folder)
             sys.exit(1)
     mec = None 
     if options.mec:
@@ -135,7 +135,7 @@ def main():
         mec = Client(profile=mec)
         assert len(mec)>0, 'No engines found'
         
-    print infolder, '-->', outfolder
+    print (infolder, '-->', outfolder)
     mc = MakeCollection(infolder, outfolder, collection_name=options.name)
     mc.convert(mec)
     mc.collect()

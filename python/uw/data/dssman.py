@@ -182,10 +182,10 @@ class DSSEntries(list):
         except IOError:
             print('Could not find file {0}'.format(fits_name))
             return
-        except IndexError, msg: 
+        except IndexError as msg: 
             print('Invalid header index for fits file %s: %s'% (fits_name,msg))
             return
-        except KeyError, msg:
+        except KeyError as msg:
             print('Invalid key for fits file %s: %s'% (fits_name,msg))
             return
         keys = [x for x in h.keys() if x.startswith('DS')]
@@ -244,7 +244,7 @@ class DSSEntries(list):
             if not isinstance(hdu,pyfits.BinTableHDU): continue
             for icol,col in enumerate(hdu.columns):
                 if col.format=='1J':
-                    #print 'update %s'%col.name
+                    #print ('update %s'%col.name)
                     data = hdu.data.field(col.name).astype(np.int32) # apply transform
                     # not sure why above line must be done -- delayed, perhaps?
                     hdu.columns.change_attrib(col.name,'bzero',0)
@@ -312,7 +312,7 @@ def process_pixeldata(pd):
         dss = dsse.get_simple_entry(colnames[i])
         if dss is None:
             if not pd.quiet:
-                print 'DSS keywords specified no %s cut.  Applying the specified pointlike cut %s = %.1f '%(colnames[i],ptlvars[i],ptl_var)
+                print ('DSS keywords specified no %s cut.  Applying the specified pointlike cut %s = %.1f '%(colnames[i],ptlvars[i],ptl_var))
             if indices[i]:
                 # NB only works for cut variables with range [0,max]...
                 # TODO -- make work for all cuts (necessary?)
@@ -327,14 +327,14 @@ def process_pixeldata(pd):
         if ptl_more_stringent:
             dss.set_simple_bound(ptl_var,indices[i])
             if not pd.quiet:
-                print 'Applying more stringent pointlike %s %s cut (%s=%.1f) over that found in DSS keywords (%.1f)'%(colnames[i],sign_string,ptlvars[i],ptl_var,dss_var)
+                print ('Applying more stringent pointlike %s %s cut (%s=%.1f) over that found in DSS keywords (%.1f)'%(colnames[i],sign_string,ptlvars[i],ptl_var,dss_var))
         elif dss_more_stringent:
             pd.__dict__[ptlvars[i]] = dss_var
             if not pd.quiet:
-                print 'Applying more stringent DSS %s %s cut (%.1f) over that found in pointlike (%s=%.1f)'%(colnames[i],sign_string,dss_var,ptlvars[i],ptl_var)
+                print ('Applying more stringent DSS %s %s cut (%.1f) over that found in pointlike (%s=%.1f)'%(colnames[i],sign_string,dss_var,ptlvars[i],ptl_var))
         else:
             if not pd.quiet:
-                print 'Identical cuts on %s %s (%s=%.1f)'%(colnames[i],sign_string,ptlvars[i],ptl_var)
+                print ('Identical cuts on %s %s (%s=%.1f)'%(colnames[i],sign_string,ptlvars[i],ptl_var))
     pd.dsse = dsse
 """
 

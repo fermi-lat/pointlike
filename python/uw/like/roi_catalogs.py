@@ -76,7 +76,7 @@ class FermiCatalog(SourceCatalog):
         
         try:
             self.ts=np.asarray(f[1].data.field('TEST_STATISTIC'))
-        except KeyError, er:
+        except KeyError as er:
             if self.min_ts is not None:
                 raise Exception("Cannot apply min_ts cut since TEST_STATISTIC column not found in fits file.")
 
@@ -96,7 +96,7 @@ class FermiCatalog(SourceCatalog):
                 try:
                     self.models.append(PowerLaw(p=[n0,ind],e0=pen))
                 except AssertionError:
-                    print "Something went wrong with %s, discarding"%f[1].data.field(sname)[i]
+                    print ("Something went wrong with %s, discarding"%f[1].data.field(sname)[i])
                     mask[i] = False
 
         self.dirs    = map(SkyDir,np.asarray(ras).astype(float)[mask],np.asarray(decs).astype(float)[mask])
@@ -191,7 +191,7 @@ class BaseCatalog2FGL(SourceCatalog):
     def __init__(self,catalog,**kwargs):
         keyword_options.process(self, kwargs)
 
-        print "Opening catalog from %s"%catalog
+        print ("Opening catalog from %s"%catalog)
 
         if self.latextdir is None:
             if (not os.environ.has_key('LATEXTDIR') or

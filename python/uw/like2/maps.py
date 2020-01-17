@@ -41,7 +41,7 @@ def make_index_table(nside=12, subnside=nside, usefile=True):
     filename = os.path.expandvars('$FERMI/misc/index_table_%02d_%03d.pickle' % (nside, subnside) )
     if os.path.exists(filename) and usefile:
         return pickle.load(open(filename))
-    print 'generating index table for nside, subnside= %d %d' % (nside, subnside)
+    print ('generating index table for nside, subnside= %d %d' % (nside, subnside))
     band, subband = Band(nside), Band(subnside)
     npix, nsubpix = 12*nside**2, 12*subnside**2
     t=np.array([band.index(subband.dir(i)) for i in xrange(nsubpix)])
@@ -120,7 +120,7 @@ class ModelCountMaps(object):
         if bandlist is None:
             if nbands is not None: bandlist=range(nbands)
             else: bandlist = range(len(roi))
-        print '{:4} {:4} {:6} {:8} {:8} {:8} '.format(*'eb nside cnts mean min max'.split())
+        print ('{:4} {:4} {:6} {:8} {:8} {:8} '.format(*'eb nside cnts mean min max'.split()))
         for ebi in bandlist:
             eb = roi[ebi] #EnergyBand object
 
@@ -134,16 +134,16 @@ class ModelCountMaps(object):
             cnts = np.array(map(eb, dirs),np.float32) * pixel_area
             assert sum(np.isnan(cnts))==0, 'NaN value(s) found'
             
-            print '{:4d} {:4d} {:6d} {:8.2e} {:8.2e} {:8.2e}'.format(
+            print ('{:4d} {:4d} {:6d} {:8.2e} {:8.2e} {:8.2e}'.format()
                 ebi,nside,len(cnts), cnts.mean(), cnts.min(), cnts.max()),
             if subdir is not None:
                 subsubdir = subdir+'/{:02d}'.format(ebi)
                 if not os.path.exists(subsubdir): os.makedirs(subsubdir)
                 outfile = subsubdir+'/HP12_{:04d}.pickle'.format(roi_index)
                 pickle.dump(cnts, open(outfile, 'w'))
-                print '\t--> {}'.format(outfile)
+                print ('\t--> {}'.format(outfile))
             else:
-                print '\t (not saved)'
+                print ('\t (not saved)')
 
 # (Moved to simulation)
 # class BandCounts(object):
@@ -174,7 +174,7 @@ class ModelCountMaps(object):
 #                 values = pickle.load(open(f))
 #                 assert sum(np.isnan(values))==0, 'Found Nan values'
 #             except Exception, msg:
-#                 print 'Failed to load file {}: {}'.format(f, msg)
+#                 print ('Failed to load file {}: {}'.format(f, msg))
 #                 raise
 #             assert len(ids)==len(values), 'oops: {} ids, but {} values'.format(len(ids), len(values))
 #             d.update(zip(ids, values))
@@ -187,7 +187,7 @@ class ModelCountMaps(object):
 
 #     def dump(self):
 #         pickle.dump(self.counts, open(self.filename, 'w'))
-#         print 'Saved file {}'.format(self.filename)
+#         print ('Saved file {}'.format(self.filename))
 
 #     def load(self):
 #         self.counts = pickle.load(open(self.filename))
@@ -265,7 +265,7 @@ class ResidualTS(object):
     def __enter__(self):
         roi.summary()
         roi.fit([self.index]) #check
-        print 'TS check:', roi.TS(self.sourcename)
+        print ('TS check:', roi.TS(self.sourcename))
 
         return self
         
@@ -313,20 +313,20 @@ class ResidualUpperLimit(ResidualTS):
         self.roi.calls =0
         self.model[0]=1e-13 # initial value 
         self.roi.initialize(sourcename=self.sourcename)
-        #print 'Studying source %s at %s' % (self.sourcename, skydir) ,
+        #print ('Studying source %s at %s' % (self.sourcename, skydir) ,)
 
         with sedfuns.SED(self.roi, self.sourcename) as sf:
             try: # get a PoissonFItter object 
                 pf = sf.select(None, delta=1e-3) 
                 poiss = pf.poiss 
-                #print 'TS, maxdev: %.2f %.2f' % (poiss.ts, pf.maxdev)
+                #print ('TS, maxdev: %.2f %.2f' % (poiss.ts, pf.maxdev))
                 lim = poiss.percentile()
                 if lim==0:
-                    print 'Limit is zero at {}'.format(skydir)
+                    print ('Limit is zero at {}'.format(skydir))
                 return lim
             except Exception, msg:
                 p = 0
-                print 'Failed at %s: %s' % (skydir,msg)
+                print ('Failed at %s: %s' % (skydir,msg))
                 return 0
  
 
@@ -356,12 +356,12 @@ class ROItables(object):
     def process_table(self, skyfun, name, pos_list, outfile=None, **kwargs):
         sys.stdout.flush()
         skytable = np.array([skyfun(p) for p in pos_list])
-        print ' min=%6.2e, max=%6.2e, mean=%6.2e ' \
+        print (' min=%6.2e, max=%6.2e, mean=%6.2e ' \)
             % (skytable.min(), skytable.max(),skytable.mean()) ,
         if outfile is not None:
-            print '--> %s' % outfile
+            print ('--> %s' % outfile)
             pickle.dump(skytable, open(outfile,'wb'))
-        else: print  
+        else: print()
         if hasattr(skyfun,'reset'): skyfun.reset() 
   
     def __call__(self, roi):
@@ -501,12 +501,12 @@ def residual_maps(roi, folder='residual_maps', nbands=4, test=False):
                   ids=ids, model= model,data= data,inside=inside, source=source_cnts, 
                   galactic=galactic,isotropic=isotropic)
         chi2 = sum((data-model)**2/model)
-        print '{:5.0f} {:5d} {:4d}   {:4.0f}/{:4d}   {:+0.1%}'.format(energy, event_type, nside,
-                                                                 chi2, len(data), (data/model-1).mean())
+        print ('{:5.0f} {:5d} {:4d}   {:4.0f}/{:4d}   {:+0.1%}'.format(energy, event_type, nside,
+                                                                 chi2, len(data), (data/model-1).mean()))
         return dd
         
     roi_id = Band(12).index(roi.roi_dir)
-    print 'energy type nside  chi2/ ndf  offset'
+    print ('energy type nside  chi2/ ndf  offset')
     maps = [residual_map(index)   for index in range(nbands)]
     if test:
         return maps
@@ -514,7 +514,7 @@ def residual_maps(roi, folder='residual_maps', nbands=4, test=False):
         os.mkdir(folder)
     filename = '{}/ROI_{:04d}.pickle'.format(folder,roi_id)
     pickle.dump(maps, open(filename,'w'))
-    print 'Wrote file {}'.format(filename)
+    print ('Wrote file {}'.format(filename))
 
 
 def assemble_tables(table_names, outputfile=None, folder= '.', nside=nside):
@@ -540,7 +540,7 @@ def make_index_table(nside=12, subnside=nside, usefile=True):
     filename = os.path.expandvars('$FERMI/misc/index_table_%02d_%03d.pickle' % (nside, subnside) )
     if os.path.exists(filename) and usefile:
         return pickle.load(open(filename))
-    print 'generating index table for nside, subnside= %d %d' % (nside, subnside)
+    print ('generating index table for nside, subnside= %d %d' % (nside, subnside))
     band, subband = Band(nside), Band(subnside)
     npix, nsubpix = 12*nside**2, 12*subnside**2
     t=np.array([band.index(subband.dir(i)) for i in xrange(nsubpix)])
@@ -575,7 +575,7 @@ class MultiMap(object):
             files = sorted(glob.glob(os.path.join(outdir, folder,'*.pickle')))
         nf = len(files)
         assert nf>0, 'no pickle files found in %s' % os.path.join(outdir, folder)
-        if nf<1728: print 'warning: missing %d files in folder %s_table; will fill with %s' % ((1728-nf), tname,fill)
+        if nf<1728: print ('warning: missing %d files in folder %s_table; will fill with %s' % ((1728-nf), tname,fill))
 
         mvec = np.zeros((12*nside**2,len(names)))
         mvec.fill(fill)
@@ -587,9 +587,9 @@ class MultiMap(object):
             for i,v in enumerate(pk):
                 mvec[indeces[i]] = v 
         bad = sum(mvec==fill)
-        if np.any(bad)>0: print 'WARNING: %d pixels not filled in table %s' % (bad, tname)
+        if np.any(bad)>0: print ('WARNING: %d pixels not filled in table %s' % (bad, tname))
         else:
-            print 'Table "{}" Filled with columns {}'.format(tname, names)
+            print ('Table "{}" Filled with columns {}'.format(tname, names))
         self.mvec= mvec
 
         

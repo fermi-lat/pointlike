@@ -24,7 +24,7 @@ def table_array_max(name, outdir):
     files =glob.glob(os.path.join(outdir, '%s_table'%name,'*.pickle'))
     nf = len(files)
     assert nf>0, 'no pickle files found in %s' % os.path.join(outdir, '%s_table'%name)
-    if nf<1728: print 'warning: missing %d files' % (1728-nf)
+    if nf<1728: print ('warning: missing %d files' % (1728-nf))
     files.sort()
     maxes = map(lambda f:pickle.load(open(f)).max(), files)
     return maxes

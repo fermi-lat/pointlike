@@ -58,7 +58,7 @@ def SelectPhase(infile,outfile=None,phmin=0,phmax=1,phcolname='PULSE_PHASE'):
         
     except KeyError:
         from sys import exit
-        print "No %s column. Exiting ..." %phcolname; exit()
+        print ("No %s column. Exiting ..." %phcolname; exit())
 
 # =============================
 # Class to manage the PSUE file
@@ -217,7 +217,7 @@ class PSUEAnalysis():
         self.srcmdl_out      = self.ft1file_gtis.replace('.fits','_srcmdl_output.xml')
 
         if not isfile(self.ft2file):
-            print "Error. Cannot open %s! Exiting ..." %self.ft2file; exit()
+            print ("Error. Cannot open %s! Exiting ..." %self.ft2file; exit())
         
         # BATCH mode
         if self.batch:
@@ -283,7 +283,7 @@ class PSUEAnalysis():
         forceFolding    If True, the phases will be replaced '''
 
         if not isfile(self.ft1file):
-            print "Error. Cannot open %s! Must create FT1file. Exiting ..." %self.ft1file; exit()
+            print ("Error. Cannot open %s! Must create FT1file. Exiting ..." %self.ft1file; exit())
             
         phase_exists = False
         file = pyfits.open(self.ft1file)
@@ -297,7 +297,7 @@ class PSUEAnalysis():
 
             if self.batch:
                 if not isfile(ft1file):
-                    print 'Copying %s to %s'%(self.ft1file,self.outdir)
+                    print ('Copying %s to %s'%(self.ft1file,self.outdir))
                     copy(self.ft1file,self.outdir)
                 if not isfile(ft2file): copy(self.ft2file,self.outdir)
                 
@@ -307,12 +307,12 @@ class PSUEAnalysis():
                 # remove line below for J2215 -- what other pulsars does it affect?
                 #if len(self.parfile) == 1: start, finish = 54000, 58000
                 cmd = "tempo2 -gr fermi -ft1 %s -ft2 %s -f %s -tmin %s -tmax %s -phase -graph 0" %(ft1file,ft2file,p,start,finish)
-                print 'Issuing the folding command: \n%s'%cmd
+                print ('Issuing the folding command: \n%s'%cmd)
                 system(cmd)
 
             # copy the ft1 file to the local directory
             if self.batch: 
-                print 'Copying %s to %s'%(ft1file,self.outdir_local)
+                print ('Copying %s to %s'%(ft1file,self.outdir_local))
                 copy(ft1file,self.outdir_local)
 
             # regenerate gtmktime-processed file
@@ -321,14 +321,14 @@ class PSUEAnalysis():
             filter = "DATA_QUAL==1 && LAT_CONFIG==1 && ABS(ROCK_ANGLE)<52"
             GtApp('gtmktime').run(evfile=ft1file,outfile=ft1file_gtis,scfile=self.ft2file,filter=filter,roicut='no',chatter=4)
             if self.batch: 
-                print 'Copying %s to %s'%(ft1file,self.outdir_local)
+                print ('Copying %s to %s'%(ft1file,self.outdir_local))
                 copy(ft1file_gtis,self.outdir_local)
 
     def SearchPulsation(self):
         '''Run SearchPulsation (Philippe macro)'''
 
         ft1file = self.ft1file
-        if not isfile(ft1file): print "Cannot open %s!" %ft1file
+        if not isfile(ft1file): print ("Cannot open %s!" %ft1file)
             
         self.PSUEoutfile.set('#SEARCH_PULSATION','................')        
         spfile = join(self.outdir_local,"searchpulsation_%s_%s.txt"%(self.psrname,self.evtclass))
@@ -367,7 +367,7 @@ class PSUEAnalysis():
 
         if weight: ft1file = self.ft1file_weights
         else: ft1file = self.ft1file
-        if not isfile(ft1file): print "Cannot open %s!" %ft1file
+        if not isfile(ft1file): print ("Cannot open %s!" %ft1file)
         
         self.PSUEoutfile.set("#PULSE_PROFILE",'................')
         self.PSUEoutfile.set('OFF_RANGE',['%.2f'%offmin,'%.2f'%offmax])
@@ -470,7 +470,7 @@ class PSUEAnalysis():
                 elif m_name == 'Lorentzian': consts = [lp.LCLorentzian]
                 elif m_name == 'Gaussian2': consts = [lp.LCGaussian2]
                 elif m_name == 'Lorentzian2': consts = [lp.LCLorentzian2]
-                else: print "Error. Unknown model!"
+                else: print ("Error. Unknown model!")
             """
             # use seed values for initial Gaussian fit
             npeaks = len(peakShape) - ('B' in peakShape)
@@ -478,7 +478,7 @@ class PSUEAnalysis():
             norms = [0.9/len(peakShape)]*len(peakShape)
             const = consts[0]
             for (shape,pos) in zip(peakShape,peakPos):
-                print peakPos
+                print (peakPos)
                 prim = const()
                 if shape == 'P':
                     # normalization, width (standard dev), position
@@ -497,7 +497,7 @@ class PSUEAnalysis():
                     prims[-1].peak = False
                     #norms.append(0.3)
                 else:
-                    print "Do not recognize the shape!"; continue
+                    print ("Do not recognize the shape!"; continue)
 
             for const in consts:
                 dummy  = const()
@@ -511,7 +511,7 @@ class PSUEAnalysis():
                         # make a copy of the bridge component
                         prims[iprim] = lp.LCGaussian(p=prim.p.copy())
                         prims[iprim].peak = False
-                print 'Fitting with %s'%(dummy.name)
+                print ('Fitting with %s'%(dummy.name))
 
                 lct = lt.LCTemplate(prims[:],norms[:]) # shallow copy
                 binned_bins = 512 # perhaps overkill
@@ -519,21 +519,21 @@ class PSUEAnalysis():
                 #unbinned = len(weights)<20000
                 unbinned = False
                 if not unbinned:
-                    print 'We are using binned likelihood with %d bins.'%(binned_bins)
+                    print ('We are using binned likelihood with %d bins.'%(binned_bins))
                 else:
-                    print 'We are using unbinned likelihood.'
+                    print ('We are using unbinned likelihood.')
                 t1 = time.time()
-                print 'Initial values'
-                print lcf
+                print ('Initial values')
+                print (lcf)
                 lcf.fit(quick_fit_first=False,unbinned=unbinned,estimate_errors=False)
                 if twoside:
                     for prim in prims: prim.free[2] = True
                 lcf.fit(quick_fit_first=False,unbinned=unbinned,estimate_errors=False)
-                #print '\nFitted values'
-                #print lcf
+                #print ('\nFitted values')
+                #print (lcf)
                 t2 = time.time()
-                print 'Required %ds for light curve fitting.'%(t2-t1)
-                print 'Loglikelihood for %s: %.2f'%(dummy.name,lcf.ll)
+                print ('Required %ds for light curve fitting.'%(t2-t1))
+                print ('Loglikelihood for %s: %.2f'%(dummy.name,lcf.ll))
 
                 def primitive_string(prim,postfix=''):
                     l = prim.get_location(error=True)
@@ -549,18 +549,18 @@ class PSUEAnalysis():
                     # only calculate errors for models we're saving
                     if lcf.hess_errors():
                         self.PSUEoutfile.set('BOOTSTRAP','False')
-                        print 'Using hessian errors.'
+                        print ('Using hessian errors.')
                     else:
                         self.PSUEoutfile.set('BOOTSTRAP','True')
-                        print 'Using bootstrap errors.'
+                        print ('Using bootstrap errors.')
                         fit_kwargs = dict(unbinned=unbinned,unbinned_refit=False)
                         try:
                             lcf.bootstrap_errors(set_errors=True,fit_kwargs=fit_kwargs)
                         except ValueError:
-                            print 'Could not estimate bootstrap errors.'
+                            print ('Could not estimate bootstrap errors.')
                     norms[:] = lcf.template.norms()
-                    print 'Saving values for %s'%(dummy.name),loglike,lcf.ll
-                    print lcf
+                    print ('Saving values for %s'%(dummy.name),loglike,lcf.ll)
+                    print (lcf)
                     if not np.isnan(lcf.ll): loglike = lcf.ll
                     best_template = lcf.template
                     self.PSUEoutfile.set('N_PEAKS','%0.f'%npeaks)
@@ -573,7 +573,7 @@ class PSUEAnalysis():
                         elif shape == 'B':
                             label = 'BRIDGE'; postfix = 'B'
                         else:
-                            print "Do not recognize the shape!"; continue
+                            print ("Do not recognize the shape!"; continue)
                         self.PSUEoutfile.set(label,peak.name)
                         keys,vals = primitive_string(peak,postfix)
                         for k,v in zip(keys,vals):
@@ -616,7 +616,7 @@ class PSUEAnalysis():
                     nbins = 25
                     if H > 150: nbins = 50
                     if H > 2000: nbins = 100
-                    print 'Using %d bins'%nbins
+                    print ('Using %d bins'%nbins)
                     fig = pl.figure(1);
                     lcf.plot(fignum=1,nbins=nbins); pl.show()
                     fig.savefig(ft1file.replace('.fits','_pulse_profile_template.png'))
@@ -669,7 +669,7 @@ class PSUEAnalysis():
         from uw.like.Models import PLSuperExpCutoff, PowerLaw
 
         if not isfile(self.ft1file):
-            print "Error. Cannot open %s! Must create FT1file. Exiting ..." %self.ft1file; exit()                        
+            print ("Error. Cannot open %s! Must create FT1file. Exiting ..." %self.ft1file; exit()                        )
 
         ft1file = join(self.outdir,basename(self.ft1file))
         ft1file_gtis = join(self.outdir,basename(self.ft1file_gtis))
@@ -688,7 +688,7 @@ class PSUEAnalysis():
         if phase_range is not None:
             ft1file_gtis, phase_factor = SelectPhase(ft1file_gtis,phmin=phase_range[0],phmax=phase_range[1])
             phname = "_OFF"
-            print "phase factor = %.2f" %phase_factor            
+            print ("phase factor = %.2f" %phase_factor            )
 
         ltcube = ft1file_gtis.replace('.fits','_ltcube.fits')
         if self.batch and isfile(join(self.outdir_local,basename(ltcube))):
@@ -696,7 +696,7 @@ class PSUEAnalysis():
         
         # binfile
         binfile = ft1file_gtis.replace('.fits','_binned.fits')
-        if isfile(binfile): print "remove binfile ..."; remove(binfile)
+        if isfile(binfile): print ("remove binfile ..."; remove(binfile))
 
         # Create DataSpecification Object
         from uw.like.pointspec import DataSpecification 
@@ -753,18 +753,18 @@ class PSUEAnalysis():
             model['b'] = 1; model.freeze('b')
 
         # fit using a power law
-        print "SPECTRUM: POWER LAW"
+        print ("SPECTRUM: POWER LAW")
         model['Cutoff'] = 500000.; model.freeze('Cutoff')        # fix the energy cutoff
         roi.fit(use_gradient=True)
         ll_pl = -1*roi.logLikelihood(roi.parameters())        
-        print roi
+        print (roi)
         
         # fit using a plexpcutoff
-        print "SPECTRUM: POWER LAW WITH EXPCUTOFF"
+        print ("SPECTRUM: POWER LAW WITH EXPCUTOFF")
         model['Cutoff'] = 5000. ; model.freeze('Cutoff',False) 
         roi.fit(use_gradient=True)
         ll_plec = -1*roi.logLikelihood(roi.parameters())
-        print roi
+        print (roi)
 
         # print the analysis summary
         roi.print_summary()
@@ -820,7 +820,7 @@ class PSUEAnalysis():
             outfile = join(self.outdir_local,basename(ft1file_gtis))
 
             # make a TS map
-            print "making a TS map ..."
+            print ("making a TS map ...")
             from uw.like.roi_localize import ROILocalizer
             from uw.utilities.image import TSplot
             fig = pl.figure(1)
@@ -834,32 +834,32 @@ class PSUEAnalysis():
             # make a SED
             from uw.like.sed_plotter import plot_sed
             # from pointlike_utils import plot_all_seds
-            print "making a sed ..."
+            print ("making a sed ...")
             fig = pl.figure(2,(9,7))
             plot_sed(roi,which=srcname,fignum=2,use_ergs=True,axis=(90,1.1e5,1e-13,eflux[0]))
             pl.savefig(outfile.replace('.fits','_sed.png'))
             # plot_all_seds(roi,fignum=3,filename=ft1file.split('.fits')[0] + '_allseds.png')
             
             # make counts map
-            print "making count map ..."
+            print ("making count map ...")
             roi.plot_counts_map(filename=outfile.replace('.fits','_count_map.png'))
             
             # make counts spectra
-            print "making count spectra ..."
+            print ("making count spectra ...")
             roi.plot_counts_spectra(filename=outfile.replace('.fits','_count_spectra.png'))
             
             # make a residual TS map
-            print "make a residual ts map ..."
+            print ("make a residual ts map ...")
             roi.plot_tsmap(filename=join(outfile.replace('.fits','_residual_tsmap.png')),figsize=(5.5,4.5))
             
             # smoothed counts
-            print "make a smoothed count map ..."
+            print ("make a smoothed count map ...")
             roi.plot_source(which=srcname,filename=outfile.replace('.fits','_smoothed_counts.png'))
 
     def LivetimeCube(self,clobber=False):
         """ Generate a livetime cube with gtltcube."""
         if (not clobber) and isfile(self.gtltcube):
-            print 'Livetime cube already exists; returning.'
+            print ('Livetime cube already exists; returning.')
         if not isfile(self.ft1file_gtis):
             raise IOError('Could not find gtmktimed FT1 file to make livetime cube.')
 
@@ -882,10 +882,10 @@ class PSUEAnalysis():
         '''
         if ozlem_xml is None:
             if not isfile(self.srcmdl_out):
-                print "Error. Cannot find %s! Exiting ..." %(self.srcmdl_out); exit()
+                print ("Error. Cannot find %s! Exiting ..." %(self.srcmdl_out); exit())
         else:
             if not isfile(ozlem_xml):
-                print "Error. Cannot find %s! Exiting ..." %(ozlem_xml); exit()
+                print ("Error. Cannot find %s! Exiting ..." %(ozlem_xml); exit())
             
         # Generate a new xml source model
         xml = xml_manager(ozlem_xml or self.srcmdl_out,template_dir=self.template_dir)        
@@ -896,8 +896,8 @@ class PSUEAnalysis():
             xml.print_srclist()
         srcname = xml.get_srcname(which=0)        
 
-        print 'Using this for diffuse response'
-        print self.ft1file_diffrsp
+        print ('Using this for diffuse response')
+        print (self.ft1file_diffrsp)
         # this is the local name of file (e.g. if running batch mode)
         ft1file_diffrsp = join(self.outdir,basename(self.ft1file_diffrsp))
 
@@ -932,10 +932,10 @@ class PSUEAnalysis():
         srclist_file.write(srcname)
         srclist_file.close()
         
-        print 'Using this for weights'
-        print self.ft1file_weights
+        print ('Using this for weights')
+        print (self.ft1file_weights)
         # run gsrcprob
-        print "add weights into the FT1 file ..."
+        print ("add weights into the FT1 file ...")
         GtApp('gtsrcprob').run(evfile=ft1file_diffrsp,scfile=self.ft2file,
             outfile=self.ft1file_weights,srcmdl=srcmdl,irfs=self.irfs,srclist=srclist)
 

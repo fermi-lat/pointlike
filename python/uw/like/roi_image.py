@@ -310,7 +310,7 @@ class ModelImage(ROIImage):
     @keyword_options.decorate(defaults)
     def __init__(self,*args,**kwargs):
         if kwargs.has_key('proj') and kwargs['proj'] != 'ZEA':
-            print "Warning, it is strongly advised to use the 'ZEA projection when creating model counts maps."
+            print ("Warning, it is strongly advised to use the 'ZEA projection when creating model counts maps.")
 
         super(ModelImage,self).__init__(*args,**kwargs)
 

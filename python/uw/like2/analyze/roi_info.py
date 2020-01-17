@@ -48,9 +48,9 @@ class ROIinfo(analysis_base.AnalysisBase):
                 rdict[i] = tdict
             self.df = pd.DataFrame(rdict).transpose()
             self.df.to_pickle(filename)
-            print 'saved %s' % filename
+            print ('saved %s' % filename)
         else:
-            print 'loading %s' % filename
+            print ('loading %s' % filename)
             self.df = pd.read_pickle(filename)
         # move this into refresh?
         rois = self.df
@@ -58,7 +58,7 @@ class ROIinfo(analysis_base.AnalysisBase):
         try:
             rx['chisq'] = [r['chisq'] for r in rois['counts']]
         except:
-            print '***Failed to find counts, skip creating rois.csv'
+            print ('***Failed to find counts, skip creating rois.csv')
             return
         rx['npar'] = [len(p) for p in rois.parameters]
         rx.index.name='name'
@@ -66,7 +66,7 @@ class ROIinfo(analysis_base.AnalysisBase):
         #rx['ring'] = [10**p[0] for p in rois.parameters]
         #rx['iso']  = [10**p[1] for p in rois.parameters]
         rx.to_csv('rois.csv')
-        print 'saved rois.csv'
+        print ('saved rois.csv')
         
         self.energy=self.df.ix[0]['counts']['energies']
         self.funcs = []

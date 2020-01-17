@@ -170,10 +170,10 @@ class BackgroundConvolution(Grid):
         self.bg,self.psf = bg,psf
         super(BackgroundConvolution,self).__init__(center,**kwargs)
         if (self.npix%2 != 1):
-            print """WARNING! You are attempting to convolve a map on a
+            print ("""WARNING! You are attempting to convolve a map on a
                      grid with an even number of pixels.  This is NOT
                      recommended as it will smear the map inappropriately
-                     at high energies."""
+                     at high energies.""")
 
     def do_convolution(self,energy,conversion_type,override_skyfun=None,override_vals=None,
                        override_en=None):

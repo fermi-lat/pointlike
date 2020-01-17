@@ -54,7 +54,7 @@ def double2single(pars):
 
     r68 = so.fmin_powell(lambda x: (doublepsfint(x[0],pars)/norm-0.68)**2 if x[0]>0 else inf,[1.54*(s1*s2)**0.5],disp=0,full_output=1)
     r95 = so.fmin_powell(lambda x: (doublepsfint(x[0],pars)/norm-0.95)**2 if x[0]>0 else inf,[2.37*(s1*s2)**0.5],disp=0,full_output=1)
-    print r68[0],r95[0],r95[0]/r68[0]
+    print (r68[0],r95[0],r95[0]/r68[0])
     psf = ua.PSF([0,4],[0.1,2.])
     psf.fromcontain([r68[0],r95[0]],[0.68,0.95])
     return psf.model_par
@@ -121,7 +121,7 @@ class Fitter(object):
 
     def loaddata(self):
         import cPickle
-        #print len(pars),len(steps),len(lims)
+        #print (len(pars),len(steps),len(lims))
         emin=[]
         emax=[]
         irf = 'P6_v11_diff'
@@ -163,10 +163,10 @@ class Fitter(object):
             #al.solvepsf()
             self.altb.append(al)"""
         template = ud.basedir+'cache/likelihoods*%s%d*%s.pickle'%(self.ctbin,self.ec,self.suff)
-        print template
+        print (template)
         files = np.sort(glob.glob(template))
         for fil in files:
-            print fil
+            print (fil)
             cl = cPickle.load(open(fil))
             self.altb.append(cl)
 
@@ -224,15 +224,15 @@ class Fitter(object):
         self.best=sample
         ftol = 0.5/sample
         if self.verbose>0:
-            print 'Using function tolerance: %1.2g (%1.1f)'%(ftol,sample)
+            print ('Using function tolerance: %1.2g (%1.1f)'%(ftol,sample))
         almin = so.fmin_powell(lambda x:self.likelihood(x),pars,ftol=ftol,disp=1,full_output=1,callback=self.update(self.lastlike))
         
         ## print out fit parameters
-        #print 10**almin[0]
+        #print (10**almin[0])
         #self.pars = 10**almin[0]
-        print almin[0]
+        print (almin[0])
         self.pars = almin[0]
-        #print 10**minuit.params
+        #print (10**minuit.params)
         #self.pars = 10**minuit.params
         self.fval = almin[1]
         return self.pars
@@ -250,7 +250,7 @@ class Fitter(object):
     
     def likelihood(self,pars):#c068,c168,b68,c268,b168,c095,c195,b95,c295,b195):
         #pars = 10**np.array(pars)
-        #print pars
+        #print (pars)
 
         #catch garbage values
         if np.any(np.isnan(pars)):# or np.isnan(c095):
@@ -258,9 +258,9 @@ class Fitter(object):
         acc=0.
 
         if self.verbose>1:
-            print '######################################'
+            print ('######################################')
 
-            print 'iteration: %d'%self.iterations
+            print ('iteration: %d'%self.iterations)
         ## calculate the likelihood of the parameterization for each energy bin
         for it,tb in enumerate(self.altb):
             eb = tb.ebar
@@ -295,24 +295,24 @@ class Fitter(object):
                 self.lastbin[it]=like
             acc = acc+like
             if self.verbose>1:
-                print 'Energy: %1.0f  sigma= %1.3f  gamma= %1.3f  R68: %1.2f  R95: %1.2f  like: %1.0f  diff= %1.0f'%(eb,sig,gam,r68*rd,r95*rd,like,self.lastbin[it]-like)
+                print ('Energy: %1.0f  sigma= %1.3f  gamma= %1.3f  R68: %1.2f  R95: %1.2f  like: %1.0f  diff= %1.0f'%(eb,sig,gam,r68*rd,r95*rd,like,self.lastbin[it]-like))
             self.lastbin[it]=like
         if self.verbose>1:
-            print '--------------------------------------'
+            print ('--------------------------------------')
             if self.single:
-                print '68  c0: %1.2f  c1: %1.2f  b: %1.2f'%(c068,c168,b68)
-                print '95  c0: %1.2f  c1: %1.2f  b: %1.2f'%(c095,c195,b95)
+                print ('68  c0: %1.2f  c1: %1.2f  b: %1.2f'%(c068,c168,b68))
+                print ('95  c0: %1.2f  c1: %1.2f  b: %1.2f'%(c095,c195,b95))
             else:
-                print '68  c0: %1.2f  b: %1.2f  c2: %1.2f  b1: %1.2f'%(c068,b68,c268,b168)
-                print '95  c0: %1.2f  b: %1.2f  c2: %1.2f  b1: %1.2f'%(c095,b95,c295,b195)
-            print ' Total: %1.2f      Diff: %1.2f'%(acc,acc-self.lastlike)
-            print '######################################'
+                print ('68  c0: %1.2f  b: %1.2f  c2: %1.2f  b1: %1.2f'%(c068,b68,c268,b168))
+                print ('95  c0: %1.2f  b: %1.2f  c2: %1.2f  b1: %1.2f'%(c095,b95,c295,b195))
+            print (' Total: %1.2f      Diff: %1.2f'%(acc,acc-self.lastlike))
+            print ('######################################')
         pstring = ''
         for par in pars:
             pstring += '%1.3e   '%(par)
         pstring += '%1.2f'%(acc-self.best)
         if self.verbose>0:
-            print pstring
+            print (pstring)
         self.lastlike=acc
         self.iterations=self.iterations+1
         return acc
@@ -365,7 +365,7 @@ def scale2unc(en,pars,uncs):
     err2 = (t1/fv*st1)**2
     err3 = (ex*np.log(en/100.)/fv*sb0)**2
     func = err1+err2+err3
-    #print np.sqrt(err1),np.sqrt(err2),np.sqrt(err3),np.sqrt(ex),fv
+    #print (np.sqrt(err1),np.sqrt(err2),np.sqrt(err3),np.sqrt(ex),fv)
     return np.sqrt(func)
 
 ## calculates the chisq for a both front and parameter scale function and the sigma parameter
@@ -563,12 +563,12 @@ def getirfparams(irf='P6_v8_diff',out='P6_v10_diff'):
     detA = sum(xi2)*ii-(xi)**2
 
     pname = cdb+r'/bcf/psf/psf_%s_'%irf
-    print pname
+    print (pname)
     cwd = os.getcwd()
     cmd1 = r'cp %sfront.fits %s/psf_%s_front.fits'%(pname,cwd,out)
     cmd2 = r'cp %sback.fits %s/psf_%s_back.fits'%(pname,cwd,out)
-    print cmd1
-    print cmd2
+    print (cmd1)
+    print (cmd2)
     os.system(cmd1)
     os.system(cmd2)
     ff = pf.open('%s/psf_%s_front.fits'%(cwd,out),mode='update')
@@ -603,7 +603,7 @@ def getirfparams(irf='P6_v8_diff',out='P6_v10_diff'):
             yi68b.append(scale3(energy,tpars[2]))
             yi95b.append(scale3(energy,tpars[3]))
         #t.sleep(1.)
-        print energy,yi68f,yi95f
+        print (energy,yi68f,yi95f)
         dotp = lambda x: sum([xvec[it]*x[it] for it in range(len(xvec))])
         mcalc = lambda x: (dotp(x)*ii-xi*sum(x))/detA
         bcalc = lambda x: (sum(xi2)*sum(x)-xi*dotp(x))/detA
@@ -617,7 +617,7 @@ def getirfparams(irf='P6_v8_diff',out='P6_v10_diff'):
         b68b = bcalc(yi68b)
         m95b = mcalc(yi95b)
         b95b = bcalc(yi95b)
-        #print m68f,b68f
+        #print (m68f,b68f)
         #fpsf.fromcontain(1.,r95f/r68f,0.68,0.95)
         #bpsf.fromcontain(1.,r95b/r68b,0.68,0.95)
 
@@ -625,8 +625,8 @@ def getirfparams(irf='P6_v8_diff',out='P6_v10_diff'):
         r95f = lin(m95f,b95f,0.82)
         r68b = lin(m68b,b68b,0.82)
         r95b = lin(m95b,b95b,0.82)
-        #print r68f,r95f
-        #print r68b,r95b
+        #print (r68f,r95f)
+        #print (r68b,r95b)
 
         fsigma,fgamma = intp.getpars(r68f,r95f)#fpsf.model_par[0]*r68f
         bsigma,bgamma = intp.getpars(r68b,r95b)#bpsf.model_par[0]*r68b
@@ -650,37 +650,37 @@ def getirfparams(irf='P6_v8_diff',out='P6_v10_diff'):
             r68b = lin(m68b,b68b,ctbar[j])
             r95b = lin(m95b,b95b,ctbar[j])
             t68.append(r68f);t95.append(r95f)
-            #print r68f,r95f
-            #print r68b,r95b
+            #print (r68f,r95f)
+            #print (r68b,r95b)
             #t.sleep(1.)
             fsigma,fgamma = intp.getpars(r68f,r95f)#fpsf.model_par[0]*r68f
             bsigma,bgamma = intp.getpars(r68b,r95b)#bpsf.model_par[0]*r68b
             fsigma/=rd
             bsigma/=rd
             try:
-                """print 'E = %1.0f Changing sigma from %1.3f -> %1.3f'%(energy,ff[1].data.field('SIGMA')[0][j][i],fsigma*trad/scf)
-                print 'E = %1.0f Changing sigma from %1.3f -> %1.3f'%(energy,bf[1].data.field('SIGMA')[0][j][i],bsigma*trad/scb)"""
+                """print ('E = %1.0f Changing sigma from %1.3f -> %1.3f'%(energy,ff[1].data.field('SIGMA')[0][j][i],fsigma*trad/scf))
+                print ('E = %1.0f Changing sigma from %1.3f -> %1.3f'%(energy,bf[1].data.field('SIGMA')[0][j][i],bsigma*trad/scb))"""
                 ff[1].data.field('SIGMA')[0][j][i]=fsigma*trad/scf
                 bf[1].data.field('SIGMA')[0][j][i]=bsigma*trad/scb
             except:
-                pass#print 'New style psf'
+                pass#print ('New style psf')
             try:
-                """print 'E = %1.0f Changing score from %1.3f -> %1.3f'%(energy,ff[1].data.field('SCORE')[0][j][i],fsigma*trad/scf)
-                print 'E = %1.0f Changing score from %1.3f -> %1.3f'%(energy,bf[1].data.field('SCORE')[0][j][i],bsigma*trad/scb)
-                print 'E = %1.0f Changing stail from %1.3f -> %1.3f'%(energy,ff[1].data.field('STAIL')[0][j][i],fsigma*trad/scf)
-                print 'E = %1.0f Changing stail from %1.3f -> %1.3f'%(energy,bf[1].data.field('STAIL')[0][j][i],bsigma*trad/scb)"""
+                """print ('E = %1.0f Changing score from %1.3f -> %1.3f'%(energy,ff[1].data.field('SCORE')[0][j][i],fsigma*trad/scf))
+                print ('E = %1.0f Changing score from %1.3f -> %1.3f'%(energy,bf[1].data.field('SCORE')[0][j][i],bsigma*trad/scb))
+                print ('E = %1.0f Changing stail from %1.3f -> %1.3f'%(energy,ff[1].data.field('STAIL')[0][j][i],fsigma*trad/scf))
+                print ('E = %1.0f Changing stail from %1.3f -> %1.3f'%(energy,bf[1].data.field('STAIL')[0][j][i],bsigma*trad/scb))"""
                 ff[1].data.field('SCORE')[0][j][i]=fsigma*trad/scf
                 bf[1].data.field('SCORE')[0][j][i]=bsigma*trad/scb
                 ff[1].data.field('STAIL')[0][j][i]=fsigma*trad/scf
                 bf[1].data.field('STAIL')[0][j][i]=bsigma*trad/scb
             except:
-                pass#print 'Old style psf'
-            """print 'E = %1.0f Changing NTAIL from %1.2f -> %1.2f'%(energy,ff[1].data.field('NTAIL')[0][j][i],0)
-            print 'E = %1.0f Changing NTAIL from %1.2f -> %1.2f'%(energy,bf[1].data.field('NTAIL')[0][j][i],0)
-            print 'E = %1.0f Changing gcore from %1.2f -> %1.2f'%(energy,ff[1].data.field('GCORE')[0][j][i],fgamma)
-            print 'E = %1.0f Changing gcore from %1.2f -> %1.2f'%(energy,bf[1].data.field('GCORE')[0][j][i],bgamma)
-            print 'E = %1.0f Changing gtail from %1.2f -> %1.2f'%(energy,ff[1].data.field('GTAIL')[0][j][i],fgamma)
-            print 'E = %1.0f Changing gtail from %1.2f -> %1.2f'%(energy,bf[1].data.field('GTAIL')[0][j][i],bgamma)"""
+                pass#print ('Old style psf')
+            """print ('E = %1.0f Changing NTAIL from %1.2f -> %1.2f'%(energy,ff[1].data.field('NTAIL')[0][j][i],0))
+            print ('E = %1.0f Changing NTAIL from %1.2f -> %1.2f'%(energy,bf[1].data.field('NTAIL')[0][j][i],0))
+            print ('E = %1.0f Changing gcore from %1.2f -> %1.2f'%(energy,ff[1].data.field('GCORE')[0][j][i],fgamma))
+            print ('E = %1.0f Changing gcore from %1.2f -> %1.2f'%(energy,bf[1].data.field('GCORE')[0][j][i],bgamma))
+            print ('E = %1.0f Changing gtail from %1.2f -> %1.2f'%(energy,ff[1].data.field('GTAIL')[0][j][i],fgamma))
+            print ('E = %1.0f Changing gtail from %1.2f -> %1.2f'%(energy,bf[1].data.field('GTAIL')[0][j][i],bgamma))"""
             ff[1].data.field('NTAIL')[0][j][i]=0
             bf[1].data.field('NTAIL')[0][j][i]=0
             ff[1].data.field('GCORE')[0][j][i]=fgamma
@@ -688,25 +688,25 @@ def getirfparams(irf='P6_v8_diff',out='P6_v10_diff'):
             ff[1].data.field('GTAIL')[0][j][i]=fgamma
             bf[1].data.field('GTAIL')[0][j][i]=bgamma
         #t.sleep(2)
-        print t68
-        print t95
+        print (t68)
+        print (t95)
     fss = N.array(fss)
     fse = fss**1.5
     bss = N.array(bss)
     bse = bss**1.5
 
 
-    print fss
-    print bss
+    print (fss)
+    print (bss)
     pars = [58e-3,377e-6,96e-3,1300e-6,-0.8]
     #best = Minuit(lambda x: chisq2(fss,bss,ens,fse,bse,x[0],x[1],x[2],x[3],x[4]),params=pars,up=1,printMode=0,strategy=2,tolerance=1e-12)
     #best.minimize()
     best = so.fmin_powell(lambda x: chisq2(fss,bss,ens,fse,bse,x[0],x[1],x[2],x[3],x[4]),pars,ftol=1e-12,full_output=1,disp=0)
     bestparams = best[0]
-    print bestparams
+    print (bestparams)
 
     for it,energy in enumerate(ens):
-        print energy,fss[it]*rd,scale2(energy,bestparams[0],bestparams[1],bestparams[4])*rd,bss[it]*rd,scale2(energy,bestparams[2],bestparams[3],bestparams[4])*rd
+        print (energy,fss[it]*rd,scale2(energy,bestparams[0],bestparams[1],bestparams[4])*rd,bss[it]*rd,scale2(energy,bestparams[2],bestparams[3],bestparams[4])*rd)
 
     #t.sleep(60.)
     for it,par in enumerate(bestparams):
@@ -742,7 +742,7 @@ def getirfparams(irf='P6_v8_diff',out='P6_v10_diff'):
         b68b = bcalc(yi68b)
         m95b = mcalc(yi95b)
         b95b = bcalc(yi95b)
-        print m68f,b68f
+        print (m68f,b68f)
         #fpsf.fromcontain(1.,r95f/r68f,0.68,0.95)
         #bpsf.fromcontain(1.,r95b/r68b,0.68,0.95)
 
@@ -750,8 +750,8 @@ def getirfparams(irf='P6_v8_diff',out='P6_v10_diff'):
         r95f = lin(m95f,b95f,0.82)
         r68b = lin(m68b,b68b,0.82)
         r95b = lin(m95b,b95b,0.82)
-        print r68f,r95f
-        print r68b,r95b
+        print (r68f,r95f)
+        print (r68b,r95b)
 
         fsigma,fgamma = intp.getpars(r68f,r95f)#fpsf.model_par[0]*r68f
         bsigma,bgamma = intp.getpars(r68b,r95b)#bpsf.model_par[0]*r68b
@@ -771,50 +771,50 @@ def getirfparams(irf='P6_v8_diff',out='P6_v10_diff'):
             r95f = lin(m95f,b95f,ctbar[j])
             r68b = lin(m68b,b68b,ctbar[j])
             r95b = lin(m95b,b95b,ctbar[j])
-            print r68f,r95f
-            print r68b,r95b
+            print (r68f,r95f)
+            print (r68b,r95b)
             #t.sleep(1.)
             fsigma,fgamma = intp.getpars(r68f,r95f)#fpsf.model_par[0]*r68f
             bsigma,bgamma = intp.getpars(r68b,r95b)#bpsf.model_par[0]*r68b
             fsigma/=rd
             bsigma/=rd
             try:
-                print 'E = %1.0f Changing sigma from %1.3f -> %1.3f'%(energy,ff[1].data.field('SIGMA')[0][j][i],fsigma*trad/scf)
+                print ('E = %1.0f Changing sigma from %1.3f -> %1.3f'%(energy,ff[1].data.field('SIGMA')[0][j][i],fsigma*trad/scf))
                 ff[1].data.field('SIGMA')[0][j][i]=fsigma/scf
-                print 'E = %1.0f Changing sigma from %1.3f -> %1.3f'%(energy,bf[1].data.field('SIGMA')[0][j][i],bsigma*trad/scb)
+                print ('E = %1.0f Changing sigma from %1.3f -> %1.3f'%(energy,bf[1].data.field('SIGMA')[0][j][i],bsigma*trad/scb))
                 bf[1].data.field('SIGMA')[0][j][i]=bsigma/scb
             except:
-                print 'New style psf'
+                print ('New style psf')
             try:
-                print 'E = %1.0f Changing score from %1.3f -> %1.3f'%(energy,ff[1].data.field('SCORE')[0][j][i],fsigma*trad/scf)
+                print ('E = %1.0f Changing score from %1.3f -> %1.3f'%(energy,ff[1].data.field('SCORE')[0][j][i],fsigma*trad/scf))
                 ff[1].data.field('SCORE')[0][j][i]=fsigma/scf
-                print 'E = %1.0f Changing score from %1.3f -> %1.3f'%(energy,bf[1].data.field('SCORE')[0][j][i],bsigma*trad/scb)
+                print ('E = %1.0f Changing score from %1.3f -> %1.3f'%(energy,bf[1].data.field('SCORE')[0][j][i],bsigma*trad/scb))
                 bf[1].data.field('SCORE')[0][j][i]=bsigma/scb
-                print 'E = %1.0f Changing stail from %1.3f -> %1.3f'%(energy,ff[1].data.field('STAIL')[0][j][i],fsigma*trad/scf)
+                print ('E = %1.0f Changing stail from %1.3f -> %1.3f'%(energy,ff[1].data.field('STAIL')[0][j][i],fsigma*trad/scf))
                 ff[1].data.field('STAIL')[0][j][i]=fsigma/scf
-                print 'E = %1.0f Changing stail from %1.3f -> %1.3f'%(energy,bf[1].data.field('STAIL')[0][j][i],bsigma*trad/scb)
+                print ('E = %1.0f Changing stail from %1.3f -> %1.3f'%(energy,bf[1].data.field('STAIL')[0][j][i],bsigma*trad/scb))
                 bf[1].data.field('STAIL')[0][j][i]=bsigma/scb
             except:
-                print 'Old style psf'
-            print 'E = %1.0f Changing NTAIL from %1.2f -> %1.2f'%(energy,ff[1].data.field('NTAIL')[0][j][i],0)
+                print ('Old style psf')
+            print ('E = %1.0f Changing NTAIL from %1.2f -> %1.2f'%(energy,ff[1].data.field('NTAIL')[0][j][i],0))
             ff[1].data.field('NTAIL')[0][j][i]=0
-            print 'E = %1.0f Changing NTAIL from %1.2f -> %1.2f'%(energy,bf[1].data.field('NTAIL')[0][j][i],0)
+            print ('E = %1.0f Changing NTAIL from %1.2f -> %1.2f'%(energy,bf[1].data.field('NTAIL')[0][j][i],0))
             bf[1].data.field('NTAIL')[0][j][i]=0
-            print 'E = %1.0f Changing gcore from %1.2f -> %1.2f'%(energy,ff[1].data.field('GCORE')[0][j][i],fgamma)
+            print ('E = %1.0f Changing gcore from %1.2f -> %1.2f'%(energy,ff[1].data.field('GCORE')[0][j][i],fgamma))
             ff[1].data.field('GCORE')[0][j][i]=fgamma
-            print 'E = %1.0f Changing gcore from %1.2f -> %1.2f'%(energy,bf[1].data.field('GCORE')[0][j][i],bgamma)
+            print ('E = %1.0f Changing gcore from %1.2f -> %1.2f'%(energy,bf[1].data.field('GCORE')[0][j][i],bgamma))
             bf[1].data.field('GCORE')[0][j][i]=bgamma
-            print 'E = %1.0f Changing gtail from %1.2f -> %1.2f'%(energy,ff[1].data.field('GTAIL')[0][j][i],fgamma)
+            print ('E = %1.0f Changing gtail from %1.2f -> %1.2f'%(energy,ff[1].data.field('GTAIL')[0][j][i],fgamma))
             ff[1].data.field('GTAIL')[0][j][i]=fgamma
-            print 'E = %1.0f Changing gtail from %1.2f -> %1.2f'%(energy,bf[1].data.field('GTAIL')[0][j][i],bgamma)
+            print ('E = %1.0f Changing gtail from %1.2f -> %1.2f'%(energy,bf[1].data.field('GTAIL')[0][j][i],bgamma))
             bf[1].data.field('GTAIL')[0][j][i]=bgamma
 
     ff.flush()
     bf.flush()
     cmd1 = r'cp %s/psf_%s_front.fits %s'%(cwd,out,cdb+r'/bcf/psf/')
     cmd2 = r'cp %s/psf_%s_back.fits %s'%(cwd,out,cdb+r'/bcf/psf/')
-    print os.system(cmd1)
-    print os.system(cmd2)
+    print (os.system(cmd1))
+    print (os.system(cmd2))
 
 ## makeplots makes plots of the PSF for different IRFS
 #  @param irfs list of IRF definitions
@@ -836,7 +836,7 @@ def makeplots(irfs=['P6_v11_diff'],fact=1.,num=32.,cts=[34,68,95]):
     py.figure(figsize=(10.5,4.75))
     py.subplot(1,2,1)
     py.loglog()
-    #print energy
+    #print (energy)
     ps = []
     for it1,ct in enumerate(cts):
         for it2,irf in enumerate(irfs):
@@ -845,7 +845,7 @@ def makeplots(irfs=['P6_v11_diff'],fact=1.,num=32.,cts=[34,68,95]):
             rct60 = [np.sqrt(psf.inverse_integral(x/fact,0,ct,ctbin=5))*np.sqrt(psf.inverse_integral(x*fact,0,ct,ctbin=5)) for x in energy_r]
             p1 = py.fill(np.hstack([energy,energy_r]),np.hstack([rct,rct60]),color=clr[it2])#,linestyle=sty[it2])#,alpha=0.4)
             p1[0].set_alpha(0.4)
-            #print rct
+            #print (rct)
             #p1 = py.plot(energy,[np.sqrt(psf.inverse_integral(x/fact,0,ct))*np.sqrt(psf.inverse_integral(x*fact,0,ct)) for x in energy],'%s%s'%(clr[it2],sty2[it1]))
             ps.append(p1)
     py.grid()
@@ -904,7 +904,7 @@ def likelihoodtable(enr1,ctr1,ctype,weight=0.5,irf ='P7SOURCE_V6',mcirf='P7SOURC
     pulsdir = r'/phys/groups/tev/scratch1/users/Fermi/mar0/data/7.3srcrp/pulsar/'
     agndir = r'/phys/groups/tev/scratch1/users/Fermi/mar0/data/7.3srcrp/'
     suffix = 'clean'
-    print pname
+    print (pname)
 
     ######  get reference CALDB details  ###########
     ff = pf.open('%sfront.fits'%pname)
@@ -957,7 +957,7 @@ def likelihoodtable(enr1,ctr1,ctype,weight=0.5,irf ='P7SOURCE_V6',mcirf='P7SOURC
             #load pickle if it exists
             if os.path.exists(pickles):
                 pfile = open(pickles)
-                print 'loaded %s'%pickles
+                print ('loaded %s'%pickles)
                 cl = cPickle.load(pfile)
 
             #make a new one
@@ -1018,10 +1018,10 @@ def likelihoodtable(enr1,ctr1,ctype,weight=0.5,irf ='P7SOURCE_V6',mcirf='P7SOURC
                     #evaluate the likelihood of the parameterization in this bin, weight it, and sum
                     tlike = likel[i][j].psflikelihood([scb*tss,tsg,tsf,scb*tss2,tsg2])#[scb*tss,tsg])
                     acc += tlike*fact
-                    #print '%d %d %1.0f %1.1f %1.3f %1.3f %1.1f %1.2f %1.1f %1.1f'%(eidx,cidx,a_ebars[i],dist,tss,tsg,fact,tlike,tlike*fact,acc)
+                    #print ('%d %d %1.0f %1.1f %1.3f %1.3f %1.1f %1.2f %1.1f %1.1f'%(eidx,cidx,a_ebars[i],dist,tss,tsg,fact,tlike,tlike*fact,acc))
                     #t.sleep(0.1)
-        print string.join(['%1.4f'%(prs) for prs in pars],' ') + ' %1.3f'%(np.sqrt(abs(ref-acc))*np.sign(ref-acc))
-        #print '#################################################'
+        print (string.join(['%1.4f'%(prs) for prs in pars],' ') + ' %1.3f'%(np.sqrt(abs(ref-acc))*np.sign(ref-acc)))
+        #print ('#################################################')
         return acc
 
     #if not the generation step, run analysis
@@ -1032,7 +1032,7 @@ def likelihoodtable(enr1,ctr1,ctype,weight=0.5,irf ='P7SOURCE_V6',mcirf='P7SOURC
         l0 = weightedlike(likelihoods,enr1,ctr1,initial,weight,psfsc,ctype)
         ftol = abs(0.05/l0)
         #calcuate best parameters
-        print ftol
+        print (ftol)
         if True:
             minuit = so.fmin_powell(lambda x: weightedlike(likelihoods,enr1,ctr1,x,weight,psfsc,ctype,l0),initial,full_output=1,disp=1,ftol=ftol)
             prs = minuit[0]                   
@@ -1048,8 +1048,8 @@ def likelihoodtable(enr1,ctr1,ctype,weight=0.5,irf ='P7SOURCE_V6',mcirf='P7SOURC
         outfile = open('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/psftable/%d_%d.txt'%(idx,ctype),'w')
 
         #output the best fit parameters for this table entry
-        print >>outfile,bests,bestg,bests2,bestg2,bestf
-        print bests,bestg,bests2,bestg2,bestf
+        print (bests,bestg,bests2,bestg2,bestf, file=outfile)
+        print (bests,bestg,bests2,bestg2,bestf)
         return idx,bests,bestg,bests2,bestg2,bestf
 
 ## makelikeirfs - read in best parameters and create the corresponding CALDB files
@@ -1086,7 +1086,7 @@ def makelikeirfs(irf='P7SOURCE_V6',out='P7SOURCE_V11'):
         line = tf.readline()
         """sigma,gamma=line.split(' ')
         sigma,gamma=float(sigma),float(gamma)
-        #print idx,sigma,gamma
+        #print (idx,sigma,gamma)
         ftb.field('SCORE')[0][idx]=sigma
         ftb.field('STAIL')[0][idx]=sigma
         ftb.field('GCORE')[0][idx]=gamma
@@ -1094,7 +1094,7 @@ def makelikeirfs(irf='P7SOURCE_V6',out='P7SOURCE_V11'):
         ftb.field('NTAIL')[0][idx]=0"""
         lines = line.split(' ')
         lines = [float(line) for line in lines]
-        #print idx,sigma,gamma
+        #print (idx,sigma,gamma)
 
 
         #figure out if we're looking at core or tail
@@ -1106,7 +1106,7 @@ def makelikeirfs(irf='P7SOURCE_V6',out='P7SOURCE_V11'):
             ncore= 1-ntail
         ncore = max(min(1,ncore),1e-4)
         ntail = max((1-ncore)/ncore*(score/stail)**2,0)
-        print enidx,ctidx,score,gcore,stail,gtail,ncore
+        print (enidx,ctidx,score,gcore,stail,gtail,ncore)
         ftb.field('SCORE')[0][ctidx][enidx]=score
         ftb.field('STAIL')[0][ctidx][enidx]=stail
         ftb.field('GCORE')[0][ctidx][enidx]=gcore
@@ -1123,7 +1123,7 @@ def makelikeirfs(irf='P7SOURCE_V6',out='P7SOURCE_V11'):
         line = tf.readline()
         """sigma,gamma=line.split(' ')
         sigma,gamma=float(sigma),float(gamma)
-        #print idx,sigma,gamma
+        #print (idx,sigma,gamma)
         btb.field('SCORE')[0][idx]=sigma
         btb.field('STAIL')[0][idx]=sigma
         btb.field('GCORE')[0][idx]=gamma
@@ -1131,7 +1131,7 @@ def makelikeirfs(irf='P7SOURCE_V6',out='P7SOURCE_V11'):
         btb.field('NTAIL')[0][idx]=0"""
         lines = line.split(' ')
         lines = [float(line) for line in lines]
-        #print idx,sigma,gamma
+        #print (idx,sigma,gamma)
         if lines[1]>lines[3]:
             score,gcore,stail,gtail,ncore=lines
             ntail= 1-ncore
@@ -1140,7 +1140,7 @@ def makelikeirfs(irf='P7SOURCE_V6',out='P7SOURCE_V11'):
             ncore= 1-ntail
         ncore = max(min(1,ncore),1e-4)
         ntail = max((1-ncore)/ncore*(score/stail)**2,0)
-        print enidx,ctidx,score,gcore,stail,gtail,ncore
+        print (enidx,ctidx,score,gcore,stail,gtail,ncore)
         btb.field('SCORE')[0][ctidx][enidx]=score
         btb.field('STAIL')[0][ctidx][enidx]=stail
         btb.field('GCORE')[0][ctidx][enidx]=gcore
@@ -1199,10 +1199,10 @@ def psftable():
     dview.scatter('nums',range(len(tasks)))
     t.sleep(20)
     cmd = 'x=[eval(tasks[y]) for y in nums]'
-    print cmd
+    print (cmd)
     result = dview.execute(cmd)
     for engine in result.metadata:
-        print engine.status
+        print (engine.status)
     logfile = open('/phys/groups/tev/scratch1/users/Fermi/mar0/python/mec.log','w')
 
     #makelikeirfs(irf='P6_v7_diff',out='P6_v12_diff')
@@ -1259,15 +1259,15 @@ def fcontain(frac,s1,g1,s2,g2,n1):
     n2 = 1-n1
     fint = doublepsfint(inf,s1,g1,n1,s2,g2,n2)
     xr = np.logspace(-2,1.5,1001)
-    #print xr
+    #print (xr)
     yr = np.array([doublepsfint(x,s1,g1,n1,s2,g2,n2) for x in xr])/fint
-    #print yr
+    #print (yr)
     fnc = intp.UnivariateSpline(np.log(yr),np.log(xr),s=0)
     ret = fnc(np.log(frac))
-    #print frac,np.exp(ret)
+    #print (frac,np.exp(ret))
     #for it in range(len(yr[:-1])):
-    #    print 0.5*(yr[it]+yr[it+1]),0.5*(xr[it]+xr[it+1]),np.exp(fnc(np.log(0.5*(yr[it]+yr[it+1]))))[0]
-    #print fnc1
+    #    print (0.5*(yr[it]+yr[it+1]),0.5*(xr[it]+xr[it+1]),np.exp(fnc(np.log(0.5*(yr[it]+yr[it+1]))))[0])
+    #print (fnc1)
     return np.exp(ret)
 
 def setup_engines():

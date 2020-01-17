@@ -49,7 +49,7 @@ class CALDBManager(object):
         # else:
         #     self.custom_irf_dir = os.environ.get('CUSTOM_IRF_DIR', None)
         # if self.custom_irf_dir is not None and self.custom_irf_dir!='':
-        #     if not self.quiet: print 'CALDBManager: using custom irf: "%s"' % self.custom_irf_dir
+        #     if not self.quiet: print ('CALDBManager: using custom irf: "%s"' % self.custom_irf_dir)
             
         self.bcf = join(self.CALDB,'bcf')
 
@@ -67,7 +67,7 @@ class CALDBManager(object):
 
         self.load_caldb_indx()
         self.construct_psf()
-        if not self.quiet: print 'PSF: %s' % self.psf_files
+        if not self.quiet: print ('PSF: %s' % self.psf_files)
         self.construct_aeff()
         #self.construct_edisp()
  
@@ -95,7 +95,7 @@ class CALDBManager(object):
         if self.psf_irf is None:
             irf=self.irf
         else:
-            if not self.quiet: print 'Overriding default PSF; using %s'%(self.psf_irf)
+            if not self.quiet: print ('Overriding default PSF; using %s'%(self.psf_irf))
             irf=self.psf_irf
         #Just handle Pass 8 separately for now
         if self.irf.startswith('P8'):
@@ -122,7 +122,7 @@ class CALDBManager(object):
             self.psf_files = [join(self.bcf,'psf',x) for x in psfs]
             if N.all([os.path.exists(pf) for pf in self.psf_files]):
                 return
-            print 'caldb.indx: did not find all files in %s'%self.psf_files
+            print ('caldb.indx: did not find all files in %s'%self.psf_files)
             
         # try the cusom_irf_dir
         if self.custom_irf_dir is not None and self.custom_irf_dir!='':
@@ -132,7 +132,7 @@ class CALDBManager(object):
 
             if os.path.exists(self.psf_files[0]) and os.path.exists(self.psf_files[1]):
                 return
-            print 'Custom irf_dir: did not find both %s ' %self.psf_files
+            print ('Custom irf_dir: did not find both %s ' %self.psf_files)
 
         raise Exception("Unable to find the irf %s\n\tcustom_irf_dir: %s\n\tlooking for %s" \
               % (irf, self.custom_irf_dir, self.psf_files) )
@@ -150,7 +150,7 @@ class CALDBManager(object):
             front=N.where((N.char.find(self.irf_names,irf)!=-1)&(self.irf_types=='EFF_AREA')&(self.conv_types=='FRONT'))[0]
             back=N.where((N.char.find(self.irf_names,irf)!=-1)&(self.irf_types=='EFF_AREA')&(self.conv_types=='BACK'))[0]
         except Exception(msg):
-            print 'Failed Looking for irf {}'.format(irf)
+            print ('Failed Looking for irf {}'.format(irf))
             raise Exception('Failed Looking for irf {}'.format(irf))
         # if front & back exist in the caldb.indx
         if len(front)==1 and len(back)==1:

@@ -26,7 +26,7 @@ class SpectralModelFitter(object):
         #find good values with which to estimate the covariance matrix -- look at diagonal deviations
         #iterate until change in function consistent with ~1 sigma conditional error
         for i in xrange(np):
-            #print 'Working on parameter %d'%(i)
+            #print ('Working on parameter %d'%(i))
             #if p[i] < 0: deltas[i] *= -1 #necessary?
             h,l = p.copy(),p.copy()
             for j in xrange(10):
@@ -39,7 +39,7 @@ class SpectralModelFitter(object):
                 delta_f = delta_f_1 + delta_f_2 #twice difference, really
                 deltas[i] /= max(delta_f**0.5,0.33) # can change by half decade
 
-                #print delta_f,delta_f_1,delta_f_2
+                #print (delta_f,delta_f_1,delta_f_2)
                 
 
                 if delta_f < 5 and delta_f > 0.5: break
@@ -48,19 +48,19 @@ class SpectralModelFitter(object):
                 # no constraint on parameter -- ignore it in further fittingor :
                 bad_mask[i] = True
                 return_code[i] = 1
-                #print 'BAAAAAAD 1'
+                #print ('BAAAAAAD 1')
             if (delta_f_1/delta_f_2 > 10 or delta_f_1/delta_f_2 < 1./10):
                 # significant asymmetry in likelihood             
-                #print 'BAAAAAAD 2'
+                #print ('BAAAAAAD 2')
                 bad_mask[i] = True
                 return_code[i] = 2
             if (delta_f_2 < 5e-3 and delta_f_1 > 0.5):
                 # not actually at maximum of likelihood -- upper limit condition
-                #print 'BAAAAAAD 3'
+                #print ('BAAAAAAD 3')
                 bad_mask[i] = True
                 return_code[i] = 3
 
-        #print deltas
+        #print (deltas)
             
         for i in xrange(np):
             if bad_mask[i]:
@@ -182,17 +182,17 @@ def mycov(grad,par,full_output=False,init_step=0.04,min_step=1e-6,max_step=1,max
             par[i] += di
             delta_f = (g_up - g_dn)[i]
             converged,new_step = revised_step(delta_f,di,i)
-            #print 'Parameter %d -- Iteration %d -- Step size: %.2e -- delta: %.2e'%(i,j,di,delta_f)
+            #print ('Parameter %d -- Iteration %d -- Step size: %.2e -- delta: %.2e'%(i,j,di,delta_f))
             if converged: break
             else: step_size[i] = new_step
         hess[i,:] = (g_up - g_dn) / (2*di)  # central difference
         if not converged:
-            print 'Warning: step size for parameter %d (%.2g) did not result in convergence.'%(i,di)
+            print ('Warning: step size for parameter %d (%.2g) did not result in convergence.'%(i,di))
     
     try:
         cov = np.linalg.inv(hess)
     except Exception:
-        print 'Error inverting hessian.'
+        print ('Error inverting hessian.')
         cov = np.zeros([nparams,nparams])
         #raise
     if full_output:

@@ -33,7 +33,7 @@ class DiffuseBase(object):
     def __new__(cls, filename, **kwargs):
         if filename not in cls._instance_dict:
             cls._instance_dict[filename] = super(DiffuseBase, cls).__new__(cls)
-            #print 'diffuse: loaded ', filename
+            #print ('diffuse: loaded ', filename)
         return cls._instance_dict[filename]
     
     @classmethod
@@ -119,7 +119,7 @@ class Isotropic(DiffuseBase):
         self.setupfile(filename)
         try:
             t = np.loadtxt(self.fullfilename)
-        except Exception,msg:
+        except Exception as msg:
             raise Exception('Fail to load file %s: %s' % (self.fullfilename, msg))
         self.energies=t[:,0]
         self.spectrum = t[:,1]
@@ -183,7 +183,7 @@ class MapCube(DiffuseBase, skymaps.DiffuseFunction):
         self.loaded=True
         if not interpolate: 
             pass
-            #print 'loading diffuse file %s: warning, not interpolating' %self.filename
+            #print ('loading diffuse file %s: warning, not interpolating' %self.filename)
         super(MapCube,self).__init__(self.filename, 1000., interpolate)
         # get list of energy planes: a C++ function, replace with local data member
         self.energies = np.array(self.energies(), float)
@@ -203,7 +203,7 @@ class HealpixCube(DiffuseBase):
         try:
             try:
                 self.hdulist = hdus = fits.open(self.fullfilename)
-            except Exception, msg:
+            except Exception as msg:
                 raise DiffuseException('FITS: Failed to open {}: {}'.format(self.fullfilename, msg))
             if hdus[2].columns[0].name=='CHANNEL':
                 # binned format: assume next 2 columns are min, max and use geometric mean
@@ -227,8 +227,8 @@ class HealpixCube(DiffuseBase):
             self.loaded=True
             self.indexfun = skymaps.Band(self.nside).index
             self.dirfun = skymaps.Band(self.nside).dir
-        except Exception, msg:
-            print 'bad file or unexpected FITS format, file %s: %s' % (self.fullfilename, msg)
+        except Exception as msg:
+            print ('bad file or unexpected FITS format, file %s: %s' % (self.fullfilename, msg))
             raise
         #self.logeratio = np.log(self.energies[1]/self.energies[0])
         self.loge= np.log(self.energies)
@@ -263,7 +263,7 @@ class HealpixCube(DiffuseBase):
             ret = np.exp( np.log(u) * (1-a) + np.log(v) * a      )
         assert np.isfinite(ret), 'Not finite for {} at {} MeV, {},{},{}'.format(skydir, self.energy, a, u,v)
         if ret<=0:
-            #print 'Warning: FLux not positive at {} for {:.0f} MeV a={}'.format(skydir, self.energy,a)
+            #print ('Warning: FLux not positive at {} for {:.0f} MeV a={}'.format(skydir, self.energy,a))
             ret = 0
         return ret
 
@@ -319,7 +319,7 @@ class FitsMapCube(DiffuseBase):
         self.loaded=True
         # Load the FITS hdulist using astropy.io.fits
         self.hdulist =hdulist = fits.open(self.fullfilename)
-        #print hdulist.info()
+        #print (hdulist.info())
 
         # Parse the WCS keywords in the primary HDU
         self.w = wcs.WCS(hdulist[0].header)
@@ -506,8 +506,8 @@ class IsotropicSpectralFunction(DiffuseBase):
         try:
             self.expression  = expression.split('_')[-1]
             self.spectral_function = eval(self.expression)
-        except Exception, msg:
-            print 'Failure to evaluate IsotropicSpectralFunction %s : %s' % (self.expression, msg)
+        except Exception as msg:
+            print ('Failure to evaluate IsotropicSpectralFunction %s : %s' % (self.expression, msg))
             raise
         self.energy=1000
         self.loaded=True
@@ -549,7 +549,7 @@ class AziLimb(IsotropicSpectralFunction):
             adict = eval(txt)
             self.loaded=True
             self.energy=100
-        except Exception, msg:
+        except Exception as msg:
             raise Exception('Failure to interpret Limb parameter file "%s": %s'\
                             %(self.fullfilename, msg))
         self.limbfun = PieceWise(adict['pieces'])
@@ -586,7 +586,7 @@ class GulliLimb(DiffuseBase):
                     return self.pref * e100 ** (self.index + self.beta*np.log(e100))
             self.spec_fun = map(Spectrum, range(90))
 
-        except Exception, msg:
+        except Exception as msg:
             raise Exception('Failure to interpret Limb parameter file "%s": %s'\
                             %(self.fullfilename, msg))
         self.energy=1000
@@ -679,12 +679,12 @@ class IsotropicList(DiffuseList):
         """
         try:
             fn, corr, key = adict['filename'], adict.get('correction', None), adict.get('key', None)
-        except Exception, msg:
-            print "Fail to create IsotropicList: adict=%s, %s" % (adict, msg)
+        except Exception as msg:
+            print ("Fail to create IsotropicList: adict=%s, %s" % (adict, msg))
             raise
         for et in event_type_names:
             filename = fn.replace('**', et.upper()).replace('*', et)
-            #print fn, filename, et
+            #print (fn, filename, et)
             correction_data=correction=None
             if corr is not None:
                 correction = corr.replace('*', et)
@@ -721,8 +721,8 @@ def etype_insert(value, et):
         v[k]=x
     try:
         g = eval(v['type'])(v['filename'])
-    except Exception, msg:
-        print 'Fail in instantiate: {} {}'.format(v,msg)
+    except Exception as msg:
+        print ('Fail in instantiate: {} {}'.format(v,msg))
         raise
     g.kw = v
     return g
@@ -787,7 +787,7 @@ def diffuse_factory(value, diffuse_normalization=None, event_type_names=('front'
     if type is not None:
         try:
             dfun = eval(type)
-        except Exception, msg:
+        except Exception as msg:
             raise DiffuseException('Diffuse type specification "%s" failed: %s'%(type, msg))
     else:
         # inferr class to use from file type
@@ -797,7 +797,7 @@ def diffuse_factory(value, diffuse_normalization=None, event_type_names=('front'
                 '.zip': CachedMapCube,
                 ')': IsotropicSpectralFunction, 
                 }[ext if ext[-1]!=')' else ')']
-        except Exception, msg:
+        except Exception as msg:
             raise DiffuseException('File type, "%s", for diffuse not recognized, from "%s":%s (message :%s)'\
                 % (ext, files, ext, msg))
     
@@ -882,16 +882,16 @@ def apply_patch(inpat, patchfile, outpat, event_type_names=('front','back')):
             else:
                 p = patch[-1]
             b = p.vec
-            print layer.name, ',',
+            print (layer.name, ',',)
             modlayer.append(healpix_map.HParray(layer.name, healpix_map.multiply(a,b)))
-        print
+        print()
         outmap=healpix_map.HEALPixFITS(modlayer, energies=self.energies)
         if newfile is not None: outmap.write(newfile)
         return outmap
 
-    print 'Applying {} to {}'.format(patchfile, inpat)
+    print ('Applying {} to {}'.format(patchfile, inpat))
     patch = HealpixCube(patchfile); patch.load()
     for iet in event_type_names:
-        print iet, ':',
+        print (iet, ':',)
         df = HealpixCube(inpat.replace('*', iet)); df.load()
         modify_by_patch(df, patch, outpat.replace('*', iet))    

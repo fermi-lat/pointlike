@@ -74,7 +74,7 @@ class Livetime(object):
         # the procedure is to take the union of all GTIs provided by FT1 files
         # then, take an intersection with the (optional) gti_mask and the time limits
         if self.verbose >= 1:
-            print 'Processing GTI...'
+            print ('Processing GTI...')
         gti = self.gti = Gti(ft1files[0])
         if len(ft1files) > 1:
             for ft1 in ft1files[1:]: gti.combine(Gti(ft1))
@@ -85,7 +85,7 @@ class Livetime(object):
             before = round(gti.computeOntime())
             gti.interserction(self.gti_mask)
             if verbose >= 1:
-                print 'Applied GTI mask; ontime reduced from %ds to %ds'%(before,round(gti.computerOntime()))
+                print ('Applied GTI mask; ontime reduced from %ds to %ds'%(before,round(gti.computerOntime())))
 
         ### NB -- this iteration takes way longer than it should -- put in an accessor method in SWIG
         self.gti_starts,self.gti_stops = \
@@ -93,13 +93,13 @@ class Livetime(object):
 
         N.sort(self.gti_starts);N.sort(self.gti_stops)
         if self.verbose >= 1:
-            print 'Finished computing GTI from FT1 files; total ontime = %ds'%(round(gti.computeOntime()))
+            print ('Finished computing GTI from FT1 files; total ontime = %ds'%(round(gti.computeOntime())))
 
     def __setup_ft2(self,ft2files):
         """Load in the FT2 data.  Optionally, mask out values that will not
            contibute to the exposure."""
         if self.verbose >= 1:
-            print 'Loading FT2 files...'
+            print ('Loading FT2 files...')
         handles = [pf.open(ft2,memmap=True) for ft2 in ft2files]
         ft2lens = [handle['SC_DATA'].data.shape[0] for handle in handles]
         fields  = self.fields
@@ -108,7 +108,7 @@ class Livetime(object):
         counter = 0
         for ihandle,handle in enumerate(handles):
             if self.verbose > 1:
-                print '...Loading FT2 file # %d'%(ihandle)
+                print ('...Loading FT2 file # %d'%(ihandle))
             n = ft2lens[ihandle]
             for ifield,field in enumerate(fields):
                 arrays[ifield][counter:counter+n] = handle['SC_DATA'].data.field(field)
@@ -116,16 +116,16 @@ class Livetime(object):
         for ifield,field in enumerate(fields):
             self.__dict__[field] = arrays[ifield]
         if self.mask_zero:
-            if self.verbose >= 1: print 'Pruning values that yield 0 exposure...'
+            if self.verbose >= 1: print ('Pruning values that yield 0 exposure...')
             mask = (self.LIVETIME > 0) | (self.STOP > self.gti_starts[0]) | (self.START < self.gti_stops[-1])
             self.mask_entries()
 
         self.mask_entries(N.argsort(self.START)) # sort the FT2 file in case it isn't
         if self.verbose > 1:
-            print 'Finished loading FT2 files!'
+            print ('Finished loading FT2 files!')
   
     def __process_ft2(self):
-        if self.verbose >= 1: print 'Processing the FT2 file (calculating overlap with GTI)...'
+        if self.verbose >= 1: print ('Processing the FT2 file (calculating overlap with GTI)...')
         if self.fast_ft2: overlaps = self.__process_ft2_fast(self.gti_starts,self.gti_stops)
         else:             overlaps = self.__process_ft2_slow(self.gti_starts,self.gti_stops)
         mask = overlaps > 0
@@ -133,7 +133,7 @@ class Livetime(object):
         self.LTFRAC    = self.LIVETIME/(self.STOP-self.START)
         self.fields += ['LTFRAC']
         self.LIVETIME *= overlaps[mask]
-        if self.verbose > 1: print 'Finished processing the FT2 file!'
+        if self.verbose > 1: print ('Finished processing the FT2 file!')
 
     def __process_ft2_slow(self,gti_starts,gti_stops):
         """Calculate the fraction of each FT2 interval lying within the GTI.
@@ -413,7 +413,7 @@ class Exposure(object):
 
       #Do some caching -- effective area is the same for same energy bins!
       if N.all(energies == self.energies) and event_class == self.event_class:
-         #print 'using cached values'
+         #print ('using cached values')
          vals = self.vals
       
       else:
@@ -489,7 +489,7 @@ class SimpleExposureSeries(object):
         else:      # use unbinned effective area -- a little slow
             en = self.en; ea = self.ea
             aeff = N.asarray([ea(en,c) for c in cosines])
-        #print aeff.shape
+        #print (aeff.shape)
         exposure = (aeff*self.LIVETIME[mask]).sum(axis=1)
         return self.lt.START[mask],self.lt.STOP[mask],exposure
 

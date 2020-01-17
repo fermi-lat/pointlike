@@ -86,7 +86,7 @@ class ROIAnalysis(object):
 
         self.param_state, self.param_vals  = None,None
         if self.skip_setup: 
-            if not self.quiet: print 'No likelihood setup done: skip_setup is set'
+            if not self.quiet: print ('No likelihood setup done: skip_setup is set')
             return
         self.__pre_fit__()
         
@@ -138,15 +138,15 @@ class ROIAnalysis(object):
 
         for ct in [0,1]:
             if len([b for b in self.bands if b.ct==ct]) == 0:
-                print "Warning: No conversion type %s photons were selected." % ct
+                print ("Warning: No conversion type %s photons were selected." % ct)
                 continue
             actual_emin=min(b.emin for b in self.bands if b.ct==ct)
             actual_emax=max(b.emax for b in self.bands if b.ct==ct)
             requested_emin,requested_emax=self.fit_emin[ct],self.fit_emax[ct]
             if np.abs(actual_emin-requested_emin)>1:
-                print 'Warning: For ct=%d, requested emin is %d, actual emin is %d' % (ct,requested_emin,actual_emin)
+                print ('Warning: For ct=%d, requested emin is %d, actual emin is %d' % (ct,requested_emin,actual_emin))
             if np.abs(actual_emax-requested_emax)>1:
-                print 'Warning: For ct=%d, requested emax is %d, actual emax is %d' % (ct,requested_emax,actual_emax)
+                print ('Warning: For ct=%d, requested emax is %d, actual emax is %d' % (ct,requested_emax,actual_emax))
 
     def setup_energy_bands(self,emin=[0,0]):
 
@@ -343,15 +343,15 @@ class ROIAnalysis(object):
                     prev_grad = g
                     delta /= 1.5
             if j == (max_iter-1):
-                print 'Adaptive scheme did not converge for parameter %d.'%i
+                print ('Adaptive scheme did not converge for parameter %d.'%i)
 
         if get_approx_gradient: return grad
         if np.max(np.abs(grad-self.gradient(p0))) < tol:
             return True
-        print np.max(np.abs(grad-self.gradient(p0)))
+        print (np.max(np.abs(grad-self.gradient(p0))))
         ratio = self.gradient(p0)/grad
-        print 'Gradients did not agree! Ratio of gradients:'
-        print ratio
+        print ('Gradients did not agree! Ratio of gradients:')
+        print (ratio)
         return False
 
     def _check_model_gradients(self):
@@ -431,7 +431,7 @@ class ROIAnalysis(object):
             raise Exception('Unknown fitting method for F.fit(): "%s"' % method)
         if use_gradient and (not self._check_model_gradients()):
             if not self.quiet:
-                print 'Found a model without a gradient method.  Switching to simplex method.'
+                print ('Found a model without a gradient method.  Switching to simplex method.')
             method = 'simplex'; use_gradient = False
 
         if fit_bg_first:
@@ -439,7 +439,7 @@ class ROIAnalysis(object):
 
         self.__pre_fit__()
 
-        if not self.quiet: print '.....performing likelihood maximization...',
+        if not self.quiet: print ('.....performing likelihood maximization...',)
         if method == 'minuit':
             from uw.utilities.minuit import Minuit
             temp_params = self.parameters()
@@ -480,15 +480,15 @@ class ROIAnalysis(object):
                     f = self._save_bfgs = fmin_bfgs(self.logLikelihood,self.parameters(),self.gradient,full_output=1,maxiter=500,gtol=gtol,disp=0)
                     if abs(f0[1] - f[1]) < tolerance: break # note absolute tolerance
                     if not self.quiet:
-                        print 'Did not converge on this gradient iteration.  Trying again.'
-                        print f0[1],f[1],abs(f0[1]-f[1])
+                        print ('Did not converge on this gradient iteration.  Trying again.')
+                        print (f0[1],f[1],abs(f0[1]-f[1]))
                     f0 = f
 
             else:
                 minimizer  = fmin_powell if method == 'powell' else fmin
                 f = minimizer(self.logLikelihood,self.parameters(),full_output=1,
                                   maxiter=10000,maxfun=20000,ftol=0.01/abs(ll_0), disp=0 if self.quiet else 1)
-            if not self.quiet: print 'Function value at minimum: %.8g'%f[1]
+            if not self.quiet: print ('Function value at minimum: %.8g'%f[1])
             if save_values:
                 self.set_parameters(f[0])
                 if estimate_errors: self.__set_error__(use_gradient)
@@ -498,7 +498,7 @@ class ROIAnalysis(object):
             return -f[1]
 
         ## check for error conditions here
-        #    if not self.quiet: print 'good fit!'
+        #    if not self.quiet: print ('good fit!')
         #    return -f[1]
 
     def __set_error__(self,use_gradient=False):
@@ -513,11 +513,11 @@ class ROIAnalysis(object):
 
         def _has_nan(m):
             nan = np.any(np.isnan(m))
-            if nan and (not self.quiet): print 'Found NaN in covariance matrix!'
+            if nan and (not self.quiet): print ('Found NaN in covariance matrix!')
             return nan
 
         try:
-            if not self.quiet: print 'Attempting to invert full hessian...'
+            if not self.quiet: print ('Attempting to invert full hessian...')
             self.cov_matrix = cov_matrix = np.linalg.inv(hessian)
             if _has_nan(cov_matrix): raise ValueError
             self.bgm.set_covariance_matrix(cov_matrix,current_position=0)
@@ -525,14 +525,14 @@ class ROIAnalysis(object):
             success = True
         except Exception:
             if len(self.psm.parameters()) > 0:
-                if not self.quiet: print 'Skipping full Hessian inversion, trying point source parameter subset...'
+                if not self.quiet: print ('Skipping full Hessian inversion, trying point source parameter subset...')
                 try:
                     self.cov_matrix = cov_matrix = np.linalg.inv(hessian[n:,n:])
                     if _has_nan(cov_matrix): raise ValueError
                     self.psm.set_covariance_matrix(cov_matrix,current_position=0)
                     success = True
                 except Exception:
-                    if not self.quiet: print 'Unable to recover point source errors.  Any reported error is unreliable!'
+                    if not self.quiet: print ('Unable to recover point source errors.  Any reported error is unreliable!')
             else:
                 nump = len(self.get_parameters())
                 self.cov_matrix = np.zeros([nump,nump])
@@ -576,7 +576,7 @@ class ROIAnalysis(object):
                 ll_1 = -self.bandFit(which)
 
             if ll_0 == 1e6 or ll_1 == 1e6: 
-                 print 'Warning: loglikelihood is NaN, returning TS=0'
+                 print ('Warning: loglikelihood is NaN, returning TS=0')
                  return 0
             return 2*(ll_0 - ll_1)
 
@@ -585,7 +585,7 @@ class ROIAnalysis(object):
         self.fit(save_values=False, **fit_kwargs)
         ll_0 = -self.logLikelihood(self.parameters())
 
-        if not self.quiet: print self
+        if not self.quiet: print (self)
         self.unzero_ps(which)
         self.set_parameters(save_params) # reset free parameters
         self.__update_state__() # restore caching
@@ -594,7 +594,7 @@ class ROIAnalysis(object):
         else:
             ll = self.bandFit(which)
         if ll_0 == 1e6 or ll == 1e6: 
-             print 'Warning: loglikelihood is NaN, returning TS=0'
+             print ('Warning: loglikelihood is NaN, returning TS=0')
              return 0
         return 2*(ll - ll_0)
 

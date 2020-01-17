@@ -35,7 +35,7 @@ import cPickle
 def format_error(v,err):
     if v>0 and err>0 and not np.isinf(err):
         logz = math.floor(math.log10(err))-1
-        #print logz
+        #print (logz)
         z = 10**logz
         err = round(err/z)*z
         v = round(v/z)*z
@@ -170,7 +170,7 @@ class CombinedLike(object):
 
             if os.path.exists(self.cachedir+'%son%s.npy'%(psr[0],tag)):
                 if self.verbose:
-                    print 'Loaded %s on pulse from cache from: %son%s'%(psr[0],psr[0],tag)
+                    print ('Loaded %s on pulse from cache from: %son%s'%(psr[0],psr[0],tag))
                 hist = np.load(self.cachedir+'%son%s.npy'%(psr[0],tag))
                 self.pulse_ons.append(hist)
             else:
@@ -187,7 +187,7 @@ class CombinedLike(object):
 
             if os.path.exists(self.cachedir+'%soff%s.npy'%(psr[0],tag)):
                 if self.verbose:
-                    print 'Loaded %s off pulse from cache from: %soff%s'%(psr[0],psr[0],tag)
+                    print ('Loaded %s off pulse from cache from: %soff%s'%(psr[0],psr[0],tag))
                 hist = np.load(self.cachedir+'%soff%s.npy'%(psr[0],tag))
                 self.pulse_offs.append(hist)
             else:
@@ -208,14 +208,14 @@ class CombinedLike(object):
         for it,lists in enumerate(self.agnlist):
             if os.path.exists(self.cachedir+'%s%s.npy'%(lists,tag)):
                 if self.verbose:
-                    print 'Loaded %s from cache: %s%s'%(lists,lists,tag)
+                    print ('Loaded %s from cache: %s%s'%(lists,lists,tag))
                 hist = np.load(self.cachedir+'%s%s.npy'%(lists,tag))
                 sl = cPickle.load(open(self.cachedir+'%s%s.pickle'%(lists,tag)))#StackLoader(name=lists,ctmin=self.ctmin,ctmax=self.ctmax,quiet=not self.veryverbose)
                 #sl.bindata()
                 sl.solveback()
                 self.sagns.append(sl.Npsf)
                 self.backs.append(sl.Nback)
-                print len(sl.ds),sl.Npsf+sl.Nback
+                print (len(sl.ds),sl.Npsf+sl.Nback)
                 sl.makeplot('agnplot%d'%(it),bin=40)
                 del sl
                 self.agns.append(hist)
@@ -252,7 +252,7 @@ class CombinedLike(object):
             if bins>0:
                 
                 if sum([len(puls) for puls in self.pulse_ons])>2*len(self.pulse_ons)*bins:
-                    print 'Using Pulsars for angular binning: %d photons'%(sum([len(puls) for puls in self.pulse_ons]))
+                    print ('Using Pulsars for angular binning: %d photons'%(sum([len(puls) for puls in self.pulse_ons])))
 
                     #determine needed bins by combining all data (except background)
 
@@ -274,7 +274,7 @@ class CombinedLike(object):
 
                 # sqrt(N) binning
                 else:
-                    print 'Using AGN for angular binning'
+                    print ('Using AGN for angular binning')
                     maxph = 0
                     bestph = 0
                     for it,tagn in enumerate(self.agns):
@@ -369,7 +369,7 @@ class CombinedLike(object):
             #fval = minuit.fval
             fval = best[1]
             if cverb:
-                print x,self.lmax-fval
+                print (x,self.lmax-fval)
             self.tpars=10**(self.setargs(best[0]))
             self.params=params
             self.fixed=fixed
@@ -399,7 +399,7 @@ class CombinedLike(object):
                 fval = best[1]
                 vals.append(fval)
                 if cverb:
-                    print xval,self.lmax-fval
+                    print (xval,self.lmax-fval)
                 self.tpars=10**(self.setargs(best[0]))
                 self.params=params
                 self.fixed=fixed
@@ -414,21 +414,21 @@ class CombinedLike(object):
     #  @param delt change in likelihood (positive value), 0.5 corresponds to 1 sigma, 2 to 2 sigma, etc
     #  @param startpar optional guess for parameter value corresponding to 'delt'
     def findlims(self,ip,delt,startpar=-1):
-        #print 'Checking p%d of %d'%(ip+1,len(self.params))
+        #print ('Checking p%d of %d'%(ip+1,len(self.params)))
         par = self.params[ip]
         self.lmax = self.profile(ip,par)
 
         #check to see if limits exist already, otherwise step the default size, unless the parameter is particularly small
         if self.prof==[]:
             step = 1 if par>1e-4 else (2./par-1)*10
-            #print 'Using default step'
+            #print ('Using default step')
         else:
             if self.prof[ip][1]>0:
                 step = self.prof[ip][1]/par-1.
-                #print 'Using upper limit for step'
+                #print ('Using upper limit for step')
             else:
                 step = 1 if par>1e-4 else (2./par-1)*10
-                #print 'Using default step'
+                #print ('Using default step')
         if par*(1+step)>self.limits[ip][1]:
             step=0.9*self.limits[ip][1]/par-1.
 
@@ -446,7 +446,7 @@ class CombinedLike(object):
         #try the log-profiler first
         bestup,bestval,failed = self.effprofiler(xr,yr,delt,ip,True,True)
         if failed:
-            #print 'Log fitter failed, trying linear'
+            #print ('Log fitter failed, trying linear')
             xmin = self.limits[ip][0]*1.1
             xmax = self.limits[ip][1]*0.5
             xr = [xmin,0.5*(xmin+xmax),xmax]#np.exp(np.array(xi))
@@ -471,7 +471,7 @@ class CombinedLike(object):
         #try the log-profiler first
         bestlow,bestval,failed = self.effprofiler(xr,yr,delt,ip,False,True)
         if failed:
-            #print 'Log fitter failed, trying linear'
+            #print ('Log fitter failed, trying linear')
             xmin = self.limits[ip][0]*1.1
             xmax = self.limits[ip][1]*0.5
             xr = [xmin,0.5*(xmin+xmax),xmax]#np.exp(np.array(xi))
@@ -542,7 +542,7 @@ class CombinedLike(object):
             yvals.append(yr0)
             cdelt = yr0
             format = '%10.3f '*13
-            print format%(xr[0],xr[1],xr[2],xr0,yr[0],yr[1],yr[2],cdelt,best,bestpar,chisq,estpar,self.params[ip])
+            print (format%(xr[0],xr[1],xr[2],xr0,yr[0],yr[1],yr[2],cdelt,best,bestpar,chisq,estpar,self.params[ip]))
             steps+=1
             if abs(cdelt+delt)<best:
                 best=abs(cdelt+delt)
@@ -625,11 +625,11 @@ class CombinedLike(object):
         ref10 = 10**ref
         if x10>self.limits[it][1] or x10<self.limits[it][0]:
             return INFINITY
-        #print x,ref,x10,ref10
+        #print (x,ref,x10,ref10)
         fact = x10>ref10 if upper else x10<ref10
         prf = self.profile(it,x10)
         dl = abs(self.lmax-prf+dlogl) if fact else INFINITY
-        #print x10,ref10,self.lmax,prf,dl
+        #print (x10,ref10,self.lmax,prf,dl)
         t.sleep(0.05)
         return dl
 
@@ -742,17 +742,17 @@ class CombinedLike(object):
             pars = pars + '%1.6f\t'%par
 
         if self.verbose:
-            print ''
-            print '**********************************************************'
-            print '*                                                        *'
-            print '*             Combined Likelihood Analysis               *'
-            print '*                                                        *'
-            print '**********************************************************'
-            print 'Pulsars: %s'%psrs
-            print 'AGNs: %s'%agns
-            print 'Using halo model: %s'%self.halomodel
-            print 'Using parameters: %s'%pars
-            print '**********************************************************'
+            print ('')
+            print ('**********************************************************')
+            print ('*                                                        *')
+            print ('*             Combined Likelihood Analysis               *')
+            print ('*                                                        *')
+            print ('**********************************************************')
+            print ('Pulsars: %s'%psrs)
+            print ('AGNs: %s'%agns)
+            print ('Using halo model: %s'%self.halomodel)
+            print ('Using parameters: %s'%pars)
+            print ('**********************************************************')
 
         #sf = CALDBPsf(CALDBManager(irf=self.irf))
         #
@@ -802,7 +802,7 @@ class CombinedLike(object):
             self.params=[par for par in self.params[:cnum-len(self.agnlist)]]
             self.fixed=[par for par in self.fixed[:cnum-len(self.agnlist)]]
             self.limits=[par for par in self.limits[:cnum-len(self.agnlist)]]
-            #print len(self.params),len(self.fixed),len(self.limits)
+            #print (len(self.params),len(self.fixed),len(self.limits))
 
         if self.halomodel=='':
             self.hmd=np.zeros(self.nbins)
@@ -816,12 +816,12 @@ class CombinedLike(object):
             self.params.append(self.Nh[it] if (it+1)==agns else ZERO)
             self.limits.append([ZERO,sum(self.agnhists[it])*10])
             self.fixed.append(not(self.halomodel!='' and it==(len(self.agnlist)-1)))
-            #print len(self.params),len(self.fixed),len(self.limits)
+            #print (len(self.params),len(self.fixed),len(self.limits))
 
         if self.verbose:
-            print 'Setting up Minuit and maximizing'
+            print ('Setting up Minuit and maximizing')
             header = ''+string.join(['Np  \t' for nj in self.pulsars])+string.join(['Na  \t' for nj in self.agnlist])+string.join(['Ni  \t' for ni in self.agnlist])+string.join(['Nh  \t' for nh in self.agnlist])+'like'
-            print header
+            print (header)
 
         """if self.halomodel=='':
             for it in range(self.nbins-1):
@@ -865,14 +865,14 @@ class CombinedLike(object):
         ival = self.likelihood(np.log10(self.params))
         tol = abs(0.0001/ival)
         if self.verbose:
-            print 'Using ftol: %1.3e with l0=%1.1f'%(tol,ival)
+            print ('Using ftol: %1.3e with l0=%1.1f'%(tol,ival))
         ############  setup Minuit and optimize  ###############
-        #print self.gradient(np.log10(self.params),False)
-        #print self.params
+        #print (self.gradient(np.log10(self.params),False))
+        #print (self.params)
         self.best = so.fmin_powell(lambda z: self.likelihood(self.setargs(z)),np.log10(self.params[self.free]),ftol=tol,disp=0,full_output=1)
         #best = so.fmin_ncg(lambda z: self.likelihood(self.setargs(z)),np.log10(self.params[self.free]),fprime=lambda z: self.loggrad2(self.setargs(z)),disp=0,full_output=1)
         self.params = 10**self.setargs(self.best[0])
-        #print self.params
+        #print (self.params)
         #if self.usegrad:
         #    self.minuit = Minuit(self.likelihood,np.log10(self.params),gradient=self.gradient,force_gradient=1,
         #                     fixed=self.fixed,limits=np.log10(self.limits),strategy=2,tolerance=tol,printMode=self.mode)
@@ -883,13 +883,13 @@ class CombinedLike(object):
         self.minuit.minimize()
         self.lmax = self.best[1]#self.minuit.fval#self.minuit[1]#
         if self.verbose:
-            print 'Likelihood value: %1.1f'%self.minuit.fval#[1]#
-            print '**********************************************************'
-        #print self.gradient(self.minuit.params,False)
+            print ('Likelihood value: %1.1f'%self.minuit.fval#[1]#)
+            print ('**********************************************************')
+        #print (self.gradient(self.minuit.params,False))
         ###########  get parameters and errors #################
         #self.params = 10**(self.minuit.params)#[0])#
         self.cov = self.minuit.errors()
-        #print self.cov
+        #print (self.cov)
         if self.qandd:
             self.errs = 10**(np.sqrt(np.diag(self.cov)))
             self.prof = np.array([[self.params[it]/self.errs[it],self.params[it]*self.errs[it]] for it in range(len(self.errs))])
@@ -907,7 +907,7 @@ class CombinedLike(object):
     def setargs(self,xarr):
         it = 0
         retarr = []
-        #print xarr
+        #print (xarr)
         for it2,par in enumerate(self.params):
             if self.fixed[it2]:
                 retarr.append(np.log10(par))
@@ -928,7 +928,7 @@ class CombinedLike(object):
         hmd = np.array([mod.integral(self.angbins[it]/rd,self.angbins[it+1]/rd)/mint for it in range(self.nbins)])
         hmd = hmd/sum(hmd)*nhalo
         newdata = sst.poisson.rvs(hmd)
-        print newdata
+        print (newdata)
         self.agnhists[-1]+= newdata
         
 
@@ -943,13 +943,13 @@ class CombinedLike(object):
         self.pofhists = np.array([[0 if bin==0 else sst.poisson.rvs(bin) for bin in pofhis] for pofhis in self.pofmodels])
         self.agnhists = np.array([[0 if bin==0 else sst.poisson.rvs(bin) for bin in agnhis] for agnhis in self.agnmodels])
         """for it in range(len(self.ponhists)):
-            print self.backups[0][it]
-            print self.ponhists[it]
-            print self.backups[1][it]
-            print self.pofhists[it]
+            print (self.backups[0][it])
+            print (self.ponhists[it])
+            print (self.backups[1][it])
+            print (self.pofhists[it])
         for it in range(len(self.agnhists)):
-            print self.backups[2][it]
-            print self.agnhists[it]"""
+            print (self.backups[2][it])
+            print (self.agnhists[it])"""
 
     #######################################################
     #        Calculate sample P-values                    #
@@ -959,10 +959,10 @@ class CombinedLike(object):
         self.fixed[-1]=True
         TS0 = self.TS
         l0 = self.fit(custom=True,qandd=True)
-        print self
+        print (self)
         self.fixed[-1]=False
         self.data2mcb=False
-        print TS0,self.Nh[-1]
+        print (TS0,self.Nh[-1])
         models = [cp.copy(self.ponmodels),cp.copy(self.pofmodels),cp.copy(self.agnmodels)]
         itr = 0
         TSs = []
@@ -975,9 +975,9 @@ class CombinedLike(object):
             if itr>0:
                 pm = self.wilson(itr+1,it+1)
                 pv = (itr+1.)/(it+1.)
-                print '%1.3f %1.1f '%(TS1,self.Nh[-1]),itr,it,'%1.3f %1.3f %1.3f'%(pm[0],pv,pm[1]),' (>1):%d (>2):%d (>3):%d'%(len(tTSs[tTSs>1]),len(tTSs[tTSs>2]),len(tTSs[tTSs>3]))
+                print ('%1.3f %1.1f '%(TS1,self.Nh[-1]),itr,it,'%1.3f %1.3f %1.3f'%(pm[0],pv,pm[1]),' (>1):%d (>2):%d (>3):%d'%(len(tTSs[tTSs>1]),len(tTSs[tTSs>2]),len(tTSs[tTSs>3])))
             else:
-                print '%1.3f %1.1f '%(TS1,self.Nh[-1]),itr,it,' (>1):%d (>2):%d (>3):%d'%(len(tTSs[tTSs>1]),len(tTSs[tTSs>2]),len(tTSs[tTSs>3]))
+                print ('%1.3f %1.1f '%(TS1,self.Nh[-1]),itr,it,' (>1):%d (>2):%d (>3):%d'%(len(tTSs[tTSs>1]),len(tTSs[tTSs>2]),len(tTSs[tTSs>3])))
             if TS1>(TS0):
                 itr+=1
             self.ponmodels,self.pofmodels,self.agnmodels=models
@@ -1008,7 +1008,7 @@ class CombinedLike(object):
     #######################################################################
     ## printResults() - summary
     def printResults(self):
-        print str(self)
+        print (str(self))
 
     def gradient2(self,params):
         grad=[]
@@ -1035,7 +1035,7 @@ class CombinedLike(object):
         params = 10**params
 
         if verb:
-            print params
+            print (params)
             t.sleep(0.05)
 
         psrs = len(self.ponhists)
@@ -1056,16 +1056,16 @@ class CombinedLike(object):
         #set to true for slow,verbose output
         if (1-np.sum(mi))<0:
             if self.veryverbose:
-                print 'Bad PSF: %1.3f'%(np.sum(mi))
-                print mi
+                print ('Bad PSF: %1.3f'%(np.sum(mi)))
+                print (mi)
             return 0
         mi = np.append(mi,[1-np.sum(mi)])
         if self.veryverbose:
-            print '**************************************************************'
-            print '--------------------------------------------------------------'
-            print '                        Pulsars                               '
-            print '--------------------------------------------------------------'
-            print 'mu\tn\tmod\tb\tvi\tNi\tcont1\tcont2\tacc'
+            print ('**************************************************************')
+            print ('--------------------------------------------------------------')
+            print ('                        Pulsars                               ')
+            print ('--------------------------------------------------------------')
+            print ('mu\tn\tmod\tb\tvi\tNi\tcont1\tcont2\tacc')
 
         ########################################
         #          first sum in (3)            #
@@ -1073,9 +1073,9 @@ class CombinedLike(object):
         #loop over pulsars
         for it1,row in enumerate(npij):
             if self.veryverbose:
-                print '--------------------------------------------------------------'
-                print '                        %s                               '%self.pulsars[it1][0]
-                print '--------------------------------------------------------------'
+                print ('--------------------------------------------------------------')
+                print ('                        %s                               '%self.pulsars[it1][0])
+                print ('--------------------------------------------------------------')
             N = Npj[it1]                    #pulsar number estimator
             a = self.pulsars[it1][1]        #ratio of on-off
 
@@ -1091,7 +1091,7 @@ class CombinedLike(object):
                 lterm = N*m+a*v
                 #if lterm >0. or v<0.:
                 #if self.verbose:
-                #    print lterm,v,'Pulsar'
+                #    print (lterm,v,'Pulsar')
                 #   lterm = 1 if lterm<0 else lterm
                 #v = 1 if v<0 else v
                 #return INFINITY
@@ -1106,14 +1106,14 @@ class CombinedLike(object):
                 acc = acc + cont2
 
                 if self.veryverbose:
-                    print '%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f'%(m,n,lterm,b,v,N*m,cont1,cont2,acc)
+                    print ('%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f'%(m,n,lterm,b,v,N*m,cont1,cont2,acc))
                     t.sleep(0.05)
         
         if self.veryverbose:
-            print '--------------------------------------------------------------'
-            print '                        AGN                                   '
-            print '--------------------------------------------------------------'
-            print 'mu\tn\tlterm\tNi\tIi\tHi\tcont1\tacc'
+            print ('--------------------------------------------------------------')
+            print ('                        AGN                                   ')
+            print ('--------------------------------------------------------------')
+            print ('mu\tn\tlterm\tNi\tIi\tHi\tcont1\tacc')
         ########################################
         #         second sum in (3)            #
         ########################################
@@ -1121,9 +1121,9 @@ class CombinedLike(object):
         for it1,row in enumerate(naij):
 
             if self.veryverbose:
-                print '--------------------------------------------------------------'
-                print '                        %s                               '%self.agnlist[it1]
-                print '--------------------------------------------------------------'
+                print ('--------------------------------------------------------------')
+                print ('                        %s                               '%self.agnlist[it1])
+                print ('--------------------------------------------------------------')
             #loop over angular bins
             for it2,bin in enumerate(row):
 
@@ -1132,7 +1132,7 @@ class CombinedLike(object):
                 #lterm = 1 if lterm<0 else 
                 if lterm<0.:
                     if self.verbose:
-                        print it2,Naj[it1],mi[it2],Ni[it1],self.iso[it2],Nh[it1],self.hmd[it2],lterm,'AGN'
+                        print (it2,Naj[it1],mi[it2],Ni[it1],self.iso[it2],Nh[it1],self.hmd[it2],lterm,'AGN')
                     #    lterm=1
                     #return INFINITY
 
@@ -1142,14 +1142,14 @@ class CombinedLike(object):
                 acc = acc + cont1
 
                 if self.veryverbose:
-                    print '%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f'%(mi[it2],bin,lterm,Naj[it1]*mi[it2],Ni[it1]*self.iso[it2],Nh[it1]*self.hmd[it2],cont1,acc)
+                    print ('%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f'%(mi[it2],bin,lterm,Naj[it1]*mi[it2],Ni[it1]*self.iso[it2],Nh[it1]*self.hmd[it2],cont1,acc))
                     t.sleep(0.05)
         if self.verbose:
             if (self.lcalls%20)==0:
                 header = ''+string.join(['Np  \t' for nj in self.pulsars])+string.join(['Na  \t' for nj in self.agnlist])+string.join(['Ni  \t' for ni in self.agnlist])+string.join(['Nh  \t' for nh in self.agnlist])+'like'
-                print header
+                print (header)
             vals = ''+string.join(['%1.1f\t'%nj for nj in Npj])+string.join(['%1.1f\t'%nj for nj in Naj])+string.join(['%1.1f\t'%nj for nj in Ni])+string.join(['%1.1f\t'%nj for nj in Nh])+'%1.4f'%(acc)
-            print vals
+            print (vals)
             t.sleep(0.05)
         self.lcalls+=1
         return acc
@@ -1185,17 +1185,17 @@ class CombinedLike(object):
                 sc,gc,nc,st,gt,nt,ea=psf.params(self.ebar,self.ctype)
                 pars = [stest,gc]
                 lims = [[0,10],[1,10]]
-        print pars
+        print (pars)
         tolerance = abs(0.0025/self.psflikelihood(pars))
-        print tolerance
+        print (tolerance)
         tmin = so.fmin_powell(lambda x: self.psflikelihood(x,pverbose) if x[0]>0 else 1e40,pars,ftol=tolerance,disp=0,full_output=1)
         #tmin = so.fmin_powell(lambda x: self.psfchisq(x) if x[0]>0 else 1e40,pars,disp=0,full_output=1)
-        print tmin[0]
+        print (tmin[0])
 
         if not double:
             psf1 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=tmin[0])
-            print psf1.rcl(0.68),psf1.rcl(0.95)
-            print psf.rcontain(psf.params(self.ebar,self.ctype)[:-1],0.68)*rd,psf.rcontain(psf.params(self.ebar,self.ctype)[:-1],0.95)*rd
+            print (psf1.rcl(0.68),psf1.rcl(0.95))
+            print (psf.rcontain(psf.params(self.ebar,self.ctype)[:-1],0.68)*rd,psf.rcontain(psf.params(self.ebar,self.ctype)[:-1],0.95)*rd)
         else:
             tp68=psf.rcontain(psf.params(self.ebar,self.ctype)[:-1],0.68)*rd
             tp95=psf.rcontain(psf.params(self.ebar,self.ctype)[:-1],0.95)*rd
@@ -1205,13 +1205,13 @@ class CombinedLike(object):
             tpars = [par for par in tmin[0]]
             tpars.append(1.-tpars[2])
             ftot = alph*psf1.integral(0,40) + (1-alph)*psf2.integral(0,40)
-            #print psf1.rcl(0.68),psf1.rcl(0.95)
-            #print getfrac(0.68),getfrac(0.95)   #alph*psf1.rcl(0.68)+(1-alph)*psf2.rcl(0.68),alph*psf1.rcl(0.95)+(1-alph)*psf2.rcl(0.95)
-            print tp68,tp95
+            #print (psf1.rcl(0.68),psf1.rcl(0.95))
+            #print (getfrac(0.68),getfrac(0.95))   #alph*psf1.rcl(0.68)+(1-alph)*psf2.rcl(0.68),alph*psf1.rcl(0.95)+(1-alph)*psf2.rcl(0.95)
+            print (tp68,tp95)
             tp68=psf.rcontain(tpars,0.68)
             tp95=psf.rcontain(tpars,0.95)
-            print tp68,tp95
-            #print psf.inverse_integral(self.ebar,self.ctype,68.),psf.inverse_integral(self.ebar,self.ctype,95.)
+            print (tp68,tp95)
+            #print (psf.inverse_integral(self.ebar,self.ctype,68.),psf.inverse_integral(self.ebar,self.ctype,95.))
         return np.insert(tmin[0],0,self.ebar)
 
     ######################################################################
@@ -1224,10 +1224,10 @@ class CombinedLike(object):
             pars2 = [par for par in pars]
             pars2.append(1-pars[2])
         tints = self.makepsf(pars2)
-        #print tints-self.psf[:-1]
+        #print (tints-self.psf[:-1])
         chisqa = [((tints[it]-self.psf[it])/tints[it])**2 if self.psf[it]>0 else np.Infinity for it in range(len(tints))]
         chisq = sum(chisqa)
-        #print string.join(['%1.6f '%par for par in pars]),chisq
+        #print (string.join(['%1.6f '%par for par in pars]),chisq)
         #t.sleep(0.25)
         return chisq
 
@@ -1257,7 +1257,7 @@ class CombinedLike(object):
             sig,gam,nc,sig2,gam2=pars
             if sig<0 or sig2<0 or nc<0 or nc>1 or gam<=1 or gam2<=1 or gam>5 or gam2>5:
                 if self.verbose:
-                    print 'Bad PSF'
+                    print ('Bad PSF')
                 return 0
             pars = [par for par in pars]
             pars.append(1.-nc)
@@ -1293,7 +1293,7 @@ class CombinedLike(object):
         #del psf1
         #if len(pars)!=2:
         #    del psf2
-        #print pars,fval
+        #print (pars,fval)
         #t.sleep(0.05)
         return fval
 
@@ -1350,7 +1350,7 @@ class CombinedLike(object):
         ma = 0
         for it,hist in enumerate(self.agnhists):
             model = self.Naj[it]*self.psf+self.Ni[it]*self.iso + self.Nh[it]*self.hmd
-            #print self.Naj[it],self.psf,self.Ni[it],self.iso,self.Nh[0],self.hmd
+            #print (self.Naj[it],self.psf,self.Ni[it],self.iso,self.Nh[0],self.hmd)
             modelerrs = np.sqrt((self.Naj[it]*self.psf/sum(self.psf)*np.sqrt((self.psfe/self.psf)**2+(self.Naje[it]/self.Naj[it])**2))**2+(self.Nie[it]*self.iso)**2+(self.Nhe[it]*self.hmd)**2)
             back = self.Ni[it]*self.iso
             backerrs = self.Nie[it]*self.iso
@@ -1427,7 +1427,7 @@ class CombinedLike(object):
                 chisq = sum(((psr[cmask]-self.vij[it][cmask])**2/self.vij[it][cmask]))
                 tchisq = tchisq + '%s: %1.1f (%d)\n'%(self.pulsars[it][0],chisq,len(psr[cmask]))
             except:
-                print 'Bad plotting' 
+                print ('Bad plotting' )
         py.grid()
         py.title('PSR Background Estimator Residuals')
         py.xlabel(r'$\theta\/(\rm{deg})$')
@@ -1460,7 +1460,7 @@ class CombinedLike(object):
                 chisq = sum(((psr[cmask]-model[cmask])**2/model[cmask]))
                 tchisq = tchisq + '%s: %1.1f (%d)\n'%(self.pulsars[it][0],chisq,len(psr[cmask]))
             except:
-                print 'Bad plotting' 
+                print ('Bad plotting' )
         py.grid()
         py.title('PSR On-pulse Estimator Residuals')
         py.xlabel(r'$\theta\/(\rm{deg})$')
@@ -1493,7 +1493,7 @@ class CombinedLike(object):
                 chisq = sum(((agn[cmask]-model[cmask])**2/model[cmask]))
                 tchisq = tchisq + '%s: %1.1f (%d)\n'%(self.agnlist[it],chisq,len(agn[cmask]))
             except:
-                print 'Bad plotting' 
+                print ('Bad plotting' )
         py.grid()
         py.title('AGN Model Estimator Residuals')
         py.xlabel(r'$\theta\/(\rm{deg})$')
@@ -1522,7 +1522,7 @@ class CombinedLike(object):
         sterm = 4*a*(1+a)*b*m*N+(m*N-a*(b+n-m*N))**2    #discriminant
         #catch negative discriminant
         if sterm<0.:
-            print 'Unphysical Solution: %1.4f'%sterm
+            print ('Unphysical Solution: %1.4f'%sterm)
 
         #calculate background estimator analytically
         v = a*(b+n)-m*N-a*m*N+np.sqrt(sterm)
@@ -1542,7 +1542,7 @@ class CombinedLike(object):
         sterm = 4*a*(1+a)*b*m*N+(m*N-a*(b+n-m*N))**2    #discriminant
         #catch negative discriminant
         if sterm<0.:
-            print 'Unphysical Solution: %1.4f'%sterm
+            print ('Unphysical Solution: %1.4f'%sterm)
 
         #calculate gradient of background estimator analytically
         grad1 = -N-a*N+(4*a*(1+a)*b*N+2*(m*N-a*(b+n-m*N))*(N-a*(-N)))/(2*np.sqrt(sterm))    #psf derivative
@@ -1571,7 +1571,7 @@ class CombinedLike(object):
                 params[it]=self.limits[it][1]
             if param<self.limits[it][0]:
                 params[it]=self.limits[it][0]
-            #print 'Failed limit check'
+            #print ('Failed limit check')
             #return INFINITY
             if self.fixed[it]:
                 params[it]=self.params[it]
@@ -1595,8 +1595,8 @@ class CombinedLike(object):
         mi = np.append(mi,[mun])
         grad = []
         if verb:
-            print 'Obs\tmod\tfact\tnum\tacc'
-            print '----------------------'
+            print ('Obs\tmod\tfact\tnum\tacc')
+            print ('----------------------')
 
         #PSF gradient
         for it in range(nmu):
@@ -1621,7 +1621,7 @@ class CombinedLike(object):
                     flag=True
                 acc = acc + fact0 + fact1 + fact2
                 if verb:
-                    print npij[it2][it],denom,npij[it2][nmu],denomn,bpij[it2][it],backg,acc
+                    print (npij[it2][it],denom,npij[it2][nmu],denomn,bpij[it2][it],backg,acc)
                     t.sleep(0.25)
 
             #loop over AGN
@@ -1636,7 +1636,7 @@ class CombinedLike(object):
                     flag=True
                 acc = acc + fact0 + fact1
                 if verb:
-                    print naij[it2][it],denom,naij[it2][nmu],denomn,acc
+                    print (naij[it2][it],denom,naij[it2][nmu],denomn,acc)
                     t.sleep(0.25)
 
             if flag:
@@ -1644,7 +1644,7 @@ class CombinedLike(object):
             else:
                 grad.append(-acc)
             if verb:
-                print '----------------------'
+                print ('----------------------')
 
         #Pulsar Number estimator gradient
         for it2 in range(psrs):
@@ -1661,14 +1661,14 @@ class CombinedLike(object):
                     flag=True
                 acc = acc + fact
                 if verb:
-                    print npij[it2][it],denom,mi[it],alpha*grad1,acc
+                    print (npij[it2][it],denom,mi[it],alpha*grad1,acc)
                     t.sleep(0.25)
             if flag:
                 grad.append(0)
             else:
                 grad.append(-acc)
             if verb:
-                print '----------------------'
+                print ('----------------------')
 
         #AGN number estimator gradient
         for it2 in range(agns):
@@ -1681,14 +1681,14 @@ class CombinedLike(object):
                     flag=True
                 acc = acc + fact
                 if verb:
-                    print naij[it2][it],denom,acc
+                    print (naij[it2][it],denom,acc)
                     t.sleep(0.25)
             if flag:
                 grad.append(0)
             else:
                 grad.append(-acc)
             if verb:
-                print '----------------------'
+                print ('----------------------')
 
         #Isotropic number estimator gradient for AGN
         for it2 in range(agns):
@@ -1701,14 +1701,14 @@ class CombinedLike(object):
                     flag=True
                 acc = acc + fact
                 if verb:
-                    print naij[it2][it],denom,acc
+                    print (naij[it2][it],denom,acc)
                     t.sleep(0.25)
             if flag:
                 grad.append(0)
             else:
                 grad.append(-acc)
             if verb:
-                print '----------------------'
+                print ('----------------------')
         
 
         #Halo number estimator gradient for AGN
@@ -1722,16 +1722,16 @@ class CombinedLike(object):
                     flag=True
                 acc = acc + fact
                 if verb:
-                    print naij[it2][it],denom,acc
+                    print (naij[it2][it],denom,acc)
                     t.sleep(0.25)
             if flag:
                 grad.append(0)
             else:
                 grad.append(-acc)
             if verb:
-                print '----------------------'
+                print ('----------------------')
         #for it,grd in enumerate(grad):
-        #    print grd,params[it],grd*params[it]
+        #    print (grd,params[it],grd*params[it])
         return np.array(grad)
 
     ######################################################################
@@ -1829,11 +1829,11 @@ class CombinedLike(object):
                     #is it the largest?
                     ma = max(ma,terr)
 
-                    #print xmin,ymin
+                    #print (xmin,ymin)
                     #t.sleep(0.25)
                 except:
                     pass
-                    #print 'Caught poorly formed quad surface'
+                    #print ('Caught poorly formed quad surface')
         #py.savefig('likes%d.png'%num)
         return (ma*err)**2
 
@@ -1867,7 +1867,7 @@ def test(bins=12,ctype=0,emin=1000,emax=1778,days=730,irf='P6_v3_diff',maxr=-1,s
     cl.tol=tol
     f0 = cl.fit()
     params = cp.copy(cl.fitpsf(double))
-    print str(cl)
+    print (str(cl))
     for psr in cl.pulsars:
         psrs = psrs + '%s_'%psr[0]
     #cl.makeplot('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%s%s'%(emin,emax,ctype,maxr,bins,psrs,('').join(cl.agnlist)))
@@ -1906,13 +1906,13 @@ def halo(bins=12,ctype=0,emin=1000,emax=1778,days=fdays,irf='P6_v3_diff',maxr=-1
         if flag1:
             cl.params[cl.nbins+npsrs+nagns-2]=ZERO  #allpars[it+npsrs+len(psfm)]
             cl.fixed[cl.nbins+npsrs+nagns-2]=True
-        print cl.fixed
+        print (cl.fixed)
         if ret:
             return cl
 
         #null likelihood - no halos!
         f0 = cl.fit(custom=flag1,qandd=True)
-        print cl
+        print (cl)
 
         #find best single king fit parameters
         #fitpars = cl.fitpsf()
@@ -1930,8 +1930,8 @@ def halo(bins=12,ctype=0,emin=1000,emax=1778,days=fdays,irf='P6_v3_diff',maxr=-1
 
         #find the PSF parameters 
         #bestpsf =so.fmin_powell(lambda x: cl.profile(ip-1,x[0]),[cl.Naj[-1]],disp=0,full_output=1)
-        #print cl
-        print cl.plflux,cl.psfphotons,cl.puflux
+        #print (cl)
+        print (cl.plflux,cl.psfphotons,cl.puflux)
 
         for psr in cl.pulsars:
             psrs = psrs + '%s_'%psr[0]
@@ -1945,10 +1945,10 @@ def halo(bins=12,ctype=0,emin=1000,emax=1778,days=fdays,irf='P6_v3_diff',maxr=-1
         r95 = psf.inverse_integral(ebar,ctype,95.)
         r99 = psf.inverse_integral(ebar,ctype,99.)
         testpsf = PSF(lims=[0,1],model_par=[0.05,2.25])
-        print r68,r95
+        print (r68,r95)
         testpsf.fromcontain([r68,r95],[0.68,0.95])
         fitpars = cl.fitpsf() if ebar < 10000 else [cl.ebar,testpsf.model_par[0],testpsf.model_par[1]]
-        print fitpars
+        print (fitpars)
         nps = 10
 
         npars = len(cl.params)
@@ -1958,11 +1958,11 @@ def halo(bins=12,ctype=0,emin=1000,emax=1778,days=fdays,irf='P6_v3_diff',maxr=-1
         detect = []
 
         of = open('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/uplimemi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%s%s_%s.txt'%(emin,emax,ctype,maxr,bins,psrs,agns,model),'w')
-        print >>of,'%1.3f'%f0
-        print >>of,'%1.1f'%psfphotons
+        print ('%1.3f'%f0, file=of)
+        print ('%1.1f'%psfphotons, file=of)
         fracs = np.linspace(0.05,0.95,19)
-        #print >>of,string.join(['%1.2f'%(frac) for frac in fracs],'\t')
-        print >>of,'#size(rad)\tmaxL\tNha \tcl68\tcl95\tTS\tNpsf'
+        #print (string.join(['%1.2f'%(frac) for frac in fracs],'\t'), file=of)
+        print ('#size(rad)\tmaxL\tNha \tcl68\tcl95\tTS\tNpsf', file=of)
 
         if flag1:
             cl.setuppars(halomodel=model,haloparams=[pt/rd,ebar,ctype,fitpars[1]/rd,fitpars[2]])
@@ -1970,7 +1970,7 @@ def halo(bins=12,ctype=0,emin=1000,emax=1778,days=fdays,irf='P6_v3_diff',maxr=-1
             cl.fixed[cl.nbins+npsrs+nagns-2]=True
             cl.params[-1]=(cl.Naj[-1]+cl.Ni[-1])*0.5
             cl.fixed[-1]=False
-            print cl.fixed
+            print (cl.fixed)
         else:
             cl.setuppars(halomodel=model,haloparams=[pt/rd,ebar,ctype,fitpars[1]/rd,fitpars[2]])
             cl.params[cl.nbins+npsrs-1]=cl.Naj[-1]/2.#allpars[it+npsrs+len(psfm)]
@@ -1979,8 +1979,8 @@ def halo(bins=12,ctype=0,emin=1000,emax=1778,days=fdays,irf='P6_v3_diff',maxr=-1
             cl.fixed[-1]=False
         #find best parameters for the fit to the halo model 
         cl.fit(custom=True,qandd=True)
-        print cl
-        print cl.fixed
+        print (cl)
+        print (cl.fixed)
         lmax = cl.lmax
 
         #best = so.fmin_powell(lambda x:cl.profile(npars-1,x),cl.Nh[-1],disp=0,full_output=1,ftol=abs(0.001/cl.lmax))
@@ -2000,11 +2000,11 @@ def halo(bins=12,ctype=0,emin=1000,emax=1778,days=fdays,irf='P6_v3_diff',maxr=-1
         else:
             bestup = so.fmin_powell(lambda x: (cl.profile(npars-1,x,False)-cl.lmax-12.5)**2 if x>cl.Nh[-1] else -cl.lmax,(cl.Nh[-1]+cl.Naj[-1]),disp=0,ftol=0.1,full_output=1)
             bestup = [bestup[0].item(),bestup[0].item()]
-        print bestup[1]
+        print (bestup[1])
         bestup = [bestup[1],cl.profile(npars-1,bestup[1])-cl.lmax]
 
         def printstate():
-            print 'New iteration'
+            print ('New iteration')
         
         assert cl.lmax!=np.Infinity
 
@@ -2046,9 +2046,9 @@ def halo(bins=12,ctype=0,emin=1000,emax=1778,days=fdays,irf='P6_v3_diff',maxr=-1
         mask = np.array([not np.isnan(fxr) for fxr in fx])
         xr,fx=xr[mask],fx[mask]
 
-        print xr
-        print frac
-        print fx
+        print (xr)
+        print (frac)
+        print (fx)
         fx2 = cp.copy(fx)
 
         #calculate the 68 and 95% upperlimits
@@ -2064,16 +2064,16 @@ def halo(bins=12,ctype=0,emin=1000,emax=1778,days=fdays,irf='P6_v3_diff',maxr=-1
             frac.append(x/(cl.tpars[ip-1]+x))
         fx,frac = np.array(fx),np.array(frac)
 
-        print frac
-        print fx
+        print (frac)
+        print (fx)
         clfrac = BayesianLimit(frac,fx).getLimit(0.05)
 
         #output Nhalo, and the two upper limits
         detect.append(cl.Nh[-1]/(psfphotons))
-        print cl2
+        print (cl2)
         uplims2.append(cl2/(psfphotons))
         uplims1.append(cl1/(psfphotons))
-        #print cl2[0],psfphotons,cl2[0]/(psfphotons)
+        #print (cl2[0],psfphotons,cl2[0]/(psfphotons))
         cl.ul68 = cl1
         cl.ul95 = cl2
         cl.Nhe[-1]= (bestup[0]-cl.Nh[-1])/5.
@@ -2100,20 +2100,20 @@ def halo(bins=12,ctype=0,emin=1000,emax=1778,days=fdays,irf='P6_v3_diff',maxr=-1
         py.plot(frac,fx,'b+')
         py.plot(max(cl.Nh[-1]/(cl.Nh[-1]+cl.Naj[-1]),0),0,'rd')
         py.savefig('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s_%s_proffrac.png'%(emin,emax,ctype,maxr,bins,pt,psrs,agns,model,irf))
-        print 'Lflux:',cl.lflux
-        print 'Nhalo:',cl.Nh[-1]
-        print 'Uflux:',cl.uflux
-        print 'U95frac:',clfrac
-        print 'U95flux:',cl.ul95
-        print 'Not Sure:',cl.uflux/(cl.Naj[-1]+cl.uflux)
-        print 'P-val halo:',cl.pval
+        print ('Lflux:',cl.lflux)
+        print ('Nhalo:',cl.Nh[-1])
+        print ('Uflux:',cl.uflux)
+        print ('U95frac:',clfrac)
+        print ('U95flux:',cl.ul95)
+        print ('Not Sure:',cl.uflux/(cl.Naj[-1]+cl.uflux))
+        print ('P-val halo:',cl.pval)
         del cl.minuit
         cl.frac=clfrac
         cl.makeplot('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s_%s'%(emin,emax,ctype,maxr,bins,pt,psrs,agns,model,irf))
         pfile = open('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s_%s.pickle'%(emin,emax,ctype,maxr,bins,pt,psrs,agns,model,irf),'w')
         cPickle.dump(cl,pfile)
         pfile.close()
-        print >>of,'%1.5f\t%1.3f\t%1.4f\t%1.4f\t%1.4f\t%1.3f'%(pt/rd,lmax,cl.Nh[-1],cl1,cl2,cl.TS)
+        print ('%1.5f\t%1.3f\t%1.4f\t%1.4f\t%1.4f\t%1.3f'%(pt/rd,lmax,cl.Nh[-1],cl1,cl2,cl.TS), file=of)
 
     #make some summary plots
 
@@ -2176,7 +2176,7 @@ def makeallplots():
     machines = 'tev01 tev02 tev03 tev04 tev05 tev06 tev07 tev08 tev09 tev10 tev11'.split()#
     setup_string = 'import uw.stacklike.binned as ub;reload(ub);from uw.stacklike.binned import *'
     tasks = ['ub.makeplots(%s,True,\'agn_redshift2_lo_bzb\',True)'%(0,emins[x],emaxs[x],lis,mod) for x in range(len(emins)) for lis in ['\'agn_redshift2_hi_bzb\'','\'1es0229p200\'','\'1es0347-121\'','\'PKS0754p100\''] for mod in model]
-    print tasks
+    print (tasks)
     engines = 4#len(tasks)/len(machines)
     ua.setup_mec(engines=engines,machines=machines,clobber=True)
     t.sleep(30)
@@ -2253,13 +2253,13 @@ def makeplots(iname,uexp=False,ext='',useupper=False):
                 yl = yl/(cl.tpars[ip-1]+yl)
                 cl.profile(hn,yc)
                 yc = yc/(cl.tpars[ip-1]+yc)
-            print yl,yc,yh,cl.psfphotons/exp,cl.plflux/exp,cl.puflux/exp,cl.lflux,cl.uflux
+            print (yl,yc,yh,cl.psfphotons/exp,cl.plflux/exp,cl.puflux/exp,cl.lflux,cl.uflux)
             return [[xl,xh], [yc, yc],[bc,bc],[yl,yh]]
         else:
             x,y = [bc, cl.ul95/exp] if useexp else [bc,cl.frac]#[bc,cl.ul95/(cl.Naj[-1]+cl.ul95)]
             arrow = [y, y*0.8, y*0.8, y*0.6, y*0.8, y*0.8] if useexp else [y, y-0.025, y-0.025, y-0.05, y-0.025, y-0.025]
             arrow2 = [x, x,     x*1.1, x,     x/1.1, x] if useexp else [x, x,     x*1.03, x,     x/1.03, x]
-            print '95\% flux',y
+            print ('95\% flux',y)
             return [[xl,xh], [y,y],arrow2,arrow,[xl,xh], [y,y],arrow2,arrow]
 
     fact = 1.0
@@ -2276,11 +2276,11 @@ def makeplots(iname,uexp=False,ext='',useupper=False):
             pickles=[]
             for emin,emax,pren in zip(energy2[:-1],energy2[1:],prepat):
                 template = '/phys/groups/tev/scratch1/users/Fermi/mar0/figures/emi*%d_*%d_ec%d*bins16*%1.1f*%s__C%s_%s.pickle'%(emin,emax,ctype,wid,pren+iname,mod,irf)
-                #print template
+                #print (template)
                 pickle = np.sort(glob.glob(template))
                 for pick in pickle:
                     pickles.append(pick)
-            print pickles
+            print (pickles)
             mx=0
             mi=1e40
 
@@ -2288,13 +2288,13 @@ def makeplots(iname,uexp=False,ext='',useupper=False):
                 
                 if True:
                 #try:
-                    print 'Reading %s'%(pickle)
+                    print ('Reading %s'%(pickle))
                     pfile = open(pickle)
                     cl = cPickle.load(pfile)
                     if type(cl.frac)==type([]):
-                        cl.frac=cl.frac[0]
-                    print 'TS: ',cl.TS
-                    print 'Pval: ',cl.pval
+                        cl.frac=cl.frac[)0]
+                    print ('TS: ',cl.TS)
+                    print ('Pval: ',cl.pval
                     texp = sum([exp.value(sds,cl.ebar) for sds in sdlist])/(cl.ebar*ergs) if uexp else 1
                     lines = marker(cl,texp,uexp,useupper)
                     tmx = max(lines[3])
@@ -2311,12 +2311,12 @@ def makeplots(iname,uexp=False,ext='',useupper=False):
                     if uexp:
                         exstr = '%1.2e}'%(cl.ul95/texp)
                         exstr.replace('e','$x$^{')
-                        print >>ofile,'$%d-%d$ & $%1.1f$ & $%s$'%(cl.emin,cl.emax,max(0,cl.TS),exstr)
+                        print ('$%d-%d$ & $%1.1f$ & $%s$'%(cl.emin,cl.emax,max(0,cl.TS),exstr), file=ofile)
                     else:
-                        print >>ofile,'$%d-%d$ & $%1.1f$ & $%1.3f$'%(cl.emin,cl.emax,max(cl.TS,0),cl.frac)
+                        print ('$%d-%d$ & $%1.1f$ & $%1.3f$'%(cl.emin,cl.emax,max(cl.TS,0),cl.frac), file=ofile)
                 else:
                 #except:
-                    print 'Plotting failed'
+                    print ('Plotting failed')
 
             if len(pickles)>0:
                 pts.append(p1)
@@ -2330,7 +2330,7 @@ def makeplots(iname,uexp=False,ext='',useupper=False):
             for sd in sdlist:
                 diff,ebrs,spec,lower,upper=getspec(sd)
                 #for it4 in range(len(spec)):
-                #    print ebrs[it4],lower[it4],spec[it4],upper[it4]
+                #    print (ebrs[it4],lower[it4],spec[it4],upper[it4])
                 if specs==[]:
                     #texp = np.array([sum([exp.value(sds,ebr) for sds in sdlist])/(ebr*ergs) for ebr in ebrs])
                     specs=spec#/texp
@@ -2401,7 +2401,7 @@ def makeplots(iname,uexp=False,ext='',useupper=False):
             p8 = py.plot(data[0],data[1],'k-.')
             energies = np.logspace(2,7,30)
             spectrum = expcutoff(energies,10**(-11.09),1e6,0.8,1e14)
-            print expcutoff(1.e6,10**(-11.09),1.e6,0.8,1.e100)
+            print (expcutoff(1.e6,10**(-11.09),1.e6,0.8,1.e100))
             py.plot(energies,spectrum,'k-.',linewidth=1,label=r'$\rm{Deabsorbed}$')"""
         if iname=='1es0347-121':
             #py.cla()
@@ -2488,7 +2488,7 @@ def getspec(sd):
     myra = SRCTB.field('RA')[index]; mydec = SRCTB.field('DEC')[index]
     ebins = np.logspace(1,5.5,40)
     ebars = np.sqrt(ebins[:-1]*ebins[1:])
-    print myra,mydec,diff*57.,myflux,myindex,mypivot
+    print (myra,mydec,diff*57.,myflux,myindex,mypivot)
 
     bfun = lambda r: r**-myindex * np.sqrt(myuflux**2 + (myflux*np.log(r))**2 * (myuindex**2))
 
@@ -2500,15 +2500,15 @@ def getspec(sd):
         myubeta = 0
     if not (np.isnan(mybeta) or np.isinf(mybeta)) and LOGP and mybeta!=0:
         ec = LogParabola(e0=mypivot,p=[myflux,myindex,mybeta,mypivot])
-        print 'Used Logparabola'
+        print ('Used Logparabola')
         upper = (ebars**2)*ergs*(ec(ebars)+bfun(ebars/mypivot))
         lower = (ebars**2)*ergs*(ec(ebars)/(1+bfun(ebars/mypivot)/ec(ebars)))
     else:
         if not  (np.isnan(mycutoff) or np.isinf(mycutoff)):
             ec = ExpCutoff(e0=mypivot,p=[myflux,myindex,mycutoff])
-            print 'Used Expcutoff'
+            print ('Used Expcutoff')
         else:
-            print 'Used PowerLaw'
+            print ('Used PowerLaw')
             ec = PowerLaw(e0=mypivot,p=[myflux,myindex])
         upper = (ebars**2)*ergs*(ec(ebars)+bfun(ebars/mypivot))
         lower = (ebars**2)*ergs*(ec(ebars)/(1+bfun(ebars/mypivot)/ec(ebars)))
@@ -2533,12 +2533,12 @@ def sourcelistinfo(lis):
                 signif = float(src.field('Sqrt_TS10000_100000')) #np.sqrt(float(src.field('Sqrt_TS1000_3000'))**2+float(src.field('Sqrt_TS3000_10000'))**2+**2)
                 fluxes = float(src.field('Flux1000_3000'))+float(src.field('Flux3000_10000'))+float(src.field('Flux10000_100000'))
                 string = '%s & %1.4f & %1.4f & %1.4f & %1.4f & %1.2f & %1.1f & %1.0f & %s\\\\'%(src.field('Source_Name'),float(src.field('RA')),float(src.field('DEC')),float(src.field('GLON')),float(src.field('GLAT')),float(src.field('Spectral_Index')),fluxes*1e9,signif,src.field('CLASS1'))
-                print >>of,string.replace('-','$-$')
+                print (string.replace('-','$-$'), file=of)
             if diff>0.25 and diff<4.:
                 fluxes = float(src.field('Flux1000_3000'))
                 rank = len(tbflux[tbflux>fluxes])
                 if rank<300:
-                    print 'Found a source %s within 2 degrees of %s with a flux of %1.2e (%d)'%(src.field('Source_Name'),name,fluxes,rank)
+                    print ('Found a source %s within 2 degrees of %s with a flux of %1.2e (%d)'%(src.field('Source_Name'),name,fluxes,rank))
 
 ################## plots for the paper ###################
 ############## pulsar and agn bins     ###################
@@ -2555,23 +2555,23 @@ def tabulatepulsars():
 
         header = r'\tablehead{Bin edges (deg) & $m_i$ '
         cl = CombinedLike(irf=irf,mode=-1,pulsars = eval('pulsars'+sels[it]+''),agnlist=agnlists[it],qandd=True)
-        print agnlists[it]
-        print eval('pulsars'+sels[it]+'')
+        print (agnlists[it])
+        print (eval('pulsars'+sels[it]+''))
         cl.loadphotons(0,maxr,emin,emax,239557417,239517417+days*86400,ctype)
         cl.bindata(bins)
         cl.fit(qandd=True)
         psr =  len(cl.pulsars)>0
-        print >>tbfile,r'\begin{deluxetable}{%s}'%('r'*(2+5*len(cl.pulsars)+4*len(cl.agns)))
-        print >>tbfile,r'\tabletypesize{\scriptsize}'
-        print >>tbfile,r'\tablecaption{Statistics for %s in the energy range $%d-%d$ for the analysis in Section 4.%d}'%('the Vela and Geminga pulsars' if psr else 'the low-redshift BL Lacs',emin,emax,2 if psr else 3)
-        print >>tbfile,r'\tablewidth{0pt}'
+        print (r'\begin{deluxetable}{%s}'%('r'*(2+5*len(cl.pulsars)+4*len(cl.agns))), file=tbfile)
+        print (r'\tabletypesize{\scriptsize}', file=tbfile)
+        print (r'\tablecaption{Statistics for %s in the energy range $%d-%d$ for the analysis in Section 4.%d}'%('the Vela and Geminga pulsars' if psr else 'the low-redshift BL Lacs',emin,emax,2 if psr else 3), file=tbfile)
+        print (r'\tablewidth{0pt}', file=tbfile)
         for puls in cl.pulsars:
             header += r'& $\nu_i^{off}$ & $n_i^{off}$ & $N_{psr}m_i$ & $\nu_i^{on}$ & $n_i^{on}$'
         for agn in cl.agns:
             header += r'& $N^{agn}m_i$ & $N^{iso}b_i$ & $\nu_i^{agn}$ & $n_i^{agn}$'
         header+=r'}'
-        print >>tbfile,header
-        print >>tbfile,r'\startdata'
+        print (header, file=tbfile)
+        print (r'\startdata', file=tbfile)
         for it2 in range(cl.nbins):
             line = r'$%1.3f-%1.3f$ & %1.3f '%(cl.angbins[it2],cl.angbins[it2+1],cl.psf[it2])
             for it3,puls in enumerate(cl.pulsars):
@@ -2579,10 +2579,10 @@ def tabulatepulsars():
             for it3,agn in enumerate(cl.agns):
                 line += r'& $%1.1f$ & $%1.1f$ & $%1.1f$ & %d'%(cl.Naj[it3]*cl.psf[it2],cl.Ni[it3]*cl.iso[it2],cl.Naj[it3]*cl.psf[it2]+cl.Ni[it3]*cl.iso[it2],cl.agnhists[it3][it2])
             line += r'\\'
-            print >>tbfile,line
-        print >>tbfile,r'\enddata'
-        print >>tbfile,r'\end{deluxetable}'
-        print cl
+            print (line, file=tbfile)
+        print (r'\enddata', file=tbfile)
+        print (r'\end{deluxetable}', file=tbfile)
+        print (cl)
         cls.append(cl)
         it+=1
     tbfile.close()
@@ -2613,7 +2613,7 @@ def makephaseplots(bins=100):
         #mid = (hist[1][:-1]+hist[1][1:])*0.5
         xhists = pbins#,pbins[:-1]+1,2])
         yhists = np.hstack([phist[0]/parea,phist[0][0]/parea[0]])/1e6#,phist[0]/parea,phist[0][0]/parea[0]])/1e6
-        print phist[0],len(phist[0])
+        print (phist[0],len(phist[0]))
         onmask = ((pbins>0.1) & (pbins<0.15))# | ((pbins>0.5) & (pbins<0.6))
         p1 = py.step(np.hstack([0.105,xhists[onmask],0.15]),np.hstack([0,yhists[onmask],0]),color='grey',where='post',fillstyle='full',linewidth=2)
         onmask = (pbins>0.7)
@@ -2655,7 +2655,7 @@ def makephaseplots(bins=100):
         #mid = (hist[1][:-1]+hist[1][1:])*0.5
         xhists = pbins#,pbins[:-1]+1,2])
         yhists = np.hstack([phist[0]/parea,phist[0][0]/parea[0]])/1e6#,phist[0]/parea,phist[0][0]/parea[0]])/1e6
-        print phist[0],len(phist[0])
+        print (phist[0],len(phist[0]))
         onmask = ((pbins>0.6) & (pbins<0.68))
         py.step(np.hstack([0.6,xhists[onmask],0.68]),np.hstack([0,yhists[onmask],0]),color='grey',where='post',fillstyle='full',linewidth=2)
         onmask = (pbins>0.25) & (pbins<0.55)

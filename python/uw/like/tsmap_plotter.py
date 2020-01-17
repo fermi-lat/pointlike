@@ -68,7 +68,7 @@ def plot_tsmap(roi, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
         if sigma<1 and qual <50:
             tsp.overplot(roi.qform, sigma)
         else:
-            print 'bad fit sigma %g, >1 or qual %.1f >50' % (sigma, qual)
+            print ('bad fit sigma %g, >1 or qual %.1f >50' % (sigma, qual))
     tsp.show(colorbar=False)
     if catsig<1:
         tsp.cross(sdir, catsig, lw=2, color='grey')
@@ -91,12 +91,12 @@ def plot_tsmap(roi, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
         # eventually move this to image.TSplot
         last_loc,i=SkyDir(0,90),0
         for aname, loc, prob, catid in zip(assoc['name'],assoc['dir'],assoc['prob'],assoc['cat']):
-            #print 'associate with %s, prob=%.2f' % (aname.strip(),prob)
+            #print ('associate with %s, prob=%.2f' % (aname.strip(),prob))
             if catid in ('ibis',): 
-                print '---skip gamma cat %s' % catid
+                print ('---skip gamma cat %s' % catid)
                 continue
             if i>8:
-                print '---skip because too many for display'
+                print ('---skip because too many for display')
                 continue
             x,y = tsp.zea.pixel(loc)
             diff = np.degrees(loc.difference(last_loc)); last_loc=loc

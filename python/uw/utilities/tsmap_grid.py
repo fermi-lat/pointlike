@@ -13,7 +13,7 @@ def rename(indir='tsmap'):
     for file in filenames:
         if '+' in file:
             cmd = 'ren "%s" "%s"' % (file, (os.path.split(file)[1]).replace('+','p'))
-            print cmd,  os.system(cmd)
+            print (cmd,  os.system(cmd))
  
 html_header="""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">

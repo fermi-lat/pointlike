@@ -21,7 +21,7 @@ class Localization1K(localization.Localization):
         try:
             f, pk = self.load_pickles(zipname)
         except:
-            print 'failed to load %s, which should have zipped pickles of sources after localization attempt'%zipname
+            print ('failed to load %s, which should have zipped pickles of sources after localization attempt'%zipname)
             raise
         d = dict( (x.name, x.ellipse if hasattr(x,'ellipse') else [np.nan]*7) for x in pk)
         self.ebox1K = pd.DataFrame( d ).T  

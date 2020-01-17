@@ -16,10 +16,10 @@ def calc_ratios(roi,edict,which=0):
         Calculate for each photon the ratio of the source to the background.
     """
 
-    print """WARNING: This code doesn't seem to play well with pointlike in
+    print ("""WARNING: This code doesn't seem to play well with pointlike in
         it's current state.  In particular, a proper way of interacting
         with diffuse sources needs to be established.  Recommend using the
-        subset method."""
+        subset method.""")
     en = edict['ENERGY']
     ct = edict['CONVERSION_TYPE']
     psm = roi.psm; bgm = roi.bgm
@@ -38,12 +38,12 @@ def calc_ratios(roi,edict,which=0):
         psdiffs   = np.asarray([d.difference(ps.skydir) for ps in psm.point_sources])
         psrates   = psfluxes * psf(e,c,psdiffs,density=True)
         if np.any(np.isnan(psrates)):
-            print np.arange(len(psrates))[np.isnan(psrates)]
+            print (np.arange(len(psrates))[np.isnan(psrates)])
             raise ValueError('Sources got problems.')
         # NB preconvolved diffuse models -- something of a kluge
         bgrates   = np.asarray([m.get_dmodel(c).value(d,e)*m.smodel(e) for m in bgm.bgmodels])
         if np.any(np.isnan(bgrates)):
-            print np.arange(len(bgrates))[np.isnan(bgrates)]
+            print (np.arange(len(bgrates))[np.isnan(bgrates)])
             raise ValueError('Sources got problems.')
         signals[i] = psrates[which]
         backs[i]   = (psrates.sum() - psrates[which] + bgrates.sum())

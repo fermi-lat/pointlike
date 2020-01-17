@@ -40,7 +40,7 @@ class SED(tools.WithMixin):
             fp = self.select(None)
             self.full_poiss = fp.poiss
         except Exception, msg:
-            print 'Failed poisson fit to source %s: "%s"' % (self.source_name, msg)
+            print ('Failed poisson fit to source %s: "%s"' % (self.source_name, msg))
             raise
         return fp.poiss, fp.maxdev
         
@@ -89,13 +89,13 @@ class SED(tools.WithMixin):
         """ return array of Poisson objects for each energy band """
         pp = []
         for i,e in enumerate(self.energies):
-            if debug: print '%3i %8.0f' % (i,e),
+            if debug: print ('%3i %8.0f' % (i,e),)
             try:
                 pf = self.select(i, event_type=event_type,poisson_tolerance=tol)
                 pp.append(pf.poiss)
-                if debug: print pf
+                if debug: print (pf)
             except Exception, msg:
-                print 'Fail poiss fit for %.0f MeV: %s ' % (e,msg)
+                print ('Fail poiss fit for %.0f MeV: %s ' % (e,msg))
                 pp.append(None)
                 
         self.restore()
@@ -127,14 +127,14 @@ class SED(tools.WithMixin):
                     event_type=event_type, poisson_tolerance=tol)
                 xlo,xhi = self.rs.emin, self.rs.emax
             except Exception, msg:
-                print 'Fail poiss fit for %.0f-%.0f MeV: %s ' % (elow,ehigh,msg)
+                print ('Fail poiss fit for %.0f-%.0f MeV: %s ' % (elow,ehigh,msg))
                 rec.append(elow,ehigh, 0, 0, np.nan, 0,0,0, np.nan, np.nan, np.nan, np.nan,     np.nan )
                 continue
             if pf is None: # no data
                 rec.append(elow,ehigh, 0, 0, np.nan, 0,0,0, np.nan, np.nan, np.nan, np.nan,     np.nan )
                 continue
             elif np.isnan(pf.wprime):
-                print 'Fail poiss fit for %.0f-%.0f MeV: %s ' % (elow,ehigh,'bad poiss')
+                print ('Fail poiss fit for %.0f-%.0f MeV: %s ' % (elow,ehigh,'bad poiss'))
                 rec.append(elow,ehigh, 0, 0, np.nan, 0,0,0, np.nan, np.nan, np.nan, np.nan, np.nan )
                 continue
             
@@ -229,7 +229,7 @@ def norm_table(roi, source_name=None, event_type=None, tol=0.25, ignore_exceptio
     Return a DataFrame table for the given source with Poisson results
     """
     source = roi.sources.find_source(source_name)
-    #print 'table for {}'.format(source.name)
+    #print ('table for {}'.format(source.name))
     roi.select()
     energies = roi.energies
     poiss_list = dict()
@@ -240,7 +240,7 @@ def norm_table(roi, source_name=None, event_type=None, tol=0.25, ignore_exceptio
                 p = loglikelihood.PoissonFitter(nv, tol=tol)
                 poiss_list[int(energy)] = p.normalization_summary()
             except Exception, msg:
-                print 'Fail for %.f: %s' % (energy, msg)
+                print ('Fail for %.f: %s' % (energy, msg))
                 if not ignore_exception: raise
                 poiss_list[int(energy)]= {}
     roi.select()
@@ -259,7 +259,7 @@ def residual_tables(roi, tol=0.3, types=None, globals=None, locals=None):
         yy = residuals[source.name] = dict()
         yy['model'] = source.model    
         for et in types:
-            print source.name, et
+            print (source.name, et)
             yy[et] = norm_table(roi, source.name,et, tol)
             
     if locals is None: locals = filter(lambda s: np.any(s.model.free) and not s.isglobal, roi.sources)
@@ -267,7 +267,7 @@ def residual_tables(roi, tol=0.3, types=None, globals=None, locals=None):
         yy = residuals[source.name] = dict()
         yy['model'] = source.model    
         for et in ('all', 'front', 'back'):
-            print source.name, et
+            print (source.name, et)
             yy[et] = sed_table(roi, source.name, et, tol)
     return residuals
 
@@ -277,7 +277,7 @@ def print_sed(roi, source_name=None):
     source = roi.get_source(source_name)
     t = pd.get_option('display.float_format')
     pd.set_option('display.float_format', lambda x: '%.1f'%x)
-    print sed_table(roi, source_name)
+    print (sed_table(roi, source_name))
     pd.set_option('display.float_format', t)
                
 
@@ -307,10 +307,10 @@ def makesed_all(roi, source_name='all', **kwargs):
         sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
     else:
         sources = [roi.get_source(source_name)]
-    print 'sources:', [s.name for s in sources]
+    print ('sources:', [s.name for s in sources])
     for source in sources:
         with SED(roi, source.name, ) as sf:
-            print source.name,':',
+            print (source.name,':',)
             try:
                 source.sedrec = sf.sed_rec( tol=poisson_tolerance)
                 source.ts = roi.TS(source.name)
@@ -323,7 +323,7 @@ def makesed_all(roi, source_name='all', **kwargs):
                             annotate=annotation, **kwargs)
                         
             except Exception,e:
-                print '***Warning: source %s failed flux measurement: %s' % (source.name, e)
+                print ('***Warning: source %s failed flux measurement: %s' % (source.name, e))
                 #raise
                 source.sedrec=None
     curw= roi.log_like()

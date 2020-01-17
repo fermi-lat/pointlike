@@ -81,7 +81,7 @@ class PhaseData(object):
             pass
         f.close()
 
-        print >>sys.stderr, "PhaseData: Cuts left %d out of %d events." % (mask.sum(), len(mask))
+        print ("PhaseData: Cuts left %d out of %d events." % (mask.sum(), len(mask)), file=sys.stderr)
 
     def write_phase(self,col_name='PULSE_PHASE'):
         f = pyfits.open(self.ft1file)
@@ -91,7 +91,7 @@ class PhaseData(object):
         try:
             # clobber old values if there
             f['EVENTS'].data.field(col_name)[:] = ph
-            print 'Clobbered old %s column.'%(col_name)
+            print ('Clobbered old %s column.'%(col_name))
         except KeyError:
             c    = pyfits.Column(name=col_name,format='D',array=ph)
             cols = f['EVENTS'].columns

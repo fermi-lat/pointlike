@@ -114,10 +114,10 @@ class ROImodelFromHealpix(roimodel.ROImodel):
         
         def load_global_source(name, rec):
 
-            if not self.quiet: print 'Loading global source %s for %d' % (name, index)
+            if not self.quiet: print ('Loading global source %s for %d' % (name, index))
             if name not in self.config.diffuse:
                 msg= 'diffuse name {} not in diffuse list'.format(name)
-                print msg
+                print (msg)
                 raise Exception(msg)
             df = self.config.diffuse[name]
             if df is None: 
@@ -137,7 +137,7 @@ class ROImodelFromHealpix(roimodel.ROImodel):
         self.pickle_file = 'pickle/HP12_%04d.pickle' % index[0]
         try:
             p = pickle.load(self._z.open(self.pickle_file))
-        except Exception, msg:
+        except Exception as msg:
             raise Exception('Fail to load zipped pickle {}: {}'.format(self.pickle_file, msg))
         if not neighbors:
             self.prev_logl = p.get('prev_logl', []) # make history available
@@ -157,17 +157,17 @@ class ROImodelFromHealpix(roimodel.ROImodel):
             for s in global_sources:
                 if s is not None: self.append(s)
             if global_only: return
-        #print 'Found local sources: {}'.format(p['sources'].keys())
+        #print ('Found local sources: {}'.format(p['sources'].keys()))
         local_sources = [load_local_source(name, rec) for name,rec in p['sources'].items()]
         if not neighbors: self.local_count = len(local_sources)
         tsmin = self.config['input_model'].get('tsmin',0)
         for s in local_sources:
             if s.name in self:
-                print 'Source {} from {} already loaded: its info: {}'.format(s.name,  s.index, s)
+                print ('Source {} from {} already loaded: its info: {}'.format(s.name,  s.index, s))
             if tsmin==0 or s.name.startswith('PSR') or s.ts>tsmin or s.isextended: 
                 self.add_source(s)
             else:
-                print 'Not adding source {}: ts={}, extended, {}'.format(s.name, s.ts, s.isextended)
+                print ('Not adding source {}: ts={}, extended, {}'.format(s.name, s.ts, s.isextended))
         
 
     def __repr__(self):

@@ -47,7 +47,7 @@ def image_list(item_names, full_dzc):
     except:
         for n in names:
             if n+'.xml' not in ids:
-                print 'Item %s not found in list of images %s' %  ( n, full_dzc)
+                print ('Item %s not found in list of images %s' %  ( n, full_dzc))
         raise
 
 
@@ -223,7 +223,7 @@ class MultiCollection(Collection):
             try:
                 return i, dict[fname]
             except: 
-                print 'name %s not found in DeepZoom collections'%fname
+                print ('name %s not found in DeepZoom collections'%fname)
                 if self.ignore_exception: return i, None
         raise InvalidParameter('name %s not found in DeepZoom collections'%fname)
         
@@ -240,7 +240,7 @@ class MultiCollection(Collection):
             g = found[:,0]
             select = np.asarray([int(f)==i for f in g])
             if select.sum()==0:
-                print 'warning: no Items with images in DZC %s' % dzc
+                print ('warning: no Items with images in DZC %s' % dzc)
                 continue
             self.writeItems(out, dzc, self.item_names, found[:,1], self.facets, select)
         

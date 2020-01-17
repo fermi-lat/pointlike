@@ -39,7 +39,7 @@ def make_title(title, filename=None):
     
 def combine_images(names, outdir, subdirs, layout_kw,  outfolder, overwrite=False,):
     if not np.all(map(lambda subdir: os.path.exists(os.path.join(outdir,subdir)), subdirs)): 
-        print 'WARNING not all subdirs, %s, exist:  combining images anyway' % list(subdirs)
+        print ('WARNING not all subdirs, %s, exist:  combining images anyway' % list(subdirs))
         #return
     target = os.path.join(outdir,outfolder)
     if not os.path.exists(target): os.makedirs(target)
@@ -47,7 +47,7 @@ def combine_images(names, outdir, subdirs, layout_kw,  outfolder, overwrite=Fals
         fname = name.replace(' ','_').replace('+','p')
         files = get_files(fname, outdir, subdirs)
         if makefig.combine_images(fname+'.jpg',  files,  outdir=target, overwrite=overwrite, **layout_kw):
-            print '.',
+            print ('.',)
 
 def make_thumbnail(outfile):
         im = Image.open(outfile)
@@ -111,27 +111,27 @@ class Publish(object):
             
             cut = np.array(self.filter(s),bool) #(s.ts>ts_min)*(-np.isnan(s.a))*(s.pindex<3.5) + psr + s.extended
             self.sources = s[cut]
-            print 'select %d/%d sources after applying cuts on TS, localization, pindex; includes all extended, PSR (%d)'\
-                % (sum(cut), len(cut), sum(s.isextended+psr))
+            print ('select %d/%d sources after applying cuts on TS, localization, pindex; includes all extended, PSR (%d)'\
+                % (sum(cut), len(cut), sum(s.isextended+psr)))
            
         self.ts_min = ts_min
         self.name=catalog_name if catalog_name is not None else os.path.split(os.getcwd())[-1]+'_'+self.outdir
-        print 'using name %s for files' % self.name
+        print ('using name %s for files' % self.name)
 
         self.pivot_dir = os.path.join(pivot_root, self.name)
         if self.refdir!='':
             self.ref_pivot_dir = os.path.join(pivot_root, self.name.replace(self.outdir, self.refdir))
         self.dzc = dzc
         if not os.path.exists(self.pivot_dir): os.mkdir(self.pivot_dir)
-        print 'writing files to %s' % self.pivot_dir
+        print ('writing files to %s' % self.pivot_dir)
         files = glob.glob(os.path.join(self.pivot_dir, '*'))
-        print 'existing files:\n\t%s' % '\n\t'.join(files)
+        print ('existing files:\n\t%s' % '\n\t'.join(files))
         self.overwrite=overwrite
         self.zips =     ( 'sedfig',      'tsmap',        'ts_maps',        'kde_maps',   'light_curves')
         self.zipnames = ( 'source seds', 'source tsmaps','roi residual ts','roi kdemaps','light curves')
         for z in self.zips:
             if not os.path.exists(os.path.join(self.outdir,self.ref(z))):
-                print 'WARNING: missing folder in outdir: %s --did you run healpix_map.main?' % z
+                print ('WARNING: missing folder in outdir: %s --did you run healpix_map.main?' % z)
     
     def get_config(self, fn = 'config.txt'):
         """ parse the items in the configuration file into a dictionary
@@ -181,7 +181,7 @@ class Publish(object):
         dpi = kwargs.pop('dpi', 120)
         infits = os.path.join(self.pivot_dir,'aladin512.fits')
         if not os.path.exists(infits):
-            print 'AIT fits file %s not found -- not generating ait plots' % infits
+            print ('AIT fits file %s not found -- not generating ait plots' % infits)
             return
         t = pyfits.open(infits)[1].data
         for table in t.dtype.names:
@@ -194,7 +194,7 @@ class Publish(object):
             #plt.title( '%s for %s' % (field, self.outdir))
             plt.savefig(outfile, bbox_inches='tight', dpi=dpi)
             make_thumbnail(outfile)
-            print 'wrote %s and its thumbndail' % outfile
+            print ('wrote %s and its thumbndail' % outfile)
 
     def roi_fit_html(self):
         def entry(name):
@@ -213,8 +213,8 @@ class Publish(object):
         try:
             kde =pyfits.open(os.path.join(self.outdir,healpix_file))[1].data.field(field)
         except:
-            print 'cannot create a source plot over the photon density: '\
-                    'field %s not found in %s'% (field, healpix_file)
+            print ('cannot create a source plot over the photon density: '\
+                    'field %s not found in %s'% (field, healpix_file))
             return
         sm = display_map.SourceMap(kde,s)
         sm.fill_ait()
@@ -281,7 +281,7 @@ class Publish(object):
         fn = self._check_exist(self.name+'.reg.txt')
         if fn is None: return
         self.skymodel.write_reg_file(fn, ts_min=self.ts_min)
-        print 'wrote reg file %s' %fn
+        print ('wrote reg file %s' %fn)
         
     def write_FITS(self, TSmin=None):
         """ write out the Catalog format FITS version, and the rois """
@@ -297,10 +297,10 @@ class Publish(object):
             if os.path.exists(outfile):
                 if self.overwrite: os.remove(outfile)
                 else:
-                    print 'file %s exists: set overwrite to replace it' % catname
+                    print ('file %s exists: set overwrite to replace it' % catname)
                     continue
             makerec.makefits(rec, outfile)
-            print 'wrote %s' %outfile
+            print ('wrote %s' %outfile)
         #self.write_xml_and_reg(catname)
     
     def write_map(self, name, fun=lambda x:x, title=None, vmax=None, table=None):
@@ -328,12 +328,12 @@ class Publish(object):
         outfile=os.path.join(self.pivot_dir,'%s_ait.png'%name)
         if fitsfile != '':
             # first without the usual scaling function for the FITS version
-            print 'generating FITS image %s' %fitsfile
+            print ('generating FITS image %s' %fitsfile)
             q=display_map.skyplot(table, title,
                 ait_kw=dict(fitsfile=fitsfile,pixelsize=0.1))
             del q
         if not os.path.exists(outfile) or self.overwrite:
-            print 'generating %s and its thumbnail...' % outfile
+            print ('generating %s and its thumbnail...' % outfile)
             # now with scaling function to generate png
             plt.close(30)
             fig = plt.figure(30, figsize=(16,8))
@@ -349,7 +349,7 @@ class Publish(object):
         if os.path.exists(outfile):
             if self.overwrite: os.remove(outfile)
             else: return
-        print 'generating %s' % outfile
+        print ('generating %s' % outfile)
         dirs = map(Band(nside).dir, xrange(len(table)))
         ra  = np.array(map(lambda s: s.ra(), dirs), np.float32)
         dec = np.array(map(lambda s: s.dec(),dirs), np.float32)
@@ -359,7 +359,7 @@ class Publish(object):
 
     
     def write_maps(self):
-        print 'write_maps is disabled for now'
+        print ('write_maps is disabled for now')
         return
         for pars in ( 
             #('data', np.log10, 'log10(counts)', 4),
@@ -372,7 +372,7 @@ class Publish(object):
             try:
                 self.write_map(*pars)
             except:
-                print 'failed to process %s' % pars
+                print ('failed to process %s' % pars)
     
     def write_hpmaps(self, outfile='aladin512.fits', nside=512):
         outfile = os.path.join(self.pivot_dir, outfile)
@@ -388,10 +388,10 @@ class Publish(object):
         try:
             gal = eval(self.config['diffuse'])[0]
             cols.append(healpix_map.diffusefun(gal, nside=nside))
-        except Exception, msg:
-            print 'failed to add galactic diffuse: %s' %msg
+        except Exception as msg:
+            print ('failed to add galactic diffuse: %s' %msg)
         healpix_map.HEALPixFITS(cols, nside=nside).write(outfile)
-        print 'wrote file %s with %d columns' %(outfile, len(cols))
+        print ('wrote file %s with %d columns' %(outfile, len(cols)))
         
     def write_residualmaps(self, outfile='aladin64.fits',nside=64):
         """ generate set of maps with residuals, chisq, etc"""
@@ -410,12 +410,12 @@ class Publish(object):
         for dirname in self.zips:
             fulldir = os.path.join(self.outdir, dirname)
             if not os.path.exists(fulldir):
-                print 'did not find folder %s: continue' % fulldir
+                print ('did not find folder %s: continue' % fulldir)
                 continue
             tozip = os.path.join(self.pivot_dir, '%s_images.zip' % dirname)
             if os.path.exists(tozip) and not self.overwrite: continue
             cmd = 'zip -r %s %s' %(tozip, fulldir)
-            print cmd
+            print (cmd)
             os.system(cmd)
     
     def image_html(self):
@@ -445,7 +445,7 @@ class Publish(object):
         #        % pyfits.open(os.path.join(self.pivot_dir, 'aladin64.fits'))[1].data.names
                 
         if len(q)==0: 
-            print  'WARNING: no image files found'
+            print  ('WARNING: no image files found')
             return ret +'\n</ul>\n'
         heads = [os.path.split(t)[0] for t in q]
         names = [ os.path.split(t)[-1].split('_')[0] for t in q]
@@ -480,7 +480,7 @@ class Publish(object):
         )
         if not tables: d.update( imagefiles=self.image_html())
         if not os.path.exists(os.path.join(self.pivot_dir, 'sources.cxml')):
-            print 'no pivot files found'
+            print ('no pivot files found')
         else:
             d.update(pivot="""<h3><a href="http://www.silverlight.net/learn/pivotviewer/">Pivot</a> Collections</h3>
 <ul><li><a href="http://fermi-ts.phys.washington.edu/pivot/viewer/?uw=%(catname)s/sources.cxml">sources</a>
@@ -527,7 +527,7 @@ class Publish(object):
         html_images="""  %(imagefiles)s\n %(pivot)s\n""" % d
         html_tail="<hr>Last update: %s</body></html>"% time.asctime()    
         open(os.path.join(self.pivot_dir, 'default.htm'),'w').write(html_basic + ( html_images if not tables else '') + html_tail)
-        print 'wrote HTML file %s' % os.path.join(self.pivot_dir, 'default.htm')
+        print ('wrote HTML file %s' % os.path.join(self.pivot_dir, 'default.htm'))
 
     def doall(self):
         self.combine_plots()
@@ -543,7 +543,7 @@ class Publish(object):
         try:
             self.write_xml()
         except:
-            print 'failed to write xml: fix later'
+            print ('failed to write xml: fix later')
         self.write_reg()
         self.write_html()
     def tables(self):
@@ -582,5 +582,5 @@ if __name__=='__main__':
     try:
         doall(sys.argv[1])
     except:
-        print 'expected one arg, the name of the release, like "uw64"'
+        print ('expected one arg, the name of the release, like "uw64"')
         raise

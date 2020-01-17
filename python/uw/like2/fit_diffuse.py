@@ -34,7 +34,7 @@ def fitter(roi, nbands=8, select=[0,1], folder='diffuse_fit_maps',
     for ie in range(nbands):
         roi.select(ie); 
         energy =int(roi.energies[0]) 
-        print '----- E={} -----'.format(energy)
+        print ('----- E={} -----'.format(energy))
         roi.fit(select, setpars={0:0, 1:0}, ignore_exception=True)
         cov = roi.fit_info['covariance']
         if cov is None or cov[0,0]<0 or corr(cov)<corr_min:
@@ -66,7 +66,7 @@ def fitter(roi, nbands=8, select=[0,1], folder='diffuse_fit_maps',
             t=dfa.process_bands()
             filename= '{}/{}.pickle'.format(folder, roi.name)
             pickle.dump(t, open(filename, 'w'))
-            print 'wrote file {}'.format(filename)
+            print ('wrote file {}'.format(filename))
 
             folder = 'diffuse_fit'
             #old logic
@@ -75,7 +75,7 @@ def fitter(roi, nbands=8, select=[0,1], folder='diffuse_fit_maps',
                 os.mkdir(folder)
             filename= '{}/{}.pickle'.format(folder, roi.name)
             pickle.dump(df, open(filename, 'w'))
-            print 'wrote file {}'.format(filename)
+            print ('wrote file {}'.format(filename))
     
     if update:
         # update correction factors, reload all response objects
@@ -90,7 +90,7 @@ def fitter(roi, nbands=8, select=[0,1], folder='diffuse_fit_maps',
                 assert res.source.isglobal
                 res.setup=False
                 res.initialize()
-        print 'Updated coefficients'
+        print ('Updated coefficients')
 
     # for interactive: convert covariance matrix to sigmas, correlation
     gsig=[]; isig=[]; corr=[]
@@ -116,13 +116,13 @@ class FitAnalysis(object):
         """
         self.roi = roi
         if roi_index is not None:
-            print "setting up index {}".format(roi_index)
+            print ("setting up index {}".format(roi_index))
             roi.setup_roi(roi_index) # Process object external for now
         else:
             roi_index = int(roi.name[-4:])
         self.ri = roi_index
         self.pdirs = map(Band(nside).dir, maps.make_index_table(12,nside)[roi_index])
-        print 'Processing ROI index {}'.format(roi_index)
+        print ('Processing ROI index {}'.format(roi_index))
 
         # load diffuse fits for this model
         if diffuse_fits is None:
@@ -130,14 +130,14 @@ class FitAnalysis(object):
             assert len(files)>0, 'no files found'
             if len(files)<1728:
                 msg= "found {} files, expected 1728".format(len(files))
-                print msg
+                print (msg)
                 raise Exception(msg)
             # return as an array 1728x8x2, last being (gal,iso)
             self.fa = (pd.read_pickle(files[roi_index]).values[:,:2]).astype(float)
-            print 'Loaded diffuse fits for this RoI'
+            print ('Loaded diffuse fits for this RoI')
         else:
             self.fa = diffuse_fits.values[:,:2].astype(float)
-            print 'Using fits just generated'
+            print ('Using fits just generated')
 
         
     def select_band(self, index):
@@ -145,14 +145,14 @@ class FitAnalysis(object):
         energies = self.roi.energies
         assert len(energies)==1
         self.energy=energies[0]
-        print 'Selected {:.0f} MeV'.format(self.energy)
+        print ('Selected {:.0f} MeV'.format(self.energy))
         
         # get the counts in each pixel for gal,iso, and for [front] or [front,back] 
         self.dflux = np.array([[map(resp, self.pdirs)\
                                 for resp in sb[:2]] for sb in self.roi.selected])
         
         m = self.dflux.mean(axis=2); s = self.dflux.std(axis=2)/m
-        #for a,b in zip(m,s): print '{:8.0f}, {:.3f}'.format(a,b)
+        #for a,b in zip(m,s): print ('{:8.0f}, {:.3f}'.format(a,b))
         
     
     def process_band(self, iband, verbose=False):
@@ -163,30 +163,30 @@ class FitAnalysis(object):
         if verbose:
             m = dflux.mean(axis=2); s = dflux.std(axis=2)/m
             ids = 'Front Back'.split() if dflux.shape[0]==2 else ['Front']
-            print 'mean\n', pd.DataFrame(m, index=ids, columns='gal iso'.split())
-            print 'rms/mean\n',pd.DataFrame(s, index=ids, columns='gal iso'.split())
+            print ('mean\n', pd.DataFrame(m, index=ids, columns='gal iso'.split()))
+            print ('rms/mean\n',pd.DataFrame(s, index=ids, columns='gal iso'.split()))
 
         x=self.fa[iband,:] 
-        if verbose: print 'Fits\n', x
+        if verbose: print ('Fits\n', x)
 
         a64=Band(64).pixelArea()
         f=(dflux*a64); 
 
         # iso/gal ratio
         r = f[:,1,:]/f[:,0,:]; 
-        if verbose: print 'ratio\n', r
+        if verbose: print ('ratio\n', r)
 
         # adjusted fits per (flux, pixel)
         af = x[0] + r*(x[1]-1); 
-        if verbose: print 'adjusted fits\n',af
+        if verbose: print ('adjusted fits\n',af)
 
         # isolate the galactic flux
         f_gal = f[:,0]; 
-        if verbose: print 'galactic fit\n',f_gal
+        if verbose: print ('galactic fit\n',f_gal)
 
         # weighted sum of the adjusted fits by the galactic flux
         waf = (f_gal*af).sum(axis=0) / f_gal.sum(axis=0);  
-        if verbose: print 'weighted fit\n',self.waf
+        if verbose: print ('weighted fit\n',self.waf)
         return waf
         
     def process_bands(self, ibands=range(8)):

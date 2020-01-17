@@ -28,11 +28,11 @@ class GLL_PSC(object):
                 raise Exception('could not resolve filename or catalog name {}'.format(filename))
         self.version = filename.split('_')[-1].split('.')[0]
         self.hdulist = fits.open(os.path.expandvars(filename))
-        print 'Loaded {}, {} entries'.format(filename, len(self.hdulist[1].data))
+        print ('Loaded {}, {} entries'.format(filename, len(self.hdulist[1].data)))
         try:
             energy_bounds = pd.DataFrame(self.hdulist['EnergyBounds'].data)
         except KeyError:
-            print 'No energy bounds'
+            print ('No energy bounds')
         self.pscdata = self.hdulist[1].data #'LAT_Point_Source_Catalog'].data
         field = self.pscdata.field
         self.colnames = [x.name for x in self.pscdata.columns]
@@ -74,7 +74,7 @@ class GLL_PSC(object):
         """
         u = []
         for i in range(len(self.names)):
-            print i
+            print (i)
             u.append(self[i])
         return pd.DataFrame(u)
 
@@ -95,7 +95,7 @@ class GLL_PSC(object):
         try:
             col_data = [np.array(self.pscdata.field(fname),float) for fname in field_names]
         except Exception, msg:
-            print 'Failed to load: {}'.format(msg)
+            print ('Failed to load: {}'.format(msg))
             raise
         col_data.append(np.array(self.pscdata.field('SpectrumType'),str)) 
         
@@ -110,7 +110,7 @@ class GLL_PSC(object):
         df.index.name='name'
         df['cutoff'] = np.nan # make dependent on catalog type
         df['exp_index'] = self.pscdata.field('LP_Index' if self.new_format else 'Exp_Index')
-        print df.head()
+        print (df.head())
         # add Pointlike stuff
         df['skydir'] = map(lambda ra,dec:SkyDir(float(ra),float(dec)), df.ra, df.dec)
         df['roi'] = map(Band(12).index, df.skydir)
@@ -287,7 +287,7 @@ class CreateFermiFITS(object):
             ], 
             ) 
         self.hdulist.writeto(open(filename,'w'))
-        print 'Created FITS file {} with {} sources'.format(filename, len(names))
+        print ('Created FITS file {} with {} sources'.format(filename, len(names)))
 
  
     def make_Band(self,sr):
@@ -309,11 +309,11 @@ class CreateFermiFITS(object):
         nufnu = [];  fb = []; ufb = [];  npb =[];  ib = [];   sts=[]
         for i,name in enumerate(names):
             if name not in self.df.index:
-                print 'Warning: name {} not found'.format(name)
+                print ('Warning: name {} not found'.format(name))
                 continue
             sr = self.df.loc[name]['sedrec']
             if sr is None: 
-                print 'No sedrec for {} at with TS={:.0f}'.format(name,  row['roiname'],row['ts'],)
+                print ('No sedrec for {} at with TS={:.0f}'.format(name,  row['roiname'],row['ts'],))
                 continue
             sr=self.make_Band(sr)
             nufnu.append(np.array(sr['nuFnu'],float))
@@ -382,7 +382,7 @@ class GLL_PSC2(object):
         df.index = [s.strip() for s in df.NickName]
         del df['NickName']
         self.cat_df=df
-        print 'read {} with {} entries'.format(filename, len(df))
+        print ('read {} with {} entries'.format(filename, len(df)))
         self.filename = filename
         
         # now make simple version with Model object

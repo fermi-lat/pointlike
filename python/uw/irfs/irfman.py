@@ -37,7 +37,7 @@ class IrfManager(object):
             self.dataname = dataset.name
             self.ltcube = dataset.ltcube
         else:
-            print 'No dataset, loading defaults'
+            print ('No dataset, loading defaults')
             self.dataname = '(none)'
             self.ltcube=''
             self.irfname = irfname

@@ -66,7 +66,7 @@ def get_default(colname, kw):
     if colname == 'ZENITH_ANGLE':
         return SimpleCut(None,100,'deg','ZENITH_ANGLE')
     if colname == 'THETA':
-        #print 'applying thetacut, kw=', kw
+        #print ('applying thetacut, kw=', kw)
         return SimpleCut(None,kw.get('thetacut',66.4),'deg','THETA')
     if colname == 'EVENT_CLASS':
         if kw.get('data_pass')>6:
@@ -203,7 +203,7 @@ class DataSpec(object):
         def init_exposure():
             self.ft2files = self._parse_filename(self.ft2)
             if self.exposure_cube is not None:
-                print 'using exposure cube files: ignore FT2'
+                print ('using exposure cube files: ignore FT2')
                 full = [os.path.join(os.path.expandvars('$FERMI/data'),f) for f in self.exposure_cube]
                 assert np.all(map(os.path.exists, full)), 'Exposure cube file(s) #s not found' %full
                 self.exposure_cube = full #replace with full path
@@ -269,7 +269,7 @@ class DataSpec(object):
         self.bins = bins = np.logspace(1,6,5*self.binsperdec+1)
         if self.psf_event_types:
             if not self.quiet:
-                print 'invoking Data.setPhotonBinner for PSFn event types...'; sys.stdout.flush()
+                print ('invoking Data.setPhotonBinner for PSFn event types...'; sys.stdout.flush())
             self.event_types = range(2,6)
             nsides = [pointlike.IntVector(NsideMapper.nside(bins,i)) for i in self.event_types]
             DataSpec.binner = skymaps.PhotonBinner(pointlike.DoubleVector(bins),  *nsides)
@@ -278,7 +278,7 @@ class DataSpec(object):
             f_nside = pointlike.IntVector(NsideMapper.nside(bins,0))
             b_nside = pointlike.IntVector(NsideMapper.nside(bins,1))
             if not self.quiet:
-                print 'invoking Data.setPhotonBinner for front/back event types...'; 
+                print ('invoking Data.setPhotonBinner for front/back event types...'; )
                 sys.stdout.flush()
             DataSpec.binner = skymaps.PhotonBinner(pointlike.DoubleVector(bins),f_nside,b_nside)
         pointlike.Data.setPhotonBinner(DataSpec.binner)
@@ -296,7 +296,7 @@ class DataSpec(object):
         # now check for validity of files
         if len(files) < 1:
             if not quiet:
-                print 'FT file(s) "%s" not found: assume None to test for valid binfile' % ft
+                print ('FT file(s) "%s" not found: assume None to test for valid binfile' % ft)
             return None
             raise DataError('FT file(s) "%s" not found' % ft)
         files = [os.path.expandvars(f) for f in files]
@@ -315,10 +315,10 @@ class DataSpec(object):
                       ]
         for col,mycut in basic_cuts:
             ft1_cut,index = self.dss.get_simple_dss(col)
-            if not self.quiet: print 'processing cuts: ', col, mycut
+            if not self.quiet: print ('processing cuts: ', col, mycut)
             if self.__dict__[mycut] is not None:
                 if not self.quiet: 
-                    print('_make_cuts: working on {0}, cut {1}'.format(col, self.__dict__[mycut] ))
+                    print ('_make_cuts: working on {0}, cut {1}'.format(col, self.__dict__[mycut] ))
                 if ft1_cut is not None:
                     # apply more restrictive of two cuts
                     self.__dict__[mycut].intersection(ft1_cut)
@@ -328,7 +328,7 @@ class DataSpec(object):
                     self.__dict__[mycut]['index'] = len(self.dss)+1
                     self.dss.append(self.__dict__[mycut])
             else:
-                if not self.quiet: print 'ft1_cut', ft1_cut
+                if not self.quiet: print ('ft1_cut', ft1_cut)
                 if ft1_cut is not None: self.__dict__[mycut] = ft1_cut
                 else:
                     self.__dict__[mycut] = get_default(col, self.__dict__)
@@ -344,7 +344,7 @@ class DataSpec(object):
         self.dss = dssman.DSSEntries(self.ft1files[0])
         ###### obsolete--THB
         # if 'PROC_VER' not in pyfits.getheader(self.ft1files[0]).keys():
-        #     print 'Warning: PROC_VER not found in %s header' %self.ft1files[0]
+        #     print ('Warning: PROC_VER not found in %s header' %self.ft1files[0])
         #     self.dss = dssman.DSSEntries(self.ft1files[0])
         #     return
         # if len(self.ft1files) == 1:
@@ -377,10 +377,10 @@ class DataSpec(object):
         if self.binfile is None:
             raise DataManException('No bin file specified')
         if not os.path.exists(self.binfile) :
-            print 'Binned file %s not found' % self.binfile; sys.stdout.flush()
+            print ('Binned file %s not found' % self.binfile; sys.stdout.flush())
             return False
         if self.clobber or self.binfile is None:
-            print 'self.clobber or self.binfile is None'; sys.stdout.flush()
+            print ('self.clobber or self.binfile is None'; sys.stdout.flush())
             return False
         #
         # Check DSS keywords
@@ -393,20 +393,20 @@ class DataSpec(object):
         #     if not self.quiet: print('Extracting DSS from existing binfile')
         #     self.dss = dss
         # if self.dss != dss:
-        #     print 'File %s Failed DSS keyword check: expected \n%s \nbut found \n%s' % (self.binfile, self.dss, dss)
+        #     print ('File %s Failed DSS keyword check: expected \n%s \nbut found \n%s' % (self.binfile, self.dss, dss))
         #     sys.stdout.flush()
         #     return False
-        if not self.quiet: print 'Assuming no DSS keywords in the binfile'
+        if not self.quiet: print ('Assuming no DSS keywords in the binfile')
         # #
         #  Check GTI
         #
         gti = skymaps.Gti(self.binfile)
-        if not self.quiet: print 'GTI from binfile', gti
+        if not self.quiet: print ('GTI from binfile', gti)
         if gti is None:
             raise DataManException('GTI not found in the binfile %s' % self.binfile)
         self.gti = gti
         if  (gti.minValue!=self.gti.minValue) or abs((gti.computeOntime() - self.gti.computeOntime())>1.0 ):
-            print 'File %s Failed GTI check: \n  expect %s \n  found  %s' % (self.binfile, self.gti, gti)
+            print ('File %s Failed GTI check: \n  expect %s \n  found  %s' % (self.binfile, self.gti, gti))
             return False #self.legacy # ignore if legacy, for now
         
         if (not self.quiet): print('Verified binfile {0}'.format(self.binfile))
@@ -426,7 +426,7 @@ class DataSpec(object):
                 for et in event_types:
                     ph = skymaps.Photon(dummy,bin_center,2.5e8,et)
                     bpd.addBand(ph)
-        if not self.quiet: print 'writing to binfile %s' %self.binfile
+        if not self.quiet: print ('writing to binfile %s' %self.binfile)
         def overlaps(f):
             fgti = skymaps.Gti(f)
             inrange = lambda t: t>= self.gti.minValue() and t<=self.gti.maxValue()
@@ -436,16 +436,16 @@ class DataSpec(object):
         files = filter(overlaps, self.ft1files) ##TODO
         if len(files)==0:
             raise DataManException('Attempt to create binned photon file with no data')
-        print 'Creating binfile from %d FT1 files' % len(files); sys.stdout.flush()
+        print ('Creating binfile from %d FT1 files' % len(files); sys.stdout.flush())
         data = pointlike.Data(files,-1, 0,0, self.mc_src_id,'')
         dmap = data.map() # local reference to avoid segfaults
         fill_empty_bands(dmap, self.bins)
         dmap.write(self.binfile)
         self.dss.write(self.binfile,header_key=0)
         if not self.quiet: 
-            print 'found %d bands, energies %.0f-%.0f MeV'\
-                % (len(dmap), dmap[1].emin(), dmap[len(dmap)-1].emax())
-            print self.gti
+            print ('found %d bands, energies %.0f-%.0f MeV'\
+                % (len(dmap), dmap[1].emin(), dmap[len(dmap)-1].emax()))
+            print (self.gti)
         
     def _check_ltcube(self):
         """ Verify ltcube exists and is consistent with any existing data cuts.
@@ -457,7 +457,7 @@ class DataSpec(object):
         ltcubes = glob.glob(self.ltcube)
         if len(ltcubes)==0:
         #if self.clobber or (not os.path.exists(self.ltcube or '')): 
-            print 'Checking ltcube: will generate new {}'.format(self.ltcube)
+            print ('Checking ltcube: will generate new {}'.format(self.ltcube))
             return False
         # check for presence of important history
         # eew -- primary header doesn't have info about extensions, so just
@@ -469,14 +469,14 @@ class DataSpec(object):
         # try:
         #     lt[0].header['RADIUS']; lt[0].header['PIXSIZE']
         # except KeyError: 
-        #     if not self.quiet: print 'no header info in ltcube?' #pass #return False
+        #     if not self.quiet: print ('no header info in ltcube?' #pass #return False)
         # check for weighted extension if we are using it
         if self.use_weighted_livetime:
             #try: h['WEIGHTED_EXPOSURE']
             #except KeyError: return False
             try: assert(len(lt)>3)
             except AssertionError:
-                print 'fail len(lt)>3:%d' %len(lt)
+                print ('fail len(lt)>3:%d' %len(lt))
                 return False
         #        
         # DSS check
@@ -486,12 +486,12 @@ class DataSpec(object):
         if dss is None or len(dss)==0: 
             nodss=True
             if True: # Permamently allow this self.legacy:
-                #if not self.quiet: print 'Accepting ltcube without DSS info since legacy specified'
+                #if not self.quiet: print ('Accepting ltcube without DSS info since legacy specified')
                 dss=self.dss
             else:
                 raise DataManException('DSS found in ltcube %s' % ltcubes[0])
         if dss != self.dss:
-            print 'Failed dss comparison:\n ltcube %s,\n FT1 %s' % (dss, self.dss)
+            print ('Failed dss comparison:\n ltcube %s,\n FT1 %s' % (dss, self.dss))
             return False
         #
         # compare GTI with that found in FT1 or binfile
@@ -499,9 +499,9 @@ class DataSpec(object):
         gti = skymaps.Gti(ltcubes[0])
         tdiff = gti.computeOntime() - self.gti.computeOntime()
         if  (gti.minValue()!=self.gti.minValue()) or abs(tdiff)>1:
-            print 'Failed gti check, time difference %.1f:\n  ltcube: %s \n binfile: %s' % (tdiff, gti, self.gti)
+            print ('Failed gti check, time difference %.1f:\n  ltcube: %s \n binfile: %s' % (tdiff, gti, self.gti))
             # dump([gti,self.gti], open('gti_failure.pkl','w'))
-            # print 'saved the gti objects to "gti_failure.pkl"'
+            # print ('saved the gti objects to "gti_failure.pkl"')
             return True 
             
         if (not self.quiet): print('Verified ltcube {} {}'.format(ltcubes[0],
@@ -524,12 +524,12 @@ class DataSpec(object):
             exp_radius = roi_info[2] + self.livetime_buffer
         if self.zenith_cut is None:
             self.zenith_cut = get_default('ZENITH_ANGLE', None)
-            print 'Warning: using default zenith_cut, {}'.format(self.zenith_cut)
+            print ('Warning: using default zenith_cut, {}'.format(self.zenith_cut))
             # raise DataManException('zenith cut not specified')
         zenithcut = self.zenith_cut.get_bounds()[1]
         if not self.quiet:
             if exp_radius == 180:
-                print 'Constructing all-sky livetime cube'
+                print ('Constructing all-sky livetime cube')
             else:
                 print('Constructing livetime cube about RA,Dec = ({0:0.3f},{1:0.3f}) with a radius of {2:0.3f} deg.'.format(roi_dir.ra(),roi_dir.dec(),exp_radius))
         for i in xrange(1+self.use_weighted_livetime):
@@ -549,9 +549,9 @@ class DataSpec(object):
                 if not ((lt_gti.maxValue() < self.gti.minValue()) or
                         (lt_gti.minValue() > self.gti.maxValue())):
                     lt.load(hf,self.gti)
-                    if not self.quiet: print 'loaded'
+                    if not self.quiet: print ('loaded')
                 else:
-                    if not self.quiet: print 'not in Gti range'
+                    if not self.quiet: print ('not in Gti range')
 
             # write out ltcube
             extension = 'WEIGHTED_EXPOSURE' if i else 'EXPOSURE'
@@ -591,7 +591,7 @@ class DataSpec(object):
         pointlike.Data.set_theta_cut(thetacut)
         pointlike.Data.set_use_mc_energy(self.mc_energy)
         pointlike.Data.set_Gti_mask(self.gti)
-        print 'using Gti for creating binned photon file', self.gti
+        print ('using Gti for creating binned photon file', self.gti)
 
     def check_consistency(self,other):
         """Check compatibility to combine with another DataSpec
@@ -866,11 +866,11 @@ def combine_ltcubes(ff, outfile=None):
             fits.HDUList(self.make_hdus()).writeto(filename, overwrite=overwrite)
 
     expsum = Expose(fits.open(ff[0]))
-    print 'loaded: {}  {:6d} {:10.0f}'.format(ff[0], len(expsum.gti_data), expsum.ontime)
+    print ('loaded: {}  {:6d} {:10.0f}'.format(ff[0], len(expsum.gti_data), expsum.ontime))
     for other in ff[1:]:
         expsum.add(Expose(fits.open(other)))
-        print 'added:  {}  {:6d} {:10.0f}'.format(other, len(expsum.gti_data), expsum.ontime)
+        print ('added:  {}  {:6d} {:10.0f}'.format(other, len(expsum.gti_data), expsum.ontime))
     if outfile is not None:
         expsum.writeto(outfile)
-        print 'Wrote to file {}'.format(outfile)
+        print ('Wrote to file {}'.format(outfile))
     return expsum

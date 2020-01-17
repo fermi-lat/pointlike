@@ -89,8 +89,8 @@ class Source(object):
         elif type(self.model)==str:
             try:
                 t =eval(self.model)
-            except Exception, exp:
-                print 'Failed to evaluate model expression, %s: %s' %(self.model, exp)
+            except Exception as exp:
+                print ('Failed to evaluate model expression, %s: %s' %(self.model, exp))
                 raise
             self.model=t
                 
@@ -104,18 +104,18 @@ class Source(object):
  
         elif self.model.name=='ExpCutoff':
             try:
-                print 'converting %s to PLSuperExpCutoff' %self.name
+                print ('converting %s to PLSuperExpCutoff' %self.name)
                 self.model = self.model.create_super_cutoff()
             except FloatingPointError:
-                print 'Failed'
+                print ('Failed')
                 
         elif self.model.name=='PowerLawFlux':
             f, gamma = self.model.get_all_parameters() #10**self.model.p
             emin = self.model.emin
             try:
                 self.model=LogParabola(f*(gamma-1)/emin, gamma, 0, emin)
-            except Exception, msg:
-                print 'Failed to create LogParabola for source %s, pars= %s'% (self.name, (f,gamma,emin))
+            except Exception as msg:
+                print ('Failed to create LogParabola for source %s, pars= %s'% (self.name, (f,gamma,emin)))
                 raise
             self.model.free[2:]=False
         elif self.model.name=='LogParabola':
@@ -126,7 +126,7 @@ class Source(object):
                 self.model.free[-1]=False
             elif sum(self.model.free)==2 and not self.model.free[1]:
                 # undo freezing
-                print'Unfreezing E_break for source %s' % self.name
+                print ('Unfreezing E_break for source %s' % self.name)
                 self.model.free[-1]=True
         if self.model.name not in ['LogParabola','PLSuperExpCutoff','ExpCutoff', 'Constant']:
             raise Exception('model %s not supported' % self.model.name)
@@ -224,7 +224,7 @@ class GlobalSource(Source):
         if free is not None and self.name in free:
             self.model.free[0]=True
             if self.model.name=='PowerLaw': self.model.free[1]=True,
-            #print '{}, free={}'.format(self, free)
+            #print ('{}, free={}'.format(self, free))
 
     def copy(self):
         """ return a new GlobalSource object, with a copy of the model, others"""
@@ -248,7 +248,7 @@ class GlobalSource(Source):
                 AziLimb = response.IsotropicResponse,
                 GulliLimb = response.IsotropicResponse,
                 )[self.dmodel.type]
-        except Exception, msg:
+        except Exception as msg:
             raise Exception('Could not find a response class for source %s:"%s"' %(self,msg))
         try:
             return resp_class(self,band,roi, **kwargs) 

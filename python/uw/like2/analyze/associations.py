@@ -38,7 +38,7 @@ class Associations(sourceinfo.SourceInfo):
         df = kw.get('df', None)
         if df is not None:
             self.df = df
-            print 'Associations: set subset, %d sources, to report on.' % len(df)
+            print ('Associations: set subset, %d sources, to report on.' % len(df))
         self.load_assoc(self.args)
         # these suppresses warnings associated with headers
         warnings.filterwarnings('ignore', category=pyfits.verify.VerifyWarning, append=True)
@@ -48,11 +48,11 @@ class Associations(sourceinfo.SourceInfo):
     def load_assoc(self, fromdf=None, minprob=0.8):
         if fromdf is not None:
             if not self.quiet:
-                print 'loading associations from file %s' %fromdf
+                print ('loading associations from file %s' %fromdf)
             df['altassoc']=pd.load(fromdf)
         else: 
             if not self.quiet:
-                print 'using associations found in sourceinfo'
+                print ('using associations found in sourceinfo')
             df = self.df.copy()
         associations = df.associations if fromdf is None else self.df.altassoc
         probfun = lambda x: x['prob'][0] if not pd.isnull(x) else 0
@@ -68,7 +68,7 @@ class Associations(sourceinfo.SourceInfo):
         self.df = df[(df.aprob>minprob) | (df.psr)]
         self.df10 = self.df.loc[self.df.ts>10]
         if not self.quiet:
-            print 'associated: %d/%d' % (sum(self.df10.aprob>0.8), total)
+            print ('associated: %d/%d' % (sum(self.df10.aprob>0.8), total))
         
     def association_vs_ts(self, aprob_min=0.5):
         """ Associations vs. TS
@@ -152,7 +152,7 @@ class Associations(sourceinfo.SourceInfo):
                     t = glob.glob(srcid_path+'/cat/'+cd['catname'])[-1]
                     cd['catname']=os.path.split(t)[-1]
                 except:
-                    print 'File %s not found' %s
+                    print ('File %s not found' %s)
             
         self.catdf = pd.DataFrame(cats).T
         self.catdf['objects']=[len(pyfits.open(srcid_path+'cat/'+fname)[1].data) for fname in self.catdf.catname]
@@ -181,7 +181,7 @@ class Associations(sourceinfo.SourceInfo):
         assoc = df.aprob>0.8; sum(assoc)
         dfa = df[assoc]; 
         agn = [ n in ('crates bzcat bllac agn cgrabs').split() for n in dfa.acat]; 
-        print 'agns:', sum(agn)
+        print ('agns:', sum(agn))
         dfagn = dfa[agn]
         ###Look for cases where the second or third association is above 0.8, and is 'bzcat'
         test=[-1]* len(dfagn)
@@ -202,11 +202,11 @@ class Associations(sourceinfo.SourceInfo):
                             ang=a['ang'][j],
                             pindex=dfagn.pindex[i],
                             )
-        print 'bzdict length:', len(bzdict)
+        print ('bzdict length:', len(bzdict))
         self.bzdf = bzdf = pd.DataFrame(bzdict).T 
         bzdf_ts = np.array(bzdf.ts, float)       
         t=np.asarray(test)
-        u =[sum(t==k) for k in range(-1,4)] ; print u
+        u =[sum(t==k) for k in range(-1,4)] ; print (u)
         self.bzcat_html= '<p>There is a BZCAT association in all but %d out of %d AGN associations' % (u[0], sum(u))
         bzdf['type'] = [n[3] for n in bzdf.index]
         type_names=dict(B='BL Lac', G='Radio Galaxy', U=None, Q='FSRQ', i=None)        
@@ -222,7 +222,7 @@ class Associations(sourceinfo.SourceInfo):
         self.bzcat_html += '<p>Frequencies by Blazar type: {}'.format(dfT.to_html())
         
         if len(bzdict)==0:
-            print 'No BZCAT associations found'
+            print ('No BZCAT associations found')
             self.bzcat_html += '<p>No BZCAT associations: quitting'
             return fig
 
@@ -259,7 +259,7 @@ class Associations(sourceinfo.SourceInfo):
         ax.set(title='Photon index by AGN type', xlabel='Photon spectral index');
 
         # save a summary file
-        print 'Writing bzcat summary to %s ' %(self.plotfolder+'/bzcat_summary.csv')
+        print ('Writing bzcat summary to %s ' %(self.plotfolder+'/bzcat_summary.csv'))
         bzdf.to_csv(self.plotfolder+'/bzcat_summary.csv')
         return fig
         
@@ -273,7 +273,7 @@ class Associations(sourceinfo.SourceInfo):
         # compare with LAT pulsar catalog     
         tt = set(self.df.name[self.df.psr])
         self.pulsar_lat_catname = sorted(glob.glob(os.path.expandvars('$FERMI/catalog/srcid/cat/obj-pulsar-lat_v1*')))[-1]
-        print 'opening LAT catalog file %s' %self.pulsar_lat_catname
+        print ('opening LAT catalog file %s' %self.pulsar_lat_catname)
         psr_cat_data= pp = pyfits.open(self.pulsar_lat_catname)[1].data
         self.lat= lat = pd.DataFrame(pp, index=[n.strip() for n in pp.Source_Name])
         lat['ts'] = self.df[self.df.psr]['ts']
@@ -288,8 +288,8 @@ class Associations(sourceinfo.SourceInfo):
         far = lat.delta>0.25
         dc2names =set([name.strip() for name in psr_cat_data.Source_Name])
         # missing_from_catalog=np.asarray(list(tt.difference(dc2names)))
-        # print 'sources with exp cutoff not in LAT catalog:', missing_from_catalog
-        print 'Catalog entries not found:', list(dc2names.difference(tt))
+        # print ('sources with exp cutoff not in LAT catalog:', missing_from_catalog)
+        print ('Catalog entries not found:', list(dc2names.difference(tt)))
         missing = np.array([ np.isnan(x) or x<10. for x in lat.ts])
         missing |= np.array((lat.aprob==0) & (lat.ts<1000) )
         
@@ -298,7 +298,7 @@ class Associations(sourceinfo.SourceInfo):
         self.latsel=latsel = pd.DataFrame( np.array([lat[id][missing] for id in cols]), index=cols, columns=missing_names).T
 
         #psrx = np.array([x in 'pulsar_fom pulsar_low msp pulsar_big'.split() for x in self.df.acat])
-        #print '%d sources found in other pulsar catalogs' % sum(psrx)
+        #print ('%d sources found in other pulsar catalogs' % sum(psrx))
 
         self.atable = '<h4>Compare with LAT pulsar catalog: %s</h4>' % os.path.split(self.pulsar_lat_catname)[-1]
         # self.atable += '<p>{} sources fit with exponential cutoff not in LAT pulsar catalog:\n{} '.format(
@@ -317,7 +317,7 @@ class Associations(sourceinfo.SourceInfo):
         #     far_names = lat.index[far]
         #     cols = 'delta ts RAJ2000 DEJ2000 ROI_index'.split()
         #     latfar = pd.DataFrame( np.array([lat[id][far] for id in cols]),index=cols, columns=far_names).T
-        #     print 'LAT pulsar catalog entries found more than 0.25 deg from catalog:'
+        #     print ('LAT pulsar catalog entries found more than 0.25 deg from catalog:')
         #     print far_names
         #     self.atable += '<p>Pulsars located > 0.25 deg from nominal'\
         #             + latfar.to_html(float_format=FloatFormat(2))
@@ -344,7 +344,7 @@ class Associations(sourceinfo.SourceInfo):
                 elif name in self.jnames: i= self.jnames.index(name)
                 else:
                     error = 'Data for source %s not found' %name
-                    print error
+                    print (error)
                     raise ValueError(error)
 
                 return self.d.iloc[i]
@@ -352,7 +352,7 @@ class Associations(sourceinfo.SourceInfo):
         not_psr = np.array([not n.startswith('PSR') for n in self.df.index],bool)
         psrx = np.array([x=='pulsar_big' for x in self.df.acat],bool) & not_psr
 
-        print '%d sources found in BigFile pulsar catalog' % sum(psrx)
+        print ('%d sources found in BigFile pulsar catalog' % sum(psrx))
         pt = self.df[psrx]['aprob aname aang ts delta_ts locqual'.split()]
         
         # look it up in BigFile, add other stuff
@@ -363,10 +363,10 @@ class Associations(sourceinfo.SourceInfo):
         # aset=set(anames); bset=set(bf.names)
         # missing = list(aset.difference(bset))
         # if len(missing)>0:
-        #     print 'Warning: associations not in this BigFile: {}'.format(missing)
+        #     print ('Warning: associations not in this BigFile: {}'.format(missing))
         #     alist =list(anames)
         #     for x in missing:
-        #         #print '\tremove {}'.format(x)
+        #         #print ('\tremove {}'.format(x))
         #         alist.remove(x)
         #     anames = np.array(alist)
         
@@ -436,15 +436,15 @@ class Associations(sourceinfo.SourceInfo):
         cases = [(agn, 'AGN strong', (0,1)), (agn,'AGN mod.', (1,2)), (agn,'AGN weak',(2,20)),
                 (psr, 'LAT PSR',(0,20)), (otherid, 'other ids',(0,20))]
         zz=[]
-        print '{:12} {:10} {:6} {:6}'.format(*'Selection range number factor'.split())
+        print ('{:12} {:10} {:6} {:6}'.format(*'Selection range number factor'.split()))
         for sel, name,rcut in cases:
             cut = select(sel, rcut)
             try:
                 z = FitExponential(cut, name);
             except:
                 z = None
-            print '{:12} {:3}{:3}  {:6.0f} {:6.2f}'.format(name,
-                     rcut[0],rcut[1], len(z.vcut), z.factor if z is not None else 99)
+            print ('{:12} {:3}{:3}  {:6.0f} {:6.2f}'.format(name,
+                     rcut[0],rcut[1], len(z.vcut), z.factor if z is not None else 99))
             zz.append(z)
             
  
@@ -527,7 +527,7 @@ class Associations(sourceinfo.SourceInfo):
 
         dfu.to_csv(self.softie_filename)
         self.softies=dfu
-        print 'Wrote list of sources to {}'.format(self.softie_filename)
+        print ('Wrote list of sources to {}'.format(self.softie_filename))
 
         self.softie_table= \
             html_table(dfu,                

@@ -42,11 +42,11 @@ def make_pivot(z, outdir,
         # note that the NickName column has blacks compressed
         sourcename = [sdict.get(n.replace(' ',''), '(none)') for n in z.name]
         p.add_facet('Source_Name', 'String', 'C', sourcename) 
-        print 'added Source_Name facet from FITS file %s' % source_names
+        print ('added Source_Name facet from FITS file %s' % source_names)
  
     try:  p.add_facet('beta', 'Number', 'F3',  p.limit(z.beta, 0,2.5, nan=0))
     except:
-        print 'no beta found in the source rec array'
+        print ('no beta found in the source rec array')
         pass
     p.add_facet('SpectrumType', 'String', 'C', z.modelname)
     

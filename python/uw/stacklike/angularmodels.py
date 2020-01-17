@@ -69,7 +69,7 @@ class PSF(Model):
     #  @params pars psf parameters, fed in by fitter
     def value(self,photon,pars):
         if len(pars)!=len(self.model_par):
-            print 'Wrong number of PSF parameters, got %d instead of %d'%(len(pars),len(self.model_par))
+            print ('Wrong number of PSF parameters, got %d instead of %d'%(len(pars),len(self.model_par)))
             raise
         sig = pars[0]
         g = pars[1]
@@ -84,7 +84,7 @@ class PSF(Model):
     def psf(self,diff,sig,g):
         sig = max(sig,1e-40)
         if g<=0:
-            print 'Caught bad gamma value'
+            print ('Caught bad gamma value')
         u = diff*diff/(2*sig*sig)
         return (1-1/g)*(1+u/g)**(-g)
 
@@ -151,17 +151,17 @@ class PSF(Model):
     #  @param c containment fraction [0-1] array
     def fromcontain(self,r,c):
         if len(r)!=len(c):
-            print 'Containment and Containment fraction arrays must have same length'
+            print ('Containment and Containment fraction arrays must have same length')
             return
         if len(r)<2:
-            print 'Need at least two containment points'
+            print ('Need at least two containment points')
             return
         pars = [r[0]/c[0]*0.68,2.25]
         minuit = Minuit(lambda x: self.cfunc(x[0],x[1],r,c),pars,limits=self.limits,tolerance=1e-10,strategy=2,printMode=-1)
         minuit.minimize()
         self.model_par=minuit.params
-        #print r0,self.recl(c0,self.model_par[0],self.model_par[1])
-        #print r1,self.recl(c1,self.model_par[0],self.model_par[1])
+        #print (r0,self.recl(c0,self.model_par[0],self.model_par[1]))
+        #print (r1,self.recl(c1,self.model_par[0],self.model_par[1]))
 
     ## fitting function for containment
     def cfunc(self,sigma,gamma,r,c):
@@ -203,7 +203,7 @@ class PSFTheta(Model):
     #  @params pars psf parameters, fed in by fitter
     def value(self,photon,pars):
         if len(pars)!=len(self.model_par):
-            print 'Wrong number of PSF parameters, got %d instead of %d'%(len(pars),len(self.model_par))
+            print ('Wrong number of PSF parameters, got %d instead of %d'%(len(pars),len(self.model_par)))
             raise
         sig = pars[0]
         g = pars[1]
@@ -294,17 +294,17 @@ class PSFTheta(Model):
     #  @param c containment fraction [0-1] array
     def fromcontain(self,r,c):
         if len(r)!=len(c):
-            print 'Containment and Containment fraction arrays must have same length'
+            print ('Containment and Containment fraction arrays must have same length')
             return
         if len(r)<2:
-            print 'Need at least two containment points'
+            print ('Need at least two containment points')
             return
         pars = [r[0]/c[0]*0.68,2.25]
         minuit = Minuit(lambda x: self.cfunc(x[0],x[1],r,c),pars,limits=self.limits,tolerance=1e-10,strategy=2,printMode=-1)
         minuit.minimize()
         self.model_par=minuit.params
-        #print r0,self.recl(c0,self.model_par[0],self.model_par[1])
-        #print r1,self.recl(c1,self.model_par[0],self.model_par[1])
+        #print (r0,self.recl(c0,self.model_par[0],self.model_par[1]))
+        #print (r1,self.recl(c1,self.model_par[0],self.model_par[1]))
 
     ## fitting function for containment
     def cfunc(self,sigma,gamma,r,c):
@@ -353,7 +353,7 @@ class PSFAlign(PSF):
     #  @params pars psf parameters, fed in by fitter
     def value(self,photon,pars):
         if len(pars)!=len(self.model_par):
-            print 'Wrong number of PSFAlign parameters, got %d instead of %d'%(len(pars),len(self.model_par))
+            print ('Wrong number of PSFAlign parameters, got %d instead of %d'%(len(pars),len(self.model_par)))
             raise
         rx = pars[0]
         ry = pars[1]
@@ -422,7 +422,7 @@ class PSFFish(PSF):
         self.lims=lims
         self.ebar=ebar
         self.steps=[self.PSF.steps[0],self.PSF.steps[1],20./3600./rd]
-        #print self.PSF.limits
+        #print (self.PSF.limits)
         self.limits=[self.PSF.limits[0],self.PSF.limits[1],[-np.pi,np.pi]]
         self.name='psffish'
         self.header=self.PSF.header+'dTh\t'
@@ -432,7 +432,7 @@ class PSFFish(PSF):
     #  @params pars psf parameters, fed in by fitter
     def value(self,photon,pars):
         if len(pars)!=len(self.model_par):
-            print 'Wrong number of PSFAlign parameters, got %d instead of %d'%(len(pars),len(self.model_par))
+            print ('Wrong number of PSFAlign parameters, got %d instead of %d'%(len(pars),len(self.model_par)))
             raise
         dTh = pars[2]
         diff = photon.difftheta(dTh)
@@ -501,7 +501,7 @@ class PSFDouble(Model):
     #  @params pars psf parameters, fed in by fitter
     def value(self,photon,pars):
         if len(pars)!=len(self.model_par):
-            print 'Wrong number of PSF parameters, got %d instead of %d'%(len(pars),len(self.model_par))
+            print ('Wrong number of PSF parameters, got %d instead of %d'%(len(pars),len(self.model_par)))
             raise
         sig = pars[0]
         g = pars[1]
@@ -593,7 +593,7 @@ class Isotropic(Model):
     ## returns 1 since Isotropic is constant in (d)**2
     def value(self,photon,pars):
         if len(pars)!=len(self.model_par):
-            print 'There should be no parameters for Isotropic, got %d'%len(pars)
+            print ('There should be no parameters for Isotropic, got %d'%len(pars))
             raise
         return 1.
     
@@ -636,7 +636,7 @@ class Diffuse(Model):
         self.steps=[]
         self.limits=[]
         nside = 8192#int(2.*5270./(self.lims[1]*rd))
-        print nside
+        print (nside)
         self.band = s.Band(int(nside))
         self.area = self.band.pixelArea()
         self.diffuse = s.DiffuseFunction(diff,ebar)
@@ -672,7 +672,7 @@ class Diffuse(Model):
             cut = mags[(seps>bins[it])&(seps<bins[it+1])]
             #integral = N(pixels)*Area(Pixels)*(sum(f(pixel)))
             fint = (self.area)*(sum(cut))
-            #print len(cut),sum(cut),bins[it]+delt/2,fint
+            #print (len(cut),sum(cut),bins[it]+delt/2,fint)
             if first:
                 self.func[0].append(bins[it+1])
                 self.func[1].append(fint)
@@ -692,7 +692,7 @@ class Diffuse(Model):
         del seps
         del mags
         stop = t.time()
-        print 'Took %d seconds to setup the diffuse'%(int(stop-start))
+        print ('Took %d seconds to setup the diffuse'%(int(stop-start)))
 
     def value(self,photon,pars):
         return self.custom.value(photon,pars)
@@ -737,11 +737,11 @@ class CDisk(Model):
         if len(model_par)==3:
             pb = pypsf.PretendBand(self.model_par[1],int(self.model_par[2]),psf=self.psf,sd=s.SkyDir(0,0),radius_in_rad=self.lims[1])
             self.ac.do_convolution(pb)#,False,True)
-            print 'Using default PSF'
+            print ('Using default PSF')
         else:
             pb = pypsf.PretendBand(self.model_par[1],int(self.model_par[2]),psf=self.psf,sd=s.SkyDir(0,0),radius_in_rad=self.lims[1],fit_sigma=self.model_par[3],fit_gamma=self.model_par[4])
             self.ac.do_convolution(pb)#,True,False)
-            print 'Using fit PSF'
+            print ('Using fit PSF')
         #delt = (lims[1]-lims[0])/100.
         #xr = np.arange(lims[0],lims[1],delt)
         #yr = np.array([self.ac(s.SkyDir((x*1.+0.5)*rd*delt,0)) for x in range(len(xr)-1)])
@@ -752,18 +752,18 @@ class CDisk(Model):
     def value(self,photon,pars):
         diff = photon.srcdiff()*rd
         val = self.ac(s.SkyDir(diff,0))
-        #print 'f0=%1.8f'%val
+        #print ('f0=%1.8f'%val)
         return val
     
     def pdf(self,diff):
         val = self.ac(s.SkyDir(diff*rd,0))
-        #print 'f0=%1.8f'%val
+        #print ('f0=%1.8f'%val)
         return val
 
     ## returns integral of Isotropic for a photon between self.lims
     def integrate(self,photon,pars):
         val = self.norm*self.ac.integral(self.lims[1],self.lims[0])
-        #print 'integral=%1.8f'%val
+        #print ('integral=%1.8f'%val)
         return val
 
     ## returns integral of Isotropic between delmin and delmax
@@ -838,18 +838,18 @@ class CHalo(Model):
     def value(self,photon,pars):
         diff = photon.srcdiff()*rd
         val = self.ac(s.SkyDir(diff,0))
-        #print 'f0=%1.8f'%val
+        #print ('f0=%1.8f'%val)
         return val
 
     def pdf(self,diff):
         val = self.ac(s.SkyDir(diff*rd,0))
-        #print 'f0=%1.8f'%val
+        #print ('f0=%1.8f'%val)
         return val
 
     ## returns integral of Isotropic for a photon between self.lims
     def integrate(self,photon,pars):
         val = self.norm*self.ac.integral(self.lims[1],self.lims[0])
-        #print 'integral=%1.8f'%val
+        #print ('integral=%1.8f'%val)
         return val
 
     ## returns integral of Isotropic between delmin and delmax
@@ -932,7 +932,7 @@ class PLCutoff(Model):
             sc = diff/tcut
             val = (sc)**(alph-1.)/tcut*np.exp(-sc)
 
-            #print 'f0=%1.8f'%val
+            #print ('f0=%1.8f'%val)
             return val
         else:
             return 0.
@@ -943,7 +943,7 @@ class PLCutoff(Model):
                 tcut,alph = self.model_par
             sc = diff/tcut
             val = (sc)**(alph-1.)/tcut*np.exp(-sc)
-            #print 'f0=%1.8f'%val
+            #print ('f0=%1.8f'%val)
             return val
         else:
             return 0.
@@ -955,7 +955,7 @@ class PLCutoff(Model):
             val = si.quad(lambda x: x*self.pdf(x,tcut,alph),self.lims[0],self.lims[1])[0]
             self.cache_pars=pars
             self.cache_value = val
-            #print 'integral=%1.8f'%val
+            #print ('integral=%1.8f'%val)
         return self.cache_value
 
     ## returns integral of Isotropic between delmin and delmax
@@ -1001,7 +1001,7 @@ class OffPsf(Model):
         self.limits=[]
         self.off = off
         nside = 8192#int(2.*5270./(self.lims[1]*rd))
-        print nside
+        print (nside)
         self.band = s.Band(int(nside))
         self.area = self.band.pixelArea()
         self.func = [[],[]]
@@ -1029,7 +1029,7 @@ class OffPsf(Model):
             cut = mags[(seps>bins[it])&(seps<bins[it+1])]
             #integral = N(pixels)*Area(Pixels)*(sum(f(pixel)))
             fint = (self.area)*(sum(cut))
-            #print len(cut),sum(cut),bins[it]+delt/2,fint
+            #print (len(cut),sum(cut),bins[it]+delt/2,fint)
             if first:
                 self.func[0].append(bins[it+1])
                 self.func[1].append(fint)
@@ -1049,7 +1049,7 @@ class OffPsf(Model):
         del seps
         del mags
         stop = t.time()
-        print 'Took %d seconds to setup the offpsf'%(int(stop-start))
+        print ('Took %d seconds to setup the offpsf'%(int(stop-start)))
 
     def value(self,photon,pars):
         return self.custom.value(photon,pars)
@@ -1152,7 +1152,7 @@ class Custom(Model):
     #  @param xv x-values to check against
     def value(self,photon,pars):
         if len(pars)!=len(self.model_par):
-            print 'There should be no parameters for a custom model, got %d'%len(pars)
+            print ('There should be no parameters for a custom model, got %d'%len(pars))
             raise
         diff = photon.srcdiff()
         #return self.pdfint(diff)
@@ -1216,7 +1216,7 @@ class Gaussian(Model):
     #  @param pars parameter [theta], passed on by fitter
     def value(self,photon,pars):
         if len(pars)!=len(self.model_par):
-            print 'Wrong number of GAUSSIAN parameters!'
+            print ('Wrong number of GAUSSIAN parameters!')
             raise
         theta = pars[0]
         diff = photon.srcdiff()
@@ -1283,7 +1283,7 @@ class Halo(Model):
     #  @param pars parameter [theta], passed on by fitter
     def value(self,photon,pars):
         if len(pars)!=len(self.model_par):
-            print 'Wrong number of HALO parameters!'
+            print ('Wrong number of HALO parameters!')
             raise
         theta = pars[0]
         diff = photon.srcdiff()
@@ -1370,11 +1370,11 @@ class CompositeModel(object):
 
         #set up printing headers and free parameters
         if not quiet:
-            print 'Fitting %d models'%len(self.models)
-            print '-----------------'
+            print ('Fitting %d models'%len(self.models))
+            print ('-----------------')
         for x in range(len(self.models)):
             if not quiet:
-                print self.models[x].name
+                print (self.models[x].name)
             header = header+('N%s\t'%self.models[x].name)
             if len(free)==0:
                 pars.append(n/(1.*len(self.models)))
@@ -1385,7 +1385,7 @@ class CompositeModel(object):
             lims.append([0,2*n])
             steps.append(np.sqrt(n))
         if not quiet:
-            print '-----------------'
+            print ('-----------------')
         for md in self.models:
             header = header+md.header
                 
@@ -1396,7 +1396,7 @@ class CompositeModel(object):
             steps.append(self.steps[i])
         header = header+'Likelihood\tsec/call'
         if not quiet:
-            print header
+            print (header)
         self.clock=t.time()
 
         self.initial = self.extlikelihood(pars,photons,quiet)
@@ -1462,7 +1462,7 @@ class CompositeModel(object):
             ctime = t.time()
             st = st+'%1.1f'%((ctime-self.clock)/self.calls)
             if not quiet:
-                print st
+                print (st)
         if np.isnan(sum(pars)) or np.isnan(acc) or np.isinf(sum(pars)) or np.isinf(acc):
             return 1e40
         else:

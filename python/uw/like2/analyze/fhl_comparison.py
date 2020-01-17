@@ -45,7 +45,7 @@ class FHLcomparison(sourceinfo.SourceInfo):
         self.df['ts10'] = [sum(sedrec['ts'][8:]) for sedrec in self.df.sedrec]
         self.df['np10'] = [sum(sedrec['npred'][8:]) for sedrec in self.df.sedrec]
         dfuw=self.dfuw = self.df[self.df.ts10>4]
-        print 'Selected {} UW sources with TS10>{}'.format(len(self.dfuw), uwts10_min)
+        print ('Selected {} UW sources with TS10>{}'.format(len(self.dfuw), uwts10_min))
  
         fgl = fermi_catalog.GLL_PSC(pattern)
         df=self.df = fgl.data_frame()
@@ -78,9 +78,9 @@ class FHLcomparison(sourceinfo.SourceInfo):
         df['uw_name'] = [dfuw.index[i] for i in cl_fhl[:,0]]
         df['uwok'] = (df.dist<close_cut) | np.isnan(np.array(df.r95,float))
         df['nouw'] = np.logical_not(df.uwok)
-        print '3FHL sources associated with uw: {}/{}'.format(sum(df.uwok), len(df))
+        print ('3FHL sources associated with uw: {}/{}'.format(sum(df.uwok), len(df)))
         corr_file='UW-3FHL_correspondence.pkl'
-        print 'Wrote out file with correlation info: {}'.format(corr_file)
+        print ('Wrote out file with correlation info: {}'.format(corr_file))
         df.to_pickle(corr_file)
 
         #add correlation info to the UW dataframe
@@ -94,13 +94,13 @@ class FHLcomparison(sourceinfo.SourceInfo):
         dfuw['fhl_ok'] = dfuw.dist<close_cut
         dfuw['nofhl'] = np.logical_not(dfuw.fhl_ok)
 
-        print 'UW sources associated with 3FHL: {}/{}'.format(sum(dfuw.fhl_ok), len(dfuw))
+        print ('UW sources associated with 3FHL: {}/{}'.format(sum(dfuw.fhl_ok), len(dfuw)))
 
         # load pickled SED info for corresponding sources, if found
         ff = glob.glob('3FHL_correspondence/*.pkl'); 
-        print 'Found {} pickle files in 3FHL_correspondence'.format(len(ff))
+        print ('Found {} pickle files in 3FHL_correspondence'.format(len(ff)))
         if len(ff)==0:
-            print 'NO SED info found: expected to find files in "3FHL_correspondendce"'
+            print ('NO SED info found: expected to find files in "3FHL_correspondendce"')
             return
         pp = [pickle.load(open(f)) for f in ff] 
         def chisq(source):
@@ -261,7 +261,7 @@ class FHLcomparison(sourceinfo.SourceInfo):
         # save a csv file as well
         outfile ='missing_from_3FHL.csv' 
         dfnogt.to_csv(os.path.join(self.plotfolder,outfile))
-        print 'Wrote file {}'.format(self.plotfolder+outfile)
+        print ('Wrote file {}'.format(self.plotfolder+outfile))
         self.notinfgl_html += '<br><a href="{}">CSV file of missing sources</a>'.format(outfile)
 
         # the plots
