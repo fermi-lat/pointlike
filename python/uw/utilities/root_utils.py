@@ -89,7 +89,7 @@ def map_color(color):
     elif color is 'gray': kcolor = kGray+2
     elif color is 'orange': kcolor = kOrange+3
     elif color is 'yellow': kcolor = kYellow
-    else: print ("Warning: color %s is not implemented!"; kcolor = kBlack)
+    else: print ("Warning: color %s is not implemented!" % color ); kcolor = kBlack
     return kcolor
 
 def SetHistoAxis( hist, x_title="", x_title_size=0, x_title_offset=0, x_label_size=0, 
