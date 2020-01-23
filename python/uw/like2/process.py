@@ -81,7 +81,7 @@ class Process(main.MultiROI):
     def process_roi(self, index):
         """ special for batch: manage the log file, make sure an exception closes it
         """
-        print 'Setting up ROI #%04d ...' % index,
+        print ('Setting up ROI #%04d ...' % index,)
         sys.stdout.flush()
         self.setup_roi(index)
         if self.outdir is not None: 
@@ -89,7 +89,7 @@ class Process(main.MultiROI):
             if not os.path.exists(logpath): os.mkdir(logpath)
             outtee = tools.OutputTee(os.path.join(logpath, self.name+'.txt'))
         else: outtee=None
-        print 'Processing...'
+        print ('Processing...')
         sys.stdout.flush()
         try:
             self.process()
@@ -101,8 +101,8 @@ class Process(main.MultiROI):
         roi=self
         dampen=self.dampen 
         outdir = self.outdir
-        print  '='*80
-        print '%4d-%02d-%02d %02d:%02d:%02d - %s - %s' %(time.localtime()[:6]+ (roi.name,)+(self.stream,))
+        print  ('='*80)
+        print ('%4d-%02d-%02d %02d:%02d:%02d - %s - %s' %(time.localtime()[:6]+ (roi.name,)+(self.stream,)))
 
         # special processing flags
         if self.diffuse_key is not None and self.diffuse_key!='post_gal':
@@ -156,7 +156,7 @@ class Process(main.MultiROI):
             #self.fit_second_order()
             zz = sedfuns.add_flat_sed(self,'ALL') 
             for name, ts in zz:
-                print '{:15} {:4.1f}'.format(name,ts)
+                print ('{:15} {:4.1f}'.format(name,ts))
             write_pickle(self)
             return
 
@@ -176,26 +176,26 @@ class Process(main.MultiROI):
             self.update_positions()
 
         if self.curvature_flag:
-            print '====================== Fixing curvature first ======================='
+            print ('====================== Fixing curvature first =======================')
             self.fit_curvature('ALL')
 
             
         roi.print_summary(title='before fit, logL=%0.f'% init_log_like)
         fit_sources = [s for s in roi.free_sources if not s.isglobal]
         if len(roi.sources.parameters[:])==0 or dampen==0:
-            print '===================== not fitting ========================'
+            print ('===================== not fitting ========================')
         else:
             fit_kw = self.fit_kw
             try:
                 if self.norms_only:
-                    print 'Fitting parameter names ending in "Norm"'
+                    print ('Fitting parameter names ending in "Norm"')
                     roi.fit('_Norm',  **fit_kw)
                 roi.fit(select=self.selected_pars, update_by=dampen, **fit_kw)
                 if self.fix_spectra_flag:
                     # Check for bad errors, 
                     diag = np.asarray(self.hessian().diagonal())[0]
                     if np.any(diag<0):
-                        print 'Retrying bad fits, reset '
+                        print ('Retrying bad fits, reset ')
                         for i,v in enumerate(diag):
                             if v>0: continue
                             self.fit([i], setpars={i: -13}, **fit_kw)
@@ -215,7 +215,7 @@ class Process(main.MultiROI):
                 if self.diffuse_key=='post_gal':
                     fit_galactic(self)
             except Exception as msg:
-                print '============== fit failed, no update!! %s'%msg
+                print ('============== fit failed, no update!! %s'%msg)
                 raise
         
         def getdir(x ):
@@ -225,41 +225,41 @@ class Process(main.MultiROI):
             return t
         sedfig_dir = getdir(self.sedfig_dir)
         if sedfig_dir is not None:
-            print '------------ creating seds, figures ---------------'; sys.stdout.flush()
+            print ('------------ creating seds, figures ---------------'; sys.stdout.flush())
             skymodel_name = os.path.split(os.getcwd())[-1]
             roi.plot_sed('all', sedfig_dir=sedfig_dir, suffix='_sed_%s'%skymodel_name, )
         
         if self.profile_flag:
-            print '------creating profile entries for all free sources'; sys.stdout.flush()
+            print ('------creating profile entries for all free sources'; sys.stdout.flush())
             self.profile('all')
 
         if self.localize_flag:
-            print '------localizing all local sources------'; sys.stdout.flush()
+            print ('------localizing all local sources------'; sys.stdout.flush())
             tsmap_dir = getdir(self.tsmap_dir)
             skymodel = os.getcwd().split('/')[-1]
             if skymodel.startswith('month') or skymodel.startswith('year'): 
-                print 'Not running tsmap analysis since data subset'
+                print ('Not running tsmap analysis since data subset')
                 tsmap_dir=None
             roi.localize('all', tsmap_dir=tsmap_dir)
         
         if self.associate_flag:
-            print '-------- running associations --------'; sys.stdout.flush()
+            print ('-------- running associations --------'; sys.stdout.flush())
             self.find_associations('all')
 
-        print '-------- analyzing counts histogram, ',; sys.stdout.flush()
+        print ('-------- analyzing counts histogram, ',; sys.stdout.flush())
         cts=roi.get_count_dict() # always do counts
-        print 'chisquared: %.1f ----'% cts['chisq']
+        print ('chisquared: %.1f ----'% cts['chisq'])
 
         counts_dir = getdir(self.counts_dir)
         if counts_dir is not None:
-            print '------- saving counts plot ------'; sys.stdout.flush()
+            print ('------- saving counts plot ------'; sys.stdout.flush())
             try:
                 fig=roi.plot_counts( tsmin=self.countsplot_tsmin, relto='isotropic')
                 fout = os.path.join(counts_dir, ('%s_counts.jpg'%roi.name) )
-                print '----> %s' % fout ; sys.stdout.flush()
+                print ('----> %s' % fout ; sys.stdout.flush())
                 fig.savefig(fout, dpi=60, bbox_inches='tight')
             except Exception as e:
-                print '***Failed to analyze counts for roi %s: %s' %(roi.name,e)
+                print ('***Failed to analyze counts for roi %s: %s' %(roi.name,e))
                 chisq = -1
         
         if outdir is not None:  
@@ -276,8 +276,8 @@ class Process(main.MultiROI):
         if fit_sources is None:
             fit_sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
         if len(fit_sources)>1:
-            print '\ncheck need to repivot % sources with TS>%.0f, beta<%.1f: \n'\
-            'source                     TS        e0      pivot' % (len(fit_sources), min_ts, max_beta)
+            print ('\ncheck need to repivot % sources with TS>%.0f, beta<%.1f: \n'\
+            'source                     TS        e0      pivot' % (len(fit_sources), min_ts, max_beta))
         
         need_refit =False
 
@@ -287,35 +287,35 @@ class Process(main.MultiROI):
             try:
                 ts, e0, pivot = roi.TS(source.name),model.e0, model.pivot_energy()
             except Exception as e:
-                print 'source %s:exception %s' %(source.name, e)
+                print ('source %s:exception %s' %(source.name, e))
                 continue
                 
             if pivot is None: 
-                print 'pivot is none'
+                print ('pivot is none')
                 continue
             if model.name=='LogParabola': e0 = model[3]
             elif model.name=='ExpCutoff' or model.name=='PLSuperExpCutoff':
                 e0 = model.e0
             else:
-                print 'Model %s is not repivoted' % model.name
+                print ('Model %s is not repivoted' % model.name)
                 continue
-            print '%-20s %8.0f %9.0f %9.0f '  % (source.name, ts, e0, pivot),
+            print ('%-20s %8.0f %9.0f %9.0f '  % (source.name, ts, e0, pivot),)
             if ts < min_ts: 
-                print 'TS too small'
+                print ('TS too small')
                 continue
             if model.name=='LogParabola':
                 if model[2]>max_beta: 
-                    print 'beta= %.2f too large' %(model[2])
+                    print ('beta= %.2f too large' %(model[2]))
                     continue #very 
             if pivot < emin or pivot > emax:
-                print 'pivot energy, not in range (%.0f, %.0f): setting to limit' % (emin, emax)
+                print ('pivot energy, not in range (%.0f, %.0f): setting to limit' % (emin, emax))
                 pivot = min(emax, max(pivot,emin))
                 model.set_e0(pivot)
                 limited = True
             else: limited=False
             if abs(pivot/e0-1.)<tolerance: #0.05:
-                print 'converged'; continue
-            print 'will refit'
+                print ('converged'); continue
+            print ('will refit')
             need_refit=True
             if not test and not limited: model.set_e0(pivot*dampen+ e0*(1-dampen))
         if need_refit and not test:
@@ -328,10 +328,10 @@ class Process(main.MultiROI):
         """
         for source in self.free_sources:
             if source.isglobal: continue #skip global
-            print '----------------- %s (%.1f)-------------' % (source.name, source.ts)
+            print ('----------------- %s (%.1f)-------------' % (source.name, source.ts))
             t = self.ts_beta(source.name, ignore_exception=ignore_exception)
             if t is None: continue
-            print 'deltaTS {:.1f} beta {:.2f}'.format(t[0],t[1])
+            print ('deltaTS {:.1f} beta {:.2f}'.format(t[0],t[1]))
 
         self.fit(ignore_exception=ignore_exception)
         return True 
@@ -339,14 +339,14 @@ class Process(main.MultiROI):
 
         
     def residuals(self, tol=0.3):
-        print 'Creating tables of residuals'
+        print ('Creating tables of residuals')
         if not os.path.exists('residuals'):
             os.mkdir('residuals')
         resids = sedfuns.residual_tables(self, tol)
         filename = 'residuals/%s_resids.pickle' %self.name
         with open(filename, 'w') as out:
             pickle.dump(resids, out)
-            print 'wrote file %s' %filename
+            print ('wrote file %s' %filename)
             
     def tables(self, special=False, mapkeys=['ts', 'kde']):
         """create a set of tables"""
@@ -365,29 +365,29 @@ class Process(main.MultiROI):
             require ts>tsmin, qual<qualmax
             
         """
-        print '---Updating positions---'
+        print ('---Updating positions---')
         sources = [s for s in self.sources if s.skydir is not None and np.any(s.spectral_model.free)]
-        #print 'sources:', [s.name for s in sources]
-        print '%-15s%6s%8s %8s' % ('name','TS','qual', 'delta_ts')
+        #print ('sources:', [s.name for s in sources])
+        print ('%-15s%6s%8s %8s' % ('name','TS','qual', 'delta_ts'))
         for source in sources:
             has_ts= hasattr(source, 'ts')
-            print '%-15s %6.0f' % (source.name, source.ts if has_ts else -1.0) , 
+            print ('%-15s %6.0f' % (source.name, source.ts if has_ts else -1.0) , )
             if not hasattr(source, 'ellipse') or source.ellipse is None:
-                print ' no localization info'
+                print (' no localization info')
                 continue
             if not has_ts:   
-                print '    no TS'
+                print ('    no TS')
                 continue
 
             if source.ts<tsmin:
-                print '    TS<%.0f' % (tsmin)
+                print ('    TS<%.0f' % (tsmin))
                 continue
             newdir = SkyDir(*source.ellipse[:2]); qual, delta_ts = source.ellipse[-2:]
-            print '%6.1f%6.1f' % (qual, delta_ts) ,
+            print ('%6.1f%6.1f' % (qual, delta_ts) ,)
             if qual>qualmax:
-                print ' qual>%.1f' % qualmax
+                print (' qual>%.1f' % qualmax)
                 continue
-            print ' %s -> %s, moved %.2f' % (source.skydir,newdir, np.degrees(newdir.difference(source.skydir)))
+            print (' %s -> %s, moved %.2f' % (source.skydir,newdir, np.degrees(newdir.difference(source.skydir))))
             source.skydir = newdir
     
     def fit_second_order(self, summarize=False, beta_bounds=(-0.1, 1.0)):
@@ -406,19 +406,19 @@ class Process(main.MultiROI):
             try:
                 self.fit(s.name, summarize=summarize, estimate_errors=True, ignore_exception=False)
             except Exception as msg:
-                print 'Failed to fit {} for {}: {}'.format(parname,source_name, msg)
+                print ('Failed to fit {} for {}: {}'.format(parname,source_name, msg))
                 s.model[parname]=parval
             self.freeze(parname)
-            print ('{:17}{:8.0f}'+fmt+fmt).format(source_name, s.ts, s.model[parname], s.model.error(parname))
+            print (('{:17}{:8.0f}'+fmt+fmt).format(source_name, s.ts, s.model[parname], s.model.error(parname)))
         
         LP_sources = [s.name for s in self.free_sources 
             if not s.isglobal and s.model.name=='LogParabola']
         PLEX_sources = [s.name for s in self.free_sources 
             if not s.isglobal and s.model.name=='PLSuperExpCutoff']
 
-        print '{:17}{:>8} {:6} {}'.format('LP source', 'TS', 'beta', 'error')
+        print ('{:17}{:>8} {:6} {}'.format('LP source', 'TS', 'beta', 'error'))
         map( lambda s: fit2(s,'beta'), LP_sources) 
-        print '{:17}{:>8} {:6} {:10}'.format('PLEX source', 'TS','Cutoff', 'error')
+        print ('{:17}{:>8} {:6} {:10}'.format('PLEX source', 'TS','Cutoff', 'error'))
         map( lambda s: fit2(s,'Cutoff', '{:6.0f}'), PLEX_sources)
         return True
 
@@ -431,16 +431,16 @@ class Process(main.MultiROI):
 
         """
         if source_name=='all':
-            print 'TODO!'
+            print ('TODO!')
             return
         source = self.get_source(source_name)
         sname = source.name
-        print 'Full processing for source {} ================='.format(sname)
+        print ('Full processing for source {} ================='.format(sname))
         self.profile(sname)
         try:
             self.localize(sname, )
         except Exception as msg:
-            print 'Fail to localize, {}'.format(msg)
+            print ('Fail to localize, {}'.format(msg))
         self.find_associations(sname)
         skymodel_name = os.path.split(os.getcwd())[-1]
         sedfuns.makesed_all(self, source_name=sname, sedfig_dir=sedfig_dir,suffix='_sed_%s'%skymodel_name, )
@@ -451,7 +451,7 @@ def fix_spectra(roi):
     for src in roi.free_sources:
         m=src.model
         if src.name=='isotrop':
-            print 'Freezing isotrop'
+            print ('Freezing isotrop')
             roi.freeze('Scale', src.name, 1.0)
             continue
         
@@ -488,8 +488,8 @@ class FitIsotropic(object):
         cx = []; dx=[]
         for eband in range(nbands):
             roi.select(eband)
-            print '*** Energy Band {}: iso counts {}'.format( eband,
-                                    [t[1].counts.round() for t in roi.selected])
+            print ('*** Energy Band {}: iso counts {}'.format( eband,
+                                    [t[1].counts.round() for t in roi.selected]))
 
             iso_model[0]=1; iso_model[1]=1
             n = len(roi.selected)
@@ -505,7 +505,7 @@ class FitIsotropic(object):
             if not os.path.exists(folder): os.mkdir(folder)
             filename= '{}/{}.pickle'.format(folder, roi.name)
             pickle.dump(dict(val=cx,err=dx), open(filename, 'w'))
-            print 'wrote file {}'.format(filename)
+            print ('wrote file {}'.format(filename))
         self.val = cx
         self.err = dx
 
@@ -531,7 +531,7 @@ class FitGalactic(object):
         if folder is not None:
             filename= '{}/{}.pickle'.format(folder, roi.name)
             pickle.dump(cx, open(filename, 'w'))
-            print 'wrote file {}'.format(filename)
+            print ('wrote file {}'.format(filename))
 
     def fit(self, nbands=8): 
         roi = self.roi
@@ -544,7 +544,7 @@ class FitGalactic(object):
 
         for eband in range(nbands):
             counts = [t[0].counts.round() for t in roi[2*eband:2*eband+2]]
-            print '*** Energy Band {}: gal counts {}'.format( eband, counts)
+            print ('*** Energy Band {}: gal counts {}'.format( eband, counts))
             roi.select(eband)
             gal_model[0]=gal_norm
             roi.fit([0], ignore_exception=True); 
@@ -561,7 +561,7 @@ class FitGalactic(object):
         from uw.like2 import (response,diffuse)
         r = self.roi
         if r.sources.diffuse_normalization is None:
-            print 'FitGalactic: Setting up diffuse normalization'
+            print ('FitGalactic: Setting up diffuse normalization')
             roi_index= int(r.name[-4:])
             dn = self.create_corr_dict(r.config['diffuse'], roi_index)
             r.sources.diffuse_normalization = diffuse.normalization = dn
@@ -570,7 +570,7 @@ class FitGalactic(object):
         b = self.fitpars[:,0]
         before = a['gal']
         a['gal'] = before * self.fitpars[:,0]
-        print before, '\n',a['gal']
+        print (before, '\n',a['gal'])
         # update the Galactic Response objects
         for gr in self.roi[:16]:
             gr[0].initialize(force=True)
@@ -590,7 +590,7 @@ class FitGalactic(object):
 
 def fit_galactic(roi, nbands=8, folder=None, upper_limit=5.0):
     t = FitGalactic(roi, nbands, folder, upper_limit)
-    print 'Chisq: {:.1f}'.format(t.chisq)
+    print ('Chisq: {:.1f}'.format(t.chisq))
     if folder is None:
         t.update()
         return False
@@ -620,7 +620,7 @@ def fit_galactic(roi, nbands=8, folder=None, upper_limit=5.0):
 #     for ie in range(nbands):
 #         roi.select(ie); 
 #         energy =int(roi.energies[0]) 
-#         print '----- E={} -----'.format(energy)
+#         print ('----- E={} -----'.format(energy))
 #         roi.fit(select, setpars={0:0, 1:0}, ignore_exception=True)
 #         cov = roi.fit_info['covariance']
 #         if cov is None or cov[0,0]<0 or corr(cov)<corr_min:
@@ -647,7 +647,7 @@ def fit_galactic(roi, nbands=8, folder=None, upper_limit=5.0):
 #             os.mkdir(folder)
 #         filename= '{}/{}.pickle'.format(folder, roi.name)
 #         pickle.dump(df, open(filename, 'w'))
-#         print 'wrote file {}'.format(filename)
+#         print ('wrote file {}'.format(filename))
     
 #     if update:
 #         # update correction factors, reload all response objects
@@ -662,7 +662,7 @@ def fit_galactic(roi, nbands=8, folder=None, upper_limit=5.0):
 #                 assert res.source.isglobal
 #                 res.setup=False
 #                 res.initialize()
-#         print 'Updated coefficients'
+#         print ('Updated coefficients')
 
 
 
@@ -715,7 +715,7 @@ def psc_check(roi, psc_name=None , outdir='psc_check', debug=False):
             sdf = pd.DataFrame(source.sedrec)
             return sum(sdf.pull[~pd.isnull(sdf.pull)]**2)
         except:
-            print 'Fail chisq'
+            print ('Fail chisq')
             return 99
     
     # Replace sources, keep list of (old,new)
@@ -726,11 +726,11 @@ def psc_check(roi, psc_name=None , outdir='psc_check', debug=False):
             s.chisq=chisq(s)
             cname=s.name.replace(' ','')
             if cname not in fgl.df.index: 
-                print '{:14s} {:6.0f} x'.format(s.name, s.ts)
+                print ('{:14s} {:6.0f} x'.format(s.name, s.ts))
                 continue
             fl8y = fgl.df.loc[cname]
             trunc = fl8y.sname[5:]
-            print '{:17s} {:6.0f} --> {:14s} {:6.0f}'.format(s.name, s.ts, trunc, fl8y.ts),
+            print ('{:17s} {:6.0f} --> {:14s} {:6.0f}'.format(s.name, s.ts, trunc, fl8y.ts),)
             if fl8y.extended:
                 sx = sources.ExtendedSource(name=trunc, skydir=(fl8y.ra,fl8y.dec), 
                     model=fl8y.model, dmodel=s.dmodel)
@@ -741,7 +741,7 @@ def psc_check(roi, psc_name=None , outdir='psc_check', debug=False):
             roi.get_sed(sx.name)
             sx.chisq = chisq(sx)
             newts=roi.TS(trunc)
-            print ' -->{:6.0f}'.format(newts)
+            print (' -->{:6.0f}'.format(newts))
             changed.append( (
                 (s.name,s.model,s.ts, s.chisq,),# s.model.iflux(e_weight=1)),
                 (sx.name,sx.model,sx.ts,sx.chisq,) # sx.model.iflux(e_weight=1)), #avoid saving dmodel?
@@ -754,7 +754,7 @@ def psc_check(roi, psc_name=None , outdir='psc_check', debug=False):
     if debug:
         return source_pairs
 
-    print 'No pairs found' if len(source_pairs)==0 else '{} source pairs found'.format(len(source_pairs))    
+    print ('No pairs found' if len(source_pairs)==0 else '{} source pairs found'.format(len(source_pairs))    )
     if outdir is None: return
     # save info for comparison
     def path_check(x):
@@ -763,22 +763,22 @@ def psc_check(roi, psc_name=None , outdir='psc_check', debug=False):
     map( path_check, [outdir, outdir+'/info', outdir+'/sed']) 
     outfile = 'psc_check/info/HP12_{}.pickle'.format(roi.name[5:])       
     pickle.dump(changed, open(outfile,'w'))
-    print 'Wrote file {}'.format(outfile)
+    print ('Wrote file {}'.format(outfile))
 
     # save plots
     for old,new in source_pairs:
         if not hasattr(old, 'sedrec'):
-            print 'No sedrec for source {}'.format(old.name)
+            print ('No sedrec for source {}'.format(old.name))
             continue
         if not hasattr(new, 'sedrec'):
-            print 'No sedrec for new source {}'.format(new.name)
+            print ('No sedrec for new source {}'.format(new.name))
             continue
         try:
             sed.plot_other_source(old,new,gtname='4FGL')\
             .savefig('psc_check/sed/{}_sed.jpg'.format(new.name.replace('+','p')),
                  dpi=60, bbox_inches='tight')
         except Exception as msg:
-            print '***Failed to plot: {}'.format(msg)
+            print ('***Failed to plot: {}'.format(msg))
     return 
 
 #### TODO

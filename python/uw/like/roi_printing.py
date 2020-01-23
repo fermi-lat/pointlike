@@ -38,12 +38,12 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
     if sdir is None: sdir = self.roi_dir
     if title is None: 
         title = self.name if hasattr(self,'name') else ''
-    print indent,90*'-', '\n\t Nearby sources within %.1f degrees %s' % (maxdist,title)
+    print (indent,90*'-', '\n\t Nearby sources within %.1f degrees %s' % (maxdist,title))
     colstring = 'name dist ra dec TS flux8 index beta cutoff'
     if galactic: colstring =colstring.replace('ra dec', 'l b')
     colnames = tuple(colstring.split())
     n = len(colnames)-1
-    print indent,('%-13s'+n*'%10s')% colnames
+    print (indent,('%-13s'+n*'%10s')% colnames)
     sources = self.get_sources()
     sources.sort(key=lambda s:s.skydir.difference(self.roi_dir))
     for ps in sources:
@@ -63,11 +63,11 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
             if expcutoff and i==npar-1: fmt+=10*' '# gap if ExpCutoff to line up with cutoff 
             fmt    += '%9.2f%1s' 
             values += (par[i], freeflag[i]) 
-        print indent,fmt % values
+        print (indent,fmt % values)
         
-    print indent,90*'-'
-    print indent,'\tDiffuse sources'
-    print indent,90*'-'
+    print (indent,90*'-')
+    print (indent,'\tDiffuse sources')
+    print (indent,90*'-')
     for source in self.bgm.diffuse_sources:
         if  'spatial_model' in source.__dict__: continue
         par, sigpar = source.smodel.statistical()
@@ -78,10 +78,10 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
         for v,f in zip(par, freeflag):
             fmt +='%10.2f%1s'
             values +=(v,f)
-        print indent,fmt % values
-    print indent,90*'-'
-    print indent,'logLikelihood = ',-roi.logLikelihood(roi.parameters())
-    print indent,90*'-'
+        print (indent,fmt % values)
+    print (indent,90*'-')
+    print (indent,'logLikelihood = ',-roi.logLikelihood(roi.parameters()))
+    print (indent,90*'-')
 
 def print_resids(roi):
     """Print out (weighted) residuals for each energy range, both in
@@ -97,10 +97,10 @@ def print_resids(roi):
         key = (-1 if b.ct==1 else 1)*int(b.e)
         d[key] = b
     ens = N.sort(list(set([b.e for b in self.bands]))).astype(int)
-    print ''
-    print '        -------CT=0--------     -------CT=1--------     ------CT=0+1-------'
-    print 'Energy  Mod     Obs     Res     Mod     Obs     Res     Mod     Obs     Res'
-    print '        -------------------     -------------------     -------------------'
+    print ('')
+    print ('        -------CT=0--------     -------CT=1--------     ------CT=0+1-------')
+    print ('Energy  Mod     Obs     Res     Mod     Obs     Res     Mod     Obs     Res')
+    print ('        -------------------     -------------------     -------------------')
     for en in ens:
         s1 = '%-6.0f'%(en)
         tm = 0; to = 0
@@ -116,7 +116,7 @@ def print_resids(roi):
             s1 = '\t'.join([s1,'%-6.0f\t%-6d\t%.1f'%(m,o,wres)])
         wres = (to-tm)/tm**0.5 if tm>0 else 0
         s1 = '\t'.join([s1,'%-6.0f\t%-6d\t%.1f'%(tm,to,(to-tm)/tm**0.5)])
-        print s1
+        print (s1)
 
 def printSpectrum(roi,sources=None):
     """Print total counts and estimated signal in each band for a list of sources.
@@ -137,24 +137,24 @@ def printSpectrum(roi,sources=None):
     for i,s in enumerate(sources):
         if type(s) == PointSource:
             if not s in self.psm.point_sources:
-                print 'Source not found in source list:\n%s\n'%s
+                print ('Source not found in source list:\n%s\n'%s)
                 bad_sources += [s]
         elif type(s) == int:
             try:
                 sources[i] = self.psm.point_sources[s]
             except IndexError:
-                print 'No source #%i. Only %i source(s) specified.'\
-                        %(s,len(self.psm.point_sources))
+                print ('No source #%i. Only %i source(s) specified.'\
+                        %(s,len(self.psm.point_sources)))
                 bad_sources += [s]
         elif type(s) == type(''):
             names = [ps.name for ps in self.psm.point_sources]
             try:
                 sources[i] = self.psm.point_sources[names.index(s)]
             except ValueError:
-                print 'No source named %s'%s
+                print ('No source named %s'%s)
                 bad_sources += [s]
         else:
-            print 'Unrecognized source specification:', s
+            print ('Unrecognized source specification:', s)
             bad_sources += [s]
     sources = set([s for s in sources if not s in bad_sources])
     indices = [list(self.psm.point_sources).index(s) for s in sources]
@@ -166,6 +166,6 @@ def printSpectrum(roi,sources=None):
                       %(self.psm.point_sources[0].name, self.roi_dir.ra(), self.roi_dir.dec())
     outstring += ' '*54+'  '.join(['%21s'%s.name for s in sources])+'\n'
     outstring += '  '.join(fields)+'\n'
-    print outstring
+    print (outstring)
     for eb in self.energy_bands:
-        print eb.spectralString(which=indices)
+        print (eb.spectralString(which=indices))

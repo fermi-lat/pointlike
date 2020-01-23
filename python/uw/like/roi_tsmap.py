@@ -151,7 +151,7 @@ class TSCalc(object):
         for i in xrange(20):
             avg = float(lo+hi)/2
             f_new = self._f0(avg) - f0_0 + goal
-            #print avg,f_new
+            #print (avg,f_new)
             if f_new > 0: lo = avg
             else        : hi = avg
             if abs(f_new) < 1: break
@@ -171,12 +171,12 @@ class TSCalc(object):
             cdist /= cdist[-1]
             n0 = np.interp(conf,cdist,(pts[1:]+pts[:-1])/2,left=-1,right=-1)
             if n0 < 0:
-                raise Exception,'Ran over edge of distribution.'
+                raise Exception('Ran over edge of distribution.')
             return n0,val,pts
         
         prev_val = 0; val = 0
         for i in xrange(10):
-            #print 'Loop iter %d'%(i)
+            #print ('Loop iter %d'%(i))
             n0,val,pts = find_conf(i,val)
             set_logflux(self.mo, np.log10(n0))  #self.mo[0] = n0
             if abs(prev_val/n0 - 1) < tol:
@@ -239,13 +239,13 @@ class TSCalc(object):
         set_logflux(self.mo,n0) # self.mo.p[0] = n0
         if conv: return 2*self._f0(n0)
         else:
-            print 'Warning! did not converge to a value or converged to a value consistent with 0 flux.'
-            print 'Trying again...'
+            print ('Warning! did not converge to a value or converged to a value consistent with 0 flux.')
+            print ('Trying again...')
             n0,conv = my_newton(self._f1,n0,fprime=self._f2)
             if conv:
-                print 'Converged on 2nd Try'
+                print ('Converged on 2nd Try')
                 return 2*self._f0(n0)
-            print 'DID NOT CONVERGE AFTER TWO ATTEMPTS'
+            print ('DID NOT CONVERGE AFTER TWO ATTEMPTS')
             return -1
 
 ###====================================================================================================###
@@ -273,7 +273,7 @@ class HealpixTSMap(object):
         if   hr     is not None: self.setup_from_roi(hr,factor)
         elif pickle is not None: self.load(pickle)
         else:
-            print 'Must provide either a HealpixROI instance or a pickle file!'
+            print ('Must provide either a HealpixROI instance or a pickle file!')
             raise Exception
 
     def setup_from_roi(self,hr,factor):
@@ -294,7 +294,7 @@ class HealpixTSMap(object):
 
         # sanity check
         if abs(float(mask.sum())/factor**2 - 1) > 0.01:
-            print 'Warning: number of pixels found does not agree with expectations!'
+            print ('Warning: number of pixels found does not agree with expectations!')
 
         # calculate TS for each sub-pixel
         tsc      = TSCalc(hr.roi)
@@ -372,7 +372,7 @@ class HealpixTSMap(object):
 
     def set_mode(self,mode=1):
         if mode not in [0,1,2]:
-            print 'Not a valid mode... taking no action.'
+            print ('Not a valid mode... taking no action.')
             return
         self.ts   = self.ts_vals[mode]
         self.mode = mode
@@ -466,7 +466,7 @@ class MultiHealpixTSMap(object):
            2 == TS map using only diffuse models for background
         """
         if mode not in [0,1,2]:
-            print 'Error!  Not a valid mode.  Please use 1 or 2.'
+            print ('Error!  Not a valid mode.  Please use 1 or 2.')
             return
         for tsmap in self.tsmaps:
             if tsmap: tsmap.set_mode(mode)
@@ -496,7 +496,7 @@ class MultiHealpixTSMap(object):
         az = fgl.get(az_key).astype(float)
         po = fgl.get(po_key).astype(float)
         na = fgl.get('Source_Name')
-        print po_min,po_max,az_min,az_max
+        print (po_min,po_max,az_min,az_max)
 
         mask = (po > po_min) & (po < po_max)
         if az_zero_cross:
@@ -525,7 +525,7 @@ class MultiHealpixTSMap(object):
         z = ZEA(center,size=size,pixelsize=pixelsize,galactic=galactic,axes=axes)
         z.fill(PySkyFunction(self))
         im = z.image.copy()
-        print 'Max Value: %.2f'%(im.max())
+        print ('Max Value: %.2f'%(im.max()))
         im[im < thresh_low]  = np.nan
         im[im > thresh_high] = thresh_high
         z.grid()
@@ -658,7 +658,7 @@ class HealpixKDEMap(object):
                 self.setup_from_roi2(hr)
         elif pickle is not None: self.load(pickle)
         else:
-            print 'Must provide either a HealpixROI instance or a pickle file!'
+            print ('Must provide either a HealpixROI instance or a pickle file!')
             raise Exception
 
     def setup_from_roi2(self,hr):
@@ -700,7 +700,7 @@ class HealpixKDEMap(object):
 
         # sanity check
         if abs(float(mask.sum())/factor**2 - 1) > 0.01:
-            print 'Warning: number of pixels found does not agree with expectations!'
+            print ('Warning: number of pixels found does not agree with expectations!')
 
         # loop through the bands and image pixels to calculate the KDE
         from pointlike import DoubleVector
@@ -709,7 +709,7 @@ class HealpixKDEMap(object):
         img = np.zeros(len(inds))
         weights = [ np.asarray([x.weight() for x in b.wsdl]).astype(int) for b in hr.roi.bands ]
         for idir,mydir in enumerate(dirs):
-            #print 'Processing pixel %d'%(idir)
+            #print ('Processing pixel %d'%(idir))
             for iband,band in enumerate(hr.roi.bands):
                 PythonUtilities.arclength(band.rvals,band.wsdl,mydir)
                 img[idir] += (band.psf(rvs[iband],density=True)*weights[iband]).sum()
@@ -842,7 +842,7 @@ def make_comp(roi,outstem,size=15,pixelsize=0.02,galactic=True,
     multi = 1. + double_back
     counter = 1
     for emin,emax in zip(ebands[:-1],ebands[1:]):
-        print 'Working on image %d of %d'%(counter,len(ebands)-1)
+        print ('Working on image %d of %d'%(counter,len(ebands)-1))
         rko = ROI_KDEMap_OTF(roi,emin=[emin,multi*emin],emax=[emax,multi*emax])
         z = ZEA(roi.roi_dir,size=size,pixelsize=pixelsize,galactic=galactic,
                  fitsfile = '%s_%d_%d.fits'%(outstem,emin,emax))
@@ -997,13 +997,13 @@ class FastTSCalc(object):
         n0,conv = my_newton(f1,seed,fprime=f2)
         if conv: return TS(n0)
         else:
-            print 'Warning! did not converge to a value or a value consistent with 0 flux.'
-            print 'Trying again...'
+            print ('Warning! did not converge to a value or a value consistent with 0 flux.')
+            print ('Trying again...')
             n0,conv = my_newton(f1,n0,fprime=f2)
             if conv:
-                print 'Converged on 2nd Try'
+                print ('Converged on 2nd Try')
                 return TS(n0)
-            print 'DID NOT CONVERGE AFTER TWO ATTEMPTS'
+            print ('DID NOT CONVERGE AFTER TWO ATTEMPTS')
             return -1
 
 ###====================================================================================================###

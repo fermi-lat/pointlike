@@ -243,7 +243,7 @@ class Configuration(dict):
                     try:
                         ret = reader(open(cfile).read())
                         if not self.quiet: print ('loaded config file {}'.format(cfile))
-                    except Exception, msg:
+                    except Exception as msg:
                         print ('Failed to parse file {}: {}'.format(cfile,msg))
                         raise
                     return ret
@@ -303,7 +303,7 @@ class Configuration(dict):
                 return etnames.index(which)
             t = etnames[which]
             return which
-        except Exception, msg:
+        except Exception as msg:
             print ('Bad event type, "%s": %s\nMust be one of %s or a valid index' % (which, msg, etnames))
             raise
     def event_type_name(self, event_type):

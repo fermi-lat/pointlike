@@ -57,7 +57,7 @@ class MapCube(DiffuseBase, skymaps.DiffuseFunction):
         if  self.loaded: return
         self.loaded=True
         if not interpolate: 
-            print 'loading diffuse file %s: warning, not interpolating' %self.filename
+            print ('loading diffuse file %s: warning, not interpolating' %self.filename)
         super(MapCube,self).__init__(self.filename, 1000., interpolate)
 
   
@@ -71,8 +71,8 @@ class IsotropicSpectralFunction(DiffuseBase):
         try:
             self.expression  = expression.split('_')[-1]
             self.spectral_function = eval(self.expression)
-        except Exception, msg:
-            print 'Failure to evaluate IsotropicSpectralFunction %s : %s' % (self.expression, msg)
+        except Exception as msg:
+            print ('Failure to evaluate IsotropicSpectralFunction %s : %s' % (self.expression, msg))
             raise
         self.energy=1000
     def __repr__(self):
@@ -128,7 +128,7 @@ def diffuse_factory(value):
             '.zip': CachedMapCube,
             ')': IsotropicSpectralFunction, 
             }[ext if ext[-1]!=')' else ')']
-    except Exception, msg:
+    except Exception as msg:
         raise Exception('File type, "%s", for diffuse not recognized, from "%s":%s'% (ext, files, ext))
     if dfun==IsotropicSpectralFunction:
         diffuse_source = map(dfun,files)
@@ -164,12 +164,12 @@ class DiffuseDict(collections.OrderedDict):
             self.spec=eval(open(os.path.join(modeldir, 'config.txt')).read()
                 #.replace('dict(','collections.OrderedDict(')
                 )['diffuse']
-        except Exception, msg:
-            print 'Failed to open model at %s: %s' % (modeldir, msg)
+        except Exception as msg:
+            print ('Failed to open model at %s: %s' % (modeldir, msg))
             raise
         super(DiffuseDict, self).__init__()
         for key, value in self.spec.items():
-            print key,value
+            print (key,value)
             self[key] = diffuse_factory(value) 
         self.models=[dict() for i in range(1728)] # list of spectral models for each ROI
 

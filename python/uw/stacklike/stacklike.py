@@ -262,7 +262,7 @@ class StackLoader(object):
             print ('%d cut by phase'%tcuts[7])
             print ('---------------------------------------')
             print ('%d photons remain'%tcuts[8])
-            print ('**********************************************************'""")
+            print ('**********************************************************')"""
 
 
             #go through each table and contruct Photon objects

@@ -36,7 +36,7 @@ def get_files(fname, skymodel_dir, subdirs, allow_missing=1):
             if missing<allow_missing: 
                 missing +=1
             else:
-                raise Exception, 'file for source %s not found in %s [%d missing]'\
+                raise Exception('file for source %s not found in %s [%d missing]'\)
                 % (fname, skymodel_dir+'/'+sd, missing)
         ret.append(filename) # this might be the wrong one
     return ret
@@ -53,7 +53,7 @@ def combine_images(names, outdir, subdirs, layout_kw,  outfolder, overwrite=Fals
     for name in names:
         try: 
             ret= make_composite_image(name, outdir, subdirs, target, overwrite, layout_kw)
-        except Exception, msg:
+        except Exception as msg:
             raise
             missing.append(name)
     if len(missing)>0: 

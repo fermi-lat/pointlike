@@ -28,7 +28,7 @@ class TSdata(object):
         assert len(self.rts)==12*(nside)**2, 'wrong nside in file %s: expect %d' %(filename, nside)
         self.glat=None# np.array([sdir(i).b() for i in range(len(self.rts))])
         #self.glon= np.array([sdir(i).l() for i in range(len(self.rts))])
-        #print 'read %s ok' %filename
+        #print ('read %s ok' %filename)
     def select(self, ts_min=0, b_min=0):
         cut = (self.rts>ts_min)* (abs(self.glat)>b_min)
         return self.rts[cut]
@@ -80,7 +80,7 @@ def grow(indeces):
         
 def cluster(indices, quiet=False):
     if not quiet:
-        print 'Clustering %d pixels...' % len(indices)
+        print ('Clustering %d pixels...' % len(indices))
         sys.stdout.flush()
     ret = []
     rem = indices
@@ -88,7 +88,7 @@ def cluster(indices, quiet=False):
         clu, rem = grow(rem)
         ret.append(clu)
     if not quiet:
-        print 'Found %d clusters' %len(ret)
+        print ('Found %d clusters' %len(ret))
     return ret
 
 def subclusters(clust, rts, mints=25, quiet=True):
@@ -117,17 +117,17 @@ class Cluster(object):
     def group(self, clu):
         """ clu: list of pixel indices"""
         ts = np.array([self.rts[i] for i in clu])
-        #print clu, ts
+        #print (clu, ts)
         dirs = [sdir(i) for i in clu]
         ra   = np.array([s.ra() for s in dirs])
-        #print ra
+        #print (ra)
         dec  = np.array([s.dec() for s in dirs])
-        #print dec
+        #print (dec)
         wra = sum(ts*ra)/sum(ts)
         wdec = sum(ts*dec)/sum(ts)
         self.ts = ts.max()
         self.sdir = SkyDir(float(wra), float(wdec))
-        #print self.sdir
+        #print (self.sdir)
 
 def monthly_ecliptic_mask( month, elat_max=5):
     """return a nside=512 mask for the given month, an integer starting at 1
@@ -169,7 +169,7 @@ def make_seeds(tsdata,  filename, fieldname='ts', nside=512 ,rcut=10, bcut=0,
     # make list of indices of pixels with ts and b above thresholds
     indices  = tsdata.indices(rcut,bcut,mask)
     if len(indices)>max_pixels:
-        print 'Too many pixels above TS>{}, {}>{}, to cluster'.format(rcut, len(indices), max_pixels)
+        print ('Too many pixels above TS>{}, {}>{}, to cluster'.format(rcut, len(indices), max_pixels))
         return 0
         
     # create list of the clustered results: each a list of the pixel indeces    
@@ -177,22 +177,23 @@ def make_seeds(tsdata,  filename, fieldname='ts', nside=512 ,rcut=10, bcut=0,
     
     # split large clusters; add those which have 2 or more sub clusters
     clusters += split_clusters(clusters, tsdata.rts)
-    print 'Added split clusters, now %d total' % len(clusters)
+    print ('Added split clusters, now %d total' % len(clusters))
     
     # now create list of seeds from the clusters
     cl = Cluster(tsdata.rts)
-    if out is not None: print >> out,  '# Region file format: DS9 version 4.0 global color=green'
+    if out is not None: 
+        print ('# Region file format: DS9 version 4.0 global color=green', file=out)
     if rec is not None:
-        print >> rec, 'name\tra\tdec\tts\tsize\tl\tb'
+        print ('name\tra\tdec\tts\tsize\tl\tb', file=rec)
     for i,x in enumerate(clusters):
         if len(x)<minsize: continue
         cl.group(x)
         if out is not None: 
-            print >>out,'fk5; point(%8.3f, %8.3f) # point=cross text={%d:%d %.1f}'%\
-                ( cl.sdir.ra(), cl.sdir.dec(),i, len(x), cl.ts)
+            print ('fk5; point(%8.3f, %8.3f) # point=cross text={%d:%d %.1f}'%\
+                ( cl.sdir.ra(), cl.sdir.dec(),i, len(x), cl.ts), file=out)
         if rec is not None:
-            print >>rec, '%s-%04d\t%8.3f \t%8.3f\t %8.1f\t%8d\t%8.3f \t%8.3f ' %\
-                (seedroot, i,cl.sdir.ra(), cl.sdir.dec(),  cl.ts, len(x), cl.sdir.l(),cl.sdir.b())
+            print ( '%s-%04d\t%8.3f \t%8.3f\t %8.1f\t%8d\t%8.3f \t%8.3f ' %\
+                (seedroot, i,cl.sdir.ra(), cl.sdir.dec(),  cl.ts, len(x), cl.sdir.l(),cl.sdir.b()), file=rec)
         
     if rec is not None: rec.close()
     if out is not None: out.close()
@@ -208,11 +209,11 @@ def pipe_make_seeds(skymodel, fieldname='ts', prefix_char='S', filenamepattern='
         month=int(skymodel[5:]);
         try:
             mask = monthly_ecliptic_mask( month)
-            print 'created a mask for month %d, with %d pixels set' % (month, sum(mask))
+            print ('created a mask for month %d, with %d pixels set' % (month, sum(mask)))
             seedroot = fieldname.upper()+ skymodel[-2:] 
         except:
             mask=None
-            print 'No mask found'
+            print ('No mask found')
             seedroot='TSxx'
     else: 
         mask=None
@@ -223,7 +224,7 @@ def pipe_make_seeds(skymodel, fieldname='ts', prefix_char='S', filenamepattern='
     for fname in fnames:
         t = fname.split('_')
         if fieldname in t:
-            print 'Found table %s in file %s' %(fieldname, fname)
+            print ('Found table %s in file %s' %(fieldname, fname))
             break
     assert fname is not None, 'Table %s not found in files %s' %(fieldname, fnames)
 
@@ -233,11 +234,11 @@ def pipe_make_seeds(skymodel, fieldname='ts', prefix_char='S', filenamepattern='
     nseeds = make_seeds('test', fname, fieldname=fieldname, rec=rec,
         seedroot=seedroot, minsize=minsize,
         mask=~mask if mask is not None else None)
-    print 'Wrote file {} with {} seeds'.format(filename, nseeds)
+    print ('Wrote file {} with {} seeds'.format(filename, nseeds))
 
  
 def main(args):
-    print args
+    print (args)
     global nside
     nside=int(args.nside)
     assert os.path.exists(args.files[0]), 'did not find file %s'%args.files[0]

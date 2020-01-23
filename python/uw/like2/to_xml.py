@@ -49,7 +49,7 @@ class Element(object):
         offset = '  '*Element.level
         for line in text.split('\n'):
             if line=='': continue
-            print >> self.stream , offset + line
+            print (ffset + line, file=self.stream)
     def __enter__(self):
         self.text('<%s %s>'% (self.name, self))
         Element.level += 1
@@ -79,7 +79,7 @@ def pmodel(source):
             model = Models.PowerLaw(p=[norm, pindex ], e0=e0)
         else:
             # if index2<0: 
-            #     print  'Source %s has beta (%.2f) <0: setting to 0.' % (  source.name, index2, )
+            #     print  ('Source %s has beta (%.2f) <0: setting to 0.' % (  source.name, index2, ))
             #     index2=0
             model =Models.LogParabola(p= [norm, pindex, index2, e0])
             model.free[-1]=False
@@ -116,7 +116,7 @@ def from_roi(roimodel, title=None, stream=None, maxi=None, **kwargs):
 
     noglobals=kwargs.get('noglobals', True)
     if noglobals:
-        print 'Supressing global sources'
+        print ('Supressing global sources')
 
     with Element('source_library', title=title,  
         ignore=('selected_source','quiet'), **roimodel.__dict__) as sl:
@@ -164,7 +164,7 @@ def source_library(source_list, title='sources', stream=None, strict=False, maxi
         ext_file = glob.glob(ext_pat)[0]
         extended = pd.DataFrame( pyfits.open(ext_file)[1].data )
         extended.index= [x.strip() for x in extended['Source_Name']]
-    except Exception, msg:
+    except Exception as msg:
         raise Exception('Failed to find the Extended archive: %s' %msg)
 
     with Element('source_library', title=title) as sl:
@@ -182,7 +182,7 @@ def source_library(source_list, title='sources', stream=None, strict=False, maxi
                     sname = source['name']
                     if sname not in extended.index:
                         raise Exception( 'Failed to find %s, with no localization, in extended sources' %sname)
-                        print 'Skipping ...'
+                        print ('Skipping ...')
                         continue
                     with Element('spatialModel', type='SpatialMap', 
                             file="%s" % extended.ix[sname]['Spatial_Filename'].strip() ) as sm:
@@ -194,9 +194,9 @@ def source_library(source_list, title='sources', stream=None, strict=False, maxi
 def main( filename=[], sources='sources*.csv', cuts='(sources.ts>10)' ):
     t = sorted(glob.glob(sources))[-1] #shold get the one we want
     sources = pd.read_csv(t)
-    print 'read %d sources from %s' %(len(sources), t)
+    print ('read %d sources from %s' %(len(sources), t))
     cut_sources = sources[eval(cuts)]
-    print 'applied cut "%s", %d remain' % (cuts, len(cut_sources))
+    print ('applied cut "%s", %d remain' % (cuts, len(cut_sources)))
     modelname = '_'.join(os.path.abspath('.').split('/')[-2:])
     filename = filename[0] if len(filename)>0 else None
     if filename is None:
@@ -204,7 +204,7 @@ def main( filename=[], sources='sources*.csv', cuts='(sources.ts>10)' ):
         # for example, 'P202_uw10.xml'
     with open(filename,'w') as stream:
         ns,ne= source_library(cut_sources, title=modelname, stream=stream)
-    print 'wrote file %d point sources, and %d extended sources to file %s' % (ns,ne,filename)
+    print ('wrote file %d point sources, and %d extended sources to file %s' % (ns,ne,filename))
     
 if __name__=='__main__':
     parser = argparse.ArgumentParser( description=""" Convert the skymodel in the current folder to XML""")

@@ -217,7 +217,7 @@ class DDmenu():
     def item(self, name):
         """ name is full anchor """
         self.doc += '\n  <li>%s</li>' % name
-        #print 'added name %s to menu' % name
+        #print ('added name %s to menu' % name)
         
     def add_menu(self, menu_html, folder):
         """ add a menu from a file created by this class """
@@ -255,11 +255,11 @@ class HTMLindex():
         return self.menu.doc
     
     def make_config_link(self):
-        print '***Warning: make_config_link should not be called: use config analysis module'
+        print ('***Warning: make_config_link should not be called: use config analysis module')
         
     def create_menu(self):
         self.menu.save(os.path.join(os.getcwd(), 'plots/index.html'))
-        print 'wrote menu %s' %os.path.join(os.getcwd(), 'plots/index.html')
+        print ('wrote menu %s' %os.path.join(os.getcwd(), 'plots/index.html'))
         
     def update_top(self, filename='../plot_index.html'):
         def parse_path(x): 
@@ -294,7 +294,7 @@ class HTMLindex():
         s += '\n<h3>Table of analyses and models</h3>\n'
         s +=  table_menu()
         open(filename, 'w').write(s)
-        print 'wrote top menu %s' % os.path.join(os.getcwd(),filename)
+        print ('wrote top menu %s' % os.path.join(os.getcwd(),filename))
     
     @staticmethod
     def head(title=''):

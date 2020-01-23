@@ -40,7 +40,7 @@ class Fitted(object):
         if ret[2]['warnflag']==0: 
             self.set_parameters(ret[0])
         else:
-            print 'Fit failure:\n%s' % ret[2]
+            print ('Fit failure:\n%s' % ret[2])
         return ret
         
     def hessian(self, pars=None, **kwargs):
@@ -124,26 +124,26 @@ class Minimizer(object):
                         full_output=1,maxiter=500,gtol=gtol,disp=0)
                 if abs(f0[1] - f[1]) < tolerance: break # note absolute tolerance
                 if not self.quiet:
-                    print 'Did not converge on first gradient iteration.  Trying again.'
-                    print f0[1],f[1],abs(f0[1]-f[1])
+                    print ('Did not converge on first gradient iteration.  Trying again.')
+                    print (f0[1],f[1],abs(f0[1]-f[1]))
                 f0 = f
         elif use_gradient:
-            if not self.quiet: print 'using optimize.fmin_l_bfgs_b with parameter bounds %s\n, kw= %s'% (self.fn.bounds, kwargs)
+            if not self.quiet: print ('using optimize.fmin_l_bfgs_b with parameter bounds %s\n, kw= %s'% (self.fn.bounds, kwargs))
             ret = optimize.fmin_l_bfgs_b(self.fn, self.get_parameters(), 
                 bounds=self.fn.bounds, 
                 fprime=self.gradient ,  
                 **kwargs)
             if ret[2]['warnflag']>0: 
-                print 'Fit failure:\n%s' % ret[2]
+                print ('Fit failure:\n%s' % ret[2])
             if not self.quiet:
-                print ret[2]
+                print (ret[2])
             f = ret 
         else:
             minimizer  = optimize.fmin_powell if method == 'powell' else optimize.fmin
             f = minimizer(self.fn, self.get_parameters(),full_output=1,
                               maxiter=10000, maxfun=20000, ftol=0.01/abs(ll_0), disp=0 if self.quiet else 1)
         
-        if not self.quiet: print 'Function value at minimum: %.8g'%f[1]
+        if not self.quiet: print ('Function value at minimum: %.8g'%f[1])
         self.set_parameters(f[0])
         self.fitvalue=f[1]
         if estimate_errors: 
@@ -152,8 +152,8 @@ class Minimizer(object):
             diag = self.cov_matrix.diagonal().copy()
             bad = diag<0
             if np.any(bad):
-                if not self.quiet: print 'Minimizer warning: bad errors for values %s'\
-                     %np.asarray(self.fn.parameter_names)[bad] #    %np.arange(len(bad))[bad]
+                if not self.quiet: (print 'Minimizer warning: bad errors for values %s'\
+                     %np.asarray(self.fn.parameter_names)[bad]) #    %np.arange(len(bad))[bad]
                 diag[bad]=np.nan
             return f[1], f[0], np.sqrt(diag)
         return f[1], f[0]
@@ -192,7 +192,7 @@ class Minimizer(object):
         """Compute errors for minuit fit."""
         #Not sure yet if there will be problems with including the backgrounds.
         self.cov_matrix = m.errors(method=method)
-        print 'Minuit error not done?'
+        print ('Minuit error not done?')
         #self.bgm.set_covariance_matrix(self.cov_matrix,current_position = 0)
         #self.psm.set_covariance_matrix(self.cov_matrix,current_position = len(self.bgm.parameters()))
 
@@ -238,10 +238,10 @@ class Minimizer(object):
             if linalg.det(hessian)<=0:
                 full=False
                 
-            if not self.quiet: print 'Attempting to invert full hessian...'
+            if not self.quiet: print ('Attempting to invert full hessian...')
             self.cov_matrix =t = cov_matrix if cov_matrix is not None else linalg.inv(hessian)
             if np.any(np.isnan(self.cov_matrix)):
-                if not self.quiet: print 'Found NaN in covariance matrix!'
+                if not self.quiet: print ('Found NaN in covariance matrix!')
                 raise Exception('Found NaN in covariance matrix!')
             # now expand if necesary
             if not full:
@@ -256,7 +256,7 @@ class Minimizer(object):
             success = True
         except linalg.LinAlgError, e:
             if not qself.quiet:
-                print 'Error generating cov matrix, %s' % e
+                print ('Error generating cov matrix, %s' % e)
             self.cov_matrix = np.zeros([npar,npar])
             success = False
         return success
@@ -283,7 +283,7 @@ class Minimizer(object):
         #find good values with which to estimate the covariance matrix -- look at diagonal deviations
         #iterate until change in function consistent with ~1 sigma conditional error
         for i in xrange(npar):
-            if not quiet: print 'Working on parameter %d'%(i)
+            if not quiet: print ('Working on parameter %d'%(i))
             h,l = p.copy(),p.copy()
             for j in xrange(10):
                 h[:] = p[:]; l[:] = p[:];
@@ -308,7 +308,7 @@ class Minimizer(object):
                 # not actually at maximum of likelihood -- upper limit condition
                 bad_mask[i] = True
                 return_code[i] = 3
-                if not quiet: print 'fail, need upper limit'
+                if not quiet: print ('fail, need upper limit')
                 import pdb; pdb.set_trace()
 
         for i in xrange(npar):
@@ -395,16 +395,16 @@ class Minimizer(object):
                 par[i] += di
                 delta_f = (g_up - g_dn)[i]
                 converged,new_step = revised_step(delta_f,di,i)
-                #print 'Parameter %d -- Iteration %d -- Step size: %.2e -- delta: %.2e'%(i,j,di,delta_f)
+                #print ('Parameter %d -- Iteration %d -- Step size: %.2e -- delta: %.2e'%(i,j,di,delta_f))
                 if converged: break
                 else: step_size[i] = new_step
             hess[i,:] = (g_up - g_dn) / (2*di)  # central difference
             if not converged:
-                print 'Warning: step size for parameter %d (%.2g) did not result in convergence.'%(i,di)
+                print ('Warning: step size for parameter %d (%.2g) did not result in convergence.'%(i,di))
         try:
             cov = np.linalg.inv(hess)
         except:
-            print 'Error inverting hessian.'
+            print ('Error inverting hessian.')
             #cov = np.zeros([nparams,nparams])
             raise Exception('Error inverting hessian')
         if full_output:
@@ -445,14 +445,14 @@ class Projector(Fitted):
         """ len of x must be number of selected parameters"""
         self.fpar[self.mask]=x
         ret= self.fn(self.fpar)
-        #print 'value(%.2f)=%.2f' % (x,ret)
+        #print ('value(%.2f)=%.2f' % (x,ret))
         return ret
     def gradient(self, x):
         """ the function object may not support this
         """
         self.fpar[self.mask]=x
         t = self.fn.gradient(self.fpar)[self.mask]
-        #print 'gradient(%.2f)=%.2f' % (x, t)
+        #print ('gradient(%.2f)=%.2f' % (x, t))
         return t
     @property
     def parameter_names(self):
@@ -537,7 +537,7 @@ class Profile(Fitted):
             v,p,s =self.fitter() #fit value, parameters, errors
             self.fpar[self.mask]=p
             r = self.fn(self.fpar)
-            print v,r
+            print (v,r)
         else:
             r = self.fn(self.fpar)
         return r
@@ -581,16 +581,16 @@ def test(x0=1.1, pars=[1.0, 1.5], **kwargs):
     """
     testf = lambda p: 1.+ 0.5*((p[0]-pars[0])/pars[1])**2
         
-    print 'input parameters:', pars
+    print ('input parameters:', pars)
     func = TestFunc(testf, [x0])
     m = Minimizer(func)
     #m =  Minimizer(testf, [x0], )
     f = m(use_gradient=False)
-    print 'solution at %.2f, +/- %.2f ' % (m.get_parameters(), np.sqrt(m.cov_matrix.diagonal()))
+    print ('solution at %.2f, +/- %.2f ' % (m.get_parameters(), np.sqrt(m.cov_matrix.diagonal())))
     return func, m, f
 
 if __name__ == "__main__":
-    print __doc__
+    print (__doc__)
     import doctest
     doctest.testmod()
   

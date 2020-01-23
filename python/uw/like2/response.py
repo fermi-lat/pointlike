@@ -269,8 +269,8 @@ class DiffuseResponse(Response):
                 #raise Exception('isotropic key: corr={}'.format(self.corr))
             elif 'correction' in dfun.kw and dfun.kw['correction'] is not None:
                 if not self.quiet:
-                    print ('\t%s loading corrections for source %s from %s.kw:' \)
-                    % (self.__class__.__name__, self.source.name,  dfun.__class__.__name__)
+                    print ('\t%s loading corrections for source %s from %s.kw:' \
+                    % (self.__class__.__name__, self.source.name,  dfun.__class__.__name__))
                 corr_file = os.path.expandvars(dfun.kw['correction'])
                 self.corr = DiffuseCorrection(corr_file)(roi_index, self.energy) 
             else: 

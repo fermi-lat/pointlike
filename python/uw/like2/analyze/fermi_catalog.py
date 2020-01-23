@@ -94,7 +94,7 @@ class GLL_PSC(object):
         # make columns, with type either float, or str
         try:
             col_data = [np.array(self.pscdata.field(fname),float) for fname in field_names]
-        except Exception, msg:
+        except Exception as msg:
             print ('Failed to load: {}'.format(msg))
             raise
         col_data.append(np.array(self.pscdata.field('SpectrumType'),str)) 

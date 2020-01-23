@@ -155,7 +155,7 @@ def get_diffuse_source(spatialModel='ConstantValue',
             if not os.path.exists(path.expand(spectralModelFile)):
                 raise Exception('Could not find the ASCII file specified for FileFunction')
         elif not (spectralModel == 'PowerLaw' or spectralModel == 'Constant'):
-            raise NotImplementedError,'Must provide one of the understood spectral models.'
+            raise NotImplementedError('Must provide one of the understood spectral models.')
         else:
             pass
 
@@ -163,7 +163,7 @@ def get_diffuse_source(spatialModel='ConstantValue',
         if (spatialModelFile is None) or (not os.path.exists(path.expand(spatialModelFile))):
             raise Exception('Could not find the FITS file specified for MapCubeFunction (file = %s).' % spatialModelFile)
     elif spatialModel != 'ConstantValue':
-        raise NotImplementedError,'Must provide one of the understood spatial models.'
+        raise NotImplementedError('Must provide one of the understood spatial models.')
     else:
         pass                  
 

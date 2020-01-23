@@ -269,7 +269,7 @@ class DataSpec(object):
         self.bins = bins = np.logspace(1,6,5*self.binsperdec+1)
         if self.psf_event_types:
             if not self.quiet:
-                print ('invoking Data.setPhotonBinner for PSFn event types...'; sys.stdout.flush())
+                print ('invoking Data.setPhotonBinner for PSFn event types...'); sys.stdout.flush()
             self.event_types = range(2,6)
             nsides = [pointlike.IntVector(NsideMapper.nside(bins,i)) for i in self.event_types]
             DataSpec.binner = skymaps.PhotonBinner(pointlike.DoubleVector(bins),  *nsides)

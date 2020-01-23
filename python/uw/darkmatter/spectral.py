@@ -26,31 +26,31 @@ class DMFitFunction(Model):
         
             >>> model = DMFitFunction()
             >>> model.set_flux(1e-7, emin=1e3, emax=1e5)
-            >>> print '%g' % model.i_flux(emin=1e3, emax=1e5)
+            >>> print ('%g' % model.i_flux(emin=1e3, emax=1e5))
             1e-07
 
         Test the getters and setters
 
             >>> model['sigmav']=3.14
-            >>> print '%g' % model['sigmav']
+            >>> print ('%g' % model['sigmav'])
             3.14
 
         There was previously a bug in set_parameters, 
         lets see if its fixed:
 
             >>> model.set_parameters(np.log10([5,500]))
-            >>> print '%g' % model['sigmav']
+            >>> print ('%g' % model['sigmav'])
             5
-            >>> print '%g' % model['mass']
+            >>> print ('%g' % model['mass'])
             500
 
         Note, the parameters which are not directly fit (like bratio) get set correctly:
 
             >>> model = DMFitFunction(bratio=2)
-            >>> print model.dmf.getParam('bratio').getTrueValue()
+            >>> print (model.dmf.getParam('bratio').getTrueValue())
             2.0
             >>> model = DMFitFunction(bratio=3)
-            >>> print model.dmf.getParam('bratio').getTrueValue()
+            >>> print (model.dmf.getParam('bratio').getTrueValue())
             3.0
 
         Test a few hard coded values, to make sure the function values are correct:
@@ -64,7 +64,7 @@ class DMFitFunction(Model):
 
             >>> e = [1, 10, 100, 1000, 10000, 100000 , 1000000]
             >>> dnde = [ 9.55801576e-18, 2.04105211e-16,  4.43719263e-16, 1.00123992e-16, 1.44911940e-18, 0.0, 0.0 ]
-            >>> print np.allclose(model(e), dnde)
+            >>> print (np.allclose(model(e), dnde))
             True
 
          TODO: The limits of integration when calculating the flux should be
@@ -257,16 +257,16 @@ class ComprehensiveModel(CompositeModel):
         This model has a "Scale" (the theta parameter), and the parameters
         for the dark matter & powerlaw object:
 
-            >>> print cm.param_names
+            >>> print (cm.param_names)
             ['sigmav', 'mass', 'Norm', 'Index', 'Scale']
 
 
         The default 'theta' parameter is 0.5
-            >>> print cm.param_names[-1]
+            >>> print (cm.param_names[-1])
             Scale
-            >>> print cm[-1]
+            >>> print (cm[-1])
             0.5
-            >>> print cm.theta
+            >>> print (cm.theta)
             0.5
 
         And the value is defined with the strange formula:
@@ -314,7 +314,7 @@ class ComprehensiveModel(CompositeModel):
                 >>> from uw.like.Models import PowerLaw,ExpCutoff
                 >>> model=ComprehensiveModel(PowerLaw(),ExpCutoff())
                 >>> model.set_prefactor(1e-10, 100)
-                >>> print model(100)
+                >>> print (model(100))
                 1e-10
         """
         g,f=self.models[0:2]
@@ -330,7 +330,7 @@ class ComprehensiveModel(CompositeModel):
                 >>> from uw.like.Models import PowerLaw,ExpCutoff
                 >>> model=ComprehensiveModel(PowerLaw(),ExpCutoff())
                 >>> model.set_flux(1)
-                >>> print model.i_flux()
+                >>> print (model.i_flux())
                 1.0
         """
         g,f=self.models[0:2]

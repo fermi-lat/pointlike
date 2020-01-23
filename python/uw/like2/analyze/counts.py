@@ -93,7 +93,7 @@ class CountPlots(analysis_base.AnalysisBase):
             self.counts[key]= pd.DataFrame([x[key] for x in counts], index=self.rois.index)
         #try:
         self.add_model_info()
-        #except Exception, msg:
+        #except Exception as msg:
         #    print (msg)
             
         if 'history' in self.pkls[0].keys():
@@ -295,7 +295,7 @@ class CountPlots(analysis_base.AnalysisBase):
                     <p>A list of %d bad ROIs, with chisq>%.0f, can examined with a 
                     <a href="http://deeptalk.phys.washington.edu/PivotWeb/SLViewer.html?cID=%d">Pivot browser</a>,
                     which requires Silverlight."""  % (len(bad_rois), vmax, pc.cId)
-            except Exception, msg:
+            except Exception as msg:
                 self.bad_roi_link = 'Failed to create Pivot: {}'.format(msg)
                 print (self.bad_roi_link)
             

@@ -58,7 +58,7 @@ def SelectPhase(infile,outfile=None,phmin=0,phmax=1,phcolname='PULSE_PHASE'):
         
     except KeyError:
         from sys import exit
-        print ("No %s column. Exiting ..." %phcolname; exit())
+        print ("No %s column. Exiting ..." %phcolname); exit()
 
 # =============================
 # Class to manage the PSUE file

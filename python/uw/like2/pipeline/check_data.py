@@ -19,7 +19,7 @@ def main(args=None):
         nocreate = False
     stage=stage.split('_')[0]
     if True: # (fix later) stage!='create' and stage!='monthly':
-        print 'Not creating a model: assume data validated'
+        print ('Not creating a model: assume data validated')
         return
         
 
@@ -32,13 +32,13 @@ def main(args=None):
         tee = tools.OutputTee(os.path.join(absskymodel, 'summary_log.txt'))
 
     current = str(datetime.datetime.today())[:16]
-    print '\n%s stage %s stream %s model %s ' % (current, stage, stream,  absskymodel)
+    print ('\n%s stage %s stream %s model %s ' % (current, stage, stream,  absskymodel))
 
     if 'CUSTOM_IRF_DIR' not in os.environ and os.path.exists(os.path.expandvars('$FERMI/custom_irfs')):
         os.environ['CUSTOM_IRF_DIR'] = os.path.expandvars('$FERMI/custom_irfs')
 
     rc = dataset.validate(absskymodel, nocreate=nocreate, quiet=False)
-    print 'Data is validated' if rc else 'NOT validated'
+    print ('Data is validated' if rc else 'NOT validated')
     if args is not None:
         tee.close()
 

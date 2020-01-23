@@ -62,7 +62,7 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
         axes = fig.gca()
     maxsize = kwargs.pop('maxsize', 2.0)
     if size >maxsize:
-        print 'setting size from %.2f to %.1f' % (size,maxsize)
+        print ('setting size from %.2f to %.1f' % (size,maxsize))
         size = maxsize # prevent too big for reasonable ?
         pixelsize= size/15.
     tsfits = kwargs.pop('tsfits', False)
@@ -76,7 +76,7 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
         if sigma<1 and qual <50:
             tsp.overplot(loc)
         else:
-            print 'bad fit sigma %g, >1 or qual %.1f >50' % (sigma, qual)
+            print ('bad fit sigma %g, >1 or qual %.1f >50' % (sigma, qual))
     tsp.show(colorbar=False)
     if catsig<1:
         tsp.cross(sdir, catsig, lw=2, color='grey')
@@ -108,12 +108,12 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
         last_loc,i=SkyDir(0,90),0
         for aname, loc, prob, catid in zip(assoc['name'],assoc['dir'],assoc['prob'],assoc['cat']):
             if prob<0.10: continue
-            #print 'associate with %s, prob=%.2f' % (aname.strip(),prob)
+            #print ('associate with %s, prob=%.2f' % (aname.strip(),prob))
             if catid in ('ibis',): 
-                print '---skip gamma cat %s' % catid
+                print ('---skip gamma cat %s' % catid)
                 continue
             if i>4:
-                print '---skip because too many for display'
+                print ('---skip because too many for display')
                 continue
             x,y = tsp.zea.pixel(loc)
             diff = np.degrees(loc.difference(last_loc)); last_loc=loc
@@ -135,11 +135,11 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
     if outdir is not None:
         filename = name.replace(' ','_').replace('+','p')
         fout = os.path.join(outdir, ('%s_tsmap.jpg'%filename) )
-        print 'saving tsplot to %s...' % fout , ; sys.stdout.flush()
+        print ('saving tsplot to %s...' % fout , ; sys.stdout.flush())
         plt.savefig(fout, bbox_inches='tight', padinches=0.2) #cuts off outherwise
-        print
+        print()
         if tsfits: 
             fitsname = os.path.join(outdir, '%s_tsmap.fits' % filename)
             tsp.zea.skyimage.reimage(tsp.zea.center,fitsname , pixelsize, size)
-            print 'saved fits format to %s' % fitsname
+            print ('saved fits format to %s' % fitsname)
     return tsp

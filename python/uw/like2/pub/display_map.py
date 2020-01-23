@@ -49,7 +49,7 @@ class DisplayMap(object):
         """
         if type(table)==types.StringType:        
             self.v = pickle.load(open(table))
-            print 'Loaded HEALpix table from file %s' %table
+            print ('Loaded HEALpix table from file %s' %table)
         else: self.v=table
         self.nside = int(np.sqrt(len(self.v)/12))
         assert len(self.v)==12*self.nside**2, 'size of map not consistent with expected nside %d' % nside 
@@ -64,7 +64,7 @@ class DisplayMap(object):
         self.ZEA_kw = kwargs.pop('ZEA_kw', dict(galactic=True, size=10, pixelsize=0.1))
         if sources is not None:
             self.sources = pickle.load(open(sources))
-            print 'loaded %d sources from %s' % (len(self.sources),sources)
+            print ('loaded %d sources from %s' % (len(self.sources),sources))
         else:self.sources=None
         
         self.map_path = kwargs.pop('map_path',None)
@@ -97,7 +97,7 @@ class DisplayMap(object):
         if self.sources is not None:
             sdirs = map(SkyDir, self.sources.ra, self.sources.dec)
             ait.plot(sdirs, **source_kw)
-            print 'found %d sources to plot' % len(sdirs) 
+            print ('found %d sources to plot' % len(sdirs) )
         plt.draw_if_interactive()
         return ait
 
@@ -142,12 +142,12 @@ class DisplayMap(object):
                 zea.plot_source(s.name, sdir, symbol='*' if inside else 'd', 
                     markersize=14 if inside else 8,
                     color='w')
-            print 'found %d sources to plot' %count        
+            print ('found %d sources to plot' %count        )
         
         if self.map_path is not None:
             fout = os.path.join(self.map_path,hpname(index)+'.png')
             plt.savefig(fout, bbox_inches='tight')
-            print 'saved figure to %s' % fout
+            print ('saved figure to %s' % fout)
         plt.draw_if_interactive()
         return zea
 
@@ -181,7 +181,7 @@ class SourceDensity(object):
         
     def save(self, fn):
         pickle.dump(self.v, open(fn, 'wb'))
-        print 'saved file %s' % fn
+        print ('saved file %s' % fn)
 
 class SourceMap(DisplayMap):
     """ subclass of DisplayMap to display point source positions on a photon density map
@@ -196,7 +196,7 @@ class SourceMap(DisplayMap):
         super(SourceMap,self).__init__(kde)
         if type(sources) == types.StringType:
             self.s = pickle.load(sources)
-            print 'loaded %5d sources from %s' %(len(self.s), fn)
+            print ('loaded %5d sources from %s' %(len(self.s), fn))
         else: self.s = sources
 
         self.show_kw = show_kw
@@ -214,7 +214,7 @@ class SourceMap(DisplayMap):
         for subset, marker, color, size, label in self.subsets(s, which):
             zea.plot(map(SkyDir, s.ra[subset], s.dec[subset]), edgecolor='grey',
                 marker=marker, c=color, s=size*sfactor, label=label)
-            print 'plotted %4d sources, subset "%s"' %(sum(subset), label)
+            print ('plotted %4d sources, subset "%s"' %(sum(subset), label))
         plt.legend(scatterpoints=1, loc=2)
         if savefn is not None:
             self.savefig(savefn % i); i+=1
@@ -239,13 +239,13 @@ class SourceMap(DisplayMap):
 
     def add_sources(self, which=-1, sfactor=1):
         s = self.s
-        print 'loaded %5d sources' %(len(s),)
+        print ('loaded %5d sources' %(len(s),))
         i=0 if which<0 else which+10
         plt.rcParams['legend.fontsize']= 8.0
         for subset, marker, color, size, label in self.subsets(s, which):
             self.ait.plot(map(SkyDir, s.ra[subset], s.dec[subset]), edgecolor='grey',
                 marker=marker, c=color, s=size*sfactor, label=label)
-            print 'plotted %4d sources, subset "%s"' %(sum(subset), label)
+            print ('plotted %4d sources, subset "%s"' %(sum(subset), label))
             self.legend()
 
 
@@ -267,7 +267,7 @@ def load_skyspect(fn = r'T:\data\galprop\ring_21month_P6v11.fits',
     """
     t = SkyImage(fn)
     galname = os.path.split(fn)[-1]
-    print '%s: nx, ny, layers: %d %d %d' %(galname, t.naxis1(), t.naxis2(), t.layers())
+    print ('%s: nx, ny, layers: %d %d %d' %(galname, t.naxis1(), t.naxis2(), t.layers()))
     hpdir = Band(nside).dir
     dmap = map(lambda i:t(hpdir(i)), xrange(12*nside**2))
     tdm=DisplayMap(dmap)
@@ -275,5 +275,5 @@ def load_skyspect(fn = r'T:\data\galprop\ring_21month_P6v11.fits',
     plt.title(galname+' (1 GeV)')
     sfn = galname.split('.')[0]+'.png'
     plt.savefig(galname.split('.')[0]+'.png', bbox_inches='tight', pad_inches=0)
-    print 'saved figure to %s' % sfn
+    print ('saved figure to %s' % sfn)
     return tdm

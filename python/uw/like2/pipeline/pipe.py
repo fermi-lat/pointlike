@@ -101,7 +101,7 @@ def check_converge(month, tol=10, add_neighbors=True, log=None):
     dmin,dmax = diff.min(), diff.max()
     rmin,rmax = list(diff).index(dmin), list(diff).index(dmax)
     changed = set(np.arange(1728)[np.abs(diff)>tol])
-    print ('\tpass %d:  %d changed > %d, min, max: %d(#%d) %d(#%d)' % (max(r.niter),len(changed), tol, dmin,rmin,dmax,rmax),, file=log)
+    print ('\tpass %d:  %d changed > %d, min, max: %d(#%d) %d(#%d)' % (max(r.niter),len(changed), tol, dmin,rmin,dmax,rmax),file=log)
     if not add_neighbors: return list(changed)
     nbrs = set()
     b12 = Band(12)

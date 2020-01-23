@@ -35,7 +35,7 @@ class NFW(InterpProfile2D):
            >>> sigma = 1
            >>> r = np.logspace(0.1,1,4)
            >>> profile = NFW(sigma=sigma)
-           >>> print profile.at_r_in_deg(r)
+           >>> print (profile.at_r_in_deg(r))
            [  3.46679557e+01   2.73145672e+00   1.51607416e-01   6.68125546e-03]
 
         Note, previously this wouldn't raise an exception:
@@ -87,7 +87,7 @@ class Einasto(InterpProfile2D):
            >>> sigma = 1
            >>> r = np.logspace(0.1,1,4)
            >>> profile = Einasto(sigma=sigma)
-           >>> print profile.at_r_in_deg(r)
+           >>> print (profile.at_r_in_deg(r))
            [  4.30828635e+01   2.78006838e+00   8.42642147e-02   1.01894909e-03]
         
         """
@@ -127,7 +127,7 @@ class Burkert(InterpProfile2D):
            >>> sigma = 1
            >>> r = np.logspace(0.1,1,4)
            >>> profile = Burkert(sigma=sigma)
-           >>> print profile.at_r_in_deg(r)
+           >>> print (profile.at_r_in_deg(r))
            [  1.39250630e+02   1.22157313e+01   6.14035455e-01   2.42861785e-02]
             
         """
@@ -204,7 +204,7 @@ class PseudoPingNFW(PseudoSpatialModel,PingNFW):
     """ The Pseudo variant of the NFW profile.
 
             >>> x = PseudoPingNFW()
-            >>> print x.extension() == SMALL_ANALYTIC_EXTENSION
+            >>> print (x.extension() == SMALL_ANALYTIC_EXTENSION)
             True
     """
 

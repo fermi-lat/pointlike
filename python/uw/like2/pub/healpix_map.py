@@ -413,8 +413,8 @@ class HEALPixSkymap():
         if os.path.exists(outfile):
             os.remove(outfile)
         pyfits.HDUList(hdus).writeto(outfile)
-        print ('\nwrote FITS Skymap file, nside={}, {} energies, to {}'.format()
-           self.nside, len(self.el), outfile, )
+        print ('\nwrote FITS Skymap file, nside={}, {} energies, to {}'.format(
+           self.nside, len(self.el), outfile, ))
 
 
 class FromFITS(HParray):

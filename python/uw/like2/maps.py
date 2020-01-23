@@ -134,8 +134,8 @@ class ModelCountMaps(object):
             cnts = np.array(map(eb, dirs),np.float32) * pixel_area
             assert sum(np.isnan(cnts))==0, 'NaN value(s) found'
             
-            print ('{:4d} {:4d} {:6d} {:8.2e} {:8.2e} {:8.2e}'.format()
-                ebi,nside,len(cnts), cnts.mean(), cnts.min(), cnts.max()),
+            print ('{:4d} {:4d} {:6d} {:8.2e} {:8.2e} {:8.2e}'.format(
+                ebi,nside,len(cnts), cnts.mean(), cnts.min(), cnts.max()),)
             if subdir is not None:
                 subsubdir = subdir+'/{:02d}'.format(ebi)
                 if not os.path.exists(subsubdir): os.makedirs(subsubdir)

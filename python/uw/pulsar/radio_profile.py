@@ -42,11 +42,11 @@ class Profile(object):
         if not custom:
             self._process()
 
-        print 'Loaded profile %s with the following procedure/properties:'%profile
-        print '... OBS = %s'%(self.obs)
-        print '... FRQ = %s'%('%.2f'%self.freq if self.freq is not None else 'None') 
-        print '... Fiducial Point = %.4f'%(self.fidpt)
-        print '... Aligned to First Harmonic? %s'%('YES' if self.fharm else 'NO')
+        print ('Loaded profile %s with the following procedure/properties:'%profile)
+        print ('... OBS = %s'%(self.obs))
+        print ('... FRQ = %s'%('%.2f'%self.freq if self.freq is not None else 'None') )
+        print ('... Fiducial Point = %.4f'%(self.fidpt))
+        print ('... Aligned to First Harmonic? %s'%('YES' if self.fharm else 'NO'))
 
     def _process_comments(self):
         """ Look for information encoded (by me) in profile.  This will
@@ -162,7 +162,7 @@ class Profile(object):
         self.freq = 1.4
         self.fidpt = float((file(self.pfile).next()).split()[-1])
         #if self.fidpt != 0:
-            #print 'Found a JBO profile (%s) without fidpt=0 (at %.4f)'%(self.pfile,self.fidpt)
+            #print ('Found a JBO profile (%s) without fidpt=0 (at %.4f)'%(self.pfile,self.fidpt))
 
     def _process_pks(self):
         """ Parkes profiles properties:
@@ -233,7 +233,7 @@ class Profile(object):
                 rvals = np.append(rvals,rvals[0])
             while len(rvals) > bin_goal:
                 rvals = (rvals[:-1:2]+rvals[1::2])/2
-            print 'Using %d profile bins with a goal of %d.'%(len(rvals),bin_goal)
+            print ('Using %d profile bins with a goal of %d.'%(len(rvals),bin_goal))
         #return rvals,self.fidpt+align_shift,self.fidpt-align_shift
         return rvals,self.fidpt-align_shift
 
@@ -251,9 +251,9 @@ class FullStokesProfile(Profile):
         self.init()
         self.__dict__.update(kwargs)
         if 'harm_align' in kwargs:
-            print 'Warning!  harmonic alignment does nothing for these.'
+            print ('Warning!  harmonic alignment does nothing for these.')
         if 'peak_align' in kwargs:
-            print 'Warning!  peak alignment does nothing for these.'
+            print ('Warning!  peak alignment does nothing for these.')
         self.pfile = profile
         self.jname = jname
         self.obs = None
@@ -273,7 +273,7 @@ class FullStokesProfile(Profile):
         data = np.loadtxt(self.pfile,comments='#')
         return np.asarray([data[:,col-1] for col in self.fscol])
         #except:
-        #    print 'Could not read data!'
+        #    print ('Could not read data!')
         #    raise ValueError
 
     def get_intensity(self,**kwargs):
@@ -327,7 +327,7 @@ class ASCIIProfile(object):
             if peak_align:
                 raise ValueError('Cannot align to both peak and first harmonic!')
             if fidpt != 0:
-                print 'Warning!  Specified a non-zero fiducial point as well as the first harmonic convention -- this is typically not what you want!'
+                print ('Warning!  Specified a non-zero fiducial point as well as the first harmonic convention -- this is typically not what you want!')
             self._align_harm()
 
         if peak_align:
@@ -337,12 +337,12 @@ class ASCIIProfile(object):
 
     def _print_status(self):
 
-        print 'Loaded profile %s with the following procedure/properties:'%(self.pfile)
-        print '... OBS = %s'%(self.obs)
-        print '... FRQ = %s'%('%.2f'%self.freq if self.freq is not None else 'None') 
-        print '... Fiducial Point = %.4f'%(self.fidpt)
-        print '... Aligned to First Harmonic? %s'%('YES' if self.harm_align else 'NO')
-        print '... Aligned to Peak? %s'%('YES' if self.peak_align else 'NO')
+        print ('Loaded profile %s with the following procedure/properties:'%(self.pfile))
+        print ('... OBS = %s'%(self.obs))
+        print ('... FRQ = %s'%('%.2f'%self.freq if self.freq is not None else 'None') )
+        print ('... Fiducial Point = %.4f'%(self.fidpt))
+        print ('... Aligned to First Harmonic? %s'%('YES' if self.harm_align else 'NO'))
+        print ('... Aligned to Peak? %s'%('YES' if self.peak_align else 'NO')
 
     def _align_harm(self):
         """ Compute the zero of phase of a radio profile by determining the 
@@ -371,6 +371,6 @@ class ASCIIProfile(object):
                 rvals = np.append(rvals,rvals[0])
             while len(rvals) > bin_goal:
                 rvals = (rvals[:-1:2]+rvals[1::2])/2
-            print 'Using %d profile bins with a goal of %d.'%(len(rvals),bin_goal)
+            print ('Using %d profile bins with a goal of %d.'%(len(rvals),bin_goal))
         return rvals
         

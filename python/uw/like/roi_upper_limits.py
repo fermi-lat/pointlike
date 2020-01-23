@@ -87,7 +87,7 @@ class FluxUpperLimit(object):
         source = roi.get_source(which)
 
         if self.verbosity:
-            print 'Computing upper limit for source %s with %s spectral model' % (source.name,source.model.name)
+            print ('Computing upper limit for source %s with %s spectral model' % (source.name,source.model.name))
 
         if not hasattr(source,'model'):
             raise Exception("upper_limit can only calculate upper limits of point and extended sources.")
@@ -96,9 +96,9 @@ class FluxUpperLimit(object):
         integral_min, integral_max = self.get_integration_range(model)
 
         if self.verbosity:
-            print 'For source %s, setting integration range from' % model.name 
-            print ' * integration minimum = :',integral_min
-            print ' * integration maximum = :',integral_max
+            print ('For source %s, setting integration range from' % model.name )
+            print (' * integration minimum = :',integral_min)
+            print (' * integration maximum = :',integral_max)
 
         # Unbound flux temporarily to avoid parameter limits
         model.set_mapper(0,LinearMapper)
@@ -198,7 +198,7 @@ class ExtensionUpperLimit(object):
 
         if self.init_ts < 4:
             # Bunt on extension upper limits for completely insignificant sources
-            print 'Unable to compute extension upper limit for point-like source with too-small TS'
+            print ('Unable to compute extension upper limit for point-like source with too-small TS')
             self.extension_limit = None
 
         else:
@@ -252,7 +252,7 @@ class ExtensionUpperLimit(object):
                                                                  np.degrees(fit_position.difference(self.init_position)))
             else:
                 position_string = ''
-            print '... sigma = %.2f,%s ll=%.2f, ll-ll_0=%.2f' % (extension, position_string, ll, ll - self.ll_0)
+            print ('... sigma = %.2f,%s ll=%.2f, ll-ll_0=%.2f' % (extension, position_string, ll, ll - self.ll_0))
 
         return ll
 
@@ -261,7 +261,7 @@ class ExtensionUpperLimit(object):
             from the likelihood at Sigma=0 by an amount delta_log_like_limits. """
         roi = self.roi
 
-        if not self.old_quiet: print "Computing Integration range, delta_log_like_limits=%s:" % self.delta_log_like_limits
+        if not self.old_quiet: print ("Computing Integration range, delta_log_like_limits=%s:" % self.delta_log_like_limits)
 
         self.ll_0 = ll_0 = self.loglike(extension=0)
 
@@ -275,10 +275,10 @@ class ExtensionUpperLimit(object):
             self.int_max = brentq(f, 0, hi, rtol=1e-4, xtol=1e-3)
         except:
             # Finding this intersect does not always work.
-            print 'WARNING: Unable to find an acceptable upper limit for the integration range so defaulting to %s. Extension upper limit could be unreliable'  % hi
+            print ('WARNING: Unable to find an acceptable upper limit for the integration range so defaulting to %s. Extension upper limit could be unreliable'  % hi)
             self.int_max = hi
 
-        if not self.old_quiet: print "Integrating range is between %s and %s" % (self.int_min, self.int_max)
+        if not self.old_quiet: print ("Integrating range is between %s and %s" % (self.int_min, self.int_max))
 
 
     def _compute_max_loglikelihood(self):
@@ -292,7 +292,7 @@ class ExtensionUpperLimit(object):
             stable normalization without causing any future trouble. """
         roi = self.roi
 
-        if not self.old_quiet: print "Computing maximum loglikelihood:"
+        if not self.old_quiet: print ("Computing maximum loglikelihood:")
 
         # Note, maximum loglikelihood =  minimum -1*logLikelihood
         # Note, this does not have to be very precise. The purpose of
@@ -301,7 +301,7 @@ class ExtensionUpperLimit(object):
         self.sigma_max = fminbound(lambda e: -1*self.loglike(e), self.int_min, self.int_max, disp=0, xtol=1e-3)
         self.ll_max = self.loglike(self.sigma_max)
 
-        if not self.old_quiet: print "Maximum logLikelihood is %.2f" % self.ll_max
+        if not self.old_quiet: print ("Maximum logLikelihood is %.2f" % self.ll_max)
 
     def _compute_extension_limit(self):
         """ Compute the extnesion upper limit by
@@ -315,7 +315,7 @@ class ExtensionUpperLimit(object):
             """
         roi = self.roi
 
-        if not self.old_quiet: print "Finding the %s quantile of the likelihood" % self.confidence
+        if not self.old_quiet: print ("Finding the %s quantile of the likelihood" % self.confidence)
 
         ll_to_l = lambda ll: np.exp(ll-self.ll_max)
         like = lambda e: ll_to_l(self.loglike(e))
@@ -324,7 +324,7 @@ class ExtensionUpperLimit(object):
                             quad_kwargs=dict(epsrel=1e-3, epsabs=1))
         self.extension_limit = quantile(self.confidence)
 
-        if not self.old_quiet: print "Extension upper limit is %.2f" % self.extension_limit
+        if not self.old_quiet: print ("Extension upper limit is %.2f" % self.extension_limit)
     
     def _compute(self):
 

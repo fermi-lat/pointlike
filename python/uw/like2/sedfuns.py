@@ -39,7 +39,7 @@ class SED(tools.WithMixin):
         try:
             fp = self.select(None)
             self.full_poiss = fp.poiss
-        except Exception, msg:
+        except Exception as msg:
             print ('Failed poisson fit to source %s: "%s"' % (self.source_name, msg))
             raise
         return fp.poiss, fp.maxdev
@@ -94,7 +94,7 @@ class SED(tools.WithMixin):
                 pf = self.select(i, event_type=event_type,poisson_tolerance=tol)
                 pp.append(pf.poiss)
                 if debug: print (pf)
-            except Exception, msg:
+            except Exception as msg:
                 print ('Fail poiss fit for %.0f MeV: %s ' % (e,msg))
                 pp.append(None)
                 
@@ -126,7 +126,7 @@ class SED(tools.WithMixin):
                 pf = self.select(None, elow=elow,ehigh=ehigh, 
                     event_type=event_type, poisson_tolerance=tol)
                 xlo,xhi = self.rs.emin, self.rs.emax
-            except Exception, msg:
+            except Exception as msg:
                 print ('Fail poiss fit for %.0f-%.0f MeV: %s ' % (elow,ehigh,msg))
                 rec.append(elow,ehigh, 0, 0, np.nan, 0,0,0, np.nan, np.nan, np.nan, np.nan,     np.nan )
                 continue
@@ -239,7 +239,7 @@ def norm_table(roi, source_name=None, event_type=None, tol=0.25, ignore_exceptio
             try:
                 p = loglikelihood.PoissonFitter(nv, tol=tol)
                 poiss_list[int(energy)] = p.normalization_summary()
-            except Exception, msg:
+            except Exception as msg:
                 print ('Fail for %.f: %s' % (energy, msg))
                 if not ignore_exception: raise
                 poiss_list[int(energy)]= {}
@@ -322,7 +322,7 @@ def makesed_all(roi, source_name='all', **kwargs):
                          galmap=source.skydir, outdir=sedfig_dir, 
                             annotate=annotation, **kwargs)
                         
-            except Exception,e:
+            except Exception as e:
                 print ('***Warning: source %s failed flux measurement: %s' % (source.name, e))
                 #raise
                 source.sedrec=None

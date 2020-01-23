@@ -86,14 +86,14 @@ class Rescale(object):
             self.yticks = [ (v-self.vmin)*yscale for v in self.vticks]
             self.xticklabels = self.formatter(self.uticks)
             self.yticklabels = self.formatter(self.vticks)
-        except Exception, msg:
-            print 'formatting failure in image.py: {}'.format(msg)
+        except Exception as msg:
+            print ('formatting failure in image.py: {}'.format(msg))
             self.xticks=self.yticks=None
     def formatter(self, t):
         n=0
         s = np.abs(np.array(t))+1e-9
         for i in range(4):
-            #print s, s-np.floor(s), (s-np.floor(s)).max()
+            #print (s, s-np.floor(s), (s-np.floor(s)).max())
             if (s-np.floor(s)).max()<1e-3: break
             s = s*10
             n+=1
@@ -840,10 +840,10 @@ class ZEA(object):
         """ enable click processing: default callback prints the location
             callback example:
             def default_onclick(event):
-                print 'button %d, %s' % (event.button, zea.skydir(event.xdata,event.ydata))
+                print ('button %d, %s' % (event.button, zea.skydir(event.xdata,event.ydata)))
         """
         def default_onclick(event):
-            print 'button %d, %s' % (event.button, self.skydir(event.xdata,event.ydata))
+            print ('button %d, %s' % (event.button, self.skydir(event.xdata,event.ydata)))
         if onclick==None: onclick=default_onclick
         if self.cid is not None: self.noclicker()
         self.cid=self.axes.figure.canvas.mpl_connect('button_press_event', onclick)
@@ -890,7 +890,7 @@ def ZEA_test(ra=90, dec=80, size=5, nticks=8, galactic=False, **kwargs):
     q.scale_bar(1, '$1^0$')
     q.axes.set_title('test of ZEA region plot')
     t=q.cross( SkyDir(ra,dec), 1, 'a red cross, arms +/- 1 deg', color='r', lw=2)
-    if not t: print 'failed to plot the cross'
+    if not t: print ('failed to plot the cross')
     q.plot_source('(80,76)', SkyDir(80,76), 'd')
     q.plot_source('(110,74)', SkyDir(110,74), 'x')
     q.ellipse( SkyDir(ra,dec), (1, 0.25, 0))
@@ -917,7 +917,7 @@ class ZEA_from_fits(ZEA):
         if not isinstance(filename, SkyImage):
             try:
                 self.skyimage =SkyImage(filename)
-            except Exception, msg:
+            except Exception as msg:
                 raise Exception('failed to load file %s: %s)' % (filename, msg))
         else:
             self.skyimage=filename
@@ -974,7 +974,7 @@ class TSplot(object):
         self.pixelsize=size/npix
         self.zea= ZEA(center, size=size, pixelsize=self.pixelsize, axes=self.axes, 
                 nticks=self.nticks,fitsfile=self.fitsfile, **kwargs)
-        print 'TSplot: filling %d pixels (size=%.2f, npix=%d)...'%( (size/self.pixelsize)**2, size, npix)
+        print ('TSplot: filling %d pixels (size=%.2f, npix=%d)...'%( (size/self.pixelsize)**2, size, npix))
         sys.stdout.flush()
         self.zea.fill(tsmap)
         # create new image that is the significance in sigma with respect to local max
@@ -1019,12 +1019,12 @@ class TSplot(object):
             self.clevels, 
             colors='k', linestyles='-' )
         if axes.get_xlim()[0] !=0:
-            print 'Warning: coutour modified: limits', axes.get_xlim(), axes.get_ylim()
+            print ('Warning: coutour modified: limits', axes.get_xlim(), axes.get_ylim())
         cfmt={} 
         for key,t in zip(self.clevels,['68%','95%', '99%']): cfmt[key]=t
         plt.clabel(ct, fmt=cfmt, fontsize=8)
         #axes.set_xlim((0,nx)); axes.set_ylim((0,ny))
-        #print 'after reset', axes.get_xlim(), axes.get_ylim()
+        #print ('after reset', axes.get_xlim(), axes.get_ylim())
         if self.scalebar:
             t = 3
             if self.size< 0.03*t:
@@ -1125,7 +1125,7 @@ class TSplotFromFITS(TSplot):
         self.__dict__.update(TSplot.defaults)
         try:
             self.zea = ZEA_from_fits(filename)
-        except Exception, msg:
+        except Exception as msg:
             raise Exception('failed to load file %s: %s)' % (filename,msg) )
         if not isinstance(filename, SkyImage):
             t =os.path.split(os.path.splitext(filename)[0])[-1].split('_')

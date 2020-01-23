@@ -139,7 +139,7 @@ class UWtoGT(object):
                     )
                 )  
             self.components=cmp
-        except Exception, msg:
+        except Exception as msg:
             logger.error('Failed to interpret file {}: {}'.format(cfg.dataset.binfile, msg))
             raise
         except:
@@ -194,7 +194,7 @@ class UWtoGT(object):
             logger.info('Will create srcmap files')
             try:
                 self.create_srcmaps(overwrite)
-            except Exception, msg:
+            except Exception as msg:
                 logger.error('Failed : {}. Returning anyway'.format(msg))
                 return self.gta
         

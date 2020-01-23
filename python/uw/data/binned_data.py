@@ -517,7 +517,7 @@ class ConvertFT1(object):
         for et in self.etypes:
             self.et_mask[et]= self.et[:,-1-et]
         self.data_cut = np.logical_and(self.theta<self.theta_cut, self.z<self.z_cut)
-        print ('Found {} events. Removed: {:.2f} %'.format(len(data), 100.- 100*sum(self.data_cut)/float(len(data)));)
+        print ('Found {} events. Removed: {:.2f} %'.format(len(data), 100.- 100*sum(self.data_cut)/float(len(data))))
 
         # DataFrame with component values for energy and event type, nside
         t = {}

@@ -23,7 +23,7 @@ def get_phases(ft1file,get_weights=False,weightcol='WEIGHT',
     phases = np.asarray(f['EVENTS'].data.field('PULSE_PHASE'),dtype=float)
     mask = f['events'].data.field("ENERGY") > emin
     mask &= f['events'].data.field("TIME") < tmax
-    print len(mask),mask.sum()
+    print (len(mask),mask.sum())
     phases = phases[mask]
     if get_weights:
         weights = np.asarray(f['EVENTS'].data.field(weightcol),dtype=float)
@@ -41,14 +41,14 @@ class InteractiveFitter(object):
         self.errors = False
 
     def welcome(self):
-        print 'Welcome to the interactive unbinned template fitter!'
-        print 'Displaying the profile... now, we will specify where to put Gaussians.'
-        print 'For each peak, drag a horizontal line'
-        print '         AT THE HIGHEST POINT ON THE PEAK'
-        print '         from HALF-MAX to HALF-MAX'
-        print 'After each drag, the plot will refresh with the current template.'
-        print 'After all Gaussians are specified, close the plot, and fitting will start.'
-        print '(Note -- if using interactively, you will start the fit with do_fit; but do close the plot!'
+        print ('Welcome to the interactive unbinned template fitter!')
+        print ('Displaying the profile... now, we will specify where to put Gaussians.')
+        print ('For each peak, drag a horizontal line')
+        print ('         AT THE HIGHEST POINT ON THE PEAK')
+        print ('         from HALF-MAX to HALF-MAX')
+        print ('After each drag, the plot will refresh with the current template.')
+        print ('After all Gaussians are specified, close the plot, and fitting will start.')
+        print ('(Note -- if using interactively, you will start the fit with do_fit; but do close the plot!')
         
     def __init__(self,phases,**kwargs):
         self.init()
@@ -66,13 +66,13 @@ class InteractiveFitter(object):
         pl.show()
 
     def do_fit(self):
-        print 'Fitting the template with unbinned likelihood...'
+        print ('Fitting the template with unbinned likelihood...')
         template = LCTemplate(self.primitives,norms=self.norms)
         fitter   = LCFitter(template,self.phases,weights=self.weights)
         fitter.fit(estimate_errors=self.errors)
-        print 'Fitting finished!'
-        print fitter
-        print 'Overlaying fitted template...'
+        print ('Fitting finished!')
+        print (fitter)
+        print ('Overlaying fitted template...')
         self.fig = pl.figure(self.fignum)
         self.ax = pl.gca()
         light_curve(self.phases,weights=self.weights,nbins=self.nbins,axes=self.ax,template=template)
@@ -108,7 +108,7 @@ class InteractiveFitter(object):
 
     def write_template(self,outfile):
         if not hasattr(self,'fitter'):
-            print 'Must do fit first!'; return
+            print ('Must do fit first!'; return)
         self.fitter.write_template(outfile)
 
 
@@ -134,12 +134,12 @@ if __name__ == '__main__':
 
     if options.weights:
         phases = phases[weights > options.min_weight]
-        print '%d of %d photons survive weight cut'%(len(phases),len(weights))
+        print ('%d of %d photons survive weight cut'%(len(phases),len(weights)))
         weights = weights[weights > options.min_weight]
 
-    print 'Welcome to the interactive unbinned template fitter!'
-    print 'What type of template would you like to fit?'
-    print 'gauss=Gaussian [default], kd=Kernel Density, ef [NHARM]=Empirical Fourier'
+    print ('Welcome to the interactive unbinned template fitter!')
+    print ('What type of template would you like to fit?')
+    print ('gauss=Gaussian [default], kd=Kernel Density, ef [NHARM]=Empirical Fourier')
     line = raw_input()
     if line.startswith('kd'):
         dom = np.linspace(0.0,1.0,100)
@@ -182,10 +182,10 @@ if __name__ == '__main__':
             out = ''
             out = raw_input('Enter filename for gaussian profile output file, or just hit ENTER to exit...:  ')
         if len(out) > 0:
-            print 'Writing Gaussian-style template to %s...'%(out)
+            print ('Writing Gaussian-style template to %s...'%(out))
             intf.write_template(out)
 
-    print 'Goodbye!'
+    print ('Goodbye!')
     
     
 

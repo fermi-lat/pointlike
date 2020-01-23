@@ -297,7 +297,7 @@ def plot_counts(roi,fignum=1, event_type=None, outfile=None,
             show_chisq=kwargs.pop('show_chisq', True), 
             plot_pulls=kwargs.pop('plot_pulls', True))
     if outfile is not None: 
-       print ('saving counts plot to %s...' %outfile ; sys.stdout.flush())
+       print ('saving counts plot to %s...' %outfile) ; sys.stdout.flush()
        plt.savefig(outfile)
 
 

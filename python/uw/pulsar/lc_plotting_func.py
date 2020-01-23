@@ -41,7 +41,7 @@ def find_prof_mean(y):
         nlo = (t<0).sum()
         nhi = len(t)-nlo  
         if (nlo-nhi) < len(t)**0.5: break
-    print 'Found equality at %d'%i
+    print ('Found equality at %d'%i)
     return y[:-i].mean()
 
 def get_theta(par,energy):
@@ -164,7 +164,7 @@ class PulsarLightCurve:
         elif self.convtype ==  0: self.__psf_selection = [3.3,0.8,0.05]
         elif self.convtype ==  1: self.__psf_selection = [5.5,0.8,0.1]
         elif self.convtype == -2: self.__psf_selection = [5.3,0.745,0.09]
-        else: print "The selected convtype does not exist. Use the default convtype -1."
+        else: print ("The selected convtype does not exist. Use the default convtype -1.")
 
         # weight information
         self.weight = False
@@ -198,7 +198,7 @@ class PulsarLightCurve:
         try:
             phase = ft1file[hduname].data.field(self.phase_colname)
         except KeyError:
-            print "\t You need to assign a phase for each event in the fits file. Exiting ..."; exit()
+            print ("\t You need to assign a phase for each event in the fits file. Exiting ..."; exit())
 
         # get the weight column        
         try:
@@ -221,30 +221,30 @@ class PulsarLightCurve:
             convcut = np.asarray([True]*len(conv))
         else:
             convcut = conv==self.convtype
-        print angularcut.sum(),len(angularcut)
-        print energycut.sum(),len(energycut)
-        print timecut.sum(),len(timecut)
-        print convcut.sum(),len(convcut)
+        print (angularcut.sum(),len(angularcut))
+        print (energycut.sum(),len(energycut))
+        print (timecut.sum(),len(timecut))
+        print (convcut.sum(),len(convcut))
         self.eventlist = tmp[phasecut & angularcut & energycut & timecut & eclscut & convcut]
 
     def set_psf_param(self,psfpar0=5.3,psfpar1=0.745,psfpar2=0.09):
         '''Set PSF parameterization: sqrt( (psfpar0x(100/E)^psfpar1)^2 + psfpar2^2 )'''
         self.__psf_selection = [psfpar0,psfpar1,psfpar2]
-        print "Parameterization of the PSF has been modified:"
-        print "PSF-cut: %.2f x (100/E)^%.2f ++ %.2f (++: in quadrature)\n" %(psfpar0,psfpar1,psfpar2)
+        print ("Parameterization of the PSF has been modified:")
+        print ("PSF-cut: %.2f x (100/E)^%.2f ++ %.2f (++: in quadrature)\n" %(psfpar0,psfpar1,psfpar2))
 
     def get_energy_range(self,which=0):
         return self.__energy_range[which][0], self.__energy_range[which][1]
 
     def set_energy_range(self,which=0,emin=1e2,emax=3e5):
         if emin<self.emin:
-            print OKRED + "warning: emin (for histo=%i) cannot be lower than PulsarLightCurve EMIN" %which + ENDC
+            print (OKRED + "warning: emin (for histo=%i) cannot be lower than PulsarLightCurve EMIN" %which + ENDC)
             emin = self.emin
         if emax>self.emax:
-            print OKRED + "warning: emax (for histo=%i) cannot be higher than PulsarLightCurve EMAX" %which + ENDC
+            print (OKRED + "warning: emax (for histo=%i) cannot be higher than PulsarLightCurve EMAX" %which + ENDC)
             emax = self.emax
         self.__energy_range[which] = [emin,emax]
-        print "Energy range for histo=%i has been changed: (%.0f,%.0f) MeV" %(which,emin,emax)
+        print ("Energy range for histo=%i has been changed: (%.0f,%.0f) MeV" %(which,emin,emax))
 
     def get_radius_range(self,which=0):
         return self.__radius_range[which]
@@ -252,10 +252,10 @@ class PulsarLightCurve:
     def set_radius_range(self,which=0,radius=100.):
         '''Set the radius (deg) for the histo [which]'''
         if radius>self.radius:
-            print OKRED + "warning: radius (for histo=%i) cannot be larger than PulsarLightCurve RADIUS" %which + ENDC 
+            print (OKRED + "warning: radius (for histo=%i) cannot be larger than PulsarLightCurve RADIUS" %which + ENDC )
             radius = self.radius
         self.__radius_range[which] = radius
-        print "Radius selection for histo=%i has been changed: %.2f deg" %(which,radius)
+        print ("Radius selection for histo=%i has been changed: %.2f deg" %(which,radius))
         
     def modify_loc(self,ra,dec):
         '''Set the source coordinates (ra,dec)'''
@@ -352,12 +352,12 @@ class PulsarLightCurve:
         # radius
         if radius is None: radius = self.radius
         else:
-            print "(radius): (", radius, ") deg"
+            print ("(radius): (", radius, ") deg")
             for i, item in enumerate(self.__radius_range):
                 self.set_radius_range(i,radius)
         
         if radius>self.radius:
-            print OKRED + "warning: radius cannot be larger than PulsarLightCurve RADIUS" + ENDC
+            print (OKRED + "warning: radius cannot be larger than PulsarLightCurve RADIUS" + ENDC)
             radius = self.radius
 
         self.pulse_phase = []
@@ -365,7 +365,7 @@ class PulsarLightCurve:
             self.pulse_phase.append([])
 
         if self.weight and self.psfcut:
-            print OKRED + "You are using the weighting method and applying an energy-dependent cut!" + ENDC
+            print (OKRED + "You are using the weighting method and applying an energy-dependent cut!" + ENDC)
 
         # initialization of the event list
         evtlist = self.eventlist[self.eventlist["ANGSEP"]<=radius]
@@ -397,7 +397,7 @@ class PulsarLightCurve:
 
             if (j==0) and (len(W) > 0) and (W.sum() < 1):
                 self.renormalize = True
-                print 'RENORMALIZING WEIGHTS!!!'
+                print ('RENORMALIZING WEIGHTS!!!')
             if self.renormalize and (len(W) > 0): 
                 W /= W.max()
             #if len(P)>0:
@@ -409,14 +409,14 @@ class PulsarLightCurve:
             H = hmw(phases,weights)
             bm = best_m(phases,weights,m=100)
             mbins = 2*bm
-            print 'Mbins estimate: %d'%mbins
+            print ('Mbins estimate: %d'%mbins)
             sig = h2sig(H)
             nbins = 25
             if H > 150:
                 nbins = 50
             if H > 2000:
                 nbins = 100
-            print 'Found H = %.2f, setting nbins = %d'%(H,nbins)
+            print ('Found H = %.2f, setting nbins = %d'%(H,nbins))
         self.nbins = nbins
 
         # initialization of histograms
@@ -506,7 +506,7 @@ class PulsarLightCurve:
         ring_range    ring dimension(deg)  [1,2]
         method        ring/weight          ["ring"]
         '''
-        print "___pending___: evaluating background using %s ..." %method
+        print ("___pending___: evaluating background using %s ..." %method)
 
         phmin, phmax   = phase_range
         erange, rrange = self.__energy_range, self.__radius_range
@@ -535,8 +535,8 @@ class PulsarLightCurve:
             theta_radmax = get_theta(self.__psf_selection,self.__energy_range[N][0])
         
             if self.psfcut and radius>theta_radmax:
-                print "Warning your maximum PSF-cut radius is larger than your maximum radius."
-                print "Setting the radius to the maximum PSF-cut radius:", theta_radmax, "deg"
+                print ("Warning your maximum PSF-cut radius is larger than your maximum radius.")
+                print ("Setting the radius to the maximum PSF-cut radius:", theta_radmax, "deg")
                 radius = theta_radmax
 
             radius_filter = evtlist["ANGSEP"] <= rrange[N]
@@ -567,10 +567,10 @@ class PulsarLightCurve:
                     if bg_lo > bg_hi:
                         bg_hi,bg_lo = bg_lo,bg_hi
                     bg_level.append([bg,bg_hi,bg_lo])
-                    print 'My backgrounds, let me show you them:  ',bg,bg_hi,bg_lo
+                    print ('My backgrounds, let me show you them:  ',bg,bg_hi,bg_lo)
                 else: bg_level += [(len(W)-W.sum()) / float(self.nbins)]
             else:
-                print "Selected method does not exist!"
+                print ("Selected method does not exist!")
                 bg_level += [0]
                 
         if which is None: return bg_level
@@ -586,7 +586,7 @@ class PulsarLightCurve:
         # clobber old values
         try:
             file['EVENTS'].data.field(colname)[:] = weights
-            print 'Clobbered old WEIGHT column.'
+            print ('Clobbered old WEIGHT column.')
         except KeyError: 
             cols = file['EVENTS'].columns
             newcols = cols.add_col(pyfits.Column(name=colname,format='D',array=weights))
@@ -599,41 +599,41 @@ class PulsarLightCurve:
 
     def print_psf(self):
         p0,p1,p2 = self.__psf_selection
-        print "%.2f x (100/E)^%.2f ++ %.2f (++: in quadrature)" %(p0,p1,p2)
+        print ("%.2f x (100/E)^%.2f ++ %.2f (++: in quadrature)" %(p0,p1,p2))
 
     def print_selection(self):
-        print "\n___selection___:"
-        print "\tFT1file .............. %s" %self.ft1name
-        print "\tpsrname .............. %s" %self.psrname
-        print "\tra, dec (deg) ........ %.6f, %.6f" %(self.ra_src,self.dec_src)
-        print "\ttmin, tmax (MET,MJD).. %.0f, %.0f - %.4f, %4f" %(self.tmin,self.tmax,met2mjd(self.tmin),met2mjd(self.tmax))
-        print "\temin, emax (MeV) ..... %.0f, %.0f" %(self.emin,self.emax)
-        print "\tradius (deg) ......... %.1f"  %self.radius
-        print "\teclsmin, eclsmax ..... %.0f, %.0f" %(self.eclsmin,self.eclsmax)
-        print "\tzenith angle (deg) ... %.0f" %self.zenithcut
+        print ("\n___selection___:")
+        print ("\tFT1file .............. %s" %self.ft1name)
+        print ("\tpsrname .............. %s" %self.psrname)
+        print ("\tra, dec (deg) ........ %.6f, %.6f" %(self.ra_src,self.dec_src))
+        print ("\ttmin, tmax (MET,MJD).. %.0f, %.0f - %.4f, %4f" %(self.tmin,self.tmax,met2mjd(self.tmin),met2mjd(self.tmax)))
+        print ("\temin, emax (MeV) ..... %.0f, %.0f" %(self.emin,self.emax))
+        print ("\tradius (deg) ......... %.1f"  %self.radius)
+        print ("\teclsmin, eclsmax ..... %.0f, %.0f" %(self.eclsmin,self.eclsmax))
+        print ("\tzenith angle (deg) ... %.0f" %self.zenithcut)
         if self.psfcut:
-            print "\tPSF-cut ..............",
+            print ("\tPSF-cut ..............",)
             self.print_psf()            
         os = 'Yes' if self.weight else 'No'
-        print  "\tweighted counts ...... %s" %os
+        print  ("\tweighted counts ...... %s" %os)
 
     def print_summary(self):
         self.print_selection()
-        print "\n__parameters__| ",
-        for i in range(self.nhisto): print "PHASO:" +  str(i), "\t",
-        print ""
-        for x in range(42): print "- ",
-        print "\nemin,emax(MeV)| ",
+        print ("\n__parameters__| ",)
+        for i in range(self.nhisto): print ("PHASO:" +  str(i), "\t",)
+        print ("")
+        for x in range(42): print ("- ",)
+        print ("\nemin,emax(MeV)| ",)
         for it in range(self.nhisto):
             s = '%(emin)d %(emax)d' %{'emin':self.__energy_range[it][0], 'emax':self.__energy_range[it][1]}
-            s += '\t' if len(s)>7 else '\t\t'; print s,
-        print "\nradius(deg)   | ",
+            s += '\t' if len(s)>7 else '\t\t'; print (s,)
+        print ("\nradius(deg)   | ",)
         for it in range(self.nhisto):
-            print '%(radius).1f \t\t' %{'radius':self.__radius_range[it]},
-        print "\nnumber of evts| ",
+            print ('%(radius).1f \t\t' %{'radius':self.__radius_range[it]},)
+        print ("\nnumber of evts| ",)
         for histo in self.phaseogram:
             s = "%.0f" %(histo.GetEntries()/2)
-            s += '\t' if len(s)>6 else '\t\t'; print s,
+            s += '\t' if len(s)>6 else '\t\t'; print (s,)
 
         # H-test statistics
         htest = []
@@ -646,13 +646,13 @@ class PulsarLightCurve:
                 htest += [[H,Hsig]]
             else:
                 htest += [[0,0]]
-        print "\nH-test        | ",
+        print ("\nH-test        | ",)
         for item in htest:
-            print "%.0f \t \t" %item[0],
-        print "\nH-test(sig)   | ",
+            print ("%.0f \t \t" %item[0],)
+        print ("\nH-test(sig)   | ",)
         for item in htest:
-            print "%.1f \t \t" %item[1],
-        print "\n\n"
+            print ("%.1f \t \t" %item[1],)
+        print ("\n\n")
 
     def get_phaseogram(self,emin,emax):
         """ Returns a list of phase centers and a list of
@@ -820,11 +820,11 @@ class PulsarLightCurve:
                     ymin, ymax = histo.GetMinimum(), histo.GetMaximum()
                     boxes = []
                     for lo,hi in offpulse:
-                        print lo,hi
+                        print (lo,hi)
                         while (lo < 0):
                             lo += 1; hi += 1
                         if hi < lo: hi += 1
-                        print lo,hi
+                        print (lo,hi)
                         box = TBox(lo,ymin,hi,ymax);
                         #box.SetFillStyle(4050)
                         box.SetFillColor(18)
@@ -908,7 +908,7 @@ class PulsarLightCurve:
 
         # draw (fitted) profile
         if template is not None:
-            print 'Drawing template.'
+            print ('Drawing template.')
             weights = self.get_weights(which=0)
             if len(weights)==0: 
                 bg_level = 0
@@ -933,7 +933,7 @@ class PulsarLightCurve:
             for i, prof in enumerate(profile):
 
                 histo, ytitle, comment = prof   # get the profile
-                print comment
+                print (comment)
 
                 if (nbands == 1 or not substitute) and i == 0:
                     pad[i].cd()
@@ -1175,7 +1175,7 @@ class PulsarLightCurve:
         # OUTPUT
         outfile = (self.psrname + "_sig_vs_time.eps") if outfile is None else outfile
         canvas.Print(outfile)
-        print ""
+        print ("")
 
     def pulseopt( self, erange=[100,1000], emax=None, ebins=10, rrange=[0.2,2], rbins=10, display=False ):
         '''
@@ -1206,8 +1206,8 @@ class PulsarLightCurve:
         ntrials = len(energy)*len(radius)
         sig, sigmax, bestE, bestR = -1, -1, -1, -1
 
-        print "\nSearching for the optimal cut with R[%.1f,%.1f] deg, Emin[%.0f,%.0f] and Emax[%.0f] MeV"\
-              %(rrange[0],rrange[1],erange[0],erange[1],emax)
+        print ("\nSearching for the optimal cut with R[%.1f,%.1f] deg, Emin[%.0f,%.0f] and Emax[%.0f] MeV"\
+              %(rrange[0],rrange[1],erange[0],erange[1],emax))
         
         for it_E in energy:
             for it_R in radius:
@@ -1225,13 +1225,13 @@ class PulsarLightCurve:
 
         postsig = sigma_trials(sigmax,ntrials)
         if display:
-            print "================================"
-            print "ntrials ............", ntrials
-            print "pre-sig (sigma)..... %.1f" %sigmax
-            print "post-sig (sigma) ... %.1f" %postsig
-            print "emin, emax (MeV) ... %.0f, %.0f" %(bestE,emax)
-            print "radius (deg) ....... %.1f" %bestR
-            print "================================"
+            print ("================================")
+            print ("ntrials ............", ntrials)
+            print ("pre-sig (sigma)..... %.1f" %sigmax)
+            print ("post-sig (sigma) ... %.1f" %postsig)
+            print ("emin, emax (MeV) ... %.0f, %.0f" %(bestE,emax))
+            print ("radius (deg) ....... %.1f" %bestR)
+            print ("================================")
 
         return ntrials, sigmax, postsig, bestE, bestR
         
@@ -1269,7 +1269,7 @@ class PulsarLightCurve:
                     outfile.write("%.2f\t" %histo.GetBinContent(i+1))
             outfile.write("\n")
 
-        print "INFO:", filename, "has been created." 
+        print ("INFO:", filename, "has been created." )
         outfile.close()
 
     def toProfile(self, filename, background=None, template=None):
@@ -1356,7 +1356,7 @@ class PulsarLightCurve:
         label_string = 'Phase_Min   Phase_Max   '
         for i in xrange(len(elos)):
             elo,ehi,bkg = elos[i],ehis[i],bkgs[i]
-            print elo,ehi,bkg
+            print (elo,ehi,bkg)
             if ehi > 30000: # infinity
                 prefix = 'GT%d'%(int(round(elo)))
             else:

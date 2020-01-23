@@ -101,7 +101,7 @@ class CALDBManager(object):
         if self.irf.startswith('P8'):
             #try the caldb index
             self.available_event_types = ('FRONT','BACK','PSF0','PSF1','PSF2','PSF3')
-            self.psf_files = [join(self.bcf,'psf','psf_%s_%s.fits'%(irf,i)) for i in 'FB','PSF']
+            self.psf_files = [join(self.bcf,'psf','psf_%s_%s.fits'%(irf,i)) for i in ('FB','PSF')]
         else:
             # see if the psf name is directly in the filename.
             self.available_event_types = ('FRONT','BACK')

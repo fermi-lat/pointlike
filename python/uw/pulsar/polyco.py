@@ -46,7 +46,7 @@ class PolycoEntry:
         phase += self.rphase + dt*60.0*self.f0
         phase -= math.floor(phase)
         if phase < 0.0 or phase >= 1.0:
-            print "BAD PHASE ",phase
+            print ("BAD PHASE ",phase)
         return(phase)
 
     def evalabsphase(self,t):
@@ -132,9 +132,9 @@ class Polyco:
             #doppler = float(sp[5])
             logrms = float(sp[6])
             if verbose:
-                print "- - - - - - -"
-                #print "psrname %s date %s utc %s tmid %s dm %f doppler %f logrms %f" % (psrname,date,utc,tmid,dm,doppler,logrms)
-                print "psrname %s date %s utc %s tmid %s dm %f logrms %f" % (psrname,date,utc,tmid,dm,logrms)
+                print ("- - - - - - -")
+                #print ("psrname %s date %s utc %s tmid %s dm %f doppler %f logrms %f" % (psrname,date,utc,tmid,dm,doppler,logrms))
+                print ("psrname %s date %s utc %s tmid %s dm %f logrms %f" % (psrname,date,utc,tmid,dm,logrms))
             line2 = f.readline()
             rphase = float(line2[0:20])
             f0 = float(line2[20:38])
@@ -148,7 +148,7 @@ class Polyco:
             else:
                 binphase = 0.0
             if verbose:
-                print "rphase %s f0 %s obs %s ncoeff %d nspan %d obsfreq %f binphase %f" % (repr(rphase),repr(f0),obs,ncoeff,nspan,obsfreq,binphase)
+                print ("rphase %s f0 %s obs %s ncoeff %d nspan %d obsfreq %f binphase %f" % (repr(rphase),repr(f0),obs,ncoeff,nspan,obsfreq,binphase))
             nlines = ncoeff//3
             nlast = ncoeff%3
             if nlast > 0:
@@ -160,7 +160,7 @@ class Polyco:
                     coeffs.append(float(c))
             coeffs = np.array(coeffs)
             if verbose:
-                print "COEFFS: ",coeffs
+                print ("COEFFS: ",coeffs)
             pe = PolycoEntry(tmid,mjdspan,rphase,f0,ncoeff,coeffs,obs)
             self.entries.append(pe)
         if len(self.entries)==0:
@@ -179,7 +179,7 @@ class Polyco:
         if (endMJD-mjd0) < 2:
             raise ValueError('Unacceptable MJD bounds.')
         if self.verbose:
-            print "MJD limits: %s %s"%(str(mjd0),str(endMJD))
+            print ("MJD limits: %s %s"%(str(mjd0),str(endMJD)))
         curdir = os.getcwd()
         if self.working_dir is not None:
             os.chdir(self.working_dir)
@@ -199,10 +199,10 @@ class Polyco:
             t2cmd = 'tempo2 -f %s%s -polyco "%s %s %d 12 12 %s 0 0\"'%(
                 polyconame,out_string,mjd0,endMJD,minutes,obs_string)
             if self.verbose:
-                print 'Creating polycos with command:\n',t2cmd
+                print ('Creating polycos with command:\n',t2cmd)
             o = subprocess.check_output(t2cmd,shell=True)
             if self.verbose:
-                print o
+                print (o)
         fname = '%spolyco_new.dat'%(prefix)
         polyconame=os.path.abspath(fname)
         DEVNULL = open(os.devnull,'wb')
@@ -223,19 +223,19 @@ class Polyco:
         if use_keys:
             idx = np.searchsorted(self.keys,t)
             if np.any(idx == len(self.keys)):
-                print 'The following MJDS were beyond the end of the polyco validity (%s):'%(self.keys[-1])
-                print t[idx == len(self.keys)] if type(t) is type(np.array([1])) else t
+                print ('The following MJDS were beyond the end of the polyco validity (%s):'%(self.keys[-1]))
+                print (t[idx == len(self.keys)] if type(t) is type(np.array([1])) else t)
                 raise IndexError
             if np.any(idx==0):
-                print 'The following MJDS were before the start of the polyco validity (%s):'%(self.keys[0])
-                print t[idx == 0] if type(t) is type(np.array([1])) else t
+                print ('The following MJDS were before the start of the polyco validity (%s):'%(self.keys[0]))
+                print (t[idx == 0] if type(t) is type(np.array([1])) else t)
                 raise IndexError
             return self.entries[idx-1]
         for pe in self.entries:
             if pe.valid(t):
                 return pe
         # This should probably throw an exception instead.
-        print "No valid polyco found for MJD ",t
+        print ("No valid polyco found for MJD ",t)
         sys.exit(9)
         return None
 

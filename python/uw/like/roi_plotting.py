@@ -30,7 +30,7 @@ def tight_layout(fig):
     try:
         fig.tight_layout()
     except:
-        print 'To make pretty figures, you need a newer version of matplotlib which has tight_layout!'
+        print ('To make pretty figures, you need a newer version of matplotlib which has tight_layout!')
         traceback.print_exc(file=sys.stdout)
 
 def format_degrees(x,*args):

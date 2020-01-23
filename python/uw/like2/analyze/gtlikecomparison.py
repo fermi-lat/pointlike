@@ -139,8 +139,8 @@ class FL8YComparison(sourceinfo.SourceInfo):
         df=self.df
         gdf = self.gdf
 
-        print ('Selecting seeds by first characters in source name'\)
-        '\n  pattern    seeds  TS>25   kept' 
+        print ('Selecting seeds by first characters in source name'\
+        '\n  pattern    seeds  TS>25   kept' )
         def get_seeds(df, pattern):
             seeded = np.array([name.startswith(pattern) for name in df.index]) 
             sdf = df[seeded].copy()

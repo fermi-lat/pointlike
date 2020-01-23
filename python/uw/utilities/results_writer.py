@@ -63,9 +63,9 @@ def writeResults(roi,filename=None,**kwargs):
     """ Saves out an ROI to a gtlike style results file. """
     emin,emax=roi.bin_edges[[0,-1]]
     if not roi.quiet:
-        if filename is not None: print "\nSaving ROI to results file %s" % filename
+        if filename is not None: print ("\nSaving ROI to results file %s" % filename)
 
-        print "\nPhoton fluxes are computed for the energy range %d to %d" % (emin,emax)
+        print ("\nPhoton fluxes are computed for the energy range %d to %d" % (emin,emax))
 
     source_dict={}
     source_dict.update(unparse_point_sources(roi,roi.psm.point_sources,emin,emax,**kwargs))
@@ -77,6 +77,6 @@ def writeResults(roi,filename=None,**kwargs):
         file.close()
 
         if not roi.quiet:
-            print "\nDone Saving ROI to results file %s" % filename
+            print ("\nDone Saving ROI to results file %s" % filename)
     
     return source_dict

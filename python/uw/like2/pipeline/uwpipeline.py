@@ -174,7 +174,7 @@ def main( args ):
         return
     try:
         procnames[proc](args)
-    except Exception, msg:
+    except Exception as msg:
         print ('Exception trying to execute procnames[%s](%s):\n\t%s' % ( proc,args, msg))
         raise
     #tee.close()

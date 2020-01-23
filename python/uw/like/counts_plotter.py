@@ -181,5 +181,5 @@ def roi_pipeline_counts_plot(roi, counts_dir=None, fignum=6, title=None, **kwarg
         else:
             fout = counts_dir
         fig.savefig(fout)
-        print 'saved counts plot to %s' % fout
+        print ('saved counts plot to %s' % fout)
     return axes

@@ -123,7 +123,7 @@ Create a new PixelData instance, managing data and livetime.
             if key in self.__dict__:
                 self.__dict__[key] = value
             else:
-                raise PixelDataException, 'keyword %s not recognized' % key
+                raise PixelDataException('keyword %s not recognized' % key)
         self._binner_set = False
 
         self._setup_files()
@@ -195,7 +195,7 @@ Create a new PixelData instance, managing data and livetime.
         c1 = N.abs(bins - 100).min() > 1
         c2 = (self.binsperdec % 4) > 0
         if c1 or c2:
-            print """
+            print ("""
             ###################WARNING!!!##########################
             It is STRONGLY recommended that you use a binning comm-
             ensurate with CALDB binning.  This can be achieved by 
@@ -205,7 +205,7 @@ Create a new PixelData instance, managing data and livetime.
             likelihood fitting if you want to narrow the energy
             bounds.
             #######################################################
-            """
+            """)
 
         pointlike.Data.set_class_level(self.event_class)
         pointlike.Data.set_zenith_angle_cut(self.zenithcut)
@@ -213,7 +213,7 @@ Create a new PixelData instance, managing data and livetime.
         if 'mc_energy' in self.__dict__:
             pointlike.Data.set_use_mc_energy(self.mc_energy)
         pointlike.Data.set_Gti_mask(self.gti)
-        if not self.quiet: print '.....set Data theta cut at %.1f deg'%(self.thetacut)
+        if not self.quiet: print ('.....set Data theta cut at %.1f deg'%(self.thetacut))
 
         if not self._binner_set:
             from pointlike import DoubleVector,IntVector
@@ -262,7 +262,7 @@ Create a new PixelData instance, managing data and livetime.
         if 'gti_mask' in self.__dict__ and self.gti_mask is not None:
             before = gti.computeOntime()
             gti.intersection(self.gti_mask)
-            if not self.quiet: print 'applied gti mask, before, after times: %.1f, %.1f' % (before, gti.computeOntime())
+            if not self.quiet: print ('applied gti mask, before, after times: %.1f, %.1f' % (before, gti.computeOntime()))
 
         return gti
 
@@ -275,27 +275,27 @@ Create a new PixelData instance, managing data and livetime.
             self._Data_setup(my_bins)
 
             if not self.quiet: 
-                print 'loading %d FT1 file(s) %s...%s' % (len(self.ft1files), self.ft1files[0], self.ft1files[-1])
-                if self.event_class>-1: print 'selecting event_class %d' %self.event_class
+                print ('loading %d FT1 file(s) %s...%s' % (len(self.ft1files), self.ft1files[0], self.ft1files[-1]))
+                if self.event_class>-1: print ('selecting event_class %d' %self.event_class)
             src_id = -1 if 'mc_src_id' not in self.__dict__ else self.mc_src_id
             data = pointlike.Data(self.ft1files,self.conv_type,self.tstart,self.tstop, src_id,'')
 
             self.dmap =data.map()
             self.fill_empty_bands(self.dmap, my_bins)     # fill any empty bins
 
-            if self.verbose: print 'done'
+            if self.verbose: print ('done')
             if self.binfile is not None:
-                if not self.quiet: print '.....saving binfile %s for subsequent use' % self.binfile
+                if not self.quiet: print ('.....saving binfile %s for subsequent use' % self.binfile)
                 data.write(self.binfile)
         if self.binfile is not None:
-            if not self.quiet: print '.....loading binfile %s ...' % self.binfile ,
+            if not self.quiet: print ('.....loading binfile %s ...' % self.binfile ,)
             self.dmap = skymaps.BinnedPhotonData(self.binfile)
-        if not self.quiet: print 'found %d bands, energies %.0f-%.0f MeV'\
-                % (len(self.dmap), self.dmap[1].emin(), self.dmap[len(self.dmap)-1].emax())
+        if not self.quiet: print ('found %d bands, energies %.0f-%.0f MeV'\
+                % (len(self.dmap), self.dmap[1].emin(), self.dmap[len(self.dmap)-1].emax()))
 
         if self.verbose:
             self.dmap.info()
-            print '---------------------'
+            print ('---------------------')
 
     def get_livetime(self,pixelsize=1.0,weighted = False,clobber = True):
 
@@ -303,14 +303,14 @@ Create a new PixelData instance, managing data and livetime.
         if self.ltcube is not None and os.path.exists(self.ltcube):
             try:
                 lt = skymaps.LivetimeCube(self.ltcube,weighted=weighted)
-                if not self.quiet: print 'loaded LivetimeCube %s ' % self.ltcube
+                if not self.quiet: print ('loaded LivetimeCube %s ' % self.ltcube)
                 return lt
             except RuntimeError:
                 if not self.quiet:
                     ext = 'WEIGHTED_EXPOSURE' if weighted else 'EXPOSURE'
                     print('no extension %s in file %s: will generate it from the ft2files'%(ext,self.ltcube))
         elif not self.quiet:
-            print 'LivetimeCube file %s does not exist: will generate it from the ft2 files' % self.ltcube
+            print ('LivetimeCube file %s does not exist: will generate it from the ft2 files' % self.ltcube)
         if self.roi_dir is None:
             # no roi specified: use full sky
             self.roi_dir = skymaps.SkyDir(0,0)
@@ -324,7 +324,7 @@ Create a new PixelData instance, managing data and livetime.
             weighted   =weighted)
 
         for hf in self.ft2files:
-            if not self.quiet: print 'loading FT2 file %s' %hf ,
+            if not self.quiet: print ('loading FT2 file %s' %hf ,)
             lt_gti = skymaps.Gti(hf,'SC_DATA')
             if not ((lt_gti.maxValue() < self.gti.minValue()) or
                     (lt_gti.minValue() > self.gti.maxValue())):

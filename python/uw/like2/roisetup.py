@@ -44,8 +44,8 @@ class ExposureManager(object):
             if not all(ok):
                 raise DataSetError('one of CALDB aeff files not found: %s' %aeff_files)
             self.ea  = [skymaps.EffectiveArea('', file) for file in aeff_files]
-            if dataset.verbose: print ' -->effective areas at 1 GeV: ', \
-                    ['%s: %6.1f'% (inst[i],self.ea[i](1000)) for i in range(len(inst))]
+            if dataset.verbose: print (' -->effective areas at 1 GeV: ', \
+                    ['%s: %6.1f'% (inst[i],self.ea[i](1000)) for i in range(len(inst))])
             
             if dataset.use_weighted_livetime and hasattr(dataset, 'weighted_lt'):
                 return [skymaps.Exposure(dataset.lt,dataset.weighted_lt,ea) for ea in self.ea]
@@ -154,7 +154,7 @@ class ROIfactory(object):
         input_config = eval(open(os.path.expandvars(modeldir+'/config.txt')).read())
         for key in 'extended irf'.split():
             if self.__dict__[key] is None or self.__dict__[key]=='None': 
-                #print '%s: %s replace from skymodel: "%s"' %(key, kwargs.get(key,None), input_config.get(key,None))
+                #print ('%s: %s replace from skymodel: "%s"' %(key, kwargs.get(key,None), input_config.get(key,None)))
                 self.__dict__[key]=input_config.get(key, None)
 
         # check for skymodel_kw in the config,txt file, use if found
@@ -242,8 +242,8 @@ class ROIfactory(object):
                 bpd = self.dataset.binsperdec
             global_models = [diffuse.mapper(self.psf, self.exposure, skydir, 
                     source, binsperdec = bpd, quiet=self.quiet) for source in globals]
-        except Exception, msg:
-            print self.dataset, msg
+        except Exception as msg:
+            print (self.dataset, msg)
             raise
 
         def extended_mapper( source):

@@ -35,12 +35,12 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None):
         return 8*'' if beta<1e-2 else '%8.2f'%beta
     if sdir is None: sdir = self.roi_dir
     if title is None: title = self.name
-    print 90*'-', '\n\t Nearby point sources within %.1f degrees %s' % (maxdist,title)
+    print (90*'-', '\n\t Nearby point sources within %.1f degrees %s' % (maxdist,title))
     colstring = 'name dist ra dec TS flux8 index beta cutoff'
     if galactic: colstring =colstring.replace('ra dec', 'l b')
     colnames = tuple(colstring.split())
     n = len(colnames)-1
-    print ('%-13s'+n*'%10s')% colnames
+    print (('%-13s'+n*'%10s')% colnames)
     point    = list(self.psm.point_sources)
     extended = [s for s in self.bgm.diffuse_sources if 'spatial_model' in s.__dict__ ]
     for ps in point+extended:
@@ -60,9 +60,9 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None):
             if expcutoff and i==npar-1: fmt+=10*' '# gap if ExpCutoff to line up with cutoff 
             fmt    += '%9.2f%1s' 
             values += (par[i], freeflag[i]) 
-        print fmt % values
+        print (fmt % values)
         
-    print 90*'-','\n\tDiffuse sources\n',90*'-'
+    print (90*'-','\n\tDiffuse sources\n',90*'-')
     for source in self.bgm.diffuse_sources:
         if  'spatial_model' in source.__dict__: continue
         par, sigpar = source.model.statistical()
@@ -73,5 +73,5 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None):
         for v,f in zip(par, freeflag):
             fmt +='%10.2f%1s'
             values +=(v,f)
-        print fmt % values
-    print 90*'-'
+        print (fmt % values)
+    print (90*'-')

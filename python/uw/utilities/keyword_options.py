@@ -76,8 +76,8 @@ def process(self, kwargs, defaults=None):
     for key in kwargs.keys():
         if key in self.__dict__: self.__dict__[key]=kwargs[key]
         else:
-            raise KeyError, "option '%s' not recognized by %s: expect one of:%s"\
-            % (key,self.__class__.__name__, sorted(self.__dict__.keys()))
+            raise KeyError("option '%s' not recognized by %s: expect one of:%s"\
+            % (key,self.__class__.__name__, sorted(self.__dict__.keys())))
 
 
 def defaults_to_kwargs(obj,default_object):

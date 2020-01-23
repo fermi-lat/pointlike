@@ -69,7 +69,7 @@ class ROILocalizer(object):
         if 'energy_bands' not in roi.__dict__.keys(): roi.setup_energy_bands()
         for eb in roi.energy_bands: eb.bandFit(which=self.which,saveto='bandfits')
         if np.all(np.asarray([b.bandfits for b in roi.bands]) < 0):
-            if not self.quiet: print 'Warning! No good band fits.  Reverting to broadband fit...'
+            if not self.quiet: print ('Warning! No good band fits.  Reverting to broadband fit...')
             self.bandfits = False
 
     def TSmap(self,skydir):
@@ -105,10 +105,10 @@ class ROILocalizer(object):
         if not self.quiet:
             fmt ='Localizing source %s, tolerance=%.1e...\n\t'+7*'%10s'
             tup = (self.name, tolerance,)+tuple('moved delta ra     dec    a     b  qual'.split())
-            print fmt % tup
-            print ('\t'+4*'%10.4f')% (0,0,self.sd.ra(), self.sd.dec())
+            print (fmt % tup)
+            print (('\t'+4*'%10.4f')% (0,0,self.sd.ra(), self.sd.dec()))
             diff = l.dir.difference(self.sd)*180/np.pi
-            print ('\t'+7*'%10.4f')% (diff,diff, l.par[0],l.par[1],l.par[3],l.par[4], l.par[6])
+            print (('\t'+7*'%10.4f')% (diff,diff, l.par[0],l.par[1],l.par[3],l.par[4], l.par[6]))
         
         old_sigma=1.0
         for i in xrange(self.max_iteration):
@@ -118,14 +118,14 @@ class ROILocalizer(object):
             except:
                 #raise
                 l.recenter()
-                if not self.quiet: print 'trying a recenter...'
+                if not self.quiet: print ('trying a recenter...')
                 continue
             diff = l.dir.difference(ld)*180/np.pi
             delt = l.dir.difference(self.sd)*180/np.pi
             sigma = l.par[3]
-            if not self.quiet: print ('\t'+7*'%10.4f')% (diff, delt, l.par[0],l.par[1],l.par[3],l.par[4], l.par[6])
+            if not self.quiet: (print ('\t'+7*'%10.4f')% (diff, delt, l.par[0],l.par[1],l.par[3],l.par[4], l.par[6]))
             if delt>self.maxdist:
-                if not self.quiet: print '\t -attempt to move beyond maxdist=%.1f' % self.maxdist
+                if not self.quiet: print ('\t -attempt to move beyond maxdist=%.1f' % self.maxdist)
                 raise Exception('roi_localize failure: -attempt to move beyond maxdist=%.1f' % self.maxdist)
             if (diff < tolerance) and (abs(sigma-old_sigma) < tolerance):
                 break
@@ -137,7 +137,7 @@ class ROILocalizer(object):
         roi.lsigma   = l.sigma
 
         ll1 = self.spatialLikelihood(l.dir,update=update)
-        if not self.quiet: print 'TS change: %.2f'%(2*(ll0 - ll1))
+        if not self.quiet: print ('TS change: %.2f'%(2*(ll0 - ll1)))
 
         roi.delta_loc_logl = (ll0 - ll1)
 
@@ -227,10 +227,10 @@ def print_ellipse(roi, label=True, line=True):
     self=roi
     if not self.qform: return
     labels = 'ra dec a b ang qual'.split()
-    if label: print (len(labels)*'%10s') % tuple(labels)
+    if label: print ((len(labels)*'%10s') % tuple(labels))
     if not line: return
     p = self.qform.par[0:2]+self.qform.par[3:]
-    print len(p)*'%10.4f' % tuple(p)
+    print (len(p)*'%10.4f' % tuple(p))
 
 def get_ellipse(roi):
     """ Returns a dictionary specifying the elliptical 
@@ -258,7 +258,7 @@ class ROILocalizerExtended(ROILocalizer):
             bfe=roi_extended.BandFitExtended(self.which,eb,self.roi)
             bfe.fit(saveto='bandfits')
         if np.all(np.asarray([b.bandfits for b in self.roi.bands]) < 0):
-            if not self.quiet: print 'Warning! No good band fits.  Reverting to broadband fit...'
+            if not self.quiet: print ('Warning! No good band fits.  Reverting to broadband fit...')
             self.bandfits = False
 
     def spatialLikelihood(self,skydir,update=False):
@@ -449,7 +449,7 @@ class DualLocalizer():
             self.ll_best = ll
             self.best_spectral = roi.parameters().copy()
 
-        if self.verbose: print 'd=%s f=%.1e, d2=%s, f=%.1e, dist=%.3f logL=%.3f dlogL=%.3f' % \
+        if self.verbose: print ('d=%s f=%.1e, d2=%s, f=%.1e, dist=%.3f logL=%.3f dlogL=%.3f' % \)
                 (rot_back_1, rotations.print_flux(self.p1,roi), 
                  rot_back_2, rotations.print_flux(self.p2,roi), 
                  np.degrees(rot_back_1.difference(rot_back_2)),
@@ -462,7 +462,7 @@ class DualLocalizer():
 
         p1,p2=self.p1, self.p2
 
-        if not roi.quiet: print 'Dual localizing source %s and %s' % (self.p1.name,self.p2.name)
+        if not roi.quiet: print ('Dual localizing source %s and %s' % (self.p1.name,self.p2.name))
 
         d1=self.p1.skydir
         d2=self.p2.skydir

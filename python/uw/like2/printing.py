@@ -44,14 +44,14 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
     if title is None: 
         title = self.name if hasattr(self,'name') else ''
     if free_only:
-        print 90*'-', '\n\tFree sources {}'.format(title)
+        print (90*'-', '\n\tFree sources {}'.format(title))
     else:
-        print 90*'-', '\n\t Nearby sources within %.1f degrees %s' % (maxdist,title)
+        print (90*'-', '\n\t Nearby sources within %.1f degrees %s' % (maxdist,title))
     colstring = 'name dist ra dec TS enorm(eV) index energy beta/b'
     if galactic: colstring =colstring.replace('ra dec', 'l b')
     colnames = tuple(colstring.split())
     n = len(colnames)-1
-    print ('%-13s'+4*'%10s'+' '+(n-4)*'%9s')% colnames
+    print (('%-13s'+4*'%10s'+' '+(n-4)*'%9s')% colnames)
     local_sources =  filter(lambda s: s.skydir is not None, roi.sources[:])
     local_sources.sort( key=lambda s: s.skydir.difference(center))
     global_sources = filter(lambda s: s.skydir is None, roi.sources[:]) if not no_global else []
@@ -93,10 +93,10 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
             fmt+='%8.2f%1s'
             values += (par[j], freeflag[j])
         
-        print fmt % values
+        print (fmt % values)
         
     if len(global_sources) > 0 :
-        print 90*'-','\n\tDiffuse sources\n',90*'-'
+        print (90*'-','\n\tDiffuse sources\n',90*'-')
     for source in global_sources:
         par, sigpar = source.spectral_model.statistical()
         n= len(par)
@@ -106,8 +106,8 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
         for v,f in zip(par, freeflag):
             fmt +='%10.2f%1s'
             values +=(v,f)
-        print fmt % values
-    print 90*'-'
+        print (fmt % values)
+    print (90*'-')
 
 
 def gtlike(roi, sources=None, tsmin=25):
@@ -117,14 +117,14 @@ def gtlike(roi, sources=None, tsmin=25):
 
     for source in sorted(sourcenames):
         model = roi.get_model(source)#.model
-        print source
-        print '   Spectrum: %s' %model.name
+        print (source)
+        print ('   Spectrum: %s' %model.name)
         for i in np.arange(model.npar)[model.free]:
             value = model.get_all_parameters()[i]
             error = np.sqrt(max(0, model.get_cov_matrix()[i,i]))
             gtname =model.gtlike_param_names()[i]
             scale = 10**(int(np.log10(value))-1) if gtname=='norm' else 1.0
-            print '%16s: %7.4f %7.4f ( %.1e)' % (gtname, value/scale, error/scale, scale)
+            print ('%16s: %7.4f %7.4f ( %.1e)' % (gtname, value/scale, error/scale, scale))
             
 def band_summary(roi, event_type=0):
     snames = ['data','model','residual', 'normresid']+[s.name for s in roi.sources]

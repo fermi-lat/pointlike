@@ -46,7 +46,7 @@ class SkyModel(object):
         """
         keyword_options.process(self, kwargs)
         #if self.free_index is not None: 
-        #    print 'will free photon indices for ts>%d' % self.free_index
+        #    print (will free photon indices for ts>%d' % self.free_index)
 
         self.folder = os.path.expandvars(folder)
         if not os.path.exists(self.folder):
@@ -105,7 +105,7 @@ class SkyModel(object):
         if ext =='.pickle':
             ss = pd.load(cat).itertuples()
             dataframe=True
-            print 'loading auxcat from DataFrame'
+            print ('loading auxcat from DataFrame')
         elif ext == '.csv':
             cc = pd.read_csv(cat)
             cols =list(cc.columns) 
@@ -114,7 +114,7 @@ class SkyModel(object):
             i_pindex= cols.index('pindex')+1
             i_e0 = cols.index('e0')+1
             dataframe=True
-            print 'loading auxcat from csv'
+            print ('loading auxcat from csv')
         else:
             ss = makerec.load(cat); dataframe=False
         names = [s.name for s in self.point_sources]
@@ -123,7 +123,7 @@ class SkyModel(object):
             closest = np.degrees(np.min(np.array(map(sdir.difference, sdirs))))
             return closest
         toremove=[]
-        print 'process auxcat %s' %cat
+        print ('process auxcat %s' %cat)
         for s in ss:
             if dataframe:
                 # from csv: construct full model from parameters
@@ -145,22 +145,22 @@ class SkyModel(object):
                 skydir=SkyDir(float(sra), float(sdec))
                 close = check_near(skydir)
                 if close < tol:
-                    print '\tsource %s close to another source, reject' % sname
+                    print ('\tsource %s close to another source, reject' % sname)
                     continue
                 index=self.hpindex(skydir)
                 if model is not None:
                     model.free[0] = True # must have at least one free parameter to be set up properly in an ROI
                 self.point_sources.append(sources.PointSource(name=sname, skydir=skydir, index=index,  model=model))
-                print '\tadded new source %s at ROI %d (%.1f deg )' % (sname, index, close)
+                print ('\tadded new source %s at ROI %d (%.1f deg )' % (sname, index, close))
             else: 
-                print '\t source %s is in the model:' %sname, # will remove if ra<0' % sname
+                print ('\t source %s is in the model:' %sname, # will remove if ra<0' % sname)
                 ps = self.point_sources[names.index(sname)]
                 if float(sra)<=0: 
                     toremove.append(ps)
-                    print ' removed.'
+                    print (' removed.')
                 else:
                     newskydir=SkyDir(float(sra),float(sdec))
-                    print 'moved from %s to %s' % (ps.skydir, newskydir)
+                    print ('moved from %s to %s' % (ps.skydir, newskydir))
                     ps.skydir=newskydir
         for ps in toremove:
             self.point_sources.remove(ps)
@@ -179,7 +179,7 @@ class SkyModel(object):
         if not os.path.exists(extended_catalog_name):
             raise Exception('extended source folder "%s" not found' % extended_catalog_name)
         self.extended_catalog= sources.ExtendedCatalog(extended_catalog_name, force_map=self.force_spatial_map)
-        #print 'Loaded extended catalog %s' % self.extended_catalog_name
+        #print ('Loaded extended catalog %s' % self.extended_catalog_name)
         
     def _load_sources(self):
         """
@@ -219,7 +219,7 @@ class SkyModel(object):
             for key,item in roi_sources.items():
                 if key in extended_names: continue
                 if key in source_names:
-                    #if not self.quiet: print 'SkyModel warning: source with name %s in ROI %d duplicates previous entry: ignored'%(key, i)
+                    #if not self.quiet: print ('SkyModel warning: source with name %s in ROI %d duplicates previous entry: ignored'%(key, i))
                     continue
                 source_names.append(key)
                 skydir = item['skydir']
@@ -253,17 +253,17 @@ class SkyModel(object):
                     try:
                         es = self.extended_catalog.lookup(name) if self.extended_catalog is not None else None
                     except Exception, msg:
-                        print 'Skymodel: Failed to create model for %s' %name
+                        print ('Skymodel: Failed to create model for %s' %name)
                         raise
                     if es is None:
                         #raise Exception( 'Extended source %s not found in extended catalog' %name)
-                        print 'SkyModel warning: Extended source %s not found in extended catalog, removing' %name
+                        print ('SkyModel warning: Extended source %s not found in extended catalog, removing' %name)
                         continue
                     if self.hpindex(es.skydir)!=index: continue
                     
                     if es.model.name!=model.name:
                         if name not in self.changed:
-                            if not self.quiet: print 'SkyModel warning: catalog model  %s changed from %s for source %s: keeping change'%\
+                            if not self.quiet: print ('SkyModel warning: catalog model  %s changed from %s for source %s: keeping change'%\)
                                    (es.model.name, model.name, name)
                         self.changed.add(name)
                     es.smodel=es.model=model #update with current fit values always
@@ -272,14 +272,14 @@ class SkyModel(object):
         # check for new extended sources not yet in model
         self._check_for_extended()
         if self.update_positions and moved>0:
-            print 'updated positions of %d sources, healpix ids in tagged' % moved
+            print ('updated positions of %d sources, healpix ids in tagged' % moved)
  
     def _check_for_extended(self):
         if self.__dict__.get('extended_catalog') is None: return
         for i,name in enumerate(self.extended_catalog.names):
             if name.replace(' ','') not in [g.name.replace(' ','') for g in self.extended_sources]:
                 es = self.extended_catalog.sources[i]
-                print 'extended source %s [%d] added to model' % (name, self.hpindex(es.skydir))
+                print ('extended source %s [%d] added to model' % (name, self.hpindex(es.skydir)))
                 t = self.extended_catalog.lookup(name)
                 assert t is not None, 'logic error?'
                 self.extended_sources.append(t)
@@ -291,8 +291,8 @@ class SkyModel(object):
         for s in self.point_sources:
             delta=func(s.skydir)
             if delta<tol:
-                print  'SkyModel warning: appended source %s %.2f %.2f is %.2f deg (<%.2f) from %s (%d)'\
-                    %(ps.name, ps.skydir.ra(), ps.skydir.dec(), np.degrees(delta), self.closeness_tolerance, s.name, s.index)
+                print  ('SkyModel warning: appended source %s %.2f %.2f is %.2f deg (<%.2f) from %s (%d)'\
+                    %(ps.name, ps.skydir.ra(), ps.skydir.dec(), np.degrees(delta), self.closeness_tolerance, s.name, s.index))
         
     def skydir(self, index):
         return Band(self.nside).dir(index)
@@ -451,7 +451,7 @@ class UpdatePulsarModel(object):
         self.psr_names = self.data.field('Source_Name')
         self.tags = [False]*len(self.data)
         self.assoc = [['',-1, -1]]*len(self.data) #associated psr_names
-        print 'Will check associations with LAT pulsar catalog %d' %version
+        print ('Will check associations with LAT pulsar catalog %d' %version)
         self.rename = rename
         
     def get_pulsar_name(self, sdir):
@@ -474,26 +474,26 @@ class UpdatePulsarModel(object):
                 self.tags[i]=True
                 self.assoc[i]=(s.name, dist, s.ts)
                 if self.rename and s.name != self.psr_names[i]: 
-                    print 'Skymodel: renaming %s(%d) to %s' % (s.name, s.index, self.psr_names[i])
+                    print ('Skymodel: renaming %s(%d) to %s' % (s.name, s.index, self.psr_names[i]))
                     s.name = self.psr_names[i]
                 if s.model.name=='ExpCutoff': return True
                 flux = s.model[0]
                 if flux>1e-18:
-                    print 'Skymodel: replacing model for: %s(%d): pulsar name: %s' % (s.name, s.index, self.psr_names[i]) 
+                    print ('Skymodel: replacing model for: %s(%d): pulsar name: %s' % (s.name, s.index, self.psr_names[i]) )
                     s.model = Models.ExpCutoff()
                     s.free = s.model.free.copy()
                 else:
-                    print 'Apparent pulsar %s(%d), %s, is very weak, flux=%.2e <1e-13: leave as powerlaw' % (s.name, s.index, self.psr_names[i], flux)
+                    print ('Apparent pulsar %s(%d), %s, is very weak, flux=%.2e <1e-13: leave as powerlaw' % (s.name, s.index, self.psr_names[i], flux))
                 return True
         if s.model.name=='ExpCutoff':
-            print 'Skymodel setup warning: %s (%d) not in LAT pulsar list, should not be expcutoff' % (s.name, s.index)
+            print ('Skymodel setup warning: %s (%d) not in LAT pulsar list, should not be expcutoff' % (s.name, s.index))
         return True
     def summary(self):
         n = len(self.tags)-sum(self.tags)
         if n==0: return
-        print 'did not find %d sources ' % n
+        print ('did not find %d sources ' % n)
         for i in range(len(self.tags)):
-            if not self.tags[i]: print '%s %9.3f %9.3f ' % (self.psr_names[i], self.sdir[i].ra(), self.sdir[i].dec())
+            if not self.tags[i]: print ('%s %9.3f %9.3f ' % (self.psr_names[i], self.sdir[i].ra(), self.sdir[i].dec()))
      
 class MultiFilter(list):
     """ filter that is a list of filters """
@@ -546,7 +546,7 @@ class LimbSpecial(object):
     """ fix limb to freeze Front """
     def __call__(self, s):
         if s.name=='limb':
-            print 'fixing limb'
+            print ('fixing limb')
             s.model.free = np.array([False, True])
             pars = s.model.get_parameters()
             if pars[0]<=-3: s.model.set_parameters(np.array([-1.]))
@@ -569,13 +569,13 @@ class Rename(object):
             return (t[0]+'_'+t[1], t[2])
         with open(namefile) as inp:
             self.namedict = dict( parse_line(line) for line in inp if len(line)>9)
-        print 'found %d names to convert' % len(self.namedict)
+        print ('found %d names to convert' % len(self.namedict))
         
     def __call__(self, s):
         t = s.name
         s.name = self.namedict.get(s.name, s.name)
         return s.name != '*'
         if s.name[0] =='*':
-           print 'deleting', t
+           print ('deleting', t)
            return False
         return True

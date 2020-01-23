@@ -38,7 +38,7 @@ class SourceComparison(sourceinfo.SourceInfo):
         assert os.path.exists(cat), 'Did not find file %s' %cat
         ft = pyfits.open(cat)[1].data
         self.ft=ft # temp
-        print 'loaded gtlike file %s with %d entries' % (cat, len(ft))
+        print ('loaded gtlike file %s with %d entries' % (cat, len(ft)))
         
         super(SourceComparison, self).setup(**kw)
         self.plotfolder='comparison_%s' % catname
@@ -55,11 +55,11 @@ class SourceComparison(sourceinfo.SourceInfo):
         fieldnames = ft.dtype.fields.keys()
         id_check = map(lambda n:n.startswith('ID_Prob'), fieldnames)
         if sum(id_check)==0:
-            print 'warning: ID_Probability field not found' 
+            print ('warning: ID_Probability field not found' )
             id_prob = [np.nan]*len(ft)
         else:
             id_name = fieldnames[range(len(fieldnames))[id_check][0]]
-            print 'Using prob from field {}'.format(id_name)
+            print ('Using prob from field {}'.format(id_name))
             id_prob = ft[id-name]
 
         cat_skydirs = map (lambda x,y: SkyDir(float(x),float(y)), 
@@ -79,8 +79,8 @@ class SourceComparison(sourceinfo.SourceInfo):
         sourcenames = ft.Source_Name if 'Source_Name' in ft.dtype.fields else nicknames
         index = map(nickfix, nicknames) #Source_Name 
         if len(not_found)>0:
-            print '{} entries not found in {}, names starting with {}'.format(len(not_found), 
-                self.skymodel, list(set(map(lambda n:n[:4], not_found))))
+            print ('{} entries not found in {}, names starting with {}'.format(len(not_found), 
+                self.skymodel, list(set(map(lambda n:n[:4], not_found)))))
         self.not_found= not_found
         self.gtlike_info['missing'] = len(not_found)
         flags = np.asarray(ft.Flags_3FGL,int) if 'Flags_3FGL' in ft.dtype.fields else [0]*len(ft)
@@ -119,7 +119,7 @@ class SourceComparison(sourceinfo.SourceInfo):
         try:
             self.cat['pt_eflux_unc']=self.df.eflux_unc
         except:
-            print 'No eflux_unc in input.'
+            print ('No eflux_unc in input.')
             self.cat['pt_eflux_unc'] = np.nan
         self.cat['pt_pivot'] =self.df.pivot_energy
         self.cat['ispsr']= map(lambda name:name.startswith('PSR'), self.cat.index)
@@ -130,7 +130,7 @@ class SourceComparison(sourceinfo.SourceInfo):
         self.gtlike_info['pulsars'] = sum(self.cat.ispsr)
         self.gtlike_info['extended']=sum(self.cat.isextended)
 
-        print 'Found {} extended sources, {} pulsars'.format(sum(self.cat.isextended), sum(self.cat.ispsr))
+        print ('Found {} extended sources, {} pulsars'.format(sum(self.cat.isextended), sum(self.cat.ispsr)))
          
         def find_close(A,B):
             """ helper function: make a DataFrame with A index containg
@@ -146,7 +146,7 @@ class SourceComparison(sourceinfo.SourceInfo):
                 index=A.index, columns=('otherid','distance'))
                 
         if self.catname=='2FGL' or self.catname=='3FGL':
-            print 'generating closest distance to catalog "%s"' % self.catname
+            print ('generating closest distance to catalog "%s"' % self.catname)
             closedf= find_close(self.df, self.cat)
             self.df['closest']= closedf['distance']
             self.df['close_name']=closedf.otherid
@@ -165,7 +165,7 @@ class SourceComparison(sourceinfo.SourceInfo):
 
         """
         ft=self.ft
-        nroi = max(ft.ROI_num); print 'found {} ROIs'.format(nroi)
+        nroi = max(ft.ROI_num); print ('found {} ROIs'.format(nroi))
         occ=np.histogram(ft.ROI_num,np.linspace(1,nroi+1,nroi+1) )[0]
         #occ.min(), occ.mean(), occ.max()
         fig, axx = plt.subplots(1,2, figsize=(10,4))
@@ -193,12 +193,12 @@ class SourceComparison(sourceinfo.SourceInfo):
         self.same=same = self.cat.query('ismissing==False and ispsr==False').copy()
         same['unc_eflux'] = same.unc_flux * same.eflux/same.flux
         self.same_count = len(same)
-        print 'Comparing {} sources with LP fits'.format(self.same_count)
+        print ('Comparing {} sources with LP fits'.format(self.same_count))
         fig, axx = plt.subplots(3,2, figsize=(15,10), sharex=True, sharey=True)
         plt.subplots_adjust(hspace=0.,wspace=0, top=0.96)
         good_sel = filter( lambda x: x in same.index, select)
         if len(good_sel)>0:
-            print 'selecting sources {}'.format(good_sel)
+            print ('selecting sources {}'.format(good_sel))
         ratio_plots = OrderedDict([
             ('TS',        same.pt_ts/same.ts), 
             ('pivot',     same.pt_pivot/same['pivot']),
@@ -208,7 +208,7 @@ class SourceComparison(sourceinfo.SourceInfo):
             ('index_unc', same.pt_index_unc/same.unc_pindex),
             ])
         for ax, title, ratio, in zip(axx.flatten(), ratio_plots.keys() ,ratio_plots.values()): 
-            print title, ratio.mean()
+            print (title, ratio.mean())
             ax.semilogx(same.ts, ratio, '.')
             for i,sel in enumerate(good_sel):
                 ax.semilogx(same.ts[sel], ratio[sel], color='red',marker='*v^<>1234sp'[i], 
@@ -290,9 +290,9 @@ class SourceComparison(sourceinfo.SourceInfo):
         self.close_cut = close_cut
         fig,axx = plt.subplots(1,2, figsize=(8,4))
         self.lost = self.cat.closest>close_cut
-        print '%d sources from %s further than %.2f deg: consider lost' % (sum(self.lost) , self.catname, close_cut )
+        print ('%d sources from %s further than %.2f deg: consider lost' % (sum(self.lost) , self.catname, close_cut ))
         self.cat.ix[self.lost].to_csv(os.path.join(self.plotfolder,'3fgl_lost.csv'))
-        print '\twrite to file "%s"' % os.path.join(self.plotfolder,'3fgl_lost.csv')
+        print ('\twrite to file "%s"' % os.path.join(self.plotfolder,'3fgl_lost.csv'))
         lost_assoc = self.lost & (self.cat.id_prob>0.8)
 
         def left(ax):
@@ -369,8 +369,8 @@ class SourceComparison(sourceinfo.SourceInfo):
             nick = self.cat.ix[i].name
             j=  list(self.df.close_name).index(nick)
             return self.df.ix[j]
-        except Exception, msg:
-            print 'Source %s not found (%s)' % (namec, msg)
+        except Exception as msg:
+            print ('Source %s not found (%s)' % (namec, msg))
             return None
 
 class CompareSimulation(object):
@@ -381,9 +381,9 @@ class CompareSimulation(object):
         self.uwmodel=uwmodel
         self.sim = sim
         dfm = pd.read_csv('sources_{}.csv'.format(sim), index_col=0); 
-        print '{}:'.format(sim) ,len(dfm)
+        print ('{}:'.format(sim) ,len(dfm))
         dfa = pd.read_csv('../{0}/sources_{0}.csv'.format(uwmodel), index_col=0); 
-        print '{}:'.format(uwmodel),len(dfa)
+        print ('{}:'.format(uwmodel),len(dfa))
         self.dfm=dfm
         self.dfa=dfa
         def set_glat(df):
@@ -407,7 +407,7 @@ class CompareSimulation(object):
         # load gll version of FL8Y 
         file = os.path.expandvars('$FERMI/catalog/'+fl8y_file) 
         df_fl8y=Table.read(file, hdu=1).to_pandas()
-        print 'FL8Y: {} w/ {} sources'.format(fl8y_file, len(df_fl8y))
+        print ('FL8Y: {} w/ {} sources'.format(fl8y_file, len(df_fl8y)))
         df_fl8y.index=df_fl8y.NickName
         del df_fl8y['NickName'];
 

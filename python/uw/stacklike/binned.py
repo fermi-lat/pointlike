@@ -883,7 +883,7 @@ class CombinedLike(object):
         self.minuit.minimize()
         self.lmax = self.best[1]#self.minuit.fval#self.minuit[1]#
         if self.verbose:
-            print ('Likelihood value: %1.1f'%self.minuit.fval#[1]#)
+            print ('Likelihood value: %1.1f'%self.minuit.fval)#[1]#
             print ('**********************************************************')
         #print (self.gradient(self.minuit.params,False))
         ###########  get parameters and errors #################

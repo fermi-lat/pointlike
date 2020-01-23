@@ -241,7 +241,7 @@ class ROI(views.LikelihoodViews):
                 if summarize: fv.summary()
                 if plot: fv.plot_all()
                 
-            except Exception, msg:
+            except Exception as msg:
                 print ('Fit Failure %s: quality: %.2f' % (msg, qual))
                 fv.summary() # 
                 if not ignore_exception: raise
@@ -280,7 +280,7 @@ class ROI(views.LikelihoodViews):
         with sedfuns.SED(self, source.name) as sf:
             try:
                 p,maxdev= sf.full()
-            except Exception, msg:
+            except Exception as msg:
                 print ('Failed profile fit for {}: {}'.format(source.name, msg))
                 source.profile=None
                 return 
@@ -317,7 +317,7 @@ class ROI(views.LikelihoodViews):
             try: 
                 loc.localize()
                 t =  loc.ellipse if hasattr(loc, 'ellipse') else None
-            except Exception, e:
+            except Exception as e:
                 print ('Failed localization for source %s: %s' % (tsm.source.name, e))
                 if ignore_exception: return None
                 raise 
@@ -446,7 +446,7 @@ class ROI(views.LikelihoodViews):
                 tsize = kwargs.pop('tsize', source.ellipse[2]*15.) if hasattr(source, 'ellipse') and source.ellipse is not None \
                          else 2.0 # scale according to major axis s
                 plot_kw.update(size=tsize, pixelsize=kwargs.pop('pixelsize', tsize/15.), maxsize=tsize)
-            except Exception, e:
+            except Exception as e:
                 print ('Failed localization for source %s: %s' % (source.name, e))
                 if not ignore_exception:
                     raise
@@ -490,7 +490,7 @@ class ROI(views.LikelihoodViews):
                     self.localize(source.name)
                 with self.tsmap_view(source.name) as tsv:
                     associate.make_association(source, tsv, self.srcid)
-            except Exception, msg:
+            except Exception as msg:
                 print ('Exception raised while associating souurce %s: %s' %(source.name, msg))
 
         if source_name=='all':
@@ -586,7 +586,7 @@ class MultiROI(ROI):
     def setup_roi(self, roi_spec, **load_kw):
         try:
             roi_index = self.roi_index(roi_spec)
-        except Exception, msg:
+        except Exception as msg:
             print ('ROI specification "{}" unrecognized'.format(roi_spec))
             return
         roi_bands = bands.BandSet(self.config, roi_index)

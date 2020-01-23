@@ -252,7 +252,7 @@ class ParSubSet(ParameterSet):
                         selected = selected.union(toadd )
                     else:
                         raise Exception('fit parameter select list item %s, type %s, must be either an integer or a string' %(item, type(item)))
-            except Exception, msg:
+            except Exception as msg:
                 raise Exception('Fail parameter select: {}'.format(msg))
             select = sorted(list(selected))
             if len(select)==0:

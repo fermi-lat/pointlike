@@ -43,7 +43,7 @@ class GCcomparison(sourceinfo.SourceInfo):
         df.index=data.field('Source_name'); 
         df.index.name='name'
         df['sd'] = map(SkyDir, df.ra,df.dec)
-        print 'Created a DataFrame from {} with {} rows'.format(filename, len(df))
+        print ('Created a DataFrame from {} with {} rows'.format(filename, len(df)))
         self.dfgc = df
         self.gcname=gcname
         self.setup_info='Comparing sources in file {} with {}'\
@@ -86,7 +86,8 @@ class GCcomparison(sourceinfo.SourceInfo):
         dfuw['sd'] = map(SkyDir, dfuw.ra, dfuw.dec)
         dfuw['pos_sigma'] = (dfuw.a * dfuw.b) ** 0.5
         text = 'Selected {} uw sources within box of {} deg about GC'.format(len(dfuw),angle_cut)
-        print text; self.setup_info +='<br>'+text
+        print (text);
+        self.setup_info +='<br>'+text
         self.dfuw = dfuw
 
     def correlate(self, angle_cut=0.1):
@@ -115,7 +116,7 @@ class GCcomparison(sourceinfo.SourceInfo):
         df['uw_roi'] = [int((dfuw.ix[i].roiname)[-4:]) for i in cl_gc[:,0]]
         df['uwok'] = df.dist<close_cut
         df['nouw'] = np.logical_not(df.uwok)
-        print 'GC sources associated with uw: {}/{}'.format(sum(df.uwok), len(df))
+        print ('GC sources associated with uw: {}/{}'.format(sum(df.uwok), len(df)))
 
         #add correlation info to the UW dataframe
         dfuw['gc_id'] = np.array(cl_uw[:,0])
@@ -126,7 +127,7 @@ class GCcomparison(sourceinfo.SourceInfo):
         dfuw['gc_pindex'] = [df.ix[i].Spectral_Index for i in cl_uw[:,0]]
         dfuw['gcok'] = dfuw.dist<close_cut
         dfuw['nogc'] = np.logical_not(dfuw.gcok)
-        print 'UW sources associated with GC: {}/{}'.format(sum(dfuw.gcok), len(dfuw))
+        print ('UW sources associated with GC: {}/{}'.format(sum(dfuw.gcok), len(dfuw)))
         
         fig, axx =plt.subplots(1,2, figsize=(12,6))
         ax=axx[0]
@@ -260,7 +261,7 @@ class GCcomparison(sourceinfo.SourceInfo):
             )
         outfile = self.plotfolder+'/selected.csv'
         dfsel.to_csv(outfile)
-        print 'Wrote {} seeds to file {}'.format(sum(selection), outfile)
+        print ('Wrote {} seeds to file {}'.format(sum(selection), outfile))
 
     def all_plots(self):
         """

@@ -49,7 +49,7 @@ class xml_manager():
         self.__dict__.update(kwargs)
 
         if isinstance(catalogs,types.StringType):
-            if not os.path.isfile(catalogs): print ("Cannot open the catalog! Exiting ..."; sys.exit())
+            if not os.path.isfile(catalogs): print ("Cannot open the catalog! Exiting ..."); sys.exit()
             self.sourcelist = minidom.parse(catalogs).getElementsByTagName('source')
         elif isinstance(catalogs,types.ListType):
             self.sourcelist = []

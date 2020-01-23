@@ -213,7 +213,7 @@ class Localize(object):
         self.ellipse = Ellipse(self.ts)
         self.chisq = self.ellipse.chisq
         if verbose: print (('resid:' + ' '.join(9*['%9.2f']))% tuple(self.ts-self.ellipse.qf.v))
-        if verbose: print (('fit:  ' +len(self.ellipse.q)*'%9.2f') % tuple(self.ellipse.q)(
+        if verbose: print (('fit:  ' +len(self.ellipse.q)*'%9.2f') % tuple(self.ellipse.q))
         if verbose: print ('chisq: %9.2f' % self.ellipse.chisq)
         radius = Localize.fit_radius
         if update:

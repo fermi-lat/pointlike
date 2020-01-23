@@ -179,16 +179,16 @@ class FitsShrinker(object):
             include the first number smaller than min and the first number
             larger than max.
 
-                >>> print FitsShrinker.smaller_range(np.asarray([1,2,3,5]), 2, 3)
+                >>> print (FitsShrinker.smaller_range(np.asarray([1,2,3,5]), 2, 3))
                 [False  True  True False]
 
-                >>> print FitsShrinker.smaller_range(np.asarray([1,2,3,5]), 1.9, 3.1)
+                >>> print (FitsShrinker.smaller_range(np.asarray([1,2,3,5]), 1.9, 3.1))
                 [ True  True  True  True]
 
             If there is no number smaller than min (or larger than max), it just includes
             the whole list
 
-                >>> print FitsShrinker.smaller_range(np.asarray([1,2,3,5]), 0.9, 5.1)
+                >>> print (FitsShrinker.smaller_range(np.asarray([1,2,3,5]), 0.9, 5.1))
                 [ True  True  True  True]
         """
         good = np.ones_like(values).astype(bool)
@@ -363,7 +363,7 @@ class MCModelBuilder(object):
 
         assert isinstance(ps,PointSource)
 
-        if not self.quiet: print 'Processing source %s' % ps.name
+        if not self.quiet: print ('Processing source %s' % ps.name)
 
         model = ps.model
 
@@ -452,7 +452,7 @@ class MCModelBuilder(object):
         ra,dec=sm.center.ra(),sm.center.dec()
 
         if isinstance(sm,SpatialMap):
-            print 'WARNING: gtobssim can only use plate-carree projection fits files!'
+            print ('WARNING: gtobssim can only use plate-carree projection fits files!')
             spatial_filename=path.expand(sm.file)
         else:
             spatial_filename='%s/%s_spatial_template_%s.fits' % (self.env_var,MCModelBuilder.strip(es.name),sm.name)
@@ -848,7 +848,7 @@ class MCModelBuilder(object):
             else:
                 radius=180
 
-            if not self.quiet: print '.. Making isotropic model for %s' % ds.name
+            if not self.quiet: print ('.. Making isotropic model for %s' % ds.name)
             allsky=MCModelBuilder.make_isotropic_fits(skydir=self.roi_dir, radius=radius)
             allsky.writeto(path.expand(spatial_file), clobber=True)
 
@@ -856,7 +856,7 @@ class MCModelBuilder(object):
             # flux is ph/cm^2/sr to ph/m^2
             flux, emin, emax = MCModelBuilder.isotropic_spectral_integrator(cut_spectral_file)
 
-            if not self.quiet: print '.. Integrating isotropic model for %s' % ds.name
+            if not self.quiet: print ('.. Integrating isotropic model for %s' % ds.name)
 
             # multiply by solid angle to convert to ph/m^2
             flux*=MCModelBuilder.spatial_integrator_2d(spatial_file)
@@ -891,7 +891,7 @@ class MCModelBuilder(object):
         allsky_filename=dm.name()
 
         if self.roi_dir is not None and self.maxROI is not None:
-            print '.. Shrinking diffuse model %s' % ds.name
+            print ('.. Shrinking diffuse model %s' % ds.name)
             radius=self.maxROI + self.diffuse_pad
 
             allsky = pyfits.open(path.expand(allsky_filename))
@@ -906,7 +906,7 @@ class MCModelBuilder(object):
             filename = allsky_filename
 
 
-        print '.. Integrating diffuse model %s' % ds.name
+        print ('.. Integrating diffuse model %s' % ds.name)
         flux = MCModelBuilder.diffuse_integrator(filename)
 
 
@@ -921,7 +921,7 @@ class MCModelBuilder(object):
         return indent+('\n'+indent).join(ds)
 
     def _make_ds(self,ds,*args,**kwargs):
-        if not self.quiet: print 'Processing source %s' % ds.name
+        if not self.quiet: print ('Processing source %s' % ds.name)
 
         if len(ds.dmodel) > 1:
             raise Exception("Can only run gtobssim for diffuse models with a combined front/back diffuse model.")
@@ -1086,7 +1086,7 @@ class MonteCarlo(object):
             if self.gtifile: 
                 self.gtifile = path.expand(self.gtifile)
             else:
-                print "Since an already existing ft2 file is set, it is strongly recommended that you specify a file with the desired GTIs (typically the ft1 or ltcube file."
+                print ("Since an already existing ft2 file is set, it is strongly recommended that you specify a file with the desired GTIs (typically the ft1 or ltcube file.")
         else:
             if self.gtifile:
                 raise Exception("gtifile can only be set for existing ft2 files.")
@@ -1144,11 +1144,11 @@ class MonteCarlo(object):
                      don't acutally run it.
         """
 
-        if not self.quiet: print 'Simulating in energy range from %g MeV to %g MeV' % (self.emin, self.emax)
+        if not self.quiet: print ('Simulating in energy range from %g MeV to %g MeV' % (self.emin, self.emax))
 
         old_dir=os.getcwd()
 
-        if not self.quiet: print 'working in directory',self.savedir
+        if not self.quiet: print ('working in directory',self.savedir)
         os.chdir(self.savedir)
 
         xml_builder = MCModelBuilder(sources=self.sources, **keyword_options.defaults_to_kwargs(self,MCModelBuilder))
@@ -1175,7 +1175,7 @@ class MonteCarlo(object):
             ra,dec,radius=0,0,180
         
         os.environ['PFILES']=self.savedir+';'+os.environ['PFILES'].split(';')[-1]; # to set the writing pfiles to the savedir
-        if not self.quiet: print 'current pfile settings',os.getenv('PFILES'); #should add the output for debugging reasons
+        if not self.quiet: print ('current pfile settings',os.getenv('PFILES'); #should add the output for debugging reasons)
         app=GtApp('gtobssim');
         if self.ltfrac is not None: app['ltfrac']=self.ltfrac
         app.run(infile=self.xmlfile,
@@ -1205,7 +1205,7 @@ class MonteCarlo(object):
         if not os.path.exists(ft1): raise NoSimulatedPhotons()
 
         if self.zmax is not None:
-            print 'Applying zenith angle cut (zmax=%s) to simulated data' % self.zmax
+            print ('Applying zenith angle cut (zmax=%s) to simulated data' % self.zmax)
             old_ft1 = ft1
             ft1 = join(self.savedir, 'ft1_zcut.fits')
 
@@ -1219,7 +1219,7 @@ class MonteCarlo(object):
                     zmax=self.zmax)
 
         if self.gtifile is not None:
-            if not self.quiet: print 'Applying GTIs from file %s to simulated data' % self.gtifile
+            if not self.quiet: print ('Applying GTIs from file %s to simulated data' % self.gtifile)
             old_ft1=ft1
             ft1 = join(self.savedir, 'ft1_gticut.fits')
             MonteCarlo.gtmktime_from_file(evfile=old_ft1,scfile=self.ft2,outfile=ft1, gtifile=self.gtifile)
@@ -1256,7 +1256,7 @@ class MonteCarlo(object):
     def __del__(self):
         """ Remove folder with simulation stuff. """
         if not self.save_output:
-            if not self.quiet: print 'Removing directory',self.savedir
+            if not self.quiet: print ('Removing directory',self.savedir)
             shutil.rmtree(self.savedir)
 
 
@@ -1319,7 +1319,7 @@ class SpectralAnalysisMC(SpectralAnalysis):
                                                           xmlfile=xmlfile, diffdir=diffdir, 
                                                           catalogs=catalogs, include_radius=include_radius)
 
-        print point_sources, diffuse_sources
+        print (point_sources, diffuse_sources)
         sources = point_sources + diffuse_sources
 
         if not os.path.exists(self.dataspec.ft1files[0]):

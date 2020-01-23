@@ -99,7 +99,7 @@ class UnweightedLCFitter(object):
         if h > 1000: nbins = 100
         ph0,ph1 = 0+self.phase_shift,1+self.phase_shift
         hist = np.histogram(self.phases,bins=np.linspace(ph0,ph1,nbins))
-        if len(hist[0])==nbins: raise ValueError,'Histogram too old!'
+        if len(hist[0])==nbins: raise ValueError('Histogram too old!')
         x = ((hist[1][1:] + hist[1][:-1])/2.)[hist[0]>0]
         counts = (hist[0][hist[0]>0]).astype(float)
         y    = counts / counts.sum() * nbins

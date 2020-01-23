@@ -24,7 +24,7 @@ class ClockCorr(object):
     def getcorr(self,utc):
         '''Return value of TAI-UTC at a given MJD(UTC)'''
         idx = np.where(self.mjds<utc)[0][-1]
-        #print utc, idx, self.mjds[idx], self.dt[idx]
+        #print (utc, idx, self.mjds[idx], self.dt[idx])
         corr = self.dt[idx]
         return(corr)
     def tt2tai(self,tt):
@@ -60,7 +60,7 @@ class GeoConverter(object):
         if not self.can_process():
             raise Exception('Cannot %s!  Must provide FT2 and position.'%self.label)
         else:
-            #print 'Attempting to %s on-the-fly.'%self.label
+            #print ('Attempting to %s on-the-fly.'%self.label)
             pass
         if not hasattr(times,'__len__'):
             times = np.array([times])
@@ -120,25 +120,25 @@ class METConverter(object):
             self.timecon = timecon(ft2,ra,dec)
             if not self.timecon.can_process():
                 s = 'BARYCENTERED' if bary else 'GEOCENTERED'
-                print "# !!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-                print "# !!!!!!!!! WARNING !!!!!!!!!! TIMEREF is not %s! This code is intended for %s times!"%(frame,s)
-                print "# !!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                print ("# !!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                print ("# !!!!!!!!! WARNING !!!!!!!!!! TIMEREF is not %s! This code is intended for %s times!"%(frame,s))
+                print ("# !!!!!!!!!!!!!!!!!!!!!!!!!!!!")
             else:
-                print 'TIMEREF is not %s! But will attempt to correct times on-the-fly.'%frame
+                print ('TIMEREF is not %s! But will attempt to correct times on-the-fly.'%frame)
         else:
             self.timecon = IdentityConverter()
 
         if (ft1hdr['TIMESYS'] != timesys) and (not noprocess):
-              print "# !!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-              print "# !!!!!!!!! WARNING !!!!!!!!!! TIMESYS is not %s.  We are expecting %s times!"%(timesys,timesys)
-              print "# !!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+              print ("# !!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+              print ("# !!!!!!!!! WARNING !!!!!!!!!! TIMESYS is not %s.  We are expecting %s times!"%(timesys,timesys))
+              print ("# !!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 
        # Collect TIMEZERO and MJDREF
         try:
             self.TIMEZERO = ft1hdr['TIMEZERO']
         except KeyError:
             self.TIMEZERO = ft1hdr['TIMEZERI'] + ft1hdr['TIMEZERF']
-        #print"# TIMEZERO = ",TIMEZERO
+        #print("# TIMEZERO = ",TIMEZERO)
         try:
             self.MJDREF = ft1hdr['MJDREF']
         except KeyError:

@@ -70,7 +70,7 @@ if __name__ == '__main__':
 
     if not options.unbinned:
         if not HAVE_PRESTO:
-            raise ImportError,'Presto tools not found; binned fitting not available!'
+            raise ImportError('Presto tools not found; binned fitting not available!')
         # Read template profile
         if (options.template is not None):
            template = psr_utils.read_profile(options.template, normalize=1)

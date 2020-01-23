@@ -76,7 +76,7 @@ class ROIPointSourceManager(ROIModelManager):
 
     def setup_initial_counts(self,bands):
 
-        if not self.quiet: print '.....setting up point sources (%d in ROI)...'%(len(self.point_sources)),
+        if not self.quiet: print ('.....setting up point sources (%d in ROI)...'%(len(self.point_sources)),)
 
         roi_dir = self.roi_dir
         overlap = PsfOverlap()
@@ -106,7 +106,7 @@ class ROIPointSourceManager(ROIModelManager):
             #initial model prediction
             band.ps_counts     = N.asarray([band.expected(model) for model in self.models])*er
     
-        if not self.quiet: print 'done!'
+        if not self.quiet: print ('done!')
     
     def reload_data(self,bands):
         """ Recalculate the PS model for new data.  NB -- only appropriate for Monte Carlo
@@ -235,7 +235,7 @@ class ROIPointSourceManager(ROIModelManager):
             m.unzero()
             self.cache(bands)      
         except:
-            print 'Source %d indicated was not zeroed in the first place!' %which
+            print ('Source %d indicated was not zeroed in the first place!' %which)
 
 ###======================================================================###
 
@@ -278,10 +278,10 @@ class ROIDiffuseManager(ROIModelManager):
             band.bg_pix_counts = N.empty([len(band.wsdl),nm]) if band.has_pixels else 0
         # initialize models and get inital counts
         if not self.quiet:
-            print '.....setting up diffuse/extended backgrounds for %d bands...'%len(bands)
+            print ('.....setting up diffuse/extended backgrounds for %d bands...'%len(bands))
         for ibg,bg in enumerate(self.bgmodels):
             if not self.quiet:
-                print '.......... %s'%(bg.name) ,
+                print ('.......... %s'%(bg.name) ,)
                 sys.stdout.flush()
             bg.initialize_counts(bands)
             bg.update_counts(bands,ibg)
@@ -358,7 +358,7 @@ class ROIDiffuseManager(ROIModelManager):
             m.unzero()
             self.update_counts(bands)
         except:
-            print 'Source indicated was not zeroed in the first place!'
+            print ('Source indicated was not zeroed in the first place!')
 
 ###======================================================================###
 
@@ -392,9 +392,9 @@ class ROIBackgroundManager(ROIModelManager):
         """Evaluate initial values of background models; these will be scaled in likelihood maximization."""
 
         if not self.quiet:
-            print '.....setting up diffuse backgrounds...'
+            print ('.....setting up diffuse backgrounds...')
             for bg in self.bgmodels:
-                print '..........using %s'%(bg.name)
+                print ('..........using %s'%(bg.name))
 
 
         ns  = self.nsimps
@@ -443,7 +443,7 @@ class ROIBackgroundManager(ROIModelManager):
             self.init_norms = N.asarray([m[0] for m in self.models])
 
         self.cache() # check that this doesn't cause problems -- it shouldn't
-        if not self.quiet: print 'done!'
+        if not self.quiet: print ('done!')
 
     def cache(self):
 
@@ -468,7 +468,7 @@ class ROIBackgroundManager(ROIModelManager):
                         
             else:
                 ratio = (m[0]/self.init_norms[nm])
-                if ratio == 0 or N.isnan(ratio): print ratio,m[0]
+                if ratio == 0 or N.isnan(ratio): print (ratio,m[0])
                 #self.init_norms[nm] = m.p[0]
                 for band in bands: 
                     #band.bg_counts[nm] *= ratio

@@ -79,8 +79,8 @@ class Weights(object):
         # and get distances
         pixel_dist = np.array(map(source_dir.difference, pixel_dirs))
         if self.verbose>0:
-            print ('Using {} nside={} pixels.  distance range {:.2f} to {:.2f} deg'.format()
-             len(pix_nest), self.nside, np.degrees(pixel_dist.min()), np.degrees(pixel_dist.max()))
+            print ('Using {} nside={} pixels.  distance range {:.2f} to {:.2f} deg'.format(
+             len(pix_nest), self.nside, np.degrees(pixel_dist.min()), np.degrees(pixel_dist.max())))
 
         # now loop over the bands and all pixels
         wt_dict=dict()

@@ -29,7 +29,7 @@ class TransientInfo(sourceinfo.SourceInfo):
         super(TransientInfo, self).setup(**kw)
         self.plotfolder='transients' #needed by superclass
        
-        print 'transients:', sum(self.df.transient)
+        print ('transients:', sum(self.df.transient))
         self.df = self.df.ix[self.df.transient]
         assert len(self.df)>0, 'No transients found'
         self.loc=localization.Localization(df=self.df) # to make plots using code
@@ -95,7 +95,7 @@ class ExtTransientInfo(TransientInfo):
         try:
             self.model_path=model_path
             os.chdir(model_path)
-            if not quiet: print os.getcwd()
+            if not quiet: print (os.getcwd())
             self.skymodel = os.path.split(os.getcwd())[-1]
             self.setup(refresh=False, quiet=quiet)
             self.plotfolder=model_path+'/plots/'+self.plotfolder
@@ -158,7 +158,7 @@ class Analysis(object):
         else:
             path=os.getcwd()
         files =  sorted(glob.glob(prefix+'month*/sources.pickle'));
-        print 'Found {} "monthxx" folders in folder {}'.format(len(files), path)
+        print ('Found {} "monthxx" folders in folder {}'.format(len(files), path))
         self.monthlist = [f.split('/')[0] for f in files];
         self.monthinfo=monthinfo=[]
         for month in self.monthlist: #[:last+1]:
@@ -197,9 +197,9 @@ class Analysis(object):
         self.hilat = np.abs(self.df.glat)>10
         self.assoc = np.isfinite(self.df.aprob)
         if not quiet:
-            print 'good sources: %d/%d' % (len(self.df), len(df))
-            print 'High latitude (>10 deg)', sum(self.hilat)
-            print 'Associated', sum(self.assoc)
+            print ('good sources: %d/%d' % (len(self.df), len(df)))
+            print ('High latitude (>10 deg)', sum(self.hilat))
+            print ('Associated', sum(self.assoc))
         
         # get the 6-year dataframe for reference, and access to functions in SourceInfo
         self.sinfo = sourceinfo.ExtSourceInfo(all_months_model)
@@ -258,7 +258,7 @@ class Analysis(object):
                 )
         if len(months)==0:
             self.notdetected.append(sname)
-            #print 'Source %s not detected in any month' % sname
+            #print ('Source %s not detected in any month' % sname)
             return None
         monthly = pd.DataFrame(months).T
         good=monthly.good
@@ -299,16 +299,16 @@ class SourceInfo(object):
         self.ta=ta
         if names is None:
             names=ta.all_6y_names()
-        print 'loading SourceInfo with %d sources' % len(names)
+        print ('loading SourceInfo with %d sources' % len(names))
         info=dict()
         ta.notdetected=[]
         for s in names:
-            if not quiet: print '.',
+            if not quiet: print ('.',)
             month_dict = ta.monthly_info(s)
             info[s] = month_dict
         if len(ta.notdetected)>0:
-            print '{} Sources where not detected in any month.'.format(len(ta.notdetected))
-            #print '{}'.format(np.array(ta.notdetected))
+            print ('{} Sources where not detected in any month.'.format(len(ta.notdetected)))
+            #print ('{}'.format(np.array(ta.notdetected)))
         self.df= pd.DataFrame(info).T
 
     def __getitem__(self, sourcename):
@@ -320,17 +320,17 @@ class SourceInfo(object):
         bigindex=0
         skipped = []
         for name, row in si.df.iterrows():
-            #print name, row
+            #print (name, row)
             if row.monthly is None:
                 skipped.append(name)
                 continue
             for month, monthinfo in row.monthly.iterrows():
                 if monthinfo.good:
-                    #print month, monthinfo
+                    #print (month, monthinfo)
                     bigdict[bigindex]=dict(name=name, month=month, ts=monthinfo.ts)
                     bigindex +=1
         bigdf =pd.DataFrame(bigdict).T
-        print 'skipped {}'.format(skipped)
+        print ('skipped {}'.format(skipped))
         bigdf.to_csv(outfile)
 
         
@@ -347,11 +347,11 @@ class PSRinfo(object):
         info=dict()
         for s in names:
             try:
-                if not quiet: print '.',
+                if not quiet: print ('.',)
                 month_dict = ta.monthly_info(s)
                 info[s] = month_dict
-            except Exception,msg:
-                if not quiet: print '\n',msg
+            except Exception as msg:
+                if not quiet: print ('\n',msg)
         self.df= pd.DataFrame(info).T
         self.df['efficiency']=np.array(self.df.ngood/72.,float)
 
@@ -367,7 +367,7 @@ class PSRinfo(object):
         dfm=df.monthly
         hist_kw = dict(histtype='step', lw=2)
         good = dfm.good
-        #print 'Good months: %d/%d' %(sum(good), len(good))
+        #print ('Good months: %d/%d' %(sum(good), len(good)))
         if sum(good)==0: return None
         
         
@@ -428,14 +428,14 @@ class PSRinfo(object):
             os.mkdir(folder)
         if psr_names is None: psr_names=self.ta.psr_names();
         for name in psr_names:
-            print name,
+            print (name,)
             try:
                 fig=self.psr_plots(name)
                 if fig is not None:
                     fig.savefig('psr_plots/%s.png' %name.replace(' ','_') )
                     plt.close(fig)  
-            except Exception, msg:
-                print msg
+            except Exception as msg:
+                print (msg)
     
     def pull_plot(self, xlim=(0.8,2.0), ylim=(0.2,2.1)):
         """
@@ -547,13 +547,13 @@ class BZCATinfo(SourceInfo):
             a = a.union(b)
         bznames = sorted(a); 
         if not quiet:
-            print 'Found %d unique names in %d months' % (len(bznames),len(ff)) 
+            print ('Found %d unique names in %d months' % (len(bznames),len(ff)) )
         
         if bz6 is not None:
             # compare with the 6-year list
             insix =set(bznames).intersection(bz6names)
-            print '%d monthly names are in the 6-year list of %d names'\
-                % (len(insix), len(bznames))
+            print ('%d monthly names are in the 6-year list of %d names'\
+                % (len(insix), len(bznames)))
         
         # make sumamry dataframe with monthly info for transient guys
         bb = dict()
@@ -738,7 +738,7 @@ class BZCAT(object):
         #add a column to tag the entries in the list bznames 
         #assert np.all(np.array(bznames) in self.catnames)
         self.cat[colname]= inbz = np.array([ name in bznames for name in self.catnames] ) 
-        print 'Tagged {} with {} BZCAT entries'.format(colname, len(bznames))
+        print ('Tagged {} with {} BZCAT entries'.format(colname, len(bznames)))
 
     def __getitem__(self, sourcename):
         assert sourcename in self.catnames, 'Name not found'
@@ -836,7 +836,7 @@ class CloseCut(object):
     def __init__(self, sources, reference):
         """ sources, reference : SkyDir lists
         """
-        print 'Comparing {} sources with {} in reference set'.format(len(sources), len(reference))
+        print ('Comparing {} sources with {} in reference set'.format(len(sources), len(reference)))
         def closest(a, b):
             return np.degrees(min([a.difference(x) for x in b]))
         self.closediff = np.array([closest(a,reference) for a in sources])
@@ -859,8 +859,8 @@ def plots2(self, cut=None, title='TS>10'):
     
     if cut is None: 
         cut = self.df.ts>10
-    print 'Effect of cut {} for these plots: from {} to {}'.\
-        format(title, len(self.df),sum(cut))
+    print ('Effect of cut {} for these plots: from {} to {}'.\
+        format(title, len(self.df),sum(cut)))
     df = self.df[cut]
     df['lq'] = np.asarray(df.locqual, float)
     unassoc = np.logical_not(self.assoc)
@@ -869,11 +869,11 @@ def plots2(self, cut=None, title='TS>10'):
     labels = 'lolat hilat assoc unassoc'.split()
     if cut is not None:
         cuts = [x & cut for x in cuts]
-    print 'Number of sources with TS>25: {}'.format(sum(df.ts>25))
+    print ('Number of sources with TS>25: {}'.format(sum(df.ts>25)))
     
     #for c, name in zip(cuts, labels):
-    #    print '{:10s}: {:6d}'.format(name, sum(c))
-    print '         {:8>s} {:8>s}    sum'.format(labels[2], labels[3])
+    #    print ('{:10s}: {:6d}'.format(name, sum(c)))
+    print ('         {:8>s} {:8>s}    sum'.format(labels[2], labels[3]))
     m = np.zeros(4).reshape((2,2))
     sums = np.zeros(3)
     for i in (0,1): 
@@ -882,9 +882,9 @@ def plots2(self, cut=None, title='TS>10'):
     for i in (0,1):
         a,b =  m[i,0], m[i,1]
         sums+= np.array([a,b,a+b])
-        print '{:6s}{:8.0f}{:8.0f}{:8.0f}'.format(labels[i],a,b,a+b)
+        print ('{:6s}{:8.0f}{:8.0f}{:8.0f}'.format(labels[i],a,b,a+b))
     a,b = sum(cuts[0]), sum(cuts[1])
-    print 'sum   {:8.0f}{:8.0f}{:8.0f}'.format(*sums)
+    print ('sum   {:8.0f}{:8.0f}{:8.0f}'.format(*sums))
     
     def make_hist(ax, var, bins, xlabel, legloc='upper right'):        
         hist_kw=dict(bins=bins, lw=2, histtype='step', log=True)
@@ -1032,7 +1032,7 @@ def source_plots(self,bzcat, bzname):
     ts = rec.ts
     sel =bzcat.cat['Source name']==bzname
     z=float(bzcat.cat.z[sel])
-    print 'redshift, source(s),  month(s), ts:', z, rec.msname, rec.monthnumber, ts
+    print ('redshift, source(s),  month(s), ts:', z, rec.msname, rec.monthnumber, ts)
     os.chdir(
        os.path.expandvars('$FERMI/skymodels/P301_monthly/month%02d'%month))
     r=process.Process('.', quiet=True)
@@ -1048,19 +1048,19 @@ class ObssimDataComparison(object):
                         sim_file='obssim_transients_cut.csv'):
         self.data= pd.read_csv(data_file, index_col=0)
         self.data_months = self.data.month.max()
-        print 'Read {} data sources from {}, {} months'.format(len(self.data), data_file, self.data_months)
+        print ('Read {} data sources from {}, {} months'.format(len(self.data), data_file, self.data_months))
         self.sim = pd.read_csv(sim_file, index_col=0)
         self.sim_months = len(set(self.sim.month))
-        print 'Read {} simulated sources from {}, {} months'.format(len(self.sim),sim_file, self.sim_months)
+        print ('Read {} simulated sources from {}, {} months'.format(len(self.sim),sim_file, self.sim_months))
         
     def __call__(self, val='ts', cut=None, xlabel='TS',bins= np.linspace(10,30,21),
                       ylim=(-2,None),xscale='linear'):
                       
         data_cut = (np.abs(self.data.glat)>10) & (self.data.ts>10)
         sim_cut =  (np.abs(self.sim.glat)>10)  & (self.sim.ts>10)
-        print 'Initial selection: {} data and {} sim'.format(sum(data_cut), sum(sim_cut) )
+        print ('Initial selection: {} data and {} sim'.format(sum(data_cut), sum(sim_cut) ))
         if cut is not None:
-            print 'applying cut {}'.format(cut)
+            print ('applying cut {}'.format(cut))
             data_cut= data_cut & self.data[cut]
             sim_cut = sim_cut & self.sim[cut]
         data_rate_sum = sum(data_cut)/float(self.data_months)

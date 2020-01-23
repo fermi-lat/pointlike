@@ -133,7 +133,7 @@ def rad_extract(eventfiles,center,radius_function,return_cols=['PULSE_PHASE'],cu
         tmask &= (cols['ZENITH_ANGLE'] < zenith_cut) & (cols['THETA'] < theta_cut)
         if apply_GTI:
             tmask &= get_gti_mask(eventfile,cols['TIME'])
-            print 'GTI will remove %d of %d photons.'%((~tmask).sum(),len(tmask))
+            print ('GTI will remove %d of %d photons.'%((~tmask).sum(),len(tmask)))
         if simple_scalar:
             rmask,diffs = rad_mask(cols['RA'][tmask],cols['DEC'][tmask],center,rad)
         else:
@@ -156,7 +156,7 @@ def rad_extract(eventfiles,center,radius_function,return_cols=['PULSE_PHASE'],cu
         cols[key] = np.concatenate([x for x in coldict[key]])
         if key in INT_TYPES: cols[key] = cols[key].astype(int)
 
-    print 'Cuts removed %d of %d photons.'%(total-accepted,total)
+    print ('Cuts removed %d of %d photons.'%(total-accepted,total))
     return cols
 
 #TODO: GTI
@@ -187,14 +187,14 @@ def counts_plot(ft1files,center,fov=10,scale='log',pixels=256,coordsys='equatori
    xlabel( ('RA'  if coordsys=='equatorial' else 'L') + ' (deg)')
    ylabel( ('DEC' if coordsys=='equatorial' else 'B') + ' (deg)')
    if print_locs:
-      if coordsys == 'equatorial': print 'RA     DEC      ENERGY      TIME     EVENT_CLASS'
-      else: print 'L     B      ENERGY       TIME      EVENT_CLASS'
+      if coordsys == 'equatorial': print ('RA     DEC      ENERGY      TIME     EVENT_CLASS')
+      else: print ('L     B      ENERGY       TIME      EVENT_CLASS')
       en = events.data.field('ENERGY')
       time = events.data.field('TIME')
       ec = events.data.field('EVENT_CLASS')
       for i in xrange(len(lon)):
 
-         print '%.2f  %.2f  %.2g  %.10g  %d'%(lon[i],lat[i],en[i],time[i],ec[i])
+         print ('%.2f  %.2f  %.2g  %.10g  %d'%(lon[i],lat[i],en[i],time[i],ec[i]))
    return img
 
 def merge_flight_data(files, outputfile = None, cuts = None, fields = None):

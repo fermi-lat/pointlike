@@ -325,4 +325,3 @@ if __name__ == '__main__':
     np.seterr(all='ignore')
 
     unittest.main(verbosity=2 if args.verbose else 0)
-)

@@ -69,15 +69,15 @@ class ExtendedSourceCatalog(object):
         self.spatial_models = []
         fail = False
         for i in range(len(self.names)):
-            #print 'unpacking source "{}", form: "{}"'.format(self.names[i], form[i]), 
+            #print ('unpacking source "{}", form: "{}"'.format(self.names[i], form[i]), )
             if self.force_map or form[i] in ('Map','Ring'):
                 try:
                     filename=file=os.path.expandvars(self.templates[i].replace(' ', ''))
                     #assert os.path.exists(filename)
                     self.spatial_models.append(  SpatialMap(filename))
-                except Exception, msg:
+                except Exception as msg:
                     fail = True
-                    print 'source {}: Fail to load {}:{}'.format(self.names[i], filename,msg)
+                    print ('source {}: Fail to load {}:{}'.format(self.names[i], filename,msg))
             elif form[i] in ('Disk', 'RadialDisk'):
                 if major[i] == minor[i] and posang[i] == 0:
                     self.spatial_models.append(Disk(p=[major[i]],center=self.dirs[i]))
@@ -91,13 +91,13 @@ class ExtendedSourceCatalog(object):
                         EllipticalGaussian(p=[major[i]/Gaussian.x68,minor[i]/Gaussian.x68,posang[i]],
                                            center=self.dirs[i]))
             else:
-                print 'Unrecognized spatial model: {}, assuming a Map'.format(form[i])
+                print ('Unrecognized spatial model: {}, assuming a Map'.format(form[i]))
                 try:
                     self.spatial_models.append(
                         SpatialMap(file=self.templates[i])
                     )
-                except Exception, msg:
-                    print 'Failure: {}'.format(msg)
+                except Exception as msg:
+                    print ('Failure: {}'.format(msg))
                     fail=True
                     
             #remember the fits file template in case the XML needs to be saved out.
@@ -105,7 +105,7 @@ class ExtendedSourceCatalog(object):
             self.spatial_models[-1].original_parameters = self.spatial_models[-1].p.copy()
 
         if fail:
-            print 'Warning' #raise Exception( 'spatial model error')
+            print ('Warning') #raise Exception( 'spatial model error')
 
         self.spatial_models = np.asarray(self.spatial_models)
 
@@ -140,8 +140,8 @@ class ExtendedSourceCatalog(object):
             ps,ds=parse_sources(xmlfile=xmlfile)
             # try:
             #     ps,ds=parse_sources(xmlfile=xmlfile)
-            # except Exception, msg:
-            #     print 'Source {}: Fail: {}'.format(name, msg)
+            # except Exception as msg:
+            #     print ('Source {}: Fail: {}'.format(name, msg))
             #     failed=True
             #     continue
             if len(ps) > 0: 
@@ -195,7 +195,7 @@ class ExtendedCatalog( ExtendedSourceCatalog):
         if not os.path.exists(extended_catalog_name):
             raise Exception('extended source folder "%s" not found' % extended_catalog_name)
         if not self.quiet:
-            print 'Loaded extended catalog %s' % extended_catalog_name
+            print ('Loaded extended catalog %s' % extended_catalog_name)
         
         super(ExtendedCatalog,self).__init__(extended_catalog_name, force_map=force_map)#**kwargs)
         
@@ -206,11 +206,11 @@ class ExtendedCatalog( ExtendedSourceCatalog):
             model = source.model
             try:
                 if model.mappers[0].__class__.__name__== 'LimitMapper':
-                    #print 'converting mappers for model for source %s, model %s' % (source.name, model.name)
+                    #print ('converting mappers for model for source %s, model %s' % (source.name, model.name))
                     source.model = eval('Models.%s(p=%s)' % (model.name, list(model.get_all_parameters())))
-            except Exception, msg:
+            except Exception as msg:
                 fail=True
-                print 'Failed to parse {} spectrum : {}'.format(source.name, msg)
+                print ('Failed to parse {} spectrum : {}'.format(source.name, msg))
 
             # Replace the spatial model with the one specified by the FITS catalog list    
             dmodel = source.dmodel
@@ -224,7 +224,7 @@ class ExtendedCatalog( ExtendedSourceCatalog):
 
         # Now check for XML2
         ff =glob.glob('{}/XML2/*.xml'.format(extended_catalog_name))
-        #print '{} sources found in folder {}:'.format(len(ff), 'XML2')
+        #print ('{} sources found in folder {}:'.format(len(ff), 'XML2'))
         if len(ff)==0: return
 
         for f in ff:
@@ -237,10 +237,10 @@ class ExtendedCatalog( ExtendedSourceCatalog):
             s.name = name
             i = self.lookup(name)
             if i is not None:
-                if not self.quiet: print 'replacing spectral model for {}'.format(name)
+                if not self.quiet: print ('replacing spectral model for {}'.format(name))
                 self.sources[i].dmodel = s.dmodel
             else:
-                if not self.quiet: print 'adding extended source {} at {}'.format(s.name, s.skydir)
+                if not self.quiet: print ('adding extended source {} at {}'.format(s.name, s.skydir))
                 self.names = np.append(self.names,name)
                 self.sources.append(s)
 
@@ -272,7 +272,7 @@ class ExtendedCatalog( ExtendedSourceCatalog):
 
         ### seems to be necessary for some models created from 
         if model.mappers[0].__class__.__name__== 'LimitMapper':
-            #print 'wrong mappers: converting model for source %s, model %s' % (name, model.name)
+            #print ('wrong mappers: converting model for source %s, model %s' % (name, model.name))
             model = eval('Models.%s(p=%s)' % (model.name, list(model.get_all_parameters())))
         extsource = sources.ExtendedSource(name=self.realname(aname), 
             skydir=source.skydir,
@@ -302,7 +302,7 @@ def make_pictures(config_dir='.', image_folder = 'extended_images'):
 
     ecat = ExtendedCatalog(cf.extended)
     for name in ecat.names:
-        print 'processing %s ...' % name ,
+        print ('processing %s ...' % name ,)
         source = ecat.lookup(name)
         b12 = Band(12); roi_index = b12.index(source.skydir); 
         roi_dir = b12.dir(roi_index)
@@ -310,7 +310,7 @@ def make_pictures(config_dir='.', image_folder = 'extended_images'):
         conv.create_grid()
         fig = conv.show_source()
         fig.savefig('%s/%s_map.png' %(image_folder,name.replace(' ','_')))
-        print 
+        print ()
 
 
 
@@ -335,19 +335,19 @@ def make_map_and_list(config_dir='.', nside=512, extended_folder='extended'):
 
     d = dict()
     sky = np.zeros(12*nside**2)
-    print
+    print()
     for ename in sorted(ecat.names):
         dm = ecat[ename].dmodel
-        print '{:20}{:20}'.format(ename, dm.name) ,
+        print ('{:20}{:20}'.format(ename, dm.name) ,)
         p = qdisk(nside, dm.center, 10)
         v = np.array([dm(dirs[i]) for i in p])
         pixels=np.sum(v>0.1)
         total = np.sum(v)
         sky[p]+=v
-        print '{:8.0f} {:8d}'.format(np.max(v), pixels)
+        print ('{:8.0f} {:8d}'.format(np.max(v), pixels))
         d[ename]= dict(ra=dm.center.ra(), dec=dm.center.dec(), 
                           modelname=dm.name, pmax=np.max(v), total=total, pixels=pixels)
-    print 
+    print()
 
     df = pd.DataFrame(d).T['ra dec modelname pixels pmax total'.split()]
     df.index.name = 'name'
@@ -357,7 +357,7 @@ def make_map_and_list(config_dir='.', nside=512, extended_folder='extended'):
             os.mkdir(extended_folder)
         csvfile = extended_folder+'/sources.csv'
         df.to_csv(csvfile)
-        print 'wrote csv file {}'.format(csvfile)
+        print ('wrote csv file {}'.format(csvfile))
         
         fitsfile = extended_folder+'/map.fits'
         ext = hpm.HParray('extended', sky)

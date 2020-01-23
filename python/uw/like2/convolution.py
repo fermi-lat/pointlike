@@ -38,7 +38,7 @@ class FillMixin(object):
         dm  : [SkyFuntion for diffuse map | None]
             If None, expect predetermined values in cache, which may be an array or a scalar
         """
-        #print 'filling with product of exposure "%s" model "%s"' % (exp, dm)
+        #print ('filling with product of exposure "%s" model "%s"' % (exp, dm))
         
         if dm is None:
             assert cache is not None, 'Logic error'
@@ -62,7 +62,7 @@ class FillMixin(object):
     def psf_fill(self, psf):
         """ Evaluate PSF on the grid
         """
-        #print 'filling with psf %s' % psf
+        #print ('filling with psf %s' % psf)
         psf_vals = psf(self.dists).reshape([self.npix,self.npix])
         self.psf_vals = psf_vals / psf_vals.sum()
         
@@ -209,9 +209,9 @@ class TestPSFFT(object):
         psf = config.irfs.psf(0, 133)
         self.psf = config.irfs.psf(event_type, energy)
         self.label= 'PSF {} {} MeV'.format(['front', 'back'][event_type], energy)
-        print 'Evaluating the sherical harmonic content for {} {}...'.format(irfname,self.label),
+        print ('Evaluating the sherical harmonic content for {} {}...'.format(irfname,self.label),)
         self.sh = spherical_harmonic(self.psf, 128, psf.inverse_integral(99.5));
-        print
+        print()
 
     def plot(self, psf_label='PSF Front 133 MeV', sig_deg=1.5):
         import matplotlib.pylab as plt
@@ -336,7 +336,7 @@ class SphericalHarmonicContent(object):
         while el>2 and not done :
             x = self.addpoint(el,True)
             if not quiet:
-                print '{}:{:.4f}'.format(el, x)
+                print ('{}:{:.4f}'.format(el, x))
             done = abs(x)<1e-3
             el= el//2
 

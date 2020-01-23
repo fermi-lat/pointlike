@@ -115,7 +115,7 @@ class BandCounts(object):
             ids = index_table[i]
             try:
                 values = pickle.load(open(f))
-            except Exception, msg:
+            except Exception as msg:
                 print ('Failed to load file {}: {}'.format(f, msg))
                 raise
             assert len(ids)==len(values), 'oops: {} ids, but {} values'.format(len(ids), len(values))

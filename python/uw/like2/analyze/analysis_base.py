@@ -217,7 +217,7 @@ class AnalysisBase(object):
             fig.set_facecolor('white') # important for copy and paste to Evernote
             fig.text(0.02, 0.02, self.skymodel, fontsize=8)
             savefig_kw=dict(dpi=60, bbox_inches='tight', bbox_extra_artists=fig.texts, pad_inches=0.5) 
-            print ('Saving fig %s, ...' % (name, ),; sys.stdout.flush())
+            print ('Saving fig %s, ...' % (name, ),); sys.stdout.flush()
             plt.savefig(savefile, **savefig_kw)
             print ('to %s' % savefile)
             htmldoc += '\n<img src="%s" />\n <br> %s '% (localfile, caption if caption is not None else '')

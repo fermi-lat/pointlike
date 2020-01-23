@@ -59,7 +59,7 @@ class DiffuseSource(object):
 
             After pickling the object, the original object should be uncahgned:
 
-                >>> print type(ds.dmodel[0])
+                >>> print (type(ds.dmodel[0]))
                 <class 'skymaps.IsotropicSpectrum'>
             
             Pickle galactic diffuse:
@@ -118,9 +118,9 @@ class DiffuseSource(object):
             Nowe, we can copy it:
 
                 >>> ds_copy = ds.copy()
-                >>> print type(ds.dmodel[0])
+                >>> print (type(ds.dmodel[0]))
                 <class 'skymaps.IsotropicConstant'>
-                >>> print type(ds_copy.dmodel[0])
+                >>> print (type(ds_copy.dmodel[0]))
                 <class 'skymaps.IsotropicConstant'>
         """
         return DiffuseSource(
@@ -168,7 +168,7 @@ class ROIDiffuseModel(object):
             setup the objects.  E.g., if the user is localizing an
             extended source.
         """
-        raise NotImplementedError,'Classes must implement this method!'
+        raise NotImplementedError('Classes must implement this method!')
 
     def update_counts(self,bands,model_index):
         """ This method *must* set the following members of each band:
@@ -178,13 +178,13 @@ class ROIDiffuseModel(object):
                     an npixel vector with the expected counts from the
                     model for each data pixel
         """
-        raise NotImplementedError,'Classes must implement this method!'
+        raise NotImplementedError('Classes must implement this method!')
 
     def gradient(self,bands,model_index):
         """ This method should return the gradient with respect to the
             free parameters of the spectral model.
         """
-        raise NotImplementedError,'Classes must implement this method!'
+        raise NotImplementedError('Classes must implement this method!')
 
 
 class ROIDiffuseModel_OTF(ROIDiffuseModel):
@@ -255,7 +255,7 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
         for iband,(myband,band) in enumerate(zip(self.bands,bands)):
             if not self.quiet: 
                 status_string = '...convolving band %2d/%2d'%(iband+1,len(self.bands))
-                print status_string,;sys.stdout.flush()
+                print (status_string,;sys.stdout.flush())
 
             ns,myband.bg_points,myband.bg_vector = ROIDiffuseModel_OTF.sub_energy_binning(band,self.nsimps)
 
@@ -278,12 +278,12 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
             if band.has_pixels:
                 myband.pi_counts = (myband.pi_evals * myband.mo_evals).sum(axis=1)
             if not self.quiet: 
-                print '\b'*(2+len(status_string)),;sys.stdout.flush()
+                print ('\b'*(2+len(status_string)),;sys.stdout.flush())
 
         self.init_p = self.smodel.get_all_parameters(internal=True)
         self.init_norm = self.smodel[0]
         self.prev_p = self.smodel.get_all_parameters(internal=True) +1e-5 # kluge
-        if not self.quiet: print
+        if not self.quiet: print()
         
     def update_counts(self,bands,model_index):
 

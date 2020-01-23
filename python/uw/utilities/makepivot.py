@@ -44,10 +44,10 @@ class Connection(object):
         self.connection.request(verb, url, data, headers)
         response = self.connection.getresponse()
         if response.status<200 or response.status >= 300:
-            print 'api, headers:', api, headers
-            print 'params:', params
-            print 'response:', response
-            print response.status, response.reason
+            print ('api, headers:', api, headers)
+            print ('params:', params)
+            print ('response:', response)
+            print (response.status, response.reason)
             raise Exception(response.reason)
         textBack = response.read()
         return textBack
@@ -93,7 +93,7 @@ class FacetList(object):
         self.df['name']=self.index
         # this is the list of types that I've found so far that  pandas.read_csv generates
         self.types = [ dict(float64='Number', float='Number', int64='Number',object='Value', bool='bool')[str(t)] for t in self.df.dtypes]
-        print 'Loaded CSV file %s: found %d items, %d columns' % (table, len(self.df), len(self.cols))
+        print ('Loaded CSV file %s: found %d items, %d columns' % (table, len(self.df), len(self.cols)))
 
     def __getitem__(self, name):
         """
@@ -120,7 +120,7 @@ class FacetList(object):
         """
         self.connection = Connection()
         cid= self.connection.put('Collections', dict(cname=collection_name ) )['Id']
-        print 'Created or attached to existing collection, name="%s", Id=%d' % (collection_name, cid)
+        print ('Created or attached to existing collection, name="%s", Id=%d' % (collection_name, cid))
         columns = [ dict(Name=name, Values=list(np.array(values.values)), isKey=name==keyname) for name,values in self.df.T.iterrows()]
         self.connection.put('FacetsDB', dict(cID=cid), data=dict(Name=collection_name, Columns=columns))
 
@@ -193,7 +193,7 @@ class ImageList(object):
         """   
         self.connection = Connection()
         self.cId = self.connection.put('Collections', dict(cname=collection_name ) )['Id']
-        print 'Created or attached to existing collection, name="%s", Id=%d' % (collection_name, self.cId)
+        print ('Created or attached to existing collection, name="%s", Id=%d' % (collection_name, self.cId))
         
         nsent=0
         for filename in self.filenames:
@@ -204,8 +204,8 @@ class ImageList(object):
                 self.add_image( name)
                 nsent +=1
             except Exception, msg:
-                print msg
-        print 'Sent %d/%d images' % (nsent, len(self.filenames))
+                print (msg)
+        print ('Sent %d/%d images' % (nsent, len(self.filenames)))
         
 class MakeCollection(object):
     """ Use the PivotWeb service to create a Pivot collection from a csv file, and associated folder containing images
@@ -236,7 +236,7 @@ class MakeCollection(object):
         self.connection = Connection()
         res = self.connection.put('Collections', dict(cname=self.cname ) )
         self.cId = res['Id']
-        print 'Created or attached to existing collection, name="%s", Id=%d' % (cname, self.cId)
+        print ('Created or attached to existing collection, name="%s", Id=%d' % (cname, self.cId))
         
         os.chdir(os.path.expanduser(folder))
         self.facets = FacetList(table)
@@ -254,7 +254,7 @@ class MakeCollection(object):
             try:
                 self.add_image( self.facets.index[id] , item)
             except Exception, msg:
-                print msg
+                print (msg)
                 #raise
 
     def add_image(self,  name, item): 
@@ -284,15 +284,15 @@ def set_format(cId, format='F3', facets=None, quiet=True):
         if facets is None or f['Name'] in facets:
             before = f.get('NumberFormat', 'F1') # default
             f['NumberFormat']=format
-            if not quiet: print 'change format of Facet "%s": %s->%s' % (f['Name'], before, format)
+            if not quiet: print ('change format of Facet "%s": %s->%s' % (f['Name'], before, format))
     c.put('FacetCategories', dict(cId=cId), data=fc)
 
 def list_collections():
     c = Connection()
     t=c.get('Collections')
-    print '  Id  Name'
+    print ('  Id  Name')
     for x in t:
-        print '%4d  %s' % (x['Id'], x['Name'])
+        print ('%4d  %s' % (x['Id'], x['Name']))
 
 def delete_collection(id=None, name=None, ):
     if name is not None:
@@ -303,7 +303,7 @@ def delete_collection(id=None, name=None, ):
         raise Exception('Neither name nor id specified')
     c = Connection()
     c.request("Collections", "DELETE", par)	
-    print 'Collection %s deleted' %par
+    print ('Collection %s deleted' %par)
     
 def list_facets(id):
     c = Connection()

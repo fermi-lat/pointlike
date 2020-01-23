@@ -164,7 +164,7 @@ class LCTemplate(object):
             try:
                 return self._cache[indices]
             except Exception:
-                print '%d phases were NaN!'%(np.sum(np.isnan(phases)))
+                print ('%d phases were NaN!'%(np.sum(np.isnan(phases))))
                 indices[np.isnan(phases)] = 0
                 return self._cache[indices]
         rvals,norms,norm = self._get_scales(phases,log10_ens)
@@ -393,7 +393,7 @@ class LCTemplate(object):
         if not hasattr(indices,'__len__'):
             raise TypeError('indices must specify a list or array of indices')
         if len(indices)<2:
-            print 'Found fewer than 2 indices, returning.'
+            print ('Found fewer than 2 indices, returning.')
             return
         norms,prims = self.norms(),self.primitives
         norms_free = self.norms.free.copy()
@@ -555,7 +555,7 @@ class LCBridgeTemplate(LCTemplate):
 
     def mean_single_component(self,index,phases,log10_ens=None,weights=None,bins=20,add_pedestal=False):
         #if add_pedestal:
-            #print 'No add pedestal.'
+            #print ('No add pedestal.')
         # this needs to be done in some sane way, not sure if ideal exists
         #raise NotImplementedError()
         if (log10_ens is None) or (not self.is_energy_dependent()):

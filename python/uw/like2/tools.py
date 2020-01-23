@@ -93,8 +93,8 @@ class Profile(object):
          # grouby bin, so we can calculate stuff
         try: 
             self.binned = self.df.groupby('bin')
-        except Exception, msg:
-            print 'Failed groupby: {}\n{}'.format(msg, df)
+        except Exception as msg:
+            print ('Failed groupby: {}\n{}'.format(msg, df))
             raise
 
     @property

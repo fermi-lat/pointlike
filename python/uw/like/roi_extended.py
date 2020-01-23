@@ -134,7 +134,7 @@ class ROIExtendedModel(ROIDiffuseModel):
         for iband,(myband,band) in enumerate(zip(self.bands,bands)):
             if not self.quiet: 
                 status_string = '...convolving band %2d/%2d'%(iband+1,len(self.bands))
-                print status_string,;sys.stdout.flush()
+                print (status_string,;sys.stdout.flush())
 
             self.set_state(band)
 
@@ -147,9 +147,9 @@ class ROIExtendedModel(ROIDiffuseModel):
             myband.overlaps = self._overlaps(rd,band)
 
             if not self.quiet: 
-                print '\b'*(2+len(status_string)),;sys.stdout.flush()
+                print ('\b'*(2+len(status_string)),;sys.stdout.flush())
 
-        if not self.quiet: print
+        if not self.quiet: print()
 
     def update_counts(self,bands,model_index):
         """Update models with free parameters."""
@@ -272,7 +272,7 @@ Arguments:
         roi.quiet = True
 
         if roi.TS(which=self.name,quick=True,bandfits=bandfits) < 1:
-            print "Warning: initial TS<1 (in point hypothesis) so TS_ext will likely not be trustworthy"
+            print ("Warning: initial TS<1 (in point hypothesis) so TS_ext will likely not be trustworthy")
 
         init_state = PointlikeState(roi)
         init_spatial  = sm.get_parameters(absolute=False)
@@ -327,7 +327,7 @@ Arguments:
             sm.set_parameters(p=p[2:],absolute=False, center=new_dir)
 
             if verbose:
-                print 'Extension fitting for spatial model with p(absolute=False)=',sm.get_parameters(absolute=False).tolist()
+                print ('Extension fitting for spatial model with p(absolute=False)=',sm.get_parameters(absolute=False).tolist())
 
             temp=self.quiet;self.quiet=True
             self.initialize_counts(roi.bands)
@@ -338,13 +338,13 @@ Arguments:
                 ll=roi.bandFit(es)
             else:
                 if verbose:
-                    print 'About to do first fit:'
+                    print ('About to do first fit:')
                     roi.print_summary(indent='    ')
 
                 ll=roi.fit(estimate_errors=False,**kwargs)
 
                 if verbose:
-                    print 'After first fit:'
+                    print ('After first fit:')
                     roi.print_summary(indent='    ')
 
                 if ll < d['ll_best']:
@@ -353,26 +353,26 @@ Arguments:
                     d['best_state'].restore(just_spectra=True)
 
                     if verbose:
-                        print 'likelihood=%s worse than best likelihood=%s, starting from best spectral parameters' % (ll, d['ll_best'])
+                        print ('likelihood=%s worse than best likelihood=%s, starting from best spectral parameters' % (ll, d['ll_best']))
                         roi.print_summary(indent='    ')
 
                     ll_alt=roi.fit(estimate_errors=False,**kwargs)
 
                     if verbose:
-                        print 'After fit with best parameters:'
+                        print ('After fit with best parameters:')
                         roi.print_summary(indent='    ')
 
                     if ll_alt > ll: 
                         if verbose: 
-                            print 'Likelihood better than previous likelihood, so keeping it'
+                            print ('Likelihood better than previous likelihood, so keeping it')
                         ll=ll_alt
                     else: 
                         if verbose:
-                            print 'Likelihood worse than previous likelihood, so discarding it'
+                            print ('Likelihood worse than previous likelihood, so discarding it')
                         prev_state.restore(just_spectra=True)
                 else:
                     if verbose:
-                        print 'likelihood=%s is better than best likelihood=%s' % (ll, d['ll_best'])
+                        print ('likelihood=%s is better than best likelihood=%s' % (ll, d['ll_best']))
 
                 if ll < d['ll_0']:
 
@@ -380,36 +380,36 @@ Arguments:
                     init_state.restore(just_spectra=True)
 
                     if verbose:
-                        print 'Likelihood=%s worse than initial likelihood=%s, starting from initial spectral parameters' % (ll, d['ll_0'])
+                        print ('Likelihood=%s worse than initial likelihood=%s, starting from initial spectral parameters' % (ll, d['ll_0']))
                         roi.print_summary(indent='    ')
 
                     ll_alt=roi.fit(estimate_errors=False,**kwargs)
 
                     if verbose:
                         if verbose:
-                            print 'After fit with initial parameters:'
+                            print ('After fit with initial parameters:')
                         roi.print_summary(indent='    ')
 
                     if ll_alt > ll: 
                         if verbose:
-                            print 'Likelihood better than previous likelihood, so keeping it'
+                            print ('Likelihood better than previous likelihood, so keeping it')
                         ll=ll_alt
                     else: 
                         if verbose:
-                            print 'Likelihood worse than previous likelihood, so discarding it'
+                            print ('Likelihood worse than previous likelihood, so discarding it')
                         prev_state.restore(just_spectra=True)
                 else:
                     if verbose:
-                        print 'likelihood=%s is better than initial likelihood=%s' % (ll, d['ll_0'])
+                        print ('likelihood=%s is better than initial likelihood=%s' % (ll, d['ll_0']))
 
                 if ll > d['ll_best']: 
                     d['ll_best'] = ll
                     d['best_state'] = PointlikeState(roi)
 
-            if not self.quiet: print '%s, logL = %.3f, dlogL = %.3f' % (sm.pretty_string(),ll,ll-d['ll_0'])
+            if not self.quiet: print ('%s, logL = %.3f, dlogL = %.3f' % (sm.pretty_string(),ll,ll-d['ll_0']))
 
             if verbose: 
-                print;print
+                print();print()
 
             return -ll # return negative log likelihood, suitable for minimizing
 
@@ -422,11 +422,11 @@ Arguments:
         self.quiet = old_quiet
 
         if not self.quiet: 
-            print 'Localizing %s source %s Using %s' % (sm.pretty_name,es.name,
-                                                        'BandFits' if bandfits else 'Spectral Fits')
+            print ('Localizing %s source %s Using %s' % (sm.pretty_name,es.name,
+                                                        'BandFits' if bandfits else 'Spectral Fits'))
 
         if init_grid is not None:
-            print 'Testing initial grid values'
+            print ('Testing initial grid values')
             ll = [] 
             transformed = []
             for _ in init_grid:
@@ -440,7 +440,7 @@ Arguments:
 
             index=np.argmin(ll)
             start_spatial=transformed[index]
-            if not self.quiet: print 'Now starting with the best initial parameters'
+            if not self.quiet: print ('Now starting with the best initial parameters')
         else:
             start_spatial = init_spatial
 
@@ -463,7 +463,7 @@ Arguments:
         best_spatial,fval = m.minimize(method="SIMPLEX")
 
         if estimate_errors is True and error is not None:
-            if not self.quiet: print 'Calculating Covariance Matrix'
+            if not self.quiet: print ('Calculating Covariance Matrix')
             if error == 'UMINOS':
                 cov_matrix = m.uncorrelated_minos_error()
             else:
@@ -473,14 +473,14 @@ Arguments:
 
         sm.set_cov_matrix(cov_matrix)
 
-        if not self.quiet: print 'setting source to best fit parameters'
+        if not self.quiet: print ('setting source to best fit parameters')
         likelihood_wrapper(best_spatial)
 
         # Fit once more at the end to get the right errors.
         try:
             roi.fit(estimate_errors=True,**kwargs)
         except Exception, err:
-            print err
+            print (err)
 
         roi.quiet = roi.old_quiet
 
@@ -527,18 +527,18 @@ Arguments:
             try:
                 roi.fit(estimate_errors=True,**d)
             except Exception, err:
-                print err
+                print (err)
 
         ll_disk = l()
 
         sm.shrink()
         self.initialize_counts(roi.bands)
 
-        if not roi.quiet: print 'Refitting position for the null hypothesis'
+        if not roi.quiet: print ('Refitting position for the null hypothesis')
         f() # have to fit with shrunk spatial model to get a reasonable starting spectrum for extension fit.
         if refit: self.fit_extension(roi,estimate_errors=False,**kwargs)
 
-        if not roi.quiet: print 'Redoing spectral fit in the null hypothesis'
+        if not roi.quiet: print ('Redoing spectral fit in the null hypothesis')
 
         f() # have to refit in case bandfits was used during the localization.
 

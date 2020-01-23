@@ -38,26 +38,26 @@ class TransientCatalog(analysis_base.AnalysisBase):
         self.input_model = config['input_model']
         self.nmonths = config['nmonths']
         self.startlog()
-        print 'input model: {}, with {} months'.format(self.input_model, self.nmonths)
+        print ('input model: {}, with {} months'.format(self.input_model, self.nmonths))
         if saved_filename is not None:
             filename='transients.csv'
             dfsaved = pd.read_csv(filename, index_col=0)
-            print 'Read in file with all monthly detections {}, {} entries'.format(filename, len(dfsaved))
+            print ('Read in file with all monthly detections {}, {} entries'.format(filename, len(dfsaved)))
             self.df =df =dfsaved[dfsaved.locqual<8]; 
         
             
-        print 'Running transientinfo.Analysis to collect input source detections'
+        print ('Running transientinfo.Analysis to collect input source detections')
         sa = transientinfo.Analysis(all_months_model=self.input_model)
         self.df=df=sa.df
         df['skydir'] = map(SkyDir, df.ra, df.dec)
         self.ts25=self.df.ts>25
         self.hilat = np.abs(self.df.glat)>10
-        print 'TS>25: {}, hilat: {}, both:{}'.format(sum(self.ts25), sum(self.hilat), sum(self.ts25 & self.hilat))
+        print ('TS>25: {}, hilat: {}, both:{}'.format(sum(self.ts25), sum(self.hilat), sum(self.ts25 & self.hilat)))
  
         self.si = si= transientinfo.SourceInfo(sa)
         si.df['skydir'] = sa.df6y.skydir
         self.reference = si.df[si.df.ngood>0]
-        print 'Selected reference set ({}/{}) of input sources '\
+        print ('Selected reference set ({}/{}) of input sources '\)
             'such that at least one month has a "good" detection.'.format(len(self.reference), len(si.df))
         self.logstream=self.stoplog()
         assert os.getcwd() == model_dir, 'Changed cwd: {}'.format(os.getcwd())
@@ -139,7 +139,7 @@ class TransientCatalog(analysis_base.AnalysisBase):
             return np.degrees(min([a.difference(x) for x in b]))
         self.mindist_cut = mindist
         
-        print 'Comparing {} sources with {} in reference set'.format(len(self.df), len(self.reference))
+        print ('Comparing {} sources with {} in reference set'.format(len(self.df), len(self.reference)))
         self.df['closediff'] = np.array([closest(a,self.reference.skydir) for a in self.df.skydir])
   
         fig,ax=plt.subplots(figsize=(6,6))
@@ -160,10 +160,10 @@ class TransientCatalog(analysis_base.AnalysisBase):
         """FITS output log
         <pre>%(fitslogstream)s</pre>"""
         self.startlog()
-        print 'Writing all sources to file {}'.format (filename+'.csv')
+        print ('Writing all sources to file {}'.format (filename+'.csv'))
         self.df.to_csv(filename+'.csv')
         cuts='(sources.ts>25) & (sources.a<0.25) &(sources.closediff>%.2f)' % self.mindist_cut
-        print '\nRunning "to_fits"...'
+        print ('\nRunning "to_fits"...')
         self.fits_file = filename+'.fits'
         to_fits.main(self.fits_file,  cuts=cuts,
                      localization_systematic = (error_box_factor, error_box_add)
@@ -184,7 +184,7 @@ class CloseCut(object):
     def __init__(self, sources, reference):
         """ sources, reference : SkyDir lists
         """
-        print 'Comparing {} sources with {} in reference set'.format(len(sources), len(reference))
+        print ('Comparing {} sources with {} in reference set'.format(len(sources), len(reference)))
         def closest(a, b):
             return np.degrees(min([a.difference(x) for x in b]))
         self.closediff = np.array([closest(a,reference) for a in sources])

@@ -43,7 +43,7 @@ class Model(object):
          The input to this object should be fairly flexible:
              
              >>> model = PowerLaw(e0=100)
-             >>> print model.e0
+             >>> print (model.e0)
              100
 
          Note that pointlike internally stores parameters using a mapping:
@@ -123,7 +123,7 @@ class Model(object):
     def len(self): 
         """ Exmaple:
                 >>> model = PowerLaw()
-                >>> print model.len()
+                >>> print (model.len())
                 2
 
         """
@@ -132,23 +132,23 @@ class Model(object):
     def __contains__(self, item):
         """ Example:
                 >>> model = PowerLaw()
-                >>> print 'Norm' in model
+                >>> print ('Norm' in model)
                 True
-                >>> print 'Normalization' in model
+                >>> print ('Normalization' in model)
                 False
 
         """
         try:
             self.__getitem__(item)
             return True
-        except ModelException, ex:
+        except ModelException as ex:
             return False
         
     def __getitem__(self, index):
         """ Wrapper around getp:
                 
         >>> model=PowerLaw()
-        >>> print model['index']
+        >>> print (model['index'])
         2.0
         """
         return self.getp(index)
@@ -160,12 +160,12 @@ class Model(object):
         """ Get external value for parameter # i 
 
                 >>> model=PowerLaw()
-                >>> print model['index']
+                >>> print (model['index'])
                 2.0
         
             You can also get the non-fit extra_params using getp:
                 
-                >>> print model['e0']
+                >>> print (model['e0'])
                 1000.0
 
             """
@@ -201,13 +201,13 @@ class Model(object):
             
                 >>> model=PowerLaw()
                 >>> model['index'] = 1
-                >>> print model['index'] 
+                >>> print (model['index'] )
                 1.0
 
             You can also set the non-fit extra_params using setp:
 
                 >>> model['e0'] = 100
-                >>> print model.e0
+                >>> print (model.e0)
                 100
         
         """
@@ -228,9 +228,9 @@ class Model(object):
 
                 >>> model=PowerLaw()
                 >>> model.setp_gtlike('index',-2)
-                >>> print model.getp_gtlike('index')
+                >>> print (model.getp_gtlike('index'))
                 -2.0
-                >>> print model.getp('index')
+                >>> print (model.getp('index'))
                 2.0
             """
         if i in self.default_extra_params:
@@ -246,9 +246,9 @@ class Model(object):
             
                 >>> model=PowerLaw()
                 >>> model.setp_gtlike('index',-2.0)
-                >>> print model.getp_gtlike('index')
+                >>> print (model.getp_gtlike('index'))
                 -2.0
-                >>> print model.getp('index')
+                >>> print (model.getp('index'))
                 2.0
             
         """
@@ -271,13 +271,13 @@ class Model(object):
 
                 >>> model = PowerLaw(index=1)
                 >>> model.set_error('index',0.5)
-                >>> print model.getp('index')
+                >>> print (model.getp('index'))
                 1.0
-                >>> print model.getp('index',internal=True)
+                >>> print (model.getp('index',internal=True))
                 1.0
-                >>> print model.error('index')
+                >>> print (model.error('index'))
                 0.5
-                >>> print model.get_mapper('index')
+                >>> print (model.get_mapper('index'))
                 <class 'uw.utilities.parmap.LinearMapper'>
 
             We can switch to a log mapper. The external
@@ -285,13 +285,13 @@ class Model(object):
             representation changes.
 
                 >>> model.set_mapper('index', LogMapper)
-                >>> print model.getp('index')
+                >>> print (model.getp('index'))
                 1.0
-                >>> print model.getp('index',internal=True)
+                >>> print (model.getp('index',internal=True))
                 0.0
-                >>> print model.error('index')
+                >>> print (model.error('index'))
                 0.5
-                >>> print model.get_mapper('index')
+                >>> print (model.get_mapper('index'))
                 <class 'uw.utilities.parmap.LogMapper'>
 
             Better typchecking:
@@ -322,9 +322,9 @@ class Model(object):
 
                 >>> model = PowerLaw(index=1)
                 >>> model.set_limits('index',-2,2)
-                >>> print model.get_mapper('index')
+                >>> print (model.get_mapper('index'))
                 LimitMapper(-2,2,1)
-                >>> print model.get_limits('index')
+                >>> print (model.get_limits('index'))
                 [-2, 2]
 
             Note, just to be tolerant to gtlike limits where
@@ -332,7 +332,7 @@ class Model(object):
             set_limits will automatically flip reversed limits:
             
                 >>> model.set_limits('index',2,-2)
-                >>> print model.get_limits('index')
+                >>> print (model.get_limits('index'))
                 [-2, 2]
 
             Note, by default, setting a limit outside existing bound will just
@@ -344,13 +344,13 @@ class Model(object):
                 2.0
 
             We can override this behavior with strict=True
-                >>> print model.get_limits('index')
+                >>> print (model.get_limits('index'))
                 [2, 4]
                 >>> model.set_limits('index',-10, -8, strict=True)
                 Traceback (most recent call last):
                     ...
                 ModelException: Found Index=2.0 > -8, maximum allowed value
-                >>> print model.get_limits('index')
+                >>> print (model.get_limits('index'))
                 [2, 4]
         """
         i=self.name_mapper(i)
@@ -366,13 +366,13 @@ class Model(object):
         if param < lower:
             msg = 'Found %s=%s < %s, minimum allowed value' % (name, param, lower)
             if strict: raise ModelException(msg)
-            print 'WARNING: %s,\n    Setting parameter value to minimum.' % msg
+            print ('WARNING: %s,\n    Setting parameter value to minimum.' % msg)
             self[i]=lower
 
         if self[i] > upper:
             msg = 'Found %s=%s > %s, maximum allowed value' % (name, param, upper)
             if strict: raise ModelException(msg)
-            print 'Warning %s,\n    Setting parameter value to maximum.'% msg
+            print ('Warning %s,\n    Setting parameter value to maximum.'% msg)
             self[i] = upper
 
         self.set_mapper(i,LimitMapper(lower,upper,scale))
@@ -382,13 +382,13 @@ class Model(object):
 
                 >>> model = PowerLaw(index=1)
                 >>> model.set_limits_gtlike('index',-2,3)
-                >>> print model.get_limits('index')
+                >>> print (model.get_limits('index'))
                 [-3, 2]
-                >>> print model.get_limits_gtlike('index')
+                >>> print (model.get_limits_gtlike('index'))
                 [-2, 3]
-                >>> print model.get_scale('index')
+                >>> print (model.get_scale('index'))
                 1
-                >>> print model.get_scale_gtlike('index')
+                >>> print (model.get_scale_gtlike('index'))
                 -1
         """
         i=self.name_mapper(i)
@@ -404,9 +404,9 @@ class Model(object):
 
                 >>> model = PowerLaw(index=2)
                 >>> model.set_mapper('index',LimitMapper(-0.75,2.25,-1.0))
-                >>> print model.get_limits('index')
+                >>> print (model.get_limits('index'))
                 [-0.75, 2.25]
-                >>> print model.get_limits_gtlike('index')
+                >>> print (model.get_limits_gtlike('index'))
                 [-2.25, 0.75]
         """
         i=self.name_mapper(i)
@@ -484,10 +484,10 @@ class Model(object):
             For example:
 
                 >>> model = PowerLaw()
-                >>> print model.free
+                >>> print (model.free)
                 [ True  True]
                 >>> model.freeze('index')
-                >>> print model.free
+                >>> print (model.free)
                 [ True False]
 
             """
@@ -499,17 +499,17 @@ class Model(object):
     def set_free(self,i,free):
         """
                 >>> model = PowerLaw()
-                >>> print model.free
+                >>> print (model.free)
                 [ True  True]
                 >>> model.set_free('index',False)
-                >>> print model.free
+                >>> print (model.free)
                 [ True False]
-                >>> print model.get_free('index')
+                >>> print (model.get_free('index'))
                 False
                 >>> model.set_free('index',True)
-                >>> print model.free
+                >>> print (model.free)
                 [ True  True]
-                >>> print model.get_free('index')
+                >>> print (model.get_free('index'))
                 True
 
             Previously, get_free would return a numpy object:
@@ -611,15 +611,15 @@ class Model(object):
         """ Set the INTERNAL error for parameter i 
 
                 >>> model = PowerLaw(mappers=[LogMapper,LogMapper])
-                >>> print model.error('norm')
+                >>> print (model.error('norm'))
                 0.0
                 >>> model.set_error('norm',1)
-                >>> print model.error('norm')
+                >>> print (model.error('norm'))
                 1.0
 
                 >>> model = PowerLaw(mappers=[LinearMapper,LinearMapper])
                 >>> model.set_error('norm',1)
-                >>> print model.error('norm')
+                >>> print (model.error('norm'))
                 1.0
 
         """
@@ -636,7 +636,7 @@ class Model(object):
             indent: string to prepend to each line (must be called explicitly)
 
                 >>> model = PowerLaw()
-                >>> print model
+                >>> print (model)
                 Norm      : 1e-11 
                 Index     : 2 
                 Ph. Flux  : 9.99e-08 (DERIVED)
@@ -743,9 +743,9 @@ class Model(object):
                     return (flux,np.exp(log_flux+log_err)-flux,flux-np.exp(log_flux-log_err))
 
             return flux
-        except ModelException, msg:
+        except ModelException as msg:
             if not quiet:
-                print 'Encountered a numerical error, "%s", when attempting to calculate integral flux.'%msg
+                print ('Encountered a numerical error, "%s", when attempting to calculate integral flux.'%msg)
             return np.nan if not error else ([flux, np.nan,np.nan] if two_sided else [flux, np.nan])
 
     def save_profile(self, filename, emin, emax, numpoints=200, clip_ends=True, clip_fraction=1e-20):
@@ -785,7 +785,7 @@ class Model(object):
 
                 >>> model = PowerLaw(index=2)
                 >>> model.set_flux(1e-7, emin=1e3, emax=1e5)
-                >>> print '%g' % model.i_flux(emin=1e3, emax=1e5)
+                >>> print ('%g' % model.i_flux(emin=1e3, emax=1e5))
                 1e-07
 
             Note that this implementation is robust even when the source
@@ -793,7 +793,7 @@ class Model(object):
 
                 >>> model.setp(0, -np.inf, internal=True)
                 >>> model.set_flux(1e-7)
-                >>> print '%g' % model.i_flux()
+                >>> print ('%g' % model.i_flux())
                 1e-07
 
             Just a simple example of a unitless powerlaw:
@@ -817,7 +817,7 @@ class Model(object):
 
                 >>> model.set_flux(1e-15)
                 WARNING: Setting flux=1e-15 sets the prefactor=1.001001001e-19 which is below minimum bound 1e-17. Setting prefactor to limit.
-                >>> print model['norm']
+                >>> print (model['norm'])
                 1e-17
                 >>> model.set_flux(1e-15, strict=True)
                 Traceback (most recent call last):
@@ -826,7 +826,7 @@ class Model(object):
 
                 >>> model.set_flux(1e10)
                 WARNING: Setting flux=10000000000.0 sets the prefactor=1001001.001 which is above maximum bound 0.001. Setting prefactor to limit.
-                >>> print model['norm']
+                >>> print (model['norm'])
                 0.001
 
                 >>> model.set_flux(1e10, strict=True)
@@ -851,7 +851,7 @@ class Model(object):
                     self.set_mapper(0, mapper)
                     raise ModelException(msg)
                 else:
-                    print 'WARNING: %s. Setting prefactor to limit.' % msg
+                    print ('WARNING: %s. Setting prefactor to limit.' % msg)
                     new_prefactor=max_limit
 
             min_limit=mapper.lower
@@ -862,7 +862,7 @@ class Model(object):
                     self.set_mapper(0, mapper)
                     raise ModelException(msg)
                 else:
-                    print 'WARNING: %s. Setting prefactor to limit.' % msg
+                    print ('WARNING: %s. Setting prefactor to limit.' % msg)
                     new_prefactor=min_limit
 
         self.setp(0,new_prefactor)
@@ -967,7 +967,7 @@ class Model(object):
             fmin_default=dict(disp=0, ftol=0.01, xtol=0.05, maxiter=50)
             fmin_default.update(**kwargs)
             return min(optimize.fmin(f, [self.e0], **fmin_default )[0], emax)
-        except FloatingPointError, msg:
+        except FloatingPointError as msg:
             #raise ModelException('pivot_energy failed: %s' % msg)
             return 200. #default: problems with very soft, this is reasonable
 
@@ -975,35 +975,35 @@ class Model(object):
         """ Set source's flux to 0:
 
                 >>> model = PowerLaw()
-                >>> print model.iszero()
+                >>> print (model.iszero())
                 False
-                >>> print model['norm']
+                >>> print (model['norm'])
                 1e-11
                 >>> model.zero()
-                >>> print model.iszero()
+                >>> print (model.iszero())
                 True
-                >>> print model['norm']
+                >>> print (model['norm'])
                 0.0
                 >>> model.unzero()
-                >>> print model['norm']
+                >>> print (model['norm'])
                 1e-11
-                >>> print model.iszero()
+                >>> print (model.iszero())
                 False
 
             Previously, zeroing a source was kind of buggy if the 
             source parameter had a limit:
 
                 >>> model = PowerLaw(norm=5, e0=100)
-                >>> print model(100)
+                >>> print (model(100))
                 5.0
                 >>> model.set_limits('norm',1,10)
                 >>> model.zero()
                 >>> model.get_mapper('norm')
                 <class 'uw.utilities.parmap.LinearMapper'>
-                >>> print model(100)
+                >>> print (model(100))
                 0.0
                 >>> model.unzero()
-                >>> print model(100)
+                >>> print (model(100))
                 5.0
                 >>> model.get_limits('norm')
                 [1, 10]
@@ -1032,7 +1032,7 @@ class Model(object):
 
                 >>> model = PowerLaw(e0=1000)
                 >>> model.set_prefactor(1e-10, 100)
-                >>> print model(100)
+                >>> print (model(100))
                 1e-10
         """
 
@@ -1054,9 +1054,9 @@ class Model(object):
             For example, by default a PowerLaw has no limits
 
                 >>> model=PowerLaw()
-                >>> print model.get_mapper('norm')
+                >>> print( model.get_mapper('norm'))
                 <class 'uw.utilities.parmap.LogMapper'>
-                >>> print model.get_mapper('index')
+                >>> print (model.get_mapper('index'))
                 <class 'uw.utilities.parmap.LinearMapper'>
 
             But we can easily impose default limits:
@@ -1064,13 +1064,13 @@ class Model(object):
                 >>> model.set_default_limits(oomp_limits=False)
                 >>> np.allclose(model.get_limits('norm'),[1e-17,1e-3])
                 True
-                >>> print model.get_mapper('norm')
+                >>> print (model.get_mapper('norm'))
                 LimitMapper(1e-17,0.001,1e-09)
-                >>> print model.get_scale('norm')
+                >>> print (model.get_scale('norm'))
                 1e-09
-                >>> print model.get_limits('index')
+                >>> print (model.get_limits('index'))
                 [-5, 5]
-                >>> print model.get_scale('index')
+                >>> print (model.get_scale('index'))
                 1
 
             Note, the OOMP limits work a little differently:
@@ -1088,7 +1088,7 @@ class Model(object):
                     Using default limits.
                 WARNING: Found Norm=0.0 < 1e-17, minimum allowed value,
                     Setting parameter value to minimum.
-                >>> print model.get_limits('norm')
+                >>> print (model.get_limits('norm'))
                 [1e-17, 0.001]
 
 
@@ -1096,17 +1096,17 @@ class Model(object):
             We can make a model with limits easily:
 
                 >>> model = PowerLaw(set_default_limits=True)
-                >>> print model.get_mapper('norm')
+                >>> print (model.get_mapper('norm'))
                 LimitMapper(1e-17,0.001,1e-09)
 
             Finally, we note the only_unbound_parameters, which will not change
             alredy existing limits:
             
                 >>> model.set_limits('index',-10,10)
-                >>> print model.get_limits('index')
+                >>> print (model.get_limits('index'))
                 [-10, 10]
                 >>> model.set_default_limits(only_unbound_parameters=True)
-                >>> print model.get_limits('index')
+                >>> print (model.get_limits('index'))
                 [-10, 10]
         """
 
@@ -1125,11 +1125,11 @@ class Model(object):
             if name in self.default_oomp_limits and oomp_limits:
                 try:
                     self.set_oomp_limit(name)
-                except ModelException, ex:
+                except ModelException as ex:
                     # This is kind of an edge case, but oomp limits can fail.
                     msg = 'OOMP limit failed for parameter %s' % name
                     if strict: raise ModelException(es)
-                    print 'WARNING: %s,\n    Using default limits.' % msg
+                    print ('WARNING: %s,\n    Using default limits.' % msg)
                     self.set_limits(name,lower,upper,scale=scale,strict=strict)
             else:
                 self.set_limits(name,lower,upper,scale=scale,strict=strict)
@@ -1140,10 +1140,10 @@ class Model(object):
             is a power of 10:
                 
                 >>> model=PowerLaw(norm=1.5e-10)
-                >>> print model.get_mapper('norm')
+                >>> print (model.get_mapper('norm'))
                 <class 'uw.utilities.parmap.LogMapper'>
                 >>> model.set_oomp_limit('norm')
-                >>> print model.get_mapper('norm')
+                >>> print (model.get_mapper('norm'))
                 LimitMapper(1e-12,1e-08,1e-10)
         """
         i=self.name_mapper(i)
@@ -1159,11 +1159,11 @@ class Model(object):
     def get_pointlike_name(cls, name):
         """ Convert a gtlike name to a pointlike name. 
 
-                >>> print PowerLaw.get_pointlike_name('Prefactor')
+                >>> print (PowerLaw.get_pointlike_name('Prefactor'))
                 Norm
-                >>> print PowerLaw.get_pointlike_name('Scale')
+                >>> print (PowerLaw.get_pointlike_name('Scale'))
                 e0
-                >>> print PowerLaw.get_pointlike_name('asdfadsf')
+                >>> print (PowerLaw.get_pointlike_name('asdfadsf'))
                 Traceback (most recent call last):
                     ...
                 ModelException: Name asdfadsf is not a gtlike parameter.
@@ -1183,7 +1183,7 @@ class Model(object):
     def gtlike_param_names(cls):
         """ Get all gtlike parameters:
 
-                >>> print PowerLaw.gtlike_param_names()
+                >>> print (PowerLaw.gtlike_param_names())
                 ['Prefactor', 'Index', 'Scale']
         """
         return cls.gtlike['param_names'] + cls.gtlike['extra_param_names'].values()
@@ -1280,7 +1280,7 @@ class PowerLaw(Model):
         It is easy to set values internally
             
             >>> model['Norm'] = 1e-6
-            >>> print model['Norm']
+            >>> print (model['Norm'])
             1e-06
 
         When you create the object, you can specify the parameters by kwargs:
@@ -1292,12 +1292,12 @@ class PowerLaw(Model):
         You can also make deep copies of the spectral models:
 
             >>> copy_model=model.copy()
-            >>> print copy_model['norm'] 
+            >>> print (copy_model['norm'])
             1e-11
             >>> model['norm'] = 1e-10
-            >>> print copy_model['norm']
+            >>> print (copy_model['norm'])
             1e-11
-            >>> print model['norm']
+            >>> print (model['norm'])
             1e-10
 
     """
@@ -1374,9 +1374,9 @@ class ScalingPowerLaw(PowerLaw):
 
             >>> pl = PowerLaw(norm=1.12,index=-0.12)
             >>> spl = ScalingPowerLaw.from_powerlaw(pl)
-            >>> print spl['norm']
+            >>> print (spl['norm'])
             1.12
-            >>> print spl['index']
+            >>> print (spl['index'])
             -0.12
             >>> spl.get_mapper('norm')
             <class 'uw.utilities.parmap.LogMapper'>
@@ -1722,7 +1722,7 @@ class LogParabola(Model):
     #    d= -C[0,1]/A
     #    results = roots([a,b,c,d])
     #    results = 10**self._p[3]*np.exp(results)
-    #    print "Pivot energy solutions for the LogParabola : ",results
+    #    print ("Pivot energy solutions for the LogParabola : ",results)
     #    return np.real(results[np.isreal(results)])
 
     def set_e0(self, e0p):
@@ -1937,7 +1937,7 @@ class PLSuperExpCutoff(Model):
     #    """  
     #    Assuming a fit was done, estimate the pivot energy. The parameter b is assumed to be fixed at 1.
     #    """
-    #    if self._p[3]!=0. : print "WARNING: b is not 1, the pivot energy computation might be inaccurate"
+    #    if self._p[3]!=0. : print ("WARNING: b is not 1, the pivot energy computation might be inaccurate")
     #    N0, gamma, Ecut, beta = self.get_all_parameters()
     #    E0 = self.e0
     #    C = self.get_cov_matrix()
@@ -1957,7 +1957,7 @@ class PLSuperExpCutoff(Model):
     #    func = lambda x : a + b*x + c*np.exp(2.*x) + np.exp(x)*(d-f*(1+x))
     #    result = optimize.newton(func, 1)
     #    result = E0*np.exp(result)
-    #    print "Pivot energy solution (in MeV) for the PLSuperExpCutoff : ",result
+    #    print ("Pivot energy solution (in MeV) for the PLSuperExpCutoff : ",result)
     #    return result
         
     def flux_relunc(self, energy):
@@ -2065,14 +2065,14 @@ class CompositeModel(Model):
             2.0
             >>> sum_model.getp(1)
             2.0
-            >>> print sum_model._p[1]
+            >>> print (sum_model._p[1])
             2.0
             >>> sum_model[1] = -1
             >>> sum_model[1] 
             -1.0
             >>> sum_model.getp(1)
             -1.0
-            >>> print sum_model._p[1]
+            >>> print (sum_model._p[1])
             -1.0
 
             >>> sum_model.setp(1,1.5)
@@ -2089,13 +2089,13 @@ class CompositeModel(Model):
 
         So does getting and setting mappers:
             >>> m=sum_model.get_mapper(1)
-            >>> print m
+            >>> print (m)
             <class 'uw.utilities.parmap.LinearMapper'>
             >>> sum_model.set_mapper(1,LogMapper)
-            >>> print sum_model.get_mapper(1)
+            >>> print (sum_model.get_mapper(1))
             <class 'uw.utilities.parmap.LogMapper'>
             >>> sum_model.set_mapper(1,m)
-            >>> print sum_model.get_mapper(1)
+            >>> print (sum_model.get_mapper(1))
             <class 'uw.utilities.parmap.LinearMapper'>
 
         And after the individual parameter modifications, the CompositeModel._p
@@ -2110,7 +2110,7 @@ class CompositeModel(Model):
 
         Note, there are duplicate names in this model:
             
-            >>> print sum_model.duplicate_names()
+            >>> print (sum_model.duplicate_names())
             True
             >>> sum_model.default_limits
             Traceback (most recent call last):
@@ -2133,14 +2133,14 @@ class CompositeModel(Model):
 
         Previously there was a bug with having 3 spatial parameters: 
             >>> c = SumModel(PowerLaw(),PowerLaw(),PowerLaw())
-            >>> print c._p
+            >>> print (c._p)
             [-11.   2. -11.   2. -11.   2.]
-            >>> print c.free
+            >>> print (c.free)
             [ True  True  True  True  True  True]
 
         Note, previously this was buggy:
 
-            >>> print c._p
+            >>> print (c._p)
             [-11.   2. -11.   2. -11.   2.]
             >>> c._p = [1]*6
             >>> np.all(c._p == [1]*6)
@@ -2281,7 +2281,7 @@ class CompositeModel(Model):
             >>> m2=LogParabola()
             >>> sum_model=SumModel(m1,m2)
             >>> sum_model.set_parameters(np.asarray([1,2,3,4,5,6]))
-            >>> print sum_model.get_parameters()
+            >>> print (sum_model.get_parameters())
             [ 1.  2.  3.  4.  5.  6.]
             >>> m1.get_parameters()
             array([ 1.,  2.])
@@ -2410,7 +2410,7 @@ class SumModel(CompositeModel):
                 >>> np.allclose(model.i_flux(),PowerLaw().i_flux()*2)
                 True
                 >>> model.set_flux(1)
-                >>> print model.i_flux()
+                >>> print (model.i_flux())
                 1.0
 
         """
@@ -2474,21 +2474,21 @@ class Constant(Model):
             First, create a default constant
 
                 >>> model = Constant(Scale=3.0)
-                >>> print model.param_names
+                >>> print (model.param_names)
                 ['Scale']
-                >>> print model['Scale']
+                >>> print (model['Scale'])
                 3.0
-                >>> print model.default_limits.keys()
+                >>> print (model.default_limits.keys())
                 ['Scale']
 
             Now, create a constant with the gtlike naming convention:
 
                 >>> model = Constant(name='Value', Value=2.0)
-                >>> print model.param_names
+                >>> print (model.param_names
                 ['Value']
-                >>> print model['Value']
+                >>> print (model['Value'])
                 2.0
-                >>> print model.default_limits.keys()
+                >>> print (model.default_limits.keys())
                 ['Value']
 
         """
@@ -2552,7 +2552,7 @@ class FileFunction(Model):
         Note, you cannot set the flux of a file function:
 
             >>> file_function.set_flux(1)
-            >>> print file_function.i_flux()
+            >>> print (file_function.i_flux())
             1.0
 
         Previously, pickling file_function objects failed:
@@ -2713,6 +2713,6 @@ class Gaussian(Model):
         return prefactor/(sigma*2.0*np.pi)*np.exp(-(e-mean)**2/(2.0*sigma**2))
 
 if __name__ == "__main__":
-    print __doc__
+    print (__doc__)
     import doctest
     doctest.testmod()

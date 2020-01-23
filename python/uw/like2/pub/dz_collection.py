@@ -82,7 +82,7 @@ class MakeCollection(object):
                     %(self.infolder, self.outfolder), block=True)
         @interactive
         def emc(x): return mc(x)
-        print ('start converting %d files' % len(self.files); sys.stdout.flush())
+        print ('start converting %d files' % len(self.files)); sys.stdout.flush()
         dview.map_sync( emc, range(len(self.files)) )
         dview.clear()
         

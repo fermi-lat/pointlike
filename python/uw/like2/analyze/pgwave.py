@@ -47,7 +47,7 @@ class PGwave( sourceinfo.SourceInfo):
         used = [n.startswith(prefix) for n in sdf.index]
         self.udf=udf = sdf[used]
         good = (udf.ts>10) & (udf.a<0.50) & (udf.locqual<8)
-        print 'Used, good:',sum(used),sum(good)
+        print ('Used, good:',sum(used),sum(good))
         self.good=good
 
     def skyplot(self):
