@@ -263,8 +263,8 @@ class SkyModel(object):
                     
                     if es.model.name!=model.name:
                         if name not in self.changed:
-                            if not self.quiet: print ('SkyModel warning: catalog model  %s changed from %s for source %s: keeping change'%\)
-                                   (es.model.name, model.name, name)
+                            if not self.quiet: print ('SkyModel warning: catalog model  %s changed from %s for source %s: keeping change'%\
+                                   (es.model.name, model.name, name))
                         self.changed.add(name)
                     es.smodel=es.model=model #update with current fit values always
                     if sources.validate(es,self.nside, self.filter): #lambda x: True): 

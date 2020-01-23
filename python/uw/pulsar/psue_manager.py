@@ -671,7 +671,8 @@ class PSUEAnalysis():
         from uw.like.Models import PLSuperExpCutoff, PowerLaw
 
         if not isfile(self.ft1file):
-            print ("Error. Cannot open %s! Must create FT1file. Exiting ..." %self.ft1file; exit()                        )
+            print ("Error. Cannot open %s! Must create FT1file. Exiting ..." %self.ft1file)
+            exit()
 
         ft1file = join(self.outdir,basename(self.ft1file))
         ft1file_gtis = join(self.outdir,basename(self.ft1file_gtis))
@@ -698,7 +699,7 @@ class PSUEAnalysis():
         
         # binfile
         binfile = ft1file_gtis.replace('.fits','_binned.fits')
-        if isfile(binfile): print ("remove binfile ..."; remove(binfile))
+        if isfile(binfile): print ("remove binfile ..."); remove(binfile)
 
         # Create DataSpecification Object
         from uw.like.pointspec import DataSpecification 

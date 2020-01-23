@@ -399,7 +399,7 @@ class DisplayTable(object):
             if self.scale=='sqrt': self.scale= lambda x: np.sqrt(max(x,0))
             elif self.scale=='log': self.scale=lambda x: np.log10(max(x,0.1))
             else:
-                raise Exception, 'unrecognized scale function, %s' %self.scale
+                raise Exception('unrecognized scale function, %s' %self.scale)
 
     def get_pyskyfun(self):
         return PySkyFunction(self)

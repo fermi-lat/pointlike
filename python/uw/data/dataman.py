@@ -439,7 +439,7 @@ class DataSpec(object):
         files = filter(overlaps, self.ft1files) ##TODO
         if len(files)==0:
             raise DataManException('Attempt to create binned photon file with no data')
-        print ('Creating binfile from %d FT1 files' % len(files)
+        print ('Creating binfile from %d FT1 files' % len(files))
         sys.stdout.flush()
         data = pointlike.Data(files,-1, 0,0, self.mc_src_id,'')
         dmap = data.map() # local reference to avoid segfaults
@@ -548,7 +548,7 @@ class DataSpec(object):
                 weighted   =i)
 
             for hf in self.ft2files:
-                if not self.quiet: print('checking FT2 file {0}...'.format(hf)),
+                if not self.quiet: print('checking FT2 file {0}...'.format(hf),)
                 lt_gti = skymaps.Gti(hf,'SC_DATA')
                 if not ((lt_gti.maxValue() < self.gti.minValue()) or
                         (lt_gti.minValue() > self.gti.maxValue())):

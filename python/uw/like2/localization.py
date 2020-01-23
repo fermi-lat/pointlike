@@ -180,7 +180,8 @@ def full_localization(roi, source_name=None, ignore_exception=False,
             tsp.plot(SkyDir(rax,decx), color='w', symbol='o' );
             filename = source.name.replace(' ','_').replace('+','p')
             fout = os.path.join(tsmap_dir, ('%s_tsmap.jpg'%filename) )
-            print ('saving updated tsplot with moment analysis ellipse to %s...' % fout ; sys.stdout.flush())
+            print ('saving updated tsplot with moment analysis ellipse to %s...' % fout)
+            sys.stdout.flush()
             plt.savefig(fout, bbox_inches='tight', padinches=0.2) #cuts off outherwise  
             
         return tsp
