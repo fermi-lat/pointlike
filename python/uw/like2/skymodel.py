@@ -153,9 +153,9 @@ class SkyModel(object):
                 self.point_sources.append(sources.PointSource(name=sname, skydir=skydir, index=index,  model=model))
                 print ('\tadded new source %s at ROI %d (%.1f deg )' % (sname, index, close))
             else: 
-                print ('\t source %s is in the model:' %sname, # will remove if ra<0' % sname)
+                print ('\t source %s is in the model:' %sname,) # will remove if ra<0' % sname
                 ps = self.point_sources[names.index(sname)]
-                if (float(sra)<=0): 
+                if float(sra)<=0: 
                     toremove.append(ps)
                     print (' removed.')
                 else:

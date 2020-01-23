@@ -254,7 +254,7 @@ class Minimizer(object):
                     for j in range(i+1, len(k)):
                         self.cov_matrix[ki,k[j]] =self.cov_matrix[k[j],ki] = t[i,j]
             success = True
-        except linalg.LinAlgError, e:
+        except linalg.LinAlgError as e:
             if not qself.quiet:
                 print ('Error generating cov matrix, %s' % e)
             self.cov_matrix = np.zeros([npar,npar])
@@ -511,7 +511,7 @@ class Profile(Fitted):
                 self.index = list(fn.parameter_names).index(index)
             except ValueError:
                 raise FitterException('parameter name "%s" not one of %s' % (index, fn.parameter_names))
-            except Exception, msg:
+            except Exception as msg:
                 raise
         else:  self.index = index
         self.fpar =  par if par is not None else fn.get_parameters().copy()

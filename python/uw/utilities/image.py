@@ -718,7 +718,7 @@ class ZEA(object):
         """ run imshow on the image, presumably set by a fill: set up for colorbar.
         
         """
-        if 'image' not in self.__dict__: raise Exception, 'no data to show: must run fill first'
+        if 'image' not in self.__dict__: raise Exception('no data to show: must run fill first')
         # set up kw 
         self.imshow_kw = dict(cmap=None, norm=None, interpolation='nearest')
         self.imshow_kw.update(kwargs)

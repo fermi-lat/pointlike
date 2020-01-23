@@ -279,7 +279,8 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
             if band.has_pixels:
                 myband.pi_counts = (myband.pi_evals * myband.mo_evals).sum(axis=1)
             if not self.quiet: 
-                print ('\b'*(2+len(status_string)),;sys.stdout.flush())
+                print ('\b'*(2+len(status_string)),)
+                sys.stdout.flush()
 
         self.init_p = self.smodel.get_all_parameters(internal=True)
         self.init_norm = self.smodel[0]

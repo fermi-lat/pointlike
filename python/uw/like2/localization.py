@@ -114,7 +114,7 @@ def full_localization(roi, source_name=None, ignore_exception=False,
                 print ('updated position: %s --> %s' % (prev, tsm.saved_skydir))
             else:
                 print ('Failed localization')
-        except Exception, msg:
+        except Exception as msg:
             print ('Localization of %s failed: %s' % (source.name, msg))
             if not ignore_exception: raise
 
@@ -128,7 +128,7 @@ def full_localization(roi, source_name=None, ignore_exception=False,
         if associator is not None:
             try:
                 make_association(source, loc.TSmap, associator, quiet=roi.quiet)
-            except Exception, msg:
+            except Exception as msg:
                 print ('Exception raised associating %s: %s' %(source.name, msg))
         
         if tsmap_dir is not None : 
@@ -163,7 +163,7 @@ def full_localization(roi, source_name=None, ignore_exception=False,
                     vals = np.exp(-0.5* tsmap**2).flatten(); 
                     peak_fraction = vals.max()/sum(vals)
 
-                except Exception, msg:
+                except Exception as msg:
                     print ('Plot of %s failed: %s' % (source.name, msg))
                     return None
                 if peak_fraction<0.8: 

@@ -283,7 +283,7 @@ class PSUEAnalysis():
         forceFolding    If True, the phases will be replaced '''
 
         if not isfile(self.ft1file):
-            print ("Error. Cannot open %s! Must create FT1file. Exiting ..." %self.ft1file; exit())
+            print ("Error. Cannot open %s! Must create FT1file. Exiting ..." %self.ft1file); exit()
             
         phase_exists = False
         file = pyfits.open(self.ft1file)
@@ -882,10 +882,10 @@ class PSUEAnalysis():
         '''
         if ozlem_xml is None:
             if not isfile(self.srcmdl_out):
-                print ("Error. Cannot find %s! Exiting ..." %(self.srcmdl_out); exit())
+                print ("Error. Cannot find %s! Exiting ..." %(self.srcmdl_out)); exit()
         else:
             if not isfile(ozlem_xml):
-                print ("Error. Cannot find %s! Exiting ..." %(ozlem_xml); exit())
+                print ("Error. Cannot find %s! Exiting ..." %(ozlem_xml)); exit()
             
         # Generate a new xml source model
         xml = xml_manager(ozlem_xml or self.srcmdl_out,template_dir=self.template_dir)        

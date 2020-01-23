@@ -2292,9 +2292,9 @@ def makeplots(iname,uexp=False,ext='',useupper=False):
                     pfile = open(pickle)
                     cl = cPickle.load(pfile)
                     if type(cl.frac)==type([]):
-                        cl.frac=cl.frac[)0]
+                        cl.frac=cl.frac[0]
                     print ('TS: ',cl.TS)
-                    print ('Pval: ',cl.pval
+                    print ('Pval: ',cl.pval)
                     texp = sum([exp.value(sds,cl.ebar) for sds in sdlist])/(cl.ebar*ergs) if uexp else 1
                     lines = marker(cl,texp,uexp,useupper)
                     tmx = max(lines[3])

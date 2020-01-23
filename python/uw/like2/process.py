@@ -231,11 +231,13 @@ class Process(main.MultiROI):
             roi.plot_sed('all', sedfig_dir=sedfig_dir, suffix='_sed_%s'%skymodel_name, )
         
         if self.profile_flag:
-            print ('------creating profile entries for all free sources'; sys.stdout.flush())
+            print ('------creating profile entries for all free sources')
+            sys.stdout.flush()
             self.profile('all')
 
         if self.localize_flag:
-            print ('------localizing all local sources------'; sys.stdout.flush())
+            print ('------localizing all local sources------')
+            sys.stdout.flush()
             tsmap_dir = getdir(self.tsmap_dir)
             skymodel = os.getcwd().split('/')[-1]
             if skymodel.startswith('month') or skymodel.startswith('year'): 
@@ -244,20 +246,24 @@ class Process(main.MultiROI):
             roi.localize('all', tsmap_dir=tsmap_dir)
         
         if self.associate_flag:
-            print ('-------- running associations --------'; sys.stdout.flush())
+            print ('-------- running associations --------')
+            sys.stdout.flush()
             self.find_associations('all')
 
-        print ('-------- analyzing counts histogram, ',; sys.stdout.flush())
+        print ('-------- analyzing counts histogram, ',)
+        sys.stdout.flush()
         cts=roi.get_count_dict() # always do counts
         print ('chisquared: %.1f ----'% cts['chisq'])
 
         counts_dir = getdir(self.counts_dir)
         if counts_dir is not None:
-            print ('------- saving counts plot ------'; sys.stdout.flush())
+            print ('------- saving counts plot ------')
+            sys.stdout.flush()
             try:
                 fig=roi.plot_counts( tsmin=self.countsplot_tsmin, relto='isotropic')
                 fout = os.path.join(counts_dir, ('%s_counts.jpg'%roi.name) )
-                print ('----> %s' % fout ; sys.stdout.flush())
+                print ('----> %s' % fout)
+                sys.stdout.flush()
                 fig.savefig(fout, dpi=60, bbox_inches='tight')
             except Exception as e:
                 print ('***Failed to analyze counts for roi %s: %s' %(roi.name,e))

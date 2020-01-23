@@ -269,7 +269,8 @@ class DataSpec(object):
         self.bins = bins = np.logspace(1,6,5*self.binsperdec+1)
         if self.psf_event_types:
             if not self.quiet:
-                print ('invoking Data.setPhotonBinner for PSFn event types...'); sys.stdout.flush()
+                print ('invoking Data.setPhotonBinner for PSFn event types...')
+                sys.stdout.flush()
             self.event_types = range(2,6)
             nsides = [pointlike.IntVector(NsideMapper.nside(bins,i)) for i in self.event_types]
             DataSpec.binner = skymaps.PhotonBinner(pointlike.DoubleVector(bins),  *nsides)
@@ -377,10 +378,12 @@ class DataSpec(object):
         if self.binfile is None:
             raise DataManException('No bin file specified')
         if not os.path.exists(self.binfile) :
-            print ('Binned file %s not found' % self.binfile; sys.stdout.flush())
+            print ('Binned file %s not found' % self.binfile)
+            sys.stdout.flush()
             return False
         if self.clobber or self.binfile is None:
-            print ('self.clobber or self.binfile is None'; sys.stdout.flush())
+            print ('self.clobber or self.binfile is None'
+            sys.stdout.flush()
             return False
         #
         # Check DSS keywords
@@ -436,7 +439,8 @@ class DataSpec(object):
         files = filter(overlaps, self.ft1files) ##TODO
         if len(files)==0:
             raise DataManException('Attempt to create binned photon file with no data')
-        print ('Creating binfile from %d FT1 files' % len(files); sys.stdout.flush())
+        print ('Creating binfile from %d FT1 files' % len(files)
+        sys.stdout.flush()
         data = pointlike.Data(files,-1, 0,0, self.mc_src_id,'')
         dmap = data.map() # local reference to avoid segfaults
         fill_empty_bands(dmap, self.bins)
