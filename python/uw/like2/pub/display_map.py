@@ -60,7 +60,7 @@ class DisplayMap(object):
             if self.scale=='sqrt': self.scale= lambda x: np.sqrt(max(x,0))
             elif self.scale=='log': self.scale=lambda x: np.log10(max(x,0.1))
             else:
-                raise Exception, 'unrecognized scale function, %s' %self.scale
+                raise Exception('unrecognized scale function, %s' %self.scale)
         self.ZEA_kw = kwargs.pop('ZEA_kw', dict(galactic=True, size=10, pixelsize=0.1))
         if sources is not None:
             self.sources = pickle.load(open(sources))

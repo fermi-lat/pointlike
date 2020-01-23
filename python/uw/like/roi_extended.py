@@ -134,7 +134,7 @@ class ROIExtendedModel(ROIDiffuseModel):
         for iband,(myband,band) in enumerate(zip(self.bands,bands)):
             if not self.quiet: 
                 status_string = '...convolving band %2d/%2d'%(iband+1,len(self.bands))
-                print (status_string,;sys.stdout.flush())
+                print (status_string,);sys.stdout.flush()
 
             self.set_state(band)
 

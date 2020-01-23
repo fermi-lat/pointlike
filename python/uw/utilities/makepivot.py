@@ -203,7 +203,7 @@ class ImageList(object):
             try:
                 self.add_image( name)
                 nsent +=1
-            except Exception, msg:
+            except Exception as msg:
                 print (msg)
         print ('Sent %d/%d images' % (nsent, len(self.filenames)))
         
@@ -253,7 +253,7 @@ class MakeCollection(object):
         for id,item in enumerate(self.facets):
             try:
                 self.add_image( self.facets.index[id] , item)
-            except Exception, msg:
+            except Exception as msg:
                 print (msg)
                 #raise
 

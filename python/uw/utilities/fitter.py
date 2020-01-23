@@ -152,7 +152,7 @@ class Minimizer(object):
             diag = self.cov_matrix.diagonal().copy()
             bad = diag<0
             if np.any(bad):
-                if not self.quiet: (print 'Minimizer warning: bad errors for values %s'\
+                if not self.quiet: print ('Minimizer warning: bad errors for values %s'\
                      %np.asarray(self.fn.parameter_names)[bad]) #    %np.arange(len(bad))[bad]
                 diag[bad]=np.nan
             return f[1], f[0], np.sqrt(diag)

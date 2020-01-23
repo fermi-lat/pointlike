@@ -278,7 +278,7 @@ class DataSpec(object):
             f_nside = pointlike.IntVector(NsideMapper.nside(bins,0))
             b_nside = pointlike.IntVector(NsideMapper.nside(bins,1))
             if not self.quiet:
-                print ('invoking Data.setPhotonBinner for front/back event types...'; )
+                print ('invoking Data.setPhotonBinner for front/back event types...')
                 sys.stdout.flush()
             DataSpec.binner = skymaps.PhotonBinner(pointlike.DoubleVector(bins),f_nside,b_nside)
         pointlike.Data.setPhotonBinner(DataSpec.binner)

@@ -198,7 +198,8 @@ class PulsarLightCurve:
         try:
             phase = ft1file[hduname].data.field(self.phase_colname)
         except KeyError:
-            print ("\t You need to assign a phase for each event in the fits file. Exiting ..."; exit())
+            print ("\t You need to assign a phase for each event in the fits file. Exiting ...")
+            exit()
 
         # get the weight column        
         try:

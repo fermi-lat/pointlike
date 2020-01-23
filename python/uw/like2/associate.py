@@ -124,7 +124,7 @@ def make_association(source, tsf, associate, quiet=False):
     except srcid.SrcidError as msg:
         if not quiet: print ('Association error for %s: %s' % (source.name, msg))
         adict=None
-    except Exception, msg:
+    except Exception as msg:
         if not quiet: print ('Exception associating %s: %s' %( source.name, msg))
         adict=None
         raise

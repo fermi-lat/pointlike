@@ -666,5 +666,5 @@ def prim_io(template):
     if 'gauss' in toks[0]:     return read_gaussian(toks[1:])
     elif 'kernel' in toks[0]:  return [LCKernelDensity(input_file=toks[1:])],None
     elif 'fourier' in toks[0]: return [LCEmpiricalFourier(input_file=toks[1:])],None
-    raise ValueError,'Template format not recognized!'
+    raise ValueError('Template format not recognized!')
 

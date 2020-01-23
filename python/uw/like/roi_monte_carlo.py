@@ -1175,7 +1175,7 @@ class MonteCarlo(object):
             ra,dec,radius=0,0,180
         
         os.environ['PFILES']=self.savedir+';'+os.environ['PFILES'].split(';')[-1]; # to set the writing pfiles to the savedir
-        if not self.quiet: print ('current pfile settings',os.getenv('PFILES'); #should add the output for debugging reasons)
+        if not self.quiet: print ('current pfile settings',os.getenv('PFILES')); #should add the output for debugging reasons
         app=GtApp('gtobssim');
         if self.ltfrac is not None: app['ltfrac']=self.ltfrac
         app.run(infile=self.xmlfile,

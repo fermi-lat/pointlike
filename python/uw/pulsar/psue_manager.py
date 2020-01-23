@@ -217,7 +217,7 @@ class PSUEAnalysis():
         self.srcmdl_out      = self.ft1file_gtis.replace('.fits','_srcmdl_output.xml')
 
         if not isfile(self.ft2file):
-            print ("Error. Cannot open %s! Exiting ..." %self.ft2file; exit())
+            print ("Error. Cannot open %s! Exiting ..." %self.ft2file); exit()
         
         # BATCH mode
         if self.batch:

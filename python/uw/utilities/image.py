@@ -360,7 +360,7 @@ class AIT(object):
         return self(sdir.ra(), sdir.dec())
 
     def grid(self, labels=False, color='gray', textsize=8, label_offset=10):
-    	"""Draws gridlines and optional labels for map.  """
+        """Draws gridlines and optional labels for map.  """
     
         bs = np.arange(-90, 91, 5)
         for l in np.hstack((np.arange(0, 360, 45),[180.01])):

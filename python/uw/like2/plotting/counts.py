@@ -343,7 +343,8 @@ def stacked_plots(roi, counts_dir=None, fignum=6, title=None, **kwargs):
             fout = os.path.join(counts_dir, ('%s_counts.jpg'%roi.name) )
         else:
             fout = counts_dir
-        print ('saving counts plot to %s ...' % fout, ; sys.stdout.flush())
+        print ('saving counts plot to %s ...' % fout,)
+        sys.stdout.flush()
         fig.savefig(fout)
         print ()
     fig.set_facecolor('white')

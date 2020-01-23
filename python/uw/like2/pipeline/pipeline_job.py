@@ -109,4 +109,5 @@ def main( factory=None, **args):
         logging.info('Finish: elapsed= %.1f (total %.1f)' % ( tnow-tprev, tnow-tzero ))
         print ('Elapsed time for ROI {}: {:.1f}'.format(s, tnow-tprev))
         sys.stdout.flush()
-    print ('\n####################\nTotal elapsed time: {:.1f}'.format(tnow -tzero); sys.stdout.flush())
+    print ('\n####################\nTotal elapsed time: {:.1f}'.format(tnow -tzero))
+    sys.stdout.flush()

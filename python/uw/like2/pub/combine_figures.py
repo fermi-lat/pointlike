@@ -36,8 +36,8 @@ def get_files(fname, skymodel_dir, subdirs, allow_missing=1):
             if missing<allow_missing: 
                 missing +=1
             else:
-                raise Exception('file for source %s not found in %s [%d missing]'\)
-                % (fname, skymodel_dir+'/'+sd, missing)
+                raise Exception('file for source %s not found in %s [%d missing]'\
+                % (fname, skymodel_dir+'/'+sd, missing))
         ret.append(filename) # this might be the wrong one
     return ret
 

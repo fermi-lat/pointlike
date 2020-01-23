@@ -135,7 +135,7 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
     if outdir is not None:
         filename = name.replace(' ','_').replace('+','p')
         fout = os.path.join(outdir, ('%s_tsmap.jpg'%filename) )
-        print ('saving tsplot to %s...' % fout , ; sys.stdout.flush())
+        print ('saving tsplot to %s...' % fout ,) ; sys.stdout.flush()
         plt.savefig(fout, bbox_inches='tight', padinches=0.2) #cuts off outherwise
         print()
         if tsfits: 

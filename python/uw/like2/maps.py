@@ -173,7 +173,7 @@ class ModelCountMaps(object):
 #             try:
 #                 values = pickle.load(open(f))
 #                 assert sum(np.isnan(values))==0, 'Found Nan values'
-#             except Exception, msg:
+#             except Exception as msg:
 #                 print ('Failed to load file {}: {}'.format(f, msg))
 #                 raise
 #             assert len(ids)==len(values), 'oops: {} ids, but {} values'.format(len(ids), len(values))
@@ -324,7 +324,7 @@ class ResidualUpperLimit(ResidualTS):
                 if lim==0:
                     print ('Limit is zero at {}'.format(skydir))
                 return lim
-            except Exception, msg:
+            except Exception as msg:
                 p = 0
                 print ('Failed at %s: %s' % (skydir,msg))
                 return 0

@@ -1278,7 +1278,7 @@ class CombinedLike(object):
         if pverbose:
             tstr = ''.join(['%1.3f\t'%(par) for par in pars])
             tstr += ''.join(['%1.1f\t'%(10**par) for par in tpars])
-            print tstr,'%1.1f'%(self.lmax-fval)
+            print (tstr,'%1.1f'%(self.lmax-fval))
         
         self.params = cp.copy(params)
         self.fixed = cp.copy(fixed)

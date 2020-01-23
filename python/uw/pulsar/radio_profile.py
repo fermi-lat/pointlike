@@ -342,7 +342,7 @@ class ASCIIProfile(object):
         print ('... FRQ = %s'%('%.2f'%self.freq if self.freq is not None else 'None') )
         print ('... Fiducial Point = %.4f'%(self.fidpt))
         print ('... Aligned to First Harmonic? %s'%('YES' if self.harm_align else 'NO'))
-        print ('... Aligned to Peak? %s'%('YES' if self.peak_align else 'NO')
+        print ('... Aligned to Peak? %s'%('YES' if self.peak_align else 'NO'))
 
     def _align_harm(self):
         """ Compute the zero of phase of a radio profile by determining the 

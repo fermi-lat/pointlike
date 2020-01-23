@@ -449,7 +449,7 @@ class FromCCube(HParray):
             i = [hdr[x] for x in dstypes].index('POS(RA,DEC)'); i
             circ=hdr['DSVAL{}'.format(i)]; 
             ra,dec, self.radius = np.array(circ[7:-1].split(','),float)
-        except Exception, msg:
+        except Exception as msg:
             print ('failed to parse file {}: expected header to have a DSVAL with POS(RA,DEC)'.format(filename), msg)
             raise
         self.center = SkyDir(ra, dec)

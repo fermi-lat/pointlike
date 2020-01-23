@@ -449,11 +449,11 @@ class DualLocalizer():
             self.ll_best = ll
             self.best_spectral = roi.parameters().copy()
 
-        if self.verbose: print ('d=%s f=%.1e, d2=%s, f=%.1e, dist=%.3f logL=%.3f dlogL=%.3f' % \)
+        if self.verbose: print ('d=%s f=%.1e, d2=%s, f=%.1e, dist=%.3f logL=%.3f dlogL=%.3f' % \
                 (rot_back_1, rotations.print_flux(self.p1,roi), 
                  rot_back_2, rotations.print_flux(self.p2,roi), 
                  np.degrees(rot_back_1.difference(rot_back_2)),
-                 ll,ll-self.ll_0)
+                 ll,ll-self.ll_0))
 
         return -ll # minimize negative log likelihood
 

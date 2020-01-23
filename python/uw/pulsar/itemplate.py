@@ -108,7 +108,7 @@ class InteractiveFitter(object):
 
     def write_template(self,outfile):
         if not hasattr(self,'fitter'):
-            print ('Must do fit first!'; return)
+            print ('Must do fit first!'); return
         self.fitter.write_template(outfile)
 
 

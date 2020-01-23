@@ -225,7 +225,8 @@ class Process(main.MultiROI):
             return t
         sedfig_dir = getdir(self.sedfig_dir)
         if sedfig_dir is not None:
-            print ('------------ creating seds, figures ---------------'; sys.stdout.flush())
+            print ('------------ creating seds, figures ---------------')
+            sys.stdout.flush()
             skymodel_name = os.path.split(os.getcwd())[-1]
             roi.plot_sed('all', sedfig_dir=sedfig_dir, suffix='_sed_%s'%skymodel_name, )
         

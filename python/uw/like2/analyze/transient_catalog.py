@@ -57,8 +57,8 @@ class TransientCatalog(analysis_base.AnalysisBase):
         self.si = si= transientinfo.SourceInfo(sa)
         si.df['skydir'] = sa.df6y.skydir
         self.reference = si.df[si.df.ngood>0]
-        print ('Selected reference set ({}/{}) of input sources '\)
-            'such that at least one month has a "good" detection.'.format(len(self.reference), len(si.df))
+        print ('Selected reference set ({}/{}) of input sources '\
+            'such that at least one month has a "good" detection.'.format(len(self.reference), len(si.df)))
         self.logstream=self.stoplog()
         assert os.getcwd() == model_dir, 'Changed cwd: {}'.format(os.getcwd())
                

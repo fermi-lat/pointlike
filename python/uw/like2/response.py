@@ -338,7 +338,7 @@ class DiffuseCorrection(object):
         try:
             self.correction = pd.read_csv(corr_file, index_col=0) 
             #print (self.correction)
-        except Exception, msg:
+        except Exception as msg:
             raise Exception('Error loading correction file %s: %s'% (corr_file,msg))
             
     def plot_ait(self, energy_index= 0, title=None, ax=None, vmin=0.9, vmax=1.1, ait_kw={}, **kwargs):
@@ -398,7 +398,7 @@ class CachedDiffuseResponse(DiffuseResponse):
         try:
             self.filename = dmodel.files[roi_index]
             self.cached_diffuse = pickle.load(dmodel.opener(self.filename))
-        except Exception, msg:
+        except Exception as msg:
             raise ResponseException( 'Diffuse cache file # %d not found:%s' %(roi_index,msg))
         self.emins = [cd['emin'] for cd in self.cached_diffuse]
         

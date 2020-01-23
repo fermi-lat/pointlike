@@ -83,7 +83,7 @@ class MomentAnalysis(object):
         ix = np.array([ i % nx for i in range(n)]) +0.5
         iy = np.array([ i //nx for i in range(n)]) +0.5
         norm = 1./sum(vals)
-        t = [sum(u*vals)*norm for u in  ix,iy, ix**2, ix*iy, iy**2]
+        t = [sum(u*vals)*norm for u in  (ix,iy, ix**2, ix*iy, iy**2)]
         return t
 
     def drawit(self):

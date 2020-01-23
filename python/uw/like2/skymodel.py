@@ -155,7 +155,7 @@ class SkyModel(object):
             else: 
                 print ('\t source %s is in the model:' %sname, # will remove if ra<0' % sname)
                 ps = self.point_sources[names.index(sname)]
-                if float(sra)<=0: 
+                if (float(sra)<=0): 
                     toremove.append(ps)
                     print (' removed.')
                 else:
