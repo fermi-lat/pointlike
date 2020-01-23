@@ -382,7 +382,7 @@ class DataSpec(object):
             sys.stdout.flush()
             return False
         if self.clobber or self.binfile is None:
-            print ('self.clobber or self.binfile is None'
+            print ('self.clobber or self.binfile is None')
             sys.stdout.flush()
             return False
         #

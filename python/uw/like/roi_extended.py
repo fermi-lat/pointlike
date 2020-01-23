@@ -481,7 +481,7 @@ Arguments:
         # Fit once more at the end to get the right errors.
         try:
             roi.fit(estimate_errors=True,**kwargs)
-        except Exception, err:
+        except Exception as err:
             print (err)
 
         roi.quiet = roi.old_quiet
@@ -528,7 +528,7 @@ Arguments:
             d={'use_gradient':kwargs['use_gradient']} if kwargs.has_key('use_gradient') else {}
             try:
                 roi.fit(estimate_errors=True,**d)
-            except Exception, err:
+            except Exception as err:
                 print (err)
 
         ll_disk = l()

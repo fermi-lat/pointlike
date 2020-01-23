@@ -497,7 +497,8 @@ class PSUEAnalysis():
                     prims[-1].peak = False
                     #norms.append(0.3)
                 else:
-                    print ("Do not recognize the shape!"; continue)
+                    print ("Do not recognize the shape!")
+                    continue
 
             for const in consts:
                 dummy  = const()
@@ -573,7 +574,8 @@ class PSUEAnalysis():
                         elif shape == 'B':
                             label = 'BRIDGE'; postfix = 'B'
                         else:
-                            print ("Do not recognize the shape!"; continue)
+                            print ("Do not recognize the shape!")
+                            continue
                         self.PSUEoutfile.set(label,peak.name)
                         keys,vals = primitive_string(peak,postfix)
                         for k,v in zip(keys,vals):

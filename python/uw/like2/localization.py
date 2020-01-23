@@ -119,8 +119,8 @@ def full_localization(roi, source_name=None, ignore_exception=False,
             if not ignore_exception: raise
 
         if not roi.quiet and hasattr(loc, 'niter') and loc.niter>0: 
-            print ('Localized %s: %d iterations, moved %.3f deg, deltaTS: %.1f' % \)
-                (source.name, loc.niter, loc.delt, loc.delta_ts)
+            print ('Localized %s: %d iterations, moved %.3f deg, deltaTS: %.1f' % \
+                (source.name, loc.niter, loc.delt, loc.delta_ts))
             labels = 'ra dec a b ang qual'.split()
             print ((len(labels)*'%10s') % tuple(labels))
             p = loc.qform.par[0:2]+loc.qform.par[3:7]

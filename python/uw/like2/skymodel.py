@@ -252,7 +252,7 @@ class SkyModel(object):
                 else:
                     try:
                         es = self.extended_catalog.lookup(name) if self.extended_catalog is not None else None
-                    except Exception, msg:
+                    except Exception as msg:
                         print ('Skymodel: Failed to create model for %s' %name)
                         raise
                     if es is None:

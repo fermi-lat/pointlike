@@ -356,8 +356,8 @@ class ROItables(object):
     def process_table(self, skyfun, name, pos_list, outfile=None, **kwargs):
         sys.stdout.flush()
         skytable = np.array([skyfun(p) for p in pos_list])
-        print (' min=%6.2e, max=%6.2e, mean=%6.2e ' \)
-            % (skytable.min(), skytable.max(),skytable.mean()) ,
+        print (' min=%6.2e, max=%6.2e, mean=%6.2e ' \
+            % (skytable.min(), skytable.max(),skytable.mean()) ,)
         if outfile is not None:
             print ('--> %s' % outfile)
             pickle.dump(skytable, open(outfile,'wb'))
