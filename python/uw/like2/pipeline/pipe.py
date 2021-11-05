@@ -12,7 +12,7 @@ def roirec(version, nside=12):
     n = 12*nside**2
     if len(roi_files)<n:
         t = map(lambda x : int(x[-11:-7]), roi_files)
-        missing = [x for x in xrange(n) if x not in t]
+        missing = [x for x in range(n) if x not in t]
         print ('misssing roi files: %s' % missing)
         raise Exception('misssing roi files: %s' % missing)
         
@@ -32,7 +32,7 @@ def check_missing_files(folder):
     missing = []
     if len(roi_files)<n:
         t = map(lambda x : int(x[-11:-7]), roi_files)
-        missing = [x for x in xrange(n) if x not in t]
+        missing = [x for x in range(n) if x not in t]
         if len(missing)<10:
             print ('\tmisssing roi files: %s' % missing)
         else:
@@ -46,7 +46,7 @@ def roirec(outdir, check=False):
     n = 1728
     if len(roi_files)<n:
         t = map(lambda x : int(x[-11:-7]), roi_files)
-        missing = [x for x in xrange(n) if x not in t]
+        missing = [x for x in range(n) if x not in t]
         if len(missing)<10:
             print ('\tmisssing roi files: %s' % missing)
         else:

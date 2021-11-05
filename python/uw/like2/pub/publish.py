@@ -350,7 +350,7 @@ class Publish(object):
             if self.overwrite: os.remove(outfile)
             else: return
         print ('generating %s' % outfile)
-        dirs = map(Band(nside).dir, xrange(len(table)))
+        dirs = map(Band(nside).dir, range(len(table)))
         ra  = np.array(map(lambda s: s.ra(), dirs), np.float32)
         dec = np.array(map(lambda s: s.dec(),dirs), np.float32)
         outrec = np.rec.fromarrays([ra,dec,np.array(table,np.float32)], 

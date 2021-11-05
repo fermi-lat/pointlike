@@ -178,7 +178,7 @@ def scale_radio_profile(tgraph,tmin,tmax,bkg_bin=0.1):
     bkg_bin = 0.15*tgraph.GetN()
     x = np.empty(tgraph.GetN());
     y = np.empty_like(x)
-    for i in xrange(len(x)):
+    for i in range(len(x)):
         xt=Double();yt=Double()
         tgraph.GetPoint(i,xt,yt)
         x[i] = float(xt)
@@ -186,13 +186,13 @@ def scale_radio_profile(tgraph,tmin,tmax,bkg_bin=0.1):
     y -= np.sort(y)[bkg_bin]
     y *= (tmax-tmin)/y.max()
     y += tmin
-    for i in xrange(len(x)):
+    for i in range(len(x)):
         tgraph.SetPoint(i,x[i],y[i])
 
 def get_tgraph_content(tgraph):
     y = np.empty(tgraph.GetN())
     x = np.empty(tgraph.GetN())
-    for i in xrange(len(y)):
+    for i in range(len(y)):
         xt=Double();yt=Double()
         tgraph.GetPoint(i,xt,yt)
         y[i] = float(yt)
@@ -208,7 +208,7 @@ def get_histo_content(histo,first_half=False):
     if first_half: n /= 2
     y = np.empty(n)
     yerr = np.empty(n)
-    for i in xrange(n):
+    for i in range(n):
         y[i] = histo.GetBinContent(i)
         yerr[i] = histo.GetBinError(i)
     return y,yerr

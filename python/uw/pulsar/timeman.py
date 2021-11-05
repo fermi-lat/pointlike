@@ -171,7 +171,7 @@ class METConverter(object):
         times = times/SECSPERDAY + self.MJDREF + self.TIMEZERO
         # disable clock corrections for SSB times
         if (not self.bary) and (not self.noprocess):
-            for i in xrange(len(times)):
+            for i in range(len(times)):
                 times[i] = self.clockcorr.tt2utc(times[i])
         if len(times) == 1: return times[0]
         return times
@@ -181,7 +181,7 @@ def met2mjd_utc(times,mjdref=51910+7.428703703703703e-4,tzero=0):
     clockcorr = ClockCorr()
     times = np.asarray([times] if not hasattr(times,'__iter__') else times)
     times = times/SECSPERDAY + mjdref + tzero # copy
-    for i in xrange(len(times)):
+    for i in range(len(times)):
         times[i] = clockcorr.tt2utc(times[i])
     if len(times) == 1: return times[0]
     return times

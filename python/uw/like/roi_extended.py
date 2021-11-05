@@ -126,7 +126,7 @@ class ROIExtendedModel(ROIDiffuseModel):
 
     def initialize_counts(self,bands,roi_dir=None):
         rd = self.roi_dir if roi_dir is None else roi_dir
-        self.bands = [SmallBand() for i in xrange(len(bands))]
+        self.bands = [SmallBand() for i in range(len(bands))]
 
         es = self.extended_source
         sm = es.model

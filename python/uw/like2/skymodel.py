@@ -4,7 +4,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/Attic/skymodel.p
 
 """
 import os, pickle, glob, types, collections, zipfile
-import cPickle as pickle
+import pickle
 import numpy as np
 import pandas as pd
 from skymaps import SkyDir, Band

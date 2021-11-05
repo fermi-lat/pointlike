@@ -562,7 +562,7 @@ class Catalog(object):
             inv_probs = 1-post_probs
             phk = np.zeros(post_probs.shape) #P(Hk) as defined in 1FGL paper
             norm = inv_probs.prod()
-            for i in xrange(post_probs.shape[0]):
+            for i in range(post_probs.shape[0]):
                 mask = np.zeros(post_probs.shape,dtype='bool')
                 mask[i] = True
                 phk[i] = post_probs[mask]*inv_probs[~mask].prod()

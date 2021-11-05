@@ -7,7 +7,7 @@
 """
 version='$Revision: 1.42 $'.split()[1]
 import os, glob, types, yaml 
-import cPickle as pickle
+import pickle
 import numpy as np
 import skymaps, pointlike #from the science tools
 from uw.data import dataman, dssman, binned_data

@@ -285,7 +285,7 @@ class Localization(object):
             print (('\t'+7*'%10.4f')% (diff,diff, l.par[0],l.par[1],l.par[3],l.par[4], l.par[6]))
         
         old_sigma=1.0
-        for i in xrange(self.max_iteration):
+        for i in range(self.max_iteration):
             try:
                 l.fit(update=True)
             except:

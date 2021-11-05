@@ -25,11 +25,11 @@ class SpectralModelFitter(object):
 
         #find good values with which to estimate the covariance matrix -- look at diagonal deviations
         #iterate until change in function consistent with ~1 sigma conditional error
-        for i in xrange(np):
+        for i in range(np):
             #print ('Working on parameter %d'%(i))
             #if p[i] < 0: deltas[i] *= -1 #necessary?
             h,l = p.copy(),p.copy()
-            for j in xrange(10):
+            for j in range(10):
                 h[:] = p[:]; l[:] = p[:];
                 h[i] += deltas[i]
                 l[i] -= deltas[i]
@@ -62,12 +62,12 @@ class SpectralModelFitter(object):
 
         #print (deltas)
             
-        for i in xrange(np):
+        for i in range(np):
             if bad_mask[i]:
                 hessian[i,:] = 0 #no correlation?
                 hessian[:,i] = 0
                 continue
-            for j in xrange(i,np): #Second partials by finite difference
+            for j in range(i,np): #Second partials by finite difference
                 
                 xhyh,xhyl,xlyh,xlyl=p.copy(),p.copy(),p.copy(),p.copy()
                 #xdelt = delt if p[i] >= 0 else -delt
@@ -104,7 +104,7 @@ class SpectralModelFitter(object):
         p = m.get_parameters().copy()
         delt = 0.01
         gradient = N.zeros([len(p)])
-        for i in xrange(len(p)):
+        for i in range(len(p)):
             xh,xl = p.copy(),p.copy()
             xdelt = delt if p[i] > 0 else -delt
 
@@ -170,9 +170,9 @@ def mycov(grad,par,full_output=False,init_step=0.04,min_step=1e-6,max_step=1,max
                 return True,0
     
     iters = np.zeros(nparams)
-    for i in xrange(nparams):
+    for i in range(nparams):
         converged = False
-        for j in xrange(max_iters):
+        for j in range(max_iters):
             iters[i] += 1
             di = step_size[i]
             par[i] += di

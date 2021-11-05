@@ -9,7 +9,7 @@ import os
 from collections import OrderedDict
 
 import astropy.io.fits as pyfits
-import cPickle as pickle
+import pickle
 from collections import Counter
 import numpy as np
 import pylab as plt

@@ -30,7 +30,7 @@ import string
 import uw.pulsar.py_exposure as pe
 from uw.like.Models import PowerLaw,ExpCutoff,LogParabola
 from uw.stacklike import dataset
-import cPickle
+import pickle
 
 def format_error(v,err):
     if v>0 and err>0 and not np.isinf(err):
@@ -210,7 +210,7 @@ class CombinedLike(object):
                 if self.verbose:
                     print ('Loaded %s from cache: %s%s'%(lists,lists,tag))
                 hist = np.load(self.cachedir+'%s%s.npy'%(lists,tag))
-                sl = cPickle.load(open(self.cachedir+'%s%s.pickle'%(lists,tag)))#StackLoader(name=lists,ctmin=self.ctmin,ctmax=self.ctmax,quiet=not self.veryverbose)
+                sl = pickle.load(open(self.cachedir+'%s%s.pickle'%(lists,tag)))#StackLoader(name=lists,ctmin=self.ctmin,ctmax=self.ctmax,quiet=not self.veryverbose)
                 #sl.bindata()
                 sl.solveback()
                 self.sagns.append(sl.Npsf)
@@ -1886,7 +1886,7 @@ def test(bins=12,ctype=0,emin=1000,emax=1778,days=730,irf='P6_v3_diff',maxr=-1,s
 #  @param agnlis list of AGN to compare, if more than one specified, the last one will be examined for halos and the others will be calibration sources
 #  @param model angular model for halo to check ['CDisk','CHalo'], see uw.stacklike.angularmodels for more information
 def halo(bins=12,ctype=0,emin=1000,emax=1778,days=fdays,irf='P6_v3_diff',maxr=-1,sel='[0:2]',agnlis=['agn-psf-study-bright'],model='CDisk',verbose=False,veryverbose=False,ret=False):
-    import cPickle
+    import pickle
     #setup the binned likelihood object
     psf = CALDBPsf(CALDBManager(irf=irf))
     ebar = np.sqrt(emin*emax)
@@ -2111,7 +2111,7 @@ def halo(bins=12,ctype=0,emin=1000,emax=1778,days=fdays,irf='P6_v3_diff',maxr=-1
         cl.frac=clfrac
         cl.makeplot('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s_%s'%(emin,emax,ctype,maxr,bins,pt,psrs,agns,model,irf))
         pfile = open('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s_%s.pickle'%(emin,emax,ctype,maxr,bins,pt,psrs,agns,model,irf),'w')
-        cPickle.dump(cl,pfile)
+        pickle.dump(cl,pfile)
         pfile.close()
         print ('%1.5f\t%1.3f\t%1.4f\t%1.4f\t%1.4f\t%1.3f'%(pt/rd,lmax,cl.Nh[-1],cl1,cl2,cl.TS), file=of)
 
@@ -2192,7 +2192,7 @@ def makeallplots():
 #  @param ext if there was an agnlist used as an additional calibration, needs to be added here
 #  @param useupper only plot upper limits
 def makeplots(iname,uexp=False,ext='',useupper=False):
-    import cPickle
+    import pickle
     import matplotlib as mpl
     mpl.rcParams['font.size']=16
     mpl.rcParams['font.family']='serif'
@@ -2290,7 +2290,7 @@ def makeplots(iname,uexp=False,ext='',useupper=False):
                 #try:
                     print ('Reading %s'%(pickle))
                     pfile = open(pickle)
-                    cl = cPickle.load(pfile)
+                    cl = pickle.load(pfile)
                     if type(cl.frac)==type([]):
                         cl.frac=cl.frac[0]
                     print ('TS: ',cl.TS)

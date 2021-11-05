@@ -666,7 +666,7 @@ class Model(object):
         l=[]
         if (not self.background and np.any(lo_p[0:-2]!=0)) or \
                  (self.background and np.any(lo_p!=0)): #if statistical errors are present    
-            for i in xrange(len(pnames)):
+            for i in range(len(pnames)):
                 t_n = '%-10s' % pnames[i]
                 if i < self.npar:
                     # if free is empty (shouldn't happen normally) treat as all False
@@ -685,7 +685,7 @@ class Model(object):
                     l+=[t_n+': %.3g + %.3g - %.3g (avg = %.3g) %s'%(p[i],hi_p[i],lo_p[i],(hi_p[i]*lo_p[i])**0.5,frozen)]
             return indent+ ('\n'+indent).join(l)
         else: #if no errors are present
-            for i in xrange(len(pnames)):
+            for i in range(len(pnames)):
                 t_n = '%-10s' % pnames[i]
                 if i < self.npar:
                     frozen = '' if self.free[i] else '(FROZEN)'
@@ -904,7 +904,7 @@ class Model(object):
         errs = np.asarray([delta] * len(self._p) )
         hi,lo = self.copy(),self.copy()
         derivs = []
-        for i in xrange(len(self._p)):
+        for i in range(len(self._p)):
             hi.setp(i,hi._p[i] + errs[i],internal=True)
             lo.setp(i,lo._p[i] - errs[i],internal=True)
             derivs  += [(hi.i_flux(*args) - lo.i_flux(*args))/(2*errs[i])]
@@ -2006,7 +2006,7 @@ class MonoenergeticCurvature(Model):
         f = lambda x: kv(5./3,x)
         if hasattr(e,'__len__'):
             rvals = np.empty(len(e),dtype=float)
-            for i in xrange(len(rvals)):
+            for i in range(len(rvals)):
                 rvals[i] = n0*quad(f,e[i]/cutoff,np.inf)[0]
         else:
             rvals = n0*quad(f,float(e)/cutoff,np.inf)[0]

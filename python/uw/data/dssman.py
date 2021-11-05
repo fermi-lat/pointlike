@@ -195,7 +195,7 @@ class DSSEntries(list):
         indeces = sorted(list(set([int(k[-1]) for k in keys])))
         kdeque,vdeque = deque(),deque()
         counter = 0 # index of list of DSS indeces
-        for i in xrange(len(keys)):
+        for i in range(len(keys)):
             if int(keys[i][-1])!=indeces[counter]:
                 self.append(DSSFactory(kdeque,vdeque)) 
                 kdeque.clear(); vdeque.clear()
@@ -228,7 +228,7 @@ class DSSEntries(list):
         """ Delete a DSS entry and re-index the remaining ones."""
         ret = self.pop(index)
         if index < len(self)-1:
-            for i in xrange(index,len(self)):
+            for i in range(index,len(self)):
                 self[i]['index'] = i+1
         return ret
 
@@ -259,7 +259,7 @@ class DSSEntries(list):
             optionally delete them."""
         roi_info = None
         offset = 0
-        for i in xrange(len(self)):
+        for i in range(len(self)):
             i += offset
             d = self[i]
             r = d.roi_info()
@@ -306,7 +306,7 @@ def process_pixeldata(pd):
     ptlvars = ['zenithcut','thetacut','emin','emax']
     indices = [1,1,0,1]
 
-    for i in xrange(len(ptlvars)):
+    for i in range(len(ptlvars)):
         # check the appropriate simple cut
         ptl_var = pd.__dict__[ptlvars[i]]
         dss = dsse.get_simple_entry(colnames[i])

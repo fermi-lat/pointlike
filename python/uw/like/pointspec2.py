@@ -86,7 +86,7 @@ class SpectralAnalysis(OldSpectralAnalysis):
         """
         if not isinstance(data_specification,dataman.DataSpec):
             if os.path.exists(data_specification):
-                from cPickle import load
+                from pickle import load
                 try:
                     data_specification = load(file(data_specification))
                 except UnpicklingError:

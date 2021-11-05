@@ -461,9 +461,9 @@ class CountPlots(analysis_base.AnalysisBase):
         if ax is None:
             fig,ax = plt.subplots( figsize=(4,4))
         else: fig = ax.figure
-        def cut( x, xrange):
-            if xrange is None: return True
-            a, b = xrange
+        def cut( x, range):
+            if range is None: return True
+            a, b = range
             return (x>a)  & (x<b) if a<b else (x>a) | (x<b)
         
         ridge = cut(self.rois.glat, glat) & cut(self.rois.glon, glon)

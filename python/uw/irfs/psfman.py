@@ -121,7 +121,7 @@ class PSFmanager(dict):
         
         dummy     = skydir or SkyDir() 
         weights  = np.zeros([len(elo),len(clo)])
-        for i in xrange(len(elo)):                   # iterator over energies
+        for i in range(len(elo)):                   # iterator over energies
             em = (elo[i]*ehi[i])**0.5
             for k,(c0,c1) in enumerate(zip(clo,chi)):# iterator over cos(theta) on-axis to edge
                 if c0 < 0.35: continue               # exclude bins below cos(theta)=0.4

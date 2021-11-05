@@ -14,7 +14,7 @@ from matplotlib import font_manager
 
 def counts(r,integral=False):
 
-    groupings = [deque() for x in xrange(len(r.bin_centers))]
+    groupings = [deque() for x in range(len(r.bin_centers))]
 
     #group slw by energy
     for i,ei in enumerate(r.bin_centers):
@@ -30,7 +30,7 @@ def counts(r,integral=False):
     src = np.asarray([ np.asarray([band.phase_factor*band.ps_counts*band.overlaps for band in g]).sum(axis=0) for g in groupings])
     
     if integral:
-        for i in xrange(len(iso)):
+        for i in range(len(iso)):
             #iso[i] = iso[i:].sum()
             #gal[i] = gal[i:].sum()
             dif[i] = dif[i:].sum(axis=0)
@@ -61,14 +61,14 @@ def get_counts(roi, merge_non_free=True, merge_all=False, integral=False):
         free_mask = np.asarray([np.any(m.free) for m in roi.psm.models]) 
         new_src    = np.zeros([len(en),free_mask.sum()+1])
         counter = 0
-        for i in xrange(len(free_mask)):
+        for i in range(len(free_mask)):
             if free_mask[i] :
                 new_src[:,counter] = src[:,i]
                 counter += 1
             else:
                 new_src[:,-1] += src[:,i]
         src        = new_src
-        ps_names = [ps_names[i] for i in xrange(len(ps_names)) if free_mask[i] ]
+        ps_names = [ps_names[i] for i in range(len(ps_names)) if free_mask[i] ]
         ps_names += ['Other Point Sources' ]
     models =  zip(bg_names+ps_names, np.hstack((dif,src)).T)
     return dict(energies=en, observed=obs, models=models, total=tot)

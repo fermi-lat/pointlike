@@ -119,7 +119,7 @@ class Minimizer(object):
         if ll_0==0: ll_0=1.0
         if use_gradient and not use_bounds:
             f0 = optimize.fmin_bfgs(self.fn,self.get_parameters(),self.gradient,full_output=1,maxiter=500,gtol=gtol,disp=0)
-            for i in xrange(10):
+            for i in range(10):
                 f = self._save_bfgs = optimize.fmin_bfgs(self.fn,self.get_parameters(),self.gradient,
                         full_output=1,maxiter=500,gtol=gtol,disp=0)
                 if abs(f0[1] - f[1]) < tolerance: break # note absolute tolerance
@@ -162,7 +162,7 @@ class Minimizer(object):
         from uw.utilities.minuit import Minuit
         temp_params = self.get_parameters()
         npars = temp_params.shape[0]
-        param_names = ['p%i'%i for i in xrange(npars)]
+        param_names = ['p%i'%i for i in range(npars)]
         
         if use_gradient :
             gradient         = self.gradient
@@ -282,10 +282,10 @@ class Minimizer(object):
 
         #find good values with which to estimate the covariance matrix -- look at diagonal deviations
         #iterate until change in function consistent with ~1 sigma conditional error
-        for i in xrange(npar):
+        for i in range(npar):
             if not quiet: print ('Working on parameter %d'%(i))
             h,l = p.copy(),p.copy()
-            for j in xrange(10):
+            for j in range(10):
                 h[:] = p[:]; l[:] = p[:];
                 h[i] += deltas[i]
                 l[i] -= deltas[i]
@@ -311,12 +311,12 @@ class Minimizer(object):
                 if not quiet: print ('fail, need upper limit')
                 import pdb; pdb.set_trace()
 
-        for i in xrange(npar):
+        for i in range(npar):
             if bad_mask[i]:
                 hessian[i,:] = 0 #no correlation?
                 hessian[:,i] = 0
                 continue
-            for j in xrange(i,npar): #Second partials by finite difference
+            for j in range(i,npar): #Second partials by finite difference
                 
                 xhyh,xhyl,xlyh,xlyl=p.copy(),p.copy(),p.copy(),p.copy()
                 xdelt = deltas[i]
@@ -383,9 +383,9 @@ class Minimizer(object):
                     return True,0
         
         iters = np.zeros(nparams)
-        for i in xrange(nparams):
+        for i in range(nparams):
             converged = False
-            for j in xrange(max_iters):
+            for j in range(max_iters):
                 iters[i] += 1
                 di = step_size[i]
                 par[i] += di

@@ -4,7 +4,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/process.py,v 1.3
 
 """
 import os, sys, time, glob
-import cPickle as pickle
+import pickle
 import numpy as np
 import pandas as pd
 from scipy import optimize

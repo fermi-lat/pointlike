@@ -4,7 +4,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/maps.py,v 1.15 2
 
 """
 import os, sys,  types, glob
-import cPickle as pickle
+import pickle
 import numpy as np
 import pandas as pd
 from skymaps import Band, SkyDir, PySkyFunction, Hep3Vector, PythonUtilities 
@@ -44,9 +44,9 @@ def make_index_table(nside=12, subnside=nside, usefile=True):
     print ('generating index table for nside, subnside= %d %d' % (nside, subnside))
     band, subband = Band(nside), Band(subnside)
     npix, nsubpix = 12*nside**2, 12*subnside**2
-    t=np.array([band.index(subband.dir(i)) for i in xrange(nsubpix)])
+    t=np.array([band.index(subband.dir(i)) for i in range(nsubpix)])
     a = np.arange(nsubpix)
-    index_table = [a[t==i] for i in xrange(npix)]
+    index_table = [a[t==i] for i in range(npix)]
     if usefile:
         pickle.dump(index_table, open(filename,'w'))
     return index_table  
@@ -543,9 +543,9 @@ def make_index_table(nside=12, subnside=nside, usefile=True):
     print ('generating index table for nside, subnside= %d %d' % (nside, subnside))
     band, subband = Band(nside), Band(subnside)
     npix, nsubpix = 12*nside**2, 12*subnside**2
-    t=np.array([band.index(subband.dir(i)) for i in xrange(nsubpix)])
+    t=np.array([band.index(subband.dir(i)) for i in range(nsubpix)])
     a = np.arange(nsubpix)
-    index_table = [a[t==i] for i in xrange(npix)]
+    index_table = [a[t==i] for i in range(npix)]
     if usefile:
         pickle.dump(index_table, open(filename,'w'))
     return index_table

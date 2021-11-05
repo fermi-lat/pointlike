@@ -119,8 +119,8 @@ def z2m(phases,m=2):
 
     else:
 
-        s = (np.asarray([(np.cos(k*phases)).sum() for k in xrange(1,m+1)]))**2 +\
-            (np.asarray([(np.sin(k*phases)).sum() for k in xrange(1,m+1)]))**2
+        s = (np.asarray([(np.cos(k*phases)).sum() for k in range(1,m+1)]))**2 +\
+            (np.asarray([(np.sin(k*phases)).sum() for k in range(1,m+1)]))**2
 
     return (2./n)*np.cumsum(s)
 
@@ -134,8 +134,8 @@ def z2mw(phases,weights,m=2):
 
    phases = np.asarray(phases)*(2*np.pi) #phase in radians
 
-   s = (np.asarray([(np.cos(k*phases)*weights).sum() for k in xrange(1,m+1)]))**2 +\
-       (np.asarray([(np.sin(k*phases)*weights).sum() for k in xrange(1,m+1)]))**2
+   s = (np.asarray([(np.cos(k*phases)*weights).sum() for k in range(1,m+1)]))**2 +\
+       (np.asarray([(np.sin(k*phases)*weights).sum() for k in range(1,m+1)]))**2
 
    return np.cumsum(s) * (2./(weights**2).sum())
 
@@ -163,8 +163,8 @@ def em_four(phases,m=2,weights=None):
     n = len(phases) if weights is None else weights.sum()
     weights = 1. if weights is None else weights
 
-    aks = (1./n)*np.asarray([(weights*np.cos(k*phases)).sum() for k in xrange(1,m+1)])
-    bks = (1./n)*np.asarray([(weights*np.sin(k*phases)).sum() for k in xrange(1,m+1)])
+    aks = (1./n)*np.asarray([(weights*np.cos(k*phases)).sum() for k in range(1,m+1)])
+    bks = (1./n)*np.asarray([(weights*np.sin(k*phases)).sum() for k in range(1,m+1)])
 
     return aks,bks
 
@@ -176,7 +176,7 @@ def em_lc(coeffs,dom):
 
     aks,bks = coeffs
     rval = np.ones_like(dom)
-    for i in xrange(1,len(aks)+1):
+    for i in range(1,len(aks)+1):
         rval += 2*(aks[i-1]*np.cos(i*dom) + bks[i-1]*np.sin(i*dom))
     return rval
 
@@ -188,8 +188,8 @@ def hm(phases,m=20,c=4):
     """
     phases = np.asarray(phases)*(2*np.pi) #phase in radians
 
-    s = (np.asarray([(np.cos(k*phases)).sum() for k in xrange(1,m+1)]))**2 +\
-        (np.asarray([(np.sin(k*phases)).sum() for k in xrange(1,m+1)]))**2
+    s = (np.asarray([(np.cos(k*phases)).sum() for k in range(1,m+1)]))**2 +\
+        (np.asarray([(np.sin(k*phases)).sum() for k in range(1,m+1)]))**2
 
     return ((2./len(phases))*np.cumsum(s) - c*np.arange(0,m)).max()
 
@@ -202,8 +202,8 @@ def hmw(phases,weights,m=20,c=4):
 
     phases = np.asarray(phases)*(2*np.pi) #phase in radians
 
-    s = (np.asarray([(weights*np.cos(k*phases)).sum() for k in xrange(1,m+1)]))**2 +\
-        (np.asarray([(weights*np.sin(k*phases)).sum() for k in xrange(1,m+1)]))**2
+    s = (np.asarray([(weights*np.cos(k*phases)).sum() for k in range(1,m+1)]))**2 +\
+        (np.asarray([(weights*np.sin(k*phases)).sum() for k in range(1,m+1)]))**2
 
     return ( (2./(weights**2).sum()) * np.cumsum(s) - c*np.arange(0,m) ).max()
 
@@ -226,7 +226,7 @@ def sf_hm(h,m=20,c=4,logprob=False):
                
     # first, calculate the integrals of unity for all needed orders
     ints = empty(m)
-    for i in xrange(m):
+    for i in range(m):
         sv = i - arange(0,i) # summation vector
         ints[i]  = exp(i*log(h+i*c)-log(fact(i)))
         ints[i] -= (ints[:i]*exp(sv*log(sv*c)-log(fact(sv)))).sum()
@@ -270,7 +270,7 @@ def sf_stackedh(k,h,l=0.398405):
     fact = lambda x: gamma(x+1)
     p = 0
     c = l*h
-    for i in xrange(k):
+    for i in range(k):
         p += c**i/fact(i)
     return p*np.exp(-c)
 

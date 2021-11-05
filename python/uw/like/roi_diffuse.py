@@ -250,7 +250,7 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
 
     def initialize_counts(self,bands,roi_dir=None):
         rd = self.roi_dir if roi_dir is None else roi_dir
-        self.bands = [SmallBand() for i in xrange(len(bands))]
+        self.bands = [SmallBand() for i in range(len(bands))]
 
         for iband,(myband,band) in enumerate(zip(self.bands,bands)):
             if not self.quiet: 
@@ -342,7 +342,7 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
         for myband,band in zip(self.bands,bands):
             pts = sm.gradient(myband.bg_points)
             cp = 0
-            for j in xrange(npar):
+            for j in range(npar):
                 if not sm.free[j]: continue
                 apterm = band.phase_factor*(myband.ap_evals * pts[j,:]).sum()
                 if band.has_pixels:

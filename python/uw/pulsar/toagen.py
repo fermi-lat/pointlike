@@ -339,7 +339,7 @@ class UnbinnedTOAGeneratorF0Search(UnbinnedTOAGenerator):
             # set up a cache of F0 search grid
             dts = mjds - tmid
             phase_offsets = np.empty([self.nF0grid+1,len(phases)])
-            for igrid in xrange(self.nF0grid):
+            for igrid in range(self.nF0grid):
                 phase_offsets[igrid] = dts/(mjdstop-mjdstart)*(float(igrid*self.max_wraps)/(self.nF0grid))
             self.phase_offsets = phase_offsets
             

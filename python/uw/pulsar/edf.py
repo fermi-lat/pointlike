@@ -31,7 +31,7 @@ def comp_edfs2(edf1,edf2):
     e1 = 0; e2 = 0
     all_e1s = np.empty_like(idx)
     all_e2s = np.empty_like(idx)
-    for i in xrange(len(s)):
+    for i in range(len(s)):
         if mask[i]:  e1 = idx[i]
         else:        e2 = idx[i]
         all_e1s[i] = e1
@@ -39,7 +39,7 @@ def comp_edfs2(edf1,edf2):
     return np.max(all_e1s-all_e2s) + np.max(all_e2s-all_e1s)
 
 def timeit(e1,e2,n=10):
-    for i in xrange(n):
+    for i in range(n):
         comp_edfs2(e1,e2) 
     
 
@@ -105,7 +105,7 @@ def estimate_diff(e1,ph2,mc=100,hint=0,hint_range=0.50):
     diff = find_alignment(e1,ph2,hint=hint,hint_range=hint_range)
     n = len(ph2)
     diffs = np.empty(mc)
-    for i in xrange(mc):
+    for i in range(mc):
         #diffs[i] = find_alignment(e1,e1.random(n),hint=hint)
         diffs[i] = find_alignment(e1,lct.random(n),hint=hint)
     return diff,diffs

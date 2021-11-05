@@ -38,14 +38,14 @@ def decorate(defaults):
     def decorator(func):
         s= hbar+ indent+'keyword arguments'+ hbar
         for item in defaults:
-            if type(item)==types.StringType:
+            if isinstance(item,str):
                 s+= '\n%s%s    %s'% (indent,10*'=',item.upper())
                 continue
             if len(item)==3:
                 key, value, description = item 
             else:
                 (key, value), description = item, ''
-            if type(value)==types.StringType:
+            if isinstance(value,str):
                 value = "'" + value + "'"
             s += indent+'%-15s' % key
             if len(key)>=15: s += indent + 15*' '
@@ -70,7 +70,7 @@ def process(self, kwargs, defaults=None):
     Raises KeyError exception for any kwargs entry not in the defaults list
     """
     for item in self.defaults if defaults is None else defaults:
-        if type(item)==types.StringType: continue
+        if isinstance(item,str): continue
         self.__dict__[item[0].strip()] = item[1]
         
     for key in kwargs.keys():
@@ -119,7 +119,7 @@ def current_parameter_table(self, indent = '\n', hbar=60*'='):
     """
     s= hbar+ indent+self.__class__.__name__+'  parameters'+ indent+hbar
     for item in self.defaults:
-        if type(item)==types.StringType:
+        if isinstance(item,str):
             s+= '\n%s%s    %s'% (indent,10*'=',item.upper())
             continue
         if len(item)==3:
@@ -127,7 +127,7 @@ def current_parameter_table(self, indent = '\n', hbar=60*'='):
         else:
             (key, value), description = item, ''
         value = self.__dict__[key]  # could indicate changed?
-        if type(value)==types.StringType:
+        if isinstance(value,str):
             value = "'" + value + "'"
         s += indent+'%-15s' % key
         if len(key)>=15: s += indent + 15*' '

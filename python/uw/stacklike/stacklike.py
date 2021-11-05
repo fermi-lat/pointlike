@@ -1601,7 +1601,7 @@ class StackLoader(object):
         self.bin=False
 
     def spickle(self,fname):
-        import cPickle
+        import pickle
         self.getds()
         try:
             del self.photons
@@ -1620,7 +1620,7 @@ class StackLoader(object):
         except:
             pass
         cfile = open(fname,'w')
-        cPickle.dump(self,cfile)
+        pickle.dump(self,cfile)
         cfile.close()
 
     ## returns a PSF object based on containment specified by self.irf

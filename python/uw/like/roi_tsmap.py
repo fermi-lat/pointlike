@@ -13,7 +13,7 @@ from uw.utilities import keyword_options
 from skymaps import Band,WeightedSkyDirList,PySkyFunction,Hep3Vector,SkyDir,BinnedPhotonData,SkyImage,PythonUtilities
 from pointlike import IntVector,DoubleVector
 from scipy.optimize import fmin
-from cPickle import dump,load
+from pickle import dump,load
 from glob import glob
 from collections import deque
 from scipy.integrate import cumtrapz,simps
@@ -27,7 +27,7 @@ J = np.log(10)
 def my_newton(func,x0,fprime,tol=1e-2):
     """ re-implementation of scipy version that uses half the calls!  """
     p0 = x0
-    for i in xrange(30):
+    for i in range(30):
         fval = func(x0)
         if fval == 0: return x0,True
         gval = fprime(x0)
@@ -148,7 +148,7 @@ class TSCalc(object):
         # first, find a good upper limit for the integration
         goal = 10
         lo = get_logflux(self.mo) if f0_0>0 else -20; hi = -5
-        for i in xrange(20):
+        for i in range(20):
             avg = float(lo+hi)/2
             f_new = self._f0(avg) - f0_0 + goal
             #print (avg,f_new)
@@ -159,7 +159,7 @@ class TSCalc(object):
         # next, do a crude iteration to achieve desired accuracy
         def find_conf(my_iter,*args):
             npts = points
-            for i in xrange(my_iter): npts = npts*2 - 1
+            for i in range(my_iter): npts = npts*2 - 1
             pts = np.linspace(0,10**avg,npts)
             val = np.empty_like(pts)
             if my_iter > 0:
@@ -175,7 +175,7 @@ class TSCalc(object):
             return n0,val,pts
         
         prev_val = 0; val = 0
-        for i in xrange(10):
+        for i in range(10):
             #print ('Loop iter %d'%(i))
             n0,val,pts = find_conf(i,val)
             set_logflux(self.mo, np.log10(n0))  #self.mo[0] = n0
@@ -289,7 +289,7 @@ class HealpixTSMap(object):
         # then cut down to just the pixels inside the base Healpixel
         inds   = np.asarray([band1.index(x) for x in wsdl])
         mask   = inds == hr.index
-        dirs   = [wsdl[i] for i in xrange(len(mask)) if mask[i]]
+        dirs   = [wsdl[i] for i in range(len(mask)) if mask[i]]
         inds   = np.asarray([band2.index(x) for x in dirs]).astype(int)
 
         # sanity check
@@ -549,7 +549,7 @@ class MultiHealpixTSMap(object):
                 names,skydirs = labels
             except:
                 skydirs = labels
-                names   = ['S%d'%(i) for i in xrange(len(labels))]
+                names   = ['S%d'%(i) for i in range(len(labels))]
             for na,sd in zip(names,skydirs):
                 z.plot_source(na,sd,color='gray' if thresh_low > 0 else 'white')
         return z
@@ -568,14 +568,14 @@ class MultiHealpixTSMap(object):
         
         if separate_figures:
             axes = []
-            for i in xrange(1,4):
+            for i in range(1,4):
                 P.figure(i+fignum_base)
                 axes += [P.gca()]
         else:
-            axes = [P.subplot(1,3,i) for i in xrange(1,4)]
+            axes = [P.subplot(1,3,i) for i in range(1,4)]
         zeas = [ZEA(center,size=size,pixelsize=pixelsize,galactic=galactic,axes=ax) for ax in axes]
         mods = [1,2,0]
-        for i in xrange(0,3):
+        for i in range(0,3):
             self.set_mode(mods[i])
             zeas[i].fill(PySkyFunction(self))
             zeas[i].grid()
@@ -592,7 +592,7 @@ class MultiHealpixTSMap(object):
                     z.plot_source(na,sd,color='white')
         if separate_figures:
             # basically a "show"
-            for i in xrange(1,4):
+            for i in range(1,4):
                 P.figure(i+fignum_base)
                 axes[i-1].set_autoscale_on(True)
                 cb = ColorbarBase(axes[i-1],orientation='vertical',cmap=cmap)
@@ -613,7 +613,7 @@ def get_seeds(self,mode=0,ts_thresh=9):
 
     n = len(inds)
 
-    for i in xrange(n):
+    for i in range(n):
         my_ts  = ts[mask]
         amax   = np.argmax(my_ts)
         mts    = my_ts[amax]
@@ -695,7 +695,7 @@ class HealpixKDEMap(object):
         # then cut down to just the pixels inside the base Healpixel
         inds   = np.asarray([band1.index(x) for x in wsdl])
         mask   = inds == hr.index
-        dirs   = [wsdl[i] for i in xrange(len(mask)) if mask[i]]
+        dirs   = [wsdl[i] for i in range(len(mask)) if mask[i]]
         inds   = np.asarray([band2.index(x) for x in dirs]).astype(int)
 
         # sanity check
@@ -984,7 +984,7 @@ class FastTSCalc(object):
         # re-implementation of scipy version that uses half the calls!               
         def my_newton(func,x0,fprime,tol=1e-2):
             p0 = x0
-            for i in xrange(30):
+            for i in range(30):
                 fval = func(x0)
                 if fval == 0: return x0,True
                 gval = fprime(x0)
