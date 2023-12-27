@@ -25,7 +25,7 @@ class PointSource(object):
         self.model  = PowerLaw() if model is None else model
         #if not free_parameters:
         if not leave_parameters:
-            for i in xrange(len(self.model.free)): self.model.free[i] = free_parameters
+            for i in range(len(self.model.free)): self.model.free[i] = free_parameters
         self.duplicate = False
     def __str__(self):
         return '\n'.join(['\n',

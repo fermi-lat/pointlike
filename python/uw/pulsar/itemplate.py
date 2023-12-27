@@ -140,16 +140,16 @@ if __name__ == '__main__':
     print ('Welcome to the interactive unbinned template fitter!')
     print ('What type of template would you like to fit?')
     print ('gauss=Gaussian [default], kd=Kernel Density, ef [NHARM]=Empirical Fourier')
-    line = raw_input()
+    line = input()
     if line.startswith('kd'):
         dom = np.linspace(0.0,1.0,100)
         prim = LCKernelDensity(phases=phases)
         template = LCTemplate([prim],norms=None)
-        pl.hist(phases,options.nbins,normed=True,histtype='step',edgecolor='k')
+        pl.hist(phases,options.nbins,density=True,histtype='step',edgecolor='k')
         pl.plot(dom,template(dom),color='red')
         pl.title('Kernel Density Template Fit')
         pl.show()
-        s = raw_input('Enter a filename here to save template for future use.  Just hit ENTER to skip the step.\n')
+        s = input('Enter a filename here to save template for future use.  Just hit ENTER to skip the step.\n')
         if len(s) > 0:
             prim.to_file(s)
         
@@ -161,11 +161,11 @@ if __name__ == '__main__':
             nharm = 16
         lcf = LCEmpiricalFourier(phases=phases,nharm=nharm)
         template = LCTemplate([lcf],norms=None)
-        pl.hist(phases,options.nbins,normed=True,histtype='step',edgecolor='k')
+        pl.hist(phases,options.nbins,density=True,histtype='step',edgecolor='k')
         pl.plot(dom,template(dom),color='red')
         pl.title('Empirical Fourier Template with %d harmonics' % (nharm,))
         pl.show()
-        s = raw_input('Enter a filename here to save template for future use.  Just hit ENTER to skip the step.\n')
+        s = input('Enter a filename here to save template for future use.  Just hit ENTER to skip the step.\n')
         if len(s) > 0:
             lcf.to_file(s)
     else:
@@ -180,7 +180,7 @@ if __name__ == '__main__':
                 raise IOError('Specified directory %s does not exist!'%(os.path.dirname(out)))
         else:
             out = ''
-            out = raw_input('Enter filename for gaussian profile output file, or just hit ENTER to exit...:  ')
+            out = input('Enter filename for gaussian profile output file, or just hit ENTER to exit...:  ')
         if len(out) > 0:
             print ('Writing Gaussian-style template to %s...'%(out))
             intf.write_template(out)

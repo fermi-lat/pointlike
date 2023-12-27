@@ -118,7 +118,7 @@ def modify_model(roi,which,model,free=None,keep_old_flux=True):
             free=np.asarray([free]*len(model.get_all_parameters()))
 
         assert(len(free)==len(model.get_all_parameters()))
-        for i in xrange(len(free)):
+        for i in range(len(free)):
             model.freeze(i,freeze=not free[i])
 
     roi.__update_state__()

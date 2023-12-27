@@ -36,7 +36,7 @@ def find_prof_mean(y):
     y = np.sort(y)
     n = float(len(y))
     nmax = int(0.66*len(y))
-    for i in xrange(1,nmax):
+    for i in range(1,nmax):
         t = y[:-i] - (y[:-i]).mean()
         nlo = (t<0).sum()
         nhi = len(t)-nlo  
@@ -451,23 +451,23 @@ class PulsarLightCurve:
                 phases = self.get_phases(i)
                 weights = self.get_weights(i)                
                 bins = np.linspace(0,1,self.nbins+1)
-                counts = np.histogram(phases,bins=bins,normed=False)[0]
+                counts = np.histogram(phases,bins=bins,density=False)[0]
                 """
                 # this is an old formula -- not sure why it's here
-                w1 = (np.histogram(phases,bins=bins,weights=weights,normed=False)[0]).astype(float)/counts
-                w2 = (np.histogram(phases,bins=bins,weights=weights**2,normed=False)[0]).astype(float)/counts
+                w1 = (np.histogram(phases,bins=bins,weights=weights,density=False)[0]).astype(float)/counts
+                w2 = (np.histogram(phases,bins=bins,weights=weights**2,density=False)[0]).astype(float)/counts
                 errors = np.where(counts > 1, (counts*(w2-w1**2))**0.5, counts)
                 """
-                w1 = np.histogram(phases,bins=bins,weights=weights,normed=False)[0]
-                w2 = np.histogram(phases,bins=bins,weights=weights**2,normed=False)[0]
+                w1 = np.histogram(phases,bins=bins,weights=weights,density=False)[0]
+                w2 = np.histogram(phases,bins=bins,weights=weights**2,density=False)[0]
                 errors = np.where(w2>0,(weights.max()**2+w2)**0.5,0)
                 #
                 """
                 nmc = 100
                 errors = np.empty([self.nbins,nmc])
-                for j in xrange(nmc):
+                for j in range(nmc):
                     rweights = weights[np.argsort(np.random.rand(len(phases)))]
-                    errors[:,j] = np.histogram(phases,bins=self.nbins,weights=rweights,normed=False)[0]
+                    errors[:,j] = np.histogram(phases,bins=self.nbins,weights=rweights,density=False)[0]
                 errors = np.std(errors,axis=1)
                 """
 
@@ -941,7 +941,7 @@ class PulsarLightCurve:
                     overlay = TPad("overlay","",0,0,1,1)
                     overlay.SetBottomMargin(0)
                 
-                    for j in xrange(len(pad)):
+                    for j in range(len(pad)):
                         if suppress_template_axis: break
                         if nbands == 1:
                             overlay.SetBottomMargin(BottomMarginDefault)
@@ -1284,7 +1284,7 @@ class PulsarLightCurve:
         f = file(filename,'w')
 
         # write out gamma data profile
-        for i in xrange(len(self.phaseogram)):
+        for i in range(len(self.phaseogram)):
             elo,ehi = self.get_energy_range(i)
             f.write('# Gamma profile\n')
             f.write('ELO=%.2f\n'%elo)
@@ -1293,7 +1293,7 @@ class PulsarLightCurve:
                 f.write('BKG=%s\n'%background[i])
             f.write('# PhaseLO           PhaseHI           Weighted_Counts     Weighted_Err\n')
             y,yerr = root.get_histo_content(self.phaseogram[i])
-            for i in xrange(self.nbins):
+            for i in range(self.nbins):
                 # NB -- histogram values are very strange
                 f.write('%s%s%s%s\n'%(right_pad(float(i)/self.nbins),right_pad(float(i+1)/self.nbins),right_pad(y[i+1]),right_pad(yerr[i+1])))
 
@@ -1304,7 +1304,7 @@ class PulsarLightCurve:
             cod = template(dom+self.phase_shift)
             f.write('# Gamma best-fit pulsar template\n')
             f.write('# PhaseLO           PhaseHI           Intensity\n')
-            for i in xrange(nbins):
+            for i in range(nbins):
                 f.write('%s%s%s\n'%(right_pad(dom[i]),right_pad(dom[i+1]),right_pad(cod[i])))
 
         # write out radio profile if present
@@ -1330,14 +1330,14 @@ class PulsarLightCurve:
             return s + ' '*(n-len(s))
 
         f = file(filename,'w')
-        nbands = sum([self.get_energy_range(i)[0] >= 100 for i in xrange(len(self.phaseogram))])
+        nbands = sum([self.get_energy_range(i)[0] >= 100 for i in range(len(self.phaseogram))])
         output = np.empty([2*nbands,self.nbins])
         elos = []
         ehis = []
         bkgs = []
 
         counter = 0
-        for i in xrange(len(self.phaseogram)):
+        for i in range(len(self.phaseogram)):
             elo,ehi = self.get_energy_range(i)
             if elo < 100:
                 continue
@@ -1355,7 +1355,7 @@ class PulsarLightCurve:
         
         bkg_string = ''
         label_string = 'Phase_Min   Phase_Max   '
-        for i in xrange(len(elos)):
+        for i in range(len(elos)):
             elo,ehi,bkg = elos[i],ehis[i],bkgs[i]
             print (elo,ehi,bkg)
             if ehi > 30000: # infinity
@@ -1374,7 +1374,7 @@ class PulsarLightCurve:
             fmt = r'%.4f '*output.shape[0]
             return fmt%tuple(output[:,idx])
 
-        for j in xrange(self.nbins):
+        for j in range(self.nbins):
             phlo = float(j)/self.nbins
             phhi = float(j+1)/self.nbins
             f.write('%.2f %.2f %s\n'%(phlo,phhi,row2str(j)))
@@ -1386,7 +1386,7 @@ class PulsarLightCurve:
             cod = template(dom+self.phase_shift)
             f.write('\n# Gamma best-fit pulsar template\n')
             f.write('# PhaseLO           PhaseHI           Intensity\n')
-            for i in xrange(nbins):
+            for i in range(nbins):
                 f.write('%s%s%s\n'%(right_pad(dom[i]),right_pad(dom[i+1]),right_pad(cod[i])))
 
         f.close()

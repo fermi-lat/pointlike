@@ -76,7 +76,7 @@ class Grid(object):
 
         mpix  = (float(npix)-1)/2.
         v     = (np.arange(0,npix) - mpix)**2
-        self.dists = np.asarray([v+v[i] for i in xrange(npix)])**0.5*(np.radians(self.pixelsize))
+        self.dists = np.asarray([v+v[i] for i in range(npix)])**0.5*(np.radians(self.pixelsize))
 
         self.lons = self.lon0 - np.linspace(0,1,self.npix)*self.delta_lon
         self.lons = DoubleVector(np.where(self.lons < 0,self.lons+360,self.lons)) # if origin in frame

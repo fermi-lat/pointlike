@@ -4,7 +4,7 @@ Comparison with a gtlike model
 """
 
 import os, glob
-import cPickle as pickle
+import pickle
 import numpy as np
 import pylab as plt
 import matplotlib.gridspec as gridspec

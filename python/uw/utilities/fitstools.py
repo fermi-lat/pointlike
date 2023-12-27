@@ -11,7 +11,7 @@ INT_TYPES  = ['EVENT_CLASS','CONVERSION_TYPE']
 
 from astropy.io import fits as pyfits; pf= pyfits
 import numpy as N; import numpy as np
-from types import ListType,FunctionType,MethodType
+from types import FunctionType,MethodType
 from math import cos,sin,pi
 from skymaps import SkyDir,Gti,BinnedPhotonData,PythonUtilities
 
@@ -192,7 +192,7 @@ def counts_plot(ft1files,center,fov=10,scale='log',pixels=256,coordsys='equatori
       en = events.data.field('ENERGY')
       time = events.data.field('TIME')
       ec = events.data.field('EVENT_CLASS')
-      for i in xrange(len(lon)):
+      for i in range(len(lon)):
 
          print ('%.2f  %.2f  %.2g  %.10g  %d'%(lon[i],lat[i],en[i],time[i],ec[i]))
    return img
@@ -310,7 +310,7 @@ def FT1_to_GTI(files):
    g = Gti(files[0])
    starts,stops = __merge_gti__(handles[1:],no_table = True)
    if len(starts) == 0: return g
-   for i in xrange(len(starts)):
+   for i in range(len(starts)):
       g.insertInterval(starts[i],stops[i])
    return g
 
@@ -486,7 +486,7 @@ def __merge_events__(handles,table_name = 'EVENTS'):
    event_table = pf.new_table(columns,header=header,nrows=sum(num_events))
    previous_loc = 0
    for i,handle in enumerate(handles):
-      for j in xrange(len(columns)):
+      for j in range(len(columns)):
          name = columns[j].name
          event_table.data.field(name)[previous_loc:previous_loc+num_events[i]] = handle[table_name].data.field(name)[:]
       previous_loc += num_events[i]
@@ -560,7 +560,7 @@ def __arbitrary_cuts__(events,cuts):
       exec('mask = logical_and(mask,%s)'%cut)
 
    new_table = pf.new_table(events.columns,nrows=len(mask[mask]))
-   for i in xrange(len(events.columns)):
+   for i in range(len(events.columns)):
       new_table.data.field(i)[:] = events.data.field(i)[mask]
    events.data = new_table.data
 

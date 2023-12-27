@@ -30,15 +30,15 @@ def shifted(m,delta=0.5):
     arg = np.fft.fftfreq(n)*(n*np.pi*2.j*delta)
     return np.real(np.fft.ifft(np.exp(arg)*f,axis=-1))
 
-def weighted_light_curve(nbins,phases,weights,normed=False,phase_shift=0):
+def weighted_light_curve(nbins,phases,weights,density=False,phase_shift=0):
     """ Return a set of bins, values, and errors to represent a
         weighted light curve."""
     bins = np.linspace(0+phase_shift,1+phase_shift,nbins+1)
-    counts = np.histogram(phases,bins=bins,normed=False)[0]
-    w1 = (np.histogram(phases,bins=bins,weights=weights,normed=False)[0]).astype(float)
-    w2 = (np.histogram(phases,bins=bins,weights=weights**2,normed=False)[0]).astype(float)
+    counts = np.histogram(phases,bins=bins,density=False)[0]
+    w1 = (np.histogram(phases,bins=bins,weights=weights,density=False)[0]).astype(float)
+    w2 = (np.histogram(phases,bins=bins,weights=weights**2,density=False)[0]).astype(float)
     errors = np.where(counts > 1, w2**0.5, counts)
-    norm = w1.sum()/nbins if normed else 1.
+    norm = w1.sum()/nbins if density else 1.
     return bins,w1/norm,errors/norm
 
 def LCFitter(template,phases,weights=None,log10_ens=None,times=1,
@@ -168,7 +168,7 @@ class UnweightedLCFitter(object):
         old_state = []
         counter = 0
         for p in self.template.primitives:
-            for i in xrange(len(p.p)):
+            for i in range(len(p.p)):
                 old_state.append(p.free[i])
                 if restore_state is not None:
                     p.free[i] = restore_state[counter]
@@ -358,7 +358,7 @@ class UnweightedLCFitter(object):
         if 'unbinned' not in fit_kwargs.keys():
             fit_kwargs['unbinned'] = True
         counter = 0
-        for i in xrange(nsamp*2):
+        for i in range(nsamp*2):
             if counter == nsamp:
                 break
             if i == (2*nsamp-1):
@@ -418,13 +418,13 @@ class UnweightedLCFitter(object):
             fig = pl.figure(fignum)
             axes = fig.add_subplot(111)
 
-        axes.hist(self.phases,bins=np.linspace(0,1,nbins+1),histtype='step',ec='red',normed=True,lw=1,weights=weights)
+        axes.hist(self.phases,bins=np.linspace(0,1,nbins+1),histtype='step',ec='red',density=True,lw=1,weights=weights)
         if weights is not None:
             bg_level = 1-(weights**2).sum()/weights.sum()
             axes.axhline(bg_level,color='blue')
             #cod = template(dom)*(1-bg_level)+bg_level
             #axes.plot(dom,cod,color='blue')
-            x,w1,errors = weighted_light_curve(nbins,self.phases,weights,normed=True)
+            x,w1,errors = weighted_light_curve(nbins,self.phases,weights,density=True)
             x = (x[:-1]+x[1:])/2
             axes.errorbar(x,w1,yerr=errors,capsize=0,marker='',ls=' ',color='red')
         else:
@@ -437,7 +437,7 @@ class UnweightedLCFitter(object):
         cod = template(dom)*(1-bg_level)+bg_level
         axes.plot(dom,cod,color='blue',lw=1)
         if plot_components:
-            for i in xrange(len(template.primitives)):
+            for i in range(len(template.primitives)):
                 cod = template.single_component(i,dom)*(1-bg_level)+bg_level
                 axes.plot(dom,cod,color='blue',lw=1,ls='--')
         pl.axis([0,1,pl.axis()[2],max(pl.axis()[3],cod.max()*1.05)])
@@ -533,7 +533,7 @@ class WeightedLCFitter(UnweightedLCFitter):
         self.counts_centers = []
         self.slices = []
         indices = np.arange(len(self.weights))
-        for i in xrange(nbins):
+        for i in range(nbins):
             mask = (self.phases >= bins[i]) & (self.phases < bins[i+1])
             if mask.sum() > 0:
                 w = self.weights[mask]
@@ -595,7 +595,7 @@ class WeightedLCFitter(UnweightedLCFitter):
         # distribute the central values to the unbinned phases/weights
         for tt,gt,sl in zip(template_terms,gradient_terms.transpose(),self.slices):
             phase_template_terms[sl] = tt
-            for j in xrange(nump):
+            for j in range(nump):
                 phase_gradient_terms[j,sl] = gt[j]
         numer = self.weights*phase_gradient_terms
         denom = 1+self.weights*(phase_template_terms)
@@ -667,9 +667,9 @@ def hessian(m,mf,*args,**kwargs):
         delta = [0.01]*len(p)
 
     hessian=np.zeros([len(p),len(p)])
-    for i in xrange(len(p)):
+    for i in range(len(p)):
         delt = delta[i]
-        for j in xrange(i,len(p)): #Second partials by finite difference; could be done analytically in a future revision
+        for j in range(i,len(p)): #Second partials by finite difference; could be done analytically in a future revision
          
             xhyh,xhyl,xlyh,xlyl=p.copy(),p.copy(),p.copy(),p.copy()
             xdelt = delt if p[i] >= 0 else -delt
@@ -706,7 +706,7 @@ def get_errors(template,total,n=100):
     errors_r = np.empty(n)
     delta = 0.01
     mean = 0
-    for i in xrange(n):
+    for i in range(n):
         template.set_overall_phase(ph0)
         ph = template.random(total)
         results = fmin(logl,ph0,args=(ph,),full_output=1,disp=0)
@@ -726,7 +726,7 @@ def make_err_plot(template,totals=[10,20,50,100,500],n=1000):
     for tot in totals:
         f,e = get_errors(template,tot,n=n)
         fvals += [f]; errs += [e]
-        pl.hist(f/e,bins=np.arange(-5,5.1,0.5),histtype='step',normed=True,label='N = %d'%tot);
+        pl.hist(f/e,bins=np.arange(-5,5.1,0.5),histtype='step',density=True,label='N = %d'%tot);
     g = lambda x: (np.pi*2)**-0.5*np.exp(-x**2/2)
     dom = np.linspace(-5,5,101)
     pl.plot(dom,g(dom),color='k')
@@ -749,7 +749,7 @@ def approx_gradient(fitter,eps=1e-6):
         #func.set_parameters(p0,free=False)
         return fitter.loglikelihood(p0)
 
-    for i in xrange(len(orig_p)):
+    for i in range(len(orig_p)):
         # use a 4th-order central difference scheme
         for j,w in zip([2,1,-1,-2],weights):
             g[i] += w*do_step(i,j*eps)
@@ -776,7 +776,7 @@ def hess_from_grad(grad,par,step=1e-3,iterations=2):
             return M[0,0]
         rvals = np.zeros(1,dtype=M.dtype)
         toggle = 1.
-        for i in xrange(n):
+        for i in range(n):
             minor = np.delete(np.delete(M,0,0),i,1)
             rvals += M[0,i] * toggle * mdet(minor) 
             toggle *= -1
@@ -786,8 +786,8 @@ def hess_from_grad(grad,par,step=1e-3,iterations=2):
         """ Return inverse of M, using cofactor expansion."""
         n = M.shape[0]
         C = np.empty_like(M)
-        for i in xrange(n):
-            for j in xrange(n):
+        for i in range(n):
+            for j in range(n):
                 m = np.delete(np.delete(M,i,0),j,1)
                 C[i,j] = (-1)**(i+j)*mdet(m)
         det = (M[0,:]*C[0,:]).sum()
@@ -800,7 +800,7 @@ def hess_from_grad(grad,par,step=1e-3,iterations=2):
     def make_hess(p0,steps):
         npar = len(par)
         hess = np.empty([npar,npar],dtype=p0.dtype)
-        for i in xrange(npar):
+        for i in range(npar):
             par[i] = p0[i] + steps[i]
             gup = grad(par) 
             par[i] = p0[i] - steps[i]
@@ -814,7 +814,7 @@ def hess_from_grad(grad,par,step=1e-3,iterations=2):
         step = np.ones_like(p0)*step
     hessians = [make_hess(p0,step)]
 
-    for i in xrange(iterations):
+    for i in range(iterations):
         steps = np.diag(minv(hessians[-1]))**0.5
         mask = np.isnan(steps)
         if np.any(mask):
@@ -822,7 +822,7 @@ def hess_from_grad(grad,par,step=1e-3,iterations=2):
         hessians.append(make_hess(p0,steps))
 
     g = grad(p0) # reset parameters
-    for i in xrange(iterations,-1,-1):
+    for i in range(iterations,-1,-1):
         if not np.any(np.isnan(np.diag(minv(hessians[i]))**0.5)):
             return hessians[i].astype(float)
     return hessians[0].astype(float)
@@ -839,7 +839,7 @@ def calc_step_size(logl,par,minstep=1e-5,maxstep=1e-1):
         if abs(delta_ll) < 0.05:
             return 0
         return delta_ll
-    for i in xrange(len(par)):
+    for i in range(len(par)):
         if f(maxstep,i) <= 0:
             rvals[i] = maxstep
         else:

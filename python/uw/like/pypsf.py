@@ -11,7 +11,6 @@ from astropy.io import fits as pf
 import numpy as np
 from os.path import join
 import os
-from cPickle import load
 from skymaps import ExposureWeighter,SkyDir,PySkyFunction,Hep3Vector,\
     WeightedSkyDirList,PythonUtilities,PythonPsf
 from scipy.integrate import quad,simps
@@ -98,7 +97,7 @@ class Psf(object):
         elo,ehi,clo,chi = self.e_los,self.e_his,self.c_los[::-1],self.c_his[::-1]
 
         weights  = np.zeros([2,len(elo),len(clo)])
-        for i in xrange(len(elo)):                            # iterator over energies
+        for i in range(len(elo)):                            # iterator over energies
             em = (elo[i]*ehi[i])**0.5
             for j in [0,1]:                                      # iterate over conversion types
                 for k,(c0,c1) in enumerate(zip(clo,chi)):# iterator over cos(theta) on-axis to edge
@@ -169,7 +168,7 @@ class CALDBPsf(Psf):
         ens = (self.e_los*self.e_his)**0.5
         for ct in [0,1]: # iterate through conversion type
             scale_func = self.scale_func[ct]
-            for i in xrange(self.tables.shape[2]): # iterate through energy
+            for i in range(self.tables.shape[2]): # iterate through energy
                 sf = scale_func(ens[i])
                 # vector operations in incidence angle
                 nc,nt,gc,gt,sc,st = self.tables[ct,:,i,:]
@@ -310,7 +309,7 @@ class BandPsf(object):
 
             # calculate the actual PSF integral over sub-bands
             fopt = np.zeros_like(dom)
-            for i in xrange(len(b.sp_points)):
+            for i in range(len(b.sp_points)):
                 n = psf(b.sp_points[i],b.ct,dom,density=True)*b.sp_vector[i]*b.sp_points[i]**-index
                 fopt += n
             n = (b.sp_vector*f(b.sp_points)).sum()

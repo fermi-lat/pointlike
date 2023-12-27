@@ -326,10 +326,10 @@ class ROIAnalysis(object):
         p0 = self.get_parameters().copy()
         grad = np.empty_like(p0)
         max_iter = 40
-        for i in xrange(len(p0)):
+        for i in range(len(p0)):
             delta = 1e-2
             prev_grad = np.inf
-            for j in xrange(max_iter):
+            for j in range(max_iter):
                 pwork = p0.copy()
                 pwork[i] += delta
                 lhi = self.logLikelihood(pwork)
@@ -444,7 +444,7 @@ class ROIAnalysis(object):
             from uw.utilities.minuit import Minuit
             temp_params = self.parameters()
             npars = self.parameters().shape[0]
-            param_names = ['p%i'%i for i in xrange(npars)]
+            param_names = ['p%i'%i for i in range(npars)]
             
             if use_gradient:
                 gradient         = self.gradient
@@ -476,7 +476,7 @@ class ROIAnalysis(object):
             ll_0 = self.logLikelihood(self.parameters())
             if use_gradient:
                 f0 = fmin_bfgs(self.logLikelihood,self.parameters(),self.gradient,full_output=1,maxiter=500,gtol=gtol,disp=0)
-                for i in xrange(10):
+                for i in range(10):
                     f = self._save_bfgs = fmin_bfgs(self.logLikelihood,self.parameters(),self.gradient,full_output=1,maxiter=500,gtol=gtol,disp=0)
                     if abs(f0[1] - f[1]) < tolerance: break # note absolute tolerance
                     if not self.quiet:

@@ -57,12 +57,12 @@ class FCN(object):
         self.grad_fcn = gradient
 
     def __call__(self,nargs,grads,fval,pars,iflag):
-        self.p = np.asarray([pars[i] for i in xrange(self.npars)])
+        self.p = np.asarray([pars[i] for i in range(self.npars)])
         self.iflag = iflag
         self.fval = fval[0] = self.fcn(self.p,*self.args)
         if self.grad_fcn:
             grad = self.grad_fcn(self.p,*self.args)
-            for i in xrange(len(grad)):
+            for i in range(len(grad)):
                 grads.__setitem__(i,grad[i])
 
 class Minuit(object):
@@ -100,7 +100,7 @@ class Minuit(object):
         self.maxcalls = 10000
         self.printMode = 0
         self.up = 0.5
-        self.param_names = ['p%i'%i for i in xrange(len(params))]
+        self.param_names = ['p%i'%i for i in range(len(params))]
         self.erflag = Long()
         self.npars = len(params)
         self.args = ()
@@ -122,7 +122,7 @@ class Minuit(object):
         self.minuit.mncomd('SET STR %i'%self.strategy,Long())
 
 
-        for i in xrange(self.npars):
+        for i in range(self.npars):
             self.minuit.DefineParameter(i,self.param_names[i],self.params[i],self.steps[i],self.limits[i][0],self.limits[i][1])
 
         self.minuit.SetErrorDef(self.up)
@@ -135,7 +135,7 @@ class Minuit(object):
     def minimize(self,method='MIGRAD'):
 
         self.minuit.mncomd('%s %i %f'%(method, self.maxcalls,self.tolerance),self.erflag)
-        for i in xrange(self.npars):
+        for i in range(self.npars):
             val,err = Double(),Double()
             self.minuit.GetParameter(i,val,err)
             self.params[i] = val
@@ -257,9 +257,9 @@ def mycov(self,full_output=False,min_step=1e-5,max_step=1,max_iters=5,target=0.5
                 return True,0
     
     iters = np.zeros(nparams)
-    for i in xrange(nparams):
+    for i in range(nparams):
         converged = False
-        for j in xrange(max_iters):
+        for j in range(max_iters):
             iters[i] += 1
             di = step_size[i]
             par[i] += di

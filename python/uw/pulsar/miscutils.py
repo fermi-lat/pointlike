@@ -27,7 +27,7 @@ def prof_offset(prof_name,average_level=0):
         a2 = (np.cos(ph)*vals).sum()
         zero_ph = np.arctan2(a1,a2)/TWOPI
     # average if desired
-    for i in xrange(average_level):
+    for i in range(average_level):
         if len(vals)%2>0: break
         vals = (vals[::2]+vals[1::2])/2
     ph = np.linspace(0,TWOPI,len(vals)+1)[:-1] # LEFT bin edges

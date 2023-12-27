@@ -210,7 +210,7 @@ class CountsImage(ROIImage):
 
         data = get_fields(ft1files,['RA','DEC','TIME','ENERGY','CONVERSION_TYPE'],cuts)
         # convert into skydirs
-        skydirs = [ SkyDir(float(data['RA'][i]),float(data['DEC'][i])) for i in xrange(len(data['RA']))]
+        skydirs = [ SkyDir(float(data['RA'][i]),float(data['DEC'][i])) for i in range(len(data['RA']))]
 
         # apply the same gti cut used to read in the initial WSDL.
         gti=roi.sa.pixeldata.gti

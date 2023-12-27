@@ -32,7 +32,7 @@ def get_stat_dist(lct,weights,stat,n=100):
         specified amplitude."""
 
     stats = np.empty(n)
-    for i in xrange(n):
+    for i in range(n):
         phases = lct.random(len(weights),weights=weights)
         stats[i] = stat(phases,weights)
     return np.sort(stats)
@@ -154,7 +154,7 @@ def test_eclipse(weights,frac=0.95,threshold=8):
     stat_grid = np.empty_like(width_grid)
     n = 100
     idx = int(round((1-frac)*n))
-    for i in xrange(len(width_grid)):
+    for i in range(len(width_grid)):
         p0 = lcprimitives.LCTopHat(p=[1-width_grid[i],0.5]) 
         lct = lctemplate.LCTemplate([p0],[1]) # 1 == full eclipse
         stats = get_stat_dist(lct,weights,hmw,n=n)

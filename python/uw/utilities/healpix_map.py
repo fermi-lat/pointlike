@@ -282,9 +282,9 @@ def make_index_table(nside=12, subnside=512, usefile=True):
     print ('generating index table for nside, subnside= %d %d' % (nside, subnside))
     band, subband = Band(nside), Band(subnside)
     npix, nsubpix = 12*nside**2, 12*subnside**2
-    t=np.array([band.index(subband.dir(i)) for i in xrange(nsubpix)])
+    t=np.array([band.index(subband.dir(i)) for i in range(nsubpix)])
     a = np.arange(nsubpix)
-    index_table = [a[t==i] for i in xrange(npix)]
+    index_table = [a[t==i] for i in range(npix)]
     if usefile:
         pickle.dump(index_table, open(filename,'w'))
     return index_table
@@ -375,7 +375,7 @@ class HPskyfun(HParray):
         return t
         
     def getcol(self, type=np.float32):
-        return np.asarray([self[index] for index in xrange(12*self.nside**2)],type)
+        return np.asarray([self[index] for index in range(12*self.nside**2)],type)
     def setcol(self, type=np.float32):
         self.vec = self.getcol(type)
 
@@ -415,7 +415,7 @@ class HPindex(HPskyfun):
         hpfun = Band(supernside).index
         super(HPindex,self).__init__(name, hpfun, nside)
     def getcol(self, type=np.float32):
-        return np.asarray([self[index] for index in xrange(12*self.nside**2)],type)
+        return np.asarray([self[index] for index in range(12*self.nside**2)],type)
     
 class HPresample(HParray):
     """ resample from another HParray object with different nside
@@ -432,7 +432,7 @@ class HPresample(HParray):
     def __getitem__(self, index):
         return self.vec[self._indexfun(self.dirfun(index))]
     def getcol(self, type=np.float32):
-        return np.asarray([self[index] for index in xrange(12*self.nside**2)],type)
+        return np.asarray([self[index] for index in range(12*self.nside**2)],type)
 
 def downsize(a):
     """For an HEAPix RING array with nside a power of two, 

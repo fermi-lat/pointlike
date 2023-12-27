@@ -11,7 +11,7 @@ __version__ = 1.9
 from os import system, remove, F_OK, mkdir, access, environ, chdir, linesep, getcwd
 from os.path import join, basename, abspath, isfile
 from sys import exit
-import cPickle, glob
+import pickle, glob
 from shutil import copy, copyfile, move
 import time, random
 import numpy as np
@@ -627,7 +627,7 @@ class PSUEAnalysis():
                     # save object to a file
                     outfile = open(join(self.outdir_local,'%s_profile.pickle'%(self.psrname)),'w')
                     outdata = dict(lct=lct,lcf=lcf,plc=plc)
-                    cPickle.dump(outdata,outfile)
+                    pickle.dump(outdata,outfile)
                     outfile.close()
 
         d = self.PSUEoutfile.get('delta',first_elem=False,type=float)

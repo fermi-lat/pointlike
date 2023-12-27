@@ -103,7 +103,7 @@ class Livetime(object):
         handles = [pf.open(ft2,memmap=True) for ft2 in ft2files]
         ft2lens = [handle['SC_DATA'].data.shape[0] for handle in handles]
         fields  = self.fields
-        arrays  = [N.empty(sum(ft2lens)) for i in xrange(len(fields))]
+        arrays  = [N.empty(sum(ft2lens)) for i in range(len(fields))]
         
         counter = 0
         for ihandle,handle in enumerate(handles):
@@ -207,7 +207,7 @@ class Livetime(object):
             return self.prev_val
 
         # return a time series for the livetime at the given position
-        overlaps = [self.__process_ft2_fast([intervals[i][0]],[intervals[i][1]])[mask] for i in xrange(len(starts))]
+        overlaps = [self.__process_ft2_fast([intervals[i][0]],[intervals[i][1]])[mask] for i in range(len(starts))]
         livetimes= [N.histogram(scosines[mask],bins=self.cosbins,weights=self.LIVETIME[mask]*ol,new=True) for ol in overlaps]
         return livetimes
 
@@ -223,14 +223,14 @@ class BinnedLivetime(Livetime):
 
     def finish(self):
         hp = Healpix(self.nside,Healpix.RING,SkyDir.EQUATORIAL)
-        ras,decs = N.asarray( [hp.py_pix2ang(i) for i in xrange(12*self.nside**2)]).transpose()
+        ras,decs = N.asarray( [hp.py_pix2ang(i) for i in range(12*self.nside**2)]).transpose()
         self.COS_HP_DEC = N.cos(decs)
         self.SIN_HP_DEC = N.sin(decs)
         self.HP_RA = ras
         ra_s,dec_s = self.RA_SCZ,self.DEC_SCZ
         ra_z,dec_z = self.RA_ZENITH,self.DEC_ZENITH
-        self.S_PIX = N.fromiter((hp.py_ang2pix(ra_s[i],dec_s[i]) for i in xrange(len(ra_s))),dtype=int)
-        self.Z_PIX = N.fromiter((hp.py_ang2pix(ra_z[i],dec_z[i]) for i in xrange(len(ra_z))),dtype=int)
+        self.S_PIX = N.fromiter((hp.py_ang2pix(ra_s[i],dec_s[i]) for i in range(len(ra_s))),dtype=int)
+        self.Z_PIX = N.fromiter((hp.py_ang2pix(ra_z[i],dec_z[i]) for i in range(len(ra_z))),dtype=int)
 
     def __init__(self,nside=59,*args,**kwargs):
         self.nside = nside
@@ -510,7 +510,7 @@ class SpectralExposureSeries(object):
         ep,ew,ses = self.e_points,self.s_weights,self.ses
         t1,t2,results = ses.get_series(skydir,energy=ep[0])
         results *= ew[0]
-        for i in xrange(1,len(ep)):
+        for i in range(1,len(ep)):
             results += ses.get_series(skydir,energy=ep[i])[-1]*ew[i]
         return t1,t2,results
         

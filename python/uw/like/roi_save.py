@@ -6,7 +6,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_save.py,v 1.1
 author: Joshua Lande
 """
 import os
-import cPickle
+import pickle
 import collections
 import numpy as N
 
@@ -75,7 +75,7 @@ def save(roi,filename):
 
     d['LATEXTDIR']=os.environ['LATEXTDIR'] if os.environ.has_key('LATEXTDIR') else None
 
-    cPickle.dump(d,open(path.expand(filename),'w'))
+    pickle.dump(d,open(path.expand(filename),'w'))
 
 def load(filename,**kwargs):
     """ Factory method to return a ROIAnalysis object
@@ -84,7 +84,7 @@ def load(filename,**kwargs):
         Any additional kwargs is used to modify DataSpecification, SpectralAnalysis,
         and ROIAnalysis objects."""
     if isinstance(filename, basestring):
-        d=cPickle.load(open(path.expand(filename),'r'))
+        d=pickle.load(open(path.expand(filename),'r'))
     elif isinstance(filename, dict):
         d=filename
     else:
@@ -100,7 +100,7 @@ def load(filename,**kwargs):
               hasattr(ds.spatial_model,'skyfun') \
               and ds.spatial_model.skyfun is None 
               for ds in d['diffuse_sources']]):
-        d=cPickle.load(open(path.expand(filename),'r'))
+        d=pickle.load(open(path.expand(filename),'r'))
 
     from . pointspec import DataSpecification,SpectralAnalysis
     from . roi_analysis import ROIAnalysis

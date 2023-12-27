@@ -269,7 +269,7 @@ def load_skyspect(fn = r'T:\data\galprop\ring_21month_P6v11.fits',
     galname = os.path.split(fn)[-1]
     print ('%s: nx, ny, layers: %d %d %d' %(galname, t.naxis1(), t.naxis2(), t.layers()))
     hpdir = Band(nside).dir
-    dmap = map(lambda i:t(hpdir(i)), xrange(12*nside**2))
+    dmap = map(lambda i:t(hpdir(i)), range(12*nside**2))
     tdm=DisplayMap(dmap)
     tdm.fill_ait(fignum=12, source_kw=dict(edgecolor='w',), show_kw=show_kw )
     plt.title(galname+' (1 GeV)')

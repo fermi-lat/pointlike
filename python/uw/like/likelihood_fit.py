@@ -112,7 +112,7 @@ class LogLikelihood(object):
         hi = initial_value
         ll_0 = self.function(hi)
         if ll_0-self.function(lo)>delta_logl:
-            for i in xrange(20):
+            for i in range(20):
                 avg = .5*(hi+lo)
                 ll = self.function(avg)
                 if ll_0-ll<delta_logl: hi = avg
@@ -124,7 +124,7 @@ class LogLikelihood(object):
         lo = initial_value
         hi = initial_value*10
         while ll_0-self.function(hi)<delta_logl: hi+=1
-        for i in xrange(20):
+        for i in range(20):
             avg = .5*(lo+hi)
             ll = self.function(avg)
             if ll_0-ll<delta_logl: lo = avg

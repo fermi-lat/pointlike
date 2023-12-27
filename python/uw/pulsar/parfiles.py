@@ -25,7 +25,7 @@ def sex2dec(s,mode='ra'):
     else:
         toks = s.split(' ')
     multi = (-1 if '-' in s else 1) * (15 if mode == 'ra' else 1)
-    return multi*sum( (60**(-i) * abs(float(toks[i])) for i in xrange(len(toks)) ) )
+    return multi*sum( (60**(-i) * abs(float(toks[i])) for i in range(len(toks)) ) )
 
 def ra2dec(s): return sex2dec(s,mode='ra')
 def decl2dec(s): return sex2dec(s,mode='decl')
@@ -178,7 +178,7 @@ class ParFile(dict):
         self.ordered_keys = []
         self.duplicates = defaultdict(list)
         comment_counter = 0
-        for i in xrange(3):
+        for i in range(3):
             if buf is None:
                 f = open(self.parfile,'r')
                 lines = f.readlines()
@@ -209,7 +209,7 @@ class ParFile(dict):
     
     def _calc_degree(self):
         degree = -1
-        for i in xrange(12):
+        for i in range(12):
             if 'F%d'%(i) in self.keys(): degree += 1
             else: break
         return degree
@@ -525,7 +525,7 @@ class ParFile(dict):
             self.set('A1',0)
         except:
             return self
-        for i in xrange(2,10):
+        for i in range(2,10):
             try:
                 self.set('A1_%d'%i,0)
             except:
@@ -561,7 +561,7 @@ class ParFile(dict):
         print (dts[0])
         multi = np.ones_like(times)
         freq = np.zeros_like(times)
-        for i in xrange(0,degree+1):
+        for i in range(0,degree+1):
             tterm = self.get('F%d'%i,type=np.longdouble)
             print (tterm,multi[0])
             freq += tterm*multi
@@ -576,13 +576,13 @@ class ParFile(dict):
         else: t0 = np.asarray(t0,dtype=np.longdouble)
         dt = (new_epoch-t0)*86400
         multis = 1
-        fns = np.asarray([self.get('F%d'%i,type=np.longdouble) for i in xrange(0,degree+1)])
+        fns = np.asarray([self.get('F%d'%i,type=np.longdouble) for i in range(0,degree+1)])
         multis = np.empty_like(fns)
         results = np.empty_like(fns)
         multis[0] = 1
-        for i in xrange(1,degree+1):
+        for i in range(1,degree+1):
             multis[i] = multis[i-1] * dt/(i+1)
-        for i in xrange(0,degree+1):
+        for i in range(0,degree+1):
             print (fns[i:])
             print (multis[:degree+1-i])
             print (fns[i:]*multis[:degree+1-i])
@@ -609,13 +609,13 @@ class ParFile(dict):
         dts = (times-t0)*86400
         multi = dts.copy()
         phase = np.zeros_like(times)
-        for i in xrange(0,degree+1):
+        for i in range(0,degree+1):
             phase += self.get('F%d'%i,type=np.longdouble)*multi
             multi *= (dts/(i+2))
 
         # glitch part
         # NB -- no exponential recovery supported (yet)
-        for i in xrange(10):
+        for i in range(10):
             if 'GLEP_%d'%i not in self.keys(): continue
             g0 = np.asarray(self.get('GLEP_%d'%i,type=np.longdouble))
             if 'GLPH_%d'%i in self.keys():
@@ -623,7 +623,7 @@ class ParFile(dict):
             dts = (times - g0)*86400
             mask = dts > 0
             multi = dts.copy()*mask
-            for j in xrange(3):
+            for j in range(3):
                 key = 'GLF%d_%d'%(j,i)
                 if key in self.keys():
                     phase += self.get(key,type=np.longdouble)*multi
@@ -965,7 +965,7 @@ class ParFile(dict):
         """ Return number of glitches above a df/f threshold."""
         count = 0
         f0 = self.get('F0',type=float)
-        for i in xrange(100):
+        for i in range(100):
             try:
                 pars = self.get_glitch_parameters(i+1)
                 df_on_f = abs(pars['GLF0'][0] / f0)
@@ -1261,7 +1261,7 @@ def set_sifuncs(par,tim):
 
     pf = ParFile(par)
     pf.add_key('SIFUNC','2 0') # tells tempo2 to do linear interp
-    for i in xrange(len(resi)):
+    for i in range(len(resi)):
         if i==0:
             sat = sats[i] - 1e-8/86400 # make 10ns early
         elif i== len(resi)-1:
@@ -1643,7 +1643,7 @@ def compute_jump(par,tim,flags,vals,tmin=None,tmax=None,add_jumps=False,
 
     # now, make the masks for each set of flags
     means = np.empty(len(flags))
-    for i in xrange(len(flags)):
+    for i in range(len(flags)):
         if vals[i] is not None:
             valfunc = lambda s: s==vals[i]
         else:
@@ -1653,12 +1653,12 @@ def compute_jump(par,tim,flags,vals,tmin=None,tmax=None,add_jumps=False,
             means[i] = np.nan
         else:
             means[i] = np.average(resi[mask],weights=(errs**-2)[mask])
-    jumps = [means[0]-means[i] for i in xrange(1,len(means))]
+    jumps = [means[0]-means[i] for i in range(1,len(means))]
     os.remove(fname)
     if add_jumps:
         # Add the parameters to the .par file.
         pf = ParFile(par)
-        for i in xrange(1,len(flags)):
+        for i in range(1,len(flags)):
             # don't write bad values or re-write 0 JUMPs
             if np.isnan(jumps[i-1]) or (abs(jumps[i-1])<1e-9):
                 continue

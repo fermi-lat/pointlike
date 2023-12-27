@@ -11,7 +11,7 @@ import os, sys
 import collections
 import glob
 import warnings
-from cPickle import dump,load
+from pickle import dump,load
 
 import numpy as np
 from astropy.io import fits as pyfits
@@ -536,7 +536,7 @@ class DataSpec(object):
                 print ('Constructing all-sky livetime cube')
             else:
                 print('Constructing livetime cube about RA,Dec = ({0:0.3f},{1:0.3f}) with a radius of {2:0.3f} deg.'.format(roi_dir.ra(),roi_dir.dec(),exp_radius))
-        for i in xrange(1+self.use_weighted_livetime):
+        for i in range(1+self.use_weighted_livetime):
             #print('on iteration {0}'.format(i))
             sys.stdout.flush()
             lt = skymaps.LivetimeCube(

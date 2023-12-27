@@ -21,7 +21,7 @@ import string
 import scipy.interpolate as intp
 from uw.stacklike.CLHEP import Photon
 import uw.stacklike.binned as ub
-import cPickle
+import pickle
 from uw.utilities.minuit import Minuit
 from IPython.parallel import Client
 from scipy.interpolate import UnivariateSpline
@@ -120,7 +120,7 @@ class Fitter(object):
         #self.solve()
 
     def loaddata(self):
-        import cPickle
+        import pickle
         #print (len(pars),len(steps),len(lims))
         emin=[]
         emax=[]
@@ -157,7 +157,7 @@ class Fitter(object):
                 #del al.cm.minuit
                 al.spickle(cachedir+template+temp2)
             else:
-                al = cPickle.load(open(cachedir+template+temp2))
+                al = pickle.load(open(cachedir+template+temp2))
             al.bindata()
             al.solveback()
             #al.solvepsf()
@@ -167,7 +167,7 @@ class Fitter(object):
         files = np.sort(glob.glob(template))
         for fil in files:
             print (fil)
-            cl = cPickle.load(open(fil))
+            cl = pickle.load(open(fil))
             self.altb.append(cl)
 
     def profilelikelihoods(self,grid=21):
@@ -897,7 +897,7 @@ def makeplots(irfs=['P6_v11_diff'],fact=1.,num=32.,cts=[34,68,95]):
 #  @param jg generate likelihood pickles, but don't analyze
 
 def likelihoodtable(enr1,ctr1,ctype,weight=0.5,irf ='P7SOURCE_V6',mcirf='P7SOURCE_V4MC',out='P7SOURCE_V11',jg=False):
-    import cPickle
+    import pickle
     days =4*365      #number of days of data to use
     bins = 12      #number of angular bins
     pname = os.environ['CALDB']+r'/data/glast/lat/bcf/psf/psf_%s_'%irf
@@ -958,7 +958,7 @@ def likelihoodtable(enr1,ctr1,ctype,weight=0.5,irf ='P7SOURCE_V6',mcirf='P7SOURC
             if os.path.exists(pickles):
                 pfile = open(pickles)
                 print ('loaded %s'%pickles)
-                cl = cPickle.load(pfile)
+                cl = pickle.load(pfile)
 
             #make a new one
             else:
@@ -971,7 +971,7 @@ def likelihoodtable(enr1,ctr1,ctype,weight=0.5,irf ='P7SOURCE_V6',mcirf='P7SOURC
                 #Minuit objects cannot be pickled!
                 del cl.minuit
                 pfile = open(pickles,'w')
-                cPickle.dump(cl,pfile)
+                pickle.dump(cl,pfile)
                 pfile.close()
                 cl.makeplot('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/psftable/likelihoods%s%s%s%s%d%s%s.png'%(formatint(emin,6),formatint(emax,6),formatint(int(ctmin*10),2),formatint(int(ctmax*10),2),ctype,cl.irf,suffix))
             del psrs

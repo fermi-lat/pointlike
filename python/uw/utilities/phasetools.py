@@ -31,7 +31,7 @@ def phase_cut(eventfile,outputfile=None,phaseranges=[[0,1]],phase_col_name='PULS
     print ('Selecting %d / %d photons (duty cycle = %.2f)'%(mask.sum(),len(mask),duty_cycle))
 
     hdu = PF.new_table(ef['EVENTS'].columns,nrows=mask.sum())
-    for i in xrange(len(ef['EVENTS'].columns)):
+    for i in range(len(ef['EVENTS'].columns)):
         hdu.data.field(i)[:]=ef['EVENTS'].data.field(i)[mask]
     ef['EVENTS'].data=hdu.data
     if outputfile:
@@ -133,8 +133,8 @@ class PulsarLightCurve(object):
 
          def r(e,event_class=0):
             rads = N.zeros_like(e)
-            for i in xrange(len(e)):
-               for j in xrange(len(b)-1):
+            for i in range(len(e)):
+               for j in range(len(b)-1):
                   if b[j]<= e[i] and e[i] < b[j+1]:
                      rads[i] = radii[j*(1+event_class[i])]
                      break
@@ -223,7 +223,7 @@ class PulsarLightCurve(object):
          ax3 = ax2.twinx()
          t0 = self.times.min()
          delta_t = (self.times.max() - t0)/10
-         ts = N.asarray([t0 + i*delta_t for i in xrange(10+1)])
+         ts = N.asarray([t0 + i*delta_t for i in range(10+1)])
          hs = []
          for t in ts[1:]:
             hs += [h_statistic(self.phases[self.times <= t]) ]
@@ -258,7 +258,7 @@ class PulsarLightCurve(object):
       import pylab as P
       t0 = self.times.min()
       delta_t = (self.times.max() - t0)/intervals
-      ts = N.asarray([t0 + i*delta_t for i in xrange(intervals+1)])
+      ts = N.asarray([t0 + i*delta_t for i in range(intervals+1)])
       hs = []
       for t in ts[1:]:
          hs += [h_statistic(self.phases[self.times <= t]) ]
@@ -288,7 +288,7 @@ class PulsarLightCurve(object):
    def weighted_h(self,point_source,mc_iterations=1000):
       pp = PhotonProbability(max_radius=2)
       v,diffs,phs,ens = pp.get_probs(self.event_files,point_source,return_cols=['PULSE_PHASE','ENERGY'])
-      lam = 1./N.mean( [h_statistic(N.random.rand(len(v)),v) for x in xrange(mc_iterations)] )
+      lam = 1./N.mean( [h_statistic(N.random.rand(len(v)),v) for x in range(mc_iterations)] )
       weighted_h = h_statistic(phs,v)
       sig = N.exp(-lam*weighted_h)
       h_equiv = sig2h(sig)
@@ -352,8 +352,8 @@ def z2m(phases,m=2):
 
    else:
 
-      s = (N.asarray([(N.cos(k*phases)).sum() for k in xrange(1,m+1)]))**2 +\
-          (N.asarray([(N.sin(k*phases)).sum() for k in xrange(1,m+1)]))**2
+      s = (N.asarray([(N.cos(k*phases)).sum() for k in range(1,m+1)]))**2 +\
+          (N.asarray([(N.sin(k*phases)).sum() for k in range(1,m+1)]))**2
 
    return 2./n*N.cumsum(s)
 
@@ -371,8 +371,8 @@ def z2mw(phases,weights,m=2):
 
    phases = N.asarray(phases)*(2*N.pi) #phase in radians
 
-   s = (N.asarray([(N.cos(k*phases)*weights).sum() for k in xrange(1,m+1)]))**2 +\
-       (N.asarray([(N.sin(k*phases)*weights).sum() for k in xrange(1,m+1)]))**2
+   s = (N.asarray([(N.cos(k*phases)*weights).sum() for k in range(1,m+1)]))**2 +\
+       (N.asarray([(N.sin(k*phases)*weights).sum() for k in range(1,m+1)]))**2
 
    return N.cumsum(s) / (0.5*(weights**2).sum())
 
@@ -384,8 +384,8 @@ def em_four(phases,m=2,weights=None):
    n = len(phases) if weights is None else weights.sum()
    weights = 1. if weights is None else weights
 
-   aks = (1./n)*N.asarray([(weights*N.cos(k*phases)).sum() for k in xrange(1,m+1)])
-   bks = (1./n)*N.asarray([(weights*N.sin(k*phases)).sum() for k in xrange(1,m+1)])
+   aks = (1./n)*N.asarray([(weights*N.cos(k*phases)).sum() for k in range(1,m+1)])
+   bks = (1./n)*N.asarray([(weights*N.sin(k*phases)).sum() for k in range(1,m+1)])
 
    return aks,bks
 
@@ -395,7 +395,7 @@ def em_lc(coeffs,dom):
 
    aks,bks = coeffs
    rval = N.ones_like(dom)
-   for i in xrange(1,len(aks)+1):
+   for i in range(1,len(aks)+1):
       rval += 2*(aks[i-1]*N.cos(i*dom) + bks[i-1]*N.sin(i*dom))
    return rval
 
@@ -422,8 +422,8 @@ def h_statistic(phases,m=20):
 
    else:
 
-      s = (N.asarray([(N.cos(k*phases)).sum() for k in xrange(1,m+1)]))**2 +\
-          (N.asarray([(N.sin(k*phases)).sum() for k in xrange(1,m+1)]))**2
+      s = (N.asarray([(N.cos(k*phases)).sum() for k in range(1,m+1)]))**2 +\
+          (N.asarray([(N.sin(k*phases)).sum() for k in range(1,m+1)]))**2
 
    return (2./n*N.cumsum(s) - 4*N.arange(0,m)).max()
 
@@ -434,8 +434,8 @@ def simple_h_statistic(phases):
 
    n = len(phases)
 
-   s = (N.asarray([(N.cos(k*phases)).sum() for k in xrange(1,21)]))**2 +\
-       (N.asarray([(N.sin(k*phases)).sum() for k in xrange(1,21)]))**2
+   s = (N.asarray([(N.cos(k*phases)).sum() for k in range(1,21)]))**2 +\
+       (N.asarray([(N.sin(k*phases)).sum() for k in range(1,21)]))**2
 
    return (2./n*N.cumsum(s) - 4*N.arange(0,20)).max()
 
@@ -445,7 +445,7 @@ def weighted_h_statistic(phases,weights,m=20):
 
    n = len(phases)
 
-   s = (N.asarray([(weights*N.cos(k*phases)).sum() for k in xrange(1,m+1)]))**2 +\
-       (N.asarray([(weights*N.sin(k*phases)).sum() for k in xrange(1,m+1)]))**2
+   s = (N.asarray([(weights*N.cos(k*phases)).sum() for k in range(1,m+1)]))**2 +\
+       (N.asarray([(weights*N.sin(k*phases)).sum() for k in range(1,m+1)]))**2
 
    return ((2./(weights**2).sum())*N.cumsum(s) - 4*N.arange(0,m)).max()

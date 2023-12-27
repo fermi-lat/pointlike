@@ -686,7 +686,7 @@ class ROIDisplay(object):
             return n.ppf(prob)        
         d = poisson(mean)
         prev = 0
-        for i in xrange(1,200):        
+        for i in range(1,200):        
             new = d.cdf(i)
             if new >= prob: break
             prev = new

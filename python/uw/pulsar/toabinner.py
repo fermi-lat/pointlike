@@ -65,7 +65,7 @@ class UniformLogBinner(TOABinner):
         my_delta = 0
         index = 1
         indices = np.asarray([-1]*(self.ntoa+1))
-        for i in xrange(len(phases)):
+        for i in range(len(phases)):
             if my_delta > delta:
                 indices[index] = i
                 index += 1
@@ -75,7 +75,7 @@ class UniformLogBinner(TOABinner):
         indices[0] = 0
         assert(not np.any(indices==-1))
         self.starts = np.empty(self.ntoa); self.stops = np.empty_like(self.starts)
-        for i in xrange(self.ntoa):
+        for i in range(self.ntoa):
             if i == 0:
                 self.starts[i] = mjds[0] - 1
             else:
